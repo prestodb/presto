@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.PartitionInput;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.TableInput;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
@@ -26,6 +22,10 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.PartitionInput;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.util.List;
 
@@ -46,10 +46,10 @@ public class TestGlueInputConverter
     {
         DatabaseInput dbInput = GlueInputConverter.convertDatabase(testDb);
 
-        assertEquals(dbInput.getName(), testDb.getDatabaseName());
-        assertEquals(dbInput.getDescription(), testDb.getComment().get());
-        assertEquals(dbInput.getLocationUri(), testDb.getLocation().get());
-        assertEquals(dbInput.getParameters(), testDb.getParameters());
+        assertEquals(dbInput.name(), testDb.getDatabaseName());
+        assertEquals(dbInput.description(), testDb.getComment().get());
+        assertEquals(dbInput.locationUri(), testDb.getLocation().get());
+        assertEquals(dbInput.parameters(), testDb.getParameters());
     }
 
     @Test
@@ -57,15 +57,15 @@ public class TestGlueInputConverter
     {
         TableInput tblInput = GlueInputConverter.convertTable(testTbl);
 
-        assertEquals(tblInput.getName(), testTbl.getTableName());
-        assertEquals(tblInput.getOwner(), testTbl.getOwner());
-        assertEquals(tblInput.getTableType(), testTbl.getTableType().toString());
-        assertEquals(tblInput.getParameters(), testTbl.getParameters());
-        assertColumnList(tblInput.getStorageDescriptor().getColumns(), testTbl.getDataColumns());
-        assertColumnList(tblInput.getPartitionKeys(), testTbl.getPartitionColumns());
-        assertStorage(tblInput.getStorageDescriptor(), testTbl.getStorage());
-        assertEquals(tblInput.getViewExpandedText(), testTbl.getViewExpandedText().get());
-        assertEquals(tblInput.getViewOriginalText(), testTbl.getViewOriginalText().get());
+        assertEquals(tblInput.name(), testTbl.getTableName());
+        assertEquals(tblInput.owner(), testTbl.getOwner());
+        assertEquals(tblInput.tableType(), testTbl.getTableType().toString());
+        assertEquals(tblInput.parameters(), testTbl.getParameters());
+        assertColumnList(tblInput.storageDescriptor().columns(), testTbl.getDataColumns());
+        assertColumnList(tblInput.partitionKeys(), testTbl.getPartitionColumns());
+        assertStorage(tblInput.storageDescriptor(), testTbl.getStorage());
+        assertEquals(tblInput.viewExpandedText(), testTbl.getViewExpandedText().get());
+        assertEquals(tblInput.viewOriginalText(), testTbl.getViewOriginalText().get());
     }
 
     @Test
@@ -73,12 +73,12 @@ public class TestGlueInputConverter
     {
         PartitionInput partitionInput = GlueInputConverter.convertPartition(testPartition);
 
-        assertEquals(partitionInput.getParameters(), testPartition.getParameters());
-        assertStorage(partitionInput.getStorageDescriptor(), testPartition.getStorage());
-        assertEquals(partitionInput.getValues(), testPartition.getValues());
+        assertEquals(partitionInput.parameters(), testPartition.getParameters());
+        assertStorage(partitionInput.storageDescriptor(), testPartition.getStorage());
+        assertEquals(partitionInput.values(), testPartition.getValues());
     }
 
-    private static void assertColumnList(List<com.amazonaws.services.glue.model.Column> actual, List<Column> expected)
+    private static void assertColumnList(List<software.amazon.awssdk.services.glue.model.Column> actual, List<Column> expected)
     {
         if (expected == null) {
             assertNull(actual);
@@ -90,24 +90,24 @@ public class TestGlueInputConverter
         }
     }
 
-    private static void assertColumn(com.amazonaws.services.glue.model.Column actual, Column expected)
+    private static void assertColumn(software.amazon.awssdk.services.glue.model.Column actual, Column expected)
     {
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getType(), expected.getType().getHiveTypeName().toString());
-        assertEquals(actual.getComment(), expected.getComment().get());
+        assertEquals(actual.name(), expected.getName());
+        assertEquals(actual.type(), expected.getType().getHiveTypeName().toString());
+        assertEquals(actual.comment(), expected.getComment().get());
     }
 
     private static void assertStorage(StorageDescriptor actual, Storage expected)
     {
-        assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getSerdeInfo().getSerializationLibrary(), expected.getStorageFormat().getSerDe());
-        assertEquals(actual.getInputFormat(), expected.getStorageFormat().getInputFormat());
-        assertEquals(actual.getOutputFormat(), expected.getStorageFormat().getOutputFormat());
+        assertEquals(actual.location(), expected.getLocation());
+        assertEquals(actual.serdeInfo().serializationLibrary(), expected.getStorageFormat().getSerDe());
+        assertEquals(actual.inputFormat(), expected.getStorageFormat().getInputFormat());
+        assertEquals(actual.outputFormat(), expected.getStorageFormat().getOutputFormat());
 
         if (expected.getBucketProperty().isPresent()) {
             HiveBucketProperty bucketProperty = expected.getBucketProperty().get();
-            assertEquals(actual.getBucketColumns(), bucketProperty.getBucketedBy());
-            assertEquals(actual.getNumberOfBuckets().intValue(), bucketProperty.getBucketCount());
+            assertEquals(actual.bucketColumns(), bucketProperty.getBucketedBy());
+            assertEquals(actual.numberOfBuckets().intValue(), bucketProperty.getBucketCount());
         }
     }
 }

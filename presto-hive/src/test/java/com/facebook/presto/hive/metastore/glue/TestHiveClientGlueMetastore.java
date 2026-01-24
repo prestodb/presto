@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.TableInput;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.type.VarcharType;
@@ -50,6 +45,11 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -82,6 +82,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeade
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isDeltaLakeTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
+import static com.facebook.presto.hive.metastore.glue.GlueHiveMetastore.awsSyncRequest;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static com.facebook.presto.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -263,10 +264,11 @@ public class TestHiveClientGlueMetastore
     {
         // StorageDescriptor is an Optional field for Glue tables. Iceberg and Delta Lake tables may not have it set.
         SchemaTableName table = temporaryTable("test_missing_storage_descriptor");
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
-                .withDatabaseName(table.getSchemaName())
-                .withName(table.getTableName());
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        DeleteTableRequest deleteTableRequest = DeleteTableRequest.builder()
+                .databaseName(table.getSchemaName())
+                .name(table.getTableName())
+                .build();
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
         try {
             ConnectorSession session = newSession();
             MetastoreContext metastoreContext = new MetastoreContext(
@@ -280,37 +282,50 @@ public class TestHiveClientGlueMetastore
                     DEFAULT_COLUMN_CONVERTER_PROVIDER,
                     session.getWarningCollector(),
                     session.getRuntimeStats());
-            TableInput tableInput = new TableInput()
-                    .withName(table.getTableName())
-                    .withTableType(EXTERNAL_TABLE.name());
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            TableInput tableInput = TableInput.builder()
+                    .name(table.getTableName())
+                    .storageDescriptor((StorageDescriptor) null)
+                    .tableType(EXTERNAL_TABLE.name())
+                    .build();
+
+            awsSyncRequest(
+                    glueClient::createTable,
+                    CreateTableRequest.builder()
+                            .databaseName(database)
+                            .tableInput(tableInput)
+                            .build(),
+                    null);
 
             assertThatThrownBy(() -> getMetastoreClient().getTable(metastoreContext, table.getSchemaName(), table.getTableName()))
                     .hasMessageStartingWith("Table StorageDescriptor is null for table");
-            glueClient.deleteTable(deleteTableRequest);
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
 
             // Iceberg table
-            tableInput = tableInput.withParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            tableInput = tableInput.toBuilder().parameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE)).build();
+            awsSyncRequest(
+                    glueClient::createTable,
+                    CreateTableRequest.builder()
+                            .databaseName(database)
+                            .tableInput(tableInput)
+                            .build(),
+                    null);
             assertTrue(isIcebergTable(getMetastoreClient().getTable(metastoreContext, table.getSchemaName(), table.getTableName()).orElseThrow(() -> new NoSuchElementException())));
-            glueClient.deleteTable(deleteTableRequest);
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
 
             // Delta Lake table
-            tableInput = tableInput.withParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            tableInput = tableInput.toBuilder().parameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER)).build();
+            awsSyncRequest(
+                    glueClient::createTable,
+                    CreateTableRequest.builder()
+                            .databaseName(database)
+                            .tableInput(tableInput)
+                            .build(),
+                    null);
             assertTrue(isDeltaLakeTable(getMetastoreClient().getTable(metastoreContext, table.getSchemaName(), table.getTableName()).orElseThrow(() -> new NoSuchElementException())));
         }
         finally {
             // Table cannot be dropped through HiveMetastore since a TableHandle cannot be created
-            glueClient.deleteTable(new DeleteTableRequest()
-                    .withDatabaseName(table.getSchemaName())
-                    .withName(table.getTableName()));
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
         }
     }
 
@@ -351,11 +366,15 @@ public class TestHiveClientGlueMetastore
                     .addBigintValues(regularColumnPartitionName, 2L)
                     .build();
 
-            List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
+            List<PartitionNameWithVersion> partitionNamesWithVersion = metastoreClient.getPartitionNamesByFilter(
                     METASTORE_CONTEXT,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     predicates);
+
+            List<String> partitionNames = partitionNamesWithVersion.stream()
+                    .map(PartitionNameWithVersion::getPartitionName)
+                    .collect(toImmutableList());
 
             assertFalse(partitionNames.isEmpty());
             assertEquals(partitionNames, ImmutableList.of("key=value2/int_partition=2"));
@@ -366,11 +385,16 @@ public class TestHiveClientGlueMetastore
                     .addStringValues(reservedKeywordPartitionColumnName, "value1")
                     .build();
 
-            partitionNames = metastoreClient.getPartitionNamesByFilter(
+            partitionNamesWithVersion = metastoreClient.getPartitionNamesByFilter(
                     METASTORE_CONTEXT,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     predicates);
+
+            partitionNames = partitionNamesWithVersion.stream()
+                    .map(PartitionNameWithVersion::getPartitionName)
+                    .collect(toImmutableList());
+
             assertFalse(partitionNames.isEmpty());
             assertEquals(partitionNames, ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
         }
@@ -898,11 +922,16 @@ public class TestHiveClientGlueMetastore
                         .map(expectedPartitionValues -> makePartName(partitionColumnNames, expectedPartitionValues.getValues()))
                         .collect(toImmutableList());
 
-                List<PartitionNameWithVersion> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                List<PartitionNameWithVersion> partitionNamesWithVersion = metastoreClient.getPartitionNamesByFilter(
                         METASTORE_CONTEXT,
                         tableName.getSchemaName(),
                         tableName.getTableName(),
                         filter);
+
+                List<String> partitionNames = partitionNamesWithVersion.stream()
+                        .map(PartitionNameWithVersion::getPartitionName)
+                        .collect(toImmutableList());
+
                 assertEquals(
                         partitionNames,
                         expectedResults,

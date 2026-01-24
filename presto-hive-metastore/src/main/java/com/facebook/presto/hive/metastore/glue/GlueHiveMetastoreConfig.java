@@ -16,16 +16,19 @@ package com.facebook.presto.hive.metastore.glue;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import com.facebook.airlift.configuration.DefunctConfig;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
+@DefunctConfig("hive.metastore.glue.pin-client-to-current-region")
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
-    private boolean pinGlueClientToCurrentRegion;
+    private Optional<String> glueStsRegion = Optional.empty();
+    private Optional<String> glueStsEndpointUrl = Optional.empty();
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 50;
     private Optional<String> defaultWarehouseDir = Optional.empty();
@@ -62,16 +65,29 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    public boolean getPinGlueClientToCurrentRegion()
+    public Optional<String> getGlueStsRegion()
     {
-        return pinGlueClientToCurrentRegion;
+        return glueStsRegion;
     }
 
-    @Config("hive.metastore.glue.pin-client-to-current-region")
-    @ConfigDescription("Should the Glue client be pinned to the current EC2 region")
-    public GlueHiveMetastoreConfig setPinGlueClientToCurrentRegion(boolean pinGlueClientToCurrentRegion)
+    @Config("hive.metastore.glue.sts.region")
+    @ConfigDescription("AWS STS region for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsRegion(String region)
     {
-        this.pinGlueClientToCurrentRegion = pinGlueClientToCurrentRegion;
+        this.glueStsRegion = Optional.ofNullable(region);
+        return this;
+    }
+
+    public Optional<String> getGlueStsEndpointUrl()
+    {
+        return glueStsEndpointUrl;
+    }
+
+    @Config("hive.metastore.glue.sts.endpoint-url")
+    @ConfigDescription("AWS STS endpoint URL for Glue authentication")
+    public GlueHiveMetastoreConfig setGlueStsEndpointUrl(String glueStsEndpointUrl)
+    {
+        this.glueStsEndpointUrl = Optional.ofNullable(glueStsEndpointUrl);
         return this;
     }
 

@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue.converter;
 
-import com.amazonaws.services.glue.model.SerDeInfo;
-import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
@@ -31,6 +29,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
 
 import java.util.List;
 import java.util.Locale;
@@ -57,47 +57,47 @@ public final class GlueToPrestoConverter
 
     private GlueToPrestoConverter() {}
 
-    public static Database convertDatabase(com.amazonaws.services.glue.model.Database glueDb)
+    public static Database convertDatabase(software.amazon.awssdk.services.glue.model.Database glueDb)
     {
         return Database.builder()
-                .setDatabaseName(glueDb.getName())
-                .setLocation(Optional.ofNullable(glueDb.getLocationUri()))
-                .setComment(Optional.ofNullable(glueDb.getDescription()))
-                .setParameters(convertParameters(glueDb.getParameters()))
+                .setDatabaseName(glueDb.name())
+                .setLocation(Optional.ofNullable(glueDb.locationUri()))
+                .setComment(Optional.ofNullable(glueDb.description()))
+                .setParameters(convertParameters(glueDb.parameters()))
                 .setOwnerName(PUBLIC_OWNER)
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
     }
 
-    public static Table convertTable(com.amazonaws.services.glue.model.Table glueTable, String dbName)
+    public static Table convertTable(software.amazon.awssdk.services.glue.model.Table glueTable, String dbName)
     {
-        Map<String, String> tableParameters = convertParameters(glueTable.getParameters());
+        Map<String, String> tableParameters = convertParameters(glueTable.parameters());
 
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(dbName)
-                .setTableName(glueTable.getName())
-                .setOwner(nullToEmpty(glueTable.getOwner()))
+                .setTableName(glueTable.name())
+                .setOwner(nullToEmpty(glueTable.owner()))
                 // Athena treats missing table type as EXTERNAL_TABLE.
-                .setTableType(PrestoTableType.optionalValueOf(glueTable.getTableType()).orElse(EXTERNAL_TABLE))
+                .setTableType(PrestoTableType.optionalValueOf(glueTable.tableType()).orElse(EXTERNAL_TABLE))
                 .setParameters(tableParameters)
-                .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
-                .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
+                .setViewOriginalText(Optional.ofNullable(glueTable.viewOriginalText()))
+                .setViewExpandedText(Optional.ofNullable(glueTable.viewExpandedText()));
 
-        StorageDescriptor sd = glueTable.getStorageDescriptor();
+        StorageDescriptor sd = glueTable.storageDescriptor();
         if (isIcebergTable(tableParameters) || (sd == null && isDeltaLakeTable(tableParameters))) {
             // Iceberg and Delta Lake tables do not use the StorageDescriptor field, but we need to return a Table so the caller can check that
             // the table is an Iceberg/Delta table and decide whether to redirect or fail.
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
             tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
-            tableBuilder.getStorageBuilder().setLocation(sd == null ? "" : sd.getLocation());
+            tableBuilder.getStorageBuilder().setLocation(sd == null ? "" : sd.location());
         }
         else {
             if (sd == null) {
-                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.getName(), glueTable));
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Table StorageDescriptor is null for table %s.%s (%s)", dbName, glueTable.name(), glueTable));
             }
-            tableBuilder.setDataColumns(convertColumns(sd.getColumns()));
-            if (glueTable.getPartitionKeys() != null) {
-                tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+            tableBuilder.setDataColumns(convertColumns(sd.columns()));
+            if (glueTable.partitionKeys() != null) {
+                tableBuilder.setPartitionColumns(convertColumns(glueTable.partitionKeys()));
             }
             else {
                 tableBuilder.setPartitionColumns(ImmutableList.of());
@@ -109,12 +109,12 @@ public final class GlueToPrestoConverter
         return tableBuilder.build();
     }
 
-    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
+    private static Column convertColumn(software.amazon.awssdk.services.glue.model.Column glueColumn)
     {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()), Optional.empty());
+        return new Column(glueColumn.name(), HiveType.valueOf(glueColumn.type().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.comment()), Optional.empty());
     }
 
-    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)
+    private static List<Column> convertColumns(List<software.amazon.awssdk.services.glue.model.Column> glueColumns)
     {
         return mappedCopy(glueColumns, GlueToPrestoConverter::convertColumn);
     }
@@ -138,9 +138,9 @@ public final class GlueToPrestoConverter
     }
 
     public static final class GluePartitionConverter
-            implements Function<com.amazonaws.services.glue.model.Partition, Partition>
+            implements Function<software.amazon.awssdk.services.glue.model.Partition, Partition>
     {
-        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter = memoizeLast(GlueToPrestoConverter::convertColumns);
+        private final Function<List<software.amazon.awssdk.services.glue.model.Column>, List<Column>> columnsConverter = memoizeLast(GlueToPrestoConverter::convertColumns);
         private final Function<Map<String, String>, Map<String, String>> parametersConverter = parametersConverter();
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;
@@ -153,25 +153,25 @@ public final class GlueToPrestoConverter
         }
 
         @Override
-        public Partition apply(com.amazonaws.services.glue.model.Partition gluePartition)
+        public Partition apply(software.amazon.awssdk.services.glue.model.Partition gluePartition)
         {
-            requireNonNull(gluePartition.getStorageDescriptor(), "Partition StorageDescriptor is null");
-            StorageDescriptor sd = gluePartition.getStorageDescriptor();
+            requireNonNull(gluePartition.storageDescriptor(), "Partition StorageDescriptor is null");
+            StorageDescriptor sd = gluePartition.storageDescriptor();
 
-            if (!databaseName.equals(gluePartition.getDatabaseName())) {
-                throw new IllegalArgumentException(format("Unexpected databaseName, expected: %s, but found: %s", databaseName, gluePartition.getDatabaseName()));
+            if (!databaseName.equals(gluePartition.databaseName())) {
+                throw new IllegalArgumentException(format("Unexpected databaseName, expected: %s, but found: %s", databaseName, gluePartition.databaseName()));
             }
-            if (!tableName.equals(gluePartition.getTableName())) {
-                throw new IllegalArgumentException(format("Unexpected tableName, expected: %s, but found: %s", tableName, gluePartition.getTableName()));
+            if (!tableName.equals(gluePartition.tableName())) {
+                throw new IllegalArgumentException(format("Unexpected tableName, expected: %s, but found: %s", tableName, gluePartition.tableName()));
             }
 
             Partition.Builder partitionBuilder = Partition.builder()
                     .setCatalogName(Optional.empty())
                     .setDatabaseName(databaseName)
                     .setTableName(tableName)
-                    .setValues(gluePartition.getValues()) // No memoization benefit
-                    .setColumns(columnsConverter.apply(sd.getColumns()))
-                    .setParameters(parametersConverter.apply(gluePartition.getParameters()));
+                    .setValues(gluePartition.values()) // No memoization benefit
+                    .setColumns(columnsConverter.apply(sd.columns()))
+                    .setParameters(parametersConverter.apply(gluePartition.parameters()));
 
             storageConverter.setConvertedStorage(sd, partitionBuilder.getStorageBuilder());
 
@@ -182,7 +182,7 @@ public final class GlueToPrestoConverter
     private static final class StorageConverter
     {
         private final Function<List<String>, List<String>> bucketColumns = memoizeLast(ImmutableList::copyOf);
-        private final Function<List<com.amazonaws.services.glue.model.Order>, List<SortingColumn>> sortColumns = memoizeLast(StorageConverter::createSortingColumns);
+        private final Function<List<software.amazon.awssdk.services.glue.model.Order>, List<SortingColumn>> sortColumns = memoizeLast(StorageConverter::createSortingColumns);
         private final UnaryOperator<Optional<HiveBucketProperty>> bucketProperty = memoizeLast();
         private final Function<Map<String, String>, Map<String, String>> serdeParametersConverter = parametersConverter();
         private final Function<Map<String, String>, Map<String, String>> partitionParametersConverter = parametersConverter();
@@ -190,36 +190,36 @@ public final class GlueToPrestoConverter
 
         public void setConvertedStorage(StorageDescriptor sd, Storage.Builder storageBuilder)
         {
-            requireNonNull(sd.getSerdeInfo(), "StorageDescriptor SerDeInfo is null");
-            SerDeInfo serdeInfo = sd.getSerdeInfo();
+            requireNonNull(sd.serdeInfo(), "StorageDescriptor SerDeInfo is null");
+            SerDeInfo serdeInfo = sd.serdeInfo();
 
-            storageBuilder.setLocation(nullToEmpty(sd.getLocation()))
+            storageBuilder.setLocation(nullToEmpty(sd.location()))
                     .setBucketProperty(createBucketProperty(sd))
-                    .setSkewed(sd.getSkewedInfo() != null && !isNullOrEmpty(sd.getSkewedInfo().getSkewedColumnNames()))
-                    .setSerdeParameters(serdeParametersConverter.apply(serdeInfo.getParameters()))
-                    .setParameters(partitionParametersConverter.apply(sd.getParameters()))
+                    .setSkewed(sd.skewedInfo() != null && !isNullOrEmpty(sd.skewedInfo().skewedColumnNames()))
+                    .setSerdeParameters(serdeParametersConverter.apply(serdeInfo.parameters()))
+                    .setParameters(partitionParametersConverter.apply(sd.parameters()))
                     .setStorageFormat(storageFormatConverter.createStorageFormat(serdeInfo, sd));
         }
 
         private Optional<HiveBucketProperty> createBucketProperty(StorageDescriptor sd)
         {
-            if (sd.getNumberOfBuckets() > 0) {
-                if (isNullOrEmpty(sd.getBucketColumns())) {
+            if (sd.numberOfBuckets() > 0) {
+                if (isNullOrEmpty(sd.bucketColumns())) {
                     throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set");
                 }
-                List<String> bucketColumns = this.bucketColumns.apply(sd.getBucketColumns());
-                List<SortingColumn> sortedBy = this.sortColumns.apply(sd.getSortColumns());
-                return bucketProperty.apply(Optional.of(new HiveBucketProperty(bucketColumns, sd.getNumberOfBuckets(), sortedBy, HIVE_COMPATIBLE, Optional.empty())));
+                List<String> bucketColumns = this.bucketColumns.apply(sd.bucketColumns());
+                List<SortingColumn> sortedBy = this.sortColumns.apply(sd.sortColumns());
+                return bucketProperty.apply(Optional.of(new HiveBucketProperty(bucketColumns, sd.numberOfBuckets(), sortedBy, HIVE_COMPATIBLE, Optional.empty())));
             }
             return Optional.empty();
         }
 
-        private static List<SortingColumn> createSortingColumns(List<com.amazonaws.services.glue.model.Order> sortColumns)
+        private static List<SortingColumn> createSortingColumns(List<software.amazon.awssdk.services.glue.model.Order> sortColumns)
         {
             if (isNullOrEmpty(sortColumns)) {
                 return ImmutableList.of();
             }
-            return mappedCopy(sortColumns, column -> new SortingColumn(column.getColumn(), Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")));
+            return mappedCopy(sortColumns, column -> new SortingColumn(column.column(), Order.fromMetastoreApiOrder(column.sortOrder(), "unknown")));
         }
     }
 
@@ -234,9 +234,9 @@ public final class GlueToPrestoConverter
 
         public StorageFormat createStorageFormat(SerDeInfo serdeInfo, StorageDescriptor storageDescriptor)
         {
-            String serializationLib = this.serializationLib.apply(serdeInfo.getSerializationLibrary());
-            String inputFormat = this.inputFormat.apply(storageDescriptor.getInputFormat());
-            String outputFormat = this.outputFormat.apply(storageDescriptor.getOutputFormat());
+            String serializationLib = this.serializationLib.apply(serdeInfo.serializationLibrary());
+            String inputFormat = this.inputFormat.apply(storageDescriptor.inputFormat());
+            String outputFormat = this.outputFormat.apply(storageDescriptor.outputFormat());
             if (serializationLib == null && inputFormat == null && outputFormat == null) {
                 return ALL_NULLS;
             }
