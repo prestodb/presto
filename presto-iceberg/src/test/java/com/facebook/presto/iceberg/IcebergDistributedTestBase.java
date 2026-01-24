@@ -829,13 +829,21 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("drop table test_partition_columns_time");
     }
 
-    @Test
-    public void testPartitionedByVarbinaryType()
+    @DataProvider(name = "insertValues")
+    public Object[][] getInsertValues()
+    {
+        return new Object[][] {
+                {"(1, X'bcd1'), (2, X'e3bcd1')"},
+                {"(2, X'e3bcd1'), (1, X'bcd1')"}};
+    }
+
+    @Test(dataProvider = "insertValues")
+    public void testPartitionedByVarbinaryType(String insertValues)
     {
         // create iceberg table partitioned by column of VarbinaryType, and insert some data
         assertQuerySucceeds("drop table if exists test_partition_columns_varbinary");
         assertQuerySucceeds("create table test_partition_columns_varbinary(a bigint, b varbinary) with (partitioning = ARRAY['b'])");
-        assertQuerySucceeds("insert into test_partition_columns_varbinary values(1, X'bcd1'), (2, X'e3bcd1')");
+        assertQuerySucceeds("insert into test_partition_columns_varbinary values " + insertValues);
 
         // validate return data of VarbinaryType
         List<Object> varbinaryColumnDatas = getQueryRunner().execute("select b from test_partition_columns_varbinary order by a asc").getOnlyColumn().collect(Collectors.toList());
@@ -861,7 +869,7 @@ public abstract class IcebergDistributedTestBase
         assertEquals(varbinaryColumnDatas.get(0), new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
         assertEquals(getQueryRunner().execute("select b FROM test_partition_columns_varbinary where b = X'e3bcd1'").getOnlyValue(),
                 new byte[] {(byte) 0xe3, (byte) 0xbc, (byte) 0xd1});
-        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 1L);
+        assertEquals(getQueryRunner().execute("select count(*) from \"test_partition_columns_varbinary$partitions\"").getOnlyValue(), 2L);
         assertEquals(getQueryRunner().execute("select row_count from \"test_partition_columns_varbinary$partitions\" where b = X'e3bcd1'").getOnlyValue(), 1L);
 
         assertQuerySucceeds("drop table test_partition_columns_varbinary");
