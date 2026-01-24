@@ -8,6 +8,9 @@ services:
       environment:
           - HEAP_NEWSIZE=128M
           - MAX_HEAP_SIZE=512M
+          # CRITICAL FIX: Increase native transport connection limits to prevent connection exhaustion
+          # Default is 128 connections per host, which is too low for Driver 4.x with aggressive metadata refresh
+          - JVM_OPTS=-Dcassandra.native_transport_max_threads=256 -Dcassandra.native_transport_max_frame_size_in_mb=256
       entrypoint: []
       command: [bash, -cxeu,  "ln -snf /usr/share/zoneinfo/Asia/Kathmandu /etc/localtime && echo Asia/Kathmandu > /etc/timezone && /docker-entrypoint.sh cassandra -f"]
       healthcheck:

@@ -281,12 +281,12 @@ public class TestCassandraIntergrationMixedCase
      */
     private void waitForTableExists(Session session, String tableName)
     {
-        // P2 FIX: Adaptive timing based on CI environment detection
-        // CI environments are slower and need more time for metadata propagation
+        // CRITICAL FIX: Reduce metadata refresh frequency to prevent connection exhaustion
+        // Previous implementation refreshed every 2 attempts, causing connection storm
         boolean isCI = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
-        int maxAttempts = isCI ? 120 : 90; // Increased from 90 to 120 for CI
-        int baseDelayMs = isCI ? 1000 : 500; // Increased from 500ms to 1000ms for CI
-        int maxDelayMs = isCI ? 8000 : 5000; // Increased max delay for CI
+        int maxAttempts = isCI ? 60 : 45; // Reduced from 120/90 - rely on longer waits instead
+        int baseDelayMs = isCI ? 2000 : 1000; // Increased base delay to reduce polling frequency
+        int maxDelayMs = isCI ? 10000 : 8000; // Increased max delay
 
         log.info("waitForTableExists: table=%s, maxAttempts=%d, isCI=%s", tableName, maxAttempts, isCI);
 
@@ -300,8 +300,9 @@ public class TestCassandraIntergrationMixedCase
                 return;
             }
 
-            // More frequent metadata refresh - every 2 attempts instead of 3
-            if (attempt % 2 == 0) {
+            // CRITICAL FIX: Refresh metadata much less frequently (every 10 attempts instead of 2)
+            // This prevents connection exhaustion that caused 6+ hour CI timeouts
+            if (attempt % 10 == 0) {
                 try {
                     // Verify table exists directly through Cassandra session
                     List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
@@ -310,29 +311,17 @@ public class TestCassandraIntergrationMixedCase
                     log.info("Direct Cassandra query shows table '%s' exists: %s (attempt %d/%d, available tables: %s)",
                              tableName, foundDirect, attempt, maxAttempts, tableNames);
 
-                    if (foundDirect && !foundInCassandraButNotPresto) {
+                    if (foundDirect) {
                         // Table exists in Cassandra but not visible through Presto yet
-                        log.info("Table '%s' found in Cassandra but not in driver metadata - forcing targeted metadata refresh",
-                                 tableName);
-                        foundInCassandraButNotPresto = true;
+                        log.info("Table '%s' found in Cassandra but not in driver metadata - forcing targeted metadata refresh (attempt %d)",
+                                 tableName, attempt);
 
-                        // Use targeted metadata refresh for faster results
+                        // Use targeted metadata refresh - simplified version reduces connection pressure
                         server.refreshMetadata(KEYSPACE, tableName);
                         this.session.invalidateKeyspaceCache(KEYSPACE);
 
-                        // P2 FIX: Increased wait time from 1s to 2s to allow metadata propagation
-                        // The P0 fixes add internal waits, but we add extra time here for safety
-                        Thread.sleep(2000);
-                        continue;  // Retry immediately
-                    }
-                    else if (foundDirect) {
-                        // Still not visible, refresh metadata again
-                        log.info("Table '%s' still not visible in Presto, refreshing metadata again", tableName);
-                        server.refreshMetadata(KEYSPACE, tableName);
-                        this.session.invalidateKeyspaceCache(KEYSPACE);
-                        // P2 FIX: Increased wait time from 1s to 2s
-                        Thread.sleep(2000);
-                        continue;  // Retry immediately
+                        // Wait for metadata to propagate
+                        Thread.sleep(3000);
                     }
                 }
                 catch (Exception e) {
