@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/ExprUtils.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
@@ -610,34 +611,50 @@ std::shared_ptr<const CastTypedExpr> makeCastExpr(
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     const velox::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
-  auto valueExpr = args.front();
-  args.erase(args.begin());
+  VELOX_CHECK(!args.empty(), "SWITCH arguments cannot be empty");
+
+  // SWITCH / CASE expression in Presto can be of two forms, searched and
+  // simple: https://prestodb.io/docs/current/functions/conditional.html#case.
+  // Velox only supports the searched form of SWITCH.
+  //
+  // In simple form, the first argument is a value expression that is
+  // compared using equality against each WHEN condition. In searched form,
+  // all arguments are WHEN clauses.
+  //
+  // When the native expression optimizer iteratively re-submits expressions,
+  // previously-converted searched-form expressions no longer have a leading
+  // value expression. We must detect this and avoid erasing valid WHEN clauses.
+  static constexpr const char* kWhen = "when";
+  bool isWhenClause = velox::expression::utils::isCall(*args.begin(), kWhen);
+  TypedExprPtr valueExpr = nullptr;
+  bool valueIsTrue = false;
+  if (!isWhenClause) {
+    valueExpr = args.front();
+    args.erase(args.begin());
+    valueIsTrue = isTrueConstant(valueExpr);
+  }
 
   std::vector<TypedExprPtr> inputs;
   inputs.reserve((args.size() - 1) * 2);
 
-  const bool valueIsTrue = isTrueConstant(valueExpr);
-
   for (const auto& arg : args) {
-    if (auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg)) {
-      if (call->name() == "when") {
-        auto& condition = call->inputs()[0];
-        if (valueIsTrue) {
-          inputs.emplace_back(condition);
+    if (velox::expression::utils::isCall(arg, kWhen)) {
+      auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg);
+      auto& condition = call->inputs()[0];
+      if (valueIsTrue) {
+        inputs.emplace_back(condition);
+      } else {
+        if (condition->type()->kindEquals(valueExpr->type())) {
+          inputs.emplace_back(makeEqualsExpr(condition, valueExpr));
         } else {
-          if (condition->type()->kindEquals(valueExpr->type())) {
-            inputs.emplace_back(makeEqualsExpr(condition, valueExpr));
-          } else {
-            inputs.emplace_back(makeEqualsExpr(
-                makeCastExpr(condition, valueExpr->type()), valueExpr));
-          }
+          inputs.emplace_back(makeEqualsExpr(
+              makeCastExpr(condition, valueExpr->type()), valueExpr));
         }
-        inputs.emplace_back(call->inputs()[1]);
-        continue;
       }
+      inputs.emplace_back(call->inputs()[1]);
+    } else {
+      inputs.emplace_back(arg);
     }
-
-    inputs.emplace_back(arg);
   }
 
   return std::make_shared<CallTypedExpr>(
