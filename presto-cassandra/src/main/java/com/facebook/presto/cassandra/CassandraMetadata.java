@@ -304,6 +304,7 @@ public class CassandraMetadata
             String columnName = columns.get(i);
             String finalColumnName = validColumnName(normalizeIdentifier(session, columnName));
             Type type = types.get(i);
+            // validColumnName already quotes the column name to handle reserved keywords
             queryBuilder.append(", ")
                     .append(finalColumnName)
                     .append(" ")
