@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.type.DataType;
@@ -561,6 +562,44 @@ public enum CassandraType
                 // todo should we just skip partition pruning instead of throwing an exception?
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported clustering key type: " + this);
         }
+    }
+
+    public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
+    {
+        if (type.equals(BooleanType.BOOLEAN)) {
+            return BOOLEAN;
+        }
+        else if (type.equals(BigintType.BIGINT)) {
+            return BIGINT;
+        }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return INT;
+        }
+        else if (type.equals(SmallintType.SMALLINT)) {
+            return SMALLINT;
+        }
+        else if (type.equals(TinyintType.TINYINT)) {
+            return TINYINT;
+        }
+        else if (type.equals(DoubleType.DOUBLE)) {
+            return DOUBLE;
+        }
+        else if (type.equals(RealType.REAL)) {
+            return FLOAT;
+        }
+        else if (isVarcharType(type)) {
+            return TEXT;
+        }
+        else if (type.equals(DateType.DATE)) {
+            return DATE;
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return BLOB;
+        }
+        else if (type.equals(TimestampType.TIMESTAMP)) {
+            return TIMESTAMP;
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
     }
 
     public static CassandraType toCassandraType(Type type)

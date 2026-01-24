@@ -167,7 +167,7 @@ public class CassandraTestingUtils
                 " typelist list<text>, " +
                 " typemap map<int, bigint>, " +
                 " typeset set<boolean>, " +
-                " typetuple tuple<bigint, varchar>, " +
+                " typetuple tuple<bigint, varchar> " +
                 ")");
         insertTestData(session, metadata, table, date, rowsCount);
     }
