@@ -18,8 +18,8 @@
 #include <re2/re2.h>
 #include <sstream>
 
-#include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
 
