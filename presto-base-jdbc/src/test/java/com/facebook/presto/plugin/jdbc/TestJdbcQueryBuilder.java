@@ -39,6 +39,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -94,18 +95,18 @@ public class TestJdbcQueryBuilder
 
         session = new TestingConnectorSession(ImmutableList.of());
         columns = ImmutableList.of(
-                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL, true, Optional.empty()),
-                new JdbcColumnHandle("test_id", "col_11", JDBC_CHAR, charType, true, Optional.empty()));
+                new JdbcColumnHandle("test_id", "col_0", JDBC_BIGINT, BIGINT, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_1", JDBC_DOUBLE, DOUBLE, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_2", JDBC_BOOLEAN, BOOLEAN, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_3", JDBC_VARCHAR, VARCHAR, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_4", JDBC_DATE, DATE, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_5", JDBC_TIME, TIME, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_6", JDBC_TIMESTAMP, TIMESTAMP, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_7", JDBC_TINYINT, TINYINT, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_8", JDBC_SMALLINT, SMALLINT, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_9", JDBC_INTEGER, INTEGER, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_10", JDBC_REAL, REAL, true, Optional.empty(), Optional.empty()),
+                new JdbcColumnHandle("test_id", "col_11", JDBC_CHAR, charType, true, Optional.empty(), Optional.empty()));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
@@ -205,7 +206,7 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -228,7 +229,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
@@ -254,7 +255,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -282,7 +283,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -315,7 +316,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Time> timeBuilder = ImmutableSet.builder();
@@ -348,7 +349,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -375,7 +376,7 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, session, connection, "", "", "test_table", Collections.emptyList(), columns, ImmutableMap.of(), tupleDomain, Optional.empty(), Optional.empty());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
