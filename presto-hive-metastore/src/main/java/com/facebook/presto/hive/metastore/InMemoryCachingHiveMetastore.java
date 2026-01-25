@@ -218,14 +218,7 @@ public class InMemoryCachingHiveMetastore
         tableStatisticsCache = buildCache(
                 executor,
                 TABLE_STATISTICS,
-                new CacheLoader<KeyAndContext<HiveTableName>, PartitionStatistics>()
-                {
-                    @Override
-                    public PartitionStatistics load(KeyAndContext<HiveTableName> key)
-                    {
-                        return loadTableColumnStatistics(key);
-                    }
-                },
+                CacheLoader.from(this::loadTableColumnStatistics),
                 perTransactionCache,
                 maximumSize);
 

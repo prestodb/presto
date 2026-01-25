@@ -15,13 +15,14 @@ package com.facebook.presto.hive.metastore;
 
 public class MetastoreCacheSpec
 {
+    private static final MetastoreCacheSpec DISABLED = new MetastoreCacheSpec(0, 0, 0);
     private final long cacheTtlMillis;
     private final long refreshIntervalMillis;
     private final long maximumSize;
 
     public static MetastoreCacheSpec disabled()
     {
-        return new MetastoreCacheSpec(0, 0, 0);
+        return DISABLED;
     }
 
     public static MetastoreCacheSpec enabled(long cacheTtlMillis, long refreshIntervalMillis, long maximumSize)
