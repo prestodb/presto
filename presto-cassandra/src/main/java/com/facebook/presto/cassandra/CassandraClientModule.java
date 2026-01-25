@@ -204,6 +204,12 @@ public class CassandraClientModule
             DriverConfigLoader configLoader = configLoaderBuilder.build();
             sessionBuilder.withConfigLoader(configLoader);
 
+            // Register custom codec for INT <-> LocalDate conversion
+            // This is needed because we store DATE values as INT to avoid the "date" reserved keyword
+            sessionBuilder.addTypeCodecs(new IntToLocalDateCodec());
+            // Driver 4.x removed built-in support for java.sql.Timestamp, so we register a custom codec
+            sessionBuilder.addTypeCodecs(TimestampCodec.INSTANCE);
+
             // TLS (only for non-Astra, as Astra bundle includes SSL config)
             if (!config.getSecureConnectBundle().isPresent() && config.isTlsEnabled()) {
                 SslContextProvider sslContextProvider = new SslContextProvider(

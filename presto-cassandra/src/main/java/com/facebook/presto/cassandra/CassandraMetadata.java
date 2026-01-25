@@ -305,10 +305,11 @@ public class CassandraMetadata
             String finalColumnName = validColumnName(normalizeIdentifier(session, columnName));
             Type type = types.get(i);
             // validColumnName already quotes the column name to handle reserved keywords
+            // getCqlTypeName() returns the appropriate CQL type name (e.g., "int" for DATE to avoid reserved keyword)
             queryBuilder.append(", ")
                     .append(finalColumnName)
                     .append(" ")
-                    .append(toCassandraType(type).name().toLowerCase(ROOT));
+                    .append(toCassandraType(type).getCqlTypeName());
         }
         queryBuilder.append(") ");
 
