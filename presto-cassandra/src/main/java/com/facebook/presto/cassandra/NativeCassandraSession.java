@@ -633,9 +633,9 @@ public class NativeCassandraSession
         // This is a fallback for when schema metadata filtering excludes system keyspaces
         // Cassandra 2.1.x uses system.schema_columnfamilies, 3.0+ uses system_schema.tables
         try {
-            // Try Cassandra 2.1.x format first (schema_columnfamilies)
+            // Try Cassandra 3.0+ format first (system_schema.tables)
             SimpleStatement statement = SimpleStatement.newInstance(
-                    "SELECT columnfamily_name FROM system.schema_columnfamilies WHERE keyspace_name = ? AND columnfamily_name = ?",
+                    "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ? AND table_name = ?",
                     SYSTEM, SIZE_ESTIMATES);
             ResultSet result = executeWithSession(session -> session.execute(statement));
             if (!result.iterator().hasNext()) {
@@ -643,9 +643,20 @@ public class NativeCassandraSession
             }
         }
         catch (Exception e) {
-            // If the 2.1.x query fails, it might be a newer version, but since we're testing with 2.1.16,
-            // we'll just throw the error
-            throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported", e);
+            // If the 3.0+ query fails, try Cassandra 2.1.x format (schema_columnfamilies)
+            try {
+                SimpleStatement statement = SimpleStatement.newInstance(
+                        "SELECT columnfamily_name FROM system.schema_columnfamilies WHERE keyspace_name = ? AND columnfamily_name = ?",
+                        SYSTEM, SIZE_ESTIMATES);
+                ResultSet result = executeWithSession(session -> session.execute(statement));
+                if (!result.iterator().hasNext()) {
+                    throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
+                }
+            }
+            catch (Exception e2) {
+                // Both queries failed, throw error
+                throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported", e2);
+            }
         }
     }
 

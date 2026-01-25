@@ -65,7 +65,7 @@ public class CassandraServer
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+        this.dockerContainer = new GenericContainer<>("cassandra:3.11.19")
                 .withExposedPorts(PORT)
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
         this.dockerContainer.start();
@@ -78,6 +78,8 @@ public class CassandraServer
                 CqlSession.builder()
                         .addContactPoint(contactPoint)
                         .withLocalDatacenter("datacenter1")
+                        .addTypeCodecs(new IntToLocalDateCodec())
+                        .addTypeCodecs(TimestampCodec.INSTANCE)
                         .build());
 
         CassandraSession session = new NativeCassandraSession(
