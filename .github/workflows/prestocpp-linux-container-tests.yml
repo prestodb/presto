@@ -10,94 +10,128 @@ on:
 
 env:
   CONTINUOUS_INTEGRATION: true
-  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
-  RETRY: .github/bin/retry
   DOCKER_BUILDKIT: 1
+  MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true --no-transfer-progress --fail-at-end"
 
+# -----------------------------
+# Job 1: Build worker image
+# -----------------------------
 jobs:
-  prestocpp-linux-container-tests:
+  build-worker-image:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Fix git permissions
-        # Usually actions/checkout does this but as we run in a container
-        # it doesn't work
-        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
-      - name: Disk space consumption before build
-        run: df
+      - name: Free base disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          docker system prune -af
+          df -h
 
-      - name: Set env variables
-        run: |
-          echo "TESTCONTAINERS_RYUK_DISABLED=true" >> $GITHUB_ENV
-      
-      - name: Remove node docker images
-        run: |
-          docker rmi node:20
-          docker rmi node:18
-          docker rmi node:22
-          docker images
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
 
       - name: Update velox
         run: |
           cd presto-native-execution
           make velox-submodule
 
-      - name: Install OpenJDK17
-        uses: actions/setup-java@v4
+      - name: Build worker image
+        run: |
+          ./mvnw install ${MAVEN_FAST_INSTALL} \
+            -Pdocker-build \
+            -Denable.docker.build.worker=true \
+            -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
+
+      - name: Prune docker build cache
+        run: |
+          docker builder prune --all --force
+          docker system prune -af
+          df -h
+
+  # -----------------------------
+  # Job 2: Build coordinator image
+  # -----------------------------
+  build-coordinator-image:
+    runs-on: ubuntu-22.04
+    needs: build-worker-image
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free base disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          docker system prune -af
+          df -h
+
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 17
-          cache: 'maven'
+          cache: maven
 
-      - name: Build the worker image
-        env:
-          # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      - name: Update velox
         run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.worker=true -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
-      - name: Disk space consumption after building worker image
-        run: df
+          cd presto-native-execution
+          make velox-submodule
 
-      - name: See the docker images
-        run: docker images
-
-      - name: Disk space consumption after removing worker image
-        run: df
-
-      - name: Build the coordinator image
-        env:
-          # Use different Maven options to install.
-          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      - name: Build coordinator image
         run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -Pdocker-build -Ddocker.verbose=true -Denable.docker.build.coordinator=true -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
+          ./mvnw install ${MAVEN_FAST_INSTALL} \
+            -Pdocker-build \
+            -Denable.docker.build.coordinator=true \
+            -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 
-      - name: Disk space consumption after building coordinator image
-        run: df
+      - name: Prune docker build cache
+        run: |
+          docker builder prune --all --force
+          docker system prune -af
+          df -h
+
+  # -----------------------------
+  # Job 3: Run container tests
+  # -----------------------------
+  run-container-tests:
+    runs-on: ubuntu-22.04
+    needs: build-coordinator-image
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free base disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          docker system prune -af --volumes
+          df -h
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
 
       - name: Run presto-native container tests
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoContainer*.java'`
-          # Convert file paths to comma separated class names
-          export TESTCLASSES=
-          for test_file in $TESTFILES
-          do
-            tmp=${test_file##*/}
-            test_class=${tmp%%\.*}
-            export TESTCLASSES="${TESTCLASSES},$test_class"
-          done
-          export TESTCLASSES=${TESTCLASSES#,}
-          echo "TESTCLASSES = $TESTCLASSES"
+          export TESTFILES=$(find ./presto-native-execution/src/test -type f -name 'TestPrestoContainer*.java')
+          TESTCLASSES=$(echo "$TESTFILES" | sed 's|.*/||; s|\.java||' | paste -sd, -)
+          echo "TESTCLASSES=$TESTCLASSES"
 
           mvn test \
             ${MAVEN_TEST} \
-            -pl 'presto-native-execution' \
-            -Dtest="${TESTCLASSES}" \
-            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
-            -DDATA_DIR=${RUNNER_TEMP} \
-            -Duser.timezone=America/Bahia_Banderas \
-            -T1C
+            -pl presto-native-execution \
+            -Dtest="$TESTCLASSES" \
+            -DPRESTO_SERVER="$PRESTO_SERVER_PATH" \
+            -DDATA_DIR="$RUNNER_TEMP" \
+            -Duser.timezone=America/Bahia_Banderas
+
+      - name: Final docker cleanup
+        if: always()
+        run: |
+          docker system prune -af --volumes
+          docker builder prune --all --force
+          df -h
