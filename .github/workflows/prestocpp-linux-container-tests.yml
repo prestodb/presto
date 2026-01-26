@@ -1,19 +1,22 @@
 name: prestocpp-linux-container-tests
 
+permissions:
+  contents: read
+
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   pull_request:
     paths:
-      - 'presto-native-execution/**'
-      - 'presto-native-sidecar-plugin/**'
-      - '.github/workflows/prestocpp-linux-container-tests.yml'
+      - presto-native-execution/**
+      - presto-native-sidecar-plugin/**
+      - .github/workflows/prestocpp-linux-container-tests.yml
 
 env:
   CONTINUOUS_INTEGRATION: true
   DOCKER_BUILDKIT: 1
-  MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
-  MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
-  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true --no-transfer-progress --fail-at-end"
+  MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
+  MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true --no-transfer-progress --fail-at-end
 
 # -----------------------------
 # Job 1: Build worker image
@@ -23,6 +26,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Free base disk space
         run: |
@@ -43,6 +48,10 @@ jobs:
 
       - name: Build worker image
         run: |
+          export DOCKER_BUILDKIT=1
+          export COMPOSE_DOCKER_CLI_BUILD=1
+          docker buildx create --use --name presto-builder || docker buildx use presto-builder
+
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
             -Denable.docker.build.worker=true \
@@ -62,6 +71,8 @@ jobs:
     needs: build-worker-image
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Free base disk space
         run: |
@@ -82,6 +93,10 @@ jobs:
 
       - name: Build coordinator image
         run: |
+          export DOCKER_BUILDKIT=1
+          export COMPOSE_DOCKER_CLI_BUILD=1
+          docker buildx create --use --name presto-builder || docker buildx use presto-builder
+
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
             -Denable.docker.build.coordinator=true \
@@ -101,6 +116,8 @@ jobs:
     needs: build-coordinator-image
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Free base disk space
         run: |
