@@ -22,7 +22,6 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -40,7 +39,6 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERI
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
-import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -68,14 +66,7 @@ public class TestCassandraIntegrationSmokeTest
     private static final Timestamp DATE_TIME_LOCAL = Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 3, 4, 5, 0));
     private static final LocalDateTime TIMESTAMP_LOCAL = LocalDateTime.of(1969, 12, 31, 23, 4, 5); // TODO #7122 should match DATE_TIME_LOCAL
 
-    private CassandraServer server;
     private CassandraSession session;
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        server.close();
-    }
 
     @Override
     protected boolean isDateTypeSupported()
@@ -93,10 +84,9 @@ public class TestCassandraIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = new CassandraServer();
-        this.server = server;
+        CassandraServer server = SharedCassandraServer.getInstance();
         this.session = server.getSession();
-        createTestTables(session, server.getMetadata(), KEYSPACE, DATE_TIME_LOCAL);
+        SharedCassandraServer.ensureSmokeTestTablesCreated();
         return createCassandraQueryRunner(server, ImmutableMap.of());
     }
 

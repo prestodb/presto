@@ -17,7 +17,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -31,19 +30,14 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 public class TestCassandraDistributed
         extends AbstractTestDistributedQueries
 {
-    private CassandraServer server;
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.server = new CassandraServer();
-        return CassandraQueryRunner.createCassandraQueryRunner(server, ImmutableMap.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        server.close();
+        CassandraServer server = SharedCassandraServer.getInstance();
+        QueryRunner queryRunner = CassandraQueryRunner.createCassandraQueryRunner(server, ImmutableMap.of());
+        SharedCassandraServer.ensureTpchTablesCreated(queryRunner);
+        return queryRunner;
     }
     @Override
     protected boolean supportsViews()
