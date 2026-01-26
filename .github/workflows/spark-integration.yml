@@ -56,7 +56,7 @@ jobs:
       - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: ${{ matrix.java }}
           cache: maven
       - name: Download nodejs to maven cache

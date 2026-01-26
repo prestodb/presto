@@ -199,7 +199,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 17.0.16
           cache: maven
       - name: Download nodejs to maven cache
@@ -331,7 +331,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 17.0.16
           cache: maven
       - name: Download nodejs to maven cache
@@ -452,7 +452,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 17.0.16
           cache: maven
       - name: Download nodejs to maven cache
@@ -567,7 +567,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 17.0.16
           cache: maven
       - name: Download nodejs to maven cache
@@ -679,7 +679,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 17.0.16
           cache: maven
       - name: Download nodejs to maven cache

@@ -23,7 +23,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: 8
           cache: maven
       - name: Get presto-release-tools
