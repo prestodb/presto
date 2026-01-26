@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.hive;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastoreConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -40,6 +41,7 @@ public class IcebergHiveFileMetastoreModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
+        binder.bind(MetastoreCacheSpecProvider.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(IcebergFileHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)

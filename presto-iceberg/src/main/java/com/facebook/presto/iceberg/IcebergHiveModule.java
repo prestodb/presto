@@ -16,10 +16,12 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.PartitionMutator;
+import com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
+import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
@@ -30,6 +32,8 @@ import com.google.inject.Scopes;
 import java.util.Optional;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.ALL;
+import static com.facebook.presto.hive.metastore.AbstractCachingHiveMetastore.MetastoreCacheType.TABLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -50,14 +54,15 @@ public class IcebergHiveModule
     public void setup(Binder binder)
     {
         install(new IcebergHiveMetastoreModule(this.connectorId, this.metastore));
+        binder.bind(MetastoreCacheSpecProvider.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(IcebergHiveTableOperationsConfig.class);
 
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
         configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
 
-        long metastoreCacheTtl = buildConfigObject(MetastoreClientConfig.class).getMetastoreCacheTtl().toMillis();
-        checkArgument(metastoreCacheTtl == 0, "In-memory hive metastore caching must not be enabled for Iceberg");
+        checkArgument(isCachingAllowed(buildConfigObject(MetastoreClientConfig.class)),
+                "In-memory hive metastore caching for tables must not be enabled for Iceberg");
 
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
 
@@ -67,5 +72,19 @@ public class IcebergHiveModule
         binder.bind(IcebergMetadataFactory.class).to(IcebergHiveMetadataFactory.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(MetastoreConfig.class);
+    }
+
+    private boolean isCachingAllowed(MetastoreClientConfig config)
+    {
+        if (!config.getEnabledCaches().isEmpty()) {
+            return !config.getEnabledCaches().contains(ALL) && !config.getEnabledCaches().contains(TABLE);
+        }
+
+        if (!config.getDisabledCaches().isEmpty()) {
+            return config.getDisabledCaches().contains(ALL) || config.getDisabledCaches().contains(TABLE);
+        }
+
+        return config.getMetastoreCacheScope() != MetastoreCacheScope.ALL ||
+                config.getDefaultMetastoreCacheTtl().toMillis() == 0;
     }
 }
