@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: zulu
           java-version: ${{ matrix.java }}
           cache: maven
       - name: Download nodejs to maven cache
