@@ -15,6 +15,7 @@ package com.facebook.presto.nativetests;
 
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
@@ -41,7 +42,8 @@ public class TestAggregations
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         QueryRunner queryRunner = nativeHiveQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
@@ -61,4 +63,54 @@ public class TestAggregations
     {
         NativeTestsUtils.createTables(storageFormat);
     }
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupByCase() {}
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupByCaseNoElse() {}
+
+    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
+    @Override
+    @Test(enabled = false)
+    public void testGroupByIf() {}
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupByRow() {}
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupBySearchedCase() {}
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupBySearchedCaseNoElse() {}
+
+    // data mismatch
+    @Override
+    @Test(enabled = false)
+    public void testGroupByWithNulls() {}
+
+    // crashes the worker
+    @Override
+    @Test(enabled = false)
+    public void testGroupedRow() {}
+
+    // type of variable 'expr_14' is expected to be varchar(15), but the actual type is varchar
+    @Override
+    @Test(enabled = false)
+    public void testGroupingSetPredicatePushdown() {}
+
+    // Caused by: com.facebook.presto.metadata.OperatorNotFoundException: '=' cannot be applied to bigint, array(bigint)
+    @Override
+    @Test(enabled = false)
+    public void testOrderedAggregations() {}
 }

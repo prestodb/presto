@@ -687,7 +687,6 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds("SELECT array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
         assertQuery("select CASE WHEN true THEN 'Yes' ELSE 'No' END");
         assertQuery("SELECT ARRAY['abc']");
-
     }
 
     @Test(enabled = false)
