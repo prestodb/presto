@@ -113,11 +113,6 @@ public class TestOptimizeMixedDistinctAggregations
     @Test(enabled = false)
     public void testGroupingSetPredicatePushdown() {}
 
-    // Caused by: com.facebook.presto.metadata.OperatorNotFoundException: '=' cannot be applied to bigint, array(bigint)
-    @Override
-    @Test(enabled = false)
-    public void testOrderedAggregations() {}
-
     // type of variable 'expr_20' is expected to be varchar(1), but the actual type is varchar
     @Override
     @Test(enabled = false)

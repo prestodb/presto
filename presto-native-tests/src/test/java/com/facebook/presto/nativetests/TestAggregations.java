@@ -108,9 +108,4 @@ public class TestAggregations
     @Override
     @Test(enabled = false)
     public void testGroupingSetPredicatePushdown() {}
-
-    // Caused by: com.facebook.presto.metadata.OperatorNotFoundException: '=' cannot be applied to bigint, array(bigint)
-    @Override
-    @Test(enabled = false)
-    public void testOrderedAggregations() {}
 }
