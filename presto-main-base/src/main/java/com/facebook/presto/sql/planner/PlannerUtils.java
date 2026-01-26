@@ -84,6 +84,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.variable;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
@@ -576,5 +577,20 @@ public class PlannerUtils
             castToVarchar = call("CAST", functionAndTypeManager.lookupCast(CAST, keyExpression.getType(), VARCHAR), VARCHAR, keyExpression);
         }
         return new SpecialFormExpression(COALESCE, VARCHAR, ImmutableList.of(castToVarchar, concatExpression));
+    }
+
+    public static RowExpression getVariableHash(List<VariableReferenceExpression> inputVariables, FunctionAndTypeManager functionAndTypeManager)
+    {
+        checkArgument(!inputVariables.isEmpty());
+        List<CallExpression> hashExpressionList = inputVariables.stream().map(keyVariable ->
+                callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.XX_HASH_64, BIGINT, keyVariable)).collect(toImmutableList());
+        RowExpression hashExpression = hashExpressionList.get(0);
+        if (hashExpressionList.size() > 1) {
+            hashExpression = orNullHashCode(hashExpression);
+            for (int i = 1; i < hashExpressionList.size(); ++i) {
+                hashExpression = call(functionAndTypeManager, "combine_hash", BIGINT, hashExpression, orNullHashCode(hashExpressionList.get(i)));
+            }
+        }
+        return hashExpression;
     }
 }
