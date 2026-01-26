@@ -22,6 +22,7 @@ import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
+import com.facebook.presto.execution.resourceGroups.QueryPacingContext;
 import com.facebook.presto.execution.scheduler.clusterOverload.ClusterOverloadPolicy;
 import com.facebook.presto.execution.scheduler.clusterOverload.ClusterResourceChecker;
 import com.facebook.presto.metadata.InMemoryNodeManager;
@@ -62,7 +63,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, new InMemoryNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);

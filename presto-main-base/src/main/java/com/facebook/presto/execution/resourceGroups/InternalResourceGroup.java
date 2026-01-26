@@ -98,6 +98,7 @@ public class InternalResourceGroup
     private final Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate;
     private final InternalNodeManager nodeManager;
     private final ClusterResourceChecker clusterResourceChecker;
+    private final QueryPacingContext queryPacingContext;
 
     // Configuration
     // =============
@@ -169,13 +170,15 @@ public class InternalResourceGroup
             Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
             Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
             InternalNodeManager nodeManager,
-            ClusterResourceChecker clusterResourceChecker)
+            ClusterResourceChecker clusterResourceChecker,
+            QueryPacingContext queryPacingContext)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.nodeManager = requireNonNull(nodeManager, "node manager is null");
         this.clusterResourceChecker = requireNonNull(clusterResourceChecker, "clusterResourceChecker is null");
+        this.queryPacingContext = requireNonNull(queryPacingContext, "queryPacingContext is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
             id = new ResourceGroupId(parent.get().id, name);
@@ -676,7 +679,8 @@ public class InternalResourceGroup
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
                     nodeManager,
-                    clusterResourceChecker);
+                    clusterResourceChecker,
+                    queryPacingContext);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -735,12 +739,14 @@ public class InternalResourceGroup
             }
             else {
                 query.setResourceGroupQueryLimits(perQueryLimits);
-                if (canRun && queuedQueries.isEmpty()) {
+                boolean immediateStartCandidate = canRun && queuedQueries.isEmpty();
+                if (immediateStartCandidate && queryPacingContext.tryAcquireAdmissionSlot()) {
                     startInBackground(query);
                 }
                 else {
                     enqueueQuery(query);
                 }
+
                 query.addStateChangeListener(state -> {
                     if (state.isDone()) {
                         queryFinished(query);
@@ -807,6 +813,8 @@ public class InternalResourceGroup
                 group = group.parent.get();
             }
             updateEligibility();
+            // Increment global running query counter for pacing
+            queryPacingContext.onQueryStarted();
             executor.execute(query::startWaitingForResources);
             group = this;
             long lastRunningQueryStartTimeMillis = currentTimeMillis();
@@ -840,6 +848,8 @@ public class InternalResourceGroup
                     group.parent.get().descendantRunningQueries--;
                     group = group.parent.get();
                 }
+                // Decrement global running query counter for pacing
+                queryPacingContext.onQueryFinished();
             }
             else {
                 queuedQueries.remove(query);
@@ -908,8 +918,13 @@ public class InternalResourceGroup
                 return false;
             }
 
-            ManagedQueryExecution query = queuedQueries.poll();
+            ManagedQueryExecution query = queuedQueries.peek();
             if (query != null) {
+                if (!queryPacingContext.tryAcquireAdmissionSlot()) {
+                    return false;
+                }
+
+                queuedQueries.poll();  // Remove from queue; use query from peek() above
                 startInBackground(query);
                 return true;
             }
@@ -1146,7 +1161,8 @@ public class InternalResourceGroup
                 Function<ResourceGroupId, Optional<ResourceGroupRuntimeInfo>> additionalRuntimeInfo,
                 Predicate<InternalResourceGroup> shouldWaitForResourceManagerUpdate,
                 InternalNodeManager nodeManager,
-                ClusterResourceChecker clusterResourceChecker)
+                ClusterResourceChecker clusterResourceChecker,
+                QueryPacingContext queryPacingContext)
         {
             super(Optional.empty(),
                     name,
@@ -1156,7 +1172,8 @@ public class InternalResourceGroup
                     additionalRuntimeInfo,
                     shouldWaitForResourceManagerUpdate,
                     nodeManager,
-                    clusterResourceChecker);
+                    clusterResourceChecker,
+                    queryPacingContext);
         }
 
         public synchronized void updateEligibilityRecursively(InternalResourceGroup group)
@@ -1172,7 +1189,7 @@ public class InternalResourceGroup
             internalRefreshStats();
 
             while (internalStartNext()) {
-                // start all the queries we can
+                // start all the queries we can (subject to limits and pacing)
             }
         }
 
