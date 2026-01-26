@@ -59,7 +59,7 @@ public class CassandraTestingUtils
 
     public static void createKeyspace(CassandraSession session, String keyspaceName)
     {
-        session.execute("CREATE KEYSPACE " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
     }
 
     public static void createTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)

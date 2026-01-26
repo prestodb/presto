@@ -22,6 +22,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.google.common.io.Resources;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 import java.io.File;
@@ -67,8 +68,15 @@ public class CassandraServer
 
         this.dockerContainer = new GenericContainer<>("cassandra:3.11.19")
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml")
+                // Wait for Cassandra to be ready - this ensures it's fully started before tests
+                // Wait for the log message indicating CQL clients can connect
+                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
+                        .withStartupTimeout(java.time.Duration.ofSeconds(120)));
         this.dockerContainer.start();
+
+        // Wait for Cassandra to be ready - it takes longer in 3.11.19 than in 2.1.x
+        waitForCassandraToStart();
 
         InetSocketAddress contactPoint = new InetSocketAddress(
                 this.dockerContainer.getContainerIpAddress(),
@@ -101,6 +109,27 @@ public class CassandraServer
         }
 
         this.session = session;
+    }
+
+    private void waitForCassandraToStart()
+            throws Exception
+    {
+        long deadline = System.currentTimeMillis() + Duration.valueOf("2m").toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                // Check if Cassandra is ready by executing nodetool status
+                org.testcontainers.containers.Container.ExecResult result = dockerContainer.execInContainer("nodetool", "status");
+                if (result.getExitCode() == 0 && result.getStdout().contains("UN")) {
+                    log.info("Cassandra is ready");
+                    return;
+                }
+            }
+            catch (Exception e) {
+                // Cassandra not ready yet, continue waiting
+            }
+            SECONDS.sleep(2);
+        }
+        throw new TimeoutException("Cassandra did not start within 2 minutes");
     }
 
     private static String prepareCassandraYaml()
