@@ -34,8 +34,6 @@ public final class CassandraQueryRunner
     {
     }
 
-    private static boolean tpchLoaded;
-
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Map<String, String> connectorProperties)
             throws Exception
     {
@@ -55,7 +53,7 @@ public final class CassandraQueryRunner
 
         createKeyspace(server.getSession(), "tpch");
         List<TpchTable<?>> tables = TpchTable.getTables();
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables, true);
         for (TpchTable<?> table : tables) {
             server.refreshSizeEstimates("tpch", table.getTableName());
         }
