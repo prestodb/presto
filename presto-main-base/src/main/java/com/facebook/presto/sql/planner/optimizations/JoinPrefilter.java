@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -27,7 +26,6 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
-import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -42,7 +40,6 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isJoinPrefilterEnabled;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
@@ -50,13 +47,11 @@ import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
+import static com.facebook.presto.sql.planner.PlannerUtils.getVariableHash;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
-import static com.facebook.presto.sql.planner.PlannerUtils.orNullHashCode;
 import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
-import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -208,7 +203,7 @@ public class JoinPrefilter
                 PlanNode leftKeys = clonePlanNode(rewrittenLeft, session, metadata, idAllocator, leftKeyList, leftVarMap);
                 ImmutableList.Builder<RowExpression> expressionsToProject = ImmutableList.builder();
                 if (hashJoinKey) {
-                    RowExpression hashExpression = getVariableHash(leftKeyList);
+                    RowExpression hashExpression = getVariableHash(leftKeyList, functionAndTypeManager);
                     expressionsToProject.add(hashExpression);
                 }
                 else {
@@ -218,7 +213,7 @@ public class JoinPrefilter
 
                 VariableReferenceExpression rightKeyToFilter = rightKeyList.get(0);
                 if (hashJoinKey) {
-                    RowExpression hashExpression = getVariableHash(rightKeyList);
+                    RowExpression hashExpression = getVariableHash(rightKeyList, functionAndTypeManager);
                     rightKeyToFilter = variableAllocator.newVariable(hashExpression);
                     rewrittenRight = addProjections(rewrittenRight, idAllocator, ImmutableMap.of(rightKeyToFilter, hashExpression));
                 }
@@ -272,20 +267,6 @@ public class JoinPrefilter
         public boolean isPlanChanged()
         {
             return planChanged;
-        }
-
-        private RowExpression getVariableHash(List<VariableReferenceExpression> inputVariables)
-        {
-            List<CallExpression> hashExpressionList = inputVariables.stream().map(keyVariable ->
-                    callOperator(functionAndTypeManager.getFunctionAndTypeResolver(), OperatorType.XX_HASH_64, BIGINT, keyVariable)).collect(toImmutableList());
-            RowExpression hashExpression = hashExpressionList.get(0);
-            if (hashExpressionList.size() > 1) {
-                hashExpression = orNullHashCode(hashExpression);
-                for (int i = 1; i < hashExpressionList.size(); ++i) {
-                    hashExpression = call(functionAndTypeManager, "combine_hash", BIGINT, hashExpression, orNullHashCode(hashExpressionList.get(i)));
-                }
-            }
-            return hashExpression;
         }
     }
 }
