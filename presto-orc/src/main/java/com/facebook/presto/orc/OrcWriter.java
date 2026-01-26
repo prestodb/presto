@@ -464,12 +464,12 @@ public class OrcWriter
 
         // flush stripe if necessary
         bufferedBytes = toIntExact(columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum());
+        columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
         boolean dictionaryIsFull = dictionaryCompressionOptimizer.isFull(bufferedBytes);
-        Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, dictionaryIsFull);
+        Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, toIntExact(getRetainedBytes()), dictionaryIsFull);
         if (flushReason.isPresent()) {
             flushStripe(flushReason.get());
         }
-        columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     private void finishRowGroup()

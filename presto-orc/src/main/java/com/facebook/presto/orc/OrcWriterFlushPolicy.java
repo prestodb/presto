@@ -26,6 +26,7 @@ public interface OrcWriterFlushPolicy
     Optional<FlushReason> shouldFlushStripe(
             int stripeRowCount,
             int bufferedBytes,
+            int retainedBytes,
             boolean dictionaryIsFull);
 
     /**
@@ -37,6 +38,8 @@ public interface OrcWriterFlushPolicy
     int getStripeMinBytes();
 
     int getStripeMaxBytes();
+
+    int getRetainMaxBytes();
 
     int getStripeMaxRowCount();
 }
