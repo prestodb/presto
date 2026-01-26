@@ -37,28 +37,66 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Map<String, String> connectorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
+        System.out.println("=== CassandraQueryRunner: Starting createCassandraQueryRunner ===");
+        DistributedQueryRunner queryRunner = null;
+        try {
+            System.out.println("=== CassandraQueryRunner: Creating DistributedQueryRunner ===");
+            queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
 
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+            System.out.println("=== CassandraQueryRunner: Installing TpchPlugin ===");
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
 
-        connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-        connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
-        connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
-        connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
-        connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
+            connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
+            connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+            connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
-        queryRunner.installPlugin(new CassandraPlugin());
-        queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
+            System.out.println("=== CassandraQueryRunner: Installing CassandraPlugin ===");
+            queryRunner.installPlugin(new CassandraPlugin());
+            queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
-        createKeyspace(server.getSession(), "tpch");
-        List<TpchTable<?>> tables = TpchTable.getTables();
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables, true);
-        for (TpchTable<?> table : tables) {
-            server.refreshSizeEstimates("tpch", table.getTableName());
+            System.out.println("=== CassandraQueryRunner: Creating keyspace 'tpch' ===");
+            createKeyspace(server.getSession(), "tpch");
+
+            System.out.println("=== CassandraQueryRunner: Starting to copy TPCH tables ===");
+            List<TpchTable<?>> tables = TpchTable.getTables();
+            System.out.println("=== CassandraQueryRunner: Tables to copy: " + tables.size() + " ===");
+
+            try {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables, true);
+                System.out.println("=== CassandraQueryRunner: Successfully copied TPCH tables ===");
+            }
+            catch (Exception e) {
+                System.err.println("=== CassandraQueryRunner: ERROR copying TPCH tables ===");
+                e.printStackTrace(System.err);
+                throw new RuntimeException("Failed to copy TPCH tables", e);
+            }
+
+            System.out.println("=== CassandraQueryRunner: Refreshing size estimates ===");
+            for (TpchTable<?> table : tables) {
+                server.refreshSizeEstimates("tpch", table.getTableName());
+            }
+
+            System.out.println("=== CassandraQueryRunner: Successfully completed createCassandraQueryRunner ===");
+            return queryRunner;
         }
-
-        return queryRunner;
+        catch (Exception e) {
+            System.err.println("=== CassandraQueryRunner: FATAL ERROR in createCassandraQueryRunner ===");
+            e.printStackTrace(System.err);
+            if (queryRunner != null) {
+                try {
+                    System.err.println("=== CassandraQueryRunner: Attempting to close queryRunner due to error ===");
+                    queryRunner.close();
+                }
+                catch (Exception closeException) {
+                    System.err.println("=== CassandraQueryRunner: Error closing queryRunner ===");
+                    closeException.printStackTrace(System.err);
+                }
+            }
+            throw e;
+        }
     }
 
     public static Session createCassandraSession(String schema)
