@@ -62,8 +62,6 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
-import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
-import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -456,8 +454,8 @@ public class TestEncryption
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnRepetitionLevel(columnIO);
-        int definitionLevel = columnDefinitionLevel(columnIO);
+        int repetitionLevel = columnIO.getRepetitionLevel();
+        int definitionLevel = columnIO.getDefinitionLevel();
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
