@@ -288,4 +288,22 @@ public class TestSequenceFunction
                         "                    step => %s)) t(x)", start, stop, step),
                 format("SELECT %s, %s", start, Long.MAX_VALUE - 1));
     }
+
+    @Test
+    public void testSequenceLateralJoin()
+    {
+        // Test LATERAL join with sequence function
+        // This tests using sequence in a lateral join context with filtering
+        assertQuery("SELECT t.nationkey, s.seq " +
+                        "FROM tpch.tiny.nation t " +
+                        "CROSS JOIN LATERAL (" +
+                        "    SELECT * " +
+                        "    FROM TABLE(system.builtin.sequence(start => 1, stop => 5))" +
+                        ") AS s(seq) " +
+                        "WHERE t.nationkey < 3 AND s.seq <= t.regionkey",
+                "SELECT t.nationkey, s.seq " +
+                        "FROM tpch.tiny.nation t " +
+                        "CROSS JOIN UNNEST(sequence(1, 5)) AS s(seq) " +
+                        "WHERE t.nationkey < 3 AND s.seq <= t.regionkey");
+    }
 }
