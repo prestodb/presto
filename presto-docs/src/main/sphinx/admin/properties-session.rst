@@ -446,6 +446,17 @@ Use this to optimize the ``map_filter()`` and ``map_subset()`` function.
 
 It controls if subfields access is executed at the data source or not.
 
+``pushdown_subfields_for_cardinality``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable subfield pruning for the ``cardinality()`` function to skip reading keys and values.
+
+When enabled, the query optimizer can push down subfield pruning for cardinality operations,
+allowing the data source to skip reading the actual keys and values when only the cardinality
+(count of elements) is needed.
+
 ``schedule_splits_based_on_task_load``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
