@@ -37,6 +37,7 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_REGION;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 import static java.time.Duration.ofMillis;
@@ -147,7 +148,7 @@ public class PrestoS3ClientFactory
                         .writeTimeout(ofMillis(socketTimeout.toMillis())))
                 .forcePathStyle(true);
 
-        configureRegionAndEndpoint(clientBuilder, endpointUri);
+        configureRegionAndEndpoint(clientBuilder, endpointUri, config);
         return clientBuilder.build();
     }
 
@@ -195,7 +196,7 @@ public class PrestoS3ClientFactory
         return Optional.of(AwsBasicCredentials.create(accessKey, secretKey));
     }
 
-    private void configureRegionAndEndpoint(S3AsyncClientBuilder clientBuilder, URI endpointUri)
+    private void configureRegionAndEndpoint(S3AsyncClientBuilder clientBuilder, URI endpointUri, Configuration configuration)
     {
         boolean regionOrEndpointSet = false;
 
@@ -210,6 +211,14 @@ public class PrestoS3ClientFactory
 
             log.debug("Using custom endpoint: %s", endpointUri);
             regionOrEndpointSet = true;
+        }
+
+        String region = configuration.get(S3_REGION);
+        if (region != null) {
+            clientBuilder.region(Region.of(region));
+            regionOrEndpointSet = true;
+
+            log.debug("Using configured region: %s", region);
         }
 
         if (!regionOrEndpointSet) {

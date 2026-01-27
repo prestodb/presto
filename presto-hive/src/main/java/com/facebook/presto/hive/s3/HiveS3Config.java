@@ -37,6 +37,7 @@ public class HiveS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private String s3Region;
     private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
     private boolean s3PathStyleAccess;
     private boolean s3UseInstanceCredentials;
@@ -111,6 +112,18 @@ public class HiveS3Config
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public String getS3Region()
+    {
+        return s3Region;
+    }
+
+    @Config("hive.s3.region")
+    public HiveS3Config setS3Region(String s3Region)
+    {
+        this.s3Region = s3Region;
         return this;
     }
 
