@@ -65,6 +65,7 @@ public class IcebergConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> materializedViewProperties;
+    private final List<PropertyMetadata<?>> deprecatedTableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final ConnectorAccessControl accessControl;
     private final Set<BaseProcedure<?>> procedures;
@@ -83,6 +84,7 @@ public class IcebergConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> materializedViewProperties,
+            List<PropertyMetadata<?>> deprecatedTableProperties,
             List<PropertyMetadata<?>> columnProperties,
             ConnectorAccessControl accessControl,
             Set<BaseProcedure<?>> procedures,
@@ -100,6 +102,7 @@ public class IcebergConnector
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.materializedViewProperties = ImmutableList.copyOf(requireNonNull(materializedViewProperties, "materializedViewProperties is null"));
+        this.deprecatedTableProperties = ImmutableList.copyOf(requireNonNull(deprecatedTableProperties, "deprecatedTableProperties is null"));
         this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = requireNonNull(procedures, "procedures is null");
@@ -183,6 +186,11 @@ public class IcebergConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public List<PropertyMetadata<?>> getDeprecatedTableProperties()
+    {
+        return deprecatedTableProperties;
     }
 
     @Override

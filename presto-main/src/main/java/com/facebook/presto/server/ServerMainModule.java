@@ -102,6 +102,7 @@ import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.DeprecatedTablePropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
 import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -398,6 +399,9 @@ public class ServerMainModule
 
         // materialized view properties
         binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
+
+        // deprecated table properties
+        binder.bind(DeprecatedTablePropertyManager.class).in(Scopes.SINGLETON);
 
         // column properties
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);

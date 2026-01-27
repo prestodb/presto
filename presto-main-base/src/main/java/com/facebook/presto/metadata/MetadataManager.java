@@ -162,6 +162,7 @@ public class MetadataManager
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final MaterializedViewPropertyManager materializedViewPropertyManager;
+    private final DeprecatedTablePropertyManager deprecatedTablePropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
@@ -177,6 +178,7 @@ public class MetadataManager
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
+            DeprecatedTablePropertyManager deprecatedTablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
@@ -188,6 +190,7 @@ public class MetadataManager
                 schemaPropertyManager,
                 tablePropertyManager,
                 materializedViewPropertyManager,
+                deprecatedTablePropertyManager,
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
@@ -202,6 +205,7 @@ public class MetadataManager
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
+            DeprecatedTablePropertyManager deprecatedTablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
@@ -214,6 +218,7 @@ public class MetadataManager
                 schemaPropertyManager,
                 tablePropertyManager,
                 materializedViewPropertyManager,
+                deprecatedTablePropertyManager,
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
@@ -229,6 +234,7 @@ public class MetadataManager
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
             MaterializedViewPropertyManager materializedViewPropertyManager,
+            DeprecatedTablePropertyManager deprecatedTablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
@@ -241,6 +247,7 @@ public class MetadataManager
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
+        this.deprecatedTablePropertyManager = requireNonNull(deprecatedTablePropertyManager, "tableDeprecatedPropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -290,6 +297,7 @@ public class MetadataManager
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
+                new DeprecatedTablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
@@ -305,6 +313,7 @@ public class MetadataManager
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
+                new DeprecatedTablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager,
@@ -321,6 +330,7 @@ public class MetadataManager
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new MaterializedViewPropertyManager(),
+                new DeprecatedTablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 functionAndTypeManager.getTransactionManager(),
@@ -1602,6 +1612,11 @@ public class MetadataManager
     public TablePropertyManager getTablePropertyManager()
     {
         return tablePropertyManager;
+    }
+
+    public Optional<DeprecatedTablePropertyManager> getTableDeprecatedPropertyManager()
+    {
+        return Optional.of(deprecatedTablePropertyManager);
     }
 
     @Override
