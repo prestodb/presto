@@ -11,41 +11,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
-import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractPrimitiveType;
-import com.facebook.presto.common.type.FixedWidthType;
-import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.Long.reverseBytes;
 
-public class IpPrefixType
+public class IpAddressType
         extends AbstractPrimitiveType
         implements FixedWidthType
 {
-    public static final IpPrefixType IPPREFIX = new IpPrefixType();
+    public static final IpAddressType IPADDRESS = new IpAddressType();
 
-    private IpPrefixType()
+    private IpAddressType()
     {
-        super(parseTypeSignature(StandardTypes.IPPREFIX), Slice.class);
+        super(parseTypeSignature(StandardTypes.IPADDRESS), Slice.class);
     }
 
     @Override
     public int getFixedSize()
     {
-        return Long.BYTES * 2 + 1;
+        return INT128_BYTES;
     }
 
     @Override
@@ -58,10 +59,9 @@ public class IpPrefixType
         else {
             maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
         }
-        return new VariableWidthBlockBuilder(
+        return new Int128ArrayBlockBuilder(
                 blockBuilderStatus,
-                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()),
-                Math.min(expectedEntries * getFixedSize(), maxBlockSizeInBytes));
+                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
     }
 
     @Override
@@ -73,7 +73,7 @@ public class IpPrefixType
     @Override
     public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
     {
-        return createBlockBuilder(null, positionCount);
+        return new Int128ArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -91,13 +91,18 @@ public class IpPrefixType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, getFixedSize());
+        return leftBlock.getLong(leftPosition, SIZE_OF_LONG) == rightBlock.getLong(rightPosition, SIZE_OF_LONG) &&
+                leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return leftBlock.compareTo(leftPosition, 0, getFixedSize(), rightBlock, rightPosition, 0, getFixedSize());
+        int compare = Long.compareUnsigned(reverseBytes(leftBlock.getLong(leftPosition, 0)), reverseBytes(rightBlock.getLong(rightPosition, 0)));
+        if (compare != 0) {
+            return compare;
+        }
+        return Long.compareUnsigned(reverseBytes(leftBlock.getLong(leftPosition, SIZE_OF_LONG)), reverseBytes(rightBlock.getLong(rightPosition, SIZE_OF_LONG)));
     }
 
     @Override
@@ -113,12 +118,10 @@ public class IpPrefixType
             return null;
         }
         try {
-            String addrString = InetAddresses.toAddrString(InetAddress.getByAddress(getSlice(block, position).getBytes(0, 2 * Long.BYTES)));
-            String prefixString = Integer.toString(getSlice(block, position).getByte(2 * Long.BYTES) & 0xff);
-            return addrString + "/" + prefixString;
+            return InetAddresses.toAddrString(InetAddress.getByAddress(getSlice(block, position).getBytes()));
         }
         catch (UnknownHostException e) {
-            throw new IllegalArgumentException(e);
+            throw new IllegalArgumentException();
         }
     }
 
@@ -129,7 +132,8 @@ public class IpPrefixType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeBytes(block.getSlice(position, 0, getFixedSize()), 0, getFixedSize());
+            blockBuilder.writeLong(block.getLong(position, 0));
+            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
             blockBuilder.closeEntry();
         }
     }
@@ -143,16 +147,19 @@ public class IpPrefixType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        if (length != getFixedSize()) {
-            throw new IllegalStateException("Expected entry size to be exactly " + getFixedSize() + " but was " + length);
+        if (length != INT128_BYTES) {
+            throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
         }
-        blockBuilder.writeBytes(value, 0, length);
+        blockBuilder.writeLong(value.getLong(offset));
+        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
         blockBuilder.closeEntry();
     }
 
     @Override
     public final Slice getSlice(Block block, int position)
     {
-        return block.getSlice(position, 0, getFixedSize());
+        return Slices.wrappedLongArray(
+                block.getLong(position, 0),
+                block.getLong(position, SIZE_OF_LONG));
     }
 }

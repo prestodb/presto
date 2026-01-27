@@ -20,8 +20,8 @@ import io.airlift.slice.Slices;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 
 public class TestApproximateCountDistinctIpAddress
         extends AbstractTestApproximateCountDistinct
