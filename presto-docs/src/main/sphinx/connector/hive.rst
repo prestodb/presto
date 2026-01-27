@@ -729,7 +729,7 @@ Understanding and Tuning the Maximum Connections
 ################################################
 
 Presto can use its native S3 file system or EMRFS. When using the native FS, the
-maximum read and write connections are configured via the ``hive.s3.read.max-connections``
+maximum read and write connections are configured using the ``hive.s3.read.max-connections``
 and ``hive.s3.write.max-connections`` configuration properties respectively. When using EMRFS, the maximum connections is configured
 via the ``fs.s3.maxConnections`` Hadoop configuration property.
 

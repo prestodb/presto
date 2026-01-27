@@ -53,6 +53,7 @@ import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.retries.StandardRetryStrategy;
+import software.amazon.awssdk.services.kms.KmsClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -83,8 +84,11 @@ import software.amazon.awssdk.transfer.s3.model.CompletedFileUpload;
 import software.amazon.awssdk.transfer.s3.model.FileUpload;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.progress.TransferListener;
+import software.amazon.encryption.s3.CommitmentPolicy;
 import software.amazon.encryption.s3.S3AsyncEncryptionClient;
 import software.amazon.encryption.s3.S3EncryptionClient;
+import software.amazon.encryption.s3.algorithms.AlgorithmSuite;
+import software.amazon.encryption.s3.materials.KmsKeyring;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -1009,6 +1013,19 @@ public class PrestoS3FileSystem
         return clientBuilder;
     }
 
+    private KmsKeyring createKmsKeyring(String kmsKeyId)
+    {
+        KmsClient kmsClient = KmsClient.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(Region.US_EAST_1)
+                .build();
+
+        return KmsKeyring.builder()
+                .kmsClient(kmsClient)
+                .wrappingKeyId(kmsKeyId)
+                .build();
+    }
+
     private S3AsyncClient createS3AsyncEncryptionClient(
             Configuration hadoopConfig,
             SdkAsyncHttpClient.Builder httpClientBuilder,
@@ -1017,14 +1034,19 @@ public class PrestoS3FileSystem
             URI endpointUri)
     {
         S3AsyncClientBuilder baseClientBuilder = configureS3AsyncClientBuilder(hadoopConfig, httpClientBuilder, s3Configuration, endpointUri);
+        KmsKeyring kmsKeyring = createKmsKeyring(kmsKeyId);
 
-        return S3AsyncEncryptionClient.builder()
+        return S3AsyncEncryptionClient.builderV4()
                 .wrappedClient(baseClientBuilder.build())
-                .kmsKeyId(kmsKeyId)
+                .keyring(kmsKeyring)
                 // The legacy decryption modes are designed to be a temporary fix.
                 // After Presto users re-encrypt all of their objects with fully supported algorithms, this can be eliminated from the code.
                 .enableLegacyUnauthenticatedModes(true)
                 .enableLegacyWrappingAlgorithms(true)
+                //Secure encryption: New encryptions use ALG_AES_256_GCM_IV12_TAG16_NO_KDF which is AWS-recommended for v4
+                .encryptionAlgorithm(AlgorithmSuite.ALG_AES_256_GCM_IV12_TAG16_NO_KDF)
+                //the FORBID_ENCRYPT_ALLOW_DECRYPT policy allows reading legacy encrypted objects while writing new objects with the secure algorithm
+                .commitmentPolicy(CommitmentPolicy.FORBID_ENCRYPT_ALLOW_DECRYPT)
                 .build();
     }
 
@@ -1038,15 +1060,20 @@ public class PrestoS3FileSystem
     {
         S3ClientBuilder baseClientBuilder = configureS3ClientBuilder(hadoopConfig, httpClientBuilder, s3Configuration, endpointUri);
         S3AsyncClientBuilder baseAsyncClientBuilder = configureS3AsyncClientBuilder(hadoopConfig, asyncHttpClientBuilder, s3Configuration, endpointUri);
+        KmsKeyring kmsKeyring = createKmsKeyring(kmsKeyId);
 
-        return S3EncryptionClient.builder()
+        return S3EncryptionClient.builderV4()
                 .wrappedClient(baseClientBuilder.build())
                 .wrappedAsyncClient(baseAsyncClientBuilder.build())
-                .kmsKeyId(kmsKeyId)
+                .keyring(kmsKeyring)
                 // The legacy decryption modes are designed to be a temporary fix.
                 // After Presto users re-encrypt all of their objects with fully supported algorithms, this can be eliminated from the code.
                 .enableLegacyUnauthenticatedModes(true)
                 .enableLegacyWrappingAlgorithms(true)
+                //Secure encryption: New encryptions use ALG_AES_256_GCM_IV12_TAG16_NO_KDF which is AWS-recommended for v4
+                .encryptionAlgorithm(AlgorithmSuite.ALG_AES_256_GCM_IV12_TAG16_NO_KDF)
+                //the FORBID_ENCRYPT_ALLOW_DECRYPT policy allows reading legacy encrypted objects while writing new objects with the secure algorithm
+                .commitmentPolicy(CommitmentPolicy.FORBID_ENCRYPT_ALLOW_DECRYPT)
                 .build();
     }
 
