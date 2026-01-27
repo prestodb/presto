@@ -22,7 +22,7 @@ add_library(
 if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   add_subdirectory(arrow_flight)
   target_compile_definitions(presto_connectors PUBLIC PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
-  target_link_libraries(presto_connectors presto_flight_connector)
+  target_link_libraries(presto_connectors presto_flight_connector presto_federation_connector)
 endif()
 
 if(PRESTO_ENABLE_CUDF)
