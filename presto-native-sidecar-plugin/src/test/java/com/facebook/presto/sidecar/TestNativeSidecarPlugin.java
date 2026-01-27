@@ -689,6 +689,20 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
         assertQuerySucceeds(session, "SELECT table_name, ordinal_position FROM information_schema.columns  WHERE abs(ordinal_position) IN (1, 2, 3) AND table_catalog = 'hive' AND table_name != 'roles' ORDER BY table_name, ordinal_position");
         assertQuerySucceeds(session, "select lower(table_name) from information_schema.tables where table_name = 'lineitem' or table_name = 'LINEITEM'");
+
+        // Test dereference expression.
+        assertQuerySucceeds(session,
+                "select cast(row(row(row(random(10), if(random(10) >= 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][1][2]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(row(random(10), if(random(10) < 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][2]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(null, random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int))[1][1][1]");
+        assertQuerySucceeds(session,
+                "select cast(row(row(null, if(random(100) >= 0, 4)), random(10)) AS row(x row(y row(a int, b int), c int), d int))[2]");
+
+        // Test dereference expression with SQL invoked function, array_least_frequent.
+        assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(orderkey)) from orders");
+        assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(nationkey)) from nation");
     }
 
     @Test

@@ -319,7 +319,7 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getDereferenceExpression(
   const auto dereferenceInputs = std::vector<velox::core::TypedExprPtr>{
       dereferenceExpr->inputs().at(0),
       std::make_shared<velox::core::ConstantTypedExpr>(
-          velox::BIGINT(), static_cast<int64_t>(dereferenceExpr->index()))};
+          velox::INTEGER(), static_cast<int32_t>(dereferenceExpr->index()))};
   for (const auto& input : dereferenceInputs) {
     const auto rowExpr = getRowExpression(input);
     protocol::to_json(j, rowExpr);
