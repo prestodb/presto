@@ -234,9 +234,4 @@ public class TestWindowQueries
     @Test(enabled = false)
     public void testRowFieldAccessorInWindowFunction()
     {}
-
-    @Override
-    @Test(enabled = false)
-    public void testGroupingInWindowFunction()
-    {}
 }

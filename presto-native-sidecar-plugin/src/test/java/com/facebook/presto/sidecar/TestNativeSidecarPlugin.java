@@ -706,7 +706,7 @@ public class TestNativeSidecarPlugin
                 "ORDER BY table_name, position_category");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testArrayLeastFrequentCrashingWorker()
     {
         assertQuery("SELECT array_least_frequent(quantities) from orders_ex");

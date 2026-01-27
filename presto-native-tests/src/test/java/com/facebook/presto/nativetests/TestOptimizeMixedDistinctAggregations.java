@@ -68,20 +68,10 @@ public class TestOptimizeMixedDistinctAggregations
         NativeTestsUtils.createTables(storageFormat);
     }
 
-    // crashes the worker
+    // data mismatch
     @Override
     @Test(enabled = false)
-    public void testGroupByCase() {}
-
-    // crashes the worker
-    @Override
-    @Test(enabled = false)
-    public void testGroupByCaseNoElse() {}
-
-    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
-    @Override
-    @Test(enabled = false)
-    public void testGroupByIf() {}
+    public void testGroupByWithNulls() {}
 
     // crashes the worker
     @Override
@@ -91,30 +81,179 @@ public class TestOptimizeMixedDistinctAggregations
     // crashes the worker
     @Override
     @Test(enabled = false)
-    public void testGroupBySearchedCase() {}
-
-    // crashes the worker
-    @Override
-    @Test(enabled = false)
-    public void testGroupBySearchedCaseNoElse() {}
-
-    // data mismatch
-    @Override
-    @Test(enabled = false)
-    public void testGroupByWithNulls() {}
-
-    // crashes the worker
-    @Override
-    @Test(enabled = false)
     public void testGroupedRow() {}
+
+    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
+    // and Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+    @Override
+    @Test(enabled = false)
+    public void testGroupByCase() {}
+
+    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
+    @Override
+    @Test(enabled = false)
+    public void testGroupByIf() {}
+
+    // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+    @Override
+    @Test(enabled = false)
+    public void testGroupBySearchedCase() {}
 
     // type of variable 'expr_14' is expected to be varchar(15), but the actual type is varchar
     @Override
     @Test(enabled = false)
     public void testGroupingSetPredicatePushdown() {}
 
-    // type of variable 'expr_20' is expected to be varchar(1), but the actual type is varchar
+    // todo: remove this
+    //  All the failing queries overridden test methods are grouped into failures and tracked below, once the
+    //  group of queries pass, we can get rid of the overrides.
     @Override
+    @Test
+    public void testExtractDistinctAggregationOptimizer()
+    {
+        assertQuery("SELECT custkey, orderstatus, avg(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY custkey, orderstatus");
+
+        assertQuery("SELECT s, MAX(custkey), SUM(a) FROM (" +
+                "    SELECT custkey, avg(shippriority) AS a, SUM(DISTINCT orderkey) AS s FROM orders GROUP BY custkey, orderstatus" +
+                ") " +
+                "GROUP BY s");
+
+        assertQuery("SELECT max(orderstatus), COUNT(DISTINCT shippriority), sum(DISTINCT orderkey) FROM orders");
+
+        assertQuery("SELECT COUNT(tan(shippriority)), sum(DISTINCT orderkey) FROM orders");
+
+        // Test overlap between GroupBy columns and aggregation columns
+
+        assertQuery("SELECT shippriority, COUNT(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY shippriority");
+
+        assertQuery("SELECT shippriority, COUNT(shippriority), SUM(DISTINCT shippriority) FROM orders GROUP BY shippriority");
+
+        assertQuery("SELECT clerk, shippriority, COUNT(shippriority), SUM(DISTINCT orderkey) FROM orders GROUP BY clerk, shippriority");
+
+        assertQuery("SELECT clerk, shippriority, COUNT(shippriority), SUM(DISTINCT shippriority) FROM orders GROUP BY clerk, shippriority");
+    }
+
+    @Override
+    @Test
+    public void testGroupBySearchedCaseNoElse()
+    {
+        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Override
+    @Test
+    public void testGroupByCaseNoElse()
+    {
+        // 'then' in GROUP BY clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    // aggregated test cases start here
+
     @Test(enabled = false)
-    public void testExtractDistinctAggregationOptimizer() {}
+    public void testVarcharMismatches()
+    {
+        // testExtractDistinctAggregationOptimizer
+        assertQuery("SELECT max(orderstatus), COUNT(DISTINCT orderkey), sum(DISTINCT orderkey) FROM orders");
+        assertQuery("SELECT max(orderstatus), COUNT(orderkey), sum(DISTINCT orderkey) FROM orders");
+        assertQuery("SELECT shippriority, MAX(orderstatus), SUM(DISTINCT shippriority) FROM orders GROUP BY shippriority");
+        assertQuery("SELECT clerk, shippriority, MAX(orderstatus), SUM(DISTINCT shippriority) FROM orders GROUP BY clerk, shippriority");
+
+        // testGroupByCaseNoElse
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // testGroupByCase
+        // operand in GROUP BY clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // condition in GROUP BY clause
+        assertQuery("SELECT CASE 'O' WHEN orderstatus THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'then' in GROUP BY clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus ELSE 'x' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        // 'else' in GROUP BY clause
+        assertQuery("SELECT CASE 1 WHEN 1 THEN 'x' ELSE orderstatus END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+    }
+
+    @Test(enabled = false)
+    public void testDataMismatch()
+    {
+        // testExtractDistinctAggregationOptimizer
+        assertQuery("SELECT count(DISTINCT a), max(b) FROM (VALUES (row(1, 2), 3)) t(a, b)", "VALUES (1, 3)");
+    }
+
+    // only after Pramod's cherry pick for CASE during expression conversion
+    @Test(enabled = false)
+    public void testExpressionWithoutDependenciesPresent()
+    {
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        // whole CASE in GROUP BY clause
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' END");
+
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        assertQuery("SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        assertQuery(
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE WHEN orderstatus = 'O' THEN 'a' ELSE 'b' END");
+
+        // testGroupByCaseNoElse
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        // whole CASE in GROUP BY clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' END");
+
+        // testGroupByCase
+        // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
+        // whole CASE in GROUP BY clause
+        assertQuery("SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                "FROM orders\n" +
+                "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+
+        assertQuery(
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY 1",
+                "SELECT CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END, count(*)\n" +
+                        "FROM orders\n" +
+                        "GROUP BY CASE orderstatus WHEN 'O' THEN 'a' ELSE 'b' END");
+    }
 }

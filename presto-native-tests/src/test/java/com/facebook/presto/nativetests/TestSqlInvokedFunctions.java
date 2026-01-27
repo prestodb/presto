@@ -109,7 +109,9 @@ public class TestSqlInvokedFunctions
         }
     }
 
-    // type of variable 'array_split_into_chunks' is expected to be array(array(varchar(1))), but the actual type is array(array(varchar))
+    // todo: remove this
+    //  All the failing queries overridden test methods are grouped into failures and tracked below, once the
+    //  group of queries pass, we can get rid of the overrides.
     @Override
     @Test
     public void testArraySplitIntoChunks()
@@ -135,10 +137,6 @@ public class TestSqlInvokedFunctions
         sql = "select array_split_into_chunks(array[1, null, 3, null, 5], 2)";
         assertQuery(sql, "values array[array[1, null], array[3, null], array[5]]");
 
-        // type of variable 'array_split_into_chunks' is expected to be array(array(varchar(1))), but the actual type is array(array(varchar))
-//        sql = "select array_split_into_chunks(array['a', 'b', 'c', 'd'], 2)";
-//        assertQuery(sql, "values array[array['a', 'b'], array['c', 'd']]");
-
         sql = "select array_split_into_chunks(array[1.1, 2.2, 3.3, 4.4, 5.5], 2)";
         assertQuery(sql, "values array[array[1.1, 2.2], array[3.3, 4.4], array[5.5]]");
 
@@ -153,5 +151,12 @@ public class TestSqlInvokedFunctions
 
         sql = "select array_split_into_chunks(array[], 0)";
         assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+    }
+
+    @Test(enabled = false)
+    public void testVarcharMismatches()
+    {
+        @Language("SQL") String sql = "select array_split_into_chunks(array['a', 'b', 'c', 'd'], 2)";
+        assertQuery(sql, "values array[array['a', 'b'], array['c', 'd']]");
     }
 }
