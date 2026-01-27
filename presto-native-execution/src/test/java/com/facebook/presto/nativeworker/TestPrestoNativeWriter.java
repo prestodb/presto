@@ -769,4 +769,50 @@ public class TestPrestoNativeWriter
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();
     }
+
+    @Test
+    public void testDecimalTypeCastingOnInsert()
+    {
+        String sourceTable = "decimal_source";
+        String targetTable = "decimal_target";
+
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "short_decimal DECIMAL(10, 2), " +
+                    "long_decimal DECIMAL(30, 10)" +
+                    ") WITH (format = 'PARQUET')", sourceTable));
+
+            assertUpdate(String.format("INSERT INTO %s VALUES " +
+                    "(1, DECIMAL '12345.67', DECIMAL '12345678901234567890.1234567890'), " +
+                    "(2, DECIMAL '999.99', DECIMAL '999999999999999999.9999999999'), " +
+                    "(3, DECIMAL '-123.45', DECIMAL '-123456789012345.123456')", sourceTable), 3);
+
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "short_decimal DECIMAL(15, 2), " +
+                    "long_decimal DECIMAL(38, 10)" +
+                    ") WITH (format = 'PARQUET')", targetTable));
+
+            assertUpdate(String.format("INSERT INTO %s SELECT * FROM %s", targetTable, sourceTable), 3);
+
+            assertQuery(String.format("SELECT COUNT(*) FROM %s", targetTable), "VALUES (BIGINT '3')");
+            assertQuery(String.format("SELECT id, short_decimal, long_decimal FROM %s WHERE id = 1", targetTable),
+                    "VALUES (1, DECIMAL '12345.67', DECIMAL '12345678901234567890.1234567890')");
+            assertQuery(String.format("SELECT id, short_decimal, long_decimal FROM %s WHERE id = 2", targetTable),
+                    "VALUES (2, DECIMAL '999.99', DECIMAL '999999999999999999.9999999999')");
+            assertQuery(String.format("SELECT id, short_decimal FROM %s WHERE id = 3", targetTable),
+                    "VALUES (3, DECIMAL '-123.45')");
+
+            // Test direct INSERT with literal values that need casting
+            assertUpdate(String.format("INSERT INTO %s VALUES " +
+                    "(4, DECIMAL '1.23', DECIMAL '1.2345678901')", targetTable), 1);
+            assertQuery(String.format("SELECT short_decimal, long_decimal FROM %s WHERE id = 4", targetTable),
+                    "VALUES (DECIMAL '1.23', DECIMAL '1.2345678901')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
+        }
+    }
 }
