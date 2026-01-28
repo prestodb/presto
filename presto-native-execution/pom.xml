@@ -580,7 +580,7 @@
                     <plugin>
                         <groupId>io.fabric8</groupId>
                         <artifactId>docker-maven-plugin</artifactId>
-                        <version>0.45.1</version>
+                        <version>0.47.0</version>
                         <executions>
                             <execution>
                                 <id>coordinator</id>
