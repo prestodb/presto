@@ -41,6 +41,12 @@ for more information.
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user.
 
+.. note::
+
+   The user and password can be set either in the connection URL or in the ``connection-user`` and ``connection-password`` properties. Providing the credentials in both places will result in an error.
+
+
+
 Multiple Oracle Servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 

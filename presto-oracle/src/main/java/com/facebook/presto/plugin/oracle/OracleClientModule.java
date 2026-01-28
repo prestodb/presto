@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.ConnectionFactory;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
+import com.facebook.presto.spi.PrestoException;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -28,12 +30,18 @@ import oracle.jdbc.OracleDriver;
 import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
         implements Module
 {
+    private static final Logger log = Logger.get(OracleClientModule.class);
     @Override
     public void configure(Binder binder)
     {
@@ -48,7 +56,13 @@ public class OracleClientModule
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
+        requireNonNull(config, "BaseJdbc config is null");
+
+        boolean isCredentialsInUrl = JDBCUrlValidator.findCredentialsInJdbcUrl(config.getConnectionUrl());
+        if (isCredentialsInUrl && (config.getConnectionUser() != null || config.getConnectionPassword() != null)) {
+            throw new PrestoException(NOT_SUPPORTED, "Credentials are specified in both connection-url and user/password properties. Use only one");
+        }
+        Properties connectionProperties = basicConnectionProperties(config);
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
@@ -57,5 +71,23 @@ public class OracleClientModule
                 Optional.empty(),
                 Optional.empty(),
                 connectionProperties);
+    }
+
+    public static class JDBCUrlValidator
+    {
+        public static boolean findCredentialsInJdbcUrl(String jdbcUrl)
+        {
+            String regex = "jdbc:oracle:thin:[^@]+@";
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher(jdbcUrl);
+
+            if (matcher.find()) {
+                log.debug("user and password present in the connection url");
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
     }
 }
