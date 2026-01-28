@@ -2844,6 +2844,8 @@
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                    <exclude>javax.annotation:javax.annotation-api</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -3247,7 +3249,6 @@
                                 </dependency>
                             </dependencies>
                             <configuration>
-                                <skip>true</skip>
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
@@ -3267,7 +3268,6 @@
                             <groupId>org.basepom.maven</groupId>
                             <artifactId>duplicate-finder-maven-plugin</artifactId>
                             <configuration>
-                                <skip>true</skip>
                                 <ignoredClassPatterns combine.children="append">
                                     <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                                     <!-- Duplicate class is being brought in by commons-io & log4j-api -->
@@ -3305,6 +3305,34 @@
             </modules>
 
             <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <configuration>
+                            <rules>
+                                <enforceBytecodeVersion>
+                                    <maxJdkVersion>20</maxJdkVersion>
+                                    <excludes combine.children="append">
+                                        <exclude>com.facebook.presto.spark:spark-core:jar</exclude>
+                                    </excludes>
+                                </enforceBytecodeVersion>
+                            </rules>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredDependencies>
+                                <dependency>
+                                    <groupId>com.facebook.presto.spark</groupId>
+                                    <artifactId>spark-core</artifactId>
+                                </dependency>
+                            </ignoredDependencies>
+                        </configuration>
+                    </plugin>
+                </plugins>
                 <pluginManagement>
                     <plugins>
                         <plugin>
@@ -3319,7 +3347,6 @@
                                 </dependency>
                             </dependencies>
                             <configuration>
-                                <skip>true</skip>
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
@@ -3339,7 +3366,6 @@
                             <groupId>org.basepom.maven</groupId>
                             <artifactId>duplicate-finder-maven-plugin</artifactId>
                             <configuration>
-                                <skip>true</skip>
                                 <ignoredClassPatterns combine.children="append">
                                     <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                                     <!-- Duplicate class is being brought in by commons-io & log4j-api -->
