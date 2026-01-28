@@ -13,72 +13,14 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.Session;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableMap;
-import org.assertj.core.util.Files;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.util.Optional;
-
-import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-
-@Test(singleThreaded = true)
-public class TestIcebergMaterializedViews
+public abstract class AbstractTestIcebergMaterializedViews
         extends AbstractTestQueryFramework
 {
-    private File warehouseLocation;
-    private TestingHttpServer restServer;
-    private String serverUri;
-
-    @BeforeClass
-    @Override
-    public void init()
-            throws Exception
-    {
-        warehouseLocation = Files.newTemporaryFolder();
-
-        restServer = getRestServer(warehouseLocation.getAbsolutePath());
-        restServer.start();
-
-        serverUri = restServer.getBaseUrl().toString();
-        super.init();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws Exception
-    {
-        if (restServer != null) {
-            restServer.stop();
-        }
-        deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return IcebergQueryRunner.builder()
-                .setCatalogType(REST)
-                .setExtraConnectorProperties(restConnectorProperties(serverUri))
-                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
-                .setSchemaName("test_schema")
-                .setCreateTpchTables(false)
-                .setExtraProperties(ImmutableMap.of("experimental.legacy-materialized-views", "false"))
-                .build().getQueryRunner();
-    }
-
     @Test
     public void testCreateMaterializedView()
     {
@@ -87,9 +29,9 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_simple AS SELECT id, name, value FROM test_mv_base");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_simple\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_simple\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_simple", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_simple", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_mv_simple ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
@@ -105,7 +47,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_filtered AS SELECT id, amount FROM test_mv_filtered_base WHERE status = 'active'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_filtered", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_filtered", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_filtered ORDER BY id",
                 "VALUES (1, 100), (3, 300)");
 
@@ -123,7 +65,7 @@ public class TestIcebergMaterializedViews
                 "SELECT category, COUNT(*) as product_count, SUM(revenue) as total_revenue " +
                 "FROM test_mv_sales GROUP BY category");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_category_sales", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_category_sales", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_category_sales ORDER BY category",
                 "VALUES ('Books', 2, 800), ('Electronics', 2, 2500)");
 
@@ -139,22 +81,22 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_stale AS SELECT id, value FROM test_mv_stale_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_stale ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("INSERT INTO test_mv_stale_base VALUES (3, 300)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_mv_stale ORDER BY id",
                 "VALUES (1, 100), (2, 200), (3, 300)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_stale", 3);
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_stale\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_stale\"", "SELECT BIGINT '3'");
 
         assertUpdate("TRUNCATE TABLE test_mv_stale_base");
-        assertQuery("SELECT COUNT(*) FROM test_mv_stale_base", "SELECT 0");
-        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT 0");
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_stale\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_stale_base", "SELECT BIGINT '0'");
+        assertQuery("SELECT COUNT(*) FROM test_mv_stale", "SELECT BIGINT '0'");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_stale\"", "SELECT BIGINT '3'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_stale");
         assertUpdate("DROP TABLE test_mv_stale_base");
@@ -168,15 +110,15 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_drop AS SELECT id, value FROM test_mv_drop_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_drop", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM test_mv_drop", "SELECT BIGINT '1'");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_drop\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_drop\"", "SELECT BIGINT '0'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_drop");
 
         assertQueryFails("SELECT * FROM \"__mv_storage__test_mv_drop\"", ".*does not exist.*");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_drop_base", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM test_mv_drop_base", "SELECT BIGINT '1'");
 
         assertUpdate("DROP TABLE test_mv_drop_base");
     }
@@ -217,29 +159,29 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_refresh AS SELECT id, value FROM " + tableName);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES (3, 300)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '3'");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '2'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
                 "VALUES (1, 100), (2, 200), (3, 300)");
 
@@ -255,29 +197,29 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_refresh AS SELECT id, value FROM test_mv_refresh_base");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_mv_refresh ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("INSERT INTO test_mv_refresh_base VALUES (3, 300)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_refresh", "SELECT BIGINT '3'");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '2'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_refresh", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_refresh\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_refresh\" ORDER BY id",
                 "VALUES (1, 100), (2, 200), (3, 300)");
 
@@ -294,14 +236,14 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_agg_refresh AS " +
                 "SELECT category, SUM(value) as total FROM test_mv_agg_refresh_base GROUP BY category");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT BIGINT '0'");
 
         assertQuery("SELECT * FROM test_mv_agg_refresh ORDER BY category",
                 "VALUES ('A', 25), ('B', 20)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_agg_refresh", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT BIGINT '2'");
 
         assertUpdate("INSERT INTO test_mv_agg_refresh_base VALUES ('A', 5), ('C', 30)", 2);
 
@@ -310,7 +252,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_agg_refresh", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_agg_refresh\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_agg_refresh\" ORDER BY category",
                 "VALUES ('A', 30), ('B', 20), ('C', 30)");
 
@@ -335,15 +277,15 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_partitioned AS " +
                 "SELECT id, event_date, value FROM test_mv_partitioned_base");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_partitioned\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_partitioned\"", "SELECT BIGINT '0'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_partitioned", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_partitioned\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_partitioned\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_partitioned\" ORDER BY id",
                 "VALUES (1, DATE '2024-01-01', 100), (2, DATE '2024-01-01', 200), (3, DATE '2024-01-02', 300)");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_mv_partitioned ORDER BY id",
                 "VALUES (1, DATE '2024-01-01', 100), (2, DATE '2024-01-01', 200), (3, DATE '2024-01-02', 300)");
 
@@ -351,7 +293,7 @@ public class TestIcebergMaterializedViews
                 "(4, DATE '2024-01-03', 400), " +
                 "(5, DATE '2024-01-03', 500)", 2);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT 5");
+        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT BIGINT '5'");
         assertQuery("SELECT * FROM test_mv_partitioned ORDER BY id",
                 "VALUES (1, DATE '2024-01-01', 100), " +
                         "(2, DATE '2024-01-01', 200), " +
@@ -362,7 +304,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_mv_partitioned_base VALUES " +
                 "(6, DATE '2024-01-04', 600)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT 6");
+        assertQuery("SELECT COUNT(*) FROM test_mv_partitioned", "SELECT BIGINT '6'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_partitioned");
         assertUpdate("DROP TABLE test_mv_partitioned_base");
@@ -375,7 +317,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO minimal_table VALUES (1)", 1);
         assertUpdate("CREATE MATERIALIZED VIEW minimal_mv AS SELECT id FROM minimal_table");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__minimal_mv\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__minimal_mv\"", "SELECT BIGINT '0'");
 
         try {
             assertUpdate("REFRESH MATERIALIZED VIEW minimal_mv", 1);
@@ -384,8 +326,8 @@ public class TestIcebergMaterializedViews
             System.err.println("REFRESH failed with: " + e.getMessage());
         }
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__minimal_mv\"", "SELECT 1");
-        assertQuery("SELECT * FROM \"__mv_storage__minimal_mv\"", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__minimal_mv\"", "SELECT BIGINT '1'");
+        assertQuery("SELECT * FROM \"__mv_storage__minimal_mv\"", "SELECT BIGINT '1'");
 
         assertUpdate("DROP MATERIALIZED VIEW minimal_mv");
         assertUpdate("DROP TABLE minimal_table");
@@ -404,31 +346,31 @@ public class TestIcebergMaterializedViews
                 "SELECT o.order_id, c.customer_name, o.amount " +
                 "FROM test_mv_orders o JOIN test_mv_customers c ON o.customer_id = c.customer_id");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_mv_order_details ORDER BY order_id",
                 "VALUES (1, 'Alice', 50), (2, 'Bob', 75), (3, 'Alice', 25)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_order_details", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_order_details\" ORDER BY order_id",
                 "VALUES (1, 'Alice', 50), (2, 'Bob', 75), (3, 'Alice', 25)");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT BIGINT '3'");
 
         assertUpdate("INSERT INTO test_mv_orders VALUES (4, 200, 100)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_mv_order_details", "SELECT BIGINT '4'");
         assertQuery("SELECT * FROM test_mv_order_details ORDER BY order_id",
                 "VALUES (1, 'Alice', 50), (2, 'Bob', 75), (3, 'Alice', 25), (4, 'Bob', 100)");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT BIGINT '3'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_order_details", 4);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_order_details\"", "SELECT BIGINT '4'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_order_details\" ORDER BY order_id",
                 "VALUES (1, 'Alice', 50), (2, 'Bob', 75), (3, 'Alice', 25), (4, 'Bob', 100)");
 
@@ -459,17 +401,17 @@ public class TestIcebergMaterializedViews
                 "SELECT o.order_id, c.customer_name, o.order_date, o.amount " +
                 "FROM test_mv_part_orders o JOIN test_mv_part_customers c ON o.customer_id = c.customer_id");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT BIGINT '0'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_part_join", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_mv_part_join\" ORDER BY order_id",
                 "VALUES (1, 'Alice', DATE '2024-01-01', 50), " +
                         "(2, 'Bob', DATE '2024-01-01', 75), " +
                         "(3, 'Alice', DATE '2024-01-02', 25)");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_part_join", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_part_join", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_mv_part_join ORDER BY order_id",
                 "VALUES (1, 'Alice', DATE '2024-01-01', 50), " +
                         "(2, 'Bob', DATE '2024-01-01', 75), " +
@@ -477,7 +419,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_mv_part_orders VALUES (4, 200, DATE '2024-01-03', 100)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_part_join", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_mv_part_join", "SELECT BIGINT '4'");
         assertQuery("SELECT * FROM test_mv_part_join ORDER BY order_id",
                 "VALUES (1, 'Alice', DATE '2024-01-01', 50), " +
                         "(2, 'Bob', DATE '2024-01-01', 75), " +
@@ -486,7 +428,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_part_join", 4);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_part_join\"", "SELECT BIGINT '4'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_part_join");
         assertUpdate("DROP TABLE test_mv_part_customers");
@@ -521,14 +463,14 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_multi_stale", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_multi_stale\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_multi_stale\"", "SELECT BIGINT '2'");
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_multi_stale", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_multi_stale", "SELECT BIGINT '2'");
 
         assertUpdate("INSERT INTO test_mv_orders VALUES (3, DATE '2024-01-03', 300)", 1);
         assertUpdate("INSERT INTO test_mv_customers VALUES (3, DATE '2024-01-03', 'Charlie')", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_multi_stale", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_multi_stale", "SELECT BIGINT '3'");
         assertQuery("SELECT order_id, name, order_date, reg_date, amount FROM test_mv_multi_stale ORDER BY order_id",
                 "VALUES (1, 'Alice', DATE '2024-01-01', DATE '2024-01-01', 100), " +
                         "(2, 'Bob', DATE '2024-01-02', DATE '2024-01-02', 200), " +
@@ -573,13 +515,13 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_three_tables", 1);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_three_tables\"", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_three_tables\"", "SELECT BIGINT '1'");
 
         assertUpdate("INSERT INTO test_mv_t1 VALUES (2, DATE '2024-01-02', 150)", 1);
         assertUpdate("INSERT INTO test_mv_t2 VALUES (2, DATE '2024-01-01', 250)", 1);
         assertUpdate("INSERT INTO test_mv_t3 VALUES (2, DATE '2024-01-02', 350)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_three_tables", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_mv_three_tables", "SELECT BIGINT '2'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_three_tables");
         assertUpdate("DROP TABLE test_mv_t3");
@@ -625,7 +567,7 @@ public class TestIcebergMaterializedViews
                 "(4, DATE '2024-01-04', 'active'), " +
                 "(5, DATE '2024-01-05', 'pending')", 3);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_diff_partitions", "SELECT 5");
+        assertQuery("SELECT COUNT(*) FROM test_mv_diff_partitions", "SELECT BIGINT '5'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_mv_diff_partitions");
         assertUpdate("DROP TABLE test_mv_table_b");
@@ -652,18 +594,18 @@ public class TestIcebergMaterializedViews
                 "SELECT c.id, c.category, s.sale_date, s.amount " +
                 "FROM test_mv_non_part c JOIN test_mv_part_sales s ON c.id = s.id");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_mixed_stale\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_mixed_stale\"", "SELECT BIGINT '0'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_mv_mixed_stale", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_mixed_stale\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_mv_mixed_stale\"", "SELECT BIGINT '2'");
         assertQuery("SELECT id, category, sale_date, amount FROM \"__mv_storage__test_mv_mixed_stale\" ORDER BY id",
                 "VALUES (1, 'Electronics', DATE '2024-01-01', 500), (2, 'Books', DATE '2024-01-02', 300)");
 
         assertUpdate("INSERT INTO test_mv_non_part VALUES (3, 'Toys')", 1);
         assertUpdate("INSERT INTO test_mv_part_sales VALUES (3, DATE '2024-01-03', 700)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_mv_mixed_stale", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_mv_mixed_stale", "SELECT BIGINT '3'");
         assertQuery("SELECT id, category, sale_date, amount FROM test_mv_mixed_stale ORDER BY id",
                 "VALUES (1, 'Electronics', DATE '2024-01-01', 500), " +
                         "(2, 'Books', DATE '2024-01-02', 300), " +
@@ -695,7 +637,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_pa_matching_base VALUES (4, DATE '2024-01-04', 400)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_pa_matching_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_pa_matching_mv", "SELECT BIGINT '4'");
         assertQuery("SELECT id, event_date, amount FROM test_pa_matching_mv ORDER BY id",
                 "VALUES " +
                         "(1, DATE '2024-01-01', 100), " +
@@ -728,7 +670,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_pa_missing_base VALUES (4, DATE '2024-01-04', 400)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_pa_missing_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_pa_missing_mv", "SELECT BIGINT '4'");
         assertQuery("SELECT id, amount FROM test_pa_missing_mv ORDER BY id",
                 "VALUES (1, 100), (2, 200), (3, 300), (4, 400)");
 
@@ -770,7 +712,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_pa_over_table_a VALUES (1, DATE '2024-01-04', 150)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_pa_over_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_pa_over_mv", "SELECT BIGINT '4'");
         assertQuery("SELECT id, event_date, amount, region, name FROM test_pa_over_mv ORDER BY id, event_date",
                 "VALUES " +
                         "(1, DATE '2024-01-01', 100, 'US', 'Alice'), " +
@@ -892,13 +834,13 @@ public class TestIcebergMaterializedViews
                 "WITH (storage_table = 'my_custom_storage_table') " +
                 "AS SELECT id, name, value FROM test_custom_storage_base");
 
-        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT BIGINT '0'");
 
         assertQueryFails("SELECT * FROM \"__mv_storage__test_custom_storage_mv\"", ".*does not exist.*");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_custom_storage_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM my_custom_storage_table ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200)");
 
@@ -908,7 +850,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_custom_storage_base VALUES (3, 'Charlie', 300)", 1);
         assertUpdate("REFRESH MATERIALIZED VIEW test_custom_storage_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM my_custom_storage_table", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM my_custom_storage_table ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
@@ -932,13 +874,13 @@ public class TestIcebergMaterializedViews
                 "storage_table = 'storage_table') " +
                 "AS SELECT id, value FROM test_schema.test_custom_schema_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT BIGINT '0'");
 
         assertQueryFails("SELECT * FROM test_schema.storage_table", ".*does not exist.*");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_schema.test_custom_schema_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_storage_schema.storage_table", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_storage_schema.storage_table ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
@@ -965,13 +907,13 @@ public class TestIcebergMaterializedViews
         assertUpdate(sessionWithCustomPrefix, "CREATE MATERIALIZED VIEW test_custom_prefix_mv " +
                 "AS SELECT id, name FROM test_custom_prefix_base");
 
-        assertQuery("SELECT COUNT(*) FROM custom_prefix_test_custom_prefix_mv", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM custom_prefix_test_custom_prefix_mv", "SELECT BIGINT '0'");
 
         assertQueryFails("SELECT * FROM \"__mv_storage__test_custom_prefix_mv\"", ".*does not exist.*");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_custom_prefix_mv", 1);
 
-        assertQuery("SELECT COUNT(*) FROM custom_prefix_test_custom_prefix_mv", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM custom_prefix_test_custom_prefix_mv", "SELECT BIGINT '1'");
         assertQuery("SELECT * FROM custom_prefix_test_custom_prefix_mv", "VALUES (1, 'test')");
 
         assertQuery("SELECT * FROM test_custom_prefix_mv", "VALUES (1, 'test')");
@@ -987,15 +929,15 @@ public class TestIcebergMaterializedViews
     {
         assertUpdate("CREATE MATERIALIZED VIEW test_values_mv AS SELECT * FROM (VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)) AS t(id, name, value)");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_values_mv\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_values_mv\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_values_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_values_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_values_mv ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_values_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_values_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_values_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_values_mv\" ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
@@ -1015,25 +957,25 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_no_cols_mv AS " +
                 "SELECT 'constant' as label, 42 as fixed_value FROM test_no_cols_base");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_no_cols_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_no_cols_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_no_cols_mv",
                 "VALUES ('constant', 42), ('constant', 42), ('constant', 42)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_no_cols_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_no_cols_mv\"",
                 "VALUES ('constant', 42), ('constant', 42), ('constant', 42)");
 
         assertUpdate("INSERT INTO test_no_cols_base VALUES (4, 'Dave', 400)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_no_cols_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_no_cols_mv", "SELECT BIGINT '4'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_no_cols_mv", 4);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_no_cols_mv\"", "SELECT BIGINT '4'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_no_cols_mv");
         assertQueryFails("SELECT * FROM \"__mv_storage__test_no_cols_mv\"", ".*does not exist.*");
@@ -1048,23 +990,23 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("CREATE MATERIALIZED VIEW test_empty_mv AS SELECT id, name, value FROM test_empty_base");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT BIGINT '0'");
 
-        assertQuery("SELECT COUNT(*) FROM test_empty_mv", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM test_empty_mv", "SELECT BIGINT '0'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_empty_mv", 0);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT 0");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT BIGINT '0'");
 
         assertUpdate("INSERT INTO test_empty_base VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
 
-        assertQuery("SELECT COUNT(*) FROM test_empty_mv", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_empty_mv", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_empty_mv ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_empty_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_empty_mv\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_empty_mv\" ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200)");
 
@@ -1085,7 +1027,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_refresh_failure_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_refresh_failure_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_refresh_failure_mv\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_refresh_failure_mv\" ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
@@ -1101,7 +1043,7 @@ public class TestIcebergMaterializedViews
             }
         }
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_refresh_failure_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_refresh_failure_mv\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_refresh_failure_mv\" ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
@@ -1117,7 +1059,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_recreate_mv AS SELECT id, value FROM test_recreate_base");
         assertUpdate("REFRESH MATERIALIZED VIEW test_recreate_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_recreate_mv\" ORDER BY id",
                 "VALUES (1, 100), (2, 200)");
 
@@ -1126,15 +1068,15 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE TABLE test_recreate_base (id BIGINT, value BIGINT)");
         assertUpdate("INSERT INTO test_recreate_base VALUES (3, 300), (4, 400), (5, 500)", 3);
 
-        assertQuery("SELECT COUNT(*) FROM test_recreate_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_recreate_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_recreate_mv ORDER BY id",
                 "VALUES (3, 300), (4, 400), (5, 500)");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT BIGINT '2'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_recreate_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_recreate_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_recreate_mv\" ORDER BY id",
                 "VALUES (3, 300), (4, 400), (5, 500)");
 
@@ -1151,7 +1093,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_storage_drop_mv AS SELECT id, value FROM test_storage_drop_base");
         assertUpdate("REFRESH MATERIALIZED VIEW test_storage_drop_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_storage_drop_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_storage_drop_mv\"", "SELECT BIGINT '2'");
 
         assertUpdate("DROP TABLE \"__mv_storage__test_storage_drop_mv\"");
 
@@ -1173,13 +1115,13 @@ public class TestIcebergMaterializedViews
                 "SELECT id AS person_id, original_name AS full_name, original_value AS amount " +
                 "FROM test_renamed_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_renamed_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_renamed_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_renamed_mv ORDER BY person_id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_renamed_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_renamed_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_renamed_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_renamed_mv\" ORDER BY person_id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
@@ -1191,11 +1133,11 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_renamed_base VALUES (4, 'Dave', 400)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_renamed_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_renamed_mv", "SELECT BIGINT '4'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_renamed_mv", 4);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_renamed_mv\"", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_renamed_mv\"", "SELECT BIGINT '4'");
         assertQuery("SELECT * FROM \"__mv_storage__test_renamed_mv\" ORDER BY person_id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300), (4, 'Dave', 400)");
 
@@ -1218,7 +1160,7 @@ public class TestIcebergMaterializedViews
                 "'Order_' || CAST(id AS VARCHAR) AS order_label " +
                 "FROM test_computed_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_computed_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_computed_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT id, quantity, unit_price, total_price, double_quantity, order_label FROM test_computed_mv ORDER BY id",
                 "VALUES (1, 5, 100, 500, 10, 'Order_1'), " +
                         "(2, 10, 50, 500, 20, 'Order_2'), " +
@@ -1226,7 +1168,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_computed_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_computed_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_computed_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT id, quantity, unit_price, total_price, double_quantity, order_label FROM \"__mv_storage__test_computed_mv\" ORDER BY id",
                 "VALUES (1, 5, 100, 500, 10, 'Order_1'), " +
                         "(2, 10, 50, 500, 20, 'Order_2'), " +
@@ -1240,13 +1182,13 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_computed_base VALUES (4, 8, 75)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_computed_mv", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM test_computed_mv", "SELECT BIGINT '4'");
         assertQuery("SELECT id, total_price, order_label FROM test_computed_mv WHERE id = 4",
                 "VALUES (4, 600, 'Order_4')");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_computed_mv", 4);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_computed_mv\"", "SELECT 4");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_computed_mv\"", "SELECT BIGINT '4'");
         assertQuery("SELECT id, quantity, unit_price, total_price, order_label FROM \"__mv_storage__test_computed_mv\" WHERE id = 4",
                 "VALUES (4, 8, 75, 600, 'Order_4')");
 
@@ -1270,19 +1212,19 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_custom_props_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM test_custom_props_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_custom_props_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT name FROM test_custom_props_mv WHERE region = 'US'", "VALUES ('Alice')");
         assertQuery("SELECT name FROM test_custom_props_mv WHERE region = 'EU'", "VALUES ('Bob')");
 
         String storageTableName = "__mv_storage__test_custom_props_mv";
-        assertQuery("SELECT COUNT(*) FROM \"" + storageTableName + "\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"" + storageTableName + "\"", "SELECT BIGINT '3'");
 
-        assertQuery("SELECT COUNT(*) FROM \"" + storageTableName + "\" WHERE region = 'APAC'", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM \"" + storageTableName + "\" WHERE region = 'APAC'", "SELECT BIGINT '1'");
 
         assertUpdate("INSERT INTO test_custom_props_base VALUES (4, 'David', 'US')", 1);
         assertUpdate("REFRESH MATERIALIZED VIEW test_custom_props_mv", 4);
 
-        assertQuery("SELECT COUNT(*) FROM test_custom_props_mv WHERE region = 'US'", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_custom_props_mv WHERE region = 'US'", "SELECT BIGINT '2'");
         assertQuery("SELECT name FROM test_custom_props_mv WHERE region = 'US' ORDER BY id",
                 "VALUES ('Alice'), ('David')");
 
@@ -1306,13 +1248,13 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE MATERIALIZED VIEW test_nested_mv AS " +
                 "SELECT id, tags, properties, address FROM test_nested_base");
 
-        assertQuery("SELECT COUNT(*) FROM test_nested_mv", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_nested_mv", "SELECT BIGINT '2'");
         assertQuery("SELECT id, cardinality(tags) FROM test_nested_mv ORDER BY id",
                 "VALUES (1, 2), (2, 1)");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_nested_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_nested_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_nested_mv\"", "SELECT BIGINT '2'");
 
         assertQuery("SELECT id, cardinality(tags), address.city FROM test_nested_mv ORDER BY id",
                 "VALUES (1, 2, 'NYC'), (2, 1, 'LA')");
@@ -1323,11 +1265,11 @@ public class TestIcebergMaterializedViews
         assertUpdate("INSERT INTO test_nested_base VALUES " +
                 "(3, ARRAY['tag4', 'tag5', 'tag6'], MAP(ARRAY['key4'], ARRAY['value4']), ROW('789 Elm St', 'Chicago', '60601'))", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_nested_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_nested_mv", "SELECT BIGINT '3'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_nested_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_nested_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_nested_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT id, address.zipcode FROM test_nested_mv WHERE id = 3",
                 "VALUES (3, '60601')");
 
@@ -1346,7 +1288,7 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_evolve_add_mv", 2);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_evolve_add_mv ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200)");
 
@@ -1354,15 +1296,15 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_evolve_add_base VALUES (3, 'Charlie', 300, 'US')", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_evolve_add_mv", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_evolve_add_mv", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_evolve_add_mv ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT BIGINT '2'");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_evolve_add_mv", 3);
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_add_mv\"", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM \"__mv_storage__test_evolve_add_mv\" ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
@@ -1405,19 +1347,19 @@ public class TestIcebergMaterializedViews
 
         assertUpdate("INSERT INTO test_evolve_drop_base VALUES (3, 'Charlie', 300)", 1);
 
-        assertQuery("SELECT COUNT(*) FROM test_evolve_drop_mv_subset", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_evolve_drop_mv_subset", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_evolve_drop_mv_subset ORDER BY id",
                 "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
         assertQueryFails("SELECT * FROM test_evolve_drop_mv_all",
                 ".*Column 'status' cannot be resolved.*");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_drop_mv_all\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_drop_mv_all\"", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM \"__mv_storage__test_evolve_drop_mv_all\" ORDER BY id",
                 "VALUES (1, 'Alice', 100, 'active'), (2, 'Bob', 200, 'inactive')");
 
         assertUpdate("REFRESH MATERIALIZED VIEW test_evolve_drop_mv_subset", 3);
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_drop_mv_subset\"", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_evolve_drop_mv_subset\"", "SELECT BIGINT '3'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_evolve_drop_mv_all");
         assertUpdate("DROP MATERIALIZED VIEW test_evolve_drop_mv_subset");
@@ -1440,7 +1382,7 @@ public class TestIcebergMaterializedViews
         assertQueryFails("CREATE MATERIALIZED VIEW existing_table_name AS SELECT id, value FROM existing_table_name",
                 ".*already exists.*");
 
-        assertQuery("SELECT COUNT(*) FROM existing_table_name", "SELECT 1");
+        assertQuery("SELECT COUNT(*) FROM existing_table_name", "SELECT BIGINT '1'");
         assertQuery("SELECT * FROM existing_table_name", "VALUES (1, 'test')");
 
         assertUpdate("CREATE TABLE test_mv_base (id BIGINT, name VARCHAR)");
@@ -1481,7 +1423,7 @@ public class TestIcebergMaterializedViews
                 "SELECT COUNT(*) FROM information_schema.materialized_views " +
                 "WHERE table_schema = 'test_schema' AND table_name = 'test_is_mv1' " +
                 "AND view_definition IS NOT NULL AND length(view_definition) > 0",
-                "SELECT 1");
+                "SELECT BIGINT '1'");
 
         assertQuery(
                 "SELECT table_name FROM information_schema.materialized_views " +
@@ -1492,13 +1434,13 @@ public class TestIcebergMaterializedViews
                 "SELECT COUNT(*) FROM information_schema.materialized_views " +
                 "WHERE table_schema = 'test_schema' AND table_name = 'test_is_mv1' " +
                 "AND view_owner IS NOT NULL",
-                "SELECT 1");
+                "SELECT BIGINT '1'");
 
         assertQuery(
                 "SELECT COUNT(*) FROM information_schema.materialized_views " +
                 "WHERE table_schema = 'test_schema' AND table_name = 'test_is_mv1' " +
                 "AND view_security IS NOT NULL",
-                "SELECT 1");
+                "SELECT BIGINT '1'");
 
         assertQuery(
                 "SELECT base_tables FROM information_schema.materialized_views " +
@@ -1618,7 +1560,7 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
                 "SELECT 'FULLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_stale_fail ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("INSERT INTO test_stale_fail_base VALUES (3, 300)", 1);
@@ -1638,7 +1580,7 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_fail'",
                 "SELECT 'FULLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_stale_fail", "SELECT BIGINT '3'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_stale_fail");
         assertUpdate("DROP TABLE test_stale_fail_base");
@@ -1661,8 +1603,8 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_use_query'",
                 "SELECT 'FULLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT 2");
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT BIGINT '2'");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT BIGINT '2'");
 
         assertUpdate("INSERT INTO test_stale_use_query_base VALUES (3, 300)", 1);
 
@@ -1671,11 +1613,11 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_stale_use_query'",
                 "SELECT 'PARTIALLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_stale_use_query", "SELECT BIGINT '3'");
         assertQuery("SELECT * FROM test_stale_use_query ORDER BY id",
                 "VALUES (1, 100), (2, 200), (3, 300)");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_stale_use_query\"", "SELECT BIGINT '2'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_stale_use_query");
         assertUpdate("DROP TABLE test_stale_use_query_base");
@@ -1696,7 +1638,7 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_no_stale_config'",
                 "SELECT 'FULLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT BIGINT '2'");
 
         assertUpdate("INSERT INTO test_no_stale_config_base VALUES (3, 300)", 1);
 
@@ -1705,7 +1647,7 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_no_stale_config'",
                 "SELECT 'PARTIALLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT 3");
+        assertQuery("SELECT COUNT(*) FROM test_no_stale_config", "SELECT BIGINT '3'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_no_stale_config");
         assertUpdate("DROP TABLE test_no_stale_config_base");
@@ -1728,7 +1670,7 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_staleness_window_mv'",
                 "SELECT 'FULLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT BIGINT '2'");
         assertQuery("SELECT * FROM test_staleness_window_mv ORDER BY id", "VALUES (1, 100), (2, 200)");
 
         assertUpdate("INSERT INTO test_staleness_window_base VALUES (3, 300)", 1);
@@ -1738,9 +1680,9 @@ public class TestIcebergMaterializedViews
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_staleness_window_mv'",
                 "SELECT 'PARTIALLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT BIGINT '2'");
 
-        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_staleness_window_mv\"", "SELECT 2");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_staleness_window_mv\"", "SELECT BIGINT '2'");
 
         assertUpdate("DROP MATERIALIZED VIEW test_staleness_window_mv");
         assertUpdate("DROP TABLE test_staleness_window_base");
