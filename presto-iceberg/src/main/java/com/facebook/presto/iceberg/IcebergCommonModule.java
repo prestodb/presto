@@ -29,7 +29,6 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.HiveNodePartitioningProvider;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.OrcFileWriterFactory;
@@ -43,6 +42,7 @@ import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.iceberg.nessie.IcebergNessieConfig;
 import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
+import com.facebook.presto.iceberg.partitioning.IcebergNodePartitioningProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.ManifestFileCacheInvalidationProcedure;
@@ -167,7 +167,7 @@ public class IcebergCommonModule
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
         binder.bind(SortParameters.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(IcebergPageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorNodePartitioningProvider.class).to(IcebergNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
 

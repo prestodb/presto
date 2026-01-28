@@ -34,6 +34,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.partitioning.IcebergPartitioningHandle;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -58,6 +59,7 @@ import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.MaterializedViewStalenessConfig;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.PartitionedTableWritePolicy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
@@ -103,6 +105,7 @@ import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
@@ -129,6 +132,7 @@ import org.apache.iceberg.view.View;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -144,6 +148,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -185,6 +192,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFil
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -211,6 +219,7 @@ import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFO
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
+import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -600,6 +609,100 @@ public abstract class IcebergAbstractMetadata
     {
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+    }
+
+    public static Schema schemaFromMetadata(List<ColumnMetadata> columns)
+    {
+        List<NestedField> icebergColumns = new ArrayList<>();
+        AtomicInteger subFieldIndex = new AtomicInteger(columns.size() + 1);
+        for (int index = 0; index < columns.size(); index++) {
+            ColumnMetadata column = columns.get(index);
+            String baseTypeName = column.getType().getTypeSignature().getBase();
+            org.apache.iceberg.types.Type type;
+            if (baseTypeName.equals(ROW) || baseTypeName.equals(MAP) || baseTypeName.equals(ARRAY)) {
+                type = Types.ListType.ofOptional(subFieldIndex.getAndIncrement(), Types.BooleanType.get());
+            }
+            else {
+                type = toIcebergType(column.getType());
+            }
+            NestedField field = NestedField.of(index + 1, column.isNullable(), column.getName(), type);
+            icebergColumns.add(field);
+        }
+        org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Schema schema = schemaFromMetadata(tableMetadata.getColumns());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        if (partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        Types.StructType schemaAsStruct = schema.asStruct();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
+
+        List<String> partitioningColumnNames = partitionSpec.fields().stream()
+                .sorted(Comparator.comparingInt(PartitionField::sourceId))
+                .map(field -> {
+                    //boolean isBaseColumn = !indexParents.containsKey(field.sourceId());
+                    int sourceId = field.sourceId();
+                    Type sourceType = schema.findType(sourceId);
+                    // The source column, must be a primitive type and cannot be contained in a map or list, but may be nested in a struct.
+                    // https://iceberg.apache.org/spec/#partitioning
+                    if (sourceType.isMapType()) {
+                        throw new PrestoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a map");
+                    }
+                    if (sourceType.isListType()) {
+                        throw new PrestoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a array");
+                    }
+                    verify(indexById.containsKey(sourceId), "Cannot find source column for partition field %s", field);
+                    return schema.findColumnName(field.sourceId());
+                })
+                .distinct()
+                .collect(toImmutableList());
+
+        IcebergPartitioningHandle partitioningHandle = IcebergPartitioningHandle.create(partitionSpec, typeManager);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames, PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED));
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Table icebergTable = getIcebergTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        Schema schema = icebergTable.schema();
+        PartitionSpec partitionSpec = icebergTable.spec();
+        if (partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+
+        Types.StructType schemaAsStruct = schema.asStruct();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
+
+        List<String> partitioningColumnNames = partitionSpec.fields().stream()
+                .sorted(Comparator.comparingInt(PartitionField::sourceId))
+                .map(field -> {
+                    //boolean isBaseColumn = !indexParents.containsKey(field.sourceId());
+                    int sourceId = field.sourceId();
+                    Type sourceType = schema.findType(sourceId);
+                    // The source column, must be a primitive type and cannot be contained in a map or list, but may be nested in a struct.
+                    // https://iceberg.apache.org/spec/#partitioning
+                    if (sourceType.isMapType()) {
+                        throw new PrestoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a map");
+                    }
+                    if (sourceType.isListType()) {
+                        throw new PrestoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a array");
+                    }
+                    verify(indexById.containsKey(sourceId), "Cannot find source column for partition field %s", field);
+                    return schema.findColumnName(field.sourceId());
+                })
+                .distinct()
+                .collect(toImmutableList());
+
+        IcebergPartitioningHandle partitioningHandle = IcebergPartitioningHandle.create(partitionSpec, typeManager);
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumnNames, PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED));
     }
 
     @Override
