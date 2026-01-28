@@ -13,181 +13,381 @@
  */
 package com.facebook.presto.nativetests.operator.scalar;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.http.client.HttpUriBuilder;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.log.Logger;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
+import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.nativetests.NativeTestsUtils;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
+import com.facebook.presto.sidecar.expressions.TestNativeExpressionInterpreter;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.TestingRowExpressionTranslator;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.tests.operator.scalar.TestFunctions;
+import com.facebook.presto.type.TypeDeserializer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.UUID;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeQueryRunnerParameters;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertExceptionMessage;
-import static java.lang.Boolean.parseBoolean;
+import static com.google.common.net.HttpHeaders.ACCEPT;
+import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
+import static com.google.common.net.MediaType.JSON_UTF_8;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestNativeFunctions
-        extends AbstractTestQueryFramework
         implements TestFunctions
 {
-    public boolean sidecarEnabled;
-    private String storageFormat;
+    private static final Logger log = Logger.get(TestNativeExpressionInterpreter.class);
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+    public static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder().build());
+    private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
+
+    private JsonCodec<RowExpression> codec;
+    private Process sidecar;
+    private URI expressionUri;
 
     @BeforeClass
-    @Override
     public void init()
             throws Exception
     {
-        storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
-        super.init();
+        codec = getJsonCodec();
+        int port = findRandomPort();
+        HttpUriBuilder sidecarUri = HttpUriBuilder.uriBuilder()
+                .scheme("http")
+                .host("127.0.0.1")
+                .port(port);
+        expressionUri = sidecarUri.appendPath("/v1/expressions").build();
+        sidecar = getSidecarProcess(sidecarUri.build(), port);
+
+        try {
+            OkHttpClient client = new OkHttpClient();
+            URI infoUri = sidecarUri.appendPath("/v1/info").build();
+            Request request = new Request.Builder()
+                    .url(infoUri.toString())
+                    .header(ACCEPT, JSON_UTF_8.toString())
+                    .get()
+                    .build();
+
+            long timeoutMs = 15000;
+            long pollIntervalMs = 1000;
+            long deadline = System.currentTimeMillis() + timeoutMs;
+            boolean sidecarProcessStarted = false;
+
+            while (System.currentTimeMillis() < deadline) {
+                try {
+                    Response response = client.newCall(request).execute();
+                    if (response.code() != 500) {
+                        sidecarProcessStarted = true;
+                        break;
+                    }
+                }
+                catch (IOException e) {
+                    // ignore and retry until deadline
+                }
+
+                try {
+                    Thread.sleep(pollIntervalMs);
+                }
+                catch (InterruptedException e) {
+                    // ignore and retry until deadline
+                }
+            }
+
+            assertTrue(sidecarProcessStarted, format("Sidecar did not start properly within %d ms", timeoutMs));
+        }
+        catch (Exception e) {
+            log.error(e, "Failed while waiting for sidecar startup");
+            throw new Exception(e);
+        }
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void stopSidecar()
+    {
+        if (sidecar != null) {
+            sidecar.destroyForcibly();
+            sidecar = null;
+        }
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    public void assertFunction(@Language("SQL") String projection, Type expectedType, Object expected)
     {
-        return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
+        ConstantExpression result = evaluate(projection);
+        assertTrue(typesEqualIgnoringVarcharParameters(result.getType(), expectedType), format("Expected type %s but got %s", expectedType, result.getType()));
+
+        Object expectedValue = expected;
+        if (expectedValue instanceof io.airlift.slice.Slice) {
+            expectedValue = ((io.airlift.slice.Slice) expectedValue).toStringUtf8();
+        }
+
+        Object actual = toNativeValue(expectedType, result);
+        assertEquals(actual, expectedValue);
     }
 
-    @Override
-    public void assertFunction(String projection, Type expectedType, Object expected)
+    private boolean typesEqualIgnoringVarcharParameters(Type actual, Type expected)
     {
-        String query = format("SELECT %s", projection);
-        @Language("SQL") String rewritten = rewrite(query);
-        MaterializedResult result = computeActual(rewritten);
-        assertEquals(result.getTypes().get(0), expectedType);
-        assertEquals(result.getMaterializedRows().get(0).getField(0), expected);
+        if (actual == expected) {
+            return true;
+        }
+        if (actual instanceof com.facebook.presto.common.type.VarcharType && expected instanceof com.facebook.presto.common.type.VarcharType) {
+            return true;
+        }
+        if (!actual.getTypeSignature().getBase().equals(expected.getTypeSignature().getBase())) {
+            return false;
+        }
+        List<Type> actualParams = actual.getTypeParameters();
+        List<Type> expectedParams = expected.getTypeParameters();
+        if (actualParams.size() != expectedParams.size()) {
+            return false;
+        }
+        for (int i = 0; i < actualParams.size(); i++) {
+            if (!typesEqualIgnoringVarcharParameters(actualParams.get(i), expectedParams.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Object toNativeValue(Type expectedType, ConstantExpression constant)
+    {
+        Object value = constant.getValue();
+        if (value == null) {
+            return null;
+        }
+
+        if (expectedType.getJavaType() == Block.class) {
+            if (expectedType instanceof ArrayType) {
+                ArrayType arrayType = (ArrayType) expectedType;
+                Block elementsBlock = (Block) value;
+                List<Object> values = new ArrayList<>(elementsBlock.getPositionCount());
+                for (int i = 0; i < elementsBlock.getPositionCount(); i++) {
+                    values.add(arrayType.getElementType().getObjectValue(TEST_SESSION.getSqlFunctionProperties(), elementsBlock, i));
+                }
+                return values;
+            }
+            return BlockAssertions.toValues(expectedType, (Block) value);
+        }
+
+        return value;
     }
 
     @Override
     public void assertNotSupported(String projection, @Language("RegExp") String message)
     {
-        String query = format("SELECT %s", projection);
-        @Language("SQL") String rewritten = rewrite(query);
+        assertEvaluateFails(projection, message);
+    }
+
+    private ConstantExpression evaluate(@Language("SQL") String expression)
+    {
+        RowExpression parsedExpression = sqlToRowExpression(expression);
+        return evaluateExpression(parsedExpression);
+    }
+
+    private RowExpression sqlToRowExpression(String expression)
+    {
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        return TRANSLATOR.translate(parsedExpression, SYMBOL_TYPES);
+    }
+
+    private ConstantExpression evaluateExpression(RowExpression expression)
+    {
+        JsonNode expressionOptimizationResult = fetchExpressionOptimizationResult(expression);
+        assertTrue(expressionOptimizationResult.get("expressionFailureInfo").get("message").isEmpty());
+        JsonNode optimizedExpression = expressionOptimizationResult.get("optimizedExpression");
+        RowExpression result = codec.fromJson(optimizedExpression.toString());
+        assertTrue(result instanceof ConstantExpression);
+        return (ConstantExpression) result;
+    }
+
+    private void assertEvaluateFails(@Language("SQL") String expression, @Language("SQL") String errorMessage)
+    {
+        RowExpression rowExpression = sqlToRowExpression(expression);
+        JsonNode expressionOptimizationResult = fetchExpressionOptimizationResult(rowExpression);
+        assertNull(expressionOptimizationResult.get("optimizedExpression"));
+        JsonNode failureInfo = expressionOptimizationResult.get("expressionFailureInfo");
+        JsonCodec<NativeSidecarFailureInfo> errorCodec = jsonCodec(NativeSidecarFailureInfo.class);
+        NativeSidecarFailureInfo result = errorCodec.fromJson(failureInfo.toString());
+
+        assertNotNull(result.getMessage());
+        assertTrue(result.getMessage().contains(errorMessage), format("Sidecar response: %s did not contain expected error message: %s.", failureInfo, errorMessage));
+    }
+
+    private JsonNode fetchExpressionOptimizationResult(RowExpression expression)
+    {
+        Response response;
         try {
-            computeActual(rewritten);
-            fail("expected exception");
+            response = getSidecarResponse(expression);
         }
-        catch (RuntimeException ex) {
-            assertExceptionMessage(rewritten, ex, message, true, false);
+        catch (Exception e) {
+            log.error(e, "Failed to get sidecar response: %s.", e.getMessage());
+            throw new RuntimeException(e);
+        }
+
+        assertEquals(response.code(), 200, "Sidecar returned error.");
+        String responseBody;
+        try {
+            responseBody = response.body().string();
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            response.close();
+        }
+
+        try {
+            JsonNode expressionOptimizationResultList = new ObjectMapper().readTree(responseBody);
+            assertTrue(expressionOptimizationResultList.isArray());
+            return expressionOptimizationResultList.get(0);
+        }
+        catch (JsonProcessingException e) {
+            log.error(e, "Failed to decode RowExpression from sidecar response: %s.", e.getMessage());
+            throw new RuntimeException(e);
         }
     }
 
-    /**
-     * Rewrite SQL of the form 'select cast(arg as type)' to 'select cast(a as type) from (values (arg)) t(a)', and
-     * SQL of the form 'select function(arg1, arg2, ...)' to
-     * 'select function(a, b, ...) from (values (arg1, arg2, ...)) t(a, b, ...)'.
-     * This ensures that the function is not constant-folded on the coordinator and is evaluated on the native workers.
-     * Note that any arguments to the function will still be constant-folded if possible. For instance, consider the
-     * SQL 'select function(a, b(c), d(e(f)), g, ...)'. Arguments such as 'b(c)' and 'd(e(f))' in the rewritten SQL
-     * 'select function(p, q, r, s, ...) from (values (a, b(c), d(e(f)), g, ...)) t(p, q, r, s, ...)' can be
-     * constant-folded on the coordinator. The rewrite only ensures that the top-level function call at depth 0 is not
-     * evaluated on the coordinator.
-     */
-    public static String rewrite(String sql)
+    private Response getSidecarResponse(RowExpression expression)
+            throws IOException
     {
-        String rewrittenCast = tryRewriteCast(sql);
-        if (rewrittenCast != null) {
-            return rewrittenCast;
-        }
+        String json = String.format("[%s]", codec.toJson(expression));
+        OkHttpClient client = new OkHttpClient();
+        RequestBody body = RequestBody.create(MediaType.parse(JSON_UTF_8.toString()), json);
+        Request request = new Request.Builder()
+                .url(expressionUri.toString())
+                .header(CONTENT_TYPE, JSON_UTF_8.toString())
+                .header(ACCEPT, JSON_UTF_8.toString())
+                .header("X-Presto-Time-Zone", TEST_SESSION.getSqlFunctionProperties().getTimeZoneKey().getId())
+                .header("X-Presto-Expression-Optimizer-Level", ExpressionOptimizer.Level.EVALUATED.name())
+                .post(body)
+                .build();
 
-        String rewrittenFunctionCall = tryRewriteFunctionCall(sql);
-        if (rewrittenFunctionCall != null) {
-            return rewrittenFunctionCall;
-        }
-
-        throw new IllegalArgumentException("Sql must be of form: select cast(arg as type) or select function(arg1, arg2, ...)");
+        return client.newCall(request).execute();
     }
 
-    /**
-     * Helper function to rewrite SQL of the form 'select function(arg1, arg2, ...)' to equivalent SQL
-     *          'select function(a, b, ...) from (values (arg1, arg2, ...)) t(a, b, ...)'.
-     */
-    private static String tryRewriteFunctionCall(String sql)
+    private JsonCodec<RowExpression> getJsonCodec()
     {
-        Pattern pattern = Pattern.compile(
-                "^select\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\((.*)\\)\\s*$",
-                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-        Matcher matcher = pattern.matcher(sql);
-        if (matcher.matches()) {
-            String functionName = matcher.group(1);
-            String argsString = matcher.group(2);
-            int depth = 0;
-            boolean inSingleQuote = false;
-            int numArgs = 1;
-            for (int i = 0; i < argsString.length(); i++) {
-                char c = argsString.charAt(i);
-                if (c == '\'') {
-                    inSingleQuote = !inSingleQuote;
-                }
-                if (!inSingleQuote) {
-                    if (c == '(' || c == '[') {
-                        depth++;
-                    }
-                    else if (c == ')' || c == ']') {
-                        depth--;
-                    }
-                    else if (c == ',' && depth == 0) {
-                        numArgs++;
-                    }
-                }
-            }
+        Module module = binder -> {
+            binder.install(new JsonModule());
+            binder.install(new HandleJsonModule());
+            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+            binder.install(new ThriftCodecModule());
+            configBinder(binder).bindConfig(FeaturesConfig.class);
 
-            List<String> aliases = new ArrayList<>();
-            for (int i = 0; i < numArgs; i++) {
-                aliases.add(String.valueOf((char) ('a' + i)));
-            }
-            String aliasesString = String.join(", ", aliases);
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            newSetBinder(binder, Type.class);
 
-            return format("select %s(%s) from (values (%s)) t(%s)", functionName, aliasesString, argsString, aliasesString);
-        }
-        return null;
+            binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, BlockEncoding.class);
+            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+            jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
+        };
+        Bootstrap app = new Bootstrap(ImmutableList.of(module));
+        Injector injector = app
+                .doNotInitializeLogging()
+                .quiet()
+                .initialize();
+        return injector.getInstance(new Key<JsonCodec<RowExpression>>() {});
     }
 
-    /**
-     * Helper function to rewrite SQL of the form 'select cast(arg as type)' to equivalent SQL
-     *          'select cast(a as type) from (values (arg)) t(a)'.
-     */
-    private static String tryRewriteCast(String sql)
+    private static Process getSidecarProcess(URI discoveryUri, int port)
+            throws IOException
     {
-        Pattern castPattern = Pattern.compile(
-                "^select\\s+cast\\s*\\((.*)\\)\\s*$",
-                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-        Matcher castMatcher = castPattern.matcher(sql);
-        if (castMatcher.matches()) {
-            String castExpression = castMatcher.group(1).trim();
-            int depth = 0;
-            boolean inSingleQuote = false;
+        Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
+        log.info("Temp directory for Sidecar: %s", tempDirectoryPath.toString());
 
-            for (int i = 0; i < castExpression.length(); i++) {
-                char c = castExpression.charAt(i);
-                if (c == '\'') {
-                    inSingleQuote = !inSingleQuote;
-                }
-                if (!inSingleQuote) {
-                    if (c == '(' || c == '[') {
-                        depth++;
-                    }
-                    if (c == ')' || c == ']') {
-                        depth--;
-                    }
-                    if (depth == 0 && i + 4 <= castExpression.length() &&
-                            castExpression.substring(i, i + 4).equalsIgnoreCase(" as ")) {
-                        String arg = castExpression.substring(0, i).trim();
-                        String type = castExpression.substring(i + 4).trim();
-                        return format("select cast(a as %s) from (values (%s)) t(a)", type, arg);
-                    }
-                }
-            }
-            throw new IllegalArgumentException("Could not parse cast expression: " + sql);
+        String configProperties = format("discovery.uri=%s%n" +
+                "presto.version=testversion%n" +
+                "system-memory-gb=4%n" +
+                "native-sidecar=true%n" +
+                "http-server.http.port=%d", discoveryUri, port);
+
+        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+        Files.write(tempDirectoryPath.resolve("node.properties"),
+                format("node.id=%s%n" +
+                        "node.internal-address=127.0.0.1%n" +
+                        "node.environment=testing%n" +
+                        "node.location=test-location", UUID.randomUUID()).getBytes());
+
+        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+        Files.createDirectory(catalogDirectoryPath);
+        PrestoNativeQueryRunnerUtils.NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        String prestoServerPath = nativeQueryRunnerParameters.serverBinary.toString();
+
+        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
+                .directory(tempDirectoryPath.toFile())
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
+                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
+                .start();
+    }
+
+    public static int findRandomPort()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
         }
-        return null;
     }
 }
