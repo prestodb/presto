@@ -21,7 +21,8 @@ connector-specific properties. To list all available properties, run the followi
     SELECT * FROM system.metadata.analyze_properties
 
 Currently, this statement is only supported by the
-:ref:`Hive connector <hive_analyze>`.
+:ref:`Hive connector <hive_analyze>` and
+:doc:`Iceberg connector <../connector/iceberg>`.
 
 Examples
 --------
