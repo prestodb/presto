@@ -1406,7 +1406,7 @@ public class HiveMetadata
     {
         try {
             Path path = new Path(location);
-            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
+            if (hdfsEnvironment.getFileSystem(context, path).exists(path) && !hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
             }
             return path;
