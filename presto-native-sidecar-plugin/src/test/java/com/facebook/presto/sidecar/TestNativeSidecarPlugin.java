@@ -30,7 +30,6 @@ import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
-import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
