@@ -1731,7 +1731,8 @@ public abstract class IcebergAbstractMetadata
 
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, materializedViewName);
         if (!viewMetadata.isPresent()) {
-            return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Materialized view metadata not found for %s", materializedViewName));
         }
         Map<String, String> props = viewMetadata.get().getProperties();
         String lastRefreshSnapshotStr = props.get(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID);

@@ -109,9 +109,6 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkIfNullView;
@@ -129,7 +126,6 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning
 import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
-import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
@@ -242,7 +238,7 @@ public class IcebergHiveMetadata
         }
 
         Table table = hiveTable.get();
-        if (!isIcebergMaterializedView(table)) {
+        if (!isIcebergMaterializedView(table) && !isPrestoView(table)) {
             return Optional.empty();
         }
 
@@ -250,10 +246,12 @@ public class IcebergHiveMetadata
                 .map(column -> ColumnMetadata.builder()
                         .setName(column.getName())
                         .setType(column.getType().getType(typeManager))
+                        .setComment(column.getComment().orElse(null))
                         .build())
                 .collect(toImmutableList());
 
-        Map<String, Object> tableProperties = ImmutableMap.of();
+        Map<String, Object> tableProperties = table.getParameters().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
@@ -483,7 +481,7 @@ public class IcebergHiveMetadata
 
         Optional<Table> existing = getHiveTable(session, viewName);
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !isPrestoView(existing.get()) || isIcebergMaterializedView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -547,7 +545,7 @@ public class IcebergHiveMetadata
         }
         for (SchemaTableName schemaTableName : tableNames) {
             Optional<Table> table = getHiveTable(session, schemaTableName);
-            if (table.isPresent() && isPrestoView(table.get())) {
+            if (table.isPresent() && isPrestoView(table.get()) && !isIcebergMaterializedView(table.get())) {
                 verifyAndPopulateViews(table.get(), schemaTableName, decodeViewData(table.get().getViewOriginalText().get()), views);
             }
         }
@@ -769,10 +767,7 @@ public class IcebergHiveMetadata
 
         ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
         tableProperties.putAll(properties);
-        tableProperties.put(TABLE_COMMENT, PRESTO_VIEW_COMMENT);
-        tableProperties.put(PRESTO_VERSION_NAME, nodeVersion.toString());
-        tableProperties.put(PRESTO_QUERY_ID_NAME, session.getQueryId());
-        tableProperties.put(VIEW_OWNER, session.getUser());
+        tableProperties.putAll(createIcebergViewProperties(session, nodeVersion.toString()));
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(viewName, columns);
 
