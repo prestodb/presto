@@ -273,6 +273,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanCreateBranch(identity, context, table);
+    }
+
+    @Override
     public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropBranch(identity, context, table);

@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
+import com.facebook.presto.sql.tree.CreateBranch;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
@@ -2875,6 +2876,45 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP BRANCH 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", true, false));
         assertStatement("ALTER TABLE foo.t DROP BRANCH IF EXISTS 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", false, true));
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP BRANCH IF EXISTS 'cons'", new DropBranch(QualifiedName.of("foo", "t"), "cons", true, true));
+    }
+
+    @Test
+    public void testCreateBranch()
+    {
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH 'test_branch'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, false, "test_branch", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE IF EXISTS foo.t CREATE BRANCH 'test_branch'",
+                new CreateBranch(QualifiedName.of("foo", "t"), true, false, false, "test_branch", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH IF NOT EXISTS 'test_branch'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE IF EXISTS foo.t CREATE OR REPLACE BRANCH 'test_branch'",
+                new CreateBranch(QualifiedName.of("foo", "t"), true, true, false, "test_branch", Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH IF NOT EXISTS 'test_branch' FOR SYSTEM_VERSION AS OF 123",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH 'test_branch' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, false, "test_branch", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH IF NOT EXISTS 'test_branch' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty(), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH IF NOT EXISTS 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS WITH SNAPSHOT RETENTION 2 SNAPSHOTS 3 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.of(2), Optional.of(3L)));
+        assertStatement("ALTER TABLE foo.t CREATE BRANCH IF NOT EXISTS 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS WITH SNAPSHOT RETENTION 2 SNAPSHOTS 3 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.of(2), Optional.of(3L)));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS WITH SNAPSHOT RETENTION 2 SNAPSHOTS 3 DAYS",
+                new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.of(2), Optional.of(3L)));
     }
 
     @Test
