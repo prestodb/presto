@@ -557,6 +557,8 @@ Property Name                                         Description               
                                                       names. Default: ``__mv_storage__``
 ``materialized_view_missing_base_table_behavior``     Behavior when a base table referenced by a materialized view is         Yes                 No
                                                       missing. Valid values: ``FAIL``, ``IGNORE``. Default: ``FAIL``
+``max_partitions_per_writer``                         Overrides the behavior of the connector property                        Yes                 No
+                                                      ``iceberg.max-partitions-per-writer`` in the current session.
 ===================================================== ======================================================================= =================== =============================================
 
 Caching Support
