@@ -1633,7 +1633,7 @@ public class HiveMetadata
                 List<String> partitionValues = partitionValuesList.get(i);
                 ComputedStatistics collectedStatistics = computedStatisticsMap.containsKey(partitionValues)
                         ? computedStatisticsMap.get(partitionValues)
-                        : computedStatisticsMap.get(canonicalizePartitionValues(partitionName, partitionValues, partitionTypes));
+                        : computedStatisticsMap.get(canonicalizePartitionValues(session, partitionName, partitionValues, partitionTypes));
                 if (collectedStatistics == null) {
                     partitionStatistics.put(partitionValues, emptyPartitionStatistics.get());
                 }
@@ -1658,6 +1658,7 @@ public class HiveMetadata
     }
 
     private Map<ColumnStatisticMetadata, Block> getColumnStatistics(
+            ConnectorSession session,
             Map<List<String>, ComputedStatistics> statistics,
             String partitionName,
             List<String> partitionValues,
@@ -1666,17 +1667,17 @@ public class HiveMetadata
         Optional<Map<ColumnStatisticMetadata, Block>> columnStatistics = Optional.ofNullable(statistics.get(partitionValues))
                 .map(ComputedStatistics::getColumnStatistics);
         return columnStatistics
-                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(partitionName, partitionValues, partitionTypes)));
+                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(session, partitionName, partitionValues, partitionTypes)));
     }
 
-    private List<String> canonicalizePartitionValues(String partitionName, List<String> partitionValues, List<Type> partitionTypes)
+    private List<String> canonicalizePartitionValues(ConnectorSession session, String partitionName, List<String> partitionValues, List<Type> partitionTypes)
     {
         verify(partitionValues.size() == partitionTypes.size(), "Expected partitionTypes size to be %s but got %s", partitionValues.size(), partitionTypes.size());
         Block[] parsedPartitionValuesBlocks = new Block[partitionValues.size()];
         for (int i = 0; i < partitionValues.size(); i++) {
             String partitionValue = partitionValues.get(i);
             Type partitionType = partitionTypes.get(i);
-            parsedPartitionValuesBlocks[i] = parsePartitionValue(partitionName, partitionValue, partitionType, timeZone).asBlock();
+            parsedPartitionValuesBlocks[i] = parsePartitionValue(Optional.of(session), partitionName, partitionValue, partitionType, timeZone).asBlock();
         }
 
         return createPartitionValues(partitionTypes, new Page(parsedPartitionValuesBlocks), 0);
@@ -2238,7 +2239,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes), timeZone);
+                        getColumnStatistics(session, partitionComputedStatistics, partitionName, partitionValues, partitionTypes), timeZone);
                 metastore.finishInsertIntoExistingPartition(
                         session,
                         handle.getSchemaName(),
@@ -2303,7 +2304,7 @@ public class HiveMetadata
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes),
+                        getColumnStatistics(session, partitionComputedStatistics, partitionName, partitionValues, partitionTypes),
                         timeZone);
 
                 // New partition or overwriting existing partition by staging and moving the new partition
@@ -2532,7 +2533,7 @@ public class HiveMetadata
         Map<String, Map<SchemaTableName, String>> directColumnMappings = viewDefinition.getDirectColumnMappingsAsMap();
         Map<SchemaTableName, Map<String, String>> viewToBasePartitionMap = getViewToBasePartitionMap(materializedViewTable, baseTables, directColumnMappings);
 
-        MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
+        MaterializedDataPredicates materializedDataPredicates = getMaterializedDataPredicates(session, metastore, metastoreContext, typeManager, materializedViewTable, timeZone);
 
         // Partitions to keep track of for materialized view freshness are the partitions of every base table
         // that are not available/updated to the materialized view yet.
@@ -2540,7 +2541,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(
                         baseTable -> new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName()),
                         baseTable -> {
-                            MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(metastore, metastoreContext, typeManager, baseTable, timeZone);
+                            MaterializedDataPredicates baseTableMaterializedPredicates = getMaterializedDataPredicates(session, metastore, metastoreContext, typeManager, baseTable, timeZone);
                             SchemaTableName schemaTableName = new SchemaTableName(baseTable.getDatabaseName(), baseTable.getTableName());
                             Map<String, String> viewToBaseIndirectMappedColumns = viewToBaseTableOnOuterJoinSideIndirectMappedPartitions(viewDefinition, baseTable).orElse(ImmutableMap.of());
 

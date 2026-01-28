@@ -51,6 +51,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
+import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -98,7 +99,10 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
+                            .map(value -> value == null ? null :
+                                    SESSION.getSqlFunctionProperties().isLegacyTimestamp() ?
+                                            ((SqlTimestamp) value).getMillisUtc() :
+                                            ((SqlTimestamp) value).getMillis())
                             .collect(toList()),
                     false);
         }
@@ -106,7 +110,10 @@ public final class TestingOrcPredicate
             return new LongOrcPredicate(false,
                     columnIndex,
                     expectedValues.stream()
-                            .map(value -> value == null ? null : ((SqlTimestamp) value).getMicrosUtc())
+                            .map(value -> value == null ? null :
+                                    SESSION.getSqlFunctionProperties().isLegacyTimestamp() ?
+                                            ((SqlTimestamp) value).getMicrosUtc() :
+                                            ((SqlTimestamp) value).getMicros())
                             .collect(toList()),
                     false);
         }
@@ -425,14 +432,56 @@ public final class TestingOrcPredicate
                 return false;
             }
 
-            List<Slice> slices = chunk.stream()
-                    .filter(Objects::nonNull)
-                    .map(Slices::utf8Slice)
-                    .collect(toList());
+            List<Slice> minSlices;
+            List<Slice> maxSlices;
+
+            if (columnStatistics.getStringStatistics() != null &&
+                    columnStatistics.getStringStatistics().isLowerBoundSet() &&
+                    columnStatistics.getStringStatistics().getMin() != null &&
+                    columnStatistics.getStringStatistics().getMax() != null) {
+                /*
+                 * Create a string that is truncated to at most length of StringStatistics.minimym at a
+                 * character boundary.
+                 * The length is assumed to be greater than length of StringStatistics.minimym.
+                 */
+                minSlices = chunk.stream()
+                        .filter(Objects::nonNull)
+                        .map(value -> value.substring(0, columnStatistics.getStringStatistics().getMin().length()))
+                        .map(Slices::utf8Slice)
+                        .collect(toList());
+
+                /*
+                 * Create a text that is truncated to at most length of StringStatistics.maximum at a
+                 * character boundary with the last code point incremented by 1.
+                 * The length is assumed to be greater than length of StringStatistics.maximum.
+                 */
+                maxSlices = chunk.stream()
+                        .filter(Objects::nonNull)
+                        .map(value -> {
+                            int followingCharacterIndex = columnStatistics.getStringStatistics().getMax().length();
+                            int lastCharacterIndex = followingCharacterIndex - 1;
+
+                            return value.substring(0, lastCharacterIndex).concat(new String(Character.toChars(chunk.get(0).codePointAt(followingCharacterIndex - 1) + 1)));
+                        })
+                        .map(Slices::utf8Slice)
+                        .collect(toList());
+            }
+            else {
+                minSlices = chunk.stream()
+                        .filter(Objects::nonNull)
+                        .map(Slices::utf8Slice)
+                        .collect(toList());
+                maxSlices = minSlices;
+            }
 
             HiveBloomFilter bloomFilter = columnStatistics.getBloomFilter();
             if (bloomFilter != null) {
-                for (Slice slice : slices) {
+                for (Slice slice : minSlices) {
+                    if (!bloomFilter.test(slice.getBytes())) {
+                        return false;
+                    }
+                }
+                for (Slice slice : maxSlices) {
                     if (!bloomFilter.test(slice.getBytes())) {
                         return false;
                     }
@@ -451,14 +500,14 @@ public final class TestingOrcPredicate
             }
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
-                if (slices.isEmpty()) {
+                if (minSlices.isEmpty() && maxSlices.isEmpty()) {
                     if (columnStatistics.getStringStatistics().getMin() != null || columnStatistics.getStringStatistics().getMax() != null) {
                         return false;
                     }
                 }
                 else {
-                    Slice chunkMin = Ordering.natural().nullsLast().min(slices);
-                    Slice chunkMax = Ordering.natural().nullsFirst().max(slices);
+                    Slice chunkMin = Ordering.natural().nullsLast().min(minSlices);
+                    Slice chunkMax = Ordering.natural().nullsFirst().max(maxSlices);
                     if (format == DWRF && isHiveWriter) {
                         // We use the OLD open source DWRF writer for tests which uses UTF-16be for string stats. These are widened by the our reader.
                         if (columnStatistics.getStringStatistics().getMin().compareTo(chunkMin) > 0) {
