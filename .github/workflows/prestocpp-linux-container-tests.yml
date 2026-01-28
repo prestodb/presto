@@ -46,12 +46,15 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
+      - name: Enable Docker BuildKit (daemon)
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info | grep -i buildkit
+
       - name: Build worker image
         run: |
-          export DOCKER_BUILDKIT=1
-          export COMPOSE_DOCKER_CLI_BUILD=1
-          docker buildx create --use --name presto-builder || docker buildx use presto-builder
-
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
             -Denable.docker.build.worker=true \
@@ -91,12 +94,15 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
+      - name: Enable Docker BuildKit (daemon)
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info | grep -i buildkit
+
       - name: Build coordinator image
         run: |
-          export DOCKER_BUILDKIT=1
-          export COMPOSE_DOCKER_CLI_BUILD=1
-          docker buildx create --use --name presto-builder || docker buildx use presto-builder
-
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
             -Denable.docker.build.coordinator=true \
