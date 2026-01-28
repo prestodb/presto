@@ -992,6 +992,23 @@ public abstract class AbstractTestNativeGeneralQueries
     }
 
     @Test
+    public void testHammingDistanceFunction()
+    {
+        // Hamming_distance
+        assertQuery("SELECT hamming_distance('abcde', 'abcde')");
+        assertQueryFails("SELECT hamming_distance('abc', 'abcd')", ".*must have the same length.*");
+    }
+
+    @Test
+    public void testSecureRandomFunction()
+    {
+        //secure_random
+        assertQuerySucceeds("SELECT secure_random(1, 10)");
+        assertQuerySucceeds("SELECT secure_random(-1.0, 10.0)");
+        assertQueryFails("SELECT secure_random(2, -1)", ".*upper bound must be greater than lower bound.*");
+    }
+
+    @Test
     public void testBinaryFunctions()
     {
         // crc32.
