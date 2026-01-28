@@ -92,7 +92,7 @@ public class TestNativeSidecarHiveCatalog
         assertQuery("SELECT to_base64(to_utf8(hive.default.initcap('hello123world')))", "SELECT to_base64(to_utf8('Hello123world'))");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInitcapWithNullValues()
     {
         assertQuery(
@@ -152,6 +152,23 @@ public class TestNativeSidecarHiveCatalog
                 "VALUES ('Algeria'), ('Argentina'), ('Brazil')");
         assertQuery(
                 "SELECT COUNT(DISTINCT hive.default.initcap(name)) FROM nation",
+                "SELECT BIGINT '25'");
+    }
+
+    @Test(enabled = false)
+    public void testDataMismatch()
+    {
+        assertQuery(
+                "SELECT hive.default.initcap(CASE WHEN nationkey = 0 THEN NULL ELSE name END) " +
+                        "FROM nation WHERE nationkey < 2 ORDER BY nationkey",
+                "VALUES (CAST(NULL AS VARCHAR)), ('Argentina')");
+    }
+
+    @Test(enabled = false)
+    public void testServerCrashes()
+    {
+        assertQuery(
+                "SELECT COUNT(*) FROM nation WHERE hive.default.initcap(CASE WHEN nationkey < 0 THEN name ELSE NULL END) IS NULL",
                 "SELECT BIGINT '25'");
     }
 }

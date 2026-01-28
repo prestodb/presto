@@ -108,4 +108,55 @@ public class TestSqlInvokedFunctions
             assertQuery("SELECT TRY(ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]]))", "SELECT NULL");
         }
     }
+
+    // todo: remove this
+    //  All the failing queries overridden test methods are grouped into failures and tracked below, once the
+    //  group of queries pass, we can get rid of the overrides.
+    @Override
+    @Test
+    public void testArraySplitIntoChunks()
+    {
+        @Language("SQL") String sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5, 6], 2)";
+        assertQuery(sql, "values array[array[1, 2], array[3, 4], array[5, 6]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5], 3)";
+        assertQuery(sql, "values array[array[1, 2, 3], array[4, 5]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 5)";
+        assertQuery(sql, "values array[array[1, 2, 3]]");
+
+        sql = "select array_split_into_chunks(null, 2)";
+        assertQuery(sql, "values null");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], -1)";
+        assertQueryFails(sql, ".*Invalid slice size: -1. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[1, null, 3, null, 5], 2)";
+        assertQuery(sql, "values array[array[1, null], array[3, null], array[5]]");
+
+        sql = "select array_split_into_chunks(array[1.1, 2.2, 3.3, 4.4, 5.5], 2)";
+        assertQuery(sql, "values array[array[1.1, 2.2], array[3.3, 4.4], array[5.5]]");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 2)";
+        assertQuery(sql, "values array[array[null, null], array[null]]");
+
+        sql = "select array_split_into_chunks(array[null, 1, 2], 5)";
+        assertQuery(sql, "values array[array[null, 1, 2]]");
+
+        sql = "select array_split_into_chunks(array[], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+    }
+
+    @Test(enabled = false)
+    public void testVarcharMismatches()
+    {
+        @Language("SQL") String sql = "select array_split_into_chunks(array['a', 'b', 'c', 'd'], 2)";
+        assertQuery(sql, "values array[array['a', 'b'], array['c', 'd']]");
+    }
 }

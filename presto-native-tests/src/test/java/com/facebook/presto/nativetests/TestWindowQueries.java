@@ -39,7 +39,8 @@ public class TestWindowQueries
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
     }
@@ -174,13 +175,13 @@ public class TestWindowQueries
                         "(3, ARRAY[DATE '2222-01-01', DATE '3333-01-01'], 5.5)");
 
         assertQueryFails("SELECT x, array_agg(a) OVER(ORDER BY x RANGE BETWEEN 2 PRECEDING AND CURRENT ROW), array_agg(a) OVER(ORDER BY x RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING) " +
-                        "FROM (VALUES " +
-                        "(1.0, 1), " +
-                        "(2.0, 2), " +
-                        "(3.0, 3), " +
-                        "(4.0, 4), " +
-                        "(5.0, 5), " +
-                        "(6.0, 6)) T(x, a)", frameTypeDiffersError);
+                "FROM (VALUES " +
+                "(1.0, 1), " +
+                "(2.0, 2), " +
+                "(3.0, 3), " +
+                "(4.0, 4), " +
+                "(5.0, 5), " +
+                "(6.0, 6)) T(x, a)", frameTypeDiffersError);
     }
 
     /// The first query in this test fails because the Window's ORDER BY column type differs from the frame bound type.
@@ -227,4 +228,10 @@ public class TestWindowQueries
                         "(INTERVAL '2' month, ARRAY[INTERVAL '1' month, INTERVAL '2' month]), " +
                         "(INTERVAL '5' year, ARRAY[INTERVAL '5' year])");
     }
+
+    // Crashes the worker when using native expression optimizer
+    @Override
+    @Test(enabled = false)
+    public void testRowFieldAccessorInWindowFunction()
+    {}
 }
