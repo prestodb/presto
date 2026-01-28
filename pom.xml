@@ -60,7 +60,7 @@
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.0</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.parquet.version>1.16.0</dep.parquet.version>
+        <dep.parquet.version>1.17.0</dep.parquet.version>
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
