@@ -30,6 +30,7 @@ import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -652,25 +653,35 @@ public class TestNativeSidecarPlugin
     // TODO: Remove this test once all remaining failures
     //  are addressed using the native expression optimizer, and it is enabled everywhere.
 
-    // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
-    // Previously, the optimizer returned a BuiltInFunctionHandle, which caused errors such as "function not registered/found" because the function name was prefixed with `native.default`
-    // and resolution was attempted using the BuiltInFunctionNamespaceManager.
-    // With VeloxToPrestoExpr now returning a NativeFunctionHandle for native (C++) functions, we ensure that the NativeFunctionNamespaceManager is used to resolve native (C++) functions correctly.
-
-    // By adding this test case, we verify that the reconstructed FunctionHandle is now a NativeFunctionHandle and is resolved correctly.
-
     @Test
-    public void testArraySortUsingNativeOptimizer()
+    public void testQueriesUsingNativeOptimizer()
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
                 .build();
+
+        // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
+        // Previously, the optimizer returned a BuiltInFunctionHandle, which caused errors such as "function not registered/found" because the function name was prefixed with `native.default`
+        // and resolution was attempted using the BuiltInFunctionNamespaceManager.
+        // With VeloxToPrestoExpr now returning a NativeFunctionHandle for native (C++) functions, we ensure that the NativeFunctionNamespaceManager is used to resolve native (C++) functions correctly.
+
+        // By adding these test cases, we verify that the reconstructed FunctionHandle is now a NativeFunctionHandle and is resolved correctly.
         assertQuerySucceeds(session, "SELECT array_sort(ARRAY[-3, 2, -100, 5], x -> IF(x = 5, NULL, abs(x)))");
         assertQuerySucceeds(session, "SELECT array_sort_desc(ARRAY[-25, 20000, -17, 3672], x -> IF(x = 5, NULL, abs(x)))");
+
+        // aggregates
         assertUpdate(session, "ANALYZE region", 5);
         assertQuerySucceeds(session, "select count(*) from orders");
         assertQuerySucceeds(session, "select count(regionkey) from region");
         assertQuerySucceeds(session, "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
+        // no-op
+        assertQuerySucceeds(session, "SELECT IF(1 = 1, count(*), count(*)) FROM orders");
+        assertQuerySucceeds(session, "SELECT CASE WHEN true THEN count(*) ELSE count(*) END FROM ORDERS");
+
+        // windows
+        assertQuerySucceeds(session, "SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
+        assertQuerySucceeds(session, "WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
+        assertQuerySucceeds(session, "SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
     }
 
     private String generateRandomTableName()
