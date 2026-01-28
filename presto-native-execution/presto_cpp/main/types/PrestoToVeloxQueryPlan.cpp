@@ -1836,6 +1836,22 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+namespace {
+core::TopNRowNumberNode::RankFunction prestoToVeloxRankFunction(
+    protocol::RankingFunction rankingFunction) {
+  switch (rankingFunction) {
+    case protocol::RankingFunction::ROW_NUMBER:
+      return core::TopNRowNumberNode::RankFunction::kRowNumber;
+    case protocol::RankingFunction::RANK:
+      return core::TopNRowNumberNode::RankFunction::kRank;
+    case protocol::RankingFunction::DENSE_RANK:
+      return core::TopNRowNumberNode::RankFunction::kDenseRank;
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+}; // namespace
+
 std::shared_ptr<const core::PlanNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
@@ -1871,7 +1887,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   return std::make_shared<core::TopNRowNumberNode>(
       node->id,
-      core::TopNRowNumberNode::RankFunction::kRowNumber,
+      prestoToVeloxRankFunction(node->rankingType),
       partitionFields,
       sortFields,
       sortOrders,

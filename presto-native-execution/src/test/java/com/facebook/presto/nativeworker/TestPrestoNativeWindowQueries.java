@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 
 public class TestPrestoNativeWindowQueries
         extends AbstractTestNativeWindowQueries
@@ -25,6 +26,7 @@ public class TestPrestoNativeWindowQueries
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setExtraCoordinatorProperties(ImmutableMap.of("optimizer.optimize-top-n-rank", "true"))
                 .build();
     }
 
