@@ -84,6 +84,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUER
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_CARDINALITY;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -1635,6 +1636,56 @@ public class TestHiveLogicalPlanner
         assertPushdownSubfields(mapSubset, "SELECT t.id, map_filter(x, (k, v) -> contains(array[id], k)) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
                 ImmutableMap.of("x", toSubfields()));
         assertUpdate("DROP TABLE test_pushdown_map_subfields");
+    }
+
+    @Test
+    public void testPushdownSubfieldsForCardinality()
+    {
+        Session cardinalityPushdown = Session.builder(getSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_CARDINALITY, "true")
+                .build();
+
+        // Test simple cardinality pushdown for MAP
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_map(id integer, x map(integer, double))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT t.id, cardinality(x) FROM test_pushdown_cardinality_map t", "test_pushdown_cardinality_map",
+                ImmutableMap.of("x", toSubfields("x[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_map");
+
+        // Test cardinality pushdown for ARRAY
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_array(id integer, arr array(bigint))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT t.id, cardinality(arr) FROM test_pushdown_cardinality_array t", "test_pushdown_cardinality_array",
+                ImmutableMap.of("arr", toSubfields("arr[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_array");
+
+        // Test cardinality in WHERE clause
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_where(id integer, features map(varchar, double))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT t.id FROM test_pushdown_cardinality_where t WHERE cardinality(features) > 10", "test_pushdown_cardinality_where",
+                ImmutableMap.of("features", toSubfields("features[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_where");
+
+        // Test cardinality in aggregation
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_agg(id integer, data map(integer, varchar))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT AVG(cardinality(data)) FROM test_pushdown_cardinality_agg", "test_pushdown_cardinality_agg",
+                ImmutableMap.of("data", toSubfields("data[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_agg");
+
+        // Test multiple cardinalities
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_multi(id integer, map1 map(integer, double), map2 map(varchar, integer))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT cardinality(map1), cardinality(map2) FROM test_pushdown_cardinality_multi", "test_pushdown_cardinality_multi",
+                ImmutableMap.of("map1", toSubfields("map1[$]"), "map2", toSubfields("map2[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_multi");
+
+        // Test cardinality with complex expression
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_expr(id integer, tags map(varchar, varchar))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT cardinality(tags) * 2 FROM test_pushdown_cardinality_expr", "test_pushdown_cardinality_expr",
+                ImmutableMap.of("tags", toSubfields("tags[$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_expr");
+
+        // Test cardinality on ARRAY of maps
+        assertUpdate("CREATE TABLE test_pushdown_cardinality_nested(id integer, arr_of_maps array(map(integer, varchar)))");
+        assertPushdownSubfields(cardinalityPushdown, "SELECT transform(arr_of_maps, m -> cardinality(m)) FROM test_pushdown_cardinality_nested", "test_pushdown_cardinality_nested",
+                ImmutableMap.of("arr_of_maps", toSubfields("arr_of_maps[*][$]")));
+        assertUpdate("DROP TABLE test_pushdown_cardinality_nested");
     }
 
     @Test

@@ -106,7 +106,7 @@ class SubfieldTokenizer
         }
 
         if (tryMatch(OPEN_BRACKET)) {
-            Subfield.PathElement token = tryMatch(QUOTE) ? matchQuotedSubscript() : tryMatch(WILDCARD) ? matchWildcardSubscript() : matchUnquotedSubscript();
+            Subfield.PathElement token = tryMatch(QUOTE) ? matchQuotedSubscript() : tryMatch(WILDCARD) ? matchWildcardSubscript() : tryMatch(DOLLAR) ? matchStructureOnlySubscript() : matchUnquotedSubscript();
 
             match(CLOSE_BRACKET);
             firstSegment = false;
@@ -149,6 +149,11 @@ class SubfieldTokenizer
     private Subfield.PathElement matchDollarPathElement()
     {
         return Subfield.noSubfield();
+    }
+
+    private Subfield.PathElement matchStructureOnlySubscript()
+    {
+        return Subfield.structureOnly();
     }
 
     private static boolean isUnquotedPathCharacter(char c)

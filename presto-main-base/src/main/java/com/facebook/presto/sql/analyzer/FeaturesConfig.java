@@ -324,6 +324,7 @@ public class FeaturesConfig
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
+    private boolean pushdownSubfieldForCardinality;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
@@ -3267,6 +3268,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldForMapFunctions()
     {
         return pushdownSubfieldForMapFunctions;
+    }
+
+    @Config("optimizer.pushdown-subfield-for-cardinality")
+    @ConfigDescription("Enable subfield pruning for cardinality() function to skip reading keys and values")
+    public FeaturesConfig setPushdownSubfieldForCardinality(boolean pushdownSubfieldForCardinality)
+    {
+        this.pushdownSubfieldForCardinality = pushdownSubfieldForCardinality;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldForCardinality()
+    {
+        return pushdownSubfieldForCardinality;
     }
 
     @Config("optimizer.utilize-unique-property-in-query-planning")
