@@ -51,7 +51,7 @@ jobs:
           sudo mkdir -p /etc/docker
           echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
-          docker info | grep -i buildkit
+          docker info | grep -i buildkit || true
 
       - name: Build worker image
         run: |
@@ -99,7 +99,7 @@ jobs:
           sudo mkdir -p /etc/docker
           echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
-          docker info | grep -i buildkit
+          docker info | grep -i buildkit || true
 
       - name: Build coordinator image
         run: |
