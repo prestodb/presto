@@ -237,6 +237,22 @@
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
 
@@ -1087,9 +1103,23 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
+                <groupId>com.github.Joe-Abraham</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>iceberg1.10-SNAPSHOT</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>jcl-over-slf4j</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-nop</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
