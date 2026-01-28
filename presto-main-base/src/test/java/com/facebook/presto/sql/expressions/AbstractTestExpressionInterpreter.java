@@ -1191,6 +1191,14 @@ public abstract class AbstractTestExpressionInterpreter
                         "when true then 2.2 " +
                         "end",
                 "2.2");
+        assertOptimizedEquals("case unbound_long " +
+                        "when 1 then unbound_long " +
+                        "else 1 " +
+                        "end",
+                "case unbound_long " +
+                        "when 1 then unbound_long " +
+                        "else 1 " +
+                        "end");
 
         assertOptimizedEquals("case ARRAY[CAST(1 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'matched'");
         assertOptimizedEquals("case ARRAY[CAST(2 AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
