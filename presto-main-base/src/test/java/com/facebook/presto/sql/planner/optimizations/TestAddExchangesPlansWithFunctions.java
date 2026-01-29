@@ -36,6 +36,7 @@ import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.type.BigintOperators;
@@ -47,12 +48,16 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTIONS_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM;
+import static com.facebook.presto.SystemSessionProperties.SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser.parseFunctionDefinitions;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.JAVA;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.PYTHON;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -66,6 +71,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 /**
@@ -143,6 +149,34 @@ public class TestAddExchangesPlansWithFunctions
             "",
             notVersioned());
 
+    // External/Remote functions using PYTHON language mapped to THRIFT implementation type for testing REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM
+    private static final SqlInvokedFunction REMOTE_FOO = new SqlInvokedFunction(
+            new QualifiedObjectName("dummy", "unittest", "remote_foo"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "remote_foo(x)",
+            RoutineCharacteristics.builder().setLanguage(PYTHON).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
+
+    private static final SqlInvokedFunction REMOTE_BAR = new SqlInvokedFunction(
+            new QualifiedObjectName("dummy", "unittest", "remote_bar"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "remote_bar(x)",
+            RoutineCharacteristics.builder().setLanguage(PYTHON).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
+
+    private static final SqlInvokedFunction REMOTE_BAZ = new SqlInvokedFunction(
+            new QualifiedObjectName("dummy", "unittest", "remote_baz"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "remote_baz(x)",
+            RoutineCharacteristics.builder().setLanguage(PYTHON).setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
+            "",
+            notVersioned());
+
     private static LocalQueryRunner createTestQueryRunner()
     {
         LocalQueryRunner queryRunner = new LocalQueryRunner(testSessionBuilder()
@@ -160,15 +194,19 @@ public class TestAddExchangesPlansWithFunctions
                         new SqlFunctionExecutors(
                                 ImmutableMap.of(
                                         CPP, FunctionImplementationType.CPP,
-                                        JAVA, FunctionImplementationType.JAVA),
+                                        JAVA, FunctionImplementationType.JAVA,
+                                        PYTHON, FunctionImplementationType.THRIFT),
                                 new NoopSqlFunctionExecutor()),
-                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp")));
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("cpp,python")));
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(CPP_FOO, true);
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(CPP_BAZ, true);
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(JAVA_BAR, true);
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(JAVA_FEE, true);
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(NOT, true);
         queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(CPP_ARRAY_CONSTRUCTOR, true);
+        queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(REMOTE_FOO, true);
+        queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(REMOTE_BAR, true);
+        queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(REMOTE_BAZ, true);
         parseFunctionDefinitions(BigintOperators.class).stream()
                 .map(TestAddExchangesPlansWithFunctions::convertToSqlInvokedFunction)
                 .forEach(function -> queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(function, true));
@@ -669,13 +707,163 @@ public class TestAddExchangesPlansWithFunctions
                         "WHERE cpp_foo(ordinal_position) > 0 AND cpp_baz(ordinal_position) < 100",
                 output(
                         project(ImmutableMap.of("table_schema", expression("table_schema"),
-                                               "table_name", expression("table_name")),
+                                        "table_name", expression("table_name")),
                                 filter("cpp_foo(ordinal_position) > BIGINT'0' AND cpp_baz(ordinal_position) < BIGINT'100'",
                                         exchange(REMOTE_STREAMING, GATHER,
                                                 tableScan("columns", ImmutableMap.of(
                                                         "ordinal_position", "ordinal_position",
                                                         "table_schema", "table_schema",
                                                         "table_name", "table_name")))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithExactMatch()
+    {
+        // Test that REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM with exact function name
+        // causes round-robin exchanges to be added before and after the remote project
+        // Note: The function must be an external function (isExternalExecution() = true) for this feature to work
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_foo")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithRegexWildcard()
+    {
+        // Test that regex pattern with wildcard matches function names
+        // remote_foo matches the pattern "remote_.*"
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_.*")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithNonMatchingRegex()
+    {
+        // Test that when the regex doesn't match the function name,
+        // no extra round-robin exchanges are added
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "nonmatching_.*")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithEmptyString()
+    {
+        // Test that empty string means the feature is disabled (no extra exchanges)
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithMultipleFunctions()
+    {
+        // Test regex that matches multiple function names using OR pattern
+        // Both remote_foo and remote_baz should trigger the exchange insertion
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey), remote_baz(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_(foo|baz)")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                project(ImmutableMap.of(
+                                                "remote_foo", expression("remote_foo(nationkey)"),
+                                                "remote_baz", expression("remote_baz(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithPartialMatch()
+    {
+        // Test that regex requires full match (not partial) by using anchored pattern
+        // "remote_f" should NOT match "remote_foo" because matches() requires full string match
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_f")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))));
+    }
+
+    @Test
+    public void testRemoteFunctionNamesForFixedParallelismWithComplexRegex()
+    {
+        // Test complex regex pattern with character classes
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_[a-z]+")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, REPARTITION,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    private void assertNativeDistributedPlanWithSession(String sql, com.facebook.presto.Session session, PlanMatchPattern pattern)
+    {
+        assertDistributedPlan(sql, session, pattern);
     }
 
     private static class NoOpExpressionOptimizerFactory

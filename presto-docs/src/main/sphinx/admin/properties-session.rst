@@ -496,6 +496,43 @@ parallelism factor is below the ``table_scan_shuffle_parallelism_threshold``.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-strategy\`\``.
 
+``remote_function_names_for_fixed_parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string, disabled)
+
+A regular expression pattern to match fully qualified remote function names, such as ``catalog.schema.function_name``,
+that should use fixed parallelism. When a remote function matches this pattern, the optimizer inserts
+round-robin shuffle exchanges before and after the projection containing the remote function call.
+This ensures that the remote function executes with a fixed degree of parallelism, which can be useful
+for controlling resource usage when calling external services.
+
+This property only applies to external/remote functions (functions where ``isExternalExecution()`` returns ``true``,
+such as functions using THRIFT, GRPC, or REST implementation types).
+
+Example patterns:
+
+* ``myschema.myfunction`` - matches an exact function name
+* ``catalog.schema.remote_.*`` - matches all functions starting with ``remote_`` in the specified catalog and schema
+* ``.*remote.*`` - matches any function containing ``remote`` in its fully qualified name
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\``.
+
+``remote_function_fixed_parallelism_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``null`` (uses the default hash partition count)
+
+The number of tasks to use for remote functions matching the ``remote_function_names_for_fixed_parallelism`` pattern.
+When set, this value determines the degree of parallelism for the round-robin shuffle exchanges inserted
+around matching remote function projections. If not set, the default hash partition count will be used.
+
+This property is only effective when ``remote_function_names_for_fixed_parallelism`` is set to a non-empty pattern.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-fixed-parallelism-task-count\`\``.
+
 
 JDBC Properties
 ---------------

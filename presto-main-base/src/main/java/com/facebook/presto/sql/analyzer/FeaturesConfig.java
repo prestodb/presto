@@ -331,6 +331,8 @@ public class FeaturesConfig
     private double tableScanShuffleParallelismThreshold = 0.1;
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
+    private String remoteFunctionNamesForFixedParallelism = "";
+    private int remoteFunctionFixedParallelismTaskCount = 10;
 
     private boolean builtInSidecarFunctionsEnabled;
 
@@ -3372,5 +3374,32 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public String getRemoteFunctionNamesForFixedParallelism()
+    {
+        return remoteFunctionNamesForFixedParallelism;
+    }
+
+    @Config("optimizer.remote-function-names-for-fixed-parallelism")
+    @ConfigDescription("Regex pattern to match remote function names that should use fixed parallelism")
+    public FeaturesConfig setRemoteFunctionNamesForFixedParallelism(String remoteFunctionNamesForFixedParallelism)
+    {
+        this.remoteFunctionNamesForFixedParallelism = remoteFunctionNamesForFixedParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getRemoteFunctionFixedParallelismTaskCount()
+    {
+        return remoteFunctionFixedParallelismTaskCount;
+    }
+
+    @Config("optimizer.remote-function-fixed-parallelism-task-count")
+    @ConfigDescription("Number of tasks to use for remote functions matching the fixed parallelism pattern. If not set (0), the default hash partition count will be used.")
+    public FeaturesConfig setRemoteFunctionFixedParallelismTaskCount(int remoteFunctionFixedParallelismTaskCount)
+    {
+        this.remoteFunctionFixedParallelismTaskCount = remoteFunctionFixedParallelismTaskCount;
+        return this;
     }
 }

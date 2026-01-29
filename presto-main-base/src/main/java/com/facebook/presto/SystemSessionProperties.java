@@ -362,6 +362,8 @@ public final class SystemSessionProperties
     public static final String TABLE_SCAN_SHUFFLE_PARALLELISM_THRESHOLD = "table_scan_shuffle_parallelism_threshold";
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
+    public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
+    public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2084,6 +2086,16 @@ public final class SystemSessionProperties
                         "Skip pushing down remote projection through exchange",
                         featuresConfig.isSkipPushdownThroughExchangeForRemoteProjection(),
                         false),
+                stringProperty(
+                        REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM,
+                        "Regex pattern to match remote function names that should use fixed parallelism",
+                        featuresConfig.getRemoteFunctionNamesForFixedParallelism(),
+                        false),
+                integerProperty(
+                        REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT,
+                        "Number of tasks to use for remote functions matching the fixed parallelism pattern. If not set, the default hash partition count will be used.",
+                        featuresConfig.getRemoteFunctionFixedParallelismTaskCount(),
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3573,5 +3585,15 @@ public final class SystemSessionProperties
     public static boolean isSkipPushdownThroughExchangeForRemoteProjection(Session session)
     {
         return session.getSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, Boolean.class);
+    }
+
+    public static String getRemoteFunctionNamesForFixedParallelism(Session session)
+    {
+        return session.getSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, String.class);
+    }
+
+    public static int getRemoteFunctionFixedParallelismTaskCount(Session session)
+    {
+        return session.getSystemProperty(REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT, Integer.class);
     }
 }

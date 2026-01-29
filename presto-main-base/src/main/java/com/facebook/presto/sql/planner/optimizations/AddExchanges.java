@@ -60,6 +60,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatistics;
@@ -109,6 +110,8 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getAggregationPartitioningMergingStrategy;
@@ -116,6 +119,8 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdownStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
+import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionFixedParallelismTaskCount;
+import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionNamesForFixedParallelism;
 import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleParallelismThreshold;
 import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleStrategy;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -259,8 +264,31 @@ public class AddExchanges
         {
             Map<VariableReferenceExpression, VariableReferenceExpression> identities = computeIdentityTranslations(node.getAssignments());
             PreferredProperties translatedPreferred = preferredProperties.translate(symbol -> Optional.ofNullable(identities.get(symbol)));
+            PlanWithProperties planWithProperties = planChild(node, translatedPreferred);
 
-            return rebaseAndDeriveProperties(node, planChild(node, translatedPreferred));
+            if (node.getLocality().equals(ProjectNode.Locality.REMOTE)) {
+                String functionNameRegex = getRemoteFunctionNamesForFixedParallelism(session);
+                if (!functionNameRegex.isEmpty()) {
+                    Pattern pattern;
+                    try {
+                        pattern = Pattern.compile(functionNameRegex);
+                    }
+                    catch (PatternSyntaxException e) {
+                        return rebaseAndDeriveProperties(node, planWithProperties);
+                    }
+                    if (node.getAssignments().getExpressions().stream().filter(x -> x instanceof CallExpression)
+                            .anyMatch(x -> pattern.matcher(((CallExpression) x).getFunctionHandle().getName()).matches())) {
+                        int taskCount = getRemoteFunctionFixedParallelismTaskCount(session);
+                        checkState(taskCount > 0, "taskCount should be larger than 0");
+                        PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, planWithProperties.getNode(), taskCount);
+                        newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
+                        newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, newNode);
+                        return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+                    }
+                }
+            }
+
+            return rebaseAndDeriveProperties(node, planWithProperties);
         }
 
         @Override
