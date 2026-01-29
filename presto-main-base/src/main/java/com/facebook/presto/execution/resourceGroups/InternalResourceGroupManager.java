@@ -697,7 +697,8 @@ public final class InternalResourceGroupManager<C>
         return taskLimitExceeded.get() ? 1 : 0;
     }
 
-    private int getTotalRunningTaskCount()
+    @Managed
+    public int getTotalRunningTaskCount()
     {
         int taskCount = 0;
         for (RootInternalResourceGroup rootGroup : rootGroups) {
