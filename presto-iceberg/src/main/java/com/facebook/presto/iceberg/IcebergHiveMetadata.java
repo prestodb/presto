@@ -238,7 +238,7 @@ public class IcebergHiveMetadata
         }
 
         Table table = hiveTable.get();
-        if (!isIcebergMaterializedView(table) && !isPrestoView(table)) {
+        if (!isPrestoView(table)) {
             return Optional.empty();
         }
 
@@ -270,7 +270,7 @@ public class IcebergHiveMetadata
         if (!hiveTable.isPresent()) {
             return false;
         }
-        if (isIcebergMaterializedView(hiveTable.get())) {
+        if (isPrestoView(hiveTable.get())) {
             return false;
         }
         if (!isIcebergTable(hiveTable.get())) {
@@ -504,7 +504,11 @@ public class IcebergHiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (String schema : listSchemas(session, schemaName.orElse(null))) {
             for (String tableName : metastore.getAllViews(metastoreContext, schema).orElse(emptyList())) {
-                tableNames.add(new SchemaTableName(schema, tableName));
+                SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
+                Optional<Table> table = getHiveTable(session, schemaTableName);
+                if (table.isPresent() && !isIcebergMaterializedView(table.get())) {
+                    tableNames.add(schemaTableName);
+                }
             }
         }
         return tableNames.build();
