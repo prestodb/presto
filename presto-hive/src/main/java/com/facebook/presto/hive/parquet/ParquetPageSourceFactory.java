@@ -100,9 +100,9 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMax
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
-import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static com.facebook.presto.hive.HiveSessionProperties.columnIndexFilterEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactoryUtils.mapToPrestoException;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
