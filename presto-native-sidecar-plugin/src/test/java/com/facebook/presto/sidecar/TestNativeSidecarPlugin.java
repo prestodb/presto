@@ -649,8 +649,7 @@ public class TestNativeSidecarPlugin
         }
     }
 
-    // TODO: Remove this test once all remaining failures
-    //  are addressed using the native expression optimizer, and it is enabled everywhere.
+    // TODO: Remove these tests once the native expression optimizer is enabled for all tests.
 
     @Test
     public void testQueriesUsingNativeOptimizer()
@@ -681,6 +680,16 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
         assertQuerySucceeds(session, "WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
         assertQuerySucceeds(session, "SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
+    }
+
+    // This test case verifies the IN expression is handled correctly by the native expression optimizer.
+    @Test
+    public void testInExpression()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+        assertQuerySucceeds(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
     }
 
     private String generateRandomTableName()
