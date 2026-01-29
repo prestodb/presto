@@ -16,6 +16,8 @@ package com.facebook.presto.sidecar.expressions;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -176,8 +178,13 @@ public class NativeExpressionOptimizer
         @Override
         public Void visitCall(CallExpression node, Object context)
         {
+            FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle());
+
+            // Only constant fold scalar functions, not aggregate or window functions.
+            boolean isScalarFunction = functionMetadata.getFunctionKind() == FunctionKind.SCALAR;
+
             // If the optimization level is not EVALUATED, then we cannot optimize non-deterministic functions
-            boolean isDeterministic = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle()).isDeterministic();
+            boolean isDeterministic = functionMetadata.isDeterministic();
             boolean canBeEvaluated = (optimizationLevel.ordinal() < EVALUATED.ordinal() && isDeterministic) ||
                     optimizationLevel.ordinal() == EVALUATED.ordinal();
 
@@ -189,7 +196,7 @@ public class NativeExpressionOptimizer
             boolean allConstantFoldable = node.getArguments().stream()
                     .allMatch(this::canBeOptimized);
 
-            if (canBeEvaluated && allConstantFoldable) {
+            if (isScalarFunction && canBeEvaluated && allConstantFoldable) {
                 visitNode(node, true);
                 return null;
             }
