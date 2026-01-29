@@ -283,7 +283,9 @@ public class TestFeaturesConfig
                 .setTableScanShuffleParallelismThreshold(0.1)
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.DISABLED)
                 .setSkipPushdownThroughExchangeForRemoteProjection(false)
-                .setUseConnectorProvidedSerializationCodecs(false));
+                .setUseConnectorProvidedSerializationCodecs(false)
+                .setRemoteFunctionNamesForFixedParallelism("")
+                .setRemoteFunctionFixedParallelismTaskCount(10));
     }
 
     @Test
@@ -513,6 +515,8 @@ public class TestFeaturesConfig
                 .put("optimizer.table-scan-shuffle-strategy", "ALWAYS_ENABLED")
                 .put("optimizer.skip-pushdown-through-exchange-for-remote-projection", "true")
                 .put("use-connector-provided-serialization-codecs", "true")
+                .put("optimizer.remote-function-names-for-fixed-parallelism", "remote_.*")
+                .put("optimizer.remote-function-fixed-parallelism-task-count", "100")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -740,7 +744,9 @@ public class TestFeaturesConfig
                 .setTableScanShuffleParallelismThreshold(0.3)
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.ALWAYS_ENABLED)
                 .setSkipPushdownThroughExchangeForRemoteProjection(true)
-                .setUseConnectorProvidedSerializationCodecs(true);
+                .setUseConnectorProvidedSerializationCodecs(true)
+                .setRemoteFunctionNamesForFixedParallelism("remote_.*")
+                .setRemoteFunctionFixedParallelismTaskCount(100);
         assertFullMapping(properties, expected);
     }
 
