@@ -93,11 +93,13 @@ import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyUnnest;
+import static com.facebook.presto.SystemSessionProperties.isPushSubfieldsForCardinalityEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushSubfieldsForMapFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFromArrayLambdasEnabled;
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
+import static com.facebook.presto.common.Subfield.structureOnly;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
@@ -820,6 +822,7 @@ public class PushdownSubfields
             private final FunctionAndTypeManager functionAndTypeManager;
             private final boolean isPushDownSubfieldsFromLambdasEnabled;
             private final boolean isPushdownSubfieldsForMapFunctionsEnabled;
+            private final boolean isPushdownSubfieldsForCardinalityEnabled;
 
             private SubfieldExtractor(
                     FunctionResolution functionResolution,
@@ -835,11 +838,26 @@ public class PushdownSubfields
                 requireNonNull(session);
                 this.isPushDownSubfieldsFromLambdasEnabled = isPushdownSubfieldsFromArrayLambdasEnabled(session);
                 this.isPushdownSubfieldsForMapFunctionsEnabled = isPushSubfieldsForMapFunctionsEnabled(session);
+                this.isPushdownSubfieldsForCardinalityEnabled = isPushSubfieldsForCardinalityEnabled(session);
             }
 
             @Override
             public Void visitCall(CallExpression call, Context context)
             {
+                if (isPushdownSubfieldsForCardinalityEnabled && functionResolution.isCardinalityFunction(call.getFunctionHandle()) && call.getArguments().size() == 1) {
+                    RowExpression argument = call.getArguments().get(0);
+                    if (argument instanceof VariableReferenceExpression) {
+                        Type argumentType = argument.getType();
+                        if (argumentType instanceof MapType || argumentType instanceof ArrayType) {
+                            VariableReferenceExpression variable = (VariableReferenceExpression) argument;
+                            Subfield cardinalitySubfield = new Subfield(
+                                    variable.getName(),
+                                    ImmutableList.of(structureOnly()));
+                            context.subfields.add(cardinalitySubfield);
+                            return null;
+                        }
+                    }
+                }
                 ComplexTypeFunctionDescriptor functionDescriptor = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getDescriptor();
                 if (isSubscriptOrElementAtFunction(call, functionResolution, functionAndTypeManager) || isMapSubSetWithConstantArray(call, functionResolution) || isMapFilterWithConstantFilterInMapKey(call, functionResolution)) {
                     Optional<List<Subfield>> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager, isPushdownSubfieldsForMapFunctionsEnabled);

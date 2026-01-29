@@ -81,6 +81,31 @@ public class Subfield
         }
     }
 
+    public static final class StructureOnly
+            implements PathElement
+    {
+        private static final StructureOnly STRUCTURE_ONLY = new StructureOnly();
+
+        private StructureOnly() {}
+
+        public static StructureOnly getInstance()
+        {
+            return STRUCTURE_ONLY;
+        }
+
+        @Override
+        public boolean isSubscript()
+        {
+            return true;
+        }
+
+        @Override
+        public String toString()
+        {
+            return "[$]";
+        }
+    }
+
     public static final class NestedField
             implements PathElement
     {
@@ -236,6 +261,11 @@ public class Subfield
     public static PathElement noSubfield()
     {
         return NoSubfield.getInstance();
+    }
+
+    public static PathElement structureOnly()
+    {
+        return StructureOnly.getInstance();
     }
 
     @JsonCreator
