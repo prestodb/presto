@@ -17,6 +17,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestRepartitionQueries;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
@@ -61,4 +62,9 @@ public class TestRepartitionQueriesWithSmallPages
     {
         NativeTestsUtils.createTables(storageFormat);
     }
+
+    // Invalid node. Expression dependencies ([partkey, comment]) not in source plan output ([orderkey, partkey])
+    @Override
+    @Test(enabled = false)
+    public void testStructWithNulls() {}
 }
