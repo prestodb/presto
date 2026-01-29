@@ -116,6 +116,7 @@ public class TableScanOperator
 
     private long completedBytes;
     private long completedPositions;
+    private long decompressedBytes;
     private long readTimeNanos;
 
     public TableScanOperator(
@@ -269,7 +270,7 @@ public class TableScanOperator
             page = page.getLoadedPage();
         }
 
-        // update operator stats
+        // Record raw input (compressed bytes from storage) and processed input (decompressed bytes)
         recordInputStats();
 
         // updating system memory usage should happen after page is loaded.
@@ -281,15 +282,19 @@ public class TableScanOperator
     private void recordInputStats()
     {
         checkState(source != null, "source must not be null");
-        // update operator stats
+        // update operator stats with three-tier metrics
         long endCompletedBytes = source.getCompletedBytes();
         long endCompletedPositions = source.getCompletedPositions();
+        long endDecompressedBytes = source.getDecompressedBytes();
         long endReadTimeNanos = source.getReadTimeNanos();
         long inputBytes = endCompletedBytes - completedBytes;
         long inputBytesReadTime = endReadTimeNanos - readTimeNanos;
         long positionCount = endCompletedPositions - completedPositions;
-        operatorContext.recordProcessedInput(inputBytes, positionCount);
+        long decompressedInputBytes = endDecompressedBytes - decompressedBytes;
+        // Raw input: compressed bytes from storage
         operatorContext.recordRawInputWithTiming(inputBytes, positionCount, inputBytesReadTime);
+        // Processed input: decompressed bytes (middle tier - after decompression, before filtering)
+        operatorContext.recordProcessedInput(decompressedInputBytes, positionCount);
         RuntimeStats runtimeStats = source.getRuntimeStats();
         if (runtimeStats != null) {
             runtimeStats.addMetricValueIgnoreZero(STORAGE_READ_TIME_NANOS, NANO, inputBytesReadTime);
@@ -298,6 +303,7 @@ public class TableScanOperator
         }
         completedBytes = endCompletedBytes;
         completedPositions = endCompletedPositions;
+        decompressedBytes = endDecompressedBytes;
         readTimeNanos = endReadTimeNanos;
     }
 }
