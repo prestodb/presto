@@ -714,23 +714,24 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        Session session = sessionWithLegacyTimestamp();
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
 
-        assertUpdate("CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
-        assertQuery("SELECT count(*) FROM test_insert", "SELECT 0");
+        assertUpdate(session, "CREATE TABLE test_insert AS " + query + " WITH NO DATA", 0);
+        assertQuery(session, "SELECT count(*) FROM test_insert", "SELECT 0");
 
-        assertUpdate("INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
+        assertUpdate(session, "INSERT INTO test_insert " + query, "SELECT count(*) FROM orders");
 
-        assertQuery("SELECT * FROM test_insert", query);
+        assertQuery(session, "SELECT * FROM test_insert", query);
 
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey) VALUES (null)", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
-        assertUpdate("INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
-        assertUpdate("INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
-        assertUpdate("INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (-1)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey) VALUES (null)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate) VALUES (DATE '2001-01-01')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderkey, orderdate) VALUES (-2, DATE '2001-01-02')", 1);
+        assertUpdate(session, "INSERT INTO test_insert (orderdate, orderkey) VALUES (DATE '2001-01-03', -3)", 1);
+        assertUpdate(session, "INSERT INTO test_insert (totalprice) VALUES (1234)", 1);
 
-        assertQuery("SELECT * FROM test_insert", query
+        assertQuery(session, "SELECT * FROM test_insert", query
                 + " UNION ALL SELECT null, -1, null"
                 + " UNION ALL SELECT null, null, null"
                 + " UNION ALL SELECT DATE '2001-01-01', null, null"
@@ -740,24 +741,24 @@ public abstract class AbstractTestDistributedQueries
 
         // UNION query produces columns in the opposite order
         // of how they are declared in the table schema
-        assertUpdate(
+        assertUpdate(session,
                 "INSERT INTO test_insert (orderkey, orderdate, totalprice) " +
                         "SELECT orderkey, orderdate, totalprice FROM orders " +
                         "UNION ALL " +
                         "SELECT orderkey, orderdate, totalprice FROM orders",
                 "SELECT 2 * count(*) FROM orders");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate(session, "DROP TABLE test_insert");
 
-        assertUpdate("CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+        assertUpdate(session, "CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
-        assertQuery("SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
+        assertUpdate(session, "INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
+        assertQuery(session, "SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
 
-        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
+        assertQueryFails(session, "INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "line 1:37: Mismatch at column 1.*");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertUpdate(session, "DROP TABLE test_insert");
     }
 
     @Test
