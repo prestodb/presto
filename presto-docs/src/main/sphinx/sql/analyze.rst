@@ -35,6 +35,10 @@ Analyze table ``stores`` in catalog ``hive`` and schema ``default``::
 
     ANALYZE hive.default.stores;
 
+Analyze table ``stores`` in catalog ``iceberg`` and schema ``default``::
+
+    ANALYZE iceberg.default.stores;
+
 Analyze partitions ``'1992-01-01', '1992-01-02'`` from a Hive partitioned table ``sales``::
 
     ANALYZE hive.default.sales WITH (partitions = ARRAY[ARRAY['1992-01-01'], ARRAY['1992-01-02']]);
