@@ -26,7 +26,7 @@ jobs:
       contents: read
     needs: changes
     container:
-      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      image: prestodb/presto-native-dependency:0.297-202601221815-dcf69f00
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
