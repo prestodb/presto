@@ -210,7 +210,7 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
   time0Bto100KB.add(nanos, NANOSECONDS);
   ```
     
-  * Prefer Immutable collections in Guava when possible. For example, instead of using
+  * Prefer immutable collections when possible. For example, instead of using
     
   ```java
   expressions.stream()
