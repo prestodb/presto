@@ -23,7 +23,7 @@ env:
 # -----------------------------
 jobs:
   build-worker-image:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,12 +46,8 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
-      - name: Enable Docker BuildKit (daemon)
-        run: |
-          sudo mkdir -p /etc/docker
-          echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-          docker info | grep -i buildkit || true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build worker image
         run: |
@@ -60,17 +56,23 @@ jobs:
             -Denable.docker.build.worker=true \
             -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 
-      - name: Prune docker build cache
+      - name: Save Docker image
         run: |
-          docker builder prune --all --force
-          docker system prune -af
-          df -h
+          docker save presto-worker:latest -o presto-worker.tar          
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-worker
+          retention-days: 1
+          path: presto-worker.tar
+
 
   # -----------------------------
   # Job 2: Build coordinator image
   # -----------------------------
   build-coordinator-image:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: build-worker-image
     steps:
       - uses: actions/checkout@v4
@@ -94,12 +96,8 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
-      - name: Enable Docker BuildKit (daemon)
-        run: |
-          sudo mkdir -p /etc/docker
-          echo '{ "features": { "buildkit": true } }' | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-          docker info | grep -i buildkit || true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build coordinator image
         run: |
@@ -108,17 +106,22 @@ jobs:
             -Denable.docker.build.coordinator=true \
             -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 
-      - name: Prune docker build cache
+      - name: Save Docker image
         run: |
-          docker builder prune --all --force
-          docker system prune -af
-          df -h
+          docker save presto-coordinator:latest -o presto-coordinator.tar          
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-coordinator
+          retention-days: 1
+          path: presto-coordinator.tar
 
   # -----------------------------
   # Job 3: Run container tests
   # -----------------------------
   run-container-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: build-coordinator-image
     steps:
       - uses: actions/checkout@v4
@@ -130,6 +133,21 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
           docker system prune -af --volumes
           df -h
+
+      - name: Download worker image
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-worker
+
+      - name: Download coordinator image
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-coordinator
+
+      - name: Load Docker images
+        run: |
+          docker load -i "presto-coordinator:latest/presto-coordinator.tar"
+          docker load -i "presto-worker:latest/presto-worker.tar"
 
       - uses: actions/setup-java@v4
         with:
@@ -151,10 +169,3 @@ jobs:
             -DPRESTO_SERVER="$PRESTO_SERVER_PATH" \
             -DDATA_DIR="$RUNNER_TEMP" \
             -Duser.timezone=America/Bahia_Banderas
-
-      - name: Final docker cleanup
-        if: always()
-        run: |
-          docker system prune -af --volumes
-          docker builder prune --all --force
-          df -h
