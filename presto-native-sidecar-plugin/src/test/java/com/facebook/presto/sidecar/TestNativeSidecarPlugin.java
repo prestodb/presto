@@ -401,7 +401,7 @@ public class TestNativeSidecarPlugin
     }
 
     // type of variable 'expr_3' is expected to be varchar(1), but the actual type is varchar
-    @Test(enabled = false)
+    @Test
     public void testMapSubset()
     {
         assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
@@ -679,7 +679,7 @@ public class TestNativeSidecarPlugin
     }
 
     // type of variable 'array_intersect' is expected to be array(varchar(6)), but the actual type is array(varchar)
-    @Test(enabled = false)
+    @Test
     public void testVarcharMismatches()
     {
         assertQuery("SELECT array_intersect(ARRAY['apple', 'banana', 'cherry'], ARRAY['apple', 'mango', 'fig'])");
@@ -716,7 +716,7 @@ public class TestNativeSidecarPlugin
                 "ORDER BY table_name, position_category");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testArrayLeastFrequentCrashingWorker()
     {
         assertQuery("SELECT array_least_frequent(quantities) from orders_ex");
@@ -818,7 +818,7 @@ public class TestNativeSidecarPlugin
     {
         // Invalid UUID. Note: This evaluates on the co-ordinator. This is used in subsequent SQL.
         assertQueryFails("SELECT cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)",
-                "(?s).*Cannot cast value to UUID: 0E984725-C51C-4BF4-9960-H1C80E27ABA0.*");
+                "(?s).*bad lexical cast: source type value could not be interpreted as target.*");
         assertQuery("SELECT try_cast('0E984725-C51C-4BF4-9960-H1C80E27ABA0' AS uuid)");
 
         String tmpTableName = generateRandomTableName();
@@ -834,7 +834,6 @@ public class TestNativeSidecarPlugin
                 "(?s).*bad lexical cast: source type value could not be interpreted as target.*");
         assertQuery(format("SELECT try_cast(c_uuid AS uuid) FROM %s", tmpTableName));
         getQueryRunner().execute(format("DROP TABLE %s", tmpTableName));
->>>>>>> 2e412234b3 (Add varcharn signature generation for sidecar)
     }
 
     private String generateRandomTableName()

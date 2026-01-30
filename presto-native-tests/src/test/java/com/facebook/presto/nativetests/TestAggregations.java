@@ -79,52 +79,9 @@ public class TestAggregations
     @Test(enabled = false)
     public void testGroupedRow() {}
 
-    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
-    // and Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
-    @Override
-    @Test(enabled = false)
-    public void testGroupByCase() {}
-
-    // type of variable 'expr' is expected to be varchar(6), but the actual type is varchar
-    @Override
-    @Test(enabled = false)
-    public void testGroupByIf() {}
-
-    // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
-    @Override
-    @Test(enabled = false)
-    public void testGroupBySearchedCase() {}
-
-    // type of variable 'expr_14' is expected to be varchar(15), but the actual type is varchar
-    @Override
-    @Test(enabled = false)
-    public void testGroupingSetPredicatePushdown() {}
-
-    // todo: remove this
-    //  All the failing queries overridden test methods are grouped into failures and tracked below, once the
-    //  group of queries pass, we can get rid of the overrides.
-    @Override
-    @Test
-    public void testGroupBySearchedCaseNoElse()
-    {
-        assertQuery("SELECT CASE WHEN true THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
-    }
-
-    @Override
-    @Test
-    public void testGroupByCaseNoElse()
-    {
-        // 'then' in GROUP BY clause
-        assertQuery("SELECT CASE 1 WHEN 1 THEN orderstatus END, count(*)\n" +
-                "FROM orders\n" +
-                "GROUP BY orderstatus");
-    }
-
     // aggregated test cases start here
 
-    @Test(enabled = false)
+    @Test
     public void testVarcharMismatches()
     {
         // testGroupByCaseNoElse
@@ -159,7 +116,7 @@ public class TestAggregations
     }
 
     // only after Pramod's cherry pick for CASE during expression conversion
-    @Test(enabled = false)
+    @Test
     public void testExpressionWithoutDependenciesPresent()
     {
         // Invalid node. Expression dependencies ([orderstatus]) not in source plan output ([])
