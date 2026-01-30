@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-edge9.4-SNAPSHOT</version>
+        <version>0.297-edge9.5-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto.router</groupId>
     <artifactId>presto-plan-checker-router-plugin</artifactId>
-    <version>0.297-edge9.4-SNAPSHOT</version>
+    <version>0.297-edge9.5-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>presto-plan-checker-router-plugin</name>
     <description>Presto plan checker router plugin</description>
