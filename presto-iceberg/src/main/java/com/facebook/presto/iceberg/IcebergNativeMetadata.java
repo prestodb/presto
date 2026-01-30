@@ -75,6 +75,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewPropertie
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
+import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
@@ -135,8 +136,7 @@ public class IcebergNativeMetadata
         return getNativeIcebergTable(catalogFactory, session, schemaTableName);
     }
 
-    @Override
-    protected View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
+    private View getIcebergView(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
             return icebergViews.computeIfAbsent(
@@ -149,6 +149,27 @@ public class IcebergNativeMetadata
                 throw (NoSuchViewException) rootCause;
             }
             throw e;
+        }
+    }
+
+    @Override
+    protected Optional<IcebergViewMetadata> getViewMetadata(ConnectorSession session, SchemaTableName viewName)
+    {
+        Catalog catalog = catalogFactory.getCatalog(session);
+        if (!(catalog instanceof ViewCatalog)) {
+            return Optional.empty();
+        }
+        try {
+            View view = getIcebergView(session, viewName);
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                    viewName,
+                    getColumnMetadata(session, view),
+                    createViewMetadataProperties(view),
+                    getViewComment(view));
+            return Optional.of(new IcebergViewMetadata(view.properties(), tableMetadata));
+        }
+        catch (NoSuchViewException e) {
+            return Optional.empty();
         }
     }
 
