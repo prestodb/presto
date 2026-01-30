@@ -161,6 +161,7 @@ public class FeaturesConfig
     private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy = LocalExchangeParentPreferenceStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
     private boolean adaptivePartialAggregationEnabled;
     private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
@@ -419,6 +420,13 @@ public class FeaturesConfig
         ALWAYS, // Always do partial aggregation
         NEVER, // Never do partial aggregation
         AUTOMATIC // Let the optimizer decide for each aggregation
+    }
+
+    public enum LocalExchangeParentPreferenceStrategy
+    {
+        ALWAYS, // Always use parent preferences for local exchange partitioning
+        NEVER, // Never use parent preferences, use aggregation's own grouping keys
+        AUTOMATIC // Cost-based: use parent preferences only if cardinality >= taskConcurrency
     }
 
     public enum AggregationIfToFilterRewriteStrategy
@@ -1130,6 +1138,18 @@ public class FeaturesConfig
     public FeaturesConfig setPartialAggregationStrategy(PartialAggregationStrategy partialAggregationStrategy)
     {
         this.partialAggregationStrategy = partialAggregationStrategy;
+        return this;
+    }
+
+    public LocalExchangeParentPreferenceStrategy getLocalExchangeParentPreferenceStrategy()
+    {
+        return localExchangeParentPreferenceStrategy;
+    }
+
+    @Config("optimizer.local-exchange-parent-preference-strategy")
+    public FeaturesConfig setLocalExchangeParentPreferenceStrategy(LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy)
+    {
+        this.localExchangeParentPreferenceStrategy = localExchangeParentPreferenceStrategy;
         return this;
     }
 

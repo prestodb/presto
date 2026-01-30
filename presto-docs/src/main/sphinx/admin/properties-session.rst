@@ -533,6 +533,22 @@ This property is only effective when ``remote_function_names_for_fixed_paralleli
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-fixed-parallelism-task-count\`\``.
 
+``local_exchange_parent_preference_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``ALWAYS``, ``NEVER``, ``AUTOMATIC``
+* **Default value:** ``ALWAYS``
+
+Strategy to consider parent preferences when adding local exchange partitioning for aggregations.
+When set to ``ALWAYS``, the optimizer always uses parent preferences for local exchange partitioning.
+When set to ``NEVER``, it never uses parent preferences and instead uses the aggregation's own
+grouping keys. When set to ``AUTOMATIC``, the optimizer makes a cost-based decision, using parent
+preferences only when the estimated partition cardinality is greater than or equal to the task
+concurrency.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
+
 
 JDBC Properties
 ---------------

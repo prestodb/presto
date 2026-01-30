@@ -41,6 +41,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToInnerJoinStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPreferenceStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
@@ -209,6 +210,7 @@ public final class SystemSessionProperties
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
+    public static final String LOCAL_EXCHANGE_PARENT_PREFERENCE_STRATEGY = "local_exchange_parent_preference_strategy";
     public static final String LIST_BUILT_IN_FUNCTIONS_ONLY = "list_built_in_functions_only";
     public static final String NON_BUILT_IN_FUNCTION_NAMESPACES_TO_LIST_FUNCTIONS = "non_built_in_function_namespaces_to_list_functions";
     public static final String PARTITIONING_PRECISION_STRATEGY = "partitioning_precision_strategy";
@@ -1152,6 +1154,18 @@ public final class SystemSessionProperties
                         false,
                         value -> AggregationPartitioningMergingStrategy.valueOf(((String) value).toUpperCase()),
                         AggregationPartitioningMergingStrategy::name),
+                new PropertyMetadata<>(
+                        LOCAL_EXCHANGE_PARENT_PREFERENCE_STRATEGY,
+                        format("Strategy to use parent preferences in local exchange partitioning for aggregations. Options are %s",
+                                Stream.of(LocalExchangeParentPreferenceStrategy.values())
+                                        .map(LocalExchangeParentPreferenceStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        LocalExchangeParentPreferenceStrategy.class,
+                        featuresConfig.getLocalExchangeParentPreferenceStrategy(),
+                        false,
+                        value -> LocalExchangeParentPreferenceStrategy.valueOf(((String) value).toUpperCase()),
+                        LocalExchangeParentPreferenceStrategy::name),
                 booleanProperty(
                         LIST_BUILT_IN_FUNCTIONS_ONLY,
                         "Only List built-in functions in SHOW FUNCTIONS",
@@ -2838,6 +2852,11 @@ public final class SystemSessionProperties
     public static AggregationPartitioningMergingStrategy getAggregationPartitioningMergingStrategy(Session session)
     {
         return session.getSystemProperty(AGGREGATION_PARTITIONING_MERGING_STRATEGY, AggregationPartitioningMergingStrategy.class);
+    }
+
+    public static LocalExchangeParentPreferenceStrategy getLocalExchangeParentPreferenceStrategy(Session session)
+    {
+        return session.getSystemProperty(LOCAL_EXCHANGE_PARENT_PREFERENCE_STRATEGY, LocalExchangeParentPreferenceStrategy.class);
     }
 
     public static boolean isListBuiltInFunctionsOnly(Session session)
