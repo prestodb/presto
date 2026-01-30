@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.plugin.oracle;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 
-import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
@@ -53,6 +51,12 @@ public class TestOracleIntegrationSmokeTest
     }
 
     @Override
+    protected boolean isLegacyTimestampEnabled()
+    {
+        return false;
+    }
+
+    @Override
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
@@ -68,32 +72,5 @@ public class TestOracleIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
-    }
-
-    @Override
-    public void testMultipleRangesPredicate()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LEGACY_TIMESTAMP, "false")
-                .build();
-        assertQuery(session, "SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
-    }
-
-    @Override
-    public void testRangePredicate()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LEGACY_TIMESTAMP, "false")
-                .build();
-        assertQuery(session, "SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
-    }
-
-    @Override
-    public void testSelectAll()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LEGACY_TIMESTAMP, "false")
-                .build();
-        assertQuery(session, "SELECT * FROM orders");
     }
 }

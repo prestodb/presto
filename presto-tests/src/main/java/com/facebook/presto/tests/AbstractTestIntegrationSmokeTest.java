@@ -34,6 +34,10 @@ public abstract class AbstractTestIntegrationSmokeTest
     {
         return true;
     }
+    protected boolean isLegacyTimestampEnabled()
+    {
+        return true;
+    }
 
     @Test
     public void testAggregateSingleColumn()
