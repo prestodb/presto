@@ -341,6 +341,7 @@ public class IcebergHiveMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
     {
+        shouldRunInAutoCommitTransaction("CREATE SCHEMA");
         Optional<String> location = getLocation(properties).map(uri -> {
             try {
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
@@ -365,6 +366,7 @@ public class IcebergHiveMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
+        shouldRunInAutoCommitTransaction("DROP SCHEMA");
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
@@ -377,6 +379,7 @@ public class IcebergHiveMetadata
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
+        shouldRunInAutoCommitTransaction("RENAME SCHEMA");
         MetastoreContext metastoreContext = getMetastoreContext(session);
         metastore.renameDatabase(metastoreContext, source, target);
     }
@@ -426,7 +429,7 @@ public class IcebergHiveMetadata
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath, populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
-        transaction = createTableTransaction(tableName, operations, metadata);
+        openCreateTableTransaction(schemaTableName, createTableTransaction(tableName, operations, metadata));
 
         return new IcebergOutputTableHandle(
                 schemaName,
@@ -444,6 +447,7 @@ public class IcebergHiveMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        shouldRunInAutoCommitTransaction("DROP TABLE");
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can be dropped");
         // TODO: support path override in Iceberg table creation
@@ -463,6 +467,7 @@ public class IcebergHiveMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTable)
     {
+        shouldRunInAutoCommitTransaction("RENAME TABLE");
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
         metastore.renameTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), newTable.getSchemaName(), newTable.getTableName());
@@ -471,6 +476,7 @@ public class IcebergHiveMetadata
     @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
+        shouldRunInAutoCommitTransaction("CREATE VIEW");
         MetastoreContext metastoreContext = getMetastoreContext(session);
         SchemaTableName viewName = viewMetadata.getTable();
         Table table = createTableObjectForViewCreation(
@@ -562,6 +568,7 @@ public class IcebergHiveMetadata
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
+        shouldRunInAutoCommitTransaction("RENAME VIEW");
         // Not checking if source view exists as this is already done in RenameViewTask
         metastore.renameTable(getMetastoreContext(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
@@ -569,6 +576,7 @@ public class IcebergHiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
+        shouldRunInAutoCommitTransaction("DROP VIEW");
         ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
         checkIfNullView(view, viewName);
 
@@ -652,12 +660,6 @@ public class IcebergHiveMetadata
                     }
                 })
                 .collect(toImmutableSet());
-    }
-
-    @Override
-    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return tableHandle;
     }
 
     @Override

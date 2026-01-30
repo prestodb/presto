@@ -17,9 +17,9 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
@@ -80,12 +80,12 @@ public class IcebergNativeMetadataFactory
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
     }
 
-    public ConnectorMetadata create()
+    public IcebergTransactionMetadata create()
     {
         return create(REPEATABLE_READ, true);
     }
 
-    public ConnectorMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext)
+    public IcebergTransactionMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext)
     {
         return new IcebergNativeMetadata(catalogFactory, typeManager, procedureRegistry, functionResolution,
                 rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec, catalogType, nodeVersion,
