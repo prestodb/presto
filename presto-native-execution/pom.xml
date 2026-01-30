@@ -546,14 +546,6 @@
         </profile>
         <profile>
             <id>docker-build</id>
-<!--            <dependencies>-->
-<!--                <dependency>-->
-<!--                    <groupId>com.facebook.presto</groupId>-->
-<!--                    <artifactId>presto-server</artifactId>-->
-<!--                    <version>${project.version}</version>-->
-<!--                    <scope>runtime</scope>-->
-<!--                </dependency>-->
-<!--            </dependencies>-->
             <build>
                 <plugins>
                     <plugin>
