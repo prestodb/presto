@@ -58,6 +58,7 @@ import com.facebook.presto.iceberg.procedure.StatisticsFileCacheInvalidationProc
 import com.facebook.presto.iceberg.procedure.UnregisterTableProcedure;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;

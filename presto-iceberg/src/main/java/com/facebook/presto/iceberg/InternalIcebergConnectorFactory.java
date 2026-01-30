@@ -30,6 +30,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.s3.HiveS3Module;
 import com.facebook.presto.hive.security.SystemTableAwareAccessControl;
 import com.facebook.presto.iceberg.security.IcebergSecurityModule;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
