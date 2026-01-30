@@ -13,7 +13,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <spark.binary.version.main>2</spark.binary.version.main>
+        <spark.version.main>2</spark.version.main>
     </properties>
 
     <dependencies>
@@ -35,8 +35,8 @@
     </dependencies>
 
     <build>
-        <outputDirectory>target/java-spark${spark.binary.version.main}/classes</outputDirectory>
-        <testOutputDirectory>target/java-spark${spark.binary.version.main}/test-classes</testOutputDirectory>
+        <outputDirectory>target/java-spark${spark.version.main}/classes</outputDirectory>
+        <testOutputDirectory>target/java-spark${spark.version.main}/test-classes</testOutputDirectory>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -50,7 +50,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>src/main/java-spark${spark.binary.version.main}</source>
+                                <source>src/main/java-spark${spark.version.main}</source>
                             </sources>
                         </configuration>
                     </execution>
@@ -64,13 +64,14 @@
             <id>spark2</id>
 
             <activation>
-                <activeByDefault>true</activeByDefault>
                 <property>
-                    <name>!spark-version</name>
+                    <name>spark-version</name>
+                    <value>2</value>
                 </property>
             </activation>
 
             <properties>
+                <spark.version.main>2</spark.version.main>
                 <dep.spark.version>2.0.2-6</dep.spark.version>
             </properties>
 
@@ -139,7 +140,7 @@
             </activation>
 
             <properties>
-                <spark.binary.version.main>3</spark.binary.version.main>
+                <spark.version.main>3</spark.version.main>
                 <dep.spark.version>3.4.1-1</dep.spark.version>
             </properties>
 
