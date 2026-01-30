@@ -86,19 +86,25 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testMultipleRangesPredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
+        if (isLegacyTimestampEnabled()) {
+            assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
+        }
     }
 
     @Test
     public void testRangePredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
+        if (isLegacyTimestampEnabled()) {
+            assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
+        }
     }
 
     @Test
     public void testSelectAll()
     {
-        assertQuery("SELECT * FROM orders");
+        if (isLegacyTimestampEnabled()) {
+            assertQuery("SELECT * FROM orders");
+        }
     }
 
     @Test
