@@ -1,3 +1,4 @@
 [submodule "presto-native-execution/velox"]
 	path = presto-native-execution/velox
 	url = https://github.com/czentgr/velox.git
+	branch = cz_varcharn_support
