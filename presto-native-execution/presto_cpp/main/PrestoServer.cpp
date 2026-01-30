@@ -187,13 +187,15 @@ std::shared_ptr<std::thread> registerVeloxCudf() {
     if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
       velox::cudf_velox::registerCudf();
       if (velox::cudf_velox::CudfConfig::getInstance().exchange) {
-        PRESTO_STARTUP_LOG(INFO) << "cuDF exchange server started";
         auto server = facebook::velox::ucx_exchange::Communicator::initAndGet(
             SystemConfig::instance()->cudfServerPort(),
             SystemConfig::instance()->discoveryUri().value());
         if (server) {
+          PRESTO_STARTUP_LOG(INFO) << "cuDF exchange server started";
           serverThread = std::make_shared<std::thread>(
               &velox::ucx_exchange::Communicator::run, server.get());
+        } else {
+          PRESTO_STARTUP_LOG(ERROR) << "cuDF exchange server could not start";
         }
       }
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
