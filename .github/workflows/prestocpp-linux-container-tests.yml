@@ -50,6 +50,8 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build worker image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
@@ -100,6 +102,8 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build coordinator image
+        env:
+          DOCKER_BUILDKIT: 1
         run: |
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
