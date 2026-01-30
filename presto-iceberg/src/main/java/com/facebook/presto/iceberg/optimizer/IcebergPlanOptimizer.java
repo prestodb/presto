@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.Utils.nativeValueToBlock;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toSubfield;
@@ -276,6 +277,13 @@ public class IcebergPlanOptimizer
             Domain domain,
             ConnectorSession session)
     {
+        // Disables metadata deletion and filter thoroughly pushdown for varbinary columns
+        // because of the known issue about binary partition column in Iceberg.
+        // See: https://github.com/apache/iceberg/issues/15128
+        // todo: This restrict could be removed once the Iceberg issue is resolved.
+        if (columnHandle.getType() == VARBINARY) {
+            return false;
+        }
         return table.specs().values().stream()
                 .filter(partitionSpec -> partitionSpecIds.contains(partitionSpec.specId()))
                 .allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(spec, columnHandle, domain, session));
