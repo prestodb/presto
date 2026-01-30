@@ -1730,47 +1730,47 @@ public abstract class IcebergAbstractMetadata
                     materializedViewProperties,
                     viewMetadata.getComment());
 
-            try {
-                Map<String, String> properties = new HashMap<>();
-                properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
-                properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, viewDefinition.getOriginalSql());
-                properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
-                properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
-
-                String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
-                properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
-                properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
-                properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, viewDefinition.getOwner()
-                        .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view owner is required")));
-                properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode()
-                        .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view security mode is required (set legacy_materialized_views=false)"))
-                        .name());
-
-                getStaleReadBehavior(materializedViewProperties)
-                        .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
-                getStalenessWindow(materializedViewProperties)
-                        .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
-                MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
-                properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
-
-                for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
-                    properties.put(getBaseTableViewPropertyName(baseTable), "0");
-                }
-
-                createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
-                // Create materialized view should run after the creation of the underlying storage table
-                /*transactionContext.registerCallback(() -> createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties));
-                createTable(session, storageTableMetadata, false);*/
-            }
-            catch (Exception e) {
+            // Create materialized view should run after the creation of the underlying storage table
+            transactionContext.registerCallback(() -> {
                 try {
-                    dropStorageTable(session, storageTableName);
+                    Map<String, String> properties = new HashMap<>();
+                    properties.put(PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION, CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION + "");
+                    properties.put(PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL, viewDefinition.getOriginalSql());
+                    properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA, storageTableName.getSchemaName());
+                    properties.put(PRESTO_MATERIALIZED_VIEW_STORAGE_TABLE_NAME, storageTableName.getTableName());
+
+                    String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
+                    properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
+                    properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
+                    properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, viewDefinition.getOwner()
+                            .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view owner is required")));
+                    properties.put(PRESTO_MATERIALIZED_VIEW_SECURITY_MODE, viewDefinition.getSecurityMode()
+                            .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view security mode is required (set legacy_materialized_views=false)"))
+                            .name());
+
+                    getStaleReadBehavior(materializedViewProperties)
+                            .ifPresent(behavior -> properties.put(PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, behavior.name()));
+                    getStalenessWindow(materializedViewProperties)
+                            .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
+                    MaterializedViewRefreshType refreshType = getRefreshType(materializedViewProperties);
+                    properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name());
+
+                    for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
+                        properties.put(getBaseTableViewPropertyName(baseTable), "0");
+                    }
+                    createIcebergView(session, viewName, viewMetadata.getColumns(), viewDefinition.getOriginalSql(), properties);
                 }
-                catch (Exception cleanupException) {
-                    e.addSuppressed(cleanupException);
+                catch (Exception e) {
+                    try {
+                        dropStorageTable(session, storageTableName);
+                    }
+                    catch (Exception cleanupException) {
+                        e.addSuppressed(cleanupException);
+                    }
+                    throw e;
                 }
-                throw e;
-            }
+            });
+            createTable(session, storageTableMetadata, false);
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == NOT_SUPPORTED.toErrorCode()) {
@@ -1888,6 +1888,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
+        shouldRunInAutoCommitTransaction("DROP MATERIALIZED VIEW");
         Optional<MaterializedViewDefinition> definition = getMaterializedView(session, viewName);
 
         if (definition.isPresent()) {
@@ -1976,6 +1977,7 @@ public abstract class IcebergAbstractMetadata
             ConnectorSession session,
             ConnectorTableHandle tableHandle)
     {
+        shouldRunInAutoCommitTransaction("REFRESH MATERIALIZED VIEW");
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
 
         if (icebergTableHandle.getMaterializedViewName().isEmpty()) {
