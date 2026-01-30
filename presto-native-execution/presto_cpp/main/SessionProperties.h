@@ -272,6 +272,11 @@ class SessionProperties {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "native_max_page_partitioning_buffer_size";
 
+  /// If true, the PartitionedOutput operator will flush rows eagerly, without
+  /// waiting until buffers reach certain size. Default is false.
+  static constexpr const char* kPartitionedOutputEagerFlush =
+      "native_partitioned_output_eager_flush";
+
   /// Maximum number of partitions created by a local exchange.
   /// Affects concurrency for pipelines containing LocalPartitionNode.
   static constexpr const char* kMaxLocalExchangePartitionCount =
