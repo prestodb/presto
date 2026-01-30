@@ -76,6 +76,10 @@ jobs:
           install_velox_deps_from_brew
           install_double_conversion
 
+          # Install glog/gflags because they are not installed from homebrew.
+          install_gflags
+          install_glog
+
           # Velox deps needed by proxygen, a presto dependency.
           install_boost
           install_fmt
