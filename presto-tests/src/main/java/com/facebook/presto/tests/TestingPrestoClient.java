@@ -55,6 +55,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -252,10 +252,12 @@ public class TestingPrestoClient
                     .collect(toList());
         }
         else if (type instanceof MapType) {
-            return ((Map<Object, Object>) value).entrySet().stream()
-                    .collect(Collectors.toMap(
-                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
-                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
+            Map<Object, Object> newMap = new HashMap<>();
+            ((Map<Object, Object>) value).entrySet().stream()
+                    .forEach(entry -> newMap.put(
+                            convertToRowValue(((MapType) type).getKeyType(), entry.getKey()),
+                            convertToRowValue(((MapType) type).getValueType(), entry.getValue())));
+            return newMap;
         }
         else if (type instanceof RowType) {
             if (value instanceof LinkedHashMap) {

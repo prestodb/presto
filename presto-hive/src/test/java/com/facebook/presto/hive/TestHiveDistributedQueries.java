@@ -22,6 +22,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import org.intellij.lang.annotations.Language;
@@ -32,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_STRATEGY;
@@ -63,7 +65,8 @@ public class TestHiveDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables());
+        QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
+                ImmutableMap.of("deprecated.legacy-map-subscript", "true"), "sql-standard", ImmutableMap.of(), Optional.empty());
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
     }
@@ -251,6 +254,48 @@ public class TestHiveDistributedQueries
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_pushdown_subfields");
+        }
+    }
+
+    @Test
+    public void testPushdownSubfieldForMapFunctions2()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, "true")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS, "false")
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .build();
+        try {
+            getQueryRunner().execute("create table mymap(a int, b map(varchar, map(int, double)))");
+            getQueryRunner().execute("insert into mymap values(1, map(array['1001', '1002'], array[map(array[1, 11], array[cast (1.1 as double), cast (11.1 as double)]), map(array[2, 22], array[cast(2.2 as double), cast(22.2 as double)])]))");
+
+            getQueryRunner().execute("create table test_map as select map(array['995448'], array[map(array[1], array[0.1])]) as m");
+            @Language("SQL") String sql = "select m['995448'] m, m['915951'] k from (SELECT MAP_SUBSET(m, ARRAY['995448']) AS m FROM test_map)";
+            assertQueryWithSameQueryRunner(enabled, sql, disabled);
+            sql = "select map_subset(m, ARRAY['995448']) m, map_subset(m, ARRAY['915951']) k from (SELECT MAP_SUBSET(m, ARRAY['995448']) AS m FROM test_map)";
+            assertQueryWithSameQueryRunner(enabled, sql, disabled);
+            sql = "SELECT\n" +
+                    "            MAP(\n" +
+                    "                CAST(ARRAY[4, 7] AS ARRAY<INTEGER>),\n" +
+                    "                CAST(ARRAY[\n" +
+                    "                m['915951']\n" +
+                    "                ,\n" +
+                    "                m['995448']\n" +
+                    "                ] AS ARRAY<MAP<INTEGER, DOUBLE>>)\n" +
+                    "            ) m\n" +
+                    "        FROM (\n" +
+                    "        SELECT\n" +
+                    "            MAP_SUBSET(m, ARRAY['995448']) AS m\n" +
+                    "        FROM test_map\n" +
+                    "        )";
+            assertQueryWithSameQueryRunner(enabled, sql, disabled);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS mymap");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_map");
         }
     }
 
