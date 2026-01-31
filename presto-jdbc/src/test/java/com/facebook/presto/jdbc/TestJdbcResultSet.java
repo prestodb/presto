@@ -364,6 +364,17 @@ public class TestJdbcResultSet
         }
     }
 
+    @Test
+    public void testGetColumnTypeConsistency()
+            throws SQLException
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT INTERVAL '1-2' YEAR TO MONTH AS testInterval")) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            String columnTypeName = metaData.getColumnTypeName(1);
+            assertEquals(columnTypeName, "interval year to month");
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {
