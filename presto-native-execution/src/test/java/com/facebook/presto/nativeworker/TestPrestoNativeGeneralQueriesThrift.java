@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 
 public class TestPrestoNativeGeneralQueriesThrift
         extends AbstractTestNativeGeneralQueries
@@ -41,5 +44,13 @@ public class TestPrestoNativeGeneralQueriesThrift
                 .build();
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
+    }
+
+    @Override
+    protected Session getSession()
+    {
+        return Session.builder(super.getSession())
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
+                .build();
     }
 }

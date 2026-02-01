@@ -43,7 +43,7 @@ public class FunctionsConfig
     private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyTimestamp = true;
     private boolean parseDecimalLiteralsAsDouble;
-    private boolean fieldNamesInJsonCastEnabled;
+    private boolean fieldNamesInJsonCastEnabled = true;
     private boolean warnOnPossibleNans;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
