@@ -33,7 +33,7 @@ services:
     environment:
       - "TZ=America/Bahia_Banderas"
   hadoop-master:
-    image: prestodb/hdp2.6-hive:10
+    image: prestodb/hdp3.1-hive:11
     hostname: hadoop-master
     environment:
       - "TZ=America/Bahia_Banderas"
