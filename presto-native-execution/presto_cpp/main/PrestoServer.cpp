@@ -1073,7 +1073,8 @@ void PrestoServer::initializeVeloxMemory() {
     velox::cache::AsyncDataCache::Options cacheOptions{
         systemConfig->asyncCacheMaxSsdWriteRatio(),
         systemConfig->asyncCacheSsdSavableRatio(),
-        systemConfig->asyncCacheMinSsdSavableBytes()};
+        systemConfig->asyncCacheMinSsdSavableBytes(),
+        systemConfig->asyncCacheNumShards()};
     cache_ = velox::cache::AsyncDataCache::create(
         velox::memory::memoryManager()->allocator(),
         std::move(ssd),
