@@ -218,7 +218,7 @@ proxygen::RequestHandler* DispatchingRequestHandlerFactory::onRequest(
             message->getURL()));
   }
 
-  auto path = message->getPath();
+  const auto& path = message->getPath();
 
   // Allocate vector outside of loop to avoid repeated alloc/free.
   std::vector<std::string> matches(4);

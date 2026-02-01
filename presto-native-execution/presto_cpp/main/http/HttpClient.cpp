@@ -54,7 +54,7 @@ HttpClient::HttpClient(
       http2SessionWindow_(
           SystemConfig::instance()->httpClientHttp2SessionWindow()),
       pool_(std::move(pool)),
-      sslContext_(sslContext),
+      sslContext_(std::move(sslContext)),
       reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
       maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
 }
@@ -207,7 +207,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> initialize(
       std::shared_ptr<ResponseHandler> self) {
-    self_ = self;
+    self_ = std::move(self);
     return promise_.getSemiFuture();
   }
 
@@ -342,7 +342,7 @@ class ConnectionHandler : public proxygen::HTTPConnector::Callback {
       folly::SSLContextPtr sslContext)
       : responseHandler_(responseHandler),
         sessionPool_(sessionPool),
-        transactionTimer_(transactionTimeout),
+        transactionTimer_(std::move(transactionTimeout)),
         connectTimeout_(connectTimeout),
         http2Enabled_(http2Enabled),
         maxConcurrentStreams_(maxConcurrentStreams),

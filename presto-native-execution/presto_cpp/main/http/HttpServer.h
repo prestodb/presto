@@ -106,7 +106,7 @@ class CallbackRequestHandlerState {
 
   // The function 'fn' will run on the thread that invoked onEOM()
   void runOnFinalization(std::function<void(void)> callback) {
-    onFinalizationCallback_ = callback;
+    onFinalizationCallback_ = std::move(callback);
   }
 
   bool requestExpired() const {
@@ -136,10 +136,11 @@ using AsyncRequestHandlerCallback = std::function<void(
 class CallbackRequestHandler : public AbstractRequestHandler {
  public:
   explicit CallbackRequestHandler(RequestHandlerCallback callback)
-      : callback_(wrap(callback)) {}
+      : callback_(wrap(std::move(callback))) {}
 
   explicit CallbackRequestHandler(AsyncRequestHandlerCallback callback)
-      : callback_(callback), state_{CallbackRequestHandlerState::create()} {}
+      : callback_(std::move(callback)),
+        state_{CallbackRequestHandlerState::create()} {}
 
   ~CallbackRequestHandler() override {
     if (state_) {
