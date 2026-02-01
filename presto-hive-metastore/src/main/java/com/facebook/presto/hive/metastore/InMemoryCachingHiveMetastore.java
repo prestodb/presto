@@ -637,30 +637,6 @@ public class InMemoryCachingHiveMetastore
         return get(partitionFilterCache, getCachingKey(metastoreContext, partitionFilter(databaseName, tableName, partitionPredicates)));
     }
 
-    private void invalidateStalePartitions(
-            List<PartitionNameWithVersion> partitionNamesWithVersion,
-            String databaseName,
-            String tableName,
-            MetastoreContext metastoreContext)
-    {
-        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
-            HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionNameWithVersion.getPartitionName());
-            KeyAndContext<HivePartitionName> partitionNameKey = getCachingKey(metastoreContext, hivePartitionName);
-            Optional<Partition> partition = partitionCache.getIfPresent(partitionNameKey);
-            if (partition == null || !partition.isPresent()) {
-                partitionCache.invalidate(partitionNameKey);
-                partitionStatisticsCache.invalidate(partitionNameKey);
-            }
-            else {
-                Optional<Long> partitionVersion = partition.get().getPartitionVersion();
-                if (!partitionVersion.isPresent() || !partitionVersion.equals(partitionNameWithVersion.getPartitionVersion())) {
-                    partitionCache.invalidate(partitionNameKey);
-                    partitionStatisticsCache.invalidate(partitionNameKey);
-                }
-            }
-        }
-    }
-
     private void invalidatePartitionsWithHighColumnCount(Optional<Partition> partition, KeyAndContext<HivePartitionName> partitionCacheKey)
     {
         // Do NOT cache partitions with # of columns > partitionCacheColumnLimit
