@@ -53,6 +53,7 @@ public class TestInternalCommunicationConfig
                 .setTaskUpdateRequestThriftSerdeEnabled(false)
                 .setTaskInfoResponseThriftSerdeEnabled(false)
                 .setInternalJwtEnabled(false)
+                .setResourceManagerCommunicationProtocol(CommunicationProtocol.THRIFT)
                 .setNodeStatsRefreshIntervalMillis(1_000)
                 .setNodeDiscoveryPollingIntervalMillis(5_000));
     }
@@ -84,6 +85,7 @@ public class TestInternalCommunicationConfig
                 .put("experimental.internal-communication.task-info-response-thrift-serde-enabled", "true")
                 .put("internal-communication.node-stats-refresh-interval-millis", "2000")
                 .put("internal-communication.node-discovery-polling-interval-millis", "3000")
+                .put("internal-communication.resource-manager-communication-protocol", "HTTP")
                 .build();
 
         InternalCommunicationConfig expected = new InternalCommunicationConfig()
@@ -106,6 +108,7 @@ public class TestInternalCommunicationConfig
                 .setMemoizeDeadNodesEnabled(true)
                 .setSharedSecret("secret")
                 .setInternalJwtEnabled(true)
+                .setResourceManagerCommunicationProtocol(CommunicationProtocol.HTTP)
                 .setTaskUpdateRequestThriftSerdeEnabled(true)
                 .setTaskInfoResponseThriftSerdeEnabled(true)
                 .setNodeStatsRefreshIntervalMillis(2000)
