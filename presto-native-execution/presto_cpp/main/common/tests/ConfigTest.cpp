@@ -230,6 +230,17 @@ TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
 
+TEST_F(ConfigTest, asyncCacheNumShards) {
+  SystemConfig config;
+  init(config, {});
+  // Test default value is 4
+  ASSERT_EQ(config.asyncCacheNumShards(), 4);
+
+  // Test custom value
+  init(config, {{std::string(SystemConfig::kAsyncCacheNumShards), "8"}});
+  ASSERT_EQ(config.asyncCacheNumShards(), 8);
+}
+
 TEST_F(ConfigTest, remoteFunctionServer) {
   SystemConfig config;
   init(config, {});
