@@ -31,12 +31,11 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
     NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
     ccache -sz -v'
-RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64:/usr/local/cuda/compat ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server  | grep "not found") && \
-    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64:/usr/local/cuda/compat ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
+RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -v libcuda) && \
+    LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
-RUN cp -rf /usr/local/cuda/targets/*/lib /runtime-libraries/cuda
-RUN cp /usr/local/cuda/compat/libnvidia-ptxjitcompiler.*.*.* /runtime-libraries/cuda
 RUN cp -rf /usr/local/lib/ucx /runtime-libraries/ucx
+RUN echo "${CUDA_VERSION}" > /cuda_version
 
 #/////////////////////////////////////////////
 #          prestissimo-runtime
@@ -47,17 +46,27 @@ FROM ${BASE_IMAGE}
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
+# Copy scripts and CUDA version from build stage
+COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
+COPY --from=prestissimo-image /cuda_version /tmp/
+
+# Install CUDA runtime packages and RDMA libraries
+RUN CUDA_VERSION=$(cat /tmp/cuda_version) && \
+    source /tmp/scripts/setup-centos-adapters.sh && \
+    install_cuda_runtime "${CUDA_VERSION}" && \
+    dnf install -y librdmacm libibverbs && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf /tmp/scripts /tmp/cuda_version
+
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/ucx /usr/lib64/prestissimo-libs/ucx
-COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/cuda /usr/lib64/prestissimo-libs/cuda
 COPY --chmod=0755 ./etc /opt/presto-server/etc
 COPY --chmod=0775 ./entrypoint.sh /opt/entrypoint.sh
-RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && ldconfig
-RUN echo "/usr/lib64/prestissimo-libs/cuda" >> /etc/ld.so.conf.d/cuda.conf && ldconfig
-RUN echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf && ldconfig
-
-RUN dnf install -y librdmacm libibverbs
+RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && \
+    echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf && \
+    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf && \
+    ldconfig
 
 RUN rpm --import https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
     dnf config-manager --add-repo "https://developer.download.nvidia.com/devtools/repos/rhel$(source /etc/os-release; echo ${VERSION_ID%%.*})/$(rpm --eval '%{_arch}' | sed s/aarch/arm/)/" && \
