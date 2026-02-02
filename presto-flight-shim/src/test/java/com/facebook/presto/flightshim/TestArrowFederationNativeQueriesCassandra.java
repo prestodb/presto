@@ -26,6 +26,7 @@ import org.apache.arrow.flight.FlightServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Optional;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -120,6 +121,15 @@ public class TestArrowFederationNativeQueriesCassandra
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(cassandraServer));
         return queryRunner;
+    }
+
+    // Cassandra connector needs to create a table before inserting any rows.
+    // Validate that the table isn't created as creating tables isn't supported by the flight server shim.
+    @Test
+    public void testTableCreation()
+    {
+        assertQueryFails("CREATE TABLE temp AS SELECT * FROM nation", ".*CREATE TABLE AS operations are not supported by this connecto.*r");
+        assertQueryFails("SELECT * FROM temp", ".*Table cassandra.tpch.temp does not exist.*");
     }
 
     @Override
@@ -236,6 +246,7 @@ public class TestArrowFederationNativeQueriesCassandra
     {
         // no op -- test not supported due to lack of support for array types.
     }
+
     @Override
     public void testNonAutoCommitTransactionWithCommit()
     {

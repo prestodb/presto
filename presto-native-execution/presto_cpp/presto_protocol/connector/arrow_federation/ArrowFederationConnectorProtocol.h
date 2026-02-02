@@ -26,5 +26,6 @@ using ArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
     NotImplemented,
     ArrowFederationTransactionHandle,
     NotImplemented,
+    NotImplemented,
     NotImplemented>;
 } // namespace facebook::presto::protocol::arrow_federation
