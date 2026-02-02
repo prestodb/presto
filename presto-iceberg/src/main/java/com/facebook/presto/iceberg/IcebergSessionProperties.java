@@ -72,6 +72,7 @@ public final class IcebergSessionProperties
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
     public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
+    public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -214,6 +215,22 @@ public final class IcebergSessionProperties
                         "The K parameter for the Apache DataSketches KLL sketch when computing histogram statistics",
                         icebergConfig.getStatisticsKllSketchKParameter(),
                         false))
+                .add(new PropertyMetadata<>(
+                        MAX_PARTITIONS_PER_WRITER,
+                        "Maximum number of partitions per writer",
+                        INTEGER,
+                        Integer.class,
+                        icebergConfig.getMaxPartitionsPerWriter(),
+                        false,
+                        value -> {
+                            int intValue = ((Number) value).intValue();
+                            if (intValue < 1) {
+                                throw new PrestoException(INVALID_SESSION_PROPERTY,
+                                        format("Invalid value for %s: %s. It must be greater than or equal to 1.", MAX_PARTITIONS_PER_WRITER, intValue));
+                            }
+                            return intValue;
+                        },
+                        integer -> integer))
                 .add(longProperty(
                         TARGET_SPLIT_SIZE_BYTES,
                         "The target split size. Set to 0 to use the iceberg table's read.split.target-size property",
@@ -363,6 +380,11 @@ public final class IcebergSessionProperties
     public static int getStatisticsKllSketchKParameter(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_KLL_SKETCH_K_PARAMETER, Integer.class);
+    }
+
+    public static int getMaxPartitionsPerWriter(ConnectorSession session)
+    {
+        return session.getProperty(MAX_PARTITIONS_PER_WRITER, Integer.class);
     }
 
     public static Long getTargetSplitSize(ConnectorSession session)
