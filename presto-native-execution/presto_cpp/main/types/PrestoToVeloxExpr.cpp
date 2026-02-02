@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/expression/ExprUtils.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
@@ -145,48 +146,6 @@ std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
 }
 
 namespace {
-static const char* kVarchar = "varchar";
-
-/// Convert cast of varchar to substr if target type is varchar with max length.
-/// Throw an exception for cast of varchar to varchar with max length.
-std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
-    const std::string& returnType,
-    const std::vector<TypedExprPtr>& args,
-    bool nullOnFailure) {
-  static const std::string prestoDefaultNamespacePrefix =
-      SystemConfig::instance()->prestoDefaultNamespacePrefix();
-  if (nullOnFailure) {
-    VELOX_UNSUPPORTED(
-        "TRY_CAST of varchar to {} is not supported.", returnType);
-  }
-
-  // Parse the max length from the return type string in the format of
-  // varchar(max_length). Assume return type string is valid given
-  // TypeParser.yy.
-  char* end;
-  const auto length =
-      strtol(returnType.data() + strlen(kVarchar) + 1, &end, 10);
-  VELOX_DCHECK(errno != ERANGE);
-  VELOX_DCHECK(end == returnType.data() + returnType.size() - 1);
-
-  VELOX_DCHECK_EQ(args.size(), 1);
-
-  auto arg = args[0];
-  // If the argument is of JSON type, convert it to VARCHAR before applying
-  // substr.
-  if (velox::isJsonType(arg->type())) {
-    arg = std::make_shared<CastTypedExpr>(velox::VARCHAR(), arg, false);
-  }
-  return std::make_shared<CallTypedExpr>(
-      arg->type(),
-      std::vector<TypedExprPtr>{
-          arg,
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), 1LL),
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
-      },
-      util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "substr"));
-}
-
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
 /// flag set to false and true appropriately.
 /// Removes cast to Re2JRegExp type. Velox doesn't have such type and uses
@@ -194,8 +153,6 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
 /// regular expressions needlessly.
 /// Removes cast to CodePoints type. Velox doesn't have such type and uses
 /// different mechanisms to implement trim functions efficiently.
-/// Convert cast of varchar to substr if the target type is varchar with max
-/// length. Throw an exception for cast of varchar to varchar with max length.
 std::optional<TypedExprPtr> tryConvertCast(
     const protocol::Signature& signature,
     const std::string& returnType,
@@ -252,15 +209,6 @@ std::optional<TypedExprPtr> tryConvertCast(
 
   if (returnType == kCodePoints) {
     return args[0];
-  }
-
-  // When the return type is varchar with max length, truncate if only the
-  // argument type is varchar, or varchar with max length or json. Non-varchar
-  // argument types are not truncated.
-  if (returnType.find(kVarchar) == 0 &&
-      args[0]->type()->kind() == TypeKind::VARCHAR &&
-      returnType.size() > strlen(kVarchar)) {
-    return convertCastToVarcharWithMaxLength(returnType, args, nullOnFailure);
   }
 
   auto type = typeParser->parse(returnType);
@@ -607,22 +555,43 @@ std::shared_ptr<const CastTypedExpr> makeCastExpr(
   return std::make_shared<CastTypedExpr>(type, std::move(inputs), false);
 }
 
+// CASE
+//    WHEN condition THEN result
+//    [ WHEN ... ]
+//    [ ELSE result ]
+// END
+// corresponds to searched form of CASE expression, and
+// CASE expression
+//    WHEN value THEN result
+//    [ WHEN ... ]
+//    [ ELSE result ]
+// END
+// corresponds to the simple form of CASE. Reference:
+// https://prestodb.io/docs/current/functions/conditional.html#case .
+// Velox only supports the searched form of SWITCH, the first argument should
+// be removed only in the simple form.
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     const velox::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
-  auto valueExpr = args.front();
-  args.erase(args.begin());
+  static constexpr const char* kWhen = "when";
+
+  bool isSearchedForm = velox::expression::utils::isCall(*args.begin(), kWhen);
+  TypedExprPtr valueExpr = nullptr;
+  bool valueIsTrue = false;
+  if (!isSearchedForm) {
+    valueExpr = args.front();
+    args.erase(args.begin());
+    valueIsTrue = isTrueConstant(valueExpr);
+  }
 
   std::vector<TypedExprPtr> inputs;
   inputs.reserve((args.size() - 1) * 2);
 
-  const bool valueIsTrue = isTrueConstant(valueExpr);
-
   for (const auto& arg : args) {
     if (auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg)) {
-      if (call->name() == "when") {
+      if (call->name() == kWhen) {
         auto& condition = call->inputs()[0];
-        if (valueIsTrue) {
+        if (isSearchedForm || valueIsTrue) {
           inputs.emplace_back(condition);
         } else {
           if (condition->type()->kindEquals(valueExpr->type())) {
