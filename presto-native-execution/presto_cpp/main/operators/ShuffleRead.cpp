@@ -36,7 +36,7 @@ ShuffleRead::ShuffleRead(
               shuffleReadNode->id(),
               shuffleReadNode->outputType(),
               VectorSerde::Kind::kCompactRow),
-          exchangeClient,
+          std::move(exchangeClient),
           "ShuffleRead") {
   initStats();
 }

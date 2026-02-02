@@ -21,7 +21,7 @@ namespace facebook::presto::operators {
 class ShuffleReadNode : public velox::core::PlanNode {
  public:
   ShuffleReadNode(const velox::core::PlanNodeId& id, velox::RowTypePtr type)
-      : PlanNode(id), outputType_(type) {}
+      : PlanNode(id), outputType_(std::move(type)) {}
 
   class Builder {
    public:
