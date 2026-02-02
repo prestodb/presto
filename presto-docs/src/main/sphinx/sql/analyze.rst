@@ -21,7 +21,8 @@ connector-specific properties. To list all available properties, run the followi
     SELECT * FROM system.metadata.analyze_properties
 
 Currently, this statement is only supported by the
-:ref:`Hive connector <hive_analyze>`.
+:ref:`Hive connector <hive_analyze>` and
+:doc:`Iceberg connector <../connector/iceberg>`.
 
 Examples
 --------
@@ -33,6 +34,10 @@ Analyze table ``web`` to collect table and column statistics::
 Analyze table ``stores`` in catalog ``hive`` and schema ``default``::
 
     ANALYZE hive.default.stores;
+
+Analyze table ``stores`` in catalog ``iceberg`` and schema ``default``::
+
+    ANALYZE iceberg.default.stores;
 
 Analyze partitions ``'1992-01-01', '1992-01-02'`` from a Hive partitioned table ``sales``::
 
