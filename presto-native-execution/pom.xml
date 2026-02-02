@@ -130,6 +130,13 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-teradata-functions</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
         </dependency>
