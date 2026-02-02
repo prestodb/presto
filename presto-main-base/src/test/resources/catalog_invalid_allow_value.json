@@ -1,8 +1,0 @@
-{
-  "catalogs": [
-    {
-      "catalog": "invalid-allow-value",
-      "allow": "not-a-valid-value"
-    }
-  ]
-}

@@ -1,2 +1,0 @@
-This is not a json file.
-It's used to test correctness of `JsonFileBasedFunctionNamespaceManagerModule` loading of json files in a directory.

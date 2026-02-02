@@ -1,9 +1,0 @@
-databases:
-  presto:
-    jdbc_url: "jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema};\
-      SSL=1;\
-      SSLTrustStorePath=${databases.presto.cli_ldap_truststore_path};\
-      SSLTrustStorePwd=${databases.presto.cli_ldap_truststore_password};\
-      AuthenticationType=LDAP Authentication"
-    jdbc_user: ${databases.presto.cli_ldap_user_name}
-    jdbc_password: ${databases.presto.cli_ldap_user_password}

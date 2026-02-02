@@ -1,9 +1,0 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows:true; trimValues:true; 
-system | information_schema | columns  | BASE TABLE |
-system | information_schema | tables   | BASE TABLE |
-system | information_schema | views    | BASE TABLE |
-system | information_schema | schemata | BASE TABLE |
-system | runtime            | nodes    | BASE TABLE |
-system | metadata           | catalogs | BASE TABLE |
-system | runtime            | queries  | BASE TABLE |
-system | runtime            | tasks    | BASE TABLE |

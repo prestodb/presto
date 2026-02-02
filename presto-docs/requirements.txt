@@ -1,2 +1,0 @@
-sphinx==8.2.1
-sphinx-immaterial==0.13.0

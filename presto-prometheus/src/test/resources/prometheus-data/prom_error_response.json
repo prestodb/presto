@@ -1,5 +1,0 @@
-{
-  "status": "error",
-  "errorType": "bad_data",
-  "error": "invalid parameter 'query': parse error at char 4: bad duration syntax: \"1\""
-}

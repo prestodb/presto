@@ -1,5 +1,0 @@
--- delimiter: |; trimValues:true;
-n_nationkey | bigint  | | |19|null|null|
-n_name      | varchar(25) | | |null|null|25|
-n_regionkey | bigint  | | |19|null|null|
-n_comment   | varchar(152) | | |null|null|152|

@@ -1,8 +1,0 @@
-{
-  "namespace": "com.facebook.test",
-  "name": "product_tests_avro_table",
-  "type": "record",
-  "fields": [
-    { "name":"string_col", "type":"string"},
-    { "name":"int_col", "type":"long"}
-]}

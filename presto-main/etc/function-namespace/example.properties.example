@@ -1,4 +1,0 @@
-function-namespace-manager.name=mysql
-database-url=jdbc:mysql://localhost:3306
-function-namespaces-table-name=example_function_namespaces
-functions-table-name=example_sql_functions

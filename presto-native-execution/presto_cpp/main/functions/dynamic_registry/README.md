@@ -1,1 +1,0 @@
-See [Function Plugin](https://prestodb.io/docs/current/presto-cpp/plugin.html) on how to use the Dynamic Library Loader.

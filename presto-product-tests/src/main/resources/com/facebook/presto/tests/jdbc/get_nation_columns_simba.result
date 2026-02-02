@@ -1,5 +1,0 @@
--- delimiter: |; ignoreOrder: false; ignoreExcessRows: false;
-hive|default|nation|n_nationkey|-5|bigint|19|8|0|10|1|null|null|null|null|null|1|YES|null|null|null|null|null|null|
-hive|default|nation|n_name|12|varchar(25)|25|25|null|10|1|null|null|null|null|2048|2|YES|null|null|null|null|null|null|
-hive|default|nation|n_regionkey|-5|bigint|19|8|0|10|1|null|null|null|null|null|3|YES|null|null|null|null|null|null|
-hive|default|nation|n_comment|12|varchar(152)|152|152|null|10|1|null|null|null|null|2048|4|YES|null|null|null|null|null|null|

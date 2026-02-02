@@ -1,2 +1,0 @@
--- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
---- todo: we just check if query succeeds as we cannot parse interval results right now

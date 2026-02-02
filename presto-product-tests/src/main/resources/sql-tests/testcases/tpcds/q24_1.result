@@ -1,8 +1,0 @@
--- delimiter: |; ignoreOrder: true; types: CHAR|CHAR|VARCHAR|DECIMAL
-Holt                          |Curtis              |able|8225.80|
-null|Tommy               |able|38118.08|
-Pettit                        |Richard             |able|3930.52|
-Townsend                      |Franklin            |able|68983.20|
-Kunz                          |Lee                 |able|34631.52|
-Littlefield                   |Clarence            |able|127380.00|
-Winchester                    |Margaret            |bar|14269.20|

@@ -1,6 +1,0 @@
-.. note::
-
-  Running :command:`ktadd` randomizes the principal's keys. If you have just
-  created the principal, this does not matter. If the principal already exists,
-  and if existing users or services rely on being able to authenticate using a
-  password or a keytab, use the ``-norandkey`` option to :command:`ktadd`.

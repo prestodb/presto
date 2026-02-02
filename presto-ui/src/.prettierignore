@@ -1,9 +1,0 @@
-*.css
-*.map
-*.lock
-yarn.lock
-package-lock.json
-node_modules/
-target/
-static/
-sql-parser/

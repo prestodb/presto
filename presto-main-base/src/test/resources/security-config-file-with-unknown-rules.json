@@ -1,9 +1,0 @@
-{
-  "sessionProperties": [
-    {
-      "user": "admin",
-      "property": "max_split_size",
-      "allow": true
-    }
-  ]
-}
