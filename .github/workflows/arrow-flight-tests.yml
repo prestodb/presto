@@ -122,7 +122,7 @@ jobs:
             -DCMAKE_PREFIX_PATH=/usr/local \
             -DThrift_ROOT=/usr/local \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DMAX_LINK_JOBS=4
+            -DMAX_LINK_JOBS=3
           ninja -C _build/release -j 4
 
       - name: Ccache after

@@ -182,6 +182,9 @@ find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
 find_library(FIZZ fizz)
 find_library(WANGLE wangle)
 find_library(MVFST_EXCEPTION mvfst_exception)
+find_library(MVFST_FOLLY_UTILS mvfst_folly_utils)
+find_library(MVFST_CODEC_TYPES mvfst_codec_types)
+find_library(MVFST_CONTIGUOUS_CURSOR mvfst_contiguous_cursor)
 
 find_library(RE2 re2)
 
@@ -197,6 +200,9 @@ set(
   ${WANGLE}
   ${FIZZ}
   ${MVFST_EXCEPTION}
+  ${MVFST_FOLLY_UTILS}
+  ${MVFST_CODEC_TYPES}
+  ${MVFST_CONTIGUOUS_CURSOR}
 )
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/")

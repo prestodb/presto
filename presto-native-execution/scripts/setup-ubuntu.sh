@@ -22,9 +22,9 @@ SUDO="${SUDO:-"sudo --preserve-env"}"
 DATASKETCHES_VERSION="5.2.0"
 
 function install_proxygen {
-  # proxygen requires python and gperf
+  # proxygen requires python, gperf, and libc-ares-dev
   ${SUDO} apt update
-  ${SUDO} apt install -y gperf python3
+  ${SUDO} apt install -y gperf python3 libc-ares-dev
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
   cmake_install_dir proxygen -DBUILD_TESTS=OFF
 }

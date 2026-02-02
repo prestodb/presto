@@ -16,7 +16,29 @@ find_library(THRIFT_CORE thrift-core)
 find_library(THRIFT_PROTOCOL thriftprotocol)
 find_library(THRIFT_METADATA thriftmetadata)
 find_library(THRIFT_TRANSPORT transport)
+find_library(THRIFT_ASYNC async)
+find_library(THRIFT_RPC_METADATA rpcmetadata)
+find_library(THRIFT_TYPEREP thrifttyperep)
+
 find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h PATH_SUFFIXES include REQUIRED)
+
+# In the CI /opt/homebrew/include is not included and it leads to missing
+# event.h.
+if(APPLE AND EXISTS "/opt/homebrew")
+  include_directories(SYSTEM /opt/homebrew/include)
+endif()
+
+set(
+  presto_thrift_library_dependencies
+  ${THRIFT_PROTOCOL}
+  ${THRIFT_METADATA}
+  ${THRIFT_CORE}
+  ${THRIFT_TYPEREP}
+  ${THRIFT_ASYNC}
+  ${THRIFT_TRANSPORT}
+  ${THRIFT_RPC_METADATA}
+  ${FOLLY_WITH_DEPENDENCIES}
+)
 
 include(ThriftLibrary.cmake)
 
@@ -29,13 +51,7 @@ thrift_library(
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
   ".."
 )
-target_link_libraries(
-  presto_thrift-cpp2
-  ${THRIFT_PROTOCOL}
-  ${THRIFT_METADATA}
-  ${THRIFT_CORE}
-  ${THRIFT_TRANSPORT}
-)
+target_link_libraries(presto_thrift-cpp2 ${presto_thrift_library_dependencies})
 set(presto_thrift_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES} ${GLOG_INCLUDE_DIR})
 target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})
@@ -49,13 +65,7 @@ thrift_library(
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
   ".."
 )
-target_link_libraries(
-  presto_native-cpp2
-  ${THRIFT_PROTOCOL}
-  ${THRIFT_METADATA}
-  ${THRIFT_CORE}
-  ${THRIFT_TRANSPORT}
-)
+target_link_libraries(presto_native-cpp2 ${presto_thrift_library_dependencies})
 set(presto_native_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(presto_native-cpp2 PUBLIC ${presto_native_INCLUDES} ${GLOG_INCLUDE_DIR})
 target_include_directories(presto_native-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})

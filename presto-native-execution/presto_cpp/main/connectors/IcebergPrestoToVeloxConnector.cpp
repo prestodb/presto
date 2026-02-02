@@ -159,7 +159,11 @@ velox::parquet::ParquetFieldId toParquetField(
       children.push_back(toParquetField(child));
     }
   }
-  return velox::parquet::ParquetFieldId(column.id, children);
+  // ParquetFieldId does not declare a constructor that takes fieldId and
+  // children, so we use aggregate initialization to make it work for compilers
+  // that don't create the necessary constructors by default (e.g clang-15).
+  velox::parquet::ParquetFieldId pf{.fieldId = column.id, .children = children};
+  return pf;
 }
 
 } // namespace
