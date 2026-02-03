@@ -109,11 +109,6 @@ String Functions
     If ``search`` is an empty string, inserts ``replace`` in front of every
     character and at the end of the ``string``.
 
-.. function:: replace_first(string, search, replace) -> varchar
-    Replaces the first instances of ``search`` with ``replace`` in ``string``.
-
-    If ``search`` is an empty string, it inserts ``replace`` at the beginning of the ``string``.
-
 .. function:: reverse(string) -> varchar
 
     Returns ``string`` with the characters in reverse order.
@@ -224,10 +219,6 @@ String Functions
     position ``start``. Positions start with ``1``. A negative starting
     position is interpreted as being relative to the end of the string.
 
-.. function:: trail(string, N) -> varchar
-
-    Returns the last N characters of the input string.
-
 .. function:: trim(string) -> varchar
 
     Removes leading and trailing whitespace from ``string``.
@@ -317,7 +308,3 @@ Unicode Functions
     be a single character or empty (in which case invalid characters are
     removed).
 
-.. function:: key_sampling_percent(varchar) -> double
-
-    Generates a double value between 0.0 and 1.0 based on the hash of the given ``varchar``.
-    This function is useful for deterministic sampling of data.
