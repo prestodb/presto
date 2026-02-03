@@ -2,10 +2,24 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <parent>
-        <groupId>com.facebook.airlift</groupId>
+        <groupId>com.github.Nandakumar-Balagopal</groupId>
         <artifactId>airbase</artifactId>
-        <version>108</version>
+        <version>v1.5.25-cve</version>
+        <relativePath/>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,15 +58,15 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>0.225</dep.airlift.version>
-        <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.airlift.version>v235-cve</dep.airlift.version>
+        <dep.packaging.version>0.225</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.49.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>${dep.airlift.version}</dep.drift.version>
+        <dep.drift.version>0.225</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.13.1</dep.joda.version>
@@ -1211,79 +1225,79 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>log</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>json</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>security</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>units</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>concurrent</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>configuration</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>discovery</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>node</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>http-server</artifactId>
                 <version>${dep.airlift.version}</version>
                 <exclusions>
@@ -1295,49 +1309,49 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>jaxrs-testing</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>jmx</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>trace-token</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>dbpool</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>jmx-http</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift</groupId>
+                <groupId>com.github.Nandakumar-Balagopal</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
