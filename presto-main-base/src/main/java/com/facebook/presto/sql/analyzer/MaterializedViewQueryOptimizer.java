@@ -101,6 +101,7 @@ import static com.facebook.presto.sql.MaterializedViewUtils.ASSOCIATIVE_REWRITE_
 import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
 import static com.facebook.presto.sql.MaterializedViewUtils.NON_ASSOCIATIVE_REWRITE_FUNCTIONS;
 import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
+import static com.facebook.presto.sql.MaterializedViewUtils.resolveTableName;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -641,7 +642,8 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitRelation(Relation node, Void context)
         {
-            if (materializedViewInfo.getBaseTable().isPresent() && node.equals(materializedViewInfo.getBaseTable().get())) {
+            if (materializedViewInfo.getBaseTable().isPresent() && resolveTableName(node, session, metadata)
+                        .equals(resolveTableName(materializedViewInfo.getBaseTable().get(), session, metadata))) {
                 return materializedView;
             }
             throw new IllegalStateException("Mismatching table or non-supporting relation format in base query");

@@ -15,6 +15,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
@@ -40,7 +41,9 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +63,7 @@ import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedVi
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
@@ -397,6 +401,15 @@ public final class MaterializedViewUtils
         else {
             return combineDisjuncts(disjuncts);
         }
+    }
+
+    public static Relation resolveTableName(Relation relation, Session session, Metadata metadata)
+    {
+        if (!(relation instanceof Table)) {
+            return relation;
+        }
+        QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, relation, ((Table) relation).getName(), metadata);
+        return new Table(QualifiedName.of(qualifiedTableName.getSchemaName(), qualifiedTableName.getObjectName()));
     }
 
     private static Expression convertSymbolReferencesToIdentifiers(Expression expression)
