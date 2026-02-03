@@ -22,6 +22,7 @@ env:
 # Job 1: Build worker image
 # -----------------------------
 jobs:
+
   build-worker-image:
     runs-on: ubuntu-latest
     steps:
@@ -50,8 +51,6 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build worker image
-        env:
-          DOCKER_BUILDKIT: 1
         run: |
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
@@ -60,7 +59,7 @@ jobs:
 
       - name: Save Docker image
         run: |
-          docker save presto-worker:latest -o presto-worker.tar          
+          docker save presto-worker:latest -o presto-worker.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
@@ -68,7 +67,8 @@ jobs:
           name: presto-worker
           retention-days: 1
           path: presto-worker.tar
-
+    env:
+      BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
 
   # -----------------------------
   # Job 2: Build coordinator image
@@ -102,8 +102,6 @@ jobs:
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
 
       - name: Build coordinator image
-        env:
-          DOCKER_BUILDKIT: 1
         run: |
           ./mvnw install ${MAVEN_FAST_INSTALL} \
             -Pdocker-build \
@@ -112,7 +110,7 @@ jobs:
 
       - name: Save Docker image
         run: |
-          docker save presto-coordinator:latest -o presto-coordinator.tar          
+          docker save presto-coordinator:latest -o presto-coordinator.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
@@ -120,6 +118,8 @@ jobs:
           name: presto-coordinator
           retention-days: 1
           path: presto-coordinator.tar
+    env:
+      BUILDX_BUILDER: ${{ steps.buildx.outputs.name }}
 
   # -----------------------------
   # Job 3: Run container tests
