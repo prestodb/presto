@@ -608,7 +608,7 @@ public class ArrowBatchSource
         @Override
         public void writeLong(int index, long value)
         {
-            vector.set(index, (int) value);
+            vector.set(index, value);
         }
     }
 }
