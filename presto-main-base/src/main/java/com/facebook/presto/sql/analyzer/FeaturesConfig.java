@@ -336,6 +336,7 @@ public class FeaturesConfig
     private int remoteFunctionFixedParallelismTaskCount = 10;
 
     private boolean builtInSidecarFunctionsEnabled;
+    private String tryFunctionCatchableErrors = "";
 
     public enum PartitioningPrecisionStrategy
     {
@@ -3420,6 +3421,19 @@ public class FeaturesConfig
     public FeaturesConfig setRemoteFunctionFixedParallelismTaskCount(int remoteFunctionFixedParallelismTaskCount)
     {
         this.remoteFunctionFixedParallelismTaskCount = remoteFunctionFixedParallelismTaskCount;
+        return this;
+    }
+
+    public String getTryFunctionCatchableErrors()
+    {
+        return tryFunctionCatchableErrors;
+    }
+
+    @Config("try-function-catchable-errors")
+    @ConfigDescription("Comma-separated list of error code names that TRY function should catch")
+    public FeaturesConfig setTryFunctionCatchableErrors(String tryFunctionCatchableErrors)
+    {
+        this.tryFunctionCatchableErrors = tryFunctionCatchableErrors;
         return this;
     }
 }

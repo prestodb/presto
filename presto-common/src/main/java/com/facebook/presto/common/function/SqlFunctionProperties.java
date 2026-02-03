@@ -18,9 +18,12 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class SqlFunctionProperties
@@ -38,6 +41,7 @@ public class SqlFunctionProperties
     private final Map<String, String> extraCredentials;
     private final boolean warnOnCommonNanPatterns;
     private final boolean canonicalizedJsonExtract;
+    private final Set<String> tryCatchableErrorCodes;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
@@ -52,7 +56,8 @@ public class SqlFunctionProperties
             boolean legacyJsonCast,
             Map<String, String> extraCredentials,
             boolean warnOnCommonNanPatterns,
-            boolean canonicalizedJsonExtract)
+            boolean canonicalizedJsonExtract,
+            Set<String> tryCatchableErrorCodes)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
@@ -67,6 +72,7 @@ public class SqlFunctionProperties
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
         this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
         this.canonicalizedJsonExtract = canonicalizedJsonExtract;
+        this.tryCatchableErrorCodes = requireNonNull(tryCatchableErrorCodes, "tryCatchableErrorCodes is null");
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -133,6 +139,11 @@ public class SqlFunctionProperties
     public boolean isCanonicalizedJsonExtract()
     { return canonicalizedJsonExtract; }
 
+    public Set<String> getTryCatchableErrorCodes()
+    {
+        return tryCatchableErrorCodes;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -153,7 +164,8 @@ public class SqlFunctionProperties
                 Objects.equals(sessionUser, that.sessionUser) &&
                 Objects.equals(extraCredentials, that.extraCredentials) &&
                 Objects.equals(legacyJsonCast, that.legacyJsonCast) &&
-                Objects.equals(canonicalizedJsonExtract, that.canonicalizedJsonExtract);
+                Objects.equals(canonicalizedJsonExtract, that.canonicalizedJsonExtract) &&
+                Objects.equals(tryCatchableErrorCodes, that.tryCatchableErrorCodes);
     }
 
     @Override
@@ -161,7 +173,7 @@ public class SqlFunctionProperties
     {
         return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey,
                 legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
-                extraCredentials, legacyJsonCast, canonicalizedJsonExtract);
+                extraCredentials, legacyJsonCast, canonicalizedJsonExtract, tryCatchableErrorCodes);
     }
 
     public static Builder builder()
@@ -184,6 +196,7 @@ public class SqlFunctionProperties
         private Map<String, String> extraCredentials = emptyMap();
         private boolean warnOnCommonNanPatterns;
         private boolean canonicalizedJsonExtract;
+        private Set<String> tryCatchableErrorCodes = emptySet();
 
         private Builder() {}
 
@@ -265,6 +278,12 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setTryCatchableErrorCodes(Set<String> tryCatchableErrorCodes)
+        {
+            this.tryCatchableErrorCodes = unmodifiableSet(tryCatchableErrorCodes);
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
             return new SqlFunctionProperties(
@@ -280,7 +299,8 @@ public class SqlFunctionProperties
                     legacyJsonCast,
                     extraCredentials,
                     warnOnCommonNanPatterns,
-                    canonicalizedJsonExtract);
+                    canonicalizedJsonExtract,
+                    tryCatchableErrorCodes);
         }
     }
 }

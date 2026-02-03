@@ -148,6 +148,27 @@ If it’s below the limit, the generated prefixes are used.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`max-prefixes-count\`\``.
 
+``try_function_catchable_errors``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string)
+
+A comma-separated list of error code names that the ``TRY()`` function should catch
+and return ``NULL`` for, in addition to the default catchable errors (such as
+``DIVISION_BY_ZERO``, ``INVALID_CAST_ARGUMENT``, ``INVALID_FUNCTION_ARGUMENT``,
+and ``NUMERIC_VALUE_OUT_OF_RANGE``).
+
+This allows users to specify exactly which additional errors ``TRY()`` should suppress.
+Error codes are matched by their name (such as ``GENERIC_INTERNAL_ERROR``, ``INVALID_ARGUMENTS``).
+
+Example usage::
+
+    SET SESSION try_function_catchable_errors = 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS';
+    SELECT TRY(my_function(x)) FROM table;
+
+The corresponding configuration property is :ref:`admin/properties:\`\`try-function-catchable-errors\`\``.
+
 Spilling Properties
 -------------------
 
