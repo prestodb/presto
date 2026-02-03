@@ -882,7 +882,7 @@ public class DistributedQueryRunner
     {
         MaterializedResult result = execute(session, sql);
         List<Type> actualTypes = result.getTypes();
-        if (actualTypes.equals(resultTypes)) {
+        if (actualTypes.equals(resultTypes) || actualTypes.size() != resultTypes.size()) {
             return result;
         }
 
