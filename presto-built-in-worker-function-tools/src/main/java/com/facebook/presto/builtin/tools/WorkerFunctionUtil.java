@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -133,7 +134,7 @@ public class WorkerFunctionUtil
             }
 
             if (parameterTypeSignature.getParameters().isEmpty()) {
-                boolean changeTypeToVariable = isDecimalTypeBase(typeSignature.getBase());
+                boolean changeTypeToVariable = changeTypeToVariable(typeSignature.getBase(), parameter);
                 if (changeTypeToVariable) {
                     newParameterTypeList.add(
                             TypeSignatureParameter.of(parameterTypeSignature.getBase()));
@@ -171,8 +172,8 @@ public class WorkerFunctionUtil
         return newParameterTypeList;
     }
 
-    private static boolean isDecimalTypeBase(String typeBase)
+    private static boolean changeTypeToVariable(String typeBase, TypeSignatureParameter parameter)
     {
-        return typeBase.equals(StandardTypes.DECIMAL);
+        return (typeBase.equals(StandardTypes.DECIMAL)) || (typeBase.equals(VARCHAR) && parameter.isTypeSignature());
     }
 }
