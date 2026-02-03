@@ -300,6 +300,15 @@ The maximum bytes to buffer per PartitionedOutput operator to avoid creating tin
 For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator would buffer up to that number of
 bytes / number of destinations for each destination before producing a SerializedPage. Default is 32MB.
 
+``native_partitioned_output_eager_flush``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. If true, the PartitionedOutput operator will flush rows eagerly, without waiting
+until buffers reach a certain size. Default is false.
+
 ``native_max_local_exchange_partition_count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

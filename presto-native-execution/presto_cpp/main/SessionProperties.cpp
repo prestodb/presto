@@ -351,6 +351,15 @@ SessionProperties::SessionProperties() {
       QueryConfig::kMaxPartitionedOutputBufferSize,
       std::to_string(c.maxPartitionedOutputBufferSize()));
 
+  addSessionProperty(
+      kPartitionedOutputEagerFlush,
+      "If true, the PartitionedOutput operator will flush rows eagerly, without"
+      " waiting until buffers reach a certain size. Default is false.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kPartitionedOutputEagerFlush,
+      "false");
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.
