@@ -16,6 +16,9 @@ FROM quay.io/centos/centos:stream9
 # from https://github.com/facebookincubator/velox/pull/14366
 ARG ARM_BUILD_TARGET
 
+# This defaults to 12.9 but can be overridden with a build arg
+ARG CUDA_VERSION
+
 ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
