@@ -25,7 +25,7 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.io.CharStreams;
-import org.apache.iceberg.rest.HTTPRequest.HTTPMethod;
+import org.apache.iceberg.rest.RESTCatalogAdapter.HTTPMethod;
 import org.apache.iceberg.rest.RESTCatalogAdapter.Route;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.util.Pair;
@@ -111,18 +111,15 @@ public class IcebergRestCatalogServlet
         }
 
         try {
-            HTTPRequest request = restCatalogAdapter.buildRequest(
-                    context.method(),
-                    context.path(),
-                    context.queryParams(),
-                    context.headers(),
-                    context.body());
             Object responseBody =
                     restCatalogAdapter.execute(
-                            request,
+                            context.method(),
+                            context.path(),
+                            context.queryParams(),
+                            context.body(),
                             context.route().responseClass(),
-                            handleResponseError(response),
-                            handleResponseHeader(response));
+                            context.headers(),
+                            handle(response));
 
             if (responseBody != null) {
                 RESTObjectMapper.mapper().writeValue(response.getWriter(), responseBody);
@@ -137,14 +134,7 @@ public class IcebergRestCatalogServlet
         }
     }
 
-    private Consumer<Map<String, String>> handleResponseHeader(HttpServletResponse response)
-    {
-        return (responseHeaders) -> {
-            throw new RuntimeException("Unexpected response header: " + responseHeaders);
-        };
-    }
-
-    protected Consumer<ErrorResponse> handleResponseError(HttpServletResponse response)
+    protected Consumer<ErrorResponse> handle(HttpServletResponse response)
     {
         return (errorResponse) -> {
             response.setStatus(errorResponse.code());
