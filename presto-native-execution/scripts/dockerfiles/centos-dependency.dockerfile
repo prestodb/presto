@@ -20,6 +20,7 @@ ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
+ENV CUDA_VERSION=${CUDF_CUDA_VERSION:-12.9}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
@@ -35,7 +36,7 @@ RUN bash -c "mkdir build && \
                  source ../velox/scripts/setup-centos-adapters.sh && \
                  install_adapters && \
                  install_clang15 && \
-                 install_cuda 12.9) && \
+                 install_cuda ${CUDA_VERSION}) && \
     rm -rf build"
 
 # put CUDA binaries on the PATH
