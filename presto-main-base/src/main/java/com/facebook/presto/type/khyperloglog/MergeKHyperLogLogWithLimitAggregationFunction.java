@@ -16,7 +16,6 @@ package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -60,7 +59,7 @@ public final class MergeKHyperLogLogWithLimitAggregationFunction
         this.groupLimit = groupLimit;
     }
 
-    public static void input(@AggregationState KHyperLogLogState state, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice value)
+    public static void input(@AggregationState KHyperLogLogState state, @SqlType(KHyperLogLogType.NAME) Slice value)
     {
         KHyperLogLog instance = KHyperLogLog.newInstance(value);
         merge(state, instance);
