@@ -18,7 +18,7 @@ jobs:
       group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     env:
-      CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '7.0' }}
+      CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '0.1' }}
       OWASP_VERSION: 12.1.3
     steps:
       # Checkout PR branch first to get access to the composite action
