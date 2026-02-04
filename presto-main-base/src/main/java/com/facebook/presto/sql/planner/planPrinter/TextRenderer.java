@@ -247,7 +247,7 @@ public class TextRenderer
             output.append(format(formatStr,
                     stats.getSourceInfo().getClass().getSimpleName(),
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(plan.getPlanNodeRoot())),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost()),
