@@ -82,7 +82,7 @@
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
         <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
-        <dep.jetty.version>12.0.29</dep.jetty.version>
+        <dep.jetty.version>12.0.31</dep.jetty.version>
         <dep.netty.version>4.1.130.Final</dep.netty.version>
         <dep.reactor-netty.version>1.2.8</dep.reactor-netty.version>
         <dep.snakeyaml.version>2.5</dep.snakeyaml.version>
