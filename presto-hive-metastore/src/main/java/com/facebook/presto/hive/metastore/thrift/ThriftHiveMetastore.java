@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig.HiveMetastoreAuthenticationType;
+import com.facebook.presto.hive.PartitionNameWithVersion;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.RetryDriver;
 import com.facebook.presto.hive.SchemaAlreadyExistsException;
@@ -502,7 +503,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
         Table table = getTable(metastoreContext, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
@@ -512,6 +513,7 @@ public class ThriftHiveMetastore
         List<String> partitionColumns = table.getPartitionKeys().stream()
                 .map(FieldSchema::getName)
                 .collect(toImmutableList());
+        Set<String> partitionNames = partitionNamesWithVersion.stream().map(PartitionNameWithVersion::getPartitionName).collect(toSet());
 
         Map<String, HiveBasicStatistics> partitionBasicStatistics = getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(partitionNames)).stream()
                 .collect(toImmutableMap(
@@ -675,7 +677,7 @@ public class ThriftHiveMetastore
     public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         PartitionStatistics currentStatistics = requireNonNull(
-                getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName), "getPartitionStatistics() returned null");
+                getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))).get(partitionName), "getPartitionStatistics() returned null");
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
 
         List<Partition> partitions = getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.of(partitionName));

@@ -326,17 +326,17 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public synchronized Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
         ImmutableMap.Builder<String, PartitionStatistics> statistics = ImmutableMap.builder();
-        for (String partitionName : partitionNames) {
-            List<String> partitionValues = extractPartitionValues(partitionName);
+        for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
+            List<String> partitionValues = extractPartitionValues(partitionNameWithVersion.getPartitionName());
             Path partitionDirectory = getPartitionMetadataDirectory(table, ImmutableList.copyOf(partitionValues));
             PartitionMetadata partitionMetadata = readSchemaFile("partition", partitionDirectory, partitionCodec)
                     .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
             HiveBasicStatistics basicStatistics = getHiveBasicStatistics(partitionMetadata.getParameters());
-            statistics.put(partitionName, new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics()));
+            statistics.put(partitionNameWithVersion.getPartitionName(), new PartitionStatistics(basicStatistics, partitionMetadata.getColumnStatistics()));
         }
         return statistics.build();
     }
@@ -361,7 +361,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics originalStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+        PartitionStatistics originalStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))).get(partitionName);
         if (originalStatistics == null) {
             throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
         }
