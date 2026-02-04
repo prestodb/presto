@@ -15,6 +15,9 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
@@ -52,6 +55,9 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -140,24 +146,7 @@ public class ArrowBatchSource
                 else {
                     ColumnMetadata columnMetadata = columns.get(column);
                     Type type = columnMetadata.getType();
-                    Class<?> javaType = type.getJavaType();
-                    if (javaType == boolean.class) {
-                        writer.writeBoolean(row, type.getBoolean(block, position));
-                    }
-                    else if (javaType == long.class) {
-                        writer.writeLong(row, type.getLong(block, position));
-                    }
-                    else if (javaType == double.class) {
-                        writer.writeDouble(row, type.getDouble(block, position));
-                    }
-                    else if (javaType == Slice.class) {
-                        Slice slice = type.getSlice(block, position);
-                        writer.writeSlice(row, slice, 0, slice.length());
-                    }
-                    else {
-                        // TODO handle Object cursor.getObject(column)
-                        throw new UnsupportedOperationException();
-                    }
+                    writeValueFromBlock(writer, row, type, block, position);
                 }
             }
             currentPosition++;
@@ -165,6 +154,31 @@ public class ArrowBatchSource
         }
         root.setRowCount(row);
         return row > 0;
+    }
+
+    private static void writeValueFromBlock(ArrowShimWriter writer, int row, Type type, Block block, int position)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            writer.writeBoolean(row, type.getBoolean(block, position));
+        }
+        else if (javaType == long.class) {
+            writer.writeLong(row, type.getLong(block, position));
+        }
+        else if (javaType == double.class) {
+            writer.writeDouble(row, type.getDouble(block, position));
+        }
+        else if (javaType == Slice.class) {
+            Slice slice = type.getSlice(block, position);
+            writer.writeSlice(row, slice, 0, slice.length());
+        }
+        else if (javaType == Block.class) {
+            writer.writeBlock(row, block, position, type);
+        }
+        else {
+            // TODO handle Object cursor.getObject(column)
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Override
@@ -177,14 +191,27 @@ public class ArrowBatchSource
 
     private static VectorSchemaRoot createVectorSchemaRoot(BufferAllocator allocator, List<ColumnMetadata> columns)
     {
-        List<Field> fields = columns.stream().map(column -> {
-            Map<String, String> metadata = column.getProperties().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Object::toString));
-            ArrowType arrowType = prestoToArrowType(column.getType());
-            return new Field(column.getName(), new FieldType(column.isNullable(), arrowType, null, metadata), ImmutableList.of());
-        }).collect(Collectors.toList());
+        List<Field> fields = columns.stream().map(ArrowBatchSource::prestoToArrowField).collect(Collectors.toList());
         Schema schema = new Schema(fields);
 
         return VectorSchemaRoot.create(schema, allocator);
+    }
+
+    private static Field prestoToArrowField(ColumnMetadata column)
+    {
+        Field field;
+        Map<String, String> metadata = column.getProperties().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Object::toString));
+        if (column.getType() instanceof ArrayType) {
+            ArrayType arrayType = (ArrayType) column.getType();
+            Field childField = prestoToArrowField(ColumnMetadata.builder().setName(BaseRepeatedValueVector.DATA_VECTOR_NAME).setType(arrayType.getElementType()).build());
+            field = new Field(column.getName(), new FieldType(column.isNullable(), ArrowType.List.INSTANCE, null, metadata), ImmutableList.of(childField));
+        }
+        else {
+            ArrowType arrowType = prestoToArrowType(column.getType());
+            field = new Field(column.getName(), new FieldType(column.isNullable(), arrowType, null, metadata), ImmutableList.of());
+        }
+
+        return field;
     }
 
     private static ArrowType prestoToArrowType(Type type)
@@ -273,6 +300,8 @@ public class ArrowBatchSource
                 return new ArrowShimTimeWriter((TimeMilliVector) vector);
             case TIMESTAMPMILLI:
                 return new ArrowShimTimeStampWriter((TimeStampVector) vector);
+            case LIST:
+                return new ArrowShimListWriter((ListVector) vector);
             default:
                 throw new UnsupportedOperationException("Unsupported Arrow type: " + vector.getMinorType().name());
         }
@@ -306,6 +335,11 @@ public class ArrowBatchSource
         }
 
         public void writeSlice(int index, Slice value, int offset, int length)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+
+        public void writeBlock(int index, Block block, int position, Type type)
         {
             throw new UnsupportedOperationException(getClass().getName());
         }
@@ -609,6 +643,63 @@ public class ArrowBatchSource
         public void writeLong(int index, long value)
         {
             vector.set(index, value);
+        }
+    }
+
+    private static class ArrowShimListWriter
+            extends ArrowShimWriter
+    {
+        private final ListVector vector;
+        private final ArrowShimWriter childWriter;
+
+        public ArrowShimListWriter(ListVector vector)
+        {
+            this.vector = vector;
+            this.childWriter = createArrowWriter(vector.getDataVector());
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            if (type instanceof ArrayType) {
+                ArrayType arrayType = ((ArrayType) type);
+                Object value = type.getObject(block, position);
+                if (value instanceof List<?>) {
+                    List<?> valuesList = (List<?>) value;
+                    //UnionListWriter listWriter = vector.getWriter();
+                    //listWriter.setPosition(index);
+                    //listWriter.startList();
+                    vector.startNewValue(index);
+
+                    for (Object element : valuesList) {
+                        int stop = 20;
+                    }
+
+                    ((List<?>) value).forEach(element ->
+                                    type.getTypeParameters().get(0)
+                            //appendTo(, element, builder)
+                    );
+
+                    vector.endValue(index, valuesList.size());
+                    //listWriter.endList();
+                    return;
+                }
+                else if (value instanceof Block) {
+                    Block elementBlock = (Block) value;
+                    //IntArrayBlock intArrayBlock = (IntArrayBlock) value;
+                    //intArrayBlock.getLong();
+                    writeValueFromBlock(childWriter, 0, ((ArrayType) type).getElementType(), elementBlock, 0);
+                }
+                int stop = 10;
+            }
+            //vector.set(index, intBitsToFloat(toIntExact(value)));
+            int stop = 10;
         }
     }
 }
