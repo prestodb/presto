@@ -162,6 +162,13 @@ VeloxToPrestoExprConverter::getSwitchSpecialFormExpressionArgs(
   return result;
 }
 
+// IN expression in Presto is of form `expr0 IN [expr1, expr2, ..., exprN]`.
+// The Velox representation of IN expression has the same form as Presto when
+// any of the expressions in the IN list is non-constant; when the IN list only
+// has constant expressions, it is of form `expr0 IN [constantExpr(ARRAY[
+// expr1.constantValue(), expr2.constantValue(), ..., exprN.constantValue()])]`.
+// This function retrieves the arguments to Presto IN expression from Velox IN
+// expression in both of these forms.
 std::vector<RowExpressionPtr>
 VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
     const velox::core::CallTypedExpr* inExpr) const {
@@ -172,6 +179,8 @@ VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
   result.push_back(getRowExpression(inputs.at(0)));
 
   const auto& inList = inputs.at(1);
+  // Check if IN-list is a constant expression with values represented by a
+  // constant array vector.
   if (numInputs == 2 && inList->isConstantKind() && inList->type()->isArray()) {
     const auto inListVector =
         inList->asUnchecked<velox::core::ConstantTypedExpr>()->toConstantVector(
@@ -181,8 +190,6 @@ VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
     VELOX_CHECK_NOT_NULL(
         constantVector, "Expected ConstantVector of Array type for IN-list.");
 
-    // Velox represents constant complex values with a ConstantVector pointing
-    // into a shared wrapped vector.
     const auto* arrayVector =
         constantVector->wrappedVector()->as<velox::ArrayVector>();
     VELOX_CHECK_NOT_NULL(
@@ -190,24 +197,17 @@ VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
         "Expected constant IN-list to be of Array type, but got {}.",
         constantVector->wrappedVector()->type()->toString());
 
-    // Retrieve the index for the position of constant array literal in the
-    // wrapped vector.
     auto wrappedIdx = constantVector->wrappedIndex(0);
-    // Number of elements in the constant array vector.
     auto size = arrayVector->sizeAt(wrappedIdx);
-    // Determine the starting offset into the flat elements vector for this
-    // array.
     auto offset = arrayVector->offsetAt(wrappedIdx);
-    // Get vector containing all array elements.
     auto elementsVector = arrayVector->elements();
 
     for (velox::vector_size_t i = 0; i < size; i++) {
-      // Get the absolute index for array value from the elements vector.
       auto elementIndex = offset + i;
-      // Create a ConstantVector representing this single constant value.
       auto elementConstant =
           velox::BaseVector::wrapInConstant(1, elementIndex, elementsVector);
-      // Construct a ConstantTypedExpr from the ConstantVector.
+      // Construct a core::ConstantTypedExpr from the constant value at this
+      // index in array vector, then convert it to a protocol::RowExpression.
       const auto constantExpr =
           std::make_shared<velox::core::ConstantTypedExpr>(elementConstant);
       result.push_back(getRowExpression(constantExpr));
