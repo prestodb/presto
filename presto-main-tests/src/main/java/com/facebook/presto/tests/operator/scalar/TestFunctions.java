@@ -27,4 +27,16 @@ public interface TestFunctions
      * Asserts that the projection is not supported and that it fails with the expected error message.
      */
     void assertNotSupported(String projection, String message);
+
+    /**
+     * Asserts that the projection contains an invalid function call and fails
+     * with the specified functional error message.
+     */
+    void assertInvalidFunction(String projection, String message);
+
+    /**
+     * Asserts that the projection contains an invalid type conversion (cast)
+     * and fails with the expected casting error message.
+     */
+    void assertInvalidCast(String projection, String message);
 }
