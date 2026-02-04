@@ -451,6 +451,42 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithSchemaQualifiedTableName()
+    {
+        String schemaQualifiedTable = SESSION_SCHEMA + "." + BASE_TABLE_1;
+
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b FROM %s", schemaQualifiedTable);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT a, b FROM %s", schemaQualifiedTable);
+        baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT a, b FROM %s", schemaQualifiedTable);
+        baseQuerySql = format("SELECT a, b FROM %s", schemaQualifiedTable);
+        expectedRewrittenSql = format("SELECT a, b FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, b FROM %s WHERE c > 10", schemaQualifiedTable);
+        expectedRewrittenSql = format("SELECT a, b FROM %s WHERE c > 10", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT SUM(a) as sum_a, b FROM %s GROUP BY b", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SUM(a), b FROM %s GROUP BY b", schemaQualifiedTable);
+        expectedRewrittenSql = format("SELECT SUM(sum_a), b FROM %s GROUP BY b", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testAggregationWithTableAlias()
     {
         String originalViewSql = format("SELECT SUM(a) AS sum_a, b FROM %s GROUP BY b", BASE_TABLE_1);
