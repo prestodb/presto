@@ -59,7 +59,9 @@ public class TestIcebergRestMaterializedViews
         if (restServer != null) {
             restServer.stop();
         }
-        deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
+        if (warehouseLocation != null) {
+            deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
+        }
     }
 
     @Override
