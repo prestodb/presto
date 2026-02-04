@@ -95,7 +95,7 @@ public class TestIcebergHiveMetadataListing
         try {
             // Create Iceberg table with format-version 2 and Parquet format
             onPresto().executeQuery("CREATE TABLE iceberg.default.t1_v2 (c1 INTEGER, c2 VARCHAR) " +
-                    "WITH (\"format-version\" = '2', format = 'PARQUET')");
+                    "WITH (\"format-version\" = '3', format = 'PARQUET')");
 
             // Insert test data
             onPresto().executeQuery("INSERT INTO iceberg.default.t1_v2 VALUES (1, 'avvddf')");
