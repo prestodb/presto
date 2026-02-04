@@ -15,6 +15,7 @@ FROM quay.io/centos/centos:stream9
 # Set this when build arm with common flags
 # from https://github.com/facebookincubator/velox/pull/14366
 ARG ARM_BUILD_TARGET
+ARG CUDA_VERSION
 
 # This defaults to 12.9 but can be overridden with a build arg
 ARG CUDA_VERSION
