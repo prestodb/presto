@@ -209,6 +209,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
           NUM_PROP(kAsyncCacheSsdSavableRatio, 0.125),
           NUM_PROP(kAsyncCacheMinSsdSavableBytes, 1 << 24 /*16MB*/),
+          NUM_PROP(kAsyncCacheNumShards, 4),
           STR_PROP(kAsyncCachePersistenceInterval, "0s"),
           BOOL_PROP(kAsyncCacheSsdDisableFileCow, false),
           BOOL_PROP(kSsdCacheChecksumEnabled, false),
@@ -693,6 +694,10 @@ double SystemConfig::asyncCacheSsdSavableRatio() const {
 
 int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
   return optionalProperty<int32_t>(kAsyncCacheMinSsdSavableBytes).value();
+}
+
+int32_t SystemConfig::asyncCacheNumShards() const {
+  return optionalProperty<int32_t>(kAsyncCacheNumShards).value();
 }
 
 std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()

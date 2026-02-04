@@ -429,6 +429,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
       "async-cache-min-ssd-savable-bytes"};
 
+  /// The number of shards for the async data cache. The cache is divided into
+  /// shards to decrease contention on the mutex for the key to entry mapping
+  /// and other housekeeping. Must be a power of 2.
+  static constexpr std::string_view kAsyncCacheNumShards{
+      "async-cache-num-shards"};
+
   /// The interval for persisting in-memory cache to SSD. Setting this config
   /// to a non-zero value will activate periodic cache persistence.
   static constexpr std::string_view kAsyncCachePersistenceInterval{
@@ -1065,6 +1071,8 @@ class SystemConfig : public ConfigBase {
   double asyncCacheSsdSavableRatio() const;
 
   int32_t asyncCacheMinSsdSavableBytes() const;
+
+  int32_t asyncCacheNumShards() const;
 
   std::chrono::duration<double> asyncCachePersistenceInterval() const;
 
