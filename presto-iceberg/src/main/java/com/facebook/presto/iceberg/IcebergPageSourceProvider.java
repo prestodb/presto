@@ -723,6 +723,44 @@ public class IcebergPageSourceProvider
         return columnAttributes;
     }
 
+    private static ConnectorPageSourceWithRowPositions createAvroPageSource(
+            HdfsEnvironment hdfsEnvironment,
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            Path path,
+            long start,
+            long length,
+            List<IcebergColumnHandle> dataColumns)
+    {
+        try {
+            ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, hdfsEnvironment.getConfiguration(hdfsContext, path));
+            FSDataInputStream inputStream = fileSystem.open(path);
+
+            // Get the Avro schema from the file
+            org.apache.avro.file.DataFileStream<org.apache.avro.generic.GenericRecord> tempReader =
+                    new org.apache.avro.file.DataFileStream<>(inputStream, new org.apache.avro.generic.GenericDatumReader<>());
+            org.apache.avro.Schema fileSchema = tempReader.getSchema();
+            tempReader.close();
+
+            // Reopen the stream for the actual page source
+            inputStream = fileSystem.open(path);
+
+            IcebergAvroPageSource pageSource = new IcebergAvroPageSource(
+                    inputStream,
+                    path,
+                    start,
+                    length,
+                    fileSchema,
+                    dataColumns,
+                    new RuntimeStats());
+
+            return new ConnectorPageSourceWithRowPositions(pageSource, Optional.empty(), Optional.empty());
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, "Failed to create Avro page source for: " + path, e);
+        }
+    }
+
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
@@ -1107,6 +1145,15 @@ public class IcebergPageSourceProvider
                         fileFormatDataSourceStats,
                         Optional.empty(),
                         dwrfEncryptionProvider);
+            case AVRO:
+                return createAvroPageSource(
+                        hdfsEnvironment,
+                        session,
+                        hdfsContext,
+                        path,
+                        start,
+                        length,
+                        dataColumns);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
