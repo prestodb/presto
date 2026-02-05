@@ -11,7 +11,7 @@ See the [Presto documentation](https://prestodb.io/docs/current/) for general do
 
 ## Mission and Architecture
 
-See [PrestoDB: Mission and Architecture](ARCHITECTURE.md). 
+See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 
 ## Requirements
 
@@ -67,7 +67,7 @@ To modify the loaded plugins in IntelliJ, modify the `config.properties` located
 
 ### Additional configuration for Java 17
 
-When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.  
+When running with Java 17, additional `--add-opens` flags are required to allow reflective access used by certain catalogs based on which catalogs are configured.
 For the default set of catalogs loaded when starting the Presto server in IntelliJ without changes, add the following flags to the **VM Options**:
 
     --add-opens=java.base/java.io=ALL-UNNAMED
@@ -157,6 +157,10 @@ resources will be hot-reloaded and changes are reflected on browser refresh.
 
 Check out [building instructions](https://github.com/prestodb/presto/tree/master/presto-native-execution#build-from-source) to get started.
 
+## Using development containers
+
+The PrestoDB project provides support for development containers in its own repository.
+Please visit the [presto-dev README](https://github.com/prestodb/presto-dev/blob/main/README.md) for details.
 
 <hr>
 </details>
