@@ -256,7 +256,6 @@ public class UtilizedColumnsAnalyzer
                     }
                 }
                 else {
-                    // Prune (Only examine output expressions that have been referenced)
                     for (FieldId fieldId : context.getFieldIdsToExploreInRelation(querySpec)) {
                         process(selectItems.get(fieldId.getFieldIndex()), context);
                     }
