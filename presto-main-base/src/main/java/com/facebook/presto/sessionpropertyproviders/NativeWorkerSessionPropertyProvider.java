@@ -91,6 +91,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_USE_VELOX_GEOSPATIAL_JOIN = "native_use_velox_geospatial_join";
     public static final String NATIVE_AGGREGATION_COMPACTION_BYTES_THRESHOLD = "native_aggregation_compaction_bytes_threshold";
     public static final String NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO = "native_aggregation_compaction_unused_memory_ratio";
+    public static final String NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE = "native_merge_join_output_batch_start_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -456,6 +457,14 @@ public class NativeWorkerSessionPropertyProvider
                                 "The value is in the range of [0, 1). NOTE: Currently only applies to approx_most_frequent " +
                                 "aggregate with StringView type during global aggregation.",
                         0.25,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE,
+                        "Initial output batch size in rows for MergeJoin operator. When non-zero, " +
+                                "the batch size starts at this value and is dynamically adjusted based on " +
+                                "the average row size of previous output batches. When zero (default), " +
+                                "dynamic adjustment is disabled and the batch size is fixed at preferred_output_batch_rows.",
+                        0,
                         !nativeExecution));
     }
 
