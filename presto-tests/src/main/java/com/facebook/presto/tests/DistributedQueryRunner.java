@@ -882,9 +882,11 @@ public class DistributedQueryRunner
     {
         MaterializedResult result = execute(session, sql);
         List<Type> actualTypes = result.getTypes();
-        if (actualTypes.equals(resultTypes) || actualTypes.size() != resultTypes.size()) {
+        if (actualTypes.equals(resultTypes)) {
             return result;
         }
+        checkState(actualTypes.size() == resultTypes.size(),
+                "Expected %s result types but got %s", resultTypes.size(), actualTypes.size());
 
         List<MaterializedRow> coercedRows = result.getMaterializedRows().stream()
                 .map(row -> {
