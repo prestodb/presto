@@ -218,7 +218,6 @@ public class TestIcebergV3
         }
     }
 
-
     // Tests for Unsupported Types and Operations in V3
     // TODO: To be removed once the support is added.
 
@@ -439,4 +438,3 @@ public class TestIcebergV3
         return catalogDirectory.toFile();
     }
 }
-
