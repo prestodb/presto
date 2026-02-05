@@ -653,7 +653,7 @@ public class TestNativeSidecarPlugin
     //  are addressed using the native expression optimizer, and it is enabled everywhere.
 
     @Test
-    public void testQueriesUsingNativeOptimizer()
+    public void testNativeExpressionOptimizer()
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
@@ -681,6 +681,14 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey, orderstatus) rn, * from orders) WHERE rn = 1");
         assertQuerySucceeds(session, "WITH t AS (SELECT linenumber, row_number() over (partition by linenumber order by linenumber) as rn FROM lineitem) SELECT * FROM t WHERE rn = 1");
         assertQuerySucceeds(session, "SELECT row_number() OVER (PARTITION BY orderdate ORDER BY orderdate) FROM orders");
+
+        // IN expressions
+        assertQuerySucceeds(session, "SELECT table_name FROM information_schema.columns WHERE table_name IN ('nation', 'region')");
+        assertQuerySucceeds(session, "SELECT name FROM nation WHERE nationkey NOT IN (1, 2, 3, 4, 5, 10, 11, 12, 13)");
+        assertQuerySucceeds(session, "SELECT orderkey FROM lineitem WHERE shipmode IN ('TRUCK', 'FOB', 'RAIL')");
+        assertQuerySucceeds(session, "SELECT table_name, COALESCE(abs(ordinal_position), 0) as abs_pos FROM information_schema.columns WHERE table_catalog = 'hive' AND table_name IN ('nation', 'region') ORDER BY table_name, ordinal_position");
+        assertQuerySucceeds(session, "SELECT table_name, ordinal_position FROM information_schema.columns  WHERE abs(ordinal_position) IN (1, 2, 3) AND table_catalog = 'hive' AND table_name != 'roles' ORDER BY table_name, ordinal_position");
+        assertQuerySucceeds(session, "select lower(table_name) from information_schema.tables where table_name = 'lineitem' or table_name = 'LINEITEM'");
     }
 
     private String generateRandomTableName()
