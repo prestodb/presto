@@ -28,7 +28,6 @@ import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
-import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
 import com.google.common.collect.ImmutableList;
 
@@ -156,7 +155,7 @@ public class TypeCoercer
                     case StandardTypes.JSON:
                     case StandardTypes.INTERVAL_YEAR_TO_MONTH:
                     case StandardTypes.INTERVAL_DAY_TO_SECOND:
-                    case KHyperLogLogType.NAME:
+                    case StandardTypes.K_HYPER_LOG_LOG:
                     case JoniRegexpType.NAME:
                     case LikePatternType.NAME:
                     case JsonPathType.NAME:

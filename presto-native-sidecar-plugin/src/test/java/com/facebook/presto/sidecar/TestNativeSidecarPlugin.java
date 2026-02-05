@@ -691,6 +691,35 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "select lower(table_name) from information_schema.tables where table_name = 'lineitem' or table_name = 'LINEITEM'");
     }
 
+    @Test
+    public void testMergeKHyperLogLog()
+    {
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select k1, k2, khyperloglog_agg(v1, v2) khll " +
+                        "   from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
+                        "                (2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) " +
+                        "   group by k1, k2" +
+                        ")");
+
+        // Test merge(KHyperLogLog) when there are no rows.
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select khyperloglog_agg(v1, v2) khll " +
+                        "   from (values (1, 1, 2, 3)) t(k1, k2, v1, v2) " +
+                        "   where 1 = 0" +
+                        ")");
+
+        // Verify merge(KHyperLogLog) handles null states correctly.
+        assertQuery(
+                "select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) " +
+                        "from (" +
+                        "   select CAST(null AS KHYPERLOGLOG) khll" +
+                        ")");
+    }
+
     private String generateRandomTableName()
     {
         String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
