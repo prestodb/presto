@@ -90,6 +90,7 @@ import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
+import static com.facebook.presto.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
@@ -692,7 +693,9 @@ public enum FileFormat
                     columnNames,
                     types,
                     ParquetWriterOptions.builder().build(),
-                    compressionCodec.getParquetCompressionCodec().getHadoopCompressionCodecClassName());
+                    compressionCodec.getParquetCompressionCodec().getHadoopCompressionCodecClassName(),
+                    HIVE_STORAGE_TIME_ZONE,
+                    "test_version");
         }
 
         @Override

@@ -59,9 +59,9 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
+import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -89,10 +89,11 @@ import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALI
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
-import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -435,7 +436,7 @@ public abstract class AbstractTestExpressionInterpreter
     @Test
     public void testExtract()
     {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, getDateTimeZone(TEST_SESSION.getTimeZoneKey()));
+        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC);
         double seconds = dateTime.getMillis() / 1000.0;
 
         assertOptimizedEquals("extract (YEAR from from_unixtime(" + seconds + "))", "2001");
@@ -455,10 +456,10 @@ public abstract class AbstractTestExpressionInterpreter
         assertOptimizedEquals("extract (QUARTER from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MONTH from bound_timestamp)", "8");
         assertOptimizedEquals("extract (WEEK from bound_timestamp)", "34");
-        assertOptimizedEquals("extract (DOW from bound_timestamp)", "2");
-        assertOptimizedEquals("extract (DOY from bound_timestamp)", "233");
-        assertOptimizedEquals("extract (DAY from bound_timestamp)", "21");
-        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "16");
+        assertOptimizedEquals("extract (DOW from bound_timestamp)", "3");
+        assertOptimizedEquals("extract (DOY from bound_timestamp)", "234");
+        assertOptimizedEquals("extract (DAY from bound_timestamp)", "22");
+        assertOptimizedEquals("extract (HOUR from bound_timestamp)", "3");
         assertOptimizedEquals("extract (MINUTE from bound_timestamp)", "4");
         assertOptimizedEquals("extract (SECOND from bound_timestamp)", "5");
         // todo reenable when cast as timestamp with time zone is implemented
@@ -560,7 +561,8 @@ public abstract class AbstractTestExpressionInterpreter
     @Test
     public void testCurrentTimestamp()
     {
-        double current = TEST_SESSION.getStartTime() / 1000.0;
+        ISOChronology localChronology = getChronology(TEST_SESSION.getTimeZoneKey());
+        double current = localChronology.getZone().convertUTCToLocal(TEST_SESSION.getStartTime()) / 1000.0;
         assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
         double future = current + TimeUnit.MINUTES.toSeconds(1);
         assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
@@ -1678,15 +1680,15 @@ public abstract class AbstractTestExpressionInterpreter
             case "bound_double":
                 return 12.34;
             case "bound_date":
-                return new LocalDate(2001, 8, 22).toDateMidnight(DateTimeZone.UTC).getMillis();
+                return new LocalDate(2001, 8, 22).toDateMidnight(UTC).getMillis();
             case "bound_time":
-                return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, DateTimeZone.UTC)).getMillis();
+                return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, UTC)).getMillis();
             case "bound_timestamp":
-                return new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis();
+                return new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis();
             case "bound_pattern":
                 return utf8Slice("%el%");
             case "bound_timestamp_with_timezone":
-                return new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 1, 0, 0, 999, DateTimeZone.UTC).getMillis(), getTimeZoneKey("Z"));
+                return new SqlTimestampWithTimeZone(new DateTime(1970, 1, 1, 1, 0, 0, 999, UTC).getMillis(), getTimeZoneKey("Z"));
             case "bound_varbinary":
                 return Slices.wrappedBuffer((byte) 0xab);
             case "bound_decimal_short":
