@@ -22,8 +22,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
-
 import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
@@ -34,7 +32,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 public class TestPrestoNativeIcebergMaterializedViews
         extends TestIcebergMaterializedViewsBase
 {
-    private File warehouseLocation;
     private TestingHttpServer restServer;
     private String serverUri;
 
