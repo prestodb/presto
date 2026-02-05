@@ -15,7 +15,6 @@ package com.facebook.presto.flightshim;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
@@ -25,7 +24,9 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
@@ -57,7 +58,8 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
-import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -72,12 +74,17 @@ import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -163,7 +170,12 @@ public class ArrowBatchSource
             writer.writeBoolean(row, type.getBoolean(block, position));
         }
         else if (javaType == long.class) {
-            writer.writeLong(row, type.getLong(block, position));
+            if (block instanceof IntArrayBlock) {
+                writer.writeLong(row, block.toLong(position));
+            }
+            else {
+                writer.writeLong(row, type.getLong(block, position));
+            }
         }
         else if (javaType == double.class) {
             writer.writeDouble(row, type.getDouble(block, position));
@@ -176,7 +188,6 @@ public class ArrowBatchSource
             writer.writeBlock(row, block, position, type);
         }
         else {
-            // TODO handle Object cursor.getObject(column)
             throw new UnsupportedOperationException();
         }
     }
@@ -201,10 +212,29 @@ public class ArrowBatchSource
     {
         Field field;
         Map<String, String> metadata = column.getProperties().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Object::toString));
-        if (column.getType() instanceof ArrayType) {
+        if (column.getType().getTypeSignature().getBase().equals(ARRAY)) {
             ArrayType arrayType = (ArrayType) column.getType();
             Field childField = prestoToArrowField(ColumnMetadata.builder().setName(BaseRepeatedValueVector.DATA_VECTOR_NAME).setType(arrayType.getElementType()).build());
             field = new Field(column.getName(), new FieldType(column.isNullable(), ArrowType.List.INSTANCE, null, metadata), ImmutableList.of(childField));
+        }
+        else if (column.getType().getTypeSignature().getBase().equals(MAP)) {
+            MapType mapType = (MapType) column.getType();
+            // NOTE: Arrow key type must be non-nullable
+            Field keyField = prestoToArrowField(ColumnMetadata.builder().setName(MapVector.KEY_NAME).setType(mapType.getKeyType()).setNullable(false).build());
+            Field valueField = prestoToArrowField(ColumnMetadata.builder().setName(MapVector.VALUE_NAME).setType(mapType.getValueType()).build());
+            Field entriesField = new Field(MapVector.DATA_VECTOR_NAME, FieldType.notNullable(ArrowType.Struct.INSTANCE), ImmutableList.of(keyField, valueField));
+            field = new Field(column.getName(), new FieldType(column.isNullable(), new ArrowType.Map(false), null, metadata), ImmutableList.of(entriesField));
+        }
+        else if (column.getType().getTypeSignature().getBase().equals(ROW)) {
+            RowType rowType = (RowType) column.getType();
+            List<RowType.Field> rowFields = rowType.getFields();
+
+            AtomicInteger childCount = new AtomicInteger();
+            List<Field> childFields = rowFields.stream().map(f -> prestoToArrowField(
+                    ColumnMetadata.builder().setName(f.getName().orElse(format("$child%s$", childCount.incrementAndGet()))).setType(f.getType()).build()))
+                    .collect(Collectors.toList());
+
+            field = new Field(column.getName(), new FieldType(column.isNullable(), ArrowType.Struct.INSTANCE, null, metadata), childFields);
         }
         else {
             ArrowType arrowType = prestoToArrowType(column.getType());
@@ -302,6 +332,10 @@ public class ArrowBatchSource
                 return new ArrowShimTimeStampWriter((TimeStampVector) vector);
             case LIST:
                 return new ArrowShimListWriter((ListVector) vector);
+            case MAP:
+                return new ArrowShimMapWriter((MapVector) vector);
+            case STRUCT:
+                return new ArrowShimStructWriter((StructVector) vector);
             default:
                 throw new UnsupportedOperationException("Unsupported Arrow type: " + vector.getMinorType().name());
         }
@@ -669,37 +703,94 @@ public class ArrowBatchSource
         {
             if (type instanceof ArrayType) {
                 ArrayType arrayType = ((ArrayType) type);
-                Object value = type.getObject(block, position);
-                if (value instanceof List<?>) {
-                    List<?> valuesList = (List<?>) value;
-                    //UnionListWriter listWriter = vector.getWriter();
-                    //listWriter.setPosition(index);
-                    //listWriter.startList();
-                    vector.startNewValue(index);
-
-                    for (Object element : valuesList) {
-                        int stop = 20;
-                    }
-
-                    ((List<?>) value).forEach(element ->
-                                    type.getTypeParameters().get(0)
-                            //appendTo(, element, builder)
-                    );
-
-                    vector.endValue(index, valuesList.size());
-                    //listWriter.endList();
-                    return;
+                Block elementBlock = arrayType.getObject(block, position);
+                int dataIndex = vector.startNewValue(index);
+                for (int i = 0; i < elementBlock.getPositionCount(); ++i) {
+                    writeValueFromBlock(childWriter, dataIndex + i, arrayType.getElementType(), elementBlock, i);
                 }
-                else if (value instanceof Block) {
-                    Block elementBlock = (Block) value;
-                    //IntArrayBlock intArrayBlock = (IntArrayBlock) value;
-                    //intArrayBlock.getLong();
-                    writeValueFromBlock(childWriter, 0, ((ArrayType) type).getElementType(), elementBlock, 0);
-                }
-                int stop = 10;
+                vector.endValue(index, elementBlock.getPositionCount());
             }
-            //vector.set(index, intBitsToFloat(toIntExact(value)));
-            int stop = 10;
+            else {
+                throw new UnsupportedOperationException("Unknown type for writeBlock: " + type);
+            }
+        }
+    }
+
+    private static class ArrowShimMapWriter
+            extends ArrowShimWriter
+    {
+        private final MapVector vector;
+        private final StructVector structVector;
+        private final ArrowShimWriter keyWriter;
+        private final ArrowShimWriter valueWriter;
+
+        public ArrowShimMapWriter(MapVector vector)
+        {
+            this.vector = vector;
+            this.structVector = (StructVector) vector.getDataVector();
+            this.keyWriter = createArrowWriter((FieldVector) structVector.getChildByOrdinal(0));
+            this.valueWriter = createArrowWriter((FieldVector) structVector.getChildByOrdinal(1));
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            if (type instanceof MapType) {
+                MapType mapType = ((MapType) type);
+                Block singleMapBlock = mapType.getObject(block, position);
+                int dataIndex = vector.startNewValue(index);
+                int numPairs = singleMapBlock.getPositionCount() / 2;
+                for (int i = 0; i < numPairs; ++i) {
+                    writeValueFromBlock(keyWriter, dataIndex + i, mapType.getKeyType(), singleMapBlock, i * 2);
+                    writeValueFromBlock(valueWriter, dataIndex + i, mapType.getValueType(), singleMapBlock, (i * 2) + 1);
+                    structVector.setIndexDefined(dataIndex + i);
+                }
+                vector.endValue(index, numPairs);
+            }
+            else {
+                throw new UnsupportedOperationException("Unknown type for writeBlock: " + type);
+            }
+        }
+    }
+
+    private static class ArrowShimStructWriter
+            extends ArrowShimWriter
+    {
+        private final StructVector vector;
+        private final List<ArrowShimWriter> childWriters;
+
+        public ArrowShimStructWriter(StructVector vector)
+        {
+            this.vector = vector;
+            this.childWriters = vector.getChildrenFromFields().stream().map(ArrowBatchSource::createArrowWriter).collect(Collectors.toList());
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            if (type instanceof RowType) {
+                RowType rowType = ((RowType) type);
+                Block singleRowBlock = rowType.getObject(block, position);
+                for (int i = 0; i < childWriters.size(); ++i) {
+                    writeValueFromBlock(childWriters.get(i), index, rowType.getTypeParameters().get(i), singleRowBlock, i);
+                }
+                vector.setIndexDefined(index);
+            }
+            else {
+                throw new UnsupportedOperationException("Unknown type for writeBlock: " + type);
+            }
         }
     }
 }
