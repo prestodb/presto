@@ -112,7 +112,7 @@ class LocalShuffleSerializedPage : public ShuffleSerializedPage {
       velox::BufferPtr buffer)
       : rows_{std::move(rows)}, buffer_{std::move(buffer)} {}
 
-  const std::vector<std::string_view>& rows() override {
+  const std::vector<std::string_view>& rows(int32_t /*driverId*/) override {
     return rows_;
   }
 
