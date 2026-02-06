@@ -197,4 +197,28 @@ public class TestExcludeColumnsFunction
                         "                    columns => DESCRIPTOR(orderstatus, orderdate, orderpriority, clerk, shippriority, comment)))\n",
                 "SELECT orderkey, custkey, totalprice FROM tpch.tiny.orders");
     }
+
+    @Test
+    public void testExcludeColumnsLateralJoin()
+    {
+        // Test LATERAL join with exclude_columns function
+        // This tests using exclude_columns in a lateral join context with filtering
+        assertQuery("SELECT n.nationkey, filtered.* " +
+                        "FROM tpch.tiny.nation n " +
+                        "CROSS JOIN LATERAL (" +
+                        "    SELECT * " +
+                        "    FROM TABLE(" +
+                        "        system.builtin.exclude_columns(" +
+                        "            input => table(tpch.tiny.region)," +
+                        "            columns => descriptor(comment)" +
+                        "        )" +
+                        "    ) r " +
+                        "    WHERE r.regionkey = n.regionkey" +
+                        ") filtered " +
+                        "WHERE n.nationkey < 5",
+                "SELECT n.nationkey, r.regionkey, r.name " +
+                        "FROM tpch.tiny.nation n " +
+                        "JOIN tpch.tiny.region r ON r.regionkey = n.regionkey " +
+                        "WHERE n.nationkey < 5");
+    }
 }
