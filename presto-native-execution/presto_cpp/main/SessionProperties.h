@@ -401,6 +401,11 @@ class SessionProperties {
   static constexpr const char* kAggregationCompactionUnusedMemoryRatio =
       "native_aggregation_compaction_unused_memory_ratio";
 
+  /// Comma-separated list of error code names that TRY() should catch and
+  /// return NULL for. If empty (default), TRY() catches all user errors.
+  static constexpr const char* kTryFunctionCatchableErrors =
+      "try_function_catchable_errors";
+
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
     if (sessionProperty == sessionProperties_.end()) {
