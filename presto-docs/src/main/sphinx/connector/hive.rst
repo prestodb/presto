@@ -456,9 +456,6 @@ Property Name                                Description
                                              This defaults to the Java temporary directory specified
                                              by the JVM system property ``java.io.tmpdir``.
 
-``hive.s3.pin-client-to-current-region``     Pin S3 requests to the same region as the EC2
-                                             instance where Presto is running (defaults to ``false``).
-
 ``hive.s3.ssl.enabled``                      Use HTTPS to communicate with the S3 API (defaults to ``true``).
 
 ``hive.s3.sse.enabled``                      Use S3 server-side encryption (defaults to ``false``).
@@ -639,7 +636,9 @@ Property Name                         Description                               
 
 ``hive.s3.socket-timeout``            TCP socket read timeout.                                    ``5 seconds``
 
-``hive.s3.max-connections``           Maximum number of simultaneous open connections to S3.      ``500``
+``hive.s3.read.max-connections``      Maximum number of simultaneous open read connections to S3.      ``400``
+
+``hive.s3.write.max-connections``      Maximum number of simultaneous open write connections to S3.    ``100``
 
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
@@ -742,8 +741,8 @@ Understanding and Tuning the Maximum Connections
 ################################################
 
 Presto can use its native S3 file system or EMRFS. When using the native FS, the
-maximum connections is configured via the ``hive.s3.max-connections``
-configuration property. When using EMRFS, the maximum connections is configured
+maximum read and write connections are configured using the ``hive.s3.read.max-connections``
+and ``hive.s3.write.max-connections`` configuration properties respectively. When using EMRFS, the maximum connections is configured
 via the ``fs.s3.maxConnections`` Hadoop configuration property.
 
 S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
