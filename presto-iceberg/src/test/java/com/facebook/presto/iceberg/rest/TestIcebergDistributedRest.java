@@ -87,10 +87,6 @@ public class TestIcebergDistributedRest
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .putAll(restConnectorProperties(serverUri))
                 .put("iceberg.rest.session.type", SessionType.USER.name())
-                // Enable OAuth2 authentication to trigger token exchange flow
-                // The credential is required to initialize the OAuth2Manager
-                .put("iceberg.rest.auth.type", "OAUTH2")
-                .put("iceberg.rest.auth.oauth2.credential", "client:secret")
                 .build();
 
         return IcebergQueryRunner.builder()
