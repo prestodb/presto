@@ -88,7 +88,7 @@ public class NativeExpressionOptimizer
                                     return replacement != null
                                             ? toRowExpression(variable.getSourceLocation(), replacement, variable.getType())
                                             : variable;
-                                }),
+                                }, resolution),
                                 null),
                         (a, b) -> a));
         if (expressions.isEmpty()) {
@@ -122,8 +122,10 @@ public class NativeExpressionOptimizer
         // Add back in the constants
         replacements.putAll(constants);
 
-        // Replace all the expressions in the original expression with the optimized expressions
-        return toRowExpression(expression.getSourceLocation(), expression.accept(new ReplacingVisitor(replacements), null), expression.getType());
+        // Replace all the expressions in the original expression with the optimized expressions. Perform optimization
+        // to rewrite TRY-wrapping-FAIL sub-expressions into NULLs; since `try` is neither an expression type nor a
+        // function registered in Velox, the sidecar can not perform this optimization.
+        return toRowExpression(expression.getSourceLocation(), expression.accept(new ReplacingVisitor(replacements, resolution), null), expression.getType());
     }
 
     /**
@@ -317,18 +319,26 @@ public class NativeExpressionOptimizer
     private static class ReplacingVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
+        private final Map<RowExpression, RowExpression> replacements;
         private final Function<RowExpression, RowExpression> resolver;
+        private final StandardFunctionResolution resolution;
 
-        public ReplacingVisitor(Map<RowExpression, RowExpression> replacements)
+        public ReplacingVisitor(Map<RowExpression, RowExpression> replacements, StandardFunctionResolution resolution)
         {
             requireNonNull(replacements, "replacements is null");
+            requireNonNull(resolution, "resolution is null");
+            this.replacements = replacements;
             this.resolver = i -> replacements.getOrDefault(i, i);
+            this.resolution = resolution;
         }
 
-        public ReplacingVisitor(Function<VariableReferenceExpression, RowExpression> variableResolver)
+        public ReplacingVisitor(Function<VariableReferenceExpression, RowExpression> variableResolver, StandardFunctionResolution resolution)
         {
             requireNonNull(variableResolver, "variableResolver is null");
+            requireNonNull(resolution, "resolution is null");
+            this.replacements = java.util.Collections.emptyMap();
             this.resolver = i -> i instanceof VariableReferenceExpression ? variableResolver.apply((VariableReferenceExpression) i) : i;
+            this.resolution = resolution;
         }
 
         private boolean canBeReplaced(RowExpression rowExpression)
@@ -361,9 +371,19 @@ public class NativeExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (canBeReplaced(call)) {
-                return resolver.apply(call);
+            if (isTryWrappingFail(call, resolution)) {
+                return toRowExpression(call.getSourceLocation(), null, call.getType());
             }
+
+            if (canBeReplaced(call)) {
+                RowExpression replacement = resolver.apply(call);
+                if (replacements.containsKey(replacement)) {
+                    return replacement;
+                }
+                // Replacement tree can be optimized further, such as rewriting TRY-wrapping-FAIL patterns with NULL.
+                return replacement.accept(this, context);
+            }
+
             List<RowExpression> updatedArguments = call.getArguments().stream()
                     .map(argument -> toRowExpression(argument.getSourceLocation(), argument.accept(this, context), argument.getType()))
                     .collect(toImmutableList());
@@ -374,8 +394,14 @@ public class NativeExpressionOptimizer
         public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
         {
             if (canBeReplaced(specialForm)) {
-                return resolver.apply(specialForm);
+                RowExpression replacement = resolver.apply(specialForm);
+                if (replacements.containsKey(replacement)) {
+                    return replacement;
+                }
+                // Replacement tree can be optimized further, such as rewriting TRY-wrapping-FAIL patterns with NULL.
+                return replacement.accept(this, context);
             }
+
             List<RowExpression> updatedArguments = specialForm.getArguments().stream()
                     .map(argument -> toRowExpression(argument.getSourceLocation(), argument.accept(this, context), argument.getType()))
                     .collect(toImmutableList());
@@ -393,5 +419,44 @@ public class NativeExpressionOptimizer
 
         // If it's not a RowExpression, we assume it's a literal value.
         return new ConstantExpression(sourceLocation, object, type);
+    }
+
+    // This method checks if the given expression is a TRY function that wraps a FAIL function, so it can be optimized
+    // to NULL. Expressions of form 'try(fail(...))' and 'try(cast(fail(...) AS T)' will be optimized to NULL.
+    private static boolean isTryWrappingFail(RowExpression expr, StandardFunctionResolution resolution)
+    {
+        if (!(expr instanceof CallExpression)) {
+            return false;
+        }
+        CallExpression call = (CallExpression) expr;
+
+        if (!resolution.isTryFunction(call.getFunctionHandle()) || call.getArguments().isEmpty()) {
+            return false;
+        }
+
+        RowExpression tryArg = call.getArguments().get(0);
+        if (!(tryArg instanceof LambdaDefinitionExpression)) {
+            return false;
+        }
+        LambdaDefinitionExpression lambdaArg = (LambdaDefinitionExpression) tryArg;
+        RowExpression tryBody = lambdaArg.getBody();
+        if (!(tryBody instanceof CallExpression)) {
+            return false;
+        }
+        CallExpression callArg = (CallExpression) tryBody;
+        if (resolution.isFailFunction(callArg.getFunctionHandle())) {
+            return true;
+        }
+
+        if (resolution.isCastFunction(callArg.getFunctionHandle()) && !callArg.getArguments().isEmpty()) {
+            RowExpression inner = callArg.getArguments().get(0);
+            if (!(inner instanceof CallExpression)) {
+                return false;
+            }
+            CallExpression innerCall = (CallExpression) inner;
+            return resolution.isFailFunction(innerCall.getFunctionHandle());
+        }
+
+        return false;
     }
 }
