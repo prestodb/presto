@@ -5206,6 +5206,13 @@ void to_json(json& j, const ErrorCode& p) {
   to_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   to_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   to_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  to_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 
 void from_json(const json& j, ErrorCode& p) {
@@ -5213,6 +5220,13 @@ void from_json(const json& j, ErrorCode& p) {
   from_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   from_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   from_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  from_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
