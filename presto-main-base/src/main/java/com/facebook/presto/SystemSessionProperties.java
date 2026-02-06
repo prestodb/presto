@@ -380,6 +380,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
+    public static final String USE_RUST_CASCADE_OPTIMIZER = "use_rust_cascade_optimizer";
+    public static final String RUST_CASCADE_OPTIMIZER_URL = "rust_cascade_optimizer_url";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2132,6 +2134,16 @@ public final class SystemSessionProperties
                         TRY_FUNCTION_CATCHABLE_ERRORS,
                         "Comma-separated list of error code names that TRY function should catch (such as 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS')",
                         featuresConfig.getTryFunctionCatchableErrors(),
+                        false),
+                booleanProperty(
+                        USE_RUST_CASCADE_OPTIMIZER,
+                        "Use the Rust Cascades optimizer for join reordering",
+                        featuresConfig.isUseRustCascadeOptimizer(),
+                        false),
+                stringProperty(
+                        RUST_CASCADE_OPTIMIZER_URL,
+                        "URL of the Rust Cascades optimizer service",
+                        featuresConfig.getRustCascadeOptimizerUrl(),
                         false));
     }
 
@@ -3625,5 +3637,15 @@ public final class SystemSessionProperties
     public static String getTryFunctionCatchableErrors(Session session)
     {
         return session.getSystemProperty(TRY_FUNCTION_CATCHABLE_ERRORS, String.class);
+    }
+
+    public static boolean isRustCascadeOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_RUST_CASCADE_OPTIMIZER, Boolean.class);
+    }
+
+    public static String getRustCascadeOptimizerUrl(Session session)
+    {
+        return session.getSystemProperty(RUST_CASCADE_OPTIMIZER_URL, String.class);
     }
 }

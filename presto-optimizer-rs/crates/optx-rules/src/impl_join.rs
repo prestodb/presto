@@ -42,9 +42,9 @@
 //! **Cost**: O(left_rows * right_rows) CPU.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Implement logical join as a hash join.
 ///
@@ -73,7 +73,7 @@ impl Rule for ImplHashJoinRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Join {
             join_type,
             condition,
@@ -95,7 +95,7 @@ impl Rule for ImplHashJoinRule {
         let mut results = Vec::new();
 
         // Build on right (typical: smaller table on build side)
-        results.push((
+        results.push(RuleResult::Substitution(
             Operator::Physical(PhysicalOp::HashJoin {
                 join_type: *join_type,
                 build_side: BuildSide::Right,
@@ -105,7 +105,7 @@ impl Rule for ImplHashJoinRule {
         ));
 
         // Build on left
-        results.push((
+        results.push(RuleResult::Substitution(
             Operator::Physical(PhysicalOp::HashJoin {
                 join_type: *join_type,
                 build_side: BuildSide::Left,
@@ -146,7 +146,7 @@ impl Rule for ImplMergeJoinRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Join {
             join_type,
             condition,
@@ -163,7 +163,7 @@ impl Rule for ImplMergeJoinRule {
             return vec![];
         }
 
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::MergeJoin {
                 join_type: *join_type,
                 condition: condition.clone(),
@@ -200,7 +200,7 @@ impl Rule for ImplNestedLoopJoinRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Join {
             join_type,
             condition,
@@ -210,7 +210,7 @@ impl Rule for ImplNestedLoopJoinRule {
         };
 
         // NLJ is always applicable but expensive
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::NestedLoopJoin {
                 join_type: *join_type,
                 condition: condition.clone(),

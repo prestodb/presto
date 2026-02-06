@@ -24,9 +24,9 @@
 //! inputs that are already partially sorted or for very large aggregations.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Implement logical aggregate as a hash aggregate.
 ///
@@ -55,7 +55,7 @@ impl Rule for ImplHashAggregateRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Aggregate {
             group_by,
             aggregates,
@@ -64,7 +64,7 @@ impl Rule for ImplHashAggregateRule {
             return vec![];
         };
 
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::HashAggregate {
                 group_by: group_by.clone(),
                 aggregates: aggregates.clone(),
@@ -102,7 +102,7 @@ impl Rule for ImplStreamAggregateRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Aggregate {
             group_by,
             aggregates,
@@ -111,7 +111,7 @@ impl Rule for ImplStreamAggregateRule {
             return vec![];
         };
 
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::StreamAggregate {
                 group_by: group_by.clone(),
                 aggregates: aggregates.clone(),

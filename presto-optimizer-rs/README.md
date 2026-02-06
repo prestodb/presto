@@ -94,6 +94,7 @@ cargo run -p optx-server --release
 | `/rules` | GET | List active optimization rules |
 | `/optimize` | POST | Optimize a Substrait plan (protobuf binary) |
 | `/optimize/json` | POST | Optimize a Substrait plan (JSON) |
+| `/optimize/join-graph` | POST | Optimize join ordering via join-graph JSON protocol |
 | `/rules/configure` | POST | Enable/disable rules |
 
 ### Example Usage
@@ -111,6 +112,164 @@ curl -X POST http://localhost:3000/optimize/json \
   -d '{ ... substrait plan JSON ... }'
 ```
 
+## Presto Integration (E2E Demo)
+
+The optimizer integrates with Presto's Java coordinator via a **join-graph JSON protocol**. This is a simplified protocol for join reordering that communicates just the essential information (tables with statistics and equi-join conditions) rather than requiring full Substrait plan conversion.
+
+### Architecture
+
+```
+Presto Java Coordinator
+  |
+  | 1. Extract join graph from PlanNode tree
+  |    (tables with stats, equi-join conditions)
+  |
+  | 2. POST /optimize/join-graph (JSON)
+  v
+Rust Optimizer (optx-server:3000)
+  |
+  | 3. Build Memo from join graph
+  | 4. Run Cascades search (explore + implement + cost)
+  | 5. Extract best join tree
+  |
+  | 6. Response: optimized join tree (JSON)
+  v
+Presto Java Coordinator
+  |
+  | 7. Rebuild PlanNode join tree following
+  |    the optimized order (reuse original
+  |    TableScanNodes, ColumnHandles, etc.)
+  v
+Continue with remaining optimizers (AddExchanges, etc.)
+```
+
+### Join-Graph JSON Protocol
+
+**Request: `POST /optimize/join-graph`**
+
+```json
+{
+  "tables": [
+    {
+      "id": "t0",
+      "schema": "tpch",
+      "name": "customer",
+      "rowCount": 150000.0,
+      "sizeBytes": 15000000.0,
+      "columns": [
+        {"name": "c_custkey", "ndv": 150000.0, "nullFraction": 0.0, "avgSize": 8.0}
+      ]
+    }
+  ],
+  "joins": [
+    {
+      "leftTableId": "t0",
+      "rightTableId": "t1",
+      "joinType": "INNER",
+      "leftColumn": "c_custkey",
+      "rightColumn": "o_custkey"
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "tree": {
+    "joinType": "INNER",
+    "leftColumn": "c_custkey",
+    "rightColumn": "o_custkey",
+    "left": {
+      "joinType": "INNER",
+      "leftColumn": "n_regionkey",
+      "rightColumn": "r_regionkey",
+      "left": {"tableId": "t3"},
+      "right": {"tableId": "t5"}
+    },
+    "right": {"tableId": "t0"}
+  },
+  "cost": 188000000.0,
+  "optimized": true
+}
+```
+
+### Running the E2E Demo
+
+**1. Start the Rust optimizer:**
+
+```bash
+cd presto-optimizer-rs
+cargo run -p optx-server
+# Listening on http://0.0.0.0:3000
+```
+
+**2. Build and start Presto** (with TPC-H catalog configured):
+
+```bash
+cd ..
+./mvnw clean install -DskipTests -DskipUI -pl :presto-main-base,:presto-main,:presto-server -am
+# Start Presto coordinator
+```
+
+**3. Enable the optimizer and run EXPLAIN:**
+
+```sql
+-- Enable the Rust Cascades optimizer for this session
+SET SESSION use_rust_cascade_optimizer = true;
+
+-- Run EXPLAIN on a join-heavy TPC-H query (Q5)
+EXPLAIN SELECT n_name, SUM(l_extendedprice * (1 - l_discount)) as revenue
+FROM customer, orders, lineitem, supplier, nation, region
+WHERE c_custkey = o_custkey AND l_orderkey = o_orderkey
+  AND l_suppkey = s_suppkey AND c_nationkey = s_nationkey
+  AND s_nationkey = n_nationkey AND n_regionkey = r_regionkey
+  AND r_name = 'ASIA'
+  AND o_orderdate >= DATE '1994-01-01' AND o_orderdate < DATE '1995-01-01'
+GROUP BY n_name ORDER BY revenue DESC;
+```
+
+**4. Compare with the default plan:**
+
+```sql
+SET SESSION use_rust_cascade_optimizer = false;
+-- Same query — shows original join order (left-deep, query text order)
+```
+
+The optimized plan should show small tables (region=5 rows, nation=25 rows) joined first, with larger tables joined later against smaller intermediates.
+
+### Session Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `use_rust_cascade_optimizer` | boolean | `false` | Enable Rust Cascades optimizer for join reordering |
+| `rust_cascade_optimizer_url` | string | `http://localhost:3000` | URL of the Rust optimizer service |
+
+### Java Components
+
+| File | Description |
+|------|-------------|
+| `RustCascadeOptimizer.java` | `PlanOptimizer` implementation with inner classes for extraction, HTTP client, and plan rebuilding |
+| `FeaturesConfig.java` | Config properties (`optimizer.rust-cascade-enabled`, `optimizer.rust-cascade-url`) |
+| `SystemSessionProperties.java` | Session-level property accessors |
+| `PlanOptimizers.java` | Optimizer registration (runs after PhysicalCteOptimizer, before AddExchanges) |
+
+### Rust Components
+
+| File | Description |
+|------|-------------|
+| `optx-server/src/join_graph.rs` | JSON types, Memo construction, response builder, handler |
+| `optx-server/src/main.rs` | Route registration for `/optimize/join-graph` |
+
+### Known Limitations / Future Work
+
+- **Substrait integration**: The join-graph protocol is a demo simplification. Production use should replace it with full Substrait PlanNode conversion, which requires mapping Presto's TableHandle/ColumnHandle/RowExpression types.
+- **Equi-joins only**: Only single-column equi-join conditions are supported. Multi-column joins, non-equi predicates, and theta joins are not yet handled.
+- **Inner joins only**: Outer join reordering is not yet supported — left/right/full outer joins have ordering constraints that must be respected.
+- **No filter pushdown**: Table-level filter predicates are not communicated to the Rust optimizer, which limits cardinality estimation accuracy.
+- **Graceful fallback**: On any failure (connection refused, timeout, error response, rebuild failure), the optimizer silently falls back to the original plan.
+
 ## Crate Details
 
 ### optx-core
@@ -121,7 +280,7 @@ The core optimizer engine:
 - **`search.rs`** - Top-down Cascades search algorithm with memoization
 - **`cost.rs`** - Pluggable cost model trait + default implementation
 - **`stats.rs`** - Statistics structures and derivation (join selectivity, filter selectivity)
-- **`rule.rs`** - Rule trait, registry, and plugin architecture
+- **`rule.rs`** - Rule trait (with `RuleResult`/`RuleChild` for creating new groups), registry, and plugin architecture
 - **`pattern.rs`** - Declarative pattern matching for rules
 - **`properties.rs`** - Logical and physical properties (sort order, distribution)
 - **`catalog.rs`** - Schema/table metadata interface

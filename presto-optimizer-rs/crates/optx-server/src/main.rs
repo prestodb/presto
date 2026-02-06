@@ -24,17 +24,19 @@
 //!
 //! ## Endpoints
 //!
-//! - `GET  /health`           - Health check
-//! - `GET  /rules`            - List active optimization rules
-//! - `POST /optimize`         - Optimize a Substrait plan (protobuf binary)
-//! - `POST /optimize/json`    - Optimize a Substrait plan (JSON encoding)
-//! - `POST /rules/configure`  - Enable/disable rules (placeholder)
+//! - `GET  /health`                - Health check
+//! - `GET  /rules`                 - List active optimization rules
+//! - `POST /optimize`              - Optimize a Substrait plan (protobuf binary)
+//! - `POST /optimize/json`         - Optimize a Substrait plan (JSON encoding)
+//! - `POST /optimize/join-graph`   - Optimize join ordering via join-graph JSON protocol
+//! - `POST /rules/configure`       - Enable/disable rules (placeholder)
 //!
 //! ## Configuration
 //!
 //! The server listens on `0.0.0.0:3000` by default. Logging is controlled by the
 //! `RUST_LOG` environment variable (defaults to `optx=debug`).
 
+mod join_graph;
 mod routes;
 mod state;
 
@@ -63,6 +65,7 @@ async fn main() {
         .route("/rules", get(routes::list_rules))
         .route("/optimize", post(routes::optimize_proto))
         .route("/optimize/json", post(routes::optimize_json))
+        .route("/optimize/join-graph", post(join_graph::optimize_join_graph))
         .route("/rules/configure", post(routes::configure_rules))
         .layer(CorsLayer::permissive()) // Allow cross-origin requests (for dev/debug UIs)
         .layer(TraceLayer::new_for_http()) // Log all HTTP requests

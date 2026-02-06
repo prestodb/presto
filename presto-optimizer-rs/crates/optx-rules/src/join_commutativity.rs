@@ -29,9 +29,9 @@
 //! downstream processing and debugging.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Join commutativity: A JOIN B -> B JOIN A.
 ///
@@ -60,7 +60,7 @@ impl Rule for JoinCommutativityRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Join {
             join_type,
             condition,
@@ -85,7 +85,7 @@ impl Rule for JoinCommutativityRule {
             condition: swap_condition_sides(condition),
         });
 
-        vec![(new_op, new_children)]
+        vec![RuleResult::Substitution(new_op, new_children)]
     }
 }
 

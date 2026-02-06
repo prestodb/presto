@@ -9,7 +9,26 @@
       "Bash(source:*)",
       "Bash(cargo test:*)",
       "Bash(cargo fix:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cargo check:*)",
+      "Bash(echo:*)",
+      "Bash(java:*)",
+      "Bash(./mvnw compile:*)",
+      "Bash(./mvnw install:*)",
+      "Bash(./mvnw checkstyle:check:*)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "WebFetch(domain:www.tpc.org)",
+      "WebFetch(domain:docs.snowflake.com)",
+      "WebFetch(domain:clickhouse.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.researchgate.net)",
+      "WebFetch(domain:www.vldb.org)",
+      "WebFetch(domain:duckdb.org)",
+      "WebFetch(domain:docs.databricks.com)",
+      "WebFetch(domain:beam.apache.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)"
     ]
   }
 }

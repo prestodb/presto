@@ -32,9 +32,9 @@
 //! alternative, and the cost model chooses the cheaper option.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Push filter predicates into join conditions.
 ///
@@ -67,7 +67,7 @@ impl Rule for PredicatePushdownRule {
         expr: &MemoExpr,
         memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Filter { predicate }) = &expr.op else {
             return vec![];
         };
@@ -116,7 +116,7 @@ impl Rule for PredicatePushdownRule {
             condition: merged_condition,
         });
 
-        vec![(new_join, join_children)]
+        vec![RuleResult::Substitution(new_join, join_children)]
     }
 }
 

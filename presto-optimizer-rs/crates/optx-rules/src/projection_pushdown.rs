@@ -21,9 +21,9 @@
 //! aggregates to prune columns at every level of the plan.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Push projections closer to table scans to reduce intermediate data.
 ///
@@ -53,7 +53,7 @@ impl Rule for ProjectionPushdownRule {
         expr: &MemoExpr,
         memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Project { exprs, aliases: _ }) = &expr.op else {
             return vec![];
         };
@@ -91,7 +91,7 @@ impl Rule for ProjectionPushdownRule {
                 });
 
                 // The projection stays on top but the scan is now narrower
-                return vec![(new_scan, vec![])];
+                return vec![RuleResult::Substitution(new_scan, vec![])];
             }
         }
 

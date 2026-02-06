@@ -43,7 +43,7 @@ use crate::expr::*;
 use crate::memo::{GroupId, Memo, PlanNode, Winner};
 use crate::pattern::matches;
 use crate::properties::PhysicalPropertySet;
-use crate::rule::{OptContext, RuleRegistry};
+use crate::rule::{OptContext, RuleChild, RuleRegistry, RuleResult};
 use crate::stats::{self, Statistics};
 use std::sync::Arc;
 use tracing::{debug, trace};
@@ -168,91 +168,149 @@ impl CascadesSearch {
     /// Explore a group: apply all transformation rules to generate logical alternatives.
     ///
     /// Exploration is idempotent per group -- once a group is marked `explored`, we
-    /// never re-explore it. This is safe because transformation rules only add new
-    /// expressions to existing groups (they never create new groups), so a single
-    /// pass over all logical expressions is sufficient.
+    /// never re-explore it.
+    ///
+    /// The exploration uses a **fixed-point loop**: when a rule (e.g., join associativity)
+    /// creates a new expression in this group, the loop continues so that other rules
+    /// (e.g., commutativity) can also fire on the new expression. This ensures the
+    /// full search space is explored. The loop terminates when no new expressions are
+    /// generated (guaranteed because rules are deduplicated and the memo deduplicates
+    /// expressions).
     ///
     /// The exploration proceeds as follows:
-    /// 1. Snapshot the current logical expressions (because rules may add new ones).
-    /// 2. For each expression, try every transformation rule.
-    /// 3. If the rule's pattern matches and it hasn't been applied before, fire it.
-    /// 4. New equivalent expressions are added to the same group.
-    /// 5. Recursively explore child groups so that alternatives propagate bottom-up.
+    /// 1. Track which expressions have been processed in a `seen` set.
+    /// 2. In each iteration, process only *new* expressions (not yet in `seen`).
+    /// 3. For each expression, try every transformation rule.
+    /// 4. If the rule's pattern matches and it hasn't been applied before, fire it.
+    /// 5. New equivalent expressions are added to the same group and will be processed
+    ///    in the next iteration of the loop.
+    /// 6. After the loop, recursively explore all child groups (including those of
+    ///    newly created expressions).
     fn explore_group(&mut self, group_id: GroupId) {
         if self.memo.group(group_id).explored {
             return;
         }
         self.memo.group_mut(group_id).explored = true;
 
-        // Snapshot: we iterate over a frozen copy of logical_exprs because rule
-        // application may add new expressions to this group during the loop.
-        let logical_exprs: Vec<_> = self.memo.group(group_id).logical_exprs.clone();
         let source = self.config.source_type.clone();
 
-        for expr_id in logical_exprs {
-            // Collect rule metadata up front to avoid borrowing conflicts with the memo.
-            // We need the name, hash, and pattern to decide whether to apply each rule.
-            let rules: Vec<_> = self
-                .rule_registry
-                .transformation_rules(source.as_deref())
+        // Fixed-point loop: keep processing new expressions until no more are generated.
+        // This handles the case where one rule (e.g., associativity) creates a new expression
+        // that another rule (e.g., commutativity) should also transform.
+        let mut seen_exprs = std::collections::HashSet::new();
+
+        loop {
+            let logical_exprs: Vec<_> = self.memo.group(group_id).logical_exprs.clone();
+            let new_exprs: Vec<_> = logical_exprs
                 .into_iter()
-                .map(|r| (r.name().to_string(), r.rule_hash(), r.pattern().clone()))
+                .filter(|eid| seen_exprs.insert(*eid))
                 .collect();
 
-            for (rule_name, rule_hash, pattern) in &rules {
-                // Skip rules already applied to this expression (prevents infinite loops
-                // like commutativity: A JOIN B -> B JOIN A -> A JOIN B -> ...).
-                if self.memo.rule_applied(expr_id, *rule_hash) {
-                    continue;
+            if new_exprs.is_empty() {
+                break;
+            }
+
+            for expr_id in new_exprs {
+                // Collect rule metadata up front to avoid borrowing conflicts with the memo.
+                let rules: Vec<_> = self
+                    .rule_registry
+                    .transformation_rules(source.as_deref())
+                    .into_iter()
+                    .map(|r| (r.name().to_string(), r.rule_hash(), r.pattern().clone()))
+                    .collect();
+
+                for (rule_name, rule_hash, pattern) in &rules {
+                    // Skip rules already applied to this expression (prevents infinite loops
+                    // like commutativity: A JOIN B -> B JOIN A -> A JOIN B -> ...).
+                    if self.memo.rule_applied(expr_id, *rule_hash) {
+                        continue;
+                    }
+                    // Skip rules whose structural pattern doesn't match the expression.
+                    if !matches(&self.memo, expr_id, pattern) {
+                        continue;
+                    }
+
+                    self.iterations += 1;
+                    if self.iterations >= self.config.max_iterations {
+                        return;
+                    }
+
+                    trace!("Applying transformation rule '{}' to expr {}", rule_name, expr_id);
+
+                    let ctx = OptContext {
+                        catalog: self.catalog.as_ref(),
+                    };
+
+                    // Re-locate the rule by hash to call apply(). This two-pass approach
+                    // (collect metadata, then find-and-apply) avoids holding a borrow on
+                    // the rule registry while also borrowing the memo.
+                    let results: Vec<_> = {
+                        let rule = self
+                            .rule_registry
+                            .transformation_rules(source.as_deref())
+                            .into_iter()
+                            .find(|r| r.rule_hash() == *rule_hash)
+                            .unwrap();
+                        rule.apply(self.memo.expr(expr_id), &self.memo, &ctx)
+                    };
+
+                    // Mark the rule as applied *before* inserting results, so that even
+                    // if a result is the same expression, we won't re-apply this rule.
+                    self.memo.mark_rule_applied(expr_id, *rule_hash);
+
+                    // Insert each new equivalent expression into the same group.
+                    // The memo handles deduplication internally.
+                    for result in results {
+                        match result {
+                            RuleResult::Substitution(new_op, new_children) => {
+                                let new_expr_id =
+                                    self.memo
+                                        .add_expr_to_group(group_id, new_op, new_children);
+                                trace!("  Created new expr {} in group {}", new_expr_id, group_id);
+                            }
+                            RuleResult::NewChildren(new_op, children) => {
+                                let child_gids: Vec<GroupId> = children
+                                    .iter()
+                                    .map(|c| self.materialize_rule_child(c))
+                                    .collect();
+                                let new_expr_id =
+                                    self.memo
+                                        .add_expr_to_group(group_id, new_op, child_gids);
+                                trace!("  Created new expr {} in group {} (with new children)", new_expr_id, group_id);
+                            }
+                        }
+                    }
                 }
-                // Skip rules whose structural pattern doesn't match the expression.
-                if !matches(&self.memo, expr_id, pattern) {
-                    continue;
-                }
+            }
+        }
 
-                self.iterations += 1;
-                if self.iterations >= self.config.max_iterations {
-                    return;
-                }
+        // Recursively explore all child groups (including those of newly created
+        // expressions from associativity or other rules that produce new children).
+        let all_exprs: Vec<_> = self.memo.group(group_id).logical_exprs.clone();
+        for expr_id in all_exprs {
+            let children: Vec<_> = self.memo.expr(expr_id).children.clone();
+            for child_gid in children {
+                self.explore_group(child_gid);
+            }
+        }
+    }
 
-                trace!("Applying transformation rule '{}' to expr {}", rule_name, expr_id);
-
-                let ctx = OptContext {
-                    catalog: self.catalog.as_ref(),
-                };
-
-                // Re-locate the rule by hash to call apply(). This two-pass approach
-                // (collect metadata, then find-and-apply) avoids holding a borrow on
-                // the rule registry while also borrowing the memo.
-                let results: Vec<_> = {
-                    let rule = self
-                        .rule_registry
-                        .transformation_rules(source.as_deref())
-                        .into_iter()
-                        .find(|r| r.rule_hash() == *rule_hash)
-                        .unwrap();
-                    rule.apply(self.memo.expr(expr_id), &self.memo, &ctx)
-                };
-
-                // Mark the rule as applied *before* inserting results, so that even
-                // if a result is the same expression, we won't re-apply this rule.
-                self.memo.mark_rule_applied(expr_id, *rule_hash);
-
-                // Insert each new equivalent expression into the same group.
-                // The memo handles deduplication internally.
-                for (new_op, new_children) in results {
-                    let new_expr_id =
-                        self.memo
-                            .add_expr_to_group(group_id, new_op, new_children);
-                    trace!("  Created new expr {} in group {}", new_expr_id, group_id);
-                }
-
-                // Recursively explore child groups so that their alternatives are
-                // available when we later implement this group's expressions.
-                let children: Vec<_> = self.memo.expr(expr_id).children.clone();
-                for child_gid in children {
-                    self.explore_group(child_gid);
-                }
+    /// Recursively materialize a `RuleChild` into a GroupId.
+    ///
+    /// For `RuleChild::Group`, returns the existing group ID directly.
+    /// For `RuleChild::NewExpr`, creates new groups bottom-up using `memo.add_expr()`.
+    /// Memo deduplication ensures that if the expression already exists in another group,
+    /// the existing group is reused rather than creating a duplicate.
+    fn materialize_rule_child(&mut self, child: &RuleChild) -> GroupId {
+        match child {
+            RuleChild::Group(gid) => *gid,
+            RuleChild::NewExpr(op, children) => {
+                let child_gids: Vec<GroupId> = children
+                    .iter()
+                    .map(|c| self.materialize_rule_child(c))
+                    .collect();
+                let (gid, _) = self.memo.add_expr(op.clone(), child_gids);
+                gid
             }
         }
     }
@@ -318,7 +376,17 @@ impl CascadesSearch {
 
                 self.memo.mark_rule_applied(*expr_id, *rule_hash);
 
-                for (phys_op, phys_children) in results {
+                for result in results {
+                    let (phys_op, phys_children) = match result {
+                        RuleResult::Substitution(op, children) => (op, children),
+                        RuleResult::NewChildren(op, children) => {
+                            let child_gids: Vec<GroupId> = children
+                                .iter()
+                                .map(|c| self.materialize_rule_child(c))
+                                .collect();
+                            (op, child_gids)
+                        }
+                    };
                     let phys_expr_id =
                         self.memo
                             .add_expr_to_group(group_id, phys_op, phys_children.clone());

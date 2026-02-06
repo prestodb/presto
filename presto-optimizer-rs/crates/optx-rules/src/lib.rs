@@ -9,9 +9,9 @@
 //!
 //! - **`JoinCommutativityRule`**: Swaps the sides of inner and cross joins
 //!   (A JOIN B -> B JOIN A). Enables the cost model to choose which side is smaller.
-//! - **`JoinAssociativityRule`**: Placeholder for changing join grouping
-//!   ((A JOIN B) JOIN C -> A JOIN (B JOIN C)). Currently a no-op due to rule
-//!   interface limitations; commutativity compensates in practice.
+//! - **`JoinAssociativityRule`**: Changes join grouping
+//!   ((A JOIN B) JOIN C -> A JOIN (B JOIN C)). Uses `RuleResult::NewChildren` to
+//!   create new intermediate groups, enabling full search space exploration.
 //! - **`PredicatePushdownRule`**: Merges filter predicates into join conditions,
 //!   enabling earlier data reduction.
 //! - **`ProjectionPushdownRule`**: Pushes column requirements into table scans,

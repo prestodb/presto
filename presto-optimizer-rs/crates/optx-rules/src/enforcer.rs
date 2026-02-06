@@ -25,9 +25,9 @@
 //! scan or a prior sort), choosing whichever is cheaper overall.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Implement logical sort as a physical sort operator.
 ///
@@ -56,12 +56,12 @@ impl Rule for ImplSortRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Sort { order }) = &expr.op else {
             return vec![];
         };
 
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::SortOp {
                 order: order.clone(),
             }),

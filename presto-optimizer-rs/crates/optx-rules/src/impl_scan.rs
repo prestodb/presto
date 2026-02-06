@@ -25,9 +25,9 @@
 //!   applied at the connector level during scan.
 
 use optx_core::expr::*;
-use optx_core::memo::{GroupId, Memo, MemoExpr};
+use optx_core::memo::{Memo, MemoExpr};
 use optx_core::pattern::{OpMatcher, Pattern};
-use optx_core::rule::{OptContext, Rule, RuleType};
+use optx_core::rule::{OptContext, Rule, RuleResult, RuleType};
 
 /// Implement logical scan as a sequential (full) table scan.
 ///
@@ -53,7 +53,7 @@ impl Rule for ImplSeqScanRule {
         expr: &MemoExpr,
         _memo: &Memo,
         _ctx: &OptContext,
-    ) -> Vec<(Operator, Vec<GroupId>)> {
+    ) -> Vec<RuleResult> {
         let Operator::Logical(LogicalOp::Scan {
             table,
             columns,
@@ -63,7 +63,7 @@ impl Rule for ImplSeqScanRule {
             return vec![];
         };
 
-        vec![(
+        vec![RuleResult::Substitution(
             Operator::Physical(PhysicalOp::SeqScan {
                 table: table.clone(),
                 columns: columns.clone(),

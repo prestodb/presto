@@ -338,6 +338,9 @@ public class FeaturesConfig
     private boolean builtInSidecarFunctionsEnabled;
     private String tryFunctionCatchableErrors = "";
 
+    private boolean useRustCascadeOptimizer;
+    private String rustCascadeOptimizerUrl = "http://localhost:3000";
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -3434,6 +3437,32 @@ public class FeaturesConfig
     public FeaturesConfig setTryFunctionCatchableErrors(String tryFunctionCatchableErrors)
     {
         this.tryFunctionCatchableErrors = tryFunctionCatchableErrors;
+        return this;
+    }
+
+    public boolean isUseRustCascadeOptimizer()
+    {
+        return useRustCascadeOptimizer;
+    }
+
+    @Config("optimizer.rust-cascade-enabled")
+    @ConfigDescription("Use the Rust Cascades optimizer for join reordering")
+    public FeaturesConfig setUseRustCascadeOptimizer(boolean useRustCascadeOptimizer)
+    {
+        this.useRustCascadeOptimizer = useRustCascadeOptimizer;
+        return this;
+    }
+
+    public String getRustCascadeOptimizerUrl()
+    {
+        return rustCascadeOptimizerUrl;
+    }
+
+    @Config("optimizer.rust-cascade-url")
+    @ConfigDescription("URL of the Rust Cascades optimizer service")
+    public FeaturesConfig setRustCascadeOptimizerUrl(String rustCascadeOptimizerUrl)
+    {
+        this.rustCascadeOptimizerUrl = rustCascadeOptimizerUrl;
         return this;
     }
 }
