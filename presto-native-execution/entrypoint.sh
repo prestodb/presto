@@ -24,4 +24,8 @@ if [[ "$PROFILE" == "ON" ]]; then
   PROFILE_CMD="nsys launch $PROFILE_ARGS"
 fi
 
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+export LD_LIBRARY_PATH=/usr/local/cuda/compat:${LD_LIBRARY_PATH}
+fi
+
 GLOG_logtostderr=1 $PROFILE_CMD presto_server --etc-dir=/opt/presto-server/etc
