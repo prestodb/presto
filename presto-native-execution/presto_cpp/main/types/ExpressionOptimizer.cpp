@@ -70,8 +70,10 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
     velox::memory::MemoryPool* pool) {
   protocol::RowExpressionOptimizationResult result;
   const auto expr = prestoToVeloxConverter.toVeloxExpr(input);
+  LOG(ERROR) << "Velox expr " << expr->toString();
   auto optimized =
       velox::expression::optimize(expr, queryCtx, pool, kMakeFailExpr);
+  LOG(ERROR) << "Optimized expr " << optimized->toString();
 
   if (optimizerLevel == OptimizerLevel::kEvaluated) {
     try {
@@ -107,13 +109,19 @@ std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
   const expression::VeloxToPrestoExprConverter veloxToPrestoConverter(pool);
   std::vector<protocol::RowExpressionOptimizationResult> result;
   for (const auto& expression : input) {
-    result.push_back(optimizeExpression(
+    json j;
+    protocol::to_json(j, expression);
+    LOG(ERROR) << j.dump();
+    const auto optimized = optimizeExpression(
         expression,
         optimizerLevel,
         prestoToVeloxConverter,
         veloxToPrestoConverter,
         queryCtx,
-        pool));
+        pool);
+    protocol::to_json(j, optimized);
+    LOG(ERROR) << j.dump();
+    result.push_back(optimized);
   }
   return result;
 }

@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/types/VeloxToPrestoExpr.h"
 #include <boost/algorithm/string.hpp>
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
@@ -99,6 +100,17 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
   return veloxToPrestoOperatorMap;
 }
 
+const std::unordered_map<std::string, std::string>&
+veloxToPrestoInternalFunctionMap() {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::unordered_map<std::string, std::string>
+      veloxToPrestoInternalFunctionMap = {
+          {"try", "presto.default.$internal$try"},
+      };
+  return veloxToPrestoInternalFunctionMap;
+}
+
 // If the function name prefix starts from "presto.default", then it is a built
 // in function handle. Otherwise, it is a native function handle.
 std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
@@ -109,17 +121,38 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
   static constexpr char const* builtInCatalog = "presto";
   static constexpr char const* builtInSchema = "default";
 
-  const auto parts = util::getFunctionNameParts(name);
-  if ((parts[0] == builtInCatalog) && (parts[1] == builtInSchema)) {
-    auto handle = std::make_shared<protocol::BuiltInFunctionHandle>();
-    handle->_type = kStatic;
-    handle->signature = signature;
-    return handle;
-  } else {
+  auto getNativeFunctionHandle = [&]() {
     auto handle = std::make_shared<protocol::NativeFunctionHandle>();
     handle->_type = kNativeFunctionHandle;
     handle->signature = signature;
     return handle;
+  };
+
+  auto getBuiltInFunctionHandle = [&]() {
+    auto handle = std::make_shared<protocol::BuiltInFunctionHandle>();
+    handle->_type = kStatic;
+    handle->signature = signature;
+    return handle;
+  };
+
+  if (veloxToPrestoInternalFunctionMap().find(name) !=
+      veloxToPrestoInternalFunctionMap().end()) {
+    LOG(ERROR) << name;
+    //    return getNativeFunctionHandle();
+    return getBuiltInFunctionHandle();
+  } else {
+    const auto parts = util::getFunctionNameParts(name);
+    if ((parts[0] == builtInCatalog) && (parts[1] == builtInSchema)) {
+      auto handle = std::make_shared<protocol::BuiltInFunctionHandle>();
+      handle->_type = kStatic;
+      handle->signature = signature;
+      return handle;
+    } else {
+      auto handle = std::make_shared<protocol::NativeFunctionHandle>();
+      handle->_type = kNativeFunctionHandle;
+      handle->signature = signature;
+      return handle;
+    }
   }
 }
 } // namespace
@@ -364,6 +397,10 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   if (veloxToPrestoOperatorMap().find(exprName) !=
       veloxToPrestoOperatorMap().end()) {
     exprName = veloxToPrestoOperatorMap().at(exprName);
+  } else if (
+      veloxToPrestoInternalFunctionMap().find(exprName) !=
+      veloxToPrestoInternalFunctionMap().end()) {
+    exprName = veloxToPrestoInternalFunctionMap().at(exprName);
   }
   signature.name = exprName;
   result["displayName"] = exprName;
