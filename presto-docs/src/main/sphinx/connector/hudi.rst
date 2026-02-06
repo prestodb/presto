@@ -8,7 +8,7 @@ Overview
 The Hudi connector enables querying `Hudi <https://hudi.apache.org/docs/overview/>`_ tables
 synced to Hive metastore. The connector usesthe metastore only to track partition locations.
 It makes use of the underlying Hudi filesystem and input formats to list data files. To learn
-more about the design of the connector, please check out `RFC-40 <https://github.com/apache/hu
+more about the design of the connector, please check out `RFC-44 <https://github.com/apache/hu
 di/blob/master/rfc/rfc-44/rfc-44.md>`_.
 
 Requirements
