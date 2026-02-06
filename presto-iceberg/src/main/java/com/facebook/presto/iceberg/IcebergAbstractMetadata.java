@@ -100,6 +100,7 @@ import org.apache.iceberg.DeleteFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.IsolationLevel;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
@@ -241,6 +242,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.transformValues;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.time.Duration.ofDays;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -1038,6 +1040,50 @@ public abstract class IcebergAbstractMetadata
                 throw new PrestoException(NOT_FOUND, format("Branch %s doesn't exist in table %s", branchName, icebergTableHandle.getSchemaTableName().getTableName()));
             }
         }
+    }
+
+    @Override
+    public void createBranch(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String branchName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays,
+            Optional<Integer> minSnapshotsToKeep,
+            Optional<Long> maxSnapshotAgeDays)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have branch created");
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+
+        boolean branchExists = icebergTable.refs().containsKey(branchName);
+        if (ifNotExists && branchExists) {
+            return;
+        }
+        long targetSnapshotId = tableVersion.map(version -> getSnapshotIdForTableVersion(icebergTable, version))
+                .orElseGet(() -> {
+                    if (icebergTable.currentSnapshot() == null) {
+                        throw new PrestoException(NOT_FOUND, format("Table %s has no current snapshot", icebergTableHandle.getSchemaTableName().getTableName()));
+                    }
+                    return icebergTable.currentSnapshot().snapshotId();
+                });
+        ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        if (replace && branchExists) {
+            manageSnapshots.replaceBranch(branchName, targetSnapshotId);
+        }
+        else if (!branchExists) {
+            manageSnapshots.createBranch(branchName, targetSnapshotId);
+        }
+        else {
+            throw new PrestoException(ALREADY_EXISTS, format("Branch %s already exists in table %s", branchName, icebergTableHandle.getSchemaTableName().getTableName()));
+        }
+        // Apply retention policies if specified
+        retainDays.ifPresent(retainDs -> manageSnapshots.setMaxRefAgeMs(branchName, ofDays(retainDs).toMillis()));
+        minSnapshotsToKeep.ifPresent(minSnapshots -> manageSnapshots.setMinSnapshotsToKeep(branchName, minSnapshots));
+        maxSnapshotAgeDays.ifPresent(maxAgeDays -> manageSnapshots.setMaxSnapshotAgeMs(branchName, ofDays(maxAgeDays).toMillis()));
+        manageSnapshots.commit();
     }
 
     @Override

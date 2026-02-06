@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColu
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
@@ -342,6 +343,12 @@ public class DenyAllAccessControl
     public void checkCanDropBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         denyDropBranch(tableName.toString());
+    }
+
+    @Override
+    public void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        denyCreateBranch(tableName.toString());
     }
 
     @Override

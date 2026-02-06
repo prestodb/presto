@@ -351,6 +351,13 @@ public interface AccessControl
     void checkCanDropBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to create branch for the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to drop tag from the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
