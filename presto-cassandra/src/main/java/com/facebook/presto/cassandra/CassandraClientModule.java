@@ -57,7 +57,6 @@ public class CassandraClientModule
     {
         binder.bind(CassandraConnectorId.class).toInstance(new CassandraConnectorId(connectorId));
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
-        binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraTokenSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(CassandraRecordSetProvider.class).in(Scopes.SINGLETON);

@@ -37,6 +37,7 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.testing.TestingConnectorContext;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
@@ -66,6 +67,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Locale.ROOT;
@@ -120,7 +122,8 @@ public class TestCassandraConnector
                 "cassandra.native-protocol-port", Integer.toString(server.getPort())),
                 new TestingConnectorContext());
 
-        metadata = connector.getMetadata(CassandraTransactionHandle.INSTANCE);
+        ConnectorTransactionHandle transactionHandle = connector.beginTransaction(READ_UNCOMMITTED, true);
+        metadata = connector.getMetadata(transactionHandle);
         assertInstanceOf(metadata, CassandraMetadata.class);
 
         splitManager = connector.getSplitManager();
@@ -183,7 +186,7 @@ public class TestCassandraConnector
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
-        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+        ConnectorTransactionHandle transaction = new CassandraTransactionHandle();
 
         ConnectorTableLayoutResult layoutResult = metadata.getTableLayoutForConstraint(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
         ConnectorTableLayoutHandle layout = layoutResult.getTableLayout().getHandle();
