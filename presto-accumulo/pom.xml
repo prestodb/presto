@@ -27,7 +27,7 @@
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <!-- libthrift >= 0.14.1 not compatible with accumulo-minicluster 1.x -->
-                <version>0.9.3-1</version>
+                <version>0.14.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
