@@ -87,21 +87,22 @@
         </dependency>
 
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-core</artifactId>
-            <exclusions>
-                <exclusion>
-                    <!-- org.elasticsearch:elasticsearch brings in version 2.8.6 (vs 2.6.7) -->
-                    <groupId>com.fasterxml.jackson.dataformat</groupId>
-                    <artifactId>jackson-dataformat-cbor</artifactId>
-                </exclusion>
-
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>auth</artifactId>
         </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>regions</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>http-client-spi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>utils</artifactId>
+        </dependency>
+
 
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
@@ -405,5 +406,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>
