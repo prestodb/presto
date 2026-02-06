@@ -39,8 +39,8 @@ jobs:
           sudo apt-get install -y texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra latexmk tex-gyre texlive-xetex fonts-freefont-otf xindy
       - uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: 17.0.15
+          distribution: zulu
+          java-version: 17.0.16
           cache: maven
       - name: Maven Install
         run: |
