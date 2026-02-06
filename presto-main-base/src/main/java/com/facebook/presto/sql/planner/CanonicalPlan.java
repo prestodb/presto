@@ -17,6 +17,7 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,6 +32,8 @@ public class CanonicalPlan
 {
     private final PlanNode plan;
     private final PlanCanonicalizationStrategy strategy;
+    // Used only for HBO stats publication gating; must not affect canonical plan hashing.
+    @JsonIgnore private boolean isHboPublishStats = true;
 
     @JsonCreator
     public CanonicalPlan(
@@ -90,5 +93,16 @@ public class CanonicalPlan
         catch (JsonProcessingException e) {
             throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
         }
+    }
+
+    @JsonIgnore
+    public boolean isHboPublishStats()
+    {
+        return isHboPublishStats;
+    }
+
+    public void setHboPublishStats(boolean hboPublishStats)
+    {
+        isHboPublishStats = hboPublishStats;
     }
 }
