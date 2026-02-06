@@ -28,6 +28,7 @@ import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.SourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.Serialization;
+import com.facebook.presto.sql.planner.planPrinter.NodeRepresentation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -178,6 +179,17 @@ public class PlanNodeStatsEstimate
         }
 
         return getOutputSizeForVariables(planNode.getOutputVariables());
+    }
+
+    public double getOutputSizeInBytes(NodeRepresentation nodeRepresentation)
+    {
+        requireNonNull(nodeRepresentation, "nodeRepresentation is null");
+
+        if (!sourceInfo.estimateSizeUsingVariables() && !isNaN(totalSize)) {
+            return totalSize;
+        }
+
+        return getOutputSizeForVariables(nodeRepresentation.getOutputs());
     }
 
     /**
