@@ -524,6 +524,9 @@ public class TableStatisticsMaker
             Map<Integer, Object> newStats,
             Predicate<Integer> predicate)
     {
+        if (!summary.hasValidColumnMetrics()) {
+            return;
+        }
         for (PartitionField field : partitionFields) {
             int id = field.sourceId();
             if (summary.getCorruptedStats().contains(id)) {
