@@ -109,8 +109,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.Joe-Abraham</groupId>
+            <artifactId>presto-hive-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -292,18 +292,6 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
             <scope>test</scope>
         </dependency>
 
