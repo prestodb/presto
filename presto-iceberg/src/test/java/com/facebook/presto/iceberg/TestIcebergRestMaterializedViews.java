@@ -21,7 +21,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
@@ -34,7 +33,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 public class TestIcebergRestMaterializedViews
         extends TestIcebergMaterializedViewsBase
 {
-    private File warehouseLocation;
     private TestingHttpServer restServer;
     private String serverUri;
 
