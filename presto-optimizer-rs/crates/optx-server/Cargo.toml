@@ -1,0 +1,18 @@
+[package]
+name = "optx-server"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+optx-core = { path = "../optx-core" }
+optx-rules = { path = "../optx-rules" }
+optx-substrait = { path = "../optx-substrait" }
+axum.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+substrait.workspace = true
+prost.workspace = true

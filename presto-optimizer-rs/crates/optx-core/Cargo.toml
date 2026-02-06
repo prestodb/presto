@@ -1,0 +1,13 @@
+[package]
+name = "optx-core"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+ordered-float.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+optx-rules = { path = "../optx-rules" }

@@ -1,0 +1,8 @@
+[package]
+name = "optx-rules"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+optx-core = { path = "../optx-core" }
+tracing.workspace = true

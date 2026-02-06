@@ -1,0 +1,13 @@
+[package]
+name = "optx-substrait"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+optx-core = { path = "../optx-core" }
+substrait.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+tracing.workspace = true
+ordered-float.workspace = true
+thiserror = "2"
