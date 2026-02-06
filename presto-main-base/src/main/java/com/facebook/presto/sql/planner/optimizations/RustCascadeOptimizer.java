@@ -23,6 +23,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -149,6 +150,14 @@ public class RustCascadeOptimizer
 
         if (extractor.getJoinEdges().isEmpty()) {
             // No joins to optimize.
+            return PlanOptimizerResult.optimizerResult(plan, false);
+        }
+
+        // Cycle edges (e.g., TPC-H Q5's c.nationkey = s.nationkey where both tables
+        // are already connected via other join edges) cannot be preserved when rebuilding
+        // the join tree. Fall back to the original plan when cycles are detected.
+        // A spanning tree for N tables needs exactly N-1 edges; more means a cycle.
+        if (extractor.getJoinEdges().size() >= extractor.getTableScanNodes().size()) {
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
@@ -593,9 +602,12 @@ public class RustCascadeOptimizer
                     .addAll(right.getOutputVariables())
                     .build();
 
-            List<EquiJoinClause> criteria = matchedClause != null
-                    ? ImmutableList.of(matchedClause)
-                    : ImmutableList.of();
+            if (matchedClause == null) {
+                throw new IllegalStateException(
+                        "No matching join clause for " + leftColumnName + " = " + rightColumnName);
+            }
+
+            List<EquiJoinClause> criteria = ImmutableList.of(matchedClause);
 
             return new JoinNode(
                     Optional.empty(),
@@ -609,7 +621,7 @@ public class RustCascadeOptimizer
                     Optional.empty(),    // filter
                     Optional.empty(),    // leftHashVariable
                     Optional.empty(),    // rightHashVariable
-                    Optional.empty(),    // distributionType
+                    Optional.of(JoinDistributionType.PARTITIONED),
                     ImmutableMap.of());  // dynamicFilters
         }
 

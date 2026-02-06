@@ -414,14 +414,15 @@ fn build_memo(
                     joined_tables.push(join_edge.left_table_id.clone());
                     left_group
                 } else {
-                    // Both tables already joined — this is an additional predicate
-                    // between already-joined tables. For now, we still create a
-                    // join node; the optimizer may handle this via filter pushdown.
+                    // Both tables already joined — this is a cycle edge (e.g.,
+                    // customer.nationkey = supplier.nationkey in TPC-H Q5 where
+                    // both tables are already connected via other edges). Skip it;
+                    // the Presto coordinator preserves these predicates in the
+                    // original plan outside the reordered join tree.
                     //
-                    // TODO: Handle additional join predicates between already-joined
-                    // tables. These should be added as filters on the existing join
-                    // rather than creating new join nodes.
-                    right_group
+                    // TODO: Handle cycle predicates by adding them as Filter nodes
+                    // in the memo so the optimizer can use them for cost estimation.
+                    continue;
                 };
 
                 let join_op = Operator::Logical(LogicalOp::Join {

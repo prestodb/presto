@@ -33,8 +33,13 @@
 //!
 //! ## Configuration
 //!
-//! The server listens on `0.0.0.0:3000` by default. Logging is controlled by the
-//! `RUST_LOG` environment variable (defaults to `optx=debug`).
+//! The server listens on `0.0.0.0:3000` by default. Use `--port` / `-p` to change:
+//!
+//! ```bash
+//! cargo run -p optx-server -- --port 8080
+//! ```
+//!
+//! Logging is controlled by the `RUST_LOG` environment variable (defaults to `optx=debug`).
 
 mod join_graph;
 mod routes;
@@ -71,7 +76,25 @@ async fn main() {
         .layer(TraceLayer::new_for_http()) // Log all HTTP requests
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    tracing::info!("optx-server listening on http://0.0.0.0:3000");
+    let port = parse_port_arg();
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    tracing::info!("optx-server listening on http://{}", addr);
     axum::serve(listener, app).await.unwrap();
+}
+
+/// Parse `--port <N>` or `-p <N>` from command-line arguments. Defaults to 3000.
+fn parse_port_arg() -> u16 {
+    let args: Vec<String> = std::env::args().collect();
+    let mut i = 1;
+    while i < args.len() {
+        if (args[i] == "--port" || args[i] == "-p") && i + 1 < args.len() {
+            return args[i + 1].parse().unwrap_or_else(|_| {
+                eprintln!("Invalid port: {}", args[i + 1]);
+                std::process::exit(1);
+            });
+        }
+        i += 1;
+    }
+    3000
 }

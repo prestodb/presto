@@ -79,10 +79,14 @@ cargo test -p optx-substrait
 ## Running the Server
 
 ```bash
-# Start the optimizer REST server on port 3000
+# Start the optimizer REST server on port 3000 (default)
 cargo run -p optx-server
 
-# Or in release mode
+# Start on a custom port
+cargo run -p optx-server -- --port 8080
+cargo run -p optx-server -- -p 8080
+
+# In release mode (optimized)
 cargo run -p optx-server --release
 ```
 
@@ -262,11 +266,43 @@ The optimized plan should show small tables (region=5 rows, nation=25 rows) join
 | `optx-server/src/join_graph.rs` | JSON types, Memo construction, response builder, handler |
 | `optx-server/src/main.rs` | Route registration for `/optimize/join-graph` |
 
+### Running the Java Integration Test
+
+The `TestRustCascadeOptimizer` test automatically spawns the Rust server, runs queries with the optimizer enabled, and verifies correctness against the default Presto optimizer.
+
+**1. Build the Rust server binary:**
+
+```bash
+cd presto-optimizer-rs
+cargo build -p optx-server
+```
+
+**2. Run the test:**
+
+```bash
+cd ..
+./mvnw test -pl :presto-tests -am -Dtest=TestRustCascadeOptimizer \
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dcheckstyle.skip=true -Dair.check.skip-all
+```
+
+The test starts the server on a random free port, waits for the `/health` endpoint, runs TPC-H queries (3-table, 4-table, and 6-table joins), and verifies the optimized plans produce identical results. If the binary is not found, the test is skipped.
+
+To use an explicit binary path:
+
+```bash
+./mvnw test -pl :presto-tests -am -Dtest=TestRustCascadeOptimizer \
+  -Doptx.server.binary=presto-optimizer-rs/target/release/optx-server \
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dcheckstyle.skip=true -Dair.check.skip-all
+```
+
 ### Known Limitations / Future Work
 
 - **Substrait integration**: The join-graph protocol is a demo simplification. Production use should replace it with full Substrait PlanNode conversion, which requires mapping Presto's TableHandle/ColumnHandle/RowExpression types.
 - **Equi-joins only**: Only single-column equi-join conditions are supported. Multi-column joins, non-equi predicates, and theta joins are not yet handled.
 - **Inner joins only**: Outer join reordering is not yet supported — left/right/full outer joins have ordering constraints that must be respected.
+- **Cyclic join graphs**: Join graphs with cycle edges (e.g., TPC-H Q5's `c.nationkey = s.nationkey` where both tables are already connected via other paths) fall back to the original plan. Cycle predicates would be lost when rebuilding the join tree.
 - **No filter pushdown**: Table-level filter predicates are not communicated to the Rust optimizer, which limits cardinality estimation accuracy.
 - **Graceful fallback**: On any failure (connection refused, timeout, error response, rebuild failure), the optimizer silently falls back to the original plan.
 
