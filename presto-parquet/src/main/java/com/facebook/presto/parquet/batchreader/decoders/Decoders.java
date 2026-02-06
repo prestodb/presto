@@ -29,6 +29,7 @@ import com.facebook.presto.parquet.batchreader.decoders.delta.Int32ShortDecimalD
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64DeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64ShortDecimalDeltaValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.delta.Int64TimeAndTimestampNanosDeltaBinaryPackedValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryLongDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryShortDecimalPlainValuesDecoder;
@@ -41,6 +42,7 @@ import com.facebook.presto.parquet.batchreader.decoders.plain.Int32ShortDecimalP
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64ShortDecimalPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimeAndTimestampMicrosPlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimeAndTimestampNanosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
@@ -48,6 +50,7 @@ import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryVa
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampNanosRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
@@ -85,6 +88,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.isDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isShortDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeMicrosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampNanosType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isUuidType;
 import static com.facebook.presto.parquet.ValuesType.VALUES;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -133,6 +137,11 @@ public class Decoders
                         LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
                         boolean withTimezone = typeAnnotation.isAdjustedToUTC();
                         return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length, withTimezone);
+                    }
+                    if (isTimeStampNanosType(columnDescriptor)) {
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampNanosPlainValuesDecoder(buffer, offset, length, withTimezone);
                     }
                     if (isTimeMicrosType(columnDescriptor)) {
                         return new Int64TimeAndTimestampMicrosPlainValuesDecoder(buffer, offset, length);
@@ -194,6 +203,11 @@ public class Decoders
                         boolean withTimezone = typeAnnotation.isAdjustedToUTC();
                         return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary, withTimezone);
                     }
+                    if (isTimeStampNanosType(columnDescriptor)) {
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampNanosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary, withTimezone);
+                    }
                     if (isTimeMicrosType(columnDescriptor)) {
                         return new Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder(bitWidth, inputStream, (LongDictionary) dictionary, false);
                     }
@@ -241,6 +255,11 @@ public class Decoders
                         LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
                         boolean withTimezone = typeAnnotation.isAdjustedToUTC();
                         return new Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream, withTimezone);
+                    }
+                    if (isTimeStampNanosType(columnDescriptor)) {
+                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation typeAnnotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) columnDescriptor.getPrimitiveType().getLogicalTypeAnnotation();
+                        boolean withTimezone = typeAnnotation.isAdjustedToUTC();
+                        return new Int64TimeAndTimestampNanosDeltaBinaryPackedValuesDecoder(valueCount, inputStream, withTimezone);
                     }
                     if (isTimeMicrosType(columnDescriptor)) {
                         return new Int64TimeAndTimestampMicrosDeltaBinaryPackedValuesDecoder(valueCount, inputStream, false);
