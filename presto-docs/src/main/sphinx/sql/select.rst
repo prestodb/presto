@@ -229,6 +229,11 @@ is equivalent to::
         (destination_state),
         ());
 
+.. note::
+
+    ``CUBE`` supports at most 30 columns. This is because CUBE generates 2^n
+    grouping sets, and 2^30 (approximately 1 billion) is the practical limit.
+
 .. code-block:: none
 
      origin_state | destination_state | _col0
