@@ -26,16 +26,42 @@ public interface ConnectorPageSource
     CompletableFuture<?> NOT_BLOCKED = CompletableFuture.completedFuture(null);
 
     /**
-     * Gets the number of input bytes processed by this page source so far.
+     * Gets the number of raw input bytes read from storage by this page source so far.
+     * This represents bytes read from physical storage (e.g., compressed ORC/Parquet files).
      * If size is not available, this method should return zero.
      */
     long getCompletedBytes();
 
     /**
-     * Gets the number of input rows processed by this page source so far.
+     * Gets the number of raw input rows read from storage by this page source so far.
+     * This represents rows before any filtering or processing.
      * If number is not available, this method should return zero.
      */
     long getCompletedPositions();
+
+    /**
+     * Gets the number of decompressed bytes processed by this page source so far.
+     * This represents bytes after decompression but before filtering/projection.
+     * For connectors without compression or that don't track this separately,
+     * the default implementation returns the same as getCompletedBytes().
+     * If size is not available, this method should return zero.
+     */
+    default long getDecompressedBytes()
+    {
+        return getCompletedBytes();
+    }
+
+    /**
+     * Gets the number of decompressed rows processed by this page source so far.
+     * This represents rows after decompression but before filtering/projection.
+     * For connectors that don't track this separately, the default implementation
+     * returns the same as getCompletedPositions().
+     * If number is not available, this method should return zero.
+     */
+    default long getDecompressedPositions()
+    {
+        return getCompletedPositions();
+    }
 
     /**
      * Gets the wall time this page source spent reading data from the input.
