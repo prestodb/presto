@@ -22,3 +22,4 @@ Administration
     admin/verifier
     admin/grafana-cloud
     admin/version-support
+    admin/jmx-metrics

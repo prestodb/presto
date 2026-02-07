@@ -103,6 +103,7 @@ import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.DiscoveryNodeManager;
+import com.facebook.presto.metadata.ForMetadata;
 import com.facebook.presto.metadata.ForNodeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -110,6 +111,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MaterializedViewPropertyManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataStatsModule;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyProviderConfig;
@@ -673,10 +675,16 @@ public class ServerMainModule
 
         if (serverConfig.isCatalogServerEnabled() && serverConfig.isCoordinator()) {
             binder.bind(RemoteMetadataManager.class).in(Scopes.SINGLETON);
-            binder.bind(Metadata.class).to(RemoteMetadataManager.class).in(Scopes.SINGLETON);
+            binder.bind(Metadata.class)
+                    .annotatedWith(ForMetadata.class)
+                    .to(RemoteMetadataManager.class)
+                    .in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
+            binder.bind(Metadata.class)
+                    .annotatedWith(ForMetadata.class)
+                    .to(MetadataManager.class)
+                    .in(Scopes.SINGLETON);
         }
 
         // row expression utils
@@ -717,6 +725,8 @@ public class ServerMainModule
         // handle resolver
         binder.install(new HandleJsonModule());
         binder.bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
+
+        binder.install(new MetadataStatsModule());
 
         // connector
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
