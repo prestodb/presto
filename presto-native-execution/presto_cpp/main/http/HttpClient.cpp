@@ -20,7 +20,6 @@
 #include <folly/synchronization/Latch.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <velox/common/base/Exceptions.h>
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -37,6 +36,7 @@ HttpClient::HttpClient(
     std::chrono::milliseconds connectTimeout,
     std::shared_ptr<velox::memory::MemoryPool> pool,
     folly::SSLContextPtr sslContext,
+    HttpClientOptions options,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
       connPool_(connPool),
@@ -44,20 +44,10 @@ HttpClient::HttpClient(
       address_(address),
       transactionTimeout_(transactionTimeout),
       connectTimeout_(connectTimeout),
-      http2Enabled_(SystemConfig::instance()->httpClientHttp2Enabled()),
-      maxConcurrentStreams_(
-          SystemConfig::instance()->httpClientHttp2MaxStreamsPerConnection()),
-      http2InitialStreamWindow_(
-          SystemConfig::instance()->httpClientHttp2InitialStreamWindow()),
-      http2StreamWindow_(
-          SystemConfig::instance()->httpClientHttp2StreamWindow()),
-      http2SessionWindow_(
-          SystemConfig::instance()->httpClientHttp2SessionWindow()),
+      options_(std::move(options)),
       pool_(std::move(pool)),
       sslContext_(std::move(sslContext)),
-      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)),
-      maxResponseAllocBytes_(SystemConfig::instance()->httpMaxAllocateBytes()) {
-}
+      reportOnBodyStatsFunc_(std::move(reportOnBodyStatsFunc)) {}
 
 HttpClient::~HttpClient() {
   if (sessionPoolHolder_) {
@@ -218,7 +208,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
     // - seqNo == 0: First request on this connection
     // - seqNo > 0: Connection is being reused for subsequent requests
     // Reuse rate = connection_reuse / (connection_first_use + connection_reuse)
-    if (SystemConfig::instance()->httpClientConnectionReuseCounterEnabled()) {
+    if (client_->connectionReuseCounterEnabled()) {
       const uint32_t seqNo = txn_->getSequenceNumber();
       if (seqNo > 0) {
         RECORD_METRIC_VALUE(kCounterHttpClientConnectionReuse);
@@ -567,11 +557,11 @@ void HttpClient::sendRequest(std::shared_ptr<ResponseHandler> responseHandler) {
         sessionPool_,
         proxygen::WheelTimerInstance(transactionTimeout_, eventBase_),
         connectTimeout_,
-        http2Enabled_,
-        maxConcurrentStreams_,
-        http2InitialStreamWindow_,
-        http2StreamWindow_,
-        http2SessionWindow_,
+        options_.http2Enabled,
+        options_.http2MaxStreamsPerConnection,
+        options_.http2InitialStreamWindow,
+        options_.http2StreamWindow,
+        options_.http2SessionWindow,
         eventBase_,
         address_,
         sslContext_);
@@ -592,7 +582,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   request.ensureHostHeader();
   auto responseHandler = std::make_shared<ResponseHandler>(
       request,
-      maxResponseAllocBytes_,
+      options_.maxAllocateBytes,
       body,
       reportOnBodyStatsFunc_,
       shared_from_this());
@@ -618,26 +608,20 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
 
 void RequestBuilder::addJwtIfConfigured() {
 #ifdef PRESTO_ENABLE_JWT
-  if (SystemConfig::instance()->internalCommunicationJwtEnabled()) {
+  if (jwtOptions_.jwtEnabled) {
     // If JWT was enabled the secret cannot be empty.
     auto secretHash = std::vector<uint8_t>(SHA256_DIGEST_LENGTH);
     folly::ssl::OpenSSLHash::sha256(
         folly::range(secretHash),
-        folly::ByteRange(
-            folly::StringPiece(
-                SystemConfig::instance()
-                    ->internalCommunicationSharedSecret())));
+        folly::ByteRange(folly::StringPiece(jwtOptions_.sharedSecret)));
 
     const auto time = std::chrono::system_clock::now();
     const auto token =
         jwt::create<jwt::traits::nlohmann_json>()
-            .set_subject(NodeConfig::instance()->nodeId())
+            .set_subject(jwtOptions_.nodeId)
             .set_issued_at(time)
             .set_expires_at(
-                time +
-                std::chrono::seconds{
-                    SystemConfig::instance()
-                        ->internalCommunicationJwtExpirationSeconds()})
+                time + std::chrono::seconds{jwtOptions_.jwtExpirationSeconds})
             .sign(
                 jwt::algorithm::hs256{std::string(
                     reinterpret_cast<char*>(secretHash.data()),

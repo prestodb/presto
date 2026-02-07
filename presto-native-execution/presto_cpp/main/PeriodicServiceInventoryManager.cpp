@@ -14,6 +14,7 @@
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 #include <folly/futures/Retrying.h>
 #include <velox/common/memory/Memory.h>
+#include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
 PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
@@ -80,6 +81,20 @@ void PeriodicServiceInventoryManager::sendRequest() {
       LOG(INFO) << "Service Inventory changed to " << newAddress.getAddressStr()
                 << ":" << newAddress.getPort();
       std::swap(serviceAddress_, newAddress);
+      auto systemConfig = SystemConfig::instance();
+      http::HttpClientOptions httpClientOptions;
+      httpClientOptions.http2Enabled = systemConfig->httpClientHttp2Enabled();
+      httpClientOptions.http2MaxStreamsPerConnection =
+          systemConfig->httpClientHttp2MaxStreamsPerConnection();
+      httpClientOptions.http2InitialStreamWindow =
+          systemConfig->httpClientHttp2InitialStreamWindow();
+      httpClientOptions.http2StreamWindow =
+          systemConfig->httpClientHttp2StreamWindow();
+      httpClientOptions.http2SessionWindow =
+          systemConfig->httpClientHttp2SessionWindow();
+      httpClientOptions.maxAllocateBytes = systemConfig->httpMaxAllocateBytes();
+      httpClientOptions.connectionReuseCounterEnabled =
+          systemConfig->httpClientConnectionReuseCounterEnabled();
       client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
           nullptr,
@@ -91,7 +106,8 @@ void PeriodicServiceInventoryManager::sendRequest() {
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),
           pool_,
-          sslContext_);
+          sslContext_,
+          std::move(httpClientOptions));
     }
   } catch (const std::exception& ex) {
     LOG(WARNING) << "Error occurred during updating service address: "

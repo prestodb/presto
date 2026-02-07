@@ -280,6 +280,20 @@ class HttpsConfig {
   const bool http2Enabled_;
 };
 
+struct HttpServerStartupOptions {
+  uint32_t idleTimeoutMs{60'000};
+  uint32_t http2InitialReceiveWindow{1 << 20};
+  uint32_t http2ReceiveStreamWindowSize{1 << 20};
+  uint32_t http2ReceiveSessionWindowSize{10 * (1 << 20)};
+  uint32_t http2MaxConcurrentStreams{100};
+  bool enableContentCompression{false};
+  uint32_t contentCompressionLevel{4};
+  uint32_t contentCompressionMinimumSize{3584};
+  bool enableZstdCompression{false};
+  uint32_t zstdContentCompressionLevel{8};
+  bool enableGzipCompression{false};
+};
+
 class HttpServer {
  public:
   explicit HttpServer(
@@ -288,6 +302,7 @@ class HttpServer {
       std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
+      HttpServerStartupOptions startupOptions = {},
       std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
           {},
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,
