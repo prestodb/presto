@@ -242,6 +242,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
 
     /**
+     * Set the specified type to the column.
+     */
+    void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
+
+    /**
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);

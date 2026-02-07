@@ -55,6 +55,7 @@ import static com.facebook.presto.security.CatalogAccessControlRule.AccessMode.R
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAlterColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
@@ -259,6 +260,14 @@ public class FileBasedSystemAccessControl
     {
         if (!isSchemaOwner(identity, schema)) {
             denyDropSchema(schema.toString());
+        }
+    }
+
+    @Override
+    public void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyAlterColumn(table.toString());
         }
     }
 

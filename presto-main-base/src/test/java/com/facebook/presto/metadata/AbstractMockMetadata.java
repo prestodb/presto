@@ -338,6 +338,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         throw new UnsupportedOperationException();

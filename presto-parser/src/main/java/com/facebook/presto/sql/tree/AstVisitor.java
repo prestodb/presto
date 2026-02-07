@@ -802,6 +802,10 @@ public abstract class AstVisitor<R, C>
         return visitTransactionMode(node, context);
     }
 
+    protected R visitSetColumnType(SetColumnType node, C context)
+    {
+        return visitStatement(node, context);
+    }
     protected R visitTransactionAccessMode(TransactionAccessMode node, C context)
     {
         return visitTransactionMode(node, context);

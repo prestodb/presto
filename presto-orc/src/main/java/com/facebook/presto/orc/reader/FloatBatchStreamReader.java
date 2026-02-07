@@ -16,7 +16,6 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -30,6 +29,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
@@ -64,7 +64,7 @@ public class FloatBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, RealType.class::isInstance);
+        verifyStreamType(streamDescriptor, type, t -> t == REAL || t == DOUBLE);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
 

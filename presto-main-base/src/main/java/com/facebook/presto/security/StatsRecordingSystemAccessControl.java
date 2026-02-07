@@ -441,6 +441,24 @@ public final class StatsRecordingSystemAccessControl
     }
 
     @Override
+    public void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        long start = System.nanoTime();
+        try {
+            delegate.get().checkCanAlterColumn(identity, context, table);
+        }
+        catch (RuntimeException e) {
+            stats.checkCanAlterColumn.recordFailure();
+            throw e;
+        }
+        finally {
+            long duration = System.nanoTime() - start;
+            context.getRuntimeStats().addMetricValue("systemAccessControl.checkCanAlterColumn", RuntimeUnit.NANO, duration);
+            stats.checkCanAlterColumn.record(duration);
+        }
+    }
+
+    @Override
     public void checkCanDropColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         long start = System.nanoTime();
@@ -842,6 +860,7 @@ public final class StatsRecordingSystemAccessControl
         final SystemAccessControlStats filterColumns = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanAddColumn = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanDropColumn = new SystemAccessControlStats();
+        final SystemAccessControlStats checkCanAlterColumn = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanRenameColumn = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanSelectFromColumns = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanCallProcedure = new SystemAccessControlStats();

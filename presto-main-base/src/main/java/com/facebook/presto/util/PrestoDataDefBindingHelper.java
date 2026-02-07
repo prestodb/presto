@@ -49,6 +49,7 @@ import com.facebook.presto.execution.ResetSessionTask;
 import com.facebook.presto.execution.RevokeRolesTask;
 import com.facebook.presto.execution.RevokeTask;
 import com.facebook.presto.execution.RollbackTask;
+import com.facebook.presto.execution.SetColumnTypeTask;
 import com.facebook.presto.execution.SetPropertiesTask;
 import com.facebook.presto.execution.SetRoleTask;
 import com.facebook.presto.execution.SetSessionTask;
@@ -90,6 +91,7 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -149,6 +151,7 @@ public class PrestoDataDefBindingHelper
         dataDefBuilder.put(RevokeRoles.class, RevokeRolesTask.class);
         dataDefBuilder.put(Grant.class, GrantTask.class);
         dataDefBuilder.put(Revoke.class, RevokeTask.class);
+        dataDefBuilder.put(SetColumnType.class, SetColumnTypeTask.class);
 
         transactionDefBuilder.put(Use.class, UseTask.class);
         transactionDefBuilder.put(SetSession.class, SetSessionTask.class);

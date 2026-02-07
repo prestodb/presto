@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddConstraint;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyAlterColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalogAccess;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
@@ -125,6 +126,16 @@ public interface SystemAccessControl
     default void checkCanDropSchema(Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
         denyDropSchema(schema.toString());
+    }
+
+    /**
+     * Check if identity is allowed to alter columns for the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanAlterColumn(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyAlterColumn(table.toString());
     }
 
     /**
