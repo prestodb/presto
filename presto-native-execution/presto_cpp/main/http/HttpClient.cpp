@@ -149,7 +149,7 @@ std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
   for (auto& iobuf : bodyChain_) {
     const auto length = iobuf->length();
     ::memcpy(curr, iobuf->data(), length);
-    curr = (char*)curr + length;
+    curr = static_cast<char*>(curr) + length;
     iobuf.reset();
   }
   bodyChain_.clear();

@@ -46,7 +46,7 @@ class StatsFilterFactory : public proxygen::RequestHandlerFactory {
 
   proxygen::RequestHandler* onRequest(
       proxygen::RequestHandler* handler,
-      proxygen::HTTPMessage* msg) noexcept override {
+      proxygen::HTTPMessage* /*msg*/) noexcept override {
     return new StatsFilter(handler);
   }
 };
