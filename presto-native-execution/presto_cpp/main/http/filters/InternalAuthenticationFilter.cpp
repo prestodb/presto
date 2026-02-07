@@ -103,7 +103,7 @@ void InternalAuthenticationFilter::onError(
   delete this;
 }
 
-void InternalAuthenticationFilter::sendGenericErrorResponse(void) {
+void InternalAuthenticationFilter::sendGenericErrorResponse() {
   /// Indicate to upstream an error occurred and make sure
   /// no further forwarding occurs.
   upstream_->onError(proxygen::kErrorUnsupportedExpectation);

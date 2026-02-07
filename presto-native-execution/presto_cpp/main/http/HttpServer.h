@@ -63,13 +63,13 @@ class AbstractRequestHandler : public proxygen::RequestHandler {
     body_.emplace_back(std::move(body));
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol /*proto*/) noexcept override {}
 
   void requestComplete() noexcept override {
     delete this;
   }
 
-  void onError(proxygen::ProxygenError err) noexcept override {
+  void onError(proxygen::ProxygenError /*err*/) noexcept override {
     delete this;
   }
 
