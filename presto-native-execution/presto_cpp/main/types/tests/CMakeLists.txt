@@ -94,6 +94,7 @@ target_link_libraries(
   presto_types
   velox_dwio_common
   velox_hive_connector
+  velox_hive_iceberg_splitreader
   velox_tpch_connector
   velox_tpcds_connector
   GTest::gtest
