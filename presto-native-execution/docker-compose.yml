@@ -36,6 +36,10 @@ services:
       context: .
       dockerfile: scripts/dockerfiles/prestissimo-runtime.dockerfile
 
+
+  # ==========================================
+  # CentOS services
+  # ==========================================
   centos-native-dependency:
     # Usage:
     #   docker compose build centos-native-dependency
