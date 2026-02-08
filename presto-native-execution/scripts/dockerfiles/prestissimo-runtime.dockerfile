@@ -22,6 +22,12 @@ ARG NUM_THREADS=8
 ARG CUDA_ARCHITECTURES=""
 ENV CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}
 
+# Optional: sccache with S3 backend for shared compile caching across builds
+# Set SCCACHE_BUCKET to enable (e.g., --build-arg SCCACHE_BUCKET=my-bucket)
+ARG SCCACHE_BUCKET=""
+ARG SCCACHE_REGION=""
+ARG SCCACHE_S3_KEY_PREFIX=""
+
 ENV PROMPT_ALWAYS_RESPOND=n
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
@@ -29,11 +35,23 @@ ENV BUILD_DIR=""
 RUN mkdir -p /prestissimo /runtime-libraries
 COPY . /prestissimo/
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
-    /bin/bash -c 'if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]] || [[ ",${PRESTO_OPTIONAL_FEATURES}," =~ ,cudf, ]]; then unset CC; unset CXX; source /opt/rh/gcc-toolset-14/enable; fi && \
+    /bin/bash -c '\
+    if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]] || [[ ",${PRESTO_OPTIONAL_FEATURES}," =~ ,cudf, ]]; then unset CC; unset CXX; source /opt/rh/gcc-toolset-14/enable; fi && \
+    COMPILER_LAUNCHER_FLAGS="" && \
+    if [ -n "${SCCACHE_BUCKET}" ] && command -v sccache &>/dev/null; then \
+        export SCCACHE_BUCKET="${SCCACHE_BUCKET}" SCCACHE_CACHE_SIZE=2G; \
+        [ -n "${SCCACHE_REGION}" ] && export SCCACHE_REGION="${SCCACHE_REGION}"; \
+        [ -n "${SCCACHE_S3_KEY_PREFIX}" ] && export SCCACHE_S3_KEY_PREFIX="${SCCACHE_S3_KEY_PREFIX}"; \
+        sccache --start-server && \
+        COMPILER_LAUNCHER_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"; \
+        echo "Using sccache with S3 backend: s3://${SCCACHE_BUCKET}/${SCCACHE_S3_KEY_PREFIX:-}"; \
+    else \
+        echo "Using ccache (local)"; \
+    fi && \
     PRESTO_OPTIONAL_FEATURES=${PRESTO_OPTIONAL_FEATURES} \
-    EXTRA_CMAKE_FLAGS=${EXTRA_CMAKE_FLAGS} \
+    EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} ${COMPILER_LAUNCHER_FLAGS}" \
     NUM_THREADS=${NUM_THREADS} make --directory="/prestissimo/" cmake-and-build BUILD_TYPE=${BUILD_TYPE} BUILD_DIR=${BUILD_DIR} BUILD_BASE_DIR=${BUILD_BASE_DIR} && \
-    ccache -sz -v'
+    if [ -n "${SCCACHE_BUCKET}" ] && command -v sccache &>/dev/null; then (sccache --stop-server && sccache --show-stats) || true ; else ccache -sz -v; fi'
 RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -v libcuda) && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
