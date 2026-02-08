@@ -45,6 +45,13 @@ RUN bash -c "mkdir build && \
                  install_ucx) && \
     rm -rf build"
 
+# Install sccache for optional S3-backed compile caching
+# See: https://github.com/mozilla/sccache
+ARG SCCACHE_VERSION="0.13.0"
+RUN wget -q -O- "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" \
+    | tar -C /usr/bin -zf - --wildcards --strip-components=1 -x '*/sccache' && \
+    chmod +x /usr/bin/sccache
+
 # put CUDA binaries on the PATH
 ENV PATH=/usr/local/cuda/bin:${PATH}
 
