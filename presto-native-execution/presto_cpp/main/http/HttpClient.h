@@ -18,7 +18,9 @@
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <velox/common/memory/MemoryPool.h>
+#include "presto_cpp/main/http/HttpClientOptions.h" // @manual
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "presto_cpp/main/http/JwtOptions.h" // @manual
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::http {
@@ -151,10 +153,6 @@ class HttpClientConnectionPool {
 
 class ResponseHandler;
 
-// HttpClient uses proxygen::SessionPool which must be destructed on the
-// EventBase thread. Hence, the destructor of HttpClient must run on the
-// EventBase thread as well. Consider running HttpClient's destructor
-// via EventBase::runOnDestruction.
 class HttpClient : public std::enable_shared_from_this<HttpClient> {
  public:
   HttpClient(
@@ -166,6 +164,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       std::chrono::milliseconds connectTimeout,
       std::shared_ptr<velox::memory::MemoryPool> pool,
       folly::SSLContextPtr sslContext,
+      HttpClientOptions options = {},
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
   ~HttpClient();
@@ -178,6 +177,10 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 
   const std::shared_ptr<velox::memory::MemoryPool>& memoryPool() {
     return pool_;
+  }
+
+  bool connectionReuseCounterEnabled() const {
+    return options_.connectionReuseCounterEnabled;
   }
 
   static int64_t numConnectionsCreated() {
@@ -200,15 +203,10 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const folly::SocketAddress address_;
   const std::chrono::milliseconds transactionTimeout_;
   const std::chrono::milliseconds connectTimeout_;
-  const bool http2Enabled_;
-  const uint32_t maxConcurrentStreams_;
-  const uint32_t http2InitialStreamWindow_;
-  const uint32_t http2StreamWindow_;
-  const uint32_t http2SessionWindow_;
+  const HttpClientOptions options_;
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   const folly::SSLContextPtr sslContext_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
-  const uint64_t maxResponseAllocBytes_;
 
   proxygen::SessionPool* sessionPool_ = nullptr;
   proxygen::ServerIdleSessionController* idleSessions_ = nullptr;
@@ -220,6 +218,11 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
 class RequestBuilder {
  public:
   RequestBuilder() {}
+
+  RequestBuilder& jwtOptions(JwtOptions options) {
+    jwtOptions_ = std::move(options);
+    return *this;
+  }
 
   RequestBuilder& method(proxygen::HTTPMethod method) {
     headers_.setMethod(method);
@@ -253,6 +256,7 @@ class RequestBuilder {
  private:
   void addJwtIfConfigured();
 
+  JwtOptions jwtOptions_;
   proxygen::HTTPMessage headers_;
 };
 

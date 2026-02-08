@@ -684,37 +684,42 @@ void PrestoServer::run() {
 
   // Start everything. After the return from the following call we are shutting
   // down.
-  httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
-    const auto addresses = server->addresses();
-    for (auto address : addresses) {
-      PRESTO_STARTUP_LOG(INFO) << fmt::format(
-          "Server listening at {}:{} - https {}",
-          address.address.getIPAddress().str(),
-          address.address.getPort(),
-          address.sslConfigs.size() != 0);
-      // We could be bound to both http and https ports.
-      // If set, we must use the https port and skip http.
-      if (httpsPort.has_value() && address.sslConfigs.size() == 0) {
-        continue;
-      }
-      startAnnouncerAndHeartbeatManagerCb(
-          httpsPort.has_value(), address.address.getPort());
-      setTaskUriCb(httpsPort.has_value(), address.address.getPort());
-      break;
-    }
+  auto startupOptions = systemConfig->httpServerStartupOptions();
+  httpServer_->start(
+      std::move(startupOptions),
+      getHttpServerFilters(),
+      [&](proxygen::HTTPServer* server) {
+        const auto addresses = server->addresses();
+        for (auto address : addresses) {
+          PRESTO_STARTUP_LOG(INFO) << fmt::format(
+              "Server listening at {}:{} - https {}",
+              address.address.getIPAddress().str(),
+              address.address.getPort(),
+              address.sslConfigs.size() != 0);
+          // We could be bound to both http and https ports.
+          // If set, we must use the https port and skip http.
+          if (httpsPort.has_value() && address.sslConfigs.size() == 0) {
+            continue;
+          }
+          startAnnouncerAndHeartbeatManagerCb(
+              httpsPort.has_value(), address.address.getPort());
+          setTaskUriCb(httpsPort.has_value(), address.address.getPort());
+          break;
+        }
 
-    if (coordinatorDiscoverer_ != nullptr) {
-      VELOX_CHECK_NOT_NULL(
-          announcer_,
-          "The announcer is expected to have been created but wasn't.");
-      const auto heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
-      if (heartbeatFrequencyMs > 0) {
-        VELOX_CHECK_NOT_NULL(
-            heartbeatManager_,
-            "The heartbeat manager is expected to have been created but wasn't.");
-      }
-    }
-  });
+        if (coordinatorDiscoverer_ != nullptr) {
+          VELOX_CHECK_NOT_NULL(
+              announcer_,
+              "The announcer is expected to have been created but wasn't.");
+          const auto heartbeatFrequencyMs =
+              systemConfig->heartbeatFrequencyMs();
+          if (heartbeatFrequencyMs > 0) {
+            VELOX_CHECK_NOT_NULL(
+                heartbeatManager_,
+                "The heartbeat manager is expected to have been created but wasn't.");
+          }
+        }
+      });
 
   if (announcer_ != nullptr) {
     PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";

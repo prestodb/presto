@@ -378,6 +378,25 @@ bool SystemConfig::httpServerEnableGzipCompression() const {
   return optionalProperty<bool>(kHttpServerEnableGzipCompression).value();
 }
 
+http::HttpServerStartupOptions SystemConfig::httpServerStartupOptions() const {
+  http::HttpServerStartupOptions options;
+  options.idleTimeoutMs = httpServerIdleTimeoutMs();
+  options.http2InitialReceiveWindow = httpServerHttp2InitialReceiveWindow();
+  options.http2ReceiveStreamWindowSize =
+      httpServerHttp2ReceiveStreamWindowSize();
+  options.http2ReceiveSessionWindowSize =
+      httpServerHttp2ReceiveSessionWindowSize();
+  options.http2MaxConcurrentStreams = httpServerHttp2MaxConcurrentStreams();
+  options.enableContentCompression = httpServerEnableContentCompression();
+  options.contentCompressionLevel = httpServerContentCompressionLevel();
+  options.contentCompressionMinimumSize =
+      httpServerContentCompressionMinimumSize();
+  options.enableZstdCompression = httpServerEnableZstdCompression();
+  options.zstdContentCompressionLevel = httpServerZstdContentCompressionLevel();
+  options.enableGzipCompression = httpServerEnableGzipCompression();
+  return options;
+}
+
 std::string SystemConfig::httpsSupportedCiphers() const {
   return optionalProperty(kHttpsSupportedCiphers).value();
 }
@@ -963,6 +982,20 @@ bool SystemConfig::httpClientConnectionReuseCounterEnabled() const {
       .value();
 }
 
+http::HttpClientOptions SystemConfig::httpClientOptions() const {
+  http::HttpClientOptions options;
+  options.http2Enabled = httpClientHttp2Enabled();
+  options.http2MaxStreamsPerConnection =
+      httpClientHttp2MaxStreamsPerConnection();
+  options.http2InitialStreamWindow = httpClientHttp2InitialStreamWindow();
+  options.http2StreamWindow = httpClientHttp2StreamWindow();
+  options.http2SessionWindow = httpClientHttp2SessionWindow();
+  options.maxAllocateBytes = httpMaxAllocateBytes();
+  options.connectionReuseCounterEnabled =
+      httpClientConnectionReuseCounterEnabled();
+  return options;
+}
+
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
   return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
@@ -1025,6 +1058,17 @@ std::string SystemConfig::internalCommunicationSharedSecret() const {
 int32_t SystemConfig::internalCommunicationJwtExpirationSeconds() const {
   return optionalProperty<int32_t>(kInternalCommunicationJwtExpirationSeconds)
       .value();
+}
+
+http::JwtOptions SystemConfig::jwtOptions() const {
+  http::JwtOptions options;
+  options.jwtEnabled = internalCommunicationJwtEnabled();
+  if (options.jwtEnabled) {
+    options.sharedSecret = internalCommunicationSharedSecret();
+    options.jwtExpirationSeconds = internalCommunicationJwtExpirationSeconds();
+    options.nodeId = NodeConfig::instance()->nodeId();
+  }
+  return options;
 }
 
 bool SystemConfig::useLegacyArrayAgg() const {
