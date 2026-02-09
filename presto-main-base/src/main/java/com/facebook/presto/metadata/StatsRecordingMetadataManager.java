@@ -1000,6 +1000,26 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void createBranch(Session session,
+                      TableHandle tableHandle,
+                      String branchName,
+                      boolean replace,
+                      boolean ifNotExists,
+                      Optional<ConnectorTableVersion> tableVersion,
+                      Optional<Long> retainDays,
+                      Optional<Integer> minSnapshotsToKeep,
+                      Optional<Long> maxSnapshotAgeDays)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.createBranch(session, tableHandle, branchName, replace, ifNotExists, tableVersion, retainDays, minSnapshotsToKeep, maxSnapshotAgeDays);
+        }
+        finally {
+            stats.recordCreateBranchCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
     {
         long startTime = System.nanoTime();
