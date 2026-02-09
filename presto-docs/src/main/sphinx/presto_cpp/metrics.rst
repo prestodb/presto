@@ -11,7 +11,7 @@ Overview
 ========
 
 Presto C++ workers expose various runtime metrics that can be collected and monitored when 
-``runtime-metrics-collection-enabled`` is set to true. These metrics are available via the 
+``runtime-metrics-collection-enabled`` is set to true. These metrics are available through the 
 ``GET /v1/info/metrics`` endpoint in Prometheus data format.
 
 For information on enabling metrics collection, see :doc:`features`.
