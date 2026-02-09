@@ -44,6 +44,15 @@ jobs:
           distribution: temurin
           java-version: ${{ matrix.java }}
           cache: maven
+
+      # Cleanup before build
+      - name: Clean up before build
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          df -h
+          docker system prune -af || true
+
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
 
