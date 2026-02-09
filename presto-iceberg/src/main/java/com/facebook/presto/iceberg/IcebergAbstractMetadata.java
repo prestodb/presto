@@ -1087,6 +1087,46 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void createTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays)
+    {
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have tag created");
+        Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+
+        boolean tagExists = icebergTable.refs().containsKey(tagName);
+        if (ifNotExists && tagExists) {
+            return;
+        }
+        long targetSnapshotId = tableVersion.map(version -> getSnapshotIdForTableVersion(icebergTable, version))
+                .orElseGet(() -> {
+                    if (icebergTable.currentSnapshot() == null) {
+                        throw new PrestoException(NOT_FOUND, format("Table %s has no current snapshot", icebergTableHandle.getSchemaTableName().getTableName()));
+                    }
+                    return icebergTable.currentSnapshot().snapshotId();
+                });
+        ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        if (replace && tagExists) {
+            manageSnapshots.replaceTag(tagName, targetSnapshotId);
+        }
+        else if (!tagExists) {
+            manageSnapshots.createTag(tagName, targetSnapshotId);
+        }
+        else {
+            throw new PrestoException(ALREADY_EXISTS, format("Tag %s already exists in table %s", tagName, icebergTableHandle.getSchemaTableName().getTableName()));
+        }
+        // Apply retention policies if specified
+        retainDays.ifPresent(retainDs -> manageSnapshots.setMaxRefAgeMs(tagName, ofDays(retainDs).toMillis()));
+        manageSnapshots.commit();
+    }
+
+    @Override
     public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
