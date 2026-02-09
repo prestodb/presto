@@ -106,7 +106,9 @@ import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
@@ -143,6 +145,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.nullExpression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
@@ -1814,6 +1817,18 @@ public class TestLogicalPlanner
                         "    INPUT => TABLE(orders),\n" +
                         "    COLUMNS => DESCRIPTOR(comment)))\n",
                 output(tableScan("orders")));
+    }
+
+    @Test
+    public void testNullExpression()
+    {
+        assertPlan("select null, cast(null as Integer), null, cast(null as bigint), cast (null as Integer)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", nullExpression(UNKNOWN),
+                                "col_2", nullExpression(INTEGER),
+                                "col_3", nullExpression(BIGINT)),
+                        values())));
     }
 
     @Test
