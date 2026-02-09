@@ -18,6 +18,8 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -32,6 +34,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
@@ -63,6 +66,7 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.HashSet;
 import java.util.List;
@@ -511,6 +515,32 @@ public final class RowExpressionVerifier
         }
         if (actual instanceof ConstantExpression) {
             return getValueFromLiteral(expected).equals(String.valueOf(LiteralInterpreter.evaluate(session.toConnectorSession(), (ConstantExpression) actual)));
+        }
+        return false;
+    }
+
+    @Override
+    protected Boolean visitBinaryLiteral(BinaryLiteral expected, RowExpression actual)
+    {
+        if (actual instanceof CallExpression && actual.getType() instanceof VarbinaryType
+                && functionResolution.isCastFunction(((CallExpression) actual).getFunctionHandle())) {
+            SqlVarbinary actualBinary = (SqlVarbinary) rowExpressionInterpreter(actual, metadata.getFunctionAndTypeManager(), session.toConnectorSession()).evaluate();
+            if (actualBinary != null) {
+                return expected.getValue().equals(Slices.wrappedBuffer(actualBinary.getBytes()));
+            }
+            else if (expected.getValue() == null) {
+                return true;
+            }
+        }
+
+        if (actual instanceof ConstantExpression && actual.getType() instanceof VarbinaryType) {
+            SqlVarbinary actualBinary = (SqlVarbinary) LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual);
+            if (actualBinary != null) {
+                return expected.getValue().equals(Slices.wrappedBuffer(actualBinary.getBytes()));
+            }
+            else {
+                return expected.getValue() == null;
+            }
         }
         return false;
     }
