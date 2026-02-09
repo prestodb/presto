@@ -59,6 +59,19 @@ redistributing all the data across the network.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\``.
 
+``scale-writers``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+This property enables dynamic scaling of writer tasks based on throughput. When enabled,
+Presto automatically adjusts the number of writer tasks to use the minimum necessary
+for optimal performance. This can improve resource utilization by scaling out writers
+only when needed based on data throughput.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\``.
+
 ``check-access-control-on-utilized-columns-only``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
