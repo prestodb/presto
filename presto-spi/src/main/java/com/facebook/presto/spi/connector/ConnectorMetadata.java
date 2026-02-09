@@ -986,6 +986,21 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Create a tag for the specified table
+     */
+    default void createTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating table tags");
+    }
+
+    /**
      * Drop the specified tag
      */
     default void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)

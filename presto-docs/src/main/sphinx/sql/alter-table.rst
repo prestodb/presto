@@ -22,6 +22,10 @@ Synopsis
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name FOR SYSTEM_TIME AS OF timestamp
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name FOR SYSTEM_VERSION AS OF version RETAIN retention_period
     ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] BRANCH [ IF NOT EXISTS ] branch_name FOR SYSTEM_VERSION AS OF version RETAIN retention_period WITH SNAPSHOT RETENTION min_snapshots SNAPSHOTS min_retention_period
+    ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] TAG [ IF NOT EXISTS ] tag_name
+    ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] TAG [ IF NOT EXISTS ] tag_name FOR SYSTEM_VERSION AS OF version
+    ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] TAG [ IF NOT EXISTS ] tag_name FOR SYSTEM_TIME AS OF timestamp
+    ALTER TABLE [ IF EXISTS ] name CREATE [ OR REPLACE ] TAG [ IF NOT EXISTS ] tag_name FOR SYSTEM_VERSION AS OF version RETAIN retention_period
 
 Description
 -----------
@@ -38,6 +42,12 @@ For ``CREATE BRANCH`` statements:
 
 * The optional ``OR REPLACE`` clause causes the branch to be replaced if it already exists.
 * The optional ``IF NOT EXISTS`` clause causes the error to be suppressed if the branch already exists.
+* ``OR REPLACE`` and ``IF NOT EXISTS`` cannot be specified together.
+
+For ``CREATE TAG`` statements:
+
+* The optional ``OR REPLACE`` clause causes the tag to be replaced if it already exists.
+* The optional ``IF NOT EXISTS`` clause causes the error to be suppressed if the tag already exists.
 * ``OR REPLACE`` and ``IF NOT EXISTS`` cannot be specified together.
 
 Examples
@@ -146,6 +156,34 @@ Create branch ``branch1`` from the ``users`` table for system version as of vers
 Create branch ``branch1`` from the ``users`` table for system version as of version 5 with snapshot retention of minimum 3 snapshots and minimum retention period of 7 days::
 
     ALTER TABLE users CREATE BRANCH 'branch1' FOR SYSTEM_VERSION AS OF 5 RETAIN INTERVAL 7 DAY WITH SNAPSHOT RETENTION 3 SNAPSHOTS INTERVAL 7 DAYS;
+
+Create tag ``tag1`` from the ``users`` table::
+
+    ALTER TABLE users CREATE TAG 'tag1';
+
+Create tag ``tag1`` from the ``users`` table only if it doesn't already exist::
+
+    ALTER TABLE users CREATE TAG IF NOT EXISTS 'tag1';
+
+Create or replace tag ``tag1`` from the ``users`` table::
+
+    ALTER TABLE users CREATE OR REPLACE TAG 'tag1';
+
+Create tag ``tag1`` from the ``users`` table for system version as of version 5::
+
+    ALTER TABLE users CREATE TAG 'tag1' FOR SYSTEM_VERSION AS OF 5;
+
+Create tag ``tag1`` from the ``users`` table for system version as of version 5, only if it doesn't exist::
+
+    ALTER TABLE users CREATE TAG IF NOT EXISTS 'tag1' FOR SYSTEM_VERSION AS OF 5;
+
+Create or replace tag ``tag1`` from the ``users`` table for system time as of timestamp '2026-01-02 17:30:35.247 Asia/Kolkata'::
+
+    ALTER TABLE users CREATE OR REPLACE TAG 'tag1' FOR SYSTEM_TIME AS OF TIMESTAMP '2026-01-02 17:30:35.247 Asia/Kolkata';
+
+Create tag ``tag1`` from the ``users`` table for system version as of version 5 with retention period of 30 days::
+
+    ALTER TABLE users CREATE TAG 'tag1' FOR SYSTEM_VERSION AS OF 5 RETAIN INTERVAL 30 DAY;
 
 See Also
 --------

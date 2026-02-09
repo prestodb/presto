@@ -291,6 +291,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanCreateTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        delegate().checkCanCreateTag(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
     public void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate().checkCanDropTag(transactionHandle, identity, context, tableName);

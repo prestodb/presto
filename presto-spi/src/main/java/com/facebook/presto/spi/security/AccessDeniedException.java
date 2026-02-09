@@ -417,6 +417,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create branch on table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyCreateTag(String tableName)
+    {
+        denyCreateTag(tableName, null);
+    }
+
+    public static void denyCreateTag(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create tag on table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropBranch(String tableName)
     {
         denyDropBranch(tableName, null);

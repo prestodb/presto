@@ -35,6 +35,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateB
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -456,6 +457,16 @@ public interface ConnectorAccessControl
     default void checkCanCreateBranch(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyCreateBranch(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create tag on the specified table in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        denyCreateTag(tableName.toString());
     }
 
     /**

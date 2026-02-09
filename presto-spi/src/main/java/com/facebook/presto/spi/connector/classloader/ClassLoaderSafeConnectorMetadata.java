@@ -894,6 +894,21 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void createTag(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, tableVersion, retainDays);
+        }
+    }
+
+    @Override
     public void dropTag(ConnectorSession session, ConnectorTableHandle tableHandle, String tagName, boolean tagExists)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
