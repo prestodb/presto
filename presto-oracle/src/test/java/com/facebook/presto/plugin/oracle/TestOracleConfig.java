@@ -33,7 +33,9 @@ public class TestOracleConfig
                 .setVarcharMaxSize(4000)
                 .setTimestampDefaultPrecision(6)
                 .setNumberDefaultScale(10)
-                .setNumberRoundingMode(RoundingMode.HALF_UP));
+                .setNumberRoundingMode(RoundingMode.HALF_UP)
+                .setTrustStorePath(null)
+                .setTruststorePassword(null));
     }
 
     @Test
@@ -45,6 +47,8 @@ public class TestOracleConfig
                 .put("oracle.timestamp.precision", "3")
                 .put("oracle.number.default-scale", "2")
                 .put("oracle.number.rounding-mode", "CEILING")
+                .put("oracle.tls.truststore-path", "/path")
+                .put("oracle.tls.truststore-password", "password")
                 .build();
 
         OracleConfig expected = new OracleConfig()
@@ -52,7 +56,9 @@ public class TestOracleConfig
                 .setVarcharMaxSize(10000)
                 .setTimestampDefaultPrecision(3)
                 .setNumberDefaultScale(2)
-                .setNumberRoundingMode(RoundingMode.CEILING);
+                .setNumberRoundingMode(RoundingMode.CEILING)
+                .setTruststorePassword("password")
+                .setTrustStorePath("/path");
 
         assertFullMapping(properties, expected);
     }
