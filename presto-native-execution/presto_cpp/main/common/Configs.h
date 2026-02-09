@@ -17,6 +17,9 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include "presto_cpp/main/http/HttpClientOptions.h" // @manual
+#include "presto_cpp/main/http/HttpServerStartupOptions.h" // @manual
+#include "presto_cpp/main/http/JwtOptions.h" // @manual
 #include "velox/common/config/Config.h"
 
 namespace facebook::presto {
@@ -936,6 +939,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerEnableGzipCompression() const;
 
+  http::HttpServerStartupOptions httpServerStartupOptions() const;
+
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
   /// refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
@@ -1168,6 +1173,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpClientConnectionReuseCounterEnabled() const;
 
+  http::HttpClientOptions httpClientOptions() const;
+
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
   std::chrono::duration<double> exchangeRequestTimeoutMs() const;
@@ -1195,6 +1202,8 @@ class SystemConfig : public ConfigBase {
   std::string internalCommunicationSharedSecret() const;
 
   int32_t internalCommunicationJwtExpirationSeconds() const;
+
+  http::JwtOptions jwtOptions() const;
 
   bool useLegacyArrayAgg() const;
 

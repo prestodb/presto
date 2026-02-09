@@ -20,6 +20,7 @@
 #include <wangle/ssl/SSLContextConfig.h>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "presto_cpp/main/http/HttpServerStartupOptions.h" // @manual
 
 namespace facebook::presto::http {
 
@@ -288,6 +289,7 @@ class HttpServer {
       std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
+      HttpServerStartupOptions startupOptions = {},
       std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
           {},
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,

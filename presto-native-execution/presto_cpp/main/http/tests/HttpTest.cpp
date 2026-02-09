@@ -160,7 +160,8 @@ TEST_P(HttpTestSuite, clientIdleSessions) {
         std::chrono::seconds(1),
         std::chrono::milliseconds(0),
         memoryPool,
-        useHttps ? makeSslContext() : nullptr);
+        useHttps ? makeSslContext() : nullptr,
+        http::HttpClientOptions{});
     auto response = sendGet(client.get(), "/ping").get(std::chrono::seconds(3));
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   }

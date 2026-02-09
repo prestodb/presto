@@ -103,6 +103,8 @@ PrestoExchangeSource::PrestoExchangeSource(
   VELOX_CHECK_NOT_NULL(driverExecutor_);
   VELOX_CHECK_NOT_NULL(ioEventBase);
   VELOX_CHECK_NOT_NULL(pool_);
+  auto systemConfig = SystemConfig::instance();
+  auto httpClientOptions = systemConfig->httpClientOptions();
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       connPool,
@@ -111,7 +113,9 @@ PrestoExchangeSource::PrestoExchangeSource(
       requestTimeoutMs,
       connectTimeoutMs,
       immediateBufferTransfer_ ? pool_ : nullptr,
-      sslContext_);
+      sslContext_,
+      std::move(httpClientOptions));
+  jwtOptions_ = systemConfig->jwtOptions();
 }
 
 void PrestoExchangeSource::close() {
@@ -185,7 +189,8 @@ void PrestoExchangeSource::doRequest(
   } else {
     method = proxygen::HTTPMethod::GET;
   }
-  auto requestBuilder = http::RequestBuilder().method(method).url(path);
+  auto requestBuilder =
+      http::RequestBuilder().jwtOptions(jwtOptions_).method(method).url(path);
 
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
@@ -468,6 +473,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   auto ackPath = fmt::format("{}/{}/acknowledge", basePath_, ackSequence);
   VLOG(1) << "Sending ack " << ackPath;
   http::RequestBuilder()
+      .jwtOptions(jwtOptions_)
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
       .send(httpClient_.get())
@@ -512,6 +518,7 @@ void PrestoExchangeSource::abortResults() {
 
 void PrestoExchangeSource::doAbortResults(int64_t delayMs) {
   http::RequestBuilder()
+      .jwtOptions(jwtOptions_)
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
       .send(httpClient_.get(), "", delayMs)
