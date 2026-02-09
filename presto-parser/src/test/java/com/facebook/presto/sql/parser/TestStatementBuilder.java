@@ -209,6 +209,21 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c drop column x");
 
         printStatement("alter table a.b.c drop branch 'x'");
+        printStatement("alter table a.b.c create branch 'test_branch'");
+        printStatement("alter table a.b.c create branch if not exists 'test_branch'");
+        printStatement("alter table a.b.c create or replace branch 'test_branch'");
+        printStatement("alter table a.b.c create branch 'test_branch' for system_version as of 123");
+        printStatement("alter table a.b.c create branch if not exists 'test_branch' for system_version as of 123");
+        printStatement("alter table a.b.c create or replace branch 'test_branch' for system_version as of 123");
+        printStatement("alter table a.b.c create branch 'test_branch' for system_time as of timestamp '2024-01-01 00:00:00'");
+        printStatement("alter table a.b.c create branch if not exists 'test_branch' for system_time as of timestamp '2024-01-01 00:00:00'");
+        printStatement("alter table a.b.c create or replace branch 'test_branch' for system_time as of timestamp '2024-01-01 00:00:00'");
+        printStatement("alter table a.b.c create branch 'test_branch' for system_version as of 123 retain 7 days");
+        printStatement("alter table a.b.c create branch if not exists 'test_branch' for system_version as of 123 retain 7 days");
+        printStatement("alter table a.b.c create or replace branch 'test_branch' for system_version as of 123 retain 7 days");
+        printStatement("alter table a.b.c create branch 'test_branch' for system_version as of 123 retain 7 days with snapshot retention 2 snapshots 3 days");
+        printStatement("alter table a.b.c create branch if not exists 'test_branch' for system_version as of 123 retain 7 days with snapshot retention 2 snapshots 3 days");
+        printStatement("alter table a.b.c create or replace branch 'test_branch' for system_version as of 123 retain 7 days with snapshot retention 2 snapshots 3 days");
         printStatement("alter table a.b.c drop tag 'testTag'");
 
         printStatement("create schema test");

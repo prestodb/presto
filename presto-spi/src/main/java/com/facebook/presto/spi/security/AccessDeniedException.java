@@ -407,6 +407,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set role %s", role));
     }
 
+    public static void denyCreateBranch(String tableName)
+    {
+        denyCreateBranch(tableName, null);
+    }
+
+    public static void denyCreateBranch(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create branch on table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropBranch(String tableName)
     {
         denyDropBranch(tableName, null);

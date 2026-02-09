@@ -256,6 +256,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+    }
+
+    @Override
     public void checkCanDropTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
     }
