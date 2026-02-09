@@ -403,8 +403,8 @@ public abstract class AbstractTestNativeGeneralQueries
                 .build();
 
         try {
-            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of());
+            computeExpected(String.format("CREATE TABLE %s (c0 DATE) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
+            computeExpected(String.format("INSERT INTO %s VALUES (DATE '1996-01-02'), (DATE '1996-12-01')", tmpTableName), ImmutableList.of(BIGINT));
 
             assertQueryResultCount(session, String.format("SELECT * from %s where c0 in (select c0 from %s) ", tmpTableName, tmpTableName), 2);
         }
@@ -436,7 +436,7 @@ public abstract class AbstractTestNativeGeneralQueries
                             "amount DECIMAL(21,6)," +
                             "event_date DATE," +
                             "ds VARCHAR" +
-                            ") WITH (format = 'TEXTFILE', partitioned_by = ARRAY['ds'])", tmpTableName), ImmutableList.of());
+                            ") WITH (format = 'TEXTFILE', partitioned_by = ARRAY['ds'])", tmpTableName), ImmutableList.of(BIGINT));
             getExpectedQueryRunner().execute(getSession(), format(
                     "INSERT INTO %s (" +
                             "id," +
@@ -473,7 +473,7 @@ public abstract class AbstractTestNativeGeneralQueries
                             "CAST('-123456789012345.123456' as DECIMAL(21,6))," +
                             "DATE '2024-02-29'," +
                             "'2025-07-01'" +
-                            ")", tmpTableName), ImmutableList.of());
+                            ")", tmpTableName), ImmutableList.of(BIGINT));
             // created_at is skipped because of the inconsistency in TIMESTAMP columns between Presto and Velox.
             // https://github.com/facebookincubator/velox/issues/8127
             assertQuery(format("SELECT id, name, is_active, score, tags, metrics, properties, flags, nested_struct, price, amount, event_date, ds FROM %s", tmpTableName));
@@ -1484,8 +1484,8 @@ public abstract class AbstractTestNativeGeneralQueries
 
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
-            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
+            getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), (DECIMAL '1000000.12', DECIMAL '28239823232323.57'), (DECIMAL '-542392.89', DECIMAL '-6723982392109.29')", tmpTableName), ImmutableList.of(BIGINT));
 
             String[] queries = {
                     String.format("SELECT * FROM %s WHERE c0 > DECIMAL '1.1' and c1 < DECIMAL '5.2'", tmpTableName),
@@ -1538,11 +1538,11 @@ public abstract class AbstractTestNativeGeneralQueries
         String tmpTableName = generateRandomTableName();
         try {
             // Create a Parquet table with decimal types and test data.
-            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of());
+            getExpectedQueryRunner().execute(expectedSession, String.format("CREATE TABLE %s (c0 DECIMAL(15,2), c1 DECIMAL(38,2)) WITH (format = 'PARQUET')", tmpTableName), ImmutableList.of(BIGINT));
             getExpectedQueryRunner().execute(expectedSession, String.format("INSERT INTO %s VALUES (DECIMAL '0', DECIMAL '0'), (DECIMAL '1.2', DECIMAL '3.4'), "
                     + "(DECIMAL '1000000.12', DECIMAL '28239823232323.57'), "
                     + "(DECIMAL '-542392.89', DECIMAL '-6723982392109.29'), (NULL, NULL), "
-                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of());
+                    + "(NULL, DECIMAL'-6723982392109.29'),(DECIMAL'1.2', NULL)", tmpTableName), ImmutableList.of(BIGINT));
             String[] queries = {
                     String.format("Select approx_distinct(c0) from %s", tmpTableName),
                     String.format("Select approx_distinct(c1) from %s", tmpTableName),
