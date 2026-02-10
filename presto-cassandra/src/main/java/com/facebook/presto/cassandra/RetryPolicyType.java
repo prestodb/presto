@@ -13,29 +13,34 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.policies.DefaultRetryPolicy;
-import com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy;
-import com.datastax.driver.core.policies.FallthroughRetryPolicy;
-import com.datastax.driver.core.policies.RetryPolicy;
-
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Retry policy types for Cassandra driver 4.x.
+ * In driver 4.x, retry policies are configured by class name rather than instances.
+ */
 public enum RetryPolicyType
 {
-    DEFAULT(DefaultRetryPolicy.INSTANCE),
-    BACKOFF(BackoffRetryPolicy.INSTANCE),
-    DOWNGRADING_CONSISTENCY(DowngradingConsistencyRetryPolicy.INSTANCE),
-    FALLTHROUGH(FallthroughRetryPolicy.INSTANCE);
+    DEFAULT("DefaultRetryPolicy"),
+    BACKOFF("com.facebook.presto.cassandra.BackoffRetryPolicy"),
+    DOWNGRADING_CONSISTENCY("DefaultRetryPolicy"), // Driver 4.x doesn't have DowngradingConsistencyRetryPolicy
+    FALLTHROUGH("DefaultRetryPolicy"); // Driver 4.x doesn't have FallthroughRetryPolicy, use default
 
-    private final RetryPolicy policy;
+    private final String policyClass;
 
-    RetryPolicyType(RetryPolicy policy)
+    RetryPolicyType(String policyClass)
     {
-        this.policy = requireNonNull(policy, "policy is null");
+        this.policyClass = requireNonNull(policyClass, "policyClass is null");
     }
 
-    public RetryPolicy getPolicy()
+    /**
+     * Get the retry policy class name for driver 4.x configuration.
+     * This is used in the programmatic configuration builder.
+     */
+    public String getPolicyClass()
     {
-        return policy;
+        return policyClass;
     }
 }
+
+// Made with Bob

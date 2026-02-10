@@ -111,6 +111,7 @@
         <dep.commons.codec.version>1.17.2</dep.commons.codec.version>
         <aws.sdk.version>2.32.9</aws.sdk.version>
         <dep.jts.version>1.20.0</dep.jts.version>
+        <dep.cassandra-java-driver.version>4.19.2</dep.cassandra-java-driver.version>
 
         <dep.fastutil.version>8.5.2</dep.fastutil.version>
         <dep.datasketches-memory.version>2.2.0</dep.datasketches-memory.version>
@@ -2689,9 +2690,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-core</artifactId>
-                <version>3.11.5</version>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-query-builder</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
             </dependency>
 
             <dependency>
