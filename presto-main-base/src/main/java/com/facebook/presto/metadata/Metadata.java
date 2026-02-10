@@ -573,6 +573,11 @@ public interface Metadata
 
     MaterializedViewPropertyManager getMaterializedViewPropertyManager();
 
+    default Optional<DeprecatedTablePropertyManager> getTableDeprecatedPropertyManager()
+    {
+        return Optional.empty();
+    }
+
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();

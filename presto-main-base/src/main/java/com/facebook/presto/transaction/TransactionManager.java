@@ -15,6 +15,7 @@ package com.facebook.presto.transaction;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -52,6 +54,11 @@ public interface TransactionManager
     default Map<String, CatalogContext> getCatalogNamesWithConnectorContext(TransactionId transactionId)
     {
         return ImmutableMap.of();
+    }
+
+    default List<Catalog> getCatalogs(TransactionId transactionId)
+    {
+        return ImmutableList.of();
     }
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
