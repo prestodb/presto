@@ -235,6 +235,10 @@
                     <groupId>io.grpc</groupId>
                     <artifactId>grpc-protobuf-lite</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.google.oauth-client</groupId>
+                    <artifactId>google-oauth-client</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
