@@ -20,6 +20,7 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.annotations.AfterClass;
@@ -329,5 +330,13 @@ public class TestMongoIntegrationSmokeTest
                 "Can't convert json to MongoDB Document.*");
 
         assertUpdate("DROP TABLE test_json");
+    }
+
+    @Test
+    public void testQueryView()
+    {
+        MongoDatabase database = mongoQueryRunner.getMongoClient().getDatabase("");
+        database.createView("", "", ImmutableList.of());
+        assertQuery("SELECT * FROM test_view;");
     }
 }
