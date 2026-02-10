@@ -119,6 +119,7 @@ import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -139,6 +140,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
@@ -1126,5 +1128,30 @@ public class MetastoreUtil
         return partitionNameWithVersions.stream()
                 .map(PartitionNameWithVersion::getPartitionName)
                 .collect(toImmutableList());
+    }
+
+    /**
+     * Gets the external path for a given location
+     * @param hdfsEnvironment a non-null {@link HdfsEnvironment} with the HDFS credentials
+     * @param context a non-null {@link HdfsContext} with the table information
+     * @param location a non-null {@link String} with the physical table location
+     * @return a {@link Path} to the physical table location
+     * @throws PrestoException if either the physical location does not exist or if it is not a directory
+     */
+    public static Path getExternalPath(HdfsEnvironment hdfsEnvironment, HdfsContext context, String location)
+    {
+        requireNonNull(hdfsEnvironment);
+        requireNonNull(context);
+        requireNonNull(location);
+        try {
+            Path path = new Path(location);
+            if (!hdfsEnvironment.getFileSystem(context, path).getFileStatus(path).isDirectory()) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+            }
+            return path;
+        }
+        catch (IllegalArgumentException | IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        }
     }
 }
