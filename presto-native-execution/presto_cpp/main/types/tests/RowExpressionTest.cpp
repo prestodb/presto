@@ -21,6 +21,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -30,6 +31,7 @@ class RowExpressionTest : public ::testing::Test {
  public:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    registerJsonType();
   }
 
   void SetUp() override {
@@ -1357,4 +1359,90 @@ TEST_F(RowExpressionTest, dereference) {
   ASSERT_NE(fieldAccess, nullptr);
 
   ASSERT_EQ(fieldAccess->name(), "partkey");
+}
+
+TEST_F(RowExpressionTest, castJsonToArrayJson) {
+
+  auto makeJsonCast = [&](const std::string& returnType) -> std::shared_ptr<const CastTypedExpr> {
+      
+      std::string str = R"##(
+       {
+                      "@type": "call",
+                      "sourceLocation": {
+                        "line": 1,
+                        "column": 56
+                      },
+                      "displayName": "JSON_TO_ARRAY_CAST",
+                      "functionHandle": {
+                        "@type": "$static",
+                        "signature": {
+                          "name": "presto.default.$internal$json_string_to_array_cast",
+                          "kind": "SCALAR",
+                          "typeVariableConstraints": [],
+                          "longVariableConstraints": [],
+                          "returnType": ")##" + returnType + R"##(",
+                          "argumentTypes": [
+                            "varchar"
+                          ],
+                          "variableArity": false
+                        }
+                      },
+                      "returnType": ")##" + returnType + R"##(",
+                      "arguments": [
+                        {
+                          "@type": "variable",
+                          "sourceLocation": {
+                            "line": 1,
+                            "column": 56
+                          },
+                          "name": "field_6",
+                          "type": "varchar(13)"
+                        }
+                      ]
+                    })##";
+
+    json j = json::parse(str);
+    std::shared_ptr<protocol::RowExpression> p = j;
+
+    auto expr = converter_->toVeloxExpr(p);
+    auto castExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
+    return castExpr;
+  }; 
+  
+  // Call json parse if the return type is array(json)
+  {
+    auto castExpr = makeJsonCast("array(json)");
+    ASSERT_EQ(castExpr->toString(), "cast presto.default.json_parse(\"field_6\") as ARRAY<JSON>");
+  }
+
+  // Do not call json parse if the return type is array(bigint)
+  {
+    auto castExpr = makeJsonCast("array(bigint)");
+    ASSERT_EQ(castExpr, nullptr);
+  }
+  
+  // Call json parse if the return type is map(varchar, json)
+  {
+    auto castExpr = makeJsonCast("map(varchar, json)");
+    ASSERT_EQ(castExpr->toString(), "cast presto.default.json_parse(\"field_6\") as MAP<VARCHAR,JSON>");
+  }
+
+  // Do not call json parse if the return type is map(varchar, bigint)
+  {
+    auto castExpr = makeJsonCast("map(varchar, bigint)");
+    ASSERT_EQ(castExpr, nullptr);
+  }
+
+  // Call json parse if the return type is map(bigint, array(json))
+  {
+    auto castExpr = makeJsonCast("map(varchar, array(json))");
+    ASSERT_EQ(castExpr->toString(), "cast presto.default.json_parse(\"field_6\") as MAP<VARCHAR,ARRAY<JSON>>");
+  }
+
+  // Call json parse if the return type is row( c0 varchar, c1 array(json))
+  {
+    auto castExpr = makeJsonCast("row(c0 varchar, c1 array(json))");
+    ASSERT_EQ(castExpr->toString(), "cast presto.default.json_parse(\"field_6\") as ROW<c0:VARCHAR,c1:ARRAY<JSON>>");
+  }
+
 }
