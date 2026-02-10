@@ -22,6 +22,7 @@ import org.elasticsearch.search.SearchHit;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -42,7 +43,9 @@ public class TimestampDecoder
     public TimestampDecoder(ConnectorSession session, String path)
     {
         this.path = requireNonNull(path, "path is null");
-        this.zoneId = ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId());
+        this.zoneId = session.getSqlFunctionProperties().isLegacyTimestamp() ?
+                ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()) :
+                ZoneOffset.UTC;
     }
 
     @Override

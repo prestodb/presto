@@ -278,7 +278,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
+                        // https://issues.apache.org/jira/browse/HIVE-21291 : Upgrade hive docker image to 3.2+
                         Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
@@ -398,8 +398,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        // TODO: requires https://issues.apache.org/jira/browse/HIVE-21002
-                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000)),
+                        java.sql.Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",

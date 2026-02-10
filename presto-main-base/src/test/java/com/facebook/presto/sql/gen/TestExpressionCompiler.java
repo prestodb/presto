@@ -77,6 +77,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
@@ -85,6 +86,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.JoniRegexpCasts.joniRegexp;
+import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_HOUR;
+import static com.facebook.presto.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
@@ -1493,7 +1496,9 @@ public class TestExpressionCompiler
                     millis = left.getMillis();
                     expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, field);
                 }
-                DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
+                DateTimeZone zone = TEST_SESSION.getSqlFunctionProperties().isLegacyTimestamp() ?
+                        getDateTimeZone(TEST_SESSION.getTimeZoneKey()) :
+                        getDateTimeZone(UTC_KEY);
                 long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
                 String expressionPattern = format(
                         "extract(%s from from_unixtime(%%s / 1000.0E0, %s, %s))",
@@ -1538,9 +1543,9 @@ public class TestExpressionCompiler
             case SECOND:
                 return DateTimeFunctions.secondFromTimestamp(session.getSqlFunctionProperties(), value);
             case TIMEZONE_MINUTE:
-                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneMinuteFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().isLegacyTimestamp() ? session.getSqlFunctionProperties().getTimeZoneKey() : UTC_KEY));
             case TIMEZONE_HOUR:
-                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().getTimeZoneKey()));
+                return DateTimeFunctions.timeZoneHourFromTimestampWithTimeZone(packDateTimeWithZone(value, session.getSqlFunctionProperties().isLegacyTimestamp() ? session.getSqlFunctionProperties().getTimeZoneKey() : UTC_KEY));
         }
         throw new AssertionError("Unhandled field: " + field);
     }

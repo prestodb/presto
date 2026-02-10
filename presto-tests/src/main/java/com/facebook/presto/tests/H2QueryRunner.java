@@ -107,8 +107,10 @@ public class H2QueryRunner
 {
     private final Handle handle;
 
-    public H2QueryRunner()
+    public H2QueryRunner() throws Exception
     {
+        Class.forName("org.h2.Driver");
+
         handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt());
         TpchMetadata tpchMetadata = new TpchMetadata("");
 

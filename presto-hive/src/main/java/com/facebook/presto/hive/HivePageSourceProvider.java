@@ -212,7 +212,7 @@ public class HivePageSourceProvider
             return new HiveEmptySplitPageSource();
         }
 
-        if (shouldSkipPartition(typeManager, hiveLayout, hiveStorageTimeZone, hiveSplit, splitContext)) {
+        if (shouldSkipPartition(session, typeManager, hiveLayout, hiveStorageTimeZone, hiveSplit, splitContext)) {
             return new HiveEmptySplitPageSource();
         }
 
@@ -365,7 +365,7 @@ public class HivePageSourceProvider
             return Optional.of(new HiveEmptySplitPageSource());
         }
 
-        if (shouldSkipPartition(typeManager, layout, hiveStorageTimeZone, split, splitContext)) {
+        if (shouldSkipPartition(session, typeManager, layout, hiveStorageTimeZone, split, splitContext)) {
             return Optional.of(new HiveEmptySplitPageSource());
         }
 
@@ -512,6 +512,7 @@ public class HivePageSourceProvider
                     rowIdPartitionComponent);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
+                        session,
                         columnMappings,
                         bucketAdaptation,
                         hiveStorageTimeZone,
@@ -638,6 +639,7 @@ public class HivePageSourceProvider
                 }
 
                 HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
+                        session,
                         columnMappings,
                         hiveStorageTimeZone,
                         typeManager,
@@ -679,7 +681,7 @@ public class HivePageSourceProvider
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
     }
 
-    private static boolean shouldSkipPartition(TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
+    private static boolean shouldSkipPartition(ConnectorSession session, TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
     {
         List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns().stream()
                 .map(HiveColumnHandle.class::cast)
@@ -703,7 +705,7 @@ public class HivePageSourceProvider
             HivePartitionKey hivePartitionKey = partitionKeys.get(i);
             HiveColumnHandle hiveColumnHandle = partitionColumns.get(i);
             Domain allowedDomain = domains.get(hiveColumnHandle);
-            NullableValue value = parsePartitionValue(hivePartitionKey, type, hiveStorageTimeZone);
+            NullableValue value = parsePartitionValue(session, hivePartitionKey, type, hiveStorageTimeZone);
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
                 return true;
             }

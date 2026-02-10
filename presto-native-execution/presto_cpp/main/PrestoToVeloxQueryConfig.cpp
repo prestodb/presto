@@ -29,7 +29,7 @@ void updateVeloxConfigsWithSpecialCases(
   // session_timezone.
   auto it = configStrings.find("legacy_timestamp");
   // `legacy_timestamp` default value is true in the coordinator.
-  if ((it == configStrings.end()) || (folly::to<bool>(it->second))) {
+  if ((it != configStrings.end()) && folly::to<bool>(it->second)) {
     configStrings.emplace(
         velox::core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }

@@ -195,7 +195,6 @@ public class OrcSelectiveRecordReader
                 createStreamReaders(
                         orcDataSource,
                         types,
-                        hiveStorageTimeZone,
                         options,
                         includedColumns,
                         outputColumns,
@@ -582,7 +581,6 @@ public class OrcSelectiveRecordReader
     private static SelectiveStreamReader[] createStreamReaders(
             OrcDataSource orcDataSource,
             List<OrcType> types,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
@@ -614,7 +612,6 @@ public class OrcSelectiveRecordReader
                         Optional.ofNullable(filters.get(columnId)).orElse(ImmutableMap.of()),
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
-                        hiveStorageTimeZone,
                         options,
                         systemMemoryContext,
                         false);

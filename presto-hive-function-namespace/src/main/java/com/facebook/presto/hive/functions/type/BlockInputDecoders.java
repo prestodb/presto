@@ -22,12 +22,14 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.Streams;
+import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.ByteWritable;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ConstantObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -62,8 +64,6 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -166,10 +166,10 @@ public final class BlockInputDecoders
             return (b, i) -> b.isNull(i) ? null : readHiveDecimal(((DecimalType) type), b, i);
         }
         else if (inspector instanceof JavaDateObjectInspector) {
-            return (b, i) -> b.isNull(i) ? null : new Date(TimeUnit.DAYS.toMillis(type.getLong(b, i)));
+            return (b, i) -> b.isNull(i) ? null : Date.ofEpochMilli(TimeUnit.DAYS.toMillis(type.getLong(b, i)));
         }
         else if (inspector instanceof JavaTimestampObjectInspector) {
-            return (b, i) -> b.isNull(i) ? null : new Timestamp(type.getLong(b, i));
+            return (b, i) -> b.isNull(i) ? null : Timestamp.ofEpochMilli(type.getLong(b, i));
         }
         else if (inspector instanceof HiveDecimalObjectInspector) {
             checkArgument(type instanceof DecimalType);
@@ -184,13 +184,13 @@ public final class BlockInputDecoders
         }
         else if (inspector instanceof DateObjectInspector) {
             return preferWritable ?
-                    (b, i) -> b.isNull(i) ? null : new DateWritable(((int) type.getLong(b, i))) :
+                    (b, i) -> b.isNull(i) ? null : new DateWritableV2(((int) type.getLong(b, i))) :
                     (b, i) -> b.isNull(i) ? null : createDate(((int) type.getLong(b, i)));
         }
         else if (inspector instanceof TimestampObjectInspector) {
             return preferWritable ?
-                    (b, i) -> b.isNull(i) ? null : new TimestampWritable(new Timestamp(type.getLong(b, i))) :
-                    (b, i) -> b.isNull(i) ? null : new Timestamp(type.getLong(b, i));
+                    (b, i) -> b.isNull(i) ? null : new TimestampWritableV2(Timestamp.ofEpochMilli(type.getLong(b, i))) :
+                    (b, i) -> b.isNull(i) ? null : Timestamp.ofEpochMilli(type.getLong(b, i));
         }
         else if (inspector instanceof VoidObjectInspector) {
             return (b, i) -> null;
