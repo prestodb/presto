@@ -49,7 +49,7 @@ The corresponding session property is :ref:`admin/properties-session:\`\`join_di
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true``
+* **Default value:** ``false``
 
 This property enables redistribution of data before writing. This can
 eliminate the performance impact of data skew when writing by hashing it
@@ -57,7 +57,10 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\``.
+When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
+``scale-writers`` takes precedence.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\`.
 
 ``scale-writers``
 ^^^^^^^^^^^^^^^^^
@@ -70,7 +73,10 @@ Presto automatically adjusts the number of writer tasks to use the minimum neces
 for optimal performance. This can improve resource utilization by scaling out writers
 only when needed based on data throughput.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\``.
+When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
+``scale-writers`` takes precedence.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\`.
 
 ``check-access-control-on-utilized-columns-only``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -50,7 +50,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`join-dist
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true``
+* **Default value:** ``false``
 
 This property enables redistribution of data before writing. This can
 eliminate the performance impact of data skew when writing by hashing it
@@ -58,7 +58,10 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\``.
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\`.
 
 ``scale_writers``
 ^^^^^^^^^^^^^^^^^
@@ -71,7 +74,10 @@ Presto automatically adjusts the number of writer tasks to use the minimum neces
 for optimal performance. This can improve resource utilization by scaling out writers
 only when needed based on data throughput.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\`.
 
 ``task_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^
