@@ -38,6 +38,15 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
+
+Astra
+^^^^^
+
+To connect to an `Astra DB`_ specify ``cassandra.astra-secure-connect-bundle-path`` instead of ``cassandra.contact-points``.
+
+
+.. _Astra DB: https://docs.datastax.com/en/astra-db-serverless/index.html
+
 Configuration Properties
 ------------------------
 
@@ -48,7 +57,13 @@ Property Name                                      Description
 ================================================== ======================================================================
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver will use these contact points to discover cluster topology.
-                                                   At least one Cassandra host is required.
+                                                   Must be specified unless ``cassandra.astra-secure-connect-bundle-path``
+                                                   is provided. When specified, at least one Cassandra host is required.
+
+``cassandra.astra-secure-connect-bundle-path``     Absolute physical path to the `Astra Secure Connect Bundle (SCB)`_ file.
+                                                   The Cassandra driver will use this file for cluster discovery and
+                                                   channel encryption. When specifying this property do not provide
+                                                   ``cassandra.contact-points``.
 
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
@@ -86,6 +101,8 @@ Property Name                                      Description
         the ``system.size_estimates`` table.
 
 .. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
+
+.. _Astra Secure Connect Bundle (SCB): https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
 
 The following advanced configuration properties are available:
 
