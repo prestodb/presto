@@ -25,20 +25,35 @@ jobs:
     permissions:
       contents: read
     needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc-14, clang-15, clang-latest]
     container:
       image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
     concurrency:
-      group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}-${{ matrix.compiler }}
       cancel-in-progress: true
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
-      CC: /usr/bin/clang-15
-      CXX: /usr/bin/clang++-15
+      COMPILER: ${{ matrix.compiler }}
+      CUDA_VERSION: '12.8'
       BUILD_SCRIPT: |
         cd presto-native-execution
+        export GPU=OFF
+        if [[ "$COMPILER" == "gcc-14" ]]; then
+          unset CC && unset CXX
+          source /opt/rh/gcc-toolset-14/enable
+          export GPU=ON
+        elif [[ "$COMPILER" == "clang-15" ]]; then
+          export CC=/usr/bin/clang-15 && export CXX=/usr/bin/clang++-15
+        else
+          # clang-latest
+          export CC=clang && export CXX=clang++
+        fi
         cmake \
           -B _build/debug \
           -GNinja \
@@ -51,9 +66,9 @@ jobs:
           -DPRESTO_ENABLE_HDFS=ON \
           -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
           -DPRESTO_ENABLE_JWT=ON \
+          -DPRESTO_ENABLE_CUDF=${GPU} \
           -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
           -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
-          -DPRESTO_ENABLE_TESTING=OFF \
           -DCMAKE_PREFIX_PATH=/usr/local \
           -DThrift_ROOT=/usr/local \
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -105,7 +120,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-prestocpp-linux-build-engine
+          key: ccache-prestocpp-linux-build-engine-${{ matrix.compiler }}
 
       - name: Zero ccache statistics
         if: needs.changes.outputs.codechange == 'true'
@@ -115,11 +130,8 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         run: |
           find . -name data | xargs rm -r
-          find . -name tests | xargs rm -r
-          find . -name test | xargs rm -rf
           find . -name "*.md" -not -path "./.github/*" | xargs rm -f
           find . -name "docs" | xargs rm -rf
-          find . -name "examples" | xargs rm -rf
           find . -name ".git" -not -path "./.git*" | xargs rm -rf
 
       - name: Disk space consumption before build
@@ -132,6 +144,11 @@ jobs:
 
       - name: Build engine
         if: needs.changes.outputs.codechange == 'true'
+        env:
+          CUDA_ARCHITECTURES: 75
+          CUDA_COMPILER: /usr/local/cuda-${CUDA_VERSION}/bin/nvcc
+          # Set compiler to GCC 14
+          CUDA_FLAGS: -ccbin /opt/rh/gcc-toolset-14/root/usr/bin
         run: |
           eval ${{ env.BUILD_SCRIPT }}
 
@@ -147,10 +164,10 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           path: '${{ env.CCACHE_DIR }}'
-          key: ccache-prestocpp-linux-build-engine
+          key: ccache-prestocpp-linux-build-engine-${{ matrix.compiler }}
 
       - name: Regenerate the protocol files
-        if: needs.changes.outputs.codechange == 'true'
+        if: ( needs.changes.outputs.codechange == 'true' && matrix.compiler == 'clang-15' )
         run: |
           export PRESTO_HOME=$(pwd)
           cd presto-native-execution
