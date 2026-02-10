@@ -44,35 +44,35 @@ public class TestHiveBucketedTables
         implements RequirementsProvider
 {
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = HiveTableDefinition.builder("bucket_partition_nation")
-            .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
-                    "n_nationkey     BIGINT," +
-                    "n_name          STRING," +
-                    "n_regionkey     BIGINT," +
-                    "n_comment       STRING) " +
-                    "PARTITIONED BY (part_key STRING) " +
-                    "CLUSTERED BY (n_regionkey) " +
-                    "INTO 2 BUCKETS " +
-                    "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
-            .setNoData()
-            .build();
+    public static final HiveTableDefinition BUCKETED_NATION = bucketTableDefinition("bucket_nation", false, true);
 
     @TableDefinitionsRepository.RepositoryTableDefinition
-    public static final HiveTableDefinition PARTITIONED_NATION = HiveTableDefinition.builder("partitioned_nation")
-            .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
-                    "n_nationkey     BIGINT," +
-                    "n_name          STRING," +
-                    "n_regionkey     BIGINT," +
-                    "n_comment       STRING) " +
-                    "PARTITIONED BY (part_key STRING) " +
-                    "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
-            .setNoData()
-            .build();
+    public static final HiveTableDefinition BUCKETED_PARTITIONED_NATION = bucketTableDefinition("bucket_partitioned_nation", true, true);
+
+    @TableDefinitionsRepository.RepositoryTableDefinition
+    public static final HiveTableDefinition PARTITIONED_NATION = bucketTableDefinition("partitioned_nation", true, false);
+
+    private static HiveTableDefinition bucketTableDefinition(String tableName, boolean partitioned, boolean bucketed)
+    {
+        return HiveTableDefinition.builder(tableName)
+                .setCreateTableDDLTemplate("CREATE TABLE %NAME%(" +
+                        "n_nationkey     BIGINT," +
+                        "n_name          STRING," +
+                        "n_regionkey     BIGINT," +
+                        "n_comment       STRING) " +
+                        (partitioned ? "PARTITIONED BY (part_key STRING) " : " ") +
+                        "CLUSTERED BY (n_regionkey) " +
+                        (bucketed ? "INTO 2 BUCKETS " : " ") +
+                        "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
+                .setNoData()
+                .build();
+    }
 
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
         return Requirements.compose(
+                MutableTableRequirement.builder(BUCKETED_NATION).withState(CREATED).build(),
                 MutableTableRequirement.builder(BUCKETED_PARTITIONED_NATION).withState(CREATED).build(),
                 immutableTable(NATION));
     }
@@ -166,5 +166,18 @@ public class TestHiveBucketedTables
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    public void testInsertIntoBucketedTables()
+    {
+        String tableName = mutableTablesState().get(BUCKETED_NATION).getNameInDatabase();
+
+        query(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName()));
+        // make sure that insert will not overwrite existing data
+        query(format("INSERT INTO %s SELECT * FROM %s", tableName, NATION.getName()));
+
+        assertThat(query(format("SELECT count(*) FROM %s", tableName))).containsExactly(row(50));
+        assertThat(query(format("SELECT count(*) FROM %s WHERE n_regionkey=0", tableName))).containsExactly(row(10));
     }
 }
