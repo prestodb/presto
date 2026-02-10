@@ -121,6 +121,10 @@
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>animal-sniffer-annotations</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.codehaus.jackson</groupId>
+                    <artifactId>jackson-mapper-asl</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
