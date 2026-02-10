@@ -481,6 +481,17 @@ In streaming aggregation, wait until there are enough output rows
 to produce a batch of the size specified by this property. If set to ``0``, then
 ``Operator::outputBatchRows`` is used as the minimum number of output batch rows.
 
+``native_merge_join_output_batch_start_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Native Execution only. Initial output batch size in rows for MergeJoin operator.
+When non-zero, the batch size starts at this value and is dynamically adjusted
+based on the average row size of previous output batches. When zero (default),
+dynamic adjustment is disabled and the batch size is fixed at ``preferred_output_batch_rows``.
+
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

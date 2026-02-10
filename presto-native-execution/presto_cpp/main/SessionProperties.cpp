@@ -579,6 +579,18 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxOutputBatchRows()));
 
   addSessionProperty(
+      kMergeJoinOutputBatchStartSize,
+      "Initial output batch size in rows for MergeJoin operator. When non-zero, "
+      "the batch size starts at this value and is dynamically adjusted based on "
+      "the average row size of previous output batches. When zero (default), "
+      "dynamic adjustment is disabled and the batch size is fixed at "
+      "preferredOutputBatchRows.",
+      INTEGER(),
+      false,
+      QueryConfig::kMergeJoinOutputBatchStartSize,
+      std::to_string(c.mergeJoinOutputBatchStartSize()));
+
+  addSessionProperty(
       kRowSizeTrackingMode,
       "Enable (reader) row size tracker as a fallback to file level row size estimates.",
       INTEGER(),
