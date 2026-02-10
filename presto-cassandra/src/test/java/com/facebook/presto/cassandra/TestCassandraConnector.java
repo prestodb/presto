@@ -122,10 +122,10 @@ public class TestCassandraConnector
         connector = connectorFactory.create(connectorId, ImmutableMap.of(
                         "cassandra.contact-points", server.getHost(),
                         "cassandra.native-protocol-port", Integer.toString(server.getPort()),
-                        "cassandra.allow-drop-table", "true"),
+                        "cassandra.allow-drop-table", "true",
                         "cassandra.load-policy.use-dc-aware", "true",
-                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
-                        "cassandra.consistency-level", "LOCAL_QUORUM",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
+                        "cassandra.consistency-level", "LOCAL_QUORUM"),
                 new TestingConnectorContext());
 
         splitManager = connector.getSplitManager();

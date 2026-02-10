@@ -20,7 +20,6 @@ import com.google.common.base.Supplier;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
