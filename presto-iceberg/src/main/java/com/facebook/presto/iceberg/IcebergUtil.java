@@ -328,6 +328,14 @@ public final class IcebergUtil
             return name.getSnapshotId();
         }
 
+        if (name.getBranchName().isPresent()) {
+            String branchName = name.getBranchName().get();
+            org.apache.iceberg.SnapshotRef branchRef = table.refs().get(branchName);
+            if (branchRef != null && branchRef.isBranch()) {
+                return Optional.of(branchRef.snapshotId());
+            }
+        }
+
         if (name.getTableType() == IcebergTableType.CHANGELOG) {
             return Optional.ofNullable(SnapshotUtil.oldestAncestor(table)).map(Snapshot::snapshotId);
         }
