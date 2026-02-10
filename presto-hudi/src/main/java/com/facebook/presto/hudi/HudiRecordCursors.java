@@ -24,6 +24,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
+import io.airlift.units.Duration;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -35,6 +36,7 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 
 import java.io.IOException;
@@ -44,6 +46,7 @@ import java.util.Properties;
 import java.util.function.Function;
 
 import static com.facebook.presto.hive.HudiRecordCursors.createRecordCursor;
+import static com.facebook.presto.hive.RetryDriver.retry;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -51,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -59,6 +63,11 @@ import static org.apache.hudi.common.config.HoodieReaderConfig.FILE_GROUP_READER
 
 class HudiRecordCursors
 {
+    // cursors are in driver scope, so its could not block to long
+    private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
+    private static final Duration BACKOFF_MAX_SLEEP = new Duration(10, SECONDS);
+    private static final int MAX_RECURSIVE_LEVEL = 10;
+
     private HudiRecordCursors() {}
 
     public static RecordCursor createRealtimeRecordCursor(
@@ -117,21 +126,47 @@ class HudiRecordCursors
 
         // create record reader for split
         try {
-            HudiFile baseFile = getHudiBaseFile(split);
-            Path path = new Path(baseFile.getPath());
-            FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
-            List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
-            String tablePath = split.getTable().getPath();
-            FileSplit hudiSplit = new HoodieRealtimeFileSplit(fileSplit, tablePath, logFiles, split.getInstantTime(), false, Option.empty());
-            return inputFormat.getRecordReader(hudiSplit, jobConf, Reporter.NULL);
+            return retry()
+                    .exponentialBackoff(BACKOFF_MIN_SLEEP, BACKOFF_MAX_SLEEP, BACKOFF_MAX_SLEEP, 1.2)
+                    .stopOnIllegalExceptions()
+                    .stopOn(IOException.class, PrestoException.class)
+                    .run("hudiGetRecordReaderCursor", () -> {
+                        try {
+                            HudiFile baseFile = getHudiBaseFile(split);
+                            Path path = new Path(baseFile.getPath());
+                            FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
+                            List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
+                            String tablePath = split.getTable().getPath();
+                            FileSplit hudiSplit = new HoodieRealtimeFileSplit(fileSplit, tablePath, logFiles, split.getInstantTime(), false, Option.empty());
+                            return inputFormat.getRecordReader(hudiSplit, jobConf, Reporter.NULL);
+                        }
+                        catch (HoodieException e) {
+                            if (!isJsonParseException(e, MAX_RECURSIVE_LEVEL)) {
+                                throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "current HoodieException is not JsonParseException, please check the cause exception", e);
+                            }
+                            throw e;
+                        }
+                    });
         }
-        catch (IOException e) {
+        catch (Exception e) {
             String msg = format("Error opening Hive split %s using %s: %s",
                     split,
                     inputFormatName,
                     firstNonNull(e.getMessage(), e.getClass().getName()));
             throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, msg, e);
         }
+    }
+
+    private static boolean isJsonParseException(Throwable e, int level)
+    {
+        if (level <= 0) {
+            return false;
+        }
+        // preorder traversal
+        if (e.getCause() instanceof com.fasterxml.jackson.core.JsonParseException) {
+            return true;
+        }
+        return isJsonParseException(e.getCause(), level - 1);
     }
 
     private static InputFormat<?, ?> createInputFormat(Configuration conf, String inputFormat)
@@ -169,6 +204,7 @@ class HudiRecordCursors
     {
         return column.getColumnType() == HudiColumnHandle.ColumnType.REGULAR;
     }
+
     private static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
     {
         // use first log file as base file for MOR table if it hasn't base file
