@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
@@ -103,9 +103,11 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getTimestamp(i).getTime();
+                // Driver 4.x: getInstant() returns java.time.Instant
+                return currentRow.getInstant(i).toEpochMilli();
             case DATE:
-                return currentRow.getDate(i).getDaysSinceEpoch();
+                // Driver 4.x: getLocalDate() returns java.time.LocalDate
+                return currentRow.getLocalDate(i).toEpochDay();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:

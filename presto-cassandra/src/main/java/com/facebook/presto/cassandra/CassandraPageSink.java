@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.querybuilder.insert.Insert;
+import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
@@ -37,8 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
@@ -74,7 +73,6 @@ public class CassandraPageSink
 
     public CassandraPageSink(
             CassandraSession cassandraSession,
-            ProtocolVersion protocolVersion,
             String schemaName,
             String tableName,
             List<String> columnNames,
@@ -88,23 +86,21 @@ public class CassandraPageSink
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.generateUUID = generateUUID;
 
-        if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
-            toCassandraDate = value -> DATE_FORMATTER.format(Instant.ofEpochMilli(TimeUnit.DAYS.toMillis(value)));
-        }
-        else {
-            toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
-        }
+        // Driver 4.x: Always use java.time.LocalDate (protocol version auto-negotiated)
+        toCassandraDate = value -> java.time.LocalDate.ofEpochDay(value);
 
-        Insert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
+        // Driver 4.x: Build INSERT statement using query builder
+        RegularInsert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
         if (generateUUID) {
-            insert.value("id", bindMarker());
+            insert = insert.value("id", bindMarker());
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             checkArgument(columnName != null, "columnName is null at position: %d", i);
-            insert.value(validColumnName(columnName), bindMarker());
+            insert = insert.value(validColumnName(columnName), bindMarker());
         }
-        this.insert = cassandraSession.prepare(insert);
+        // Driver 4.x: prepare() takes SimpleStatement
+        this.insert = cassandraSession.prepare(insert.build());
     }
 
     @Override

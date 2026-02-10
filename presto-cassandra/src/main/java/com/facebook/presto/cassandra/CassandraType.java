@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.TupleValue;
-import com.datastax.driver.core.utils.Bytes;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.TupleValue;
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.internal.core.util.Bytes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -42,6 +41,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -123,59 +124,81 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getCassandraType(DataType.Name name)
+    public static CassandraType getCassandraType(DataType dataType)
     {
-        switch (name) {
-            case ASCII:
-                return ASCII;
-            case BIGINT:
-                return BIGINT;
-            case BLOB:
-                return BLOB;
-            case BOOLEAN:
-                return BOOLEAN;
-            case COUNTER:
-                return COUNTER;
-            case CUSTOM:
-                return CUSTOM;
-            case DATE:
-                return DATE;
-            case DECIMAL:
-                return DECIMAL;
-            case DOUBLE:
-                return DOUBLE;
-            case FLOAT:
-                return FLOAT;
-            case INET:
-                return INET;
-            case INT:
-                return INT;
-            case LIST:
-                return LIST;
-            case MAP:
-                return MAP;
-            case SET:
-                return SET;
-            case SMALLINT:
-                return SMALLINT;
-            case TEXT:
-                return TEXT;
-            case TIMESTAMP:
-                return TIMESTAMP;
-            case TIMEUUID:
-                return TIMEUUID;
-            case TINYINT:
-                return TINYINT;
-            case TUPLE:
-                return TUPLE;
-            case UUID:
-                return UUID;
-            case VARCHAR:
-                return VARCHAR;
-            case VARINT:
-                return VARINT;
-            default:
-                throw new NotSupportedException(format("Unsupported Cassandra type: %s", name));
+        // Driver 4.x: DataType is now an interface, use equals() for comparison
+        if (dataType.equals(DataTypes.ASCII)) {
+            return ASCII;
+        }
+        else if (dataType.equals(DataTypes.BIGINT)) {
+            return BIGINT;
+        }
+        else if (dataType.equals(DataTypes.BLOB)) {
+            return BLOB;
+        }
+        else if (dataType.equals(DataTypes.BOOLEAN)) {
+            return BOOLEAN;
+        }
+        else if (dataType.equals(DataTypes.COUNTER)) {
+            return COUNTER;
+        }
+        else if (dataType.equals(DataTypes.DATE)) {
+            return DATE;
+        }
+        else if (dataType.equals(DataTypes.DECIMAL)) {
+            return DECIMAL;
+        }
+        else if (dataType.equals(DataTypes.DOUBLE)) {
+            return DOUBLE;
+        }
+        else if (dataType.equals(DataTypes.FLOAT)) {
+            return FLOAT;
+        }
+        else if (dataType.equals(DataTypes.INET)) {
+            return INET;
+        }
+        else if (dataType.equals(DataTypes.INT)) {
+            return INT;
+        }
+        else if (dataType.equals(DataTypes.SMALLINT)) {
+            return SMALLINT;
+        }
+        else if (dataType.equals(DataTypes.TEXT)) {
+            return TEXT;
+        }
+        else if (dataType.equals(DataTypes.TIMESTAMP)) {
+            return TIMESTAMP;
+        }
+        else if (dataType.equals(DataTypes.TIMEUUID)) {
+            return TIMEUUID;
+        }
+        else if (dataType.equals(DataTypes.TINYINT)) {
+            return TINYINT;
+        }
+        else if (dataType.equals(DataTypes.UUID)) {
+            return UUID;
+        }
+        else if (dataType.equals(DataTypes.VARINT)) {
+            return VARINT;
+        }
+        // Check for collection types
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.ListType) {
+            return LIST;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.SetType) {
+            return SET;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.MapType) {
+            return MAP;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.TupleType) {
+            return TUPLE;
+        }
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.CustomType) {
+            return CUSTOM;
+        }
+        else {
+            throw new NotSupportedException(format("Unsupported Cassandra type: %s", dataType));
         }
     }
 
@@ -218,9 +241,11 @@ public enum CassandraType
                 case TIMEUUID:
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getTimestamp(position).getTime());
+                    // Driver 4.x: getInstant() returns java.time.Instant
+                    return NullableValue.of(nativeType, row.getInstant(position).toEpochMilli());
                 case DATE:
-                    return NullableValue.of(nativeType, (long) row.getDate(position).getDaysSinceEpoch());
+                    // Driver 4.x: getLocalDate() returns java.time.LocalDate
+                    return NullableValue.of(nativeType, (long) row.getLocalDate(position).toEpochDay());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
                 case VARINT:
@@ -347,9 +372,11 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUUID(position).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getTimestamp(position).getTime());
+                    // Driver 4.x: getInstant() returns java.time.Instant
+                    return Long.toString(row.getInstant(position).toEpochMilli());
                 case DATE:
-                    return row.getDate(position).toString();
+                    // Driver 4.x: getLocalDate() returns java.time.LocalDate
+                    return row.getLocalDate(position).toString();
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
                 case VARINT:
@@ -447,9 +474,11 @@ public enum CassandraType
                 // Otherwise partition id doesn't match
                 return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
+                // Convert milliseconds to java.util.Date for backward compatibility
                 return new Date((Long) nativeValue);
             case DATE:
-                return LocalDate.fromDaysSinceEpoch(((Long) nativeValue).intValue());
+                // Driver 4.x: Use java.time.LocalDate
+                return LocalDate.ofEpochDay(((Long) nativeValue).intValue());
             case UUID:
             case TIMEUUID:
                 return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
@@ -528,7 +557,7 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
+    public static CassandraType toCassandraType(Type type)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
             return BOOLEAN;
@@ -555,7 +584,8 @@ public enum CassandraType
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
-            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? TEXT : DATE;
+            // Driver 4.x: Always use DATE type (protocol version auto-negotiated)
+            return DATE;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;

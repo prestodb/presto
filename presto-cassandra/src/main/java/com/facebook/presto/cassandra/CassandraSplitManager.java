@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Host;
+import com.datastax.oss.driver.api.core.metadata.Node;
 import com.facebook.presto.cassandra.util.HostAddressFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -133,7 +133,7 @@ public class CassandraSplitManager
         Map<Set<String>, List<HostAddress>> hostMap = new HashMap<>();
 
         for (CassandraPartition cassandraPartition : partitions) {
-            Set<Host> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
+            Set<Node> hosts = cassandraSession.getReplicas(schema, cassandraPartition.getKeyAsByteBuffer());
             List<HostAddress> addresses = hostAddressFactory.toHostAddressList(hosts);
             if (singlePartitionKeyColumn) {
                 // host ip addresses
