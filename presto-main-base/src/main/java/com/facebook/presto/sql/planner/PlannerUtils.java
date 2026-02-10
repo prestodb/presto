@@ -36,6 +36,7 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -184,6 +185,11 @@ public class PlannerUtils
 
     public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap)
     {
+        return addProjections(source, planNodeIdAllocator, variableMap, LOCAL);
+    }
+
+    public static PlanNode addProjections(PlanNode source, PlanNodeIdAllocator planNodeIdAllocator, Map<VariableReferenceExpression, RowExpression> variableMap, Locality locality)
+    {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression variableReferenceExpression : source.getOutputVariables()) {
             assignments.put(variableReferenceExpression, variableReferenceExpression);
@@ -195,7 +201,7 @@ public class PlannerUtils
                 planNodeIdAllocator.getNextId(),
                 source,
                 assignments.build(),
-                LOCAL);
+                locality);
     }
 
     // Add a projection node, which assignment new value if output exists in variableMap, otherwise identity assignment

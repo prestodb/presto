@@ -70,6 +70,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     concurrency:
       group: ${{ github.workflow }}-prestocpp-linux-build-for-test-${{ github.event.pull_request.number }}
       cancel-in-progress: true
@@ -80,6 +83,23 @@ jobs:
     permissions:
       actions: write
     steps:
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -164,6 +184,9 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
     env:
       INSTALL_PREFIX: "${{ github.workspace }}/adapter-deps/install"
     strategy:
@@ -178,6 +201,23 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
+
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
