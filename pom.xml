@@ -1090,7 +1090,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
+                <version>3.0.0-11</version>
             </dependency>
 
             <dependency>
