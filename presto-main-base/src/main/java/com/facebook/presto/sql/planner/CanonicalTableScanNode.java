@@ -18,8 +18,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.HboCanonicalizableTableHandle;
-import com.facebook.presto.spi.HboUnpublishableTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
@@ -153,23 +151,20 @@ public class CanonicalTableScanNode
         // we do not serialize this field.
         private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
-        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, ConnectorTableHandle connectorTableHandle, PlanCanonicalizationStrategy strategy)
         {
-            ConnectorTableHandle connectorHandle = tableHandle.getConnectorHandle();
-            if (connectorHandle instanceof HboCanonicalizableTableHandle) {
-                connectorHandle = ((HboCanonicalizableTableHandle) connectorHandle).canonicalizeForHbo();
-            }
-            return new CanonicalTableHandle(
-                    tableHandle.getConnectorId(), connectorHandle,
+            return new CanonicalTableScanNode.CanonicalTableHandle(
+                    tableHandle.getConnectorId(), connectorTableHandle,
                     tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty(), strategy)),
                     tableHandle.getLayout());
         }
 
-        public static boolean isCanonicalTableStatsPublishable(TableHandle tableHandle)
-        {
-            ConnectorTableHandle connectorHandle = tableHandle.getConnectorHandle();
-            return !((connectorHandle instanceof HboUnpublishableTableHandle) && ((HboUnpublishableTableHandle) connectorHandle).shouldUnpublishHboStats());
-        }
+//        public static boolean isCanonicalTableStatsPublishable(TableHandle tableHandle)
+//        {
+//            ConnectorTableHandle connectorHandle = tableHandle.getConnectorHandle();
+//
+//            return !((connectorHandle instanceof HboUnpublishableTableHandle) && ((HboUnpublishableTableHandle) connectorHandle).shouldUnpublishHboStats());
+//        }
 
         @JsonCreator
         public CanonicalTableHandle(

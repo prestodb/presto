@@ -15,6 +15,7 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -1027,6 +1028,11 @@ public interface ConnectorMetadata
      * If the method returns a result, the returned table handle will be used in place of the table function invocation.
      */
     default Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<ConnectorTableHandle> canonicalizeTableHandle(ConnectorSession session, ConnectorTableHandle tableHandle, PlanCanonicalizationStrategy strategy)
     {
         return Optional.empty();
     }

@@ -19,6 +19,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
@@ -355,6 +356,21 @@ public abstract class IcebergAbstractMetadata
     public Optional<IcebergProcedureContext> getProcedureContext()
     {
         return this.procedureContext;
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> canonicalizeTableHandle(ConnectorSession session, ConnectorTableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+    {
+        if (!(tableHandle instanceof IcebergTableHandle)) {
+            return Optional.empty();
+        }
+
+        IcebergTableHandle h = (IcebergTableHandle) tableHandle;
+        if (h.shouldUnpublishHboStats()) {   // snapshotSpecified or snapshotId present
+            return Optional.empty();
+        }
+
+        return Optional.of(h.canonicalizeForHbo()); // strip snapshot fields
     }
 
     /**

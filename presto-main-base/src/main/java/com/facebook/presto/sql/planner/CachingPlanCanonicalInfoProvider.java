@@ -89,11 +89,14 @@ public class CachingPlanCanonicalInfoProvider
         if (enableVerboseRuntimeStats) {
             profileStartTime = System.nanoTime();
         }
-        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper, session), context);
+        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper, session, metadata), context);
         if (enableVerboseRuntimeStats) {
             profileTime("CanonicalPlanGenerator", profileStartTime, session);
         }
         if (loadValueTimeout(startTimeInNano, timeoutInMilliseconds)) {
+            return Optional.empty();
+        }
+        if (!context.isHboEligible()) {
             return Optional.empty();
         }
         // Only log the canonicalized plan when the plan node is root node, whose serialized form will include the whole plan

@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -25,6 +26,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -612,9 +614,14 @@ public interface Metadata
     String normalizeIdentifier(Session session, String catalogName, String identifier);
 
     /**
-     * Attempt to push down the table function invocation into the connector.
+     * Attempt to push down thecon table function invocation into the connector.
      * @return {@link Optional#empty()} if the connector doesn't support table function invocation pushdown,
      * or an {@code Optional<TableFunctionApplicationResult<TableHandle>>} containing the table handle that will be used in place of the table function invocation.
      */
     Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
+
+    default Optional<ConnectorTableHandle> canonicalizeTableHandleForHbo(Session session, TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+    {
+        return Optional.empty();
+    }
 }

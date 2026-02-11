@@ -42,7 +42,6 @@ import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.TableWriterNodeStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlan;
-import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
@@ -130,14 +129,6 @@ public class HistoryBasedPlanStatisticsTracker
         if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
             return ImmutableMap.of();
         }
-
-        // If any table involves a snapshot id, stop publishing stats
-        for (CanonicalPlanWithInfo canonicalPlanWithInfo : queryInfo.getPlanCanonicalInfo()) {
-            if (!canonicalPlanWithInfo.getCanonicalPlan().isHboPublishStats()) {
-                return ImmutableMap.of();
-            }
-        }
-
         // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
         boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
         boolean querySucceed = queryInfo.getFailureInfo() == null;

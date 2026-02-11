@@ -15,8 +15,10 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
@@ -103,7 +105,6 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.facebook.presto.sql.planner.CanonicalPartitioningScheme.getCanonicalPartitioningScheme;
 import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.getCanonicalTableHandle;
-import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.isCanonicalTableStatsPublishable;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -126,6 +127,7 @@ public class CanonicalPlanGenerator
     private final PlanCanonicalizationStrategy strategy;
     private final ObjectMapper objectMapper;
     private final Session session;
+    private final Metadata metadata;
 
     public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper, Session session)
     {
@@ -133,6 +135,16 @@ public class CanonicalPlanGenerator
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.session = requireNonNull(session, "session is null");
         this.planNodeidAllocator = createPlanNodeIdAllocator(strategy);
+        this.metadata = null;
+    }
+
+    public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper, Session session, Metadata metadataManager)
+    {
+        this.strategy = requireNonNull(strategy, "strategy is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.session = requireNonNull(session, "session is null");
+        this.planNodeidAllocator = createPlanNodeIdAllocator(strategy);
+        this.metadata = metadataManager;
     }
 
     private PlanNodeIdAllocator createPlanNodeIdAllocator(PlanCanonicalizationStrategy strategy)
@@ -1192,13 +1204,22 @@ public class CanonicalPlanGenerator
             assignments.put(reference, columnReference.getColumnHandle());
         }
         TableHandle tableHandle = node.getTable();
+        // if getCanonicalTableHandle returns empty, it means we cannot canonicalize this table scan, likely because the connector does not support it.
+        // In that case we return Optional.empty() to give up canonicalizing this plan.
+
+        Optional<ConnectorTableHandle> canonical = metadata.canonicalizeTableHandleForHbo(session, tableHandle, strategy);
+        if (!canonical.isPresent()) {
+            context.markHboIneligible();
+            return Optional.empty();
+        }
+
         PlanNode canonicalPlanNode = new CanonicalTableScanNode(
                 Optional.empty(),
-                planNodeidAllocator.getNextId(), getCanonicalTableHandle(tableHandle, strategy),
+                planNodeidAllocator.getNextId(), getCanonicalTableHandle(tableHandle, canonical.get(), strategy),
                 outputVariables.build(),
                 assignments.build());
+
         CanonicalPlan canonicalPlan = new CanonicalPlan(canonicalPlanNode, strategy);
-        canonicalPlan.setHboPublishStats(isCanonicalTableStatsPublishable(tableHandle));
         context.addPlan(node, canonicalPlan);
         return Optional.of(canonicalPlanNode);
     }
@@ -1295,6 +1316,7 @@ public class CanonicalPlanGenerator
         private final Map<PlanNode, CanonicalPlan> canonicalPlans = new IdentityHashMap<>();
         private final Map<PlanNode, PlanNode> canonicalPlanToPlan = new IdentityHashMap<>();
         private final Map<PlanNode, List<TableScanNode>> inputTables = new IdentityHashMap<>();
+        private boolean hboEligible = true;
 
         public Map<VariableReferenceExpression, VariableReferenceExpression> getExpressions()
         {
@@ -1381,6 +1403,16 @@ public class CanonicalPlanGenerator
                 }
             }
             inputTables.put(plan, inputs.build());
+        }
+
+        void markHboIneligible()
+        {
+            hboEligible = false;
+        }
+
+        boolean isHboEligible()
+        {
+            return hboEligible;
         }
     }
 }

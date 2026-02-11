@@ -20,6 +20,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
@@ -669,6 +670,12 @@ public class HiveMetadata
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         Optional<Table> table = metastore.getTable(metastoreContext, hiveTableHandle);
         return getTableMetadata(table, hiveTableHandle.getSchemaTableName(), metastoreContext, session);
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> canonicalizeTableHandle(ConnectorSession session, ConnectorTableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+    {
+        return Optional.of(tableHandle);
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
