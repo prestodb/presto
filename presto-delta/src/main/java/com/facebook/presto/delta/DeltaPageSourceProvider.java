@@ -22,6 +22,8 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.delta.deletionvector.DeletionVectorEntry;
+import com.facebook.presto.delta.deletionvector.DeletionVectors;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -48,6 +50,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -81,6 +84,7 @@ import static com.facebook.presto.delta.DeltaColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.delta.DeltaErrorCode.DELTA_ERROR_LOADING_METADATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
@@ -174,10 +178,25 @@ public class DeltaPageSourceProvider
                 deltaTableLayoutHandle.getPredicate(),
                 fileFormatDataSourceStats);
 
+        RoaringBitmapArray deletedRows = null;
+        Optional<DeletionVectorEntry> optionalDeletionVectorEntry = deltaSplit.getDeletionVector();
+        Optional<String> optionalTablePath = hdfsContext.getTablePath();
+        if (optionalDeletionVectorEntry.isPresent() && optionalTablePath.isPresent()) {
+            try {
+                deletedRows = DeletionVectors.readDeletionVectors(
+                        hdfsEnvironment.getFileSystem(hdfsContext, new Path(deltaSplit.getLocation())),
+                        deltaSplit.getLocation(),
+                        optionalDeletionVectorEntry.get());
+            }
+            catch (IOException e) {
+                throw new PrestoException(DELTA_ERROR_LOADING_METADATA, "Failed to read deletion vectors", e);
+            }
+        }
         return new DeltaPageSource(
                 deltaColumnHandles,
                 convertPartitionValues(deltaColumnHandles, deltaSplit.getPartitionValues()),
-                dataPageSource);
+                dataPageSource,
+                deletedRows);
     }
 
     /**
