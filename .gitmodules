@@ -1,3 +1,4 @@
 [submodule "presto-native-execution/velox"]
 	path = presto-native-execution/velox
-	url = https://github.com/facebookincubator/velox.git
+	url = https://github.com/IBM/velox.git
+	branch = ibm-research-preview-20260212
