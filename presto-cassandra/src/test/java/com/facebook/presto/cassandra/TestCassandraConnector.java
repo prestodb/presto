@@ -102,7 +102,6 @@ public class TestCassandraConnector
     protected SchemaTableName tableUnpartitioned;
     protected SchemaTableName invalidTable;
     protected SchemaTableName rollbackTable;
-    protected SchemaTableName concurrentCreateTable;
     private CassandraServer server;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -137,7 +136,6 @@ public class TestCassandraConnector
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
         rollbackTable = new SchemaTableName(database, "rollback_table");
-        concurrentCreateTable = new SchemaTableName(database, "concurrent_create_table");
     }
 
     @Test
@@ -268,6 +266,8 @@ public class TestCassandraConnector
         }
         catch (RuntimeException e) {
             if (handle != null) {
+                // table should exist
+                assertTrue(metadata.listTables(SESSION, database).contains(rollbackTable));
                 // rollback table
                 connector.rollback(transactionHandle);
             }

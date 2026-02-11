@@ -373,11 +373,18 @@ public class CassandraMetadata
 
     public void rollback()
     {
+        Runnable action = rollbackAction.getAndSet(null);
+        if (action == null) {
+            return; // nothing to roll back
+        }
+
         if (!allowDropTable) {
             throw new PrestoException(
-                    PERMISSION_DENIED, "Table creation was aborted and requires rollback, but cleanup failed because DROP TABLE is disabled in this Cassandra catalog.");
+                    PERMISSION_DENIED,
+                    "Table creation was aborted and requires rollback, but cleanup failed because DROP TABLE is disabled in this Cassandra catalog.");
         }
-        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+
+        action.run();
     }
 
     private void setRollback(String schemaName, String tableName)
