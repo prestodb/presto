@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
-import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 import java.io.File;
@@ -33,7 +33,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.driver.core.ProtocolVersion.V3;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Files.write;
 import static com.google.common.io.Resources.getResource;
@@ -60,43 +59,77 @@ public class CassandraServer
 
     private final CassandraSession session;
     private final Metadata metadata;
+    private final ReopeningSession reopeningSession;
 
     public CassandraServer()
             throws Exception
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+        this.dockerContainer = new GenericContainer<>("cassandra:3.11.19")
                 .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
+                .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml")
+                // Wait for Cassandra to be ready - this ensures it's fully started before tests
+                // Wait for the log message indicating CQL clients can connect
+                .waitingFor(Wait.forLogMessage(".*Starting listening for CQL clients.*", 1)
+                        .withStartupTimeout(java.time.Duration.ofSeconds(120)));
         this.dockerContainer.start();
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(V3)
-                .withClusterName("TestCluster")
-                .addContactPointsWithPorts(ImmutableList.of(
-                        new InetSocketAddress(this.dockerContainer.getContainerIpAddress(), this.dockerContainer.getMappedPort(PORT))))
-                .withMaxSchemaAgreementWaitSeconds(30);
+        // Wait for Cassandra to be ready - it takes longer in 3.11.19 than in 2.1.x
+        waitForCassandraToStart();
 
-        ReopeningCluster cluster = new ReopeningCluster(clusterBuilder::build);
+        InetSocketAddress contactPoint = new InetSocketAddress(
+                this.dockerContainer.getContainerIpAddress(),
+                this.dockerContainer.getMappedPort(PORT));
+
+        ReopeningSession reopeningSession = new ReopeningSession(() ->
+                CqlSession.builder()
+                        .addContactPoint(contactPoint)
+                        .withLocalDatacenter("datacenter1")
+                        .addTypeCodecs(new IntToLocalDateCodec())
+                        .addTypeCodecs(TimestampCodec.INSTANCE)
+                        .build());
+
         CassandraSession session = new NativeCassandraSession(
                 "EmbeddedCassandra",
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                cluster,
+                reopeningSession,
                 new Duration(1, MINUTES),
                 false);
-        this.metadata = cluster.getMetadata();
+        this.metadata = reopeningSession.getSession().getMetadata();
+        this.reopeningSession = reopeningSession;
 
         try {
             checkConnectivity(session);
         }
         catch (RuntimeException e) {
-            cluster.close();
+            reopeningSession.close();
             this.dockerContainer.stop();
             throw e;
         }
 
         this.session = session;
+    }
+
+    private void waitForCassandraToStart()
+            throws Exception
+    {
+        long deadline = System.currentTimeMillis() + Duration.valueOf("2m").toMillis();
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                // Check if Cassandra is ready by executing nodetool status
+                org.testcontainers.containers.Container.ExecResult result = dockerContainer.execInContainer("nodetool", "status");
+                if (result.getExitCode() == 0 && result.getStdout().contains("UN")) {
+                    log.info("Cassandra is ready");
+                    return;
+                }
+            }
+            catch (Exception e) {
+                // Cassandra not ready yet, continue waiting
+            }
+            SECONDS.sleep(2);
+        }
+        throw new TimeoutException("Cassandra did not start within 2 minutes");
     }
 
     private static String prepareCassandraYaml()
@@ -178,6 +211,13 @@ public class CassandraServer
     @Override
     public void close()
     {
-        dockerContainer.close();
+        try {
+            if (reopeningSession != null) {
+                reopeningSession.close();
+            }
+        }
+        finally {
+            dockerContainer.close();
+        }
     }
 }

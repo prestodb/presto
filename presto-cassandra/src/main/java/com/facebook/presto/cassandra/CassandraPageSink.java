@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.LocalDate;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.querybuilder.Insert;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
@@ -25,20 +23,16 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
@@ -64,17 +58,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class CassandraPageSink
         implements ConnectorPageSink
 {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.of("UTC"));
-
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
     private final boolean generateUUID;
-    private final Function<Long, Object> toCassandraDate;
 
     public CassandraPageSink(
             CassandraSession cassandraSession,
-            ProtocolVersion protocolVersion,
             String schemaName,
             String tableName,
             List<String> columnNames,
@@ -88,23 +78,28 @@ public class CassandraPageSink
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.generateUUID = generateUUID;
 
-        if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
-            toCassandraDate = value -> DATE_FORMATTER.format(Instant.ofEpochMilli(TimeUnit.DAYS.toMillis(value)));
+        // Build the insert statement - need to add first value to get RegularInsert type
+        RegularInsert insert;
+        if (generateUUID) {
+            insert = insertInto(validSchemaName(schemaName), validTableName(tableName))
+                    .value("id", bindMarker());
+        }
+        else if (!columnNames.isEmpty()) {
+            insert = insertInto(validSchemaName(schemaName), validTableName(tableName))
+                    .value(validColumnName(columnNames.get(0)), bindMarker());
         }
         else {
-            toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
+            throw new IllegalArgumentException("Cannot create insert statement with no columns");
         }
 
-        Insert insert = insertInto(validSchemaName(schemaName), validTableName(tableName));
-        if (generateUUID) {
-            insert.value("id", bindMarker());
-        }
-        for (int i = 0; i < columnNames.size(); i++) {
+        // Add remaining columns
+        int startIndex = (generateUUID || columnNames.isEmpty()) ? 0 : 1;
+        for (int i = startIndex; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             checkArgument(columnName != null, "columnName is null at position: %d", i);
-            insert.value(validColumnName(columnName), bindMarker());
+            insert = insert.value(validColumnName(columnName), bindMarker());
         }
-        this.insert = cassandraSession.prepare(insert);
+        this.insert = cassandraSession.prepare(insert.build().getQuery());
     }
 
     @Override
@@ -154,10 +149,10 @@ public class CassandraPageSink
             values.add(intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (DATE.equals(type)) {
-            values.add(toCassandraDate.apply(type.getLong(block, position)));
+            values.add(LocalDate.ofEpochDay(type.getLong(block, position)));
         }
         else if (TIMESTAMP.equals(type)) {
-            values.add(new Timestamp(type.getLong(block, position)));
+            values.add(Instant.ofEpochMilli(type.getLong(block, position)));
         }
         else if (isVarcharType(type)) {
             values.add(type.getSlice(block, position).toStringUtf8());
