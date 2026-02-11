@@ -1816,6 +1816,30 @@ public class TestLogicalPlanner
                 output(tableScan("orders")));
     }
 
+    @Test
+    public void testInfinityAndNaNExpression()
+    {
+        assertPlan("select nan(), infinity(), cast (nan() as real), cast(infinity() as real)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", expression("double 'NaN'"),
+                                "col_2", expression("double 'Infinity'"),
+                                "col_3", expression("real 'NaN'"),
+                                "col_4", expression("real 'Infinity'")),
+                        values())));
+    }
+
+    @Test
+    public void testBigintAndIntegerExpression()
+    {
+        assertPlan("select cast(123 as integer), cast(123 as bigint)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_4", expression("bigint '123'"),
+                                "col_3", expression("integer '123'")),
+                        values())));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())

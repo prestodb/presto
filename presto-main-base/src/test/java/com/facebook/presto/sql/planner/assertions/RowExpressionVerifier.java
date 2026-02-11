@@ -424,6 +424,9 @@ public final class RowExpressionVerifier
     @Override
     protected Boolean visitGenericLiteral(GenericLiteral expected, RowExpression actual)
     {
+        if (!expected.getType().equalsIgnoreCase(actual.getType().getTypeSignature().getBase())) {
+            return false;
+        }
         return compareLiteral(expected, actual);
     }
 
