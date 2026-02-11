@@ -12,6 +12,8 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
+For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map functions`.
+
 .. function:: cardinality(x) -> bigint
     :noindex:
 

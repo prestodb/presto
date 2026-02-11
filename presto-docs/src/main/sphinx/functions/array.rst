@@ -21,6 +21,8 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:array functions`.
+
 .. function:: all_match(array(T), function(T,boolean)) -> boolean
 
     Returns whether all elements of an array match the given predicate. Returns ``true`` if all the elements
