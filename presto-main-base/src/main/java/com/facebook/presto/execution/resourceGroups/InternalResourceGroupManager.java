@@ -159,8 +159,8 @@ public final class InternalResourceGroupManager<C>
         this.maxQueryAdmissionsPerSecond = queryManagerConfig.getMaxQueryAdmissionsPerSecond();
         this.minRunningQueriesForPacing = queryManagerConfig.getMinRunningQueriesForPacing();
         this.queryAdmissionIntervalNanos = (maxQueryAdmissionsPerSecond == Integer.MAX_VALUE)
-            ? 0L
-            : 1_000_000_000L / maxQueryAdmissionsPerSecond;
+                ? 0L
+                : 1_000_000_000L / maxQueryAdmissionsPerSecond;
         this.queryPacingContext = new QueryPacingContext()
         {
             @Override

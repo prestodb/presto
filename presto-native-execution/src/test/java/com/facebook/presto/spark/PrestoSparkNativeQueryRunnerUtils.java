@@ -125,7 +125,7 @@ public class PrestoSparkNativeQueryRunnerUtils
         // Add connectors on the native side to make them available during execution.
         ImmutableMap.Builder<String, Map<String, String>> catalogBuilder = ImmutableMap.builder();
         catalogBuilder.put("hive", ImmutableMap.of("connector.name", "hive"))
-            .putAll(additionalCatalogs);
+                .putAll(additionalCatalogs);
         PrestoSparkQueryRunner queryRunner = createRunner(
                 "hive",
                 new NativeExecutionModule(),
