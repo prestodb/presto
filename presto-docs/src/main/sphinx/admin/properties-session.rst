@@ -61,7 +61,7 @@ redistributing all the data across the network.
 When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
 ``scale_writers`` takes precedence.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\`.
+The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\`'.
 
 ``scale_writers``
 ^^^^^^^^^^^^^^^^^
@@ -77,7 +77,7 @@ only when needed based on data throughput.
 When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
 ``scale_writers`` takes precedence.
 
-The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\`.
+The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
 
 ``task_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^
