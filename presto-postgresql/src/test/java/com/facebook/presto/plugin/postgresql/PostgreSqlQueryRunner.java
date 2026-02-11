@@ -84,7 +84,7 @@ public final class PostgreSqlQueryRunner
         }
     }
 
-    private static void createSchema(String url, String schema, String username, String password)
+    public static void createSchema(String url, String schema, String username, String password)
             throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(url, username, password);

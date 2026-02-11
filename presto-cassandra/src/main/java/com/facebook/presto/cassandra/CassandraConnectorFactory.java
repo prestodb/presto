@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.name.Names;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
@@ -74,6 +75,9 @@ public class CassandraConnectorFactory
                         {
                             MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
                             binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                            binder.bind(Boolean.class)
+                                    .annotatedWith(Names.named("nativeExecution"))
+                                    .toInstance(context.getConnectorSystemConfig().isNativeExecution());
                         }
                     });
 

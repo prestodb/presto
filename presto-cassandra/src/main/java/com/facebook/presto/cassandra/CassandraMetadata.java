@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 
 import java.util.Collection;
 import java.util.List;
@@ -69,6 +70,7 @@ public class CassandraMetadata
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
     private final ProtocolVersion protocolVersion;
+    private final boolean nativeExecution;
     private boolean caseSensitiveNameMatchingEnabled;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -79,7 +81,8 @@ public class CassandraMetadata
             CassandraSession cassandraSession,
             CassandraPartitionManager partitionManager,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
-            CassandraClientConfig config)
+            CassandraClientConfig config,
+            @Named("nativeExecution") boolean nativeExecution)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -88,6 +91,7 @@ public class CassandraMetadata
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
         this.caseSensitiveNameMatchingEnabled = requireNonNull(config, "config is null").isCaseSensitiveNameMatchingEnabled();
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -317,8 +321,12 @@ public class CassandraMetadata
         String columnMetadata = extraColumnMetadataCodec.toJson(columnExtra.build());
         queryBuilder.append("WITH comment='").append(CassandraSession.PRESTO_COMMENT_METADATA).append(" ").append(columnMetadata).append("'");
 
-        // We need to create the Cassandra table before commit because the record needs to be written to the table.
-        cassandraSession.execute(queryBuilder.toString());
+        // todo: Fix this hack
+        // skip the table creation before commit step if native execution is enabled
+        if (!nativeExecution) {
+            // We need to create the Cassandra table before commit because the record needs to be written to the table.
+            cassandraSession.execute(queryBuilder.toString());
+        }
         return new CassandraOutputTableHandle(
                 connectorId,
                 schemaName,

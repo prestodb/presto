@@ -13,6 +13,7 @@ find_package(Arrow REQUIRED CONFIG)
 find_package(ArrowFlight REQUIRED)
 
 add_subdirectory(auth)
+add_subdirectory(arrow_federation)
 
 add_library(presto_flight_connector_utils INTERFACE Macros.h)
 target_link_libraries(presto_flight_connector_utils INTERFACE velox_exception)
