@@ -10,6 +10,8 @@ The ``||`` operator performs concatenation.
 String Functions
 ----------------
 
+For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:string functions`.
+
 .. note::
 
     These functions assume that the input strings contain valid UTF-8 encoded

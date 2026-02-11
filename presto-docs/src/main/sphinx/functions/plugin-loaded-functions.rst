@@ -1,12 +1,13 @@
-===============
+=======================
 Plugin Loaded Functions
-===============
+=======================
 
 These functions are optionally opt-in functions which can be loaded as needed.
-To load these functions follow the following steps:
+For more details on loading these functions, refer to the
+`presto-sql-helpers README. <https://github.com/prestodb/presto/tree/master/presto-sql-helpers>`_
 
 Array Functions
---------------
+---------------
 
 .. function:: array_intersect(array(array(E))) -> array(E)
 
@@ -17,14 +18,14 @@ Array Functions
 
 .. function:: array_average(array(double)) -> double
 
-    Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
+    Returns the average of all non-null elements of the ``array``. If there are no non-null elements, returns
     ``null``.
 
 .. function:: array_split_into_chunks(array(T), int) -> array(array(T))
 
     Returns an ``array`` of arrays splitting the input ``array`` into chunks of given length.
     The last chunk will be shorter than the chunk length if the array's length is not an integer multiple of
-    the chunk length. Ignores null inputs, but not elements.
+    the chunk length. Ignores null inputs, but not elements. ::
 
         SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
         SELECT array_split_into_chunks(null, null); -- null
@@ -228,20 +229,26 @@ Map Functions
         SELECT no_values_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
 
 .. function:: map_int_keys_to_array(map(int,V)) -> array(V)
-        Returns an ``array`` of values from the ``map`` with value at indexed by the original keys from ``map``::
-            SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', 'b', 'c', 'd'])) -> ARRAY[null, null, 'a', null, 'b', 'c', null, null, 'd']
-            SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', null, 'c', 'd'])) -> ARRAY[null, null, 'a', null, null, 'c', 'd']
+
+    Returns an ``array`` of values from the ``map`` with value at indexed by the original keys from ``map``. ::
+
+        SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', 'b', 'c', 'd'])) -> ARRAY[null, null, 'a', null, 'b', 'c', null, null, 'd']
+        SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', null, 'c', 'd'])) -> ARRAY[null, null, 'a', null, null, 'c', 'd']
+
 
 .. function:: array_to_map_int_keys(array(v)) -> map(int, v)
-        Returns an ``map`` with indices of all non-null values from the ``array`` as keys and element at the specified index as the value::
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 3,4], ARRAY[3, 5, 6, 9])
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5], ARRAY[3, 5, 6, 9])
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9, null, null, 1] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5, 8], ARRAY[3, 5, 6, 9, 1])
+
+    Returns an ``map`` with indices of all non-null values from the ``array`` as keys and element at the specified index as the value ::
+
+        SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 3,4], ARRAY[3, 5, 6, 9])
+        SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5], ARRAY[3, 5, 6, 9])
+        SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9, null, null, 1] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5, 8], ARRAY[3, 5, 6, 9, 1])
 
 String Functions
 ----------------
 
 .. function:: replace_first(string, search, replace) -> varchar
+
     Replaces the first instances of ``search`` with ``replace`` in ``string``.
 
     If ``search`` is an empty string, it inserts ``replace`` at the beginning of the ``string``.
