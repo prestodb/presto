@@ -261,7 +261,7 @@ public class TestExtractSpatialInnerJoin
                 .on(p ->
                         p.filter(
                                 sqlToRowExpression(
-                                        "ST_Distance(a, b) < 5000",
+                                        "ST_Distance(a, b) < BIGINT '5000'",
                                         ImmutableMap.of("a", SPHERICAL_GEOGRAPHY, "b", SPHERICAL_GEOGRAPHY)),
                                 p.join(INNER,
                                         p.values(p.variable("a", SPHERICAL_GEOGRAPHY)),
