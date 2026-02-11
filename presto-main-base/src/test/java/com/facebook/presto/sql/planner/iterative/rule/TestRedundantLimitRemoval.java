@@ -129,6 +129,6 @@ public class TestRedundantLimitRemoval
 
         newTester.assertThat(ImmutableSet.of(new RemoveRedundantLimit()), logicalPropertiesProvider)
             .on("select totalprice from orders o inner join customer c on o.custkey = c.custkey where o.orderkey=10 limit 2")
-            .validates(plan -> assertNodePresentInPlan(plan, LimitNode.class));
+                .validates(plan -> assertNodePresentInPlan(plan, LimitNode.class));
     }
 }
