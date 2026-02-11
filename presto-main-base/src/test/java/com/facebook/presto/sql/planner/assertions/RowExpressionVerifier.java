@@ -528,18 +528,12 @@ public final class RowExpressionVerifier
             if (actualBinary != null) {
                 return expected.getValue().equals(Slices.wrappedBuffer(actualBinary.getBytes()));
             }
-            else if (expected.getValue() == null) {
-                return true;
-            }
         }
 
         if (actual instanceof ConstantExpression && actual.getType() instanceof VarbinaryType) {
-            SqlVarbinary actualBinary = (SqlVarbinary) LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actual);
+            SqlVarbinary actualBinary = (SqlVarbinary) LiteralInterpreter.evaluate(session.toConnectorSession(), (ConstantExpression) actual);
             if (actualBinary != null) {
                 return expected.getValue().equals(Slices.wrappedBuffer(actualBinary.getBytes()));
-            }
-            else {
-                return expected.getValue() == null;
             }
         }
         return false;
