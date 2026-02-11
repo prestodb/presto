@@ -130,12 +130,6 @@ public class HistoryBasedPlanStatisticsTracker
         if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
             return ImmutableMap.of();
         }
-        for (CanonicalPlanWithInfo canonicalPlanWithInfo : queryInfo.getPlanCanonicalInfo()) {
-            // if any table is iceberg table with snapshot id, then the stats will not be published/stored
-            if (!canonicalPlanWithInfo.getCanonicalPlan().isHboPublishStats()) {
-                return ImmutableMap.of();
-            }
-        }
         // If track_history_stats_from_failed_queries is set to true, we do not require that the query is successful
         boolean trackStatsForFailedQueries = trackHistoryStatsFromFailedQuery(session);
         boolean querySucceed = queryInfo.getFailureInfo() == null;
@@ -388,6 +382,10 @@ public class HistoryBasedPlanStatisticsTracker
     {
         Session session = queryInfo.getSession().toSession(sessionPropertyManager);
         if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
+            historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
+            return;
+        }
+        if (historyBasedStatisticsCacheManager.shouldUnPublishStatsCache(queryInfo.getQueryId())) {
             historyBasedStatisticsCacheManager.invalidate(queryInfo.getQueryId());
             return;
         }
