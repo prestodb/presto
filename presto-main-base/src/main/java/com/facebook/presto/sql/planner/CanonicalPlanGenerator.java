@@ -1209,10 +1209,12 @@ public class CanonicalPlanGenerator
 
         Optional<ConnectorTableHandle> canonical = metadata.canonicalizeTableHandleForHbo(session, tableHandle, strategy);
         if (!canonical.isPresent()) {
+            // If the connector does not support hbo, mark it as ineligible
             context.markHboIneligible();
             return Optional.empty();
         }
-
+        // determine if the stats should be published or not
+        boolean publishStats = metadata.isPublishHboStatsEnabled(session, tableHandle);
         PlanNode canonicalPlanNode = new CanonicalTableScanNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(), getCanonicalTableHandle(tableHandle, canonical.get(), strategy),
@@ -1220,6 +1222,7 @@ public class CanonicalPlanGenerator
                 assignments.build());
 
         CanonicalPlan canonicalPlan = new CanonicalPlan(canonicalPlanNode, strategy);
+        canonicalPlan.setHboPublishStats(publishStats);
         context.addPlan(node, canonicalPlan);
         return Optional.of(canonicalPlanNode);
     }

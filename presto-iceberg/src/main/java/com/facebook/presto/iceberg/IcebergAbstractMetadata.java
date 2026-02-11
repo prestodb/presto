@@ -364,13 +364,17 @@ public abstract class IcebergAbstractMetadata
         if (!(tableHandle instanceof IcebergTableHandle)) {
             return Optional.empty();
         }
+        return Optional.of(((IcebergTableHandle) tableHandle).canonicalizeForHbo()); // strip snapshot fields
+    }
 
-        IcebergTableHandle h = (IcebergTableHandle) tableHandle;
-        if (h.shouldUnpublishHboStats()) {   // snapshotSpecified or snapshotId present
-            return Optional.empty();
+    @Override
+    public boolean isPublishHboStatsEnabled(ConnectorSession session, ConnectorTableHandle tableHandle) {
+        if (tableHandle instanceof IcebergTableHandle) {
+            IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+            // If there is snapshot id, it can use the stats, but it should not publish stats
+            return icebergTableHandle.shouldPublishHboStats();
         }
-
-        return Optional.of(h.canonicalizeForHbo()); // strip snapshot fields
+        return true;
     }
 
     /**

@@ -1795,6 +1795,14 @@ public class MetadataManager
         return connectorMetadata.canonicalizeTableHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), strategy);
     }
 
+    @Override
+    public boolean isPublishHboStatsEnabled(Session session, TableHandle tableHandle) {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata connectorMetadata = getMetadata(session, connectorId);
+
+        return connectorMetadata.isPublishHboStatsEnabled(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+    }
+
     private ColumnMetadata normalizedColumnMetadata(Session session, String catalogName, ColumnMetadata columnMetadata)
     {
         return ColumnMetadata.builder()

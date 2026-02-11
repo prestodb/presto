@@ -624,4 +624,9 @@ public interface Metadata
     {
         return Optional.empty();
     }
+
+    default boolean isPublishHboStatsEnabled(Session session, TableHandle tableHandle)
+    {
+        return true;
+    }
 }

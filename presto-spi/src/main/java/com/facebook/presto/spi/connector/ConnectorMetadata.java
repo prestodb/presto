@@ -1036,4 +1036,9 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    default boolean isPublishHboStatsEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return true;
+    }
 }

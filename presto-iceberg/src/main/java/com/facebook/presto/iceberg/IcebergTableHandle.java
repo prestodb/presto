@@ -182,13 +182,12 @@ public class IcebergTableHandle
 
     public ConnectorTableHandle canonicalizeForHbo()
     {
-        assert !snapshotSpecified;
         IcebergTableName canonicalName = icebergTableName.canonicalizeForHbo();
         return new IcebergTableHandle(getSchemaName(), canonicalName, false, outputPath, storageProperties, tableSchemaJson, partitionFieldIds, equalityFieldIds, sortOrder, updatedColumns, Optional.empty());
     }
 
-    public boolean shouldUnpublishHboStats()
+    public boolean shouldPublishHboStats()
     {
-        return snapshotSpecified;
+        return !snapshotSpecified;
     }
 }
