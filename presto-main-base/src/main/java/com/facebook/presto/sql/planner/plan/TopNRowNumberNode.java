@@ -85,6 +85,7 @@ public final class TopNRowNumberNode
         requireNonNull(rowNumberVariable, "rowNumberVariable is null");
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
         requireNonNull(hashVariable, "hashVariable is null");
+        requireNonNull(rankingFunction, "rankingFunction is null");
 
         this.source = source;
         this.specification = specification;
