@@ -971,7 +971,7 @@ public abstract class AbstractTestNativeGeneralQueries
         // Reverse
         assertQuery("SELECT comment, reverse(comment) FROM orders");
 
-        // Normalize
+        // Normalize, key_sampling_percent.
         String tmpTableName = generateRandomTableName();
         try {
             getQueryRunner().execute(String.format("CREATE TABLE %s (c0 VARCHAR)", tmpTableName));
@@ -985,6 +985,17 @@ public abstract class AbstractTestNativeGeneralQueries
             assertQuery("SELECT normalize(comment, NFD) FROM nation");
             assertQuery(String.format("SELECT normalize(c0) from %s", tmpTableName));
             assertQuery(String.format("SELECT normalize(c0, NFKD) from %s", tmpTableName));
+            getQueryRunner().execute(String.format("INSERT INTO %s VALUES " +
+                    "(NULL), " +
+                    "('abc'), " +
+                    "('abcdefghskwkjadhwd'), " +
+                    "('001yxzuj'), " +
+                    "('56wfythjhdhvgewuikwemn'), " +
+                    "('special_#@,$|%%/^~?{}+-'), " +
+                    "('     '), " +
+                    "(''), " +
+                    "('Hello World from Velox!')", tmpTableName));
+            assertQuery(String.format("SELECT key_sampling_percent(c0) FROM %s", tmpTableName));
         }
         finally {
             dropTableIfExists(tmpTableName);
