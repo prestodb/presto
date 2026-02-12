@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingHandleResolver;
@@ -1804,6 +1805,18 @@ public class TestLogicalPlanner
                                                                         any(
                                                                                 tableScan("orders", ImmutableMap.of("totalprice", "totalprice"))))))
                                                         .withAlias("row_num", new RowNumberSymbolMatcher()))))));
+    }
+
+    @Test
+    public void testVarbinaryExpression()
+    {
+        assertPlan("select X'abc4', cast ('hello' as varbinary), cast(null as varbinary)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", expression("X'ab c4'"),
+                                "col_2", expression("X'68 65 6c 6c 6f'"),
+                                "col_3", expression(new NullLiteral())),
+                        values())));
     }
 
     @Test
