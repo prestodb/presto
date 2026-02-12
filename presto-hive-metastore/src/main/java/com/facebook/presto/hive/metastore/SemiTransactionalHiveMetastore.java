@@ -65,6 +65,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.common.ErrorType.USER_ERROR;
@@ -107,6 +108,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -390,14 +392,16 @@ public class SemiTransactionalHiveMetastore
     // TODO: Allow updating statistics for 2 tables in the same transaction
     public synchronized void setPartitionStatistics(MetastoreContext metastoreContext, Table table, Map<List<String>, PartitionStatistics> partitionStatisticsMap)
     {
+        Map<String, Function<PartitionStatistics, PartitionStatistics>> updates = partitionStatisticsMap.entrySet().stream().collect(
+                toImmutableMap(
+                        entry -> getPartitionName(table, entry.getKey()),
+                        entry -> oldPartitionStats -> updatePartitionStatistics(oldPartitionStats, entry.getValue())));
         setExclusive((delegate, hdfsEnvironment) -> {
-            partitionStatisticsMap.forEach((partitionValues, newPartitionStats) ->
-                    delegate.updatePartitionStatistics(
-                            metastoreContext,
-                            table.getDatabaseName(),
-                            table.getTableName(),
-                            getPartitionName(table, partitionValues),
-                            oldPartitionStats -> updatePartitionStatistics(oldPartitionStats, newPartitionStats)));
+            delegate.updatePartitionStatistics(
+                    metastoreContext,
+                    table.getDatabaseName(),
+                    table.getTableName(),
+                    updates);
             return EMPTY_HIVE_COMMIT_HANDLE;
         });
     }

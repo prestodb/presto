@@ -176,10 +176,10 @@ public class TestHiveClientGlueMetastore
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig();
+        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig().setColumnStatisticsEnabled(true);
         glueConfig.setDefaultWarehouseDir(tempDir.toURI().toString());
 
-        return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor);
+        return new GlueHiveMetastore(hdfsEnvironment, glueConfig, executor, executor, executor);
     }
 
     @Override
@@ -199,34 +199,19 @@ public class TestHiveClientGlueMetastore
     }
 
     @Override
-    public void testPartitionStatisticsSampling()
-            throws Exception
+    public void testUpdateTableColumnStatisticsEmptyOptionalFields() throws Exception
     {
-        // Glue metastore does not support column level statistics
+        // this test expects consistency between written and read stats but this is not provided by glue at the moment
+        // when writing empty min/max statistics glue will return 0 to the readers
+        // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
     @Override
-    public void testUpdateTableColumnStatistics()
+    public void testUpdatePartitionColumnStatisticsEmptyOptionalFields() throws Exception
     {
-        // column statistics are not supported by Glue
-    }
-
-    @Override
-    public void testUpdateTableColumnStatisticsEmptyOptionalFields()
-    {
-        // column statistics are not supported by Glue
-    }
-
-    @Override
-    public void testUpdatePartitionColumnStatistics()
-    {
-        // column statistics are not supported by Glue
-    }
-
-    @Override
-    public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
-    {
-        // column statistics are not supported by Glue
+        // this test expects consistency between written and read stats but this is not provided by glue at the moment
+        // when writing empty min/max statistics glue will return 0 to the readers
+        // in order to avoid incorrect data we skip writes for statistics with min/max = null
     }
 
     @Override
