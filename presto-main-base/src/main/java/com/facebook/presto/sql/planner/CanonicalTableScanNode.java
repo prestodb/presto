@@ -151,14 +151,20 @@ public class CanonicalTableScanNode
         // we do not serialize this field.
         private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
-        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+        public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle, ConnectorTableHandle connectorTableHandle, PlanCanonicalizationStrategy strategy)
         {
-            return new CanonicalTableHandle(
-                    tableHandle.getConnectorId(),
-                    tableHandle.getConnectorHandle(),
+            return new CanonicalTableScanNode.CanonicalTableHandle(
+                    tableHandle.getConnectorId(), connectorTableHandle,
                     tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty(), strategy)),
                     tableHandle.getLayout());
         }
+
+//        public static boolean isCanonicalTableStatsPublishable(TableHandle tableHandle)
+//        {
+//            ConnectorTableHandle connectorHandle = tableHandle.getConnectorHandle();
+//
+//            return !((connectorHandle instanceof HboUnpublishableTableHandle) && ((HboUnpublishableTableHandle) connectorHandle).shouldUnpublishHboStats());
+//        }
 
         @JsonCreator
         public CanonicalTableHandle(

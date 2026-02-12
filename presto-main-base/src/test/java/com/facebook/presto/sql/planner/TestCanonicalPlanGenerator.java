@@ -396,4 +396,70 @@ public class TestCanonicalPlanGenerator
                         .collect(toImmutableSet()),
                 ImmutableSet.of("connectorId", "tableHandle", "layoutIdentifier", "layoutHandle"));
     }
+
+//    @Test
+//    public void testGetCanonicalTableHandleDefault()
+//    {
+//        ConnectorTableHandle handle = new ConnectorTableHandle() {};
+//
+//        TableHandle tableHandle = new TableHandle(
+//                new ConnectorId("hive"),
+//                handle,
+//                new ConnectorTransactionHandle() {},
+//                Optional.empty());
+//
+//        CanonicalTableHandle canonical = getCanonicalTableHandle(tableHandle, PlanCanonicalizationStrategy.DEFAULT);
+//
+//        assertSame(canonical.getTableHandle(), handle);
+//    }
+//
+//    @Test
+//    public void testGetCanonicalTableHandleForHboCanonicalizedHandle()
+//    {
+//        FakeHandle original = new FakeHandle("original");
+//        FakeHandle canonicalized = new FakeHandle("canonicalized");
+//        original.setCanonicalized(canonicalized);
+//
+//        TableHandle tableHandle = new TableHandle(
+//                new ConnectorId("iceberg"),
+//                original,
+//                new ConnectorTransactionHandle() {},
+//                Optional.empty());
+//
+//        // Check that when the tableHandle is instance of HboCanonicalizableTableHandle, the table handle should be canonicalized
+//        CanonicalTableHandle canonical =
+//                getCanonicalTableHandle(tableHandle, PlanCanonicalizationStrategy.DEFAULT);
+//
+//        assertSame(canonical.getTableHandle(), canonicalized, "Expected canonicalized handle to be used");
+//        assertTrue(original.wasCanonicalizeCalled(), "Expected canonicalizeForHbo() to be invoked");
+//    }
+
+//    @Test
+//    public void testIsCanonicalTableStatsPublishableDefaultTrue()
+//    {
+//        ConnectorTableHandle handle = new ConnectorTableHandle() {};
+//
+//        TableHandle tableHandle = new TableHandle(
+//                new ConnectorId("iceberg"),
+//                handle,
+//                new ConnectorTransactionHandle() {},
+//                Optional.empty());
+//
+//        assertTrue(isCanonicalTableStatsPublishable(tableHandle));
+//    }
+
+//    @Test
+//    public void testIsCanonicalTableStatsPublishableFalseWhenUnpublish()
+//    {
+//        FakeHandle handle = new FakeHandle("test");
+//        handle.setUnpublish(true);
+//
+//        TableHandle tableHandle = new TableHandle(
+//                new ConnectorId("iceberg"),
+//                handle,
+//                new ConnectorTransactionHandle() {},
+//                Optional.empty());
+//
+//        assertFalse(isCanonicalTableStatsPublishable(tableHandle));
+//    }
 }
