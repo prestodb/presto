@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.nativeworker;
 
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -24,6 +28,11 @@ import java.util.List;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 
 public abstract class AbstractTestNativeWindowQueries
         extends AbstractTestQueryFramework
@@ -177,6 +186,61 @@ public abstract class AbstractTestNativeWindowQueries
     public void testRowNumberWithFilter_2()
     {
         assertQuery("SELECT * FROM (SELECT row_number() over(partition by orderstatus order by orderkey) rn, * from orders) WHERE rn = 1");
+    }
+
+    private static final PlanMatchPattern topNForFilter = anyTree(
+            anyNot(FilterNode.class,
+                    node(TopNRowNumberNode.class,
+                            anyTree(
+                                    tableScan("orders")))));
+
+    private static final PlanMatchPattern topNForLimit = anyTree(
+            limit(10,
+                    anyTree(
+                    node(TopNRowNumberNode.class,
+                            anyTree(
+                                    tableScan("orders"))))));
+    @Test
+    public void testTopNRowNumber()
+    {
+        String sql = "SELECT sum(rn) FROM (SELECT row_number() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders) WHERE rn <= 10";
+        assertQuery(sql);
+        assertPlan(sql, topNForFilter);
+
+        // Cannot test results for this query as they are not guaranteed to be the same due to lack of ORDER BY in LIMIT.
+        // But adding an ORDER BY would prevent the TopNRowNumber optimization from being applied.
+        sql = "SELECT sum(rn) FROM (SELECT row_number() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders limit 10)";
+        assertPlan(sql, topNForLimit);
+    }
+
+    @Test
+    public void testTopNRank()
+    {
+        String sql = "SELECT sum(rn) FROM (SELECT rank() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders) WHERE rn <= 10";
+        assertQuery(sql);
+
+        if (SystemSessionProperties.isOptimizeTopNRank(getSession())) {
+            assertPlan(sql, topNForFilter);
+            // Cannot test results for this query as they are not guaranteed to be the same due to lack of ORDER BY in LIMIT.
+            // But adding an ORDER BY would prevent the TopNRowNumber optimization from being applied.
+            sql = "SELECT sum(rn) FROM (SELECT rank() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders limit 10)";
+            assertPlan(sql, topNForLimit);
+        }
+    }
+
+    @Test
+    public void testTopNDenseRank()
+    {
+        String sql = "SELECT sum(rn) FROM (SELECT dense_rank() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders) WHERE rn <= 10";
+        assertQuery(sql);
+        if (SystemSessionProperties.isOptimizeTopNRank(getSession())) {
+            assertPlan(sql, topNForFilter);
+
+            // Cannot test results for this query as they are not guaranteed to be the same due to lack of ORDER BY in LIMIT.
+            // But adding an ORDER BY would prevent the TopNRowNumber optimization from being applied.
+            sql = "SELECT dense_rank() over(PARTITION BY orderdate ORDER BY totalprice) rn, * from orders limit 10";
+            assertPlan(sql, topNForLimit);
+        }
     }
 
     @Test

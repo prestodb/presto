@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 @Test(groups = {"orc"})
@@ -29,6 +30,7 @@ public class TestPrestoNativeTpcdsQueriesOrcUsingThrift
                 .setStorageFormat("ORC")
                 .setAddStorageFormatToPath(true)
                 .setUseThrift(true)
+                .setExtraCoordinatorProperties(ImmutableMap.of("optimizer.optimize-top-n-rank", "true"))
                 .build();
     }
 
