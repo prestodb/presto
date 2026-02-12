@@ -60,7 +60,7 @@ redistributing all the data across the network.
 When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
 ``scale-writers`` takes precedence.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\`.
+The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\``.
 
 ``scale-writers``
 ^^^^^^^^^^^^^^^^^
@@ -76,7 +76,7 @@ only when needed based on data throughput.
 When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
 ``scale-writers`` takes precedence.
 
-The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\`.
+The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\``.
 
 ``check-access-control-on-utilized-columns-only``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
