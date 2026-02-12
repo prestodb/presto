@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_THROUGH_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -114,6 +115,23 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                 filter(
                                                         "orderpriority = '3-MEDIUM'",
                                                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority"))))))));
+    }
+
+    @Test
+    public void testUnnestWithPushdownThroughUnnest()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION, "true")
+                .setSystemProperty(PUSHDOWN_THROUGH_UNNEST, "true")
+                .build();
+        assertPlan("select orderkey, orderpriority, idx from orders cross join unnest(array[1, 2]) t(idx) where orderpriority='3-MEDIUM'",
+                session,
+                output(
+                        unnest(
+                                anyTree(
+                                        filter(
+                                                "orderpriority = '3-MEDIUM'",
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority")))))));
     }
 
     @Test
