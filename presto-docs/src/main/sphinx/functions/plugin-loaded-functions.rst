@@ -14,7 +14,7 @@ Array Functions
     Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
     This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
 
-        SELECT array_intersect(ARRAY[ARRAY[1, 2, 3, 2, null], ARRAY[1,2,2, 4, null], ARRAY [1, 2, 3, 4 null]])  -- ARRAY[1, 2, null]
+        SELECT array_intersect(ARRAY[ARRAY[1, 2, 3, 2, null], ARRAY[1, 2, 2, 4, null], ARRAY [1, 2, 3, 4, null]])  -- ARRAY[1, 2, null]
 
 .. function:: array_average(array(double)) -> double
 
@@ -29,7 +29,7 @@ Array Functions
 
         SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
         SELECT array_split_into_chunks(null, null); -- null
-        SELECT array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2]); -- [[1, 2], [3, null]]
+        SELECT array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2); -- [[1, 2], [3, null]]
 
 .. function:: array_frequency(array(E)) -> map(E, int)
 
@@ -71,7 +71,6 @@ Array Functions
         select array_least_frequent(ARRAY[1, null, 1], 2) -- ARRAY[1]
         select array_least_frequent(ARRAY[ROW(1,null), ROW(1, null)], 2) -- "map key cannot be null or contain nulls"
 
-
 .. function:: array_max_by(array(T), function(T, U)) -> T
 
     Applies the provided function to each element, and returns the element that gives the maximum value.
@@ -93,7 +92,7 @@ Array Functions
 
         SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
         SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
-        SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
+        SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]]); -- [["a", null], ["a"], null]
 
 .. function:: remove_nulls(array(T)) -> array
 
@@ -152,7 +151,6 @@ Map Functions
 
         SELECT map_key_exists(MAP(ARRAY['x','y'], ARRAY[100,200]), 'x'); -- TRUE
 
-
 .. function:: map_top_n(x(K,V), n) -> map(K, V)
 
     Truncates map items. Keeps only the top ``n`` elements by value.  Keys are used to break ties with the max key being chosen. Both keys and values should be orderable.
@@ -165,7 +163,7 @@ Map Functions
     Returns top ``n`` keys in the map ``x`` by sorting its keys in descending order.
     ``n`` must be a non-negative integer.
 
-    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting ::
+    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting. ::
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2) --- ['c', 'b']
 
@@ -174,7 +172,7 @@ Map Functions
     Returns top ``n`` keys in the map ``x`` by sorting its keys using the given comparator ``function``. The comparator takes
     two non-nullable arguments representing two keys of the ``map``. It returns -1, 0, or 1
     as the first key is less than, equal to, or greater than the second key.
-    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error. ::
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
 
@@ -190,7 +188,7 @@ Map Functions
     Returns top n values in the map ``x`` based on the given comparator ``function``. The comparator will take
     two nullable arguments representing two values of the ``map``. It returns -1, 0, or 1
     as the first value is less than, equal to, or greater than the second value.
-    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error. ::
 
         SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- [3, 2]
 
@@ -238,7 +236,7 @@ Map Functions
 
 .. function:: array_to_map_int_keys(array(v)) -> map(int, v)
 
-    Returns an ``map`` with indices of all non-null values from the ``array`` as keys and element at the specified index as the value ::
+    Returns an ``map`` with indices of all non-null values from the ``array`` as keys and element at the specified index as the value. ::
 
         SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 3,4], ARRAY[3, 5, 6, 9])
         SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5], ARRAY[3, 5, 6, 9])
@@ -249,7 +247,7 @@ String Functions
 
 .. function:: replace_first(string, search, replace) -> varchar
 
-    Replaces the first instances of ``search`` with ``replace`` in ``string``.
+    Replaces the first instance of ``search`` with ``replace`` in ``string``.
 
     If ``search`` is an empty string, it inserts ``replace`` at the beginning of the ``string``.
 
