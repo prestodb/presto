@@ -55,7 +55,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestFeaturesConfig
+public class TestOperatorFeaturesConfig
 {
     @Test
     public void testDefaults()

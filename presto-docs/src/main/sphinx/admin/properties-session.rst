@@ -711,3 +711,14 @@ The corresponding configuration property is :ref:`admin/properties:\`\`materiali
 
 Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
 of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).
+
+``table_finish_info_json_length_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``int``
+* **Default value:** ``10,000,000``
+
+The maximum length of the JSON-serialized ConnectorOutputMetadata string in
+TableFinishInfo. If the length is exceeded, then the Metadata is omitted.
+
+When set to a non-positive value, the length limit is not enforced.

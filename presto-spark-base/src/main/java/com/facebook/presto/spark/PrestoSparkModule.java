@@ -95,6 +95,7 @@ import com.facebook.presto.operator.FragmentCacheStats;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
+import com.facebook.presto.operator.OperatorFeaturesConfig;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
@@ -290,6 +291,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
         configBinder(binder).bindConfig(SecurityConfig.class);
+        configBinder(binder).bindConfig(OperatorFeaturesConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
