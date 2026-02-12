@@ -48,6 +48,7 @@ import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -69,7 +70,6 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -527,7 +527,7 @@ public class TestHiveFileFormats
                     file.getAbsolutePath(),
                     PARQUET,
                     HiveCompressionCodec.NONE,
-                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(timestamp), timestamp)),
+                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, Timestamp.ofEpochMilli(timestamp), timestamp)),
                     session,
                     3,
                     parquetFileWriterFactory);
@@ -602,7 +602,7 @@ public class TestHiveFileFormats
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
+                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), session.getSqlFunctionProperties().isLegacyTimestamp() ? HIVE_STORAGE_TIME_ZONE : DateTimeZone.UTC, STATS, new OrcFileWriterConfig(), NO_ENCRYPTION))
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
                 .isReadableByPageSource(new DwrfBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HIVE_CLIENT_CONFIG, HDFS_ENVIRONMENT, STATS, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()), NO_ENCRYPTION));
     }
@@ -1012,7 +1012,7 @@ public class TestHiveFileFormats
                 getColumnHandles(testColumns),
                 ImmutableMap.of(),
                 partitionKeys,
-                DateTimeZone.getDefault(),
+                session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : DateTimeZone.UTC,
                 FUNCTION_AND_TYPE_MANAGER,
                 new SchemaTableName("schema", "table"),
                 partitionKeyColumnHandles,
@@ -1083,7 +1083,7 @@ public class TestHiveFileFormats
                 columnHandles,
                 ImmutableMap.of(),
                 partitionKeys,
-                DateTimeZone.getDefault(),
+                session.getSqlFunctionProperties().isLegacyTimestamp() ? DateTimeZone.getDefault() : DateTimeZone.UTC,
                 FUNCTION_AND_TYPE_MANAGER,
                 new SchemaTableName("schema", "table"),
                 partitionKeyColumnHandles,
