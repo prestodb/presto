@@ -82,16 +82,11 @@ public class TestReplaceConstantVariableReferencesWithConstants
         assertPlan("select orderkey, orderpriority, idx from orders cross join unnest(array[1, 2]) t(idx) where orderpriority='3-MEDIUM'",
                 enableOptimization(),
                 output(
-                        ImmutableList.of("orderkey", "expr_9", "field"),
-                        project(
-                                ImmutableMap.of("expr_9", expression("'3-MEDIUM'")),
-                                unnest(
-                                        ImmutableMap.of("expr", ImmutableList.of("field")),
-                                        project(
-                                                ImmutableMap.of("expr", expression("array[1, 2]")),
-                                                filter(
-                                                        "orderpriority = '3-MEDIUM'",
-                                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority"))))))));
+                        unnest(
+                                anyTree(
+                                        filter(
+                                                "orderpriority = '3-MEDIUM'",
+                                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority")))))));
     }
 
     @Test

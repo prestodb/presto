@@ -154,6 +154,7 @@ public class FeaturesConfig
     private double defaultJoinSelectivityCoefficient;
     private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
+    private boolean pushdownThroughUnnest = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
@@ -1622,6 +1623,18 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isPushdownThroughUnnest()
+    {
+        return pushdownThroughUnnest;
+    }
+
+    @Config("optimizer.pushdown-through-unnest")
+    public FeaturesConfig setPushdownThroughUnnest(boolean value)
+    {
+        this.pushdownThroughUnnest = value;
         return this;
     }
 
