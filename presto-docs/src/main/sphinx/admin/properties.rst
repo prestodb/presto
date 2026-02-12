@@ -1250,6 +1250,16 @@ The more rows you are processing, the larger this value should be.
 Logging Properties
 ------------------
 
+``log.path``
+^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Default value:** ``<data_directory>/var/log/server.log``
+
+    The ``log.path`` property specifies the path to the server log file used by Presto.
+    This path is relative to the data directory, which is determined by the ``node.data-dir`` property.
+    If no value is provided for ``log.path``, the default value is used.
+
 ``log.max-history``
 ^^^^^^^^^^^^^^^^^^^
 
