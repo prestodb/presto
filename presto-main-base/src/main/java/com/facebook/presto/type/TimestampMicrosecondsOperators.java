@@ -43,17 +43,20 @@ import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZ
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 
-public final class TimestampMicrosecondsOperators {
+public final class TimestampMicrosecondsOperators
+{
     private static final long MICROSECONDS_PER_MILLISECOND = 1000;
 
-    private TimestampMicrosecondsOperators() {
+    private TimestampMicrosecondsOperators()
+    {
     }
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean equal(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left == right;
     }
 
@@ -61,35 +64,40 @@ public final class TimestampMicrosecondsOperators {
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean notEqual(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left != right;
     }
 
     @ScalarOperator(LESS_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left < right;
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left <= right;
     }
 
     @ScalarOperator(GREATER_THAN)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left > right;
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right)
+    {
         return left >= right;
     }
 
@@ -97,36 +105,42 @@ public final class TimestampMicrosecondsOperators {
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value,
             @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long min,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long max) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long max)
+    {
         return min <= value && value <= max;
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS)
-    public static long castFromTimestamp(@SqlType(StandardTypes.TIMESTAMP) long value) {
+    public static long castFromTimestamp(@SqlType(StandardTypes.TIMESTAMP) long value)
+    {
         return value * MICROSECONDS_PER_MILLISECOND;
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP)
-    public static long castToTimestamp(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value) {
+    public static long castToTimestamp(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
+    {
         return Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS)
-    public static long castFromDate(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long value) {
+    public static long castFromDate(SqlFunctionProperties properties, @SqlType(StandardTypes.DATE) long value)
+    {
         return TimeUnit.DAYS.toMicros(value);
     }
 
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long castToTimestampWithTimeZone(SqlFunctionProperties properties,
-            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value) {
+            @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
+    {
         if (properties.isLegacyTimestamp()) {
             return packDateTimeWithZone(Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND),
                     properties.getTimeZoneKey());
-        } else {
+        }
+        else {
             long millis = Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
             return packDateTimeWithZone(
                     getChronology(properties.getTimeZoneKey()).getZone().convertLocalToUTC(millis, false),
@@ -136,18 +150,21 @@ public final class TimestampMicrosecondsOperators {
 
     @ScalarOperator(HASH_CODE)
     @SqlType(StandardTypes.BIGINT)
-    public static long hashCode(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value) {
+    public static long hashCode(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
+    {
         return AbstractLongType.hash(value);
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class TimestampMicrosecondsDistinctFromOperator {
+    public static class TimestampMicrosecondsDistinctFromOperator
+    {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(
                 @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long left,
                 @IsNull boolean leftNull,
                 @SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long right,
-                @IsNull boolean rightNull) {
+                @IsNull boolean rightNull)
+        {
             if (leftNull != rightNull) {
                 return true;
             }
@@ -162,7 +179,8 @@ public final class TimestampMicrosecondsOperators {
                 @BlockPosition @SqlType(value = StandardTypes.TIMESTAMP_MICROSECONDS, nativeContainerType = long.class) Block left,
                 @BlockIndex int leftPosition,
                 @BlockPosition @SqlType(value = StandardTypes.TIMESTAMP_MICROSECONDS, nativeContainerType = long.class) Block right,
-                @BlockIndex int rightPosition) {
+                @BlockIndex int rightPosition)
+        {
             if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
                 return true;
             }
@@ -177,13 +195,15 @@ public final class TimestampMicrosecondsOperators {
     @ScalarOperator(INDETERMINATE)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean indeterminate(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value,
-            @IsNull boolean isNull) {
+            @IsNull boolean isNull)
+    {
         return isNull;
     }
 
     @ScalarOperator(XX_HASH_64)
     @SqlType(StandardTypes.BIGINT)
-    public static long xxHash64(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value) {
+    public static long xxHash64(@SqlType(StandardTypes.TIMESTAMP_MICROSECONDS) long value)
+    {
         return XxHash64.hash(value);
     }
 }
