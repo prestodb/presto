@@ -582,6 +582,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateVectorIndex(CreateVectorIndex node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitCreateType(CreateType node, C context)
     {
         return visitStatement(node, context);

@@ -29,6 +29,7 @@ import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateType;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -148,6 +149,7 @@ public final class StatementUtils
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
         builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateVectorIndex.class, QueryType.SELECT);
         builder.put(CreateFunction.class, QueryType.CONTROL);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
         builder.put(DropFunction.class, QueryType.CONTROL);
