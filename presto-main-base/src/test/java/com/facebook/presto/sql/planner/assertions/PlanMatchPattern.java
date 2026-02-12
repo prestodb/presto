@@ -930,6 +930,11 @@ public final class PlanMatchPattern
         return new ExpressionMatcher(expression);
     }
 
+    public static ExpressionMatcher nullExpression(Type type)
+    {
+        return new NullExpressionMatcher(type);
+    }
+
     public PlanMatchPattern withOutputs(String... aliases)
     {
         return withOutputs(ImmutableList.copyOf(aliases));
