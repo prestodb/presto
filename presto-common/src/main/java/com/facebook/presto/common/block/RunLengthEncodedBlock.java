@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class RunLengthEncodedBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RunLengthEncodedBlock.class).instanceSize();
 
     public static Block create(Type type, Object value, int positionCount)
     {

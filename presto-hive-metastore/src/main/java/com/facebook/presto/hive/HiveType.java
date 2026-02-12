@@ -77,7 +77,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosF
 
 public final class HiveType
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
 
     public static final HiveType HIVE_BOOLEAN = new HiveType(booleanTypeInfo);
     public static final HiveType HIVE_BYTE = new HiveType(byteTypeInfo);
@@ -349,7 +349,7 @@ public final class HiveType
         }
     }
 
-    public int getEstimatedRetainedSizeInBytes()
+    public long getEstimatedRetainedSizeInBytes()
     {
         // Size of TypeInfo is not accounted as TypeInfo's are cached and retained by the TypeInfoFactory
         return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();

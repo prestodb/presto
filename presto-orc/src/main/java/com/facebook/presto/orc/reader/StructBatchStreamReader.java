@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class StructBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StructBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 

@@ -50,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 public class RcFileWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RcFileWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RcFileWriter.class).instanceSize();
     private static final Slice RCFILE_MAGIC = utf8Slice("RCF");
     private static final int CURRENT_VERSION = 1;
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
@@ -329,7 +329,7 @@ public class RcFileWriter
 
     private static class ColumnEncoder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ColumnEncoder.class).instanceSize() + ClassLayout.parseClass(ColumnEncodeOutput.class).instanceSize();
 
         private final ColumnEncoding columnEncoding;
 

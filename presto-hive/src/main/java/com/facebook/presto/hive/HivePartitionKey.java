@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class HivePartitionKey
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HivePartitionKey.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize() * 2;
 
     private final String name;
@@ -54,9 +54,9 @@ public final class HivePartitionKey
         return Optional.ofNullable(value);
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + name.length() * Character.BYTES + (value == null ? 0 : value.length() * Character.BYTES);
+        return INSTANCE_SIZE + (long) name.length() * Character.BYTES + (value == null ? 0 : (long) value.length() * Character.BYTES);
     }
 
     @Override

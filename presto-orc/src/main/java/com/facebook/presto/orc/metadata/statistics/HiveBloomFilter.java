@@ -27,7 +27,7 @@ public class HiveBloomFilter
         extends BloomFilter
         implements Hashable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveBloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HiveBloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
 
     // constructor that allows deserialization of a long list into the actual hive bloom filter
     public HiveBloomFilter(List<Long> bits, int numBits, int numHashFunctions)

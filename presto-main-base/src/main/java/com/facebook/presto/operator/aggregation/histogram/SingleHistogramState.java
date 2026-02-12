@@ -21,7 +21,7 @@ import org.openjdk.jol.info.ClassLayout;
 public class SingleHistogramState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleHistogramState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleHistogramState.class).instanceSize();
 
     private SingleTypedHistogram typedHistogram;
 

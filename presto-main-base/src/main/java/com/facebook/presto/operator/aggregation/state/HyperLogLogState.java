@@ -27,5 +27,5 @@ public interface HyperLogLogState
 
     void setHyperLogLog(HyperLogLog value);
 
-    void addMemoryUsage(int value);
+    void addMemoryUsage(long value);
 }

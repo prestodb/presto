@@ -23,7 +23,7 @@ import static java.util.Objects.requireNonNull;
 public class DataPageV1
         extends DataPage
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DataPageV1.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DataPageV1.class).instanceSize();
 
     private final Slice slice;
     private final Statistics<?> statistics;

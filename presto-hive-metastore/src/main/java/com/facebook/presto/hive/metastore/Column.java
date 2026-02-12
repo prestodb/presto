@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class Column
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Column.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Column.class).instanceSize();
 
     private final String name;
     private final HiveType type;
@@ -103,10 +103,10 @@ public class Column
         return Objects.hash(name, type, comment);
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
-        result += name.length() * Character.BYTES;
+        long result = INSTANCE_SIZE;
+        result += (long) name.length() * Character.BYTES;
         result += type.getEstimatedRetainedSizeInBytes();
         result += comment.map(String::length).orElse(0);
         return result;
