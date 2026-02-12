@@ -15,6 +15,7 @@
 package com.facebook.presto.type.khyperloglog;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -31,7 +32,7 @@ public final class MergeKHyperLogLogAggregationFunction
     private MergeKHyperLogLogAggregationFunction() {}
 
     @InputFunction
-    public static void input(@AggregationState KHyperLogLogState state, @SqlType(KHyperLogLogType.NAME) Slice value)
+    public static void input(@AggregationState KHyperLogLogState state, @SqlType(StandardTypes.K_HYPER_LOG_LOG) Slice value)
     {
         KHyperLogLog instance = KHyperLogLog.newInstance(value);
         merge(state, instance);
@@ -53,7 +54,7 @@ public final class MergeKHyperLogLogAggregationFunction
         }
     }
 
-    @OutputFunction(KHyperLogLogType.NAME)
+    @OutputFunction(StandardTypes.K_HYPER_LOG_LOG)
     public static void output(@AggregationState KHyperLogLogState state, BlockBuilder out)
     {
         if (state.getKHLL() == null) {

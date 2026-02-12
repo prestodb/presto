@@ -26,7 +26,7 @@ Property Name                                Description                        
 ``coordinator-sidecar-enabled``              Enables sidecar in the coordinator                                    true
 ``native-execution-enabled``                 Enables native execution                                              true
 ``presto.default-namespace``                 Sets the default function namespace                                   `native.default`
-``plugin.dir``                               Specifies which directory under installation root                     `{root-directory}/native-plugins/`
+``plugin.dir``                               Specifies which directory under installation root                     `{root-directory}/native-plugin/`
                                              to scan for plugins at startup.
 ============================================ ===================================================================== ==============================
 

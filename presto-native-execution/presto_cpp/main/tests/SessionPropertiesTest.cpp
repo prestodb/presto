@@ -86,6 +86,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kMaxOutputBufferSize},
       {SessionProperties::kMaxPartitionedOutputBufferSize,
        core::QueryConfig::kMaxPartitionedOutputBufferSize},
+      {SessionProperties::kPartitionedOutputEagerFlush,
+       core::QueryConfig::kPartitionedOutputEagerFlush},
       {SessionProperties::kLegacyTimestamp,
        core::QueryConfig::kAdjustTimestampToTimezone},
       {SessionProperties::kDriverCpuTimeSliceLimitMs,
@@ -131,7 +133,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kAggregationCompactionBytesThreshold,
        core::QueryConfig::kAggregationCompactionBytesThreshold},
       {SessionProperties::kAggregationCompactionUnusedMemoryRatio,
-       core::QueryConfig::kAggregationCompactionUnusedMemoryRatio}};
+       core::QueryConfig::kAggregationCompactionUnusedMemoryRatio},
+      {SessionProperties::kMergeJoinOutputBatchStartSize,
+       core::QueryConfig::kMergeJoinOutputBatchStartSize}};
 
   const auto sessionProperties = SessionProperties::instance();
   for (const auto& [sessionProperty, expectedVeloxConfig] : expectedMappings) {

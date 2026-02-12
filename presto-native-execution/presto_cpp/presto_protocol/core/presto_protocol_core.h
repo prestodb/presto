@@ -2627,9 +2627,15 @@ void to_json(json& j, const TopNNode& p);
 void from_json(const json& j, TopNNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class RankingFunction { ROW_NUMBER, RANK, DENSE_RANK };
+extern void to_json(json& j, const RankingFunction& e);
+extern void from_json(const json& j, RankingFunction& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct TopNRowNumberNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   DataOrganizationSpecification specification = {};
+  RankingFunction rankingType = {};
   VariableReferenceExpression rowNumberVariable = {};
   int maxRowCountPerPartition = {};
   bool partial = {};

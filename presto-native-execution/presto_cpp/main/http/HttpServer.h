@@ -20,6 +20,7 @@
 #include <wangle/ssl/SSLContextConfig.h>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "presto_cpp/main/http/HttpServerStartupOptions.h" // @manual
 
 namespace facebook::presto::http {
 
@@ -63,13 +64,13 @@ class AbstractRequestHandler : public proxygen::RequestHandler {
     body_.emplace_back(std::move(body));
   }
 
-  void onUpgrade(proxygen::UpgradeProtocol proto) noexcept override {}
+  void onUpgrade(proxygen::UpgradeProtocol /*proto*/) noexcept override {}
 
   void requestComplete() noexcept override {
     delete this;
   }
 
-  void onError(proxygen::ProxygenError err) noexcept override {
+  void onError(proxygen::ProxygenError /*err*/) noexcept override {
     delete this;
   }
 
@@ -106,7 +107,7 @@ class CallbackRequestHandlerState {
 
   // The function 'fn' will run on the thread that invoked onEOM()
   void runOnFinalization(std::function<void(void)> callback) {
-    onFinalizationCallback_ = callback;
+    onFinalizationCallback_ = std::move(callback);
   }
 
   bool requestExpired() const {
@@ -136,10 +137,11 @@ using AsyncRequestHandlerCallback = std::function<void(
 class CallbackRequestHandler : public AbstractRequestHandler {
  public:
   explicit CallbackRequestHandler(RequestHandlerCallback callback)
-      : callback_(wrap(callback)) {}
+      : callback_(wrap(std::move(callback))) {}
 
   explicit CallbackRequestHandler(AsyncRequestHandlerCallback callback)
-      : callback_(callback), state_{CallbackRequestHandlerState::create()} {}
+      : callback_(std::move(callback)),
+        state_{CallbackRequestHandlerState::create()} {}
 
   ~CallbackRequestHandler() override {
     if (state_) {
@@ -287,6 +289,7 @@ class HttpServer {
       std::unique_ptr<HttpsConfig> httpsConfig = nullptr);
 
   void start(
+      HttpServerStartupOptions startupOptions = {},
       std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters =
           {},
       std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess = nullptr,

@@ -75,7 +75,7 @@ class HttpServerWrapper {
     promise_ = std::move(promise);
     serverThread_ = std::make_unique<std::thread>([this]() {
       server_->start(
-          std::move(filters_), [&](proxygen::HTTPServer* httpServer) {
+          {}, std::move(filters_), [&](proxygen::HTTPServer* httpServer) {
             ASSERT_EQ(httpServer->addresses().size(), 1);
             promise_.setValue(httpServer->addresses()[0].address);
           });
@@ -208,6 +208,7 @@ class HttpClientFactory {
         connectTimeout,
         pool,
         useHttps ? makeSslContext() : nullptr,
+        facebook::presto::http::HttpClientOptions{},
         std::move(reportOnBodyStatsFunc));
   }
 
@@ -221,8 +222,10 @@ sendGet(
     facebook::presto::http::HttpClient* client,
     const std::string& url,
     const uint64_t sendDelay = 0,
-    const std::string body = "") {
+    const std::string body = "",
+    facebook::presto::http::JwtOptions jwtOptions = {}) {
   return facebook::presto::http::RequestBuilder()
+      .jwtOptions(std::move(jwtOptions))
       .method(proxygen::HTTPMethod::GET)
       .url(url)
       .send(client, body, sendDelay);

@@ -53,6 +53,7 @@ import static com.facebook.presto.common.type.StandardTypes.INTERVAL_YEAR_TO_MON
 import static com.facebook.presto.common.type.StandardTypes.IPADDRESS;
 import static com.facebook.presto.common.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.common.type.StandardTypes.JSON;
+import static com.facebook.presto.common.type.StandardTypes.K_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
@@ -92,6 +93,7 @@ public class NativeTypeManager
                     DOUBLE,
                     SMALLINT,
                     HYPER_LOG_LOG,
+                    K_HYPER_LOG_LOG,
                     P4_HYPER_LOG_LOG,
                     JSON,
                     TIME_WITH_TIME_ZONE,

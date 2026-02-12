@@ -272,6 +272,11 @@ class SessionProperties {
   static constexpr const char* kMaxPartitionedOutputBufferSize =
       "native_max_page_partitioning_buffer_size";
 
+  /// If true, the PartitionedOutput operator will flush rows eagerly, without
+  /// waiting until buffers reach certain size. Default is false.
+  static constexpr const char* kPartitionedOutputEagerFlush =
+      "native_partitioned_output_eager_flush";
+
   /// Maximum number of partitions created by a local exchange.
   /// Affects concurrency for pipelines containing LocalPartitionNode.
   static constexpr const char* kMaxLocalExchangePartitionCount =
@@ -367,6 +372,14 @@ class SessionProperties {
   /// known and kPreferredOutputBatchBytes is used to compute the number of
   /// output rows.
   static constexpr const char* kMaxOutputBatchRows = "max_output_batch_rows";
+
+  /// Initial output batch size in rows for MergeJoin operator. When non-zero,
+  /// the batch size starts at this value and is dynamically adjusted based on
+  /// the average row size of previous output batches. When zero (default),
+  /// dynamic adjustment is disabled and the batch size is fixed at
+  /// preferredOutputBatchRows.
+  static constexpr const char* kMergeJoinOutputBatchStartSize =
+      "native_merge_join_output_batch_start_size";
 
   /// Enable (reader) row size tracker as a fallback to file level row size
   /// estimates.

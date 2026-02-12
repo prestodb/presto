@@ -351,6 +351,15 @@ SessionProperties::SessionProperties() {
       QueryConfig::kMaxPartitionedOutputBufferSize,
       std::to_string(c.maxPartitionedOutputBufferSize()));
 
+  addSessionProperty(
+      kPartitionedOutputEagerFlush,
+      "If true, the PartitionedOutput operator will flush rows eagerly, without"
+      " waiting until buffers reach a certain size. Default is false.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kPartitionedOutputEagerFlush,
+      "false");
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.
@@ -568,6 +577,18 @@ SessionProperties::SessionProperties() {
       true,
       QueryConfig::kMaxOutputBatchRows,
       std::to_string(c.maxOutputBatchRows()));
+
+  addSessionProperty(
+      kMergeJoinOutputBatchStartSize,
+      "Initial output batch size in rows for MergeJoin operator. When non-zero, "
+      "the batch size starts at this value and is dynamically adjusted based on "
+      "the average row size of previous output batches. When zero (default), "
+      "dynamic adjustment is disabled and the batch size is fixed at "
+      "preferredOutputBatchRows.",
+      INTEGER(),
+      false,
+      QueryConfig::kMergeJoinOutputBatchStartSize,
+      std::to_string(c.mergeJoinOutputBatchStartSize()));
 
   addSessionProperty(
       kRowSizeTrackingMode,

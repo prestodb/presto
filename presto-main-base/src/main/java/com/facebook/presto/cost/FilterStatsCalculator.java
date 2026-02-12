@@ -91,6 +91,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
+import static java.lang.Double.max;
 import static java.lang.Double.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
@@ -98,6 +99,13 @@ import static java.util.Objects.requireNonNull;
 
 public class FilterStatsCalculator
 {
+    /**
+     *
+     * This value applies a filter factor to upper-bound the size of the variable range selected for an IN predicate
+     * Since the estimator sums up the individual estimates, we don't want to go beyond 1.0
+     * This also impacts NOT IN similarly, we never apply a filter factor of 0.0 for a NOT IN clause
+     */
+    static final double CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT = 0.8;
     static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
 
     private final Metadata metadata;
@@ -403,9 +411,11 @@ public class FilterStatsCalculator
             }
 
             double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - valueStats.getNullsFraction());
+            double ceiledInEstimated = max(notNullValuesBeforeIn * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT, 1.0);
+            double inEstimateRowCount = min(inEstimate.getOutputRowCount(), ceiledInEstimated);
 
             PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-            result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
+            result.setOutputRowCount(inEstimateRowCount);
 
             if (node.getValue() instanceof SymbolReference) {
                 VariableReferenceExpression valueVariable = toVariable(node.getValue());
@@ -774,9 +784,11 @@ public class FilterStatsCalculator
             }
 
             double notNullValuesBeforeIn = input.getOutputRowCount() * (1 - valueStats.getNullsFraction());
+            double ceiledInEstimated = max(notNullValuesBeforeIn * CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT, 1.0);
+            double inEstimateRowCount = min(inEstimate.getOutputRowCount(), ceiledInEstimated);
 
             PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.buildFrom(input);
-            result.setOutputRowCount(min(inEstimate.getOutputRowCount(), notNullValuesBeforeIn));
+            result.setOutputRowCount(inEstimateRowCount);
 
             if (value instanceof VariableReferenceExpression) {
                 VariableReferenceExpression valueVariable = (VariableReferenceExpression) value;

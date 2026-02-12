@@ -81,6 +81,17 @@ class VeloxToPrestoExprConverter {
   std::vector<RowExpressionPtr> getSwitchSpecialFormExpressionArgs(
       const velox::core::CallTypedExpr* switchExpr) const;
 
+  /// Helper function to convert values from a constant `IN` list in Velox
+  /// expression to equivalent Presto expressions.
+  void getArgsFromConstantInList(
+      const velox::core::ConstantTypedExpr* inList,
+      std::vector<RowExpressionPtr>& result) const;
+
+  /// Helper function to get the arguments for Presto `IN` expression from
+  /// Velox `IN` expression.
+  std::vector<RowExpressionPtr> getInSpecialFormExpressionArgs(
+      const velox::core::CallTypedExpr* inExpr) const;
+
   /// Helper function to construct a Presto `protocol::SpecialFormExpression`
   /// from a Velox call expression. This function should be called only on call
   /// expressions that map to a Presto `SpecialFormExpression`. This can be

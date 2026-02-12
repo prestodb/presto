@@ -161,10 +161,13 @@ public class FeaturesConfig
     private boolean exploitConstraints = true;
     private boolean preferPartialAggregation = true;
     private PartialAggregationStrategy partialAggregationStrategy = PartialAggregationStrategy.ALWAYS;
+    private LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy = LocalExchangeParentPreferenceStrategy.ALWAYS;
     private double partialAggregationByteReductionThreshold = 0.5;
     private boolean adaptivePartialAggregationEnabled;
     private double adaptivePartialAggregationRowsReductionRatioThreshold = 0.8;
     private boolean optimizeTopNRowNumber = true;
+
+    private boolean optimizeTopNRank;
     private boolean pushLimitThroughOuterJoin = true;
     private boolean optimizeConstantGroupingKeys = true;
 
@@ -324,14 +327,18 @@ public class FeaturesConfig
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
     private boolean pushdownSubfieldForMapFunctions = true;
+    private boolean pushdownSubfieldForCardinality;
     private long maxSerializableObjectSize = 1000;
     private boolean utilizeUniquePropertyInQueryPlanning = true;
     private String expressionOptimizerUsedInRowExpressionRewrite = "";
     private double tableScanShuffleParallelismThreshold = 0.1;
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
+    private String remoteFunctionNamesForFixedParallelism = "";
+    private int remoteFunctionFixedParallelismTaskCount = 10;
 
     private boolean builtInSidecarFunctionsEnabled;
+    private String tryFunctionCatchableErrors = "";
 
     public enum PartitioningPrecisionStrategy
     {
@@ -416,6 +423,13 @@ public class FeaturesConfig
         ALWAYS, // Always do partial aggregation
         NEVER, // Never do partial aggregation
         AUTOMATIC // Let the optimizer decide for each aggregation
+    }
+
+    public enum LocalExchangeParentPreferenceStrategy
+    {
+        ALWAYS, // Always use parent preferences for local exchange partitioning
+        NEVER, // Never use parent preferences, use aggregation's own grouping keys
+        AUTOMATIC // Cost-based: use parent preferences only if cardinality >= taskConcurrency
     }
 
     public enum AggregationIfToFilterRewriteStrategy
@@ -1130,6 +1144,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public LocalExchangeParentPreferenceStrategy getLocalExchangeParentPreferenceStrategy()
+    {
+        return localExchangeParentPreferenceStrategy;
+    }
+
+    @Config("optimizer.local-exchange-parent-preference-strategy")
+    public FeaturesConfig setLocalExchangeParentPreferenceStrategy(LocalExchangeParentPreferenceStrategy localExchangeParentPreferenceStrategy)
+    {
+        this.localExchangeParentPreferenceStrategy = localExchangeParentPreferenceStrategy;
+        return this;
+    }
+
     public double getPartialAggregationByteReductionThreshold()
     {
         return partialAggregationByteReductionThreshold;
@@ -1171,10 +1197,22 @@ public class FeaturesConfig
         return optimizeTopNRowNumber;
     }
 
+    public boolean isOptimizeTopNRank()
+    {
+        return optimizeTopNRank;
+    }
+
     @Config("optimizer.optimize-top-n-row-number")
     public FeaturesConfig setOptimizeTopNRowNumber(boolean optimizeTopNRowNumber)
     {
         this.optimizeTopNRowNumber = optimizeTopNRowNumber;
+        return this;
+    }
+
+    @Config("optimizer.optimize-top-n-rank")
+    public FeaturesConfig setOptimizeTopNRank(boolean optimizeTopNRank)
+    {
+        this.optimizeTopNRank = optimizeTopNRank;
         return this;
     }
 
@@ -3269,6 +3307,19 @@ public class FeaturesConfig
         return pushdownSubfieldForMapFunctions;
     }
 
+    @Config("optimizer.pushdown-subfield-for-cardinality")
+    @ConfigDescription("Enable subfield pruning for cardinality() function to skip reading keys and values")
+    public FeaturesConfig setPushdownSubfieldForCardinality(boolean pushdownSubfieldForCardinality)
+    {
+        this.pushdownSubfieldForCardinality = pushdownSubfieldForCardinality;
+        return this;
+    }
+
+    public boolean isPushdownSubfieldForCardinality()
+    {
+        return pushdownSubfieldForCardinality;
+    }
+
     @Config("optimizer.utilize-unique-property-in-query-planning")
     @ConfigDescription("Utilize the unique property of input columns in query planning")
     public FeaturesConfig setUtilizeUniquePropertyInQueryPlanning(boolean utilizeUniquePropertyInQueryPlanning)
@@ -3358,5 +3409,45 @@ public class FeaturesConfig
     public boolean isBuiltInSidecarFunctionsEnabled()
     {
         return this.builtInSidecarFunctionsEnabled;
+    }
+
+    public String getRemoteFunctionNamesForFixedParallelism()
+    {
+        return remoteFunctionNamesForFixedParallelism;
+    }
+
+    @Config("optimizer.remote-function-names-for-fixed-parallelism")
+    @ConfigDescription("Regex pattern to match remote function names that should use fixed parallelism")
+    public FeaturesConfig setRemoteFunctionNamesForFixedParallelism(String remoteFunctionNamesForFixedParallelism)
+    {
+        this.remoteFunctionNamesForFixedParallelism = remoteFunctionNamesForFixedParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getRemoteFunctionFixedParallelismTaskCount()
+    {
+        return remoteFunctionFixedParallelismTaskCount;
+    }
+
+    @Config("optimizer.remote-function-fixed-parallelism-task-count")
+    @ConfigDescription("Number of tasks to use for remote functions matching the fixed parallelism pattern. If not set (0), the default hash partition count will be used.")
+    public FeaturesConfig setRemoteFunctionFixedParallelismTaskCount(int remoteFunctionFixedParallelismTaskCount)
+    {
+        this.remoteFunctionFixedParallelismTaskCount = remoteFunctionFixedParallelismTaskCount;
+        return this;
+    }
+
+    public String getTryFunctionCatchableErrors()
+    {
+        return tryFunctionCatchableErrors;
+    }
+
+    @Config("try-function-catchable-errors")
+    @ConfigDescription("Comma-separated list of error code names that TRY function should catch")
+    public FeaturesConfig setTryFunctionCatchableErrors(String tryFunctionCatchableErrors)
+    {
+        this.tryFunctionCatchableErrors = tryFunctionCatchableErrors;
+        return this;
     }
 }

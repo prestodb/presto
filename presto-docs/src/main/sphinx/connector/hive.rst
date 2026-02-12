@@ -236,6 +236,18 @@ Property Name                                            Description            
 
 .. _constructor: https://github.com/apache/hadoop/blob/02a9190af5f8264e25966a80c8f9ea9bb6677899/hadoop-common-project/hadoop-common/src/main/java/org/apache/hadoop/conf/Configuration.java#L844-L875
 
+Hive Session Properties
+-----------------------
+
+======================================================== ============================================================ ============
+Property Name                                            Description                                                  Default
+======================================================== ============================================================ ============
+``native_max_target_file_size``                          Native Execution only. Maximum target file size. When a      ``0B``
+                                                         file exceeds this size during writing, the writer will
+                                                         close the current file and start writing to a new file.
+                                                         Zero means no limit.
+======================================================== ============================================================ ============
+
 Avro Configuration Properties
 -----------------------------
 

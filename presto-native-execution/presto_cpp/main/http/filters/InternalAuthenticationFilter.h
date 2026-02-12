@@ -47,9 +47,9 @@ class InternalAuthenticationFilter : public proxygen::Filter {
   void onError(proxygen::ProxygenError err) noexcept override;
 
  private:
-  void sendGenericErrorResponse(void);
+  void sendGenericErrorResponse();
 
-  void sendUnauthorizedResponse(void);
+  void sendUnauthorizedResponse();
 
   void processAndVerifyJwt(
       const std::string& token,

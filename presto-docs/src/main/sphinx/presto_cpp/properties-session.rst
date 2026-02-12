@@ -300,6 +300,15 @@ The maximum bytes to buffer per PartitionedOutput operator to avoid creating tin
 For PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator would buffer up to that number of
 bytes / number of destinations for each destination before producing a SerializedPage. Default is 32MB.
 
+``native_partitioned_output_eager_flush``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. If true, the PartitionedOutput operator will flush rows eagerly, without waiting
+until buffers reach a certain size. Default is false.
+
 ``native_max_local_exchange_partition_count``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -472,6 +481,17 @@ In streaming aggregation, wait until there are enough output rows
 to produce a batch of the size specified by this property. If set to ``0``, then
 ``Operator::outputBatchRows`` is used as the minimum number of output batch rows.
 
+``native_merge_join_output_batch_start_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Native Execution only. Initial output batch size in rows for MergeJoin operator.
+When non-zero, the batch size starts at this value and is dynamically adjusted
+based on the average row size of previous output batches. When zero (default),
+dynamic adjustment is disabled and the batch size is fixed at ``preferred_output_batch_rows``.
+
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -568,3 +588,17 @@ with StringView type during global aggregation.
 Native Execution only. Ratio of unused (evicted) bytes to total bytes that triggers
 compaction. The value is in the range of [0, 1). Currently only applies to
 approx_most_frequent aggregate with StringView type during global aggregation.
+
+``optimizer.optimize_top_n_rank``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If this is true, then filter and limit queries for ``n`` rows of
+``rank()`` and ``dense_rank()`` window function values are executed
+with a special TopNRowNumber operator instead of the
+WindowFunction operator.
+
+The TopNRowNumber operator is more efficient than window as
+it has a streaming behavior and does not need to buffer all input rows.

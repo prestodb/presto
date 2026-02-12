@@ -50,7 +50,7 @@ The corresponding configuration property is :ref:`admin/properties:\`\`join-dist
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true``
+* **Default value:** ``false``
 
 This property enables redistribution of data before writing. This can
 eliminate the performance impact of data skew when writing by hashing it
@@ -58,7 +58,26 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
+
 The corresponding configuration property is :ref:`admin/properties:\`\`redistribute-writes\`\``.
+
+``scale_writers``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+This property enables dynamic scaling of writer tasks based on throughput. When enabled,
+Presto automatically adjusts the number of writer tasks to use the minimum necessary
+for optimal performance. This can improve resource utilization by scaling out writers
+only when needed based on data throughput.
+
+When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
+``scale_writers`` takes precedence.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
 
 ``task_writer_count``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -147,6 +166,27 @@ If the number of computed prefixes exceeds this limit, Presto falls back to a si
 If it’s below the limit, the generated prefixes are used.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`max-prefixes-count\`\``.
+
+``try_function_catchable_errors``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string)
+
+A comma-separated list of error code names that the ``TRY()`` function should catch
+and return ``NULL`` for, in addition to the default catchable errors (such as
+``DIVISION_BY_ZERO``, ``INVALID_CAST_ARGUMENT``, ``INVALID_FUNCTION_ARGUMENT``,
+and ``NUMERIC_VALUE_OUT_OF_RANGE``).
+
+This allows users to specify exactly which additional errors ``TRY()`` should suppress.
+Error codes are matched by their name (such as ``GENERIC_INTERNAL_ERROR``, ``INVALID_ARGUMENTS``).
+
+Example usage::
+
+    SET SESSION try_function_catchable_errors = 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS';
+    SELECT TRY(my_function(x)) FROM table;
+
+The corresponding configuration property is :ref:`admin/properties:\`\`try-function-catchable-errors\`\``.
 
 Spilling Properties
 -------------------
@@ -446,6 +486,17 @@ Use this to optimize the ``map_filter()`` and ``map_subset()`` function.
 
 It controls if subfields access is executed at the data source or not.
 
+``pushdown_subfields_for_cardinality``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable subfield pruning for the ``cardinality()`` function to skip reading keys and values.
+
+When enabled, the query optimizer can push down subfield pruning for cardinality operations,
+allowing the data source to skip reading the actual keys and values when only the cardinality
+(count of elements) is needed.
+
 ``schedule_splits_based_on_task_load``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
@@ -484,6 +535,59 @@ added above table scans. When set to ``COST_BASED``, a shuffle is added only whe
 parallelism factor is below the ``table_scan_shuffle_parallelism_threshold``.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.table-scan-shuffle-strategy\`\``.
+
+``remote_function_names_for_fixed_parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string, disabled)
+
+A regular expression pattern to match fully qualified remote function names, such as ``catalog.schema.function_name``,
+that should use fixed parallelism. When a remote function matches this pattern, the optimizer inserts
+round-robin shuffle exchanges before and after the projection containing the remote function call.
+This ensures that the remote function executes with a fixed degree of parallelism, which can be useful
+for controlling resource usage when calling external services.
+
+This property only applies to external/remote functions (functions where ``isExternalExecution()`` returns ``true``,
+such as functions using THRIFT, GRPC, or REST implementation types).
+
+Example patterns:
+
+* ``myschema.myfunction`` - matches an exact function name
+* ``catalog.schema.remote_.*`` - matches all functions starting with ``remote_`` in the specified catalog and schema
+* ``.*remote.*`` - matches any function containing ``remote`` in its fully qualified name
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\``.
+
+``remote_function_fixed_parallelism_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``null`` (uses the default hash partition count)
+
+The number of tasks to use for remote functions matching the ``remote_function_names_for_fixed_parallelism`` pattern.
+When set, this value determines the degree of parallelism for the round-robin shuffle exchanges inserted
+around matching remote function projections. If not set, the default hash partition count will be used.
+
+This property is only effective when ``remote_function_names_for_fixed_parallelism`` is set to a non-empty pattern.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-fixed-parallelism-task-count\`\``.
+
+``local_exchange_parent_preference_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``ALWAYS``, ``NEVER``, ``AUTOMATIC``
+* **Default value:** ``ALWAYS``
+
+Strategy to consider parent preferences when adding local exchange partitioning for aggregations.
+When set to ``ALWAYS``, the optimizer always uses parent preferences for local exchange partitioning.
+When set to ``NEVER``, it never uses parent preferences and instead uses the aggregation's own
+grouping keys. When set to ``AUTOMATIC``, the optimizer makes a cost-based decision, using parent
+preferences only when the estimated partition cardinality is greater than or equal to the task
+concurrency.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
 
 JDBC Properties

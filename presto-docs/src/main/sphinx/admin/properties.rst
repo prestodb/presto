@@ -49,7 +49,7 @@ The corresponding session property is :ref:`admin/properties-session:\`\`join_di
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true``
+* **Default value:** ``false``
 
 This property enables redistribution of data before writing. This can
 eliminate the performance impact of data skew when writing by hashing it
@@ -57,7 +57,26 @@ across nodes in the cluster. It can be disabled when it is known that the
 output data set is not skewed in order to avoid the overhead of hashing and
 redistributing all the data across the network.
 
+When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
+``scale-writers`` takes precedence.
+
 The corresponding session property is :ref:`admin/properties-session:\`\`redistribute_writes\`\``.
+
+``scale-writers``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+This property enables dynamic scaling of writer tasks based on throughput. When enabled,
+Presto automatically adjusts the number of writer tasks to use the minimum necessary
+for optimal performance. This can improve resource utilization by scaling out writers
+only when needed based on data throughput.
+
+When both ``scale-writers`` and ``redistribute-writes`` are set to ``true``,
+``scale-writers`` takes precedence.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`scale_writers\`\``.
 
 ``check-access-control-on-utilized-columns-only``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -180,6 +199,23 @@ The corresponding session property is :ref:`admin/properties-session:\`\`max_pre
 
 An optional identifier for the cluster. When set, this tag is included in the response from the
 ``/v1/cluster`` REST API endpoint, allowing clients to identify which cluster provided the response.
+
+``try-function-catchable-errors``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string)
+
+A comma-separated list of error code names that the ``TRY()`` function should catch
+and return ``NULL`` for, in addition to the default catchable errors (such as
+``DIVISION_BY_ZERO``, ``INVALID_CAST_ARGUMENT``, ``INVALID_FUNCTION_ARGUMENT``,
+and ``NUMERIC_VALUE_OUT_OF_RANGE``).
+
+This allows administrators to configure which additional errors ``TRY()`` should suppress
+at the server level. Error codes are matched by their name (such as ``GENERIC_INTERNAL_ERROR``,
+``INVALID_ARGUMENTS``).
+
+The corresponding session property is :ref:`admin/properties-session:\`\`try_function_catchable_errors\`\``.
 
 Memory Management Properties
 ----------------------------
@@ -1098,6 +1134,59 @@ added above table scans. When set to ``COST_BASED``, a shuffle is added only whe
 parallelism factor is below the ``optimizer.table-scan-shuffle-parallelism-threshold``.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`table_scan_shuffle_strategy\`\``.
+
+``optimizer.remote-function-names-for-fixed-parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""`` (empty string, disabled)
+
+A regular expression pattern to match fully qualified remote function names, such as ``catalog.schema.function_name``,
+that should use fixed parallelism. When a remote function matches this pattern, the optimizer inserts
+round-robin shuffle exchanges before and after the projection containing the remote function call.
+This ensures that the remote function executes with a fixed degree of parallelism, which can be useful
+for controlling resource usage when calling external services.
+
+This property only applies to external/remote functions (functions where ``isExternalExecution()`` returns ``true``,
+such as functions using THRIFT, GRPC, or REST implementation types).
+
+Example patterns:
+
+* ``myschema.myfunction`` - matches an exact function name
+* ``catalog.schema.remote_.*`` - matches all functions starting with ``remote_`` in the specified catalog and schema
+* ``.*remote.*`` - matches any function containing ``remote`` in its fully qualified name
+
+The corresponding session property is :ref:`admin/properties-session:\`\`remote_function_names_for_fixed_parallelism\`\``.
+
+``optimizer.remote-function-fixed-parallelism-task-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``null`` (uses the default hash partition count)
+
+The number of tasks to use for remote functions matching the ``optimizer.remote-function-names-for-fixed-parallelism`` pattern.
+When set, this value determines the degree of parallelism for the round-robin shuffle exchanges inserted
+around matching remote function projections. If not set, the default hash partition count will be used.
+
+This property is only effective when ``optimizer.remote-function-names-for-fixed-parallelism`` is set to a non-empty pattern.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`remote_function_fixed_parallelism_task_count\`\``.
+
+``optimizer.local-exchange-parent-preference-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``ALWAYS``, ``NEVER``, ``AUTOMATIC``
+* **Default value:** ``ALWAYS``
+
+Strategy to consider parent preferences when adding local exchange partitioning for aggregations.
+When set to ``ALWAYS``, the optimizer always uses parent preferences for local exchange partitioning.
+When set to ``NEVER``, it never uses parent preferences and instead uses the aggregation's own
+grouping keys. When set to ``AUTOMATIC``, the optimizer makes a cost-based decision, using parent
+preferences only when the estimated partition cardinality is greater than or equal to the task
+concurrency.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`local_exchange_parent_preference_strategy\`\``.
 
 Planner Properties
 ------------------

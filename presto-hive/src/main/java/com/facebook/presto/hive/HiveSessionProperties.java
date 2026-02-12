@@ -139,6 +139,8 @@ public final class HiveSessionProperties
 
     public static final String NATIVE_STATS_BASED_FILTER_REORDER_DISABLED = "native_stats_based_filter_reorder_disabled";
 
+    public static final String NATIVE_MAX_TARGET_FILE_SIZE = "native_max_target_file_size";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -676,7 +678,12 @@ public final class HiveSessionProperties
                         NATIVE_STATS_BASED_FILTER_REORDER_DISABLED,
                         "Native Execution only. Disable stats based filter reordering.",
                         false,
-                        true));
+                        true),
+                dataSizeSessionProperty(
+                        NATIVE_MAX_TARGET_FILE_SIZE,
+                       "Native Execution only. Maximum target file size. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. Zero means no limit.",
+                        new DataSize(0, DataSize.Unit.BYTE),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

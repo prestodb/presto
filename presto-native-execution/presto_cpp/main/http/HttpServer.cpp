@@ -14,9 +14,9 @@
 
 #include <algorithm>
 
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpServer.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::http {
 
@@ -218,7 +218,7 @@ proxygen::RequestHandler* DispatchingRequestHandlerFactory::onRequest(
             message->getURL()));
   }
 
-  auto path = message->getPath();
+  const auto& path = message->getPath();
 
   // Allocate vector outside of loop to avoid repeated alloc/free.
   std::vector<std::string> matches(4);
@@ -279,14 +279,13 @@ HttpServer::endpoints() const {
 }
 
 void HttpServer::start(
+    HttpServerStartupOptions startupOptions,
     std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters,
     std::function<void(proxygen::HTTPServer* /*server*/)> onSuccess,
     std::function<void(std::exception_ptr)> onError) {
   proxygen::HTTPServerOptions options;
 
-  auto systemConfig = SystemConfig::instance();
-  options.idleTimeout =
-      std::chrono::milliseconds(systemConfig->httpServerIdleTimeoutMs());
+  options.idleTimeout = std::chrono::milliseconds(startupOptions.idleTimeoutMs);
 
   proxygen::RequestHandlerChain handlerFactories;
 
@@ -301,30 +300,24 @@ void HttpServer::start(
   options.handlerFactories = handlerFactories.build();
 
   // HTTP/2 flow control window sizes (configurable)
-  options.initialReceiveWindow =
-      systemConfig->httpServerHttp2InitialReceiveWindow();
-  options.receiveStreamWindowSize =
-      systemConfig->httpServerHttp2ReceiveStreamWindowSize();
+  options.initialReceiveWindow = startupOptions.http2InitialReceiveWindow;
+  options.receiveStreamWindowSize = startupOptions.http2ReceiveStreamWindowSize;
   options.receiveSessionWindowSize =
-      systemConfig->httpServerHttp2ReceiveSessionWindowSize();
+      startupOptions.http2ReceiveSessionWindowSize;
   options.maxConcurrentIncomingStreams =
-      systemConfig->httpServerHttp2MaxConcurrentStreams();
+      startupOptions.http2MaxConcurrentStreams;
   options.h2cEnabled = true;
 
   // Enable HTTP/2 responses compression for better performance
   // Supports both gzip and zstd (zstd preferred when client supports it)
-  options.enableContentCompression =
-      systemConfig->httpServerEnableContentCompression();
-  options.contentCompressionLevel =
-      systemConfig->httpServerContentCompressionLevel();
+  options.enableContentCompression = startupOptions.enableContentCompression;
+  options.contentCompressionLevel = startupOptions.contentCompressionLevel;
   options.contentCompressionMinimumSize =
-      systemConfig->httpServerContentCompressionMinimumSize();
-  options.enableZstdCompression =
-      systemConfig->httpServerEnableZstdCompression();
+      startupOptions.contentCompressionMinimumSize;
+  options.enableZstdCompression = startupOptions.enableZstdCompression;
   options.zstdContentCompressionLevel =
-      systemConfig->httpServerZstdContentCompressionLevel();
-  options.enableGzipCompression =
-      systemConfig->httpServerEnableGzipCompression();
+      startupOptions.zstdContentCompressionLevel;
+  options.enableGzipCompression = startupOptions.enableGzipCompression;
 
   // CRITICAL: Add Thrift content-types for Presto task updates
   // By default, proxygen only compresses text/* and some application/* types

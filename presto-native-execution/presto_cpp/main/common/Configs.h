@@ -17,6 +17,9 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include "presto_cpp/main/http/HttpClientOptions.h" // @manual
+#include "presto_cpp/main/http/HttpServerStartupOptions.h" // @manual
+#include "presto_cpp/main/http/JwtOptions.h" // @manual
 #include "velox/common/config/Config.h"
 
 namespace facebook::presto {
@@ -428,6 +431,12 @@ class SystemConfig : public ConfigBase {
   /// NOTE: we only write to SSD cache when both above conditions are satisfied.
   static constexpr std::string_view kAsyncCacheMinSsdSavableBytes{
       "async-cache-min-ssd-savable-bytes"};
+
+  /// The number of shards for the async data cache. The cache is divided into
+  /// shards to decrease contention on the mutex for the key to entry mapping
+  /// and other housekeeping. Must be a power of 2.
+  static constexpr std::string_view kAsyncCacheNumShards{
+      "async-cache-num-shards"};
 
   /// The interval for persisting in-memory cache to SSD. Setting this config
   /// to a non-zero value will activate periodic cache persistence.
@@ -930,6 +939,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpServerEnableGzipCompression() const;
 
+  http::HttpServerStartupOptions httpServerStartupOptions() const;
+
   /// A list of ciphers (comma separated) that are supported by
   /// server and client. Note Java and folly::SSLContext use different names to
   /// refer to the same cipher. For e.g. TLS_RSA_WITH_AES_256_GCM_SHA384 in Java
@@ -1066,6 +1077,8 @@ class SystemConfig : public ConfigBase {
 
   int32_t asyncCacheMinSsdSavableBytes() const;
 
+  int32_t asyncCacheNumShards() const;
+
   std::chrono::duration<double> asyncCachePersistenceInterval() const;
 
   bool asyncCacheSsdDisableFileCow() const;
@@ -1160,6 +1173,8 @@ class SystemConfig : public ConfigBase {
 
   bool httpClientConnectionReuseCounterEnabled() const;
 
+  http::HttpClientOptions httpClientOptions() const;
+
   std::chrono::duration<double> exchangeMaxErrorDuration() const;
 
   std::chrono::duration<double> exchangeRequestTimeoutMs() const;
@@ -1187,6 +1202,8 @@ class SystemConfig : public ConfigBase {
   std::string internalCommunicationSharedSecret() const;
 
   int32_t internalCommunicationJwtExpirationSeconds() const;
+
+  http::JwtOptions jwtOptions() const;
 
   bool useLegacyArrayAgg() const;
 

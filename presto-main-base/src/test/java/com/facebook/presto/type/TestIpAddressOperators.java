@@ -25,9 +25,9 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.io.BaseEncoding.base16;
 
 public class TestIpAddressOperators

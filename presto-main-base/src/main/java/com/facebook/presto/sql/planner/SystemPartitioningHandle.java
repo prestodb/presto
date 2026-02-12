@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public final class SystemPartitioningHandle
         implements ConnectorPartitioningHandle
 {
-    private enum SystemPartitioning
+    public enum SystemPartitioning
     {
         SINGLE,
         FIXED,
@@ -74,16 +74,31 @@ public final class SystemPartitioningHandle
         return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function));
     }
 
+    public static PartitioningHandle createSystemPartitioning(SystemPartitioning partitioning, SystemPartitionFunction function, int partitionCount)
+    {
+        return new PartitioningHandle(Optional.empty(), Optional.empty(), new SystemPartitioningHandle(partitioning, function, Optional.of(partitionCount)));
+    }
+
     private final SystemPartitioning partitioning;
     private final SystemPartitionFunction function;
+    private final Optional<Integer> partitionCount;
 
     @JsonCreator
     public SystemPartitioningHandle(
             @JsonProperty("partitioning") SystemPartitioning partitioning,
-            @JsonProperty("function") SystemPartitionFunction function)
+            @JsonProperty("function") SystemPartitionFunction function,
+            @JsonProperty("partitionCount") Optional<Integer> partitionCount)
     {
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.function = requireNonNull(function, "function is null");
+        this.partitionCount = requireNonNull(partitionCount, "partitionCount is null");
+    }
+
+    public SystemPartitioningHandle(
+            SystemPartitioning partitioning,
+            SystemPartitionFunction function)
+    {
+        this(partitioning, function, Optional.empty());
     }
 
     @JsonProperty
@@ -96,6 +111,12 @@ public final class SystemPartitioningHandle
     public SystemPartitionFunction getFunction()
     {
         return function;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getPartitionCount()
+    {
+        return partitionCount;
     }
 
     @Override
@@ -133,13 +154,14 @@ public final class SystemPartitioningHandle
         }
         SystemPartitioningHandle that = (SystemPartitioningHandle) o;
         return partitioning == that.partitioning &&
-                function == that.function;
+                function == that.function &&
+                partitionCount.equals(that.partitionCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, function);
+        return Objects.hash(partitioning, function, partitionCount);
     }
 
     @Override
@@ -162,7 +184,12 @@ public final class SystemPartitioningHandle
             nodes = nodeSelector.selectRandomNodes(1);
         }
         else if (partitioning == SystemPartitioning.FIXED) {
-            nodes = nodeSelector.selectRandomNodes(min(getHashPartitionCount(session), getMaxTasksPerStage(session)));
+            if (!partitionCount.isPresent()) {
+                nodes = nodeSelector.selectRandomNodes(min(getHashPartitionCount(session), getMaxTasksPerStage(session)));
+            }
+            else {
+                nodes = nodeSelector.selectRandomNodes(min(partitionCount.get(), min(getHashPartitionCount(session), getMaxTasksPerStage(session))));
+            }
         }
         else {
             throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
