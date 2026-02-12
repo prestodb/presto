@@ -15,6 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -366,5 +368,20 @@ public class TestDeltaIntegration
         String showCreateTableCommandResult = (String) computeActual("SHOW CREATE TABLE " + fullTableName).getOnlyValue();
 
         assertEquals(showCreateTableCommandResult, expectedSqlCommand);
+    }
+
+    @Test
+    public void testCreateTablePointingToNonExistentStorageLocation()
+    {
+        PrestoException expectedException = new PrestoException(INVALID_TABLE_PROPERTY,
+                "External location must be a directory");
+        try {
+            String sql = "CREATE TABLE test_unexistent_location (dummyColumn INT) " +
+                    "with (external_location='file:///tmp/presto_test_non_existent_location')";
+            getQueryRunner().execute(sql);
+        }
+        catch (Exception e) {
+            assertEquals(e.getMessage(), expectedException.getMessage());
+        }
     }
 }

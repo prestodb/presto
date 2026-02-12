@@ -16,6 +16,8 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -44,7 +46,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import jakarta.inject.Inject;
+import org.apache.hadoop.fs.Path;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +67,7 @@ import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUM
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -87,6 +92,7 @@ public class DeltaMetadata
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final DeltaConfig config;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public DeltaMetadata(
@@ -94,13 +100,15 @@ public class DeltaMetadata
             DeltaClient deltaClient,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
-            DeltaConfig config)
+            DeltaConfig config,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -174,10 +182,31 @@ public class DeltaMetadata
         HiveStorageFormat hiveStorageFormat = getTableStorageFormat(tableMetadata.getProperties());
         String tableLocation = tableProperties.get(EXTERNAL_LOCATION_PROPERTY).toString();
 
+        // Need to check for path existence to avoid inconsistent metastore
+        // as Delta connector does not support managed tables
+        Path targetPath = getExternalPath(
+                new HdfsContext(session, schemaName, tableName, tableLocation, true),
+                tableLocation);
+        log.debug("Creating external table with location: '%s'", targetPath.toString());
+
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setLocation(tableLocation);
         return tableBuilder.build();
+    }
+
+    private Path getExternalPath(HdfsContext context, String location)
+    {
+        try {
+            Path path = new Path(location);
+            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+            }
+            return path;
+        }
+        catch (IllegalArgumentException | IOException e) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
+        }
     }
 
     @Override
