@@ -2,7 +2,7 @@
 Plugin Loaded Functions
 =======================
 
-These functions are optionally opt-in functions which can be loaded as needed.
+These functions are optional, opt-in functions that can be loaded as needed.
 For more details on loading these functions, refer to the
 `presto-sql-helpers README. <https://github.com/prestodb/presto/tree/master/presto-sql-helpers>`_
 
@@ -128,7 +128,6 @@ Array Functions
         SELECT array_transpose(ARRAY [ARRAY ['a', 'b'], ARRAY ['c', 'd'], ARRAY ['e', 'f']]) -- [['a', 'c', 'e'], ['b', 'd', 'f']]
         SELECT array_transpose(ARRAY [ARRAY [1]]) -- [[1]]
         SELECT array_transpose(ARRAY []) -- []
-
 
 Map Functions
 --------------
