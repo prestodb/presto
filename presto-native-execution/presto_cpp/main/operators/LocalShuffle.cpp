@@ -108,7 +108,7 @@ class SortedFileInputStream final : public velox::common::FileInputStream,
 class LocalShuffleSerializedPage : public ShuffleSerializedPage {
  public:
   LocalShuffleSerializedPage(
-      const std::vector<std::string_view>& rows,
+      std::vector<std::string_view> rows,
       velox::BufferPtr buffer)
       : rows_{std::move(rows)}, buffer_{std::move(buffer)} {}
 
