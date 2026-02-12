@@ -33,10 +33,13 @@ import org.apache.hudi.exception.TableNotFoundException;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
@@ -46,6 +49,8 @@ import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
@@ -90,14 +95,19 @@ public class TestHudiDirectoryLister
 
     private Table getMockTable()
     {
+        return getMockTable("hudi_non_part_cow", getTableBasePath("hudi_non_part_cow"));
+    }
+
+    private static Table getMockTable(String tableName, String location)
+    {
         return new Table(
                 Optional.of("catalogName"),
                 "schema",
-                "hudi_non_part_cow",
+                tableName,
                 "user",
                 EXTERNAL_TABLE,
                 new Storage(fromHiveStorageFormat(PARQUET),
-                        getTableBasePath("hudi_non_part_cow"),
+                        location,
                         Optional.of(new HiveBucketProperty(
                                 ImmutableList.of(),
                                 1,
@@ -156,7 +166,7 @@ public class TestHudiDirectoryLister
                     TEST_CLIENT_TAGS);
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -195,7 +205,7 @@ public class TestHudiDirectoryLister
                     TEST_CLIENT_TAGS);
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation(), "p1");
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -239,7 +249,7 @@ public class TestHudiDirectoryLister
         try {
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -267,7 +277,7 @@ public class TestHudiDirectoryLister
         try {
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -313,6 +323,81 @@ public class TestHudiDirectoryLister
                 Optional.empty());
 
         assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(getHadoopConfWithCopyOnFirstWriteDisabled(), SESSION, mockTable));
+    }
+
+    @Test
+    public void testDirectoryListerFor1xHudiTable()
+            throws IOException
+    {
+        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("hudi-1x-test");
+        try {
+            extractZip("hudi-testing-data-1x.zip", tempDir);
+            String tableLocation = "file://" + tempDir.resolve("hudi-data-1x/stock_ticks_cown").toAbsolutePath();
+            Table mockTable = getMockTable("stock_ticks_cown_1x", tableLocation);
+            Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            Path path = new Path(tableLocation);
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path,
+                    Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
+                            IGNORED, false, false,
+                            new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
+                            ImmutableMap.of(), new RuntimeStats()));
+            assertTrue(fileInfoIterator.hasNext());
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
+    }
+
+    @Test
+    public void testDirectoryListerFor1xHudiTableWithMetadataEnabled()
+            throws IOException
+    {
+        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("hudi-1x-meta-test");
+        try {
+            extractZip("hudi-testing-data-1x.zip", tempDir);
+            String tableLocation = "file://" + tempDir.resolve("hudi-data-1x/stock_ticks_cown").toAbsolutePath();
+            Table mockTable = getMockTable("stock_ticks_cown_1x", tableLocation);
+            Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
+            ConnectorSession session = new TestingConnectorSession(
+                    getAllSessionProperties(
+                            new HiveClientConfig().setHudiMetadataEnabled(true),
+                            new HiveCommonClientConfig()),
+                    TEST_CLIENT_TAGS);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
+            Path path = new Path(tableLocation);
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path,
+                    Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
+                            IGNORED, false, false,
+                            new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
+                            ImmutableMap.of(), new RuntimeStats()));
+            assertTrue(fileInfoIterator.hasNext());
+        }
+        finally {
+            deleteRecursively(tempDir, ALLOW_INSECURE);
+        }
+    }
+
+    private static void extractZip(String resourceName, java.nio.file.Path destination)
+            throws IOException
+    {
+        try (InputStream stream = TestHudiDirectoryLister.class.getClassLoader().getResourceAsStream(resourceName);
+                ZipInputStream zipStream = new ZipInputStream(stream)) {
+            ZipEntry zipEntry;
+            while ((zipEntry = zipStream.getNextEntry()) != null) {
+                java.nio.file.Path entryPath = destination.resolve(zipEntry.getName());
+                if (zipEntry.isDirectory()) {
+                    java.nio.file.Files.createDirectories(entryPath);
+                }
+                else {
+                    java.nio.file.Files.createDirectories(entryPath.getParent());
+                    java.nio.file.Files.copy(zipStream, entryPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                zipStream.closeEntry();
+            }
+        }
     }
 
     private static String getTableBasePath(String tableName)

@@ -38,9 +38,21 @@ Property Name                           Description                             
 ======================================= ============================================= ===========
 ``hudi.metadata-table-enabled``         Fetch the list of file names and sizes from   false
                                         Hudi's metadata table rather than storage.
+``hive.parquet.use-column-names``       Use column names for Parquet column           false
+                                        resolution instead of positional index.
+                                        Required when reading Hudi 1.x tables.
 ``hive.metastore.catalog.name``         Specifies the catalog name to be passed to
                                         the metastore.
 ======================================= ============================================= ===========
+
+.. warning::
+
+    Reading partitioned Hudi 1.x tables requires ``hive.parquet.use-column-names=true``
+    to be set in the connector configuration (or ``parquet_use_column_names=true`` as a
+    session property). Hudi 1.x writes Parquet files in its internal Hudi schema column
+    order, which may differ from the Hive metastore column order. Without name-based
+    column resolution, columns are matched positionally and queries on partitioned tables
+    may return incorrect data.
 
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
