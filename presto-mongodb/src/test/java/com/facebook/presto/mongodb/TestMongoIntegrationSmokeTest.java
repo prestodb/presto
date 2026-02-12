@@ -335,8 +335,27 @@ public class TestMongoIntegrationSmokeTest
     @Test
     public void testQueryView()
     {
-        MongoDatabase database = mongoQueryRunner.getMongoClient().getDatabase("");
-        database.createView("", "", ImmutableList.of());
-        assertQuery("SELECT * FROM test_view;");
+        assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
+        assertUpdate("INSERT INTO test_json VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
+
+        String db = getSession().getSchema().get();
+        MongoDatabase database = mongoQueryRunner.getMongoClient().getDatabase(db);
+
+//        MongoCollection<Document> ordersCollection = database.getCollection("orders");
+//        Document firstOrder = ordersCollection.find().first();
+//        System.out.println(firstOrder);
+
+        database.createView("test_view", "test_json", ImmutableList.of(
+                new Document("$project", new Document()
+                        .append("id", 1)
+                        .append("col", 1))));
+
+//        MongoCollection<Document> testViewCollection = database.getCollection("test_view");
+//        firstOrder = testViewCollection.find().first();
+//        System.out.println(firstOrder);
+
+        assertQuery("SELECT * FROM test_view", "SELECT * FROM test_json");
+        database.getCollection("test_json").drop();
+        database.getCollection("test_view").drop();
     }
 }

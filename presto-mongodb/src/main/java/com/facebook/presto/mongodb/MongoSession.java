@@ -473,7 +473,11 @@ public class MongoSession
         String tableName = schemaTableName.getTableName();
 
         MongoDatabase db = client.getDatabase(schemaName);
-        Document doc = db.getCollection(tableName).find().first();
+
+        String sourceCollectionName = getViewSourceCollection(db, tableName);
+        String collectionToQuery = sourceCollectionName != null ? sourceCollectionName : tableName;
+
+        Document doc = db.getCollection(collectionToQuery).find().first();
         if (doc == null) {
             // no records at the collection
             return ImmutableList.of();
@@ -499,6 +503,30 @@ public class MongoSession
         }
 
         return builder.build();
+    }
+
+    private String getViewSourceCollection(MongoDatabase db, String collectionName)
+    {
+        try {
+            MongoIterable<Document> collections = db.listCollections();
+            for (Document collectionInfo : collections) {
+                String name = collectionInfo.getString("name");
+                if (name != null && name.equals(collectionName)) {
+                    String type = collectionInfo.getString("type");
+                    if ("view".equals(type)) {
+                        Document options = collectionInfo.get("options", Document.class);
+                        if (options != null) {
+                            return options.getString("viewOn");
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        catch (Exception e) {
+            log.debug(e, "Failed to check if collection %s is a view", collectionName);
+        }
+        return null;
     }
 
     private Optional<TypeSignature> guessFieldType(Object value)
