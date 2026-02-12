@@ -28,6 +28,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.operator.OperatorFeaturesConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
@@ -106,7 +107,8 @@ public class TestAdaptivePhasedExecutionPolicy
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new HistoryBasedOptimizationConfig()))).build();
+                new HistoryBasedOptimizationConfig(),
+                new OperatorFeaturesConfig()))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);
         assertTrue(policy.createExecutionSchedule(session, schedulers) instanceof AllAtOnceExecutionSchedule);

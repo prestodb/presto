@@ -27,6 +27,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAware
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.operator.OperatorFeaturesConfig;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
@@ -137,6 +138,7 @@ public final class SystemSessionProperties
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String WRITER_MIN_SIZE = "writer_min_size";
     public static final String OPTIMIZED_SCALE_WRITER_PRODUCER_BUFFER = "optimized_scale_writer_producer_buffer";
+    public static final String TABLE_FINISH_INFO_JSON_LENGTH_LIMIT = "table_finish_info_json_length_limit";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -397,7 +399,8 @@ public final class SystemSessionProperties
                 new NodeSpillConfig(),
                 new TracingConfig(),
                 new CompilerConfig(),
-                new HistoryBasedOptimizationConfig());
+                new HistoryBasedOptimizationConfig(),
+                new OperatorFeaturesConfig());
     }
 
     @Inject
@@ -413,7 +416,8 @@ public final class SystemSessionProperties
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
-            HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
+            HistoryBasedOptimizationConfig historyBasedOptimizationConfig,
+            OperatorFeaturesConfig tableFinishConfig)
     {
         sessionProperties = ImmutableList.of(
                 integerProperty(
@@ -575,6 +579,11 @@ public final class SystemSessionProperties
                         "Optimize scale writer creation based on producer buffer",
                         featuresConfig.isOptimizedScaleWriterProducerBuffer(),
                         true),
+                integerProperty(
+                        TABLE_FINISH_INFO_JSON_LENGTH_LIMIT,
+                        "Maximum number of characters in connector output metadata JSON in table finish info",
+                        tableFinishConfig.getTableFinishInfoJsonLengthLimit(),
+                        false),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
