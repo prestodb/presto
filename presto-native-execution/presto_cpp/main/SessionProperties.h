@@ -150,6 +150,14 @@ class SessionProperties {
   static constexpr const char* kTopNRowNumberSpillEnabled =
       "native_topn_row_number_spill_enabled";
 
+  /// Enable local merge spilling on native engine.
+  static constexpr const char* kLocalMergeSpillEnabled =
+      "native_local_merge_spill_enabled";
+
+  /// Specify the max number of local sources to merge at a time.
+  static constexpr const char* kLocalMergeMaxNumMergeSources =
+      "native_local_merge_max_num_merge_sources";
+
   /// If set to true, then during execution of tasks, the output vectors of
   /// every operator are validated for consistency. This is an expensive check
   /// so should only be used for debugging.
