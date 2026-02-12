@@ -608,6 +608,7 @@ public class AddExchanges
                                 idAllocator.getNextId(),
                                 child.getNode(),
                                 node.getSpecification(),
+                                node.getRankingFunction(),
                                 node.getRowNumberVariable(),
                                 node.getMaxRowCountPerPartition(),
                                 true,

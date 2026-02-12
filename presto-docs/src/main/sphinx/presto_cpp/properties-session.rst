@@ -588,3 +588,17 @@ with StringView type during global aggregation.
 Native Execution only. Ratio of unused (evicted) bytes to total bytes that triggers
 compaction. The value is in the range of [0, 1). Currently only applies to
 approx_most_frequent aggregate with StringView type during global aggregation.
+
+``optimizer.optimize_top_n_rank``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If this is true, then filter and limit queries for ``n`` rows of
+``rank()`` and ``dense_rank()`` window function values are executed
+with a special TopNRowNumber operator instead of the
+WindowFunction operator.
+
+The TopNRowNumber operator is more efficient than window as
+it has a streaming behavior and does not need to buffer all input rows.

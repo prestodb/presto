@@ -310,6 +310,7 @@ public class PlanNodeDecorrelator
                                 new DataOrganizationSpecification(
                                         ImmutableList.copyOf(childDecorrelationResult.variablesToPropagate),
                                         Optional.of(orderingScheme)),
+                                TopNRowNumberNode.RankingFunction.ROW_NUMBER,
                                 variableAllocator.newVariable("row_number", BIGINT),
                                 toIntExact(node.getCount()),
                                 false,
