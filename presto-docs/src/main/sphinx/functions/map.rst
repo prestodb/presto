@@ -12,23 +12,7 @@ The ``[]`` operator is used to retrieve the value corresponding to a given key f
 Map Functions
 -------------
 
-.. function:: all_keys_match(x(K,V), function(K, boolean)) -> boolean
-
-    Returns whether all keys of a map match the given predicate. Returns true if all the keys match the predicate (a special case is when the map is empty); false if one or more keys don’t match; NULL if the predicate function returns NULL for one or more keys and true for all other keys. ::
-
-        SELECT all_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> length(x) = 1); -- true
-
-.. function:: any_keys_match(x(K,V), function(K, boolean)) -> boolean
-
-    Returns whether any keys of a map match the given predicate. Returns true if one or more keys match the predicate; false if none of the keys match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
-
-        SELECT any_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'a'); -- true
-
-.. function:: any_values_match(x(K,V), function(V, boolean)) -> boolean
-
-    Returns whether any values of a map matches the given predicate. Returns true if one or more values match the predicate; false if none of the values match (a special case is when the map is empty); NULL if the predicate function returns NULL for one or more values and false for all other values. ::
-
-        SELECT ANY_VALUES_MATCH(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), x -> x = 1); -- true
+For plugin-loaded map functions, see :ref:`functions/plugin-loaded-functions:map functions`.
 
 .. function:: cardinality(x) -> bigint
     :noindex:
@@ -85,10 +69,6 @@ Map Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
-.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
-
-    Removes all the entries where the value is null from the map ``x``.
-
 .. function:: map_subset(map(K,V), array(k)) -> map(K,V)
 
     Constructs a map from those entries of ``map`` for which the key is in the array given::
@@ -99,72 +79,13 @@ Map Functions
         SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
         SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
 
-.. function:: map_key_exists(x(K, V), k) -> boolean
-
-    Returns whether the given key exists in the map. Returns ``true`` if key is present in the input map, returns ``false`` if not present.::
-
-        SELECT map_key_exists(MAP(ARRAY['x','y'], ARRAY[100,200]), 'x'); -- TRUE
-
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
 
-.. function:: map_top_n_keys(x(K,V), n) -> array(K)
-
-    Returns top ``n`` keys in the map ``x`` by sorting its keys in descending order.
-    ``n`` must be a non-negative integer.
-
-    For bottom ``n`` keys, use the function with lambda operator to perform custom sorting ::
-
-        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2) --- ['c', 'b']
-
-.. function:: map_top_n_keys(x(K,V), n, function(K,K,int)) -> array(K)
-
-    Returns top ``n`` keys in the map ``x`` by sorting its keys using the given comparator ``function``. The comparator takes
-    two non-nullable arguments representing two keys of the ``map``. It returns -1, 0, or 1
-    as the first key is less than, equal to, or greater than the second key.
-    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
-
-        SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[3, 2, 1]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
-
-.. function:: map_keys_by_top_n_values(x(K,V), n) -> array(K)
-
-    Returns top ``n`` keys in the map ``x`` by sorting its values in descending order. If two or more keys have equal values, the higher key takes precedence.
-    ``n`` must be a non-negative integer.::
-
-        SELECT map_keys_by_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[2, 1, 3]), 2) --- ['c', 'a']
-
-.. function:: map_top_n(x(K,V), n) -> map(K, V)
-
-    Truncates map items. Keeps only the top ``n`` elements by value.  Keys are used to break ties with the max key being chosen. Both keys and values should be orderable.
-    ``n`` must be a non-negative integer. ::
-
-        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
-
-.. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
-
-    Returns the map with the same keys but all non-null values are scaled proportionally so that the sum of values becomes 1.
-    Map entries with null values remain unchanged.
-
 .. function:: map_values(x(K,V)) -> array(V)
 
     Returns all the values in the map ``x``.
-
-.. function:: map_top_n_values(x(K,V), n) -> array(V)
-
-    Returns top ``n`` values in the map ``x`` by sorting its values in descending order.
-    ``n`` must be a non-negative integer. ::
-
-        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
-
-.. function:: map_top_n_values(x(K,V), n, function(V,V,int)) -> array(V)
-
-    Returns top n values in the map ``x`` based on the given comparator ``function``. The comparator will take
-    two nullable arguments representing two values of the ``map``. It returns -1, 0, or 1
-    as the first value is less than, equal to, or greater than the second value.
-    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
-
-        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- [3, 2]
 
 .. function:: map_zip_with(map(K,V1), map(K,V2), function(K,V1,V2,V3)) -> map(K,V3)
 
@@ -180,18 +101,6 @@ Map Functions
         SELECT map_zip_with(MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 8, 27]), -- {a -> a1, b -> b4, c -> c9}
                             MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]),
                             (k, v1, v2) -> k || CAST(v1/v2 AS VARCHAR));
-
-.. function:: no_keys_match(x(K,V), function(K, boolean)) -> boolean
-
-    Returns whether no keys of a map match the given predicate. Returns true if none of the keys match the predicate (a special case is when the map is empty); false if one or more keys match; NULL if the predicate function returns NULL for one or more keys and false for all other keys. ::
-
-        SELECT no_keys_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
-
-.. function:: no_values_match(x(K,V), function(V, boolean)) -> boolean
-
-    Returns whether no values of a map match the given predicate. Returns true if none of the values match the predicate (a special case is when the map is empty); false if one or more values match; NULL if the predicate function returns NULL for one or more values and false for all other values. ::
-
-        SELECT no_values_match(map(array['a', 'b', 'c'], array[1, 2, 3]), x -> x = 'd'); -- true
 
 .. function:: transform_keys(map(K1,V), function(K1,V,K2)) -> map(K2,V)
 
@@ -214,14 +123,3 @@ Map Functions
         SELECT transform_values(MAP(ARRAY ['a', 'b'], ARRAY [1, 2]), (k, v) -> k || CAST(v as VARCHAR)); -- {a -> a1, b -> b2}
         SELECT transform_values(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {1 -> one_1.0, 2 -> two_1.4}
                                 (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k] || '_' || CAST(v AS VARCHAR));
-
-.. function:: map_int_keys_to_array(map(int,V)) -> array(V)
-        Returns an ``array`` of values from the ``map`` with value at indexed by the original keys from ``map``::
-            SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', 'b', 'c', 'd'])) -> ARRAY[null, null, 'a', null, 'b', 'c', null, null, 'd']
-            SELECT MAP_INT_KEYS_TO_ARRAY(MAP(ARRAY[3, 5, 6, 9], ARRAY['a', null, 'c', 'd'])) -> ARRAY[null, null, 'a', null, null, 'c', 'd']
-
-.. function:: array_to_map_int_keys(array(v)) -> map(int, v)
-        Returns an ``map`` with indices of all non-null values from the ``array`` as keys and element at the specified index as the value::
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 3,4], ARRAY[3, 5, 6, 9])
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5], ARRAY[3, 5, 6, 9])
-            SELECT ARRAY_TO_MAP_INT_KEYS(CAST(ARRAY[3, 5, null, 6, 9, null, null, 1] AS ARRAY<INT>)) -> MAP(ARRAY[1, 2, 4, 5, 8], ARRAY[3, 5, 6, 9, 1])
