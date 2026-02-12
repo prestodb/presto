@@ -61,6 +61,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Collections.emptyList;
@@ -83,6 +85,7 @@ public class HudiTestingDataGenerator
             HoodieParquetRealtimeInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName());
 
+    // Schema of the Hudi 0.x fixtures in hudi-testing-data.zip
     public static final List<Column> DATA_COLUMNS = ImmutableList.of(
             column("volume", HIVE_LONG),
             column("ts", HIVE_STRING),
@@ -96,6 +99,34 @@ public class HudiTestingDataGenerator
             column("close", HIVE_DOUBLE),
             column("open", HIVE_DOUBLE),
             column("day", HIVE_STRING));
+
+    // Schema of the Hudi 1.x fixtures in hudi-testing-data-1x.zip
+    // Schema of stock_ticks_morn_only_log, whose Hudi schema has "key" first.
+    // Hudi 1.x reads columns by position, so the Hive order must match the Hudi schema.
+    public static final List<Column> DATA_COLUMNS_LOG_ONLY = ImmutableList.of(
+            column("key", HIVE_STRING),
+            column("volume", HIVE_LONG),
+            column("ts", HIVE_STRING),
+            column("symbol", HIVE_STRING),
+            column("year", HIVE_INT),
+            column("month", HIVE_STRING),
+            column("high", HIVE_DOUBLE),
+            column("low", HIVE_DOUBLE),
+            column("date", HIVE_STRING),
+            column("close", HIVE_DOUBLE),
+            column("open", HIVE_DOUBLE),
+            column("day", HIVE_STRING));
+
+    public static final List<Column> DATA_COLUMNS_1X = ImmutableList.of(
+            column("key", HIVE_STRING),
+            column("symbol", HIVE_STRING),
+            column("ts", HIVE_STRING),
+            column("dt", HIVE_STRING),
+            column("hr", HIVE_STRING),
+            column("volume", HIVE_LONG),
+            column("open", HIVE_DOUBLE),
+            column("close", HIVE_DOUBLE));
+
     public static final List<Column> PARTITION_COLUMNS = ImmutableList.of(column("dt", HIVE_STRING));
     public static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
             column("_hoodie_commit_time", HiveType.HIVE_STRING),
@@ -148,11 +179,76 @@ public class HudiTestingDataGenerator
         createTable(COPY_ON_WRITE, "stock_ticks_cown", dataDirectory.resolve("stock_ticks_cown").toString(), false);
         createTable(COPY_ON_WRITE, "stock_ticks_morn_ro", dataDirectory.resolve("stock_ticks_morn").toString(), false);
         createTable(MERGE_ON_READ, "stock_ticks_morn_rt", dataDirectory.resolve("stock_ticks_morn").toString(), false);
-        createTable(COPY_ON_WRITE, "stock_ticks_morn_only_log_ro", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false);
-        createTable(MERGE_ON_READ, "stock_ticks_morn_only_log_rt", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false);
+        createTable(COPY_ON_WRITE, "stock_ticks_morn_only_log_ro", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false, allDataColumnsLogOnly());
+        createTable(MERGE_ON_READ, "stock_ticks_morn_only_log_rt", dataDirectory.resolve("stock_ticks_morn_only_log").toString(), false, allDataColumnsLogOnly());
+    }
+
+    /**
+     * Generate Hudi 1.x test data to verify backward compatibility.
+     * This data was generated using Hudi 1.1.0 with Spark 3.5.
+     */
+    public void generate1xData()
+    {
+        try {
+            Path hudi1xDir = dataDirectory.resolve("hudi-data-1x");
+            if (Files.exists(hudi1xDir)) {
+                deleteRecursively(hudi1xDir, ALLOW_INSECURE);
+            }
+            Files.createDirectories(hudi1xDir);
+            try (InputStream stream = Resources.getResource("hudi-testing-data-1x.zip").openStream()) {
+                unzip(stream, dataDirectory); // zip's internal hudi-data-1x/ wrapper lands inside dataDirectory correctly
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    /**
+     * Generate metadata for Hudi 1.x test tables.
+     * Includes both partitioned and non-partitioned tables for COW and MOR types.
+     */
+    public void generate1xMetadata()
+    {
+        // Partitioned COPY_ON_WRITE table
+        createTable1x(COPY_ON_WRITE, "stock_ticks_cow_1x", "hudi-data-1x/stock_ticks_cow", true);
+        addPartition(COPY_ON_WRITE, "stock_ticks_cow_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_cow/dt=2018-08-31");
+
+        // Partitioned MERGE_ON_READ table (read-optimized view)
+        createTable1x(COPY_ON_WRITE, "stock_ticks_mor_ro_1x", "hudi-data-1x/stock_ticks_mor", true);
+        addPartition(COPY_ON_WRITE, "stock_ticks_mor_ro_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_mor/dt=2018-08-31");
+
+        // Partitioned MERGE_ON_READ table (realtime view)
+        createTable1x(MERGE_ON_READ, "stock_ticks_mor_rt_1x", "hudi-data-1x/stock_ticks_mor", true);
+        addPartition(MERGE_ON_READ, "stock_ticks_mor_rt_1x", ImmutableList.of("dt=2018-08-31"), "hudi-data-1x/stock_ticks_mor/dt=2018-08-31");
+
+        // Non-partitioned COPY_ON_WRITE table
+        createTable1x(COPY_ON_WRITE, "stock_ticks_cown_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_cown").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table (read-optimized view)
+        createTable1x(COPY_ON_WRITE, "stock_ticks_morn_ro_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table (realtime view)
+        createTable1x(MERGE_ON_READ, "stock_ticks_morn_rt_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table with only log files (read-optimized view)
+        createTable1x(COPY_ON_WRITE, "stock_ticks_morn_only_log_ro_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn_only_log").toString(), false);
+
+        // Non-partitioned MERGE_ON_READ table with only log files (realtime view)
+        createTable1x(MERGE_ON_READ, "stock_ticks_morn_only_log_rt_1x", dataDirectory.resolve("hudi-data-1x/stock_ticks_morn_only_log").toString(), false);
     }
 
     private void createTable(HoodieTableType type, String name, String relativePath, boolean partitioned)
+    {
+        createTable(type, name, relativePath, partitioned, allDataColumns());
+    }
+
+    private void createTable1x(HoodieTableType type, String name, String relativePath, boolean partitioned)
+    {
+        createTable(type, name, relativePath, partitioned, allDataColumns1x(partitioned));
+    }
+
+    private void createTable(HoodieTableType type, String name, String relativePath, boolean partitioned, List<Column> dataColumns)
     {
         // ref: org.apache.hudi.hive.ddl.HMSDDLExecutor#createTable
         Table table = Table.builder()
@@ -160,7 +256,7 @@ public class HudiTestingDataGenerator
                 .setTableName(name)
                 .setTableType(PrestoTableType.EXTERNAL_TABLE)
                 .setOwner(OWNER_PUBLIC)
-                .setDataColumns(allDataColumns())
+                .setDataColumns(dataColumns)
                 .setPartitionColumns(partitioned ? PARTITION_COLUMNS : ImmutableList.of())
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(buildingStorage(type, "file://" + dataDirectory.resolve(relativePath)))
@@ -170,6 +266,11 @@ public class HudiTestingDataGenerator
 
     private void addPartition(HoodieTableType type, String tableName, List<String> partitionNames, String relativePath)
     {
+        addPartition(type, tableName, partitionNames, relativePath, allDataColumns());
+    }
+
+    private void addPartition(HoodieTableType type, String tableName, List<String> partitionNames, String relativePath, List<Column> dataColumns)
+    {
         List<PartitionWithStatistics> partitions = new ArrayList<>();
         for (String partitionName : partitionNames) {
             Partition partition = Partition.builder()
@@ -178,7 +279,7 @@ public class HudiTestingDataGenerator
                     .setTableName(tableName)
                     .setValues(extractPartitionValues(partitionName))
                     .withStorage(buildingStorage(type, "file://" + dataDirectory.resolve(relativePath)))
-                    .setColumns(allDataColumns())
+                    .setColumns(dataColumns)
                     .setCreateTime(0)
                     .build();
             partitions.add(new PartitionWithStatistics(partition, partitionName, PartitionStatistics.empty()));
@@ -189,6 +290,20 @@ public class HudiTestingDataGenerator
     private List<Column> allDataColumns()
     {
         return Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS.stream()).collect(Collectors.toList());
+    }
+
+    private List<Column> allDataColumnsLogOnly()
+    {
+        return Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS_LOG_ONLY.stream()).collect(Collectors.toList());
+    }
+
+    // "dt" is the partition column of partitioned 1.x tables, so it is not a data column there
+    private List<Column> allDataColumns1x(boolean partitioned)
+    {
+        List<Column> dataColumns = partitioned
+                ? DATA_COLUMNS_1X.stream().filter(c -> !c.getName().equals("dt")).collect(Collectors.toList())
+                : DATA_COLUMNS_1X;
+        return Streams.concat(HUDI_META_COLUMNS.stream(), dataColumns.stream()).collect(Collectors.toList());
     }
 
     private static Column column(String name, HiveType type)
