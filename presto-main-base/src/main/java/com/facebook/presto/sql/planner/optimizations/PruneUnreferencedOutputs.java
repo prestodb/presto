@@ -785,6 +785,7 @@ public class PruneUnreferencedOutputs
                     node.getStatsEquivalentPlanNode(),
                     source,
                     node.getSpecification(),
+                    node.getRankingFunction(),
                     node.getRowNumberVariable(),
                     node.getMaxRowCountPerPartition(),
                     node.isPartial(),
