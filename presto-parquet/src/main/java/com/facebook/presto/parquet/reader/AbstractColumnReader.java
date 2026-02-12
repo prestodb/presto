@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractColumnReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractColumnReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractColumnReader.class).instanceSize();
 
     private static final int EMPTY_LEVEL_VALUE = -1;
     protected final RichColumnDescriptor columnDescriptor;

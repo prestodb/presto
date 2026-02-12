@@ -896,7 +896,7 @@ public class OrcWriteValidation
 
     private static class RowGroupStatistics
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowGroupStatistics.class).instanceSize();
 
         private final OrcWriteValidationMode validationMode;
         private final SortedMap<Integer, ColumnStatistics> columnStatistics;
@@ -954,7 +954,7 @@ public class OrcWriteValidation
 
     public static class OrcWriteValidationBuilder
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
 
         private final OrcWriteValidationMode validationMode;
 
