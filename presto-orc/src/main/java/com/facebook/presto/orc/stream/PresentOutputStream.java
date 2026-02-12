@@ -30,7 +30,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 public class PresentOutputStream
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PresentOutputStream.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PresentOutputStream.class).instanceSize();
     private final OrcOutputBuffer buffer;
 
     // boolean stream will only exist if null values being recorded

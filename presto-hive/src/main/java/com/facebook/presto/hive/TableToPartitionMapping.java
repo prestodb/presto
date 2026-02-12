@@ -41,9 +41,9 @@ public class TableToPartitionMapping
     }
 
     // Overhead of ImmutableMap is not accounted because of its complexity.
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
-    private static final int OPTIONAL_INSTANCE_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TableToPartitionMapping.class).instanceSize();
+    private static final long INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
+    private static final long OPTIONAL_INSTANCE_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
 
     private final Optional<Map<Integer, Integer>> tableToPartitionColumns;
     private final Map<Integer, Column> partitionSchemaDifference;
@@ -100,9 +100,9 @@ public class TableToPartitionMapping
         return Optional.ofNullable(tableToPartitionColumns.get().get(tableColumnIndex));
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
+        long result = INSTANCE_SIZE;
         result += sizeOfObjectArray(partitionSchemaDifference.size());
         for (Column column : partitionSchemaDifference.values()) {
             result += INTEGER_INSTANCE_SIZE + column.getEstimatedSizeInBytes();
