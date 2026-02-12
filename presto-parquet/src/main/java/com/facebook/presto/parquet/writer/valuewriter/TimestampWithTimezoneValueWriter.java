@@ -16,7 +16,7 @@ package com.facebook.presto.parquet.writer.valuewriter;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.function.Supplier;
@@ -30,12 +30,25 @@ public class TimestampWithTimezoneValueWriter
 {
     private final Type type;
     private final boolean writeMicroseconds;
+    private final boolean writeNanoseconds;
 
     public TimestampWithTimezoneValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
-        this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
+
+        LogicalTypeAnnotation annotation = parquetType.getLogicalTypeAnnotation();
+        if (annotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
+            LogicalTypeAnnotation.TimestampLogicalTypeAnnotation timestampAnnotation =
+                    (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) annotation;
+            LogicalTypeAnnotation.TimeUnit unit = timestampAnnotation.getUnit();
+            this.writeMicroseconds = unit == LogicalTypeAnnotation.TimeUnit.MICROS;
+            this.writeNanoseconds = unit == LogicalTypeAnnotation.TimeUnit.NANOS;
+        }
+        else {
+            this.writeMicroseconds = false;
+            this.writeNanoseconds = false;
+        }
     }
 
     @Override
@@ -44,7 +57,16 @@ public class TimestampWithTimezoneValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 long value = unpackMillisUtc(type.getLong(block, i));
-                long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
+                long scaledValue;
+                if (writeMicroseconds) {
+                    scaledValue = MILLISECONDS.toMicros(value);
+                }
+                else if (writeNanoseconds) {
+                    scaledValue = MILLISECONDS.toNanos(value);
+                }
+                else {
+                    scaledValue = value;
+                }
                 getValueWriter().writeLong(scaledValue);
                 getStatistics().updateStats(scaledValue);
             }

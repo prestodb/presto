@@ -338,6 +338,15 @@ public final class ParquetTypeUtils
         return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
     }
 
+    public static boolean isTimeStampNanosType(ColumnDescriptor descriptor)
+    {
+        LogicalTypeAnnotation annotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        if (annotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
+            return ((LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) annotation).getUnit() == LogicalTypeAnnotation.TimeUnit.NANOS;
+        }
+        return false;
+    }
+
     public static boolean isTimeMicrosType(ColumnDescriptor descriptor)
     {
         return TIME_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
