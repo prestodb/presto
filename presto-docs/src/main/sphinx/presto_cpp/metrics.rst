@@ -593,7 +593,7 @@ These metrics track violations of the EventBase (event loop) threading model.
 * **Description:** Number of times the HTTP server I/O EventBase threading model was violated.
 
 Memory Pushback Metrics
-========================
+=======================
 
 These metrics track the memory pushback mechanism that helps prevent out-of-memory conditions.
 
