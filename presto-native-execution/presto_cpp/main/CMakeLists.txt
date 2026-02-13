@@ -69,6 +69,7 @@ target_link_libraries(
   presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
+  presto_theta_sketch_functions
   velox_abfs
   velox_aggregates
   velox_caching

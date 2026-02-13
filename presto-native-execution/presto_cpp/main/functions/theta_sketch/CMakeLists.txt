@@ -10,15 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common velox_function_registry)
-
-add_subdirectory(dynamic_registry)
-add_subdirectory(theta_sketch)
-
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
+add_library(presto_theta_sketch_functions ThetaSketchAggregate.cpp ThetaSketchFunctions.cpp)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
