@@ -81,7 +81,7 @@
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
-        <dep.protobuf-java.version>4.29.0</dep.protobuf-java.version>
+        <dep.protobuf-java.version>4.30.2</dep.protobuf-java.version>
         <dep.jetty.version>12.0.29</dep.jetty.version>
         <dep.netty.version>4.1.130.Final</dep.netty.version>
         <dep.reactor-netty.version>1.2.8</dep.reactor-netty.version>
@@ -89,7 +89,7 @@
         <dep.gson.version>2.12.1</dep.gson.version>
         <dep.commons.lang3.version>3.18.0</dep.commons.lang3.version>
         <dep.guice.version>6.0.0</dep.guice.version>
-        <dep.arrow.version>17.0.0</dep.arrow.version>
+        <dep.arrow.version>18.3.0</dep.arrow.version>
         <dep.mariadb.version>3.5.4</dep.mariadb.version>
         <dep.spark.version>2.0.2-6</dep.spark.version>
         <dep.hadoop.version>3.4.1-1</dep.hadoop.version>
