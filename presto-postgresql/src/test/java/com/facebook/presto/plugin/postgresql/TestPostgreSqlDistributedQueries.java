@@ -17,7 +17,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -27,11 +27,11 @@ import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.create
 public class TestPostgreSqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final PostgreSQLContainer<?> postgresContainer;
+    private PostgreSQLContainer postgresContainer;
 
     public TestPostgreSqlDistributedQueries()
     {
-        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+        this.postgresContainer = new PostgreSQLContainer("postgres:14")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");

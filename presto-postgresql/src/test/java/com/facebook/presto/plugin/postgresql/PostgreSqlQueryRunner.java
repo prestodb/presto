@@ -19,7 +19,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -93,7 +93,7 @@ public final class PostgreSqlQueryRunner
         }
     }
 
-    public static Properties createJdbcProperties(PostgreSQLContainer<?> container)
+    public static Properties createJdbcProperties(PostgreSQLContainer container)
     {
         Properties properties = new Properties();
         properties.setProperty("user", container.getUsername());

@@ -20,7 +20,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -42,11 +42,11 @@ import static org.testng.Assert.assertTrue;
 public class TestPostgreSqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final PostgreSQLContainer<?> postgresContainer;
+    private PostgreSQLContainer postgresContainer;
 
     public TestPostgreSqlIntegrationSmokeTest()
     {
-        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+        this.postgresContainer = new PostgreSQLContainer("postgres:14")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");

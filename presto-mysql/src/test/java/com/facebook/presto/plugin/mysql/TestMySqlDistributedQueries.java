@@ -18,7 +18,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
@@ -33,11 +33,11 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 public class TestMySqlDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private final MySQLContainer<?> mysqlContainer;
+    private final MySQLContainer mysqlContainer;
 
     public TestMySqlDistributedQueries()
     {
-        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+        this.mysqlContainer = new MySQLContainer("mysql:8.0")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");
