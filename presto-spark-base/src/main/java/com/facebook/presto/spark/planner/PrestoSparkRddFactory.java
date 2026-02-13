@@ -72,6 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -250,7 +251,7 @@ public class PrestoSparkRddFactory
             taskSourceRdd = Optional.empty();
         }
 
-        if (featuresConfig.isNativeExecutionEnabled()) {
+        if (isNativeExecutionEnabled(session)) {
             return JavaPairRDD.fromRDD(
                     PrestoSparkNativeTaskRdd.create(
                             sparkContext.sc(),
