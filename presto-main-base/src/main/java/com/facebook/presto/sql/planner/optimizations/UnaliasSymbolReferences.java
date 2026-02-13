@@ -106,7 +106,6 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getNodeLocati
 import static com.facebook.presto.sql.planner.optimizations.ApplyNodeUtil.verifySubquerySupported;
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateVariable;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -864,7 +863,7 @@ public class UnaliasSymbolReferences
                         map(entry.getKey(), variable);
                     }
                 }
-                else if (!isNull(expression) && determinismEvaluator.isDeterministic(expression)) {
+                else if (determinismEvaluator.isDeterministic(expression)) {
                     // Try to map same deterministic expressions within a projection into the same symbol
                     // Omit NullLiterals since those have ambiguous types
                     VariableReferenceExpression computedVariable = computedExpressions.get(expression);
