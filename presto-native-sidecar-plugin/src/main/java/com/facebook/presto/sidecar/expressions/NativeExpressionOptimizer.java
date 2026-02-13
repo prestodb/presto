@@ -345,12 +345,15 @@ public class NativeExpressionOptimizer
         @Override
         public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
-            if (canBeReplaced(lambda.getBody())) {
+            if (canBeReplaced(lambda)) {
+                RowExpression replacement = resolver.apply(lambda);
+                // Sidecar optimizes only the body of lambda expression.
+                RowExpression optimizedBody = ((LambdaDefinitionExpression) replacement).getBody().accept(this, context);
                 return new LambdaDefinitionExpression(
                         lambda.getSourceLocation(),
                         lambda.getArgumentTypes(),
                         lambda.getArguments(),
-                        toRowExpression(lambda.getSourceLocation(), resolver.apply(lambda.getBody()), lambda.getBody().getType()));
+                        toRowExpression(lambda.getSourceLocation(), optimizedBody, optimizedBody.getType()));
             }
             return lambda;
         }

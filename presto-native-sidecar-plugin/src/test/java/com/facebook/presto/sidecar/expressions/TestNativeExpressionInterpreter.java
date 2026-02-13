@@ -14,21 +14,10 @@
 package com.facebook.presto.sidecar.expressions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
-import com.facebook.drift.codec.guice.ThriftCodecModule;
-import com.facebook.presto.block.BlockJsonSerde;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncoding;
-import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -41,12 +30,10 @@ import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.AbstractTestExpressionInterpreter;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -59,14 +46,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.createSidecarTestModule;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -418,30 +401,12 @@ public class TestNativeExpressionInterpreter
 
     private NativeSidecarExpressionInterpreter getRowExpressionInterpreter(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager)
     {
-        Module module = binder -> {
-            binder.bind(NodeManager.class).toInstance(nodeManager);
-            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
-            binder.install(new JsonModule());
-            binder.install(new HandleJsonModule(functionAndTypeManager.getHandleResolver()));
-            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
-            binder.install(new ThriftCodecModule());
-            configBinder(binder).bindConfig(FeaturesConfig.class);
-
-            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-            newSetBinder(binder, Type.class);
-
-            binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
-            newSetBinder(binder, BlockEncoding.class);
-            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
-            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
-            jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
-
-            httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);
-
-            binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
+        Module base = createSidecarTestModule(functionAndTypeManager, nodeManager);
+        Module extras = binder -> {
+            binder.bind(com.facebook.presto.sidecar.expressions.NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
         };
-        Bootstrap app = new Bootstrap(ImmutableList.of(module));
+
+        Bootstrap app = new Bootstrap(ImmutableList.of(base, extras));
         Injector injector = app
                 .doNotInitializeLogging()
                 .quiet()
