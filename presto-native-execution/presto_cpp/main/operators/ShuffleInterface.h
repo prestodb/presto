@@ -63,7 +63,14 @@ class ShuffleSerializedPage : public velox::exec::SerializedPageBase {
     VELOX_UNSUPPORTED();
   }
 
-  virtual const std::vector<std::string_view>& rows() = 0;
+  /// Legacy single-consumer path that delegates to rows(0)..
+  /// retained for backward compatibility.
+  virtual const std::vector<std::string_view>& rows() {
+    return rows(0);
+  }
+
+  /// @param driverId Driver ID for per-consumer checksum tracking.
+  virtual const std::vector<std::string_view>& rows(int32_t driverId) = 0;
 };
 
 class ShuffleReader {

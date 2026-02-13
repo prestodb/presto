@@ -41,13 +41,13 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import jakarta.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.cassandra.CassandraType.toCassandraType;
@@ -57,6 +57,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -72,8 +73,8 @@ public class CassandraMetadata
     private boolean caseSensitiveNameMatchingEnabled;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
+    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    @Inject
     public CassandraMetadata(
             CassandraConnectorId connectorId,
             CassandraSession cassandraSession,
@@ -319,6 +320,9 @@ public class CassandraMetadata
 
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
+
+        // set a rollback to delete the created table in case of an abort / failure.
+        setRollback(schemaName, tableName);
         return new CassandraOutputTableHandle(
                 connectorId,
                 schemaName,
@@ -330,6 +334,7 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
+        clearRollback();
         return Optional.empty();
     }
 
@@ -364,5 +369,31 @@ public class CassandraMetadata
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ROOT);
+    }
+
+    public void rollback()
+    {
+        Runnable action = rollbackAction.getAndSet(null);
+        if (action == null) {
+            return; // nothing to roll back
+        }
+
+        if (!allowDropTable) {
+            throw new PrestoException(
+                    PERMISSION_DENIED,
+                    "Table creation was aborted and requires rollback, but cleanup failed because DROP TABLE is disabled in this Cassandra catalog.");
+        }
+
+        action.run();
+    }
+
+    private void setRollback(String schemaName, String tableName)
+    {
+        checkState(rollbackAction.compareAndSet(null, () -> cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName))), "rollback action is already set");
+    }
+
+    private void clearRollback()
+    {
+        rollbackAction.set(null);
     }
 }

@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -52,6 +53,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.Column;
+import com.facebook.presto.verifier.framework.JsonParseSafetyWrapper;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
@@ -109,6 +111,8 @@ import static java.util.UUID.randomUUID;
 
 public class QueryRewriter
 {
+    private static final com.facebook.airlift.log.Logger log = com.facebook.airlift.log.Logger.get(QueryRewriter.class);
+
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -150,6 +154,26 @@ public class QueryRewriter
         this.functionCallRewriter = FunctionCallRewriter.getInstance(functionSubstitutes, typeManager);
     }
 
+    /**
+     * Helper method to apply json_parse safety wrapper to a query.
+     * Wraps json_parse() calls with TRY() to handle malformed JSON gracefully.
+     * If re-parsing fails, returns the original query unchanged.
+     */
+    private Query applyJsonParseSafetyWrapper(Query query)
+    {
+        try {
+            String sql = SqlFormatter.formatSql(query, Optional.empty());
+            String fixedSql = JsonParseSafetyWrapper.wrapUnsafeJsonParse(sql);
+            if (!sql.equals(fixedSql)) {
+                return (Query) sqlParser.createStatement(fixedSql, PARSING_OPTIONS);
+            }
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to apply json_parse safety wrapper, using original query");
+        }
+        return query;
+    }
+
     public QueryObjectBundle rewriteQuery(@Language("SQL") String query, QueryConfiguration queryConfiguration, ClusterType clusterType)
     {
         return rewriteQuery(query, queryConfiguration, clusterType, false);
@@ -173,6 +197,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(createQuery);
                 createQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
+
+                // Apply safety wrapper for json_parse() calls to prevent failures on malformed JSON
+                createQuery = applyJsonParseSafetyWrapper(createQuery);
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
                 Optional<Expression> partitionsPredicate = getPartitionsPredicate(createTableAsSelect.getName(), queryConfiguration.getPartitions());
@@ -217,6 +244,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(insertQuery);
                 insertQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
+
+                // Apply safety wrapper for json_parse() calls
+                insertQuery = applyJsonParseSafetyWrapper(insertQuery);
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
                 Optional<Expression> partitionsPredicate = getPartitionsPredicate(originalTableName, queryConfiguration.getPartitions());
@@ -261,6 +291,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(queryBody);
                 queryBody = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
+
+                // Apply safety wrapper for json_parse() calls
+                queryBody = applyJsonParseSafetyWrapper(queryBody);
             }
 
             QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
