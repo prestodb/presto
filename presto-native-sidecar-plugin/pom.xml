@@ -80,6 +80,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-analyzer</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
             <scope>provided</scope>
@@ -288,6 +294,7 @@
                             <excludes>
                                 <exclude>**/TestNativeSidecar*.java</exclude>
                                 <exclude>**/TestNativeExpressionInterpreter.java</exclude>
+                                <exclude>**/TestNativeExpressionOptimizer.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
