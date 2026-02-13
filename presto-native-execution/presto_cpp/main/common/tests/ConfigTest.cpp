@@ -241,6 +241,20 @@ TEST_F(ConfigTest, asyncCacheNumShards) {
   ASSERT_EQ(config.asyncCacheNumShards(), 8);
 }
 
+TEST_F(ConfigTest, asyncCacheSsdFlushThresholdBytes) {
+  SystemConfig config;
+  init(config, {});
+  // Test default value is 0
+  ASSERT_EQ(config.asyncCacheSsdFlushThresholdBytes(), 0);
+
+  // Test custom value
+  init(
+      config,
+      {{std::string(SystemConfig::kAsyncCacheSsdFlushThresholdBytes),
+        "134217728"}});
+  ASSERT_EQ(config.asyncCacheSsdFlushThresholdBytes(), 134217728);
+}
+
 TEST_F(ConfigTest, remoteFunctionServer) {
   SystemConfig config;
   init(config, {});
