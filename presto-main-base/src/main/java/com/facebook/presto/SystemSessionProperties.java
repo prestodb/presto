@@ -406,6 +406,7 @@ public final class SystemSessionProperties
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
     public static final String REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION = "rewrite_row_constructor_in_to_disjunction";
     public static final String ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED = "always_analyze_create_table_query_enabled";
+    public static final String LEGACY_ST_EQUALS = "legacy_st_equals";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2299,6 +2300,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS,
                         "Minimum number of non-sort-key columns required before TopN row_id optimization triggers",
                         10,
+                        false),
+                booleanProperty(
+                        LEGACY_ST_EQUALS,
+                        "Use legacy ST_Equals function (warning: this will be removed)",
+                        functionsConfig.isLegacyStEquals(),
                         false));
     }
 
@@ -2919,6 +2925,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyUnnest(Session session)
     {
         return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
+    }
+
+    public static boolean isLegacySTEquals(Session session)
+    {
+        return session.getSystemProperty(LEGACY_ST_EQUALS, Boolean.class);
     }
 
     public static OptionalInt getMaxDriversPerTask(Session session)

@@ -64,6 +64,7 @@ import static com.facebook.presto.SystemSessionProperties.isCanonicalizedJsonExt
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLegacySTEquals;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
 import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPatterns;
@@ -541,6 +542,7 @@ public final class Session
                 .setWarnOnCommonNanPatterns(warnOnCommonNanPatterns(this))
                 .setCanonicalizedJsonExtract(isCanonicalizedJsonExtract(this))
                 .setTryCatchableErrorCodes(parseTryCatchableErrorCodes(getTryFunctionCatchableErrors(this)))
+                .setLegacyStEquals(isLegacySTEquals(this))
                 .build();
     }
 

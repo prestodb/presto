@@ -932,3 +932,18 @@ When partition-aware execution is not applicable (for example: non-partitioned t
 columns in join conditions), the query falls back to standard grouped execution automatically.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
+
+Geometry Properties
+-------------------
+
+``legacy_st_equals``Expand commentComment on line R852
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See :func:`functions/geospatial:ST_Equals` for details on the behavior differences.
+This property will be removed in a future release.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`legacy-st-equals\`\``.
