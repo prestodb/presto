@@ -730,3 +730,19 @@ The corresponding configuration property is :ref:`admin/properties:\`\`materiali
 
 Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
 of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).
+
+
+Geometry Properties
+-------------------
+
+``legacy_st_equals``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See :func:`functions/geospatial:ST_Equals` for details on the behavior differences.
+This property will be removed in a future release.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`legacy-st-equals\`\``.
