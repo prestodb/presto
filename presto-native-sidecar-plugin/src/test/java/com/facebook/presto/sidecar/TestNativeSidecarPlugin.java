@@ -703,6 +703,22 @@ public class TestNativeSidecarPlugin
         // Test dereference expression with SQL invoked function, array_least_frequent.
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(orderkey)) from orders");
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(nationkey)) from nation");
+
+        // Verify try(failing_function()) returns NULL and coalesce(try(failing_function()), ..., datatype) returns
+        // default value for datatype.
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(abs(-1234567890) AS TINYINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(abs(-1234567890) AS TINYINT)), 0)", "SELECT 0");
+    }
+
+    @Test
+    public void testTry2()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(abs(-1234567890) AS TINYINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(abs(-1234567890) AS TINYINT)), 0)", "SELECT 0");
     }
 
     @Test
