@@ -339,7 +339,17 @@ export const QueryList = () => {
                 const term = searchString.toLowerCase();
                 if (
                     query.queryId.toLowerCase().indexOf(term) !== -1 ||
-                    getHumanReadableState(query).toLowerCase().indexOf(term) !== -1 ||
+                    getHumanReadableState(
+                        query.state,
+                        query.scheduled,
+                        query.fullyBlocked,
+                        query.blockedReasons,
+                        query.memoryPool,
+                        query.errorType,
+                        query.errorCode?.name
+                    )
+                        .toLowerCase()
+                        .indexOf(term) !== -1 ||
                     query.query.toLowerCase().indexOf(term) !== -1
                 ) {
                     return true;
