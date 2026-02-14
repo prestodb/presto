@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
@@ -283,6 +284,19 @@ public final class IcebergUtil
     {
         IcebergTableName icebergTableName = IcebergTableName.from(table.getTableName());
         return new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
+    }
+
+    public static TableOperations opsFromTable(Table table)
+    {
+        if (table instanceof BaseTransaction.TransactionTable) {
+            return ((BaseTransaction.TransactionTable) table).operations();
+        }
+        else if (table instanceof BaseTable) {
+            return ((BaseTable) table).operations();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported Table type: " + table.getClass().getName());
+        }
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)

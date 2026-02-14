@@ -19,7 +19,7 @@ import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
-import com.facebook.presto.iceberg.IcebergTransactionManager;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
