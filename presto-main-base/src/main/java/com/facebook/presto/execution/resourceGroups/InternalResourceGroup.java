@@ -740,7 +740,17 @@ public class InternalResourceGroup
             else {
                 query.setResourceGroupQueryLimits(perQueryLimits);
                 boolean immediateStartCandidate = canRun && queuedQueries.isEmpty();
-                if (immediateStartCandidate && queryPacingContext.tryAcquireAdmissionSlot()) {
+                boolean startQuery = immediateStartCandidate;
+                if (immediateStartCandidate) {
+                    // Check for coordinator overload (task limit exceeded or denied admission)
+                    boolean coordOverloaded = !queryPacingContext.tryAcquireAdmissionSlot()
+                            || ((RootInternalResourceGroup) root).isTaskLimitExceeded();
+                    if (coordOverloaded) {
+                        startQuery = false;
+                    }
+                }
+
+                if (startQuery) {
                     startInBackground(query);
                 }
                 else {
@@ -914,6 +924,10 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to find next query");
         synchronized (root) {
+            if (((RootInternalResourceGroup) root).isTaskLimitExceeded()) {
+                return false;
+            }
+
             if (!canRunMore()) {
                 return false;
             }
@@ -1049,10 +1063,6 @@ public class InternalResourceGroup
             }
 
             if (shouldWaitForResourceManagerUpdate()) {
-                return false;
-            }
-
-            if (((RootInternalResourceGroup) root).isTaskLimitExceeded()) {
                 return false;
             }
 
