@@ -141,6 +141,19 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
                  expectedValue == "true", config.aggregationSpillEnabled());
            }},
 
+      {.veloxConfigKey = core::QueryConfig::kMaxSpillBytes,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kMaxSpillBytes),
+       .systemConfigKey = std::string(SystemConfig::kMaxSpillBytes),
+       .sessionValue = "214748364800",
+       .differentSessionValue = "107374182400",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue), config.maxSpillBytes());
+           }},
+
       {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
        .sessionPropertyKey = std::make_optional<std::string>(
            SessionProperties::kRequestDataSizesMaxWaitSec),
@@ -280,7 +293,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
   // CRITICAL: This count MUST match the exact number of entries in
   // veloxToPrestoConfigMapping If this assertion fails, it means a new
   // mapping was added and this test needs to be updated
-  const size_t kExpectedMappingCount = 14;
+  const size_t kExpectedMappingCount = 15;
   EXPECT_EQ(kExpectedMappingCount, testCases.size());
 
   // Test each mapping to ensure session properties override system configs
@@ -659,6 +672,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
        .systemConfigKey = std::string(SystemConfig::kOrderBySpillEnabled)},
       {.veloxConfigKey = core::QueryConfig::kAggregationSpillEnabled,
        .systemConfigKey = std::string(SystemConfig::kAggregationSpillEnabled)},
+      {.veloxConfigKey = core::QueryConfig::kMaxSpillBytes,
+       .systemConfigKey = std::string(SystemConfig::kMaxSpillBytes)},
       {.veloxConfigKey = core::QueryConfig::kRequestDataSizesMaxWaitSec,
        .systemConfigKey =
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec)},
@@ -700,7 +715,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kExchangeLazyFetchingEnabled)},
   };
 
-  const size_t kExpectedSystemConfigMappingCount = 20;
+  const size_t kExpectedSystemConfigMappingCount = 21;
   EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
       << "Update expectedMappings to match veloxToPrestoConfigMapping";
 
