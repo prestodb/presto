@@ -87,6 +87,9 @@ public class CreateTableTask
     @Override
     public String explain(CreateTable statement, List<Expression> parameters)
     {
+        if (statement.isNotExists()) {
+            return "CREATE TABLE IF NOT EXISTS " + statement.getName();
+        }
         return "CREATE TABLE " + statement.getName();
     }
 
