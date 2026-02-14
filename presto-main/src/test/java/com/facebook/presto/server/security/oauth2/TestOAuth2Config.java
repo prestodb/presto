@@ -70,6 +70,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
                 .put("http-server.authentication.oauth2.refresh-tokens", "true")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("http-server.authentication.oauth2.authorization-endpoint", "endpoint")
                 .build();
 
         OAuth2Config expected = new OAuth2Config()
@@ -86,7 +87,8 @@ public class TestOAuth2Config
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
                 .setEnableRefreshTokens(true)
-                .setEnableDiscovery(false);
+                .setEnableDiscovery(false)
+                .setAuthorizationEndpoint("endpoint");
 
         assertFullMapping(properties, expected);
     }
