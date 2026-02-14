@@ -6339,6 +6339,107 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testArrayUnionSum()
+    {
+        // Basic aggregation with real values
+        MaterializedResult actual = computeActual("select array_union_sum(x) from (select cast(array[1.1, 2] as array<real>) x union all select cast(array[10, 20] as array<real>))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableList.of(11.1f, 22.0f));
+
+        // Basic aggregation with double values
+        actual = computeActual("select array_union_sum(x) from (select cast(array[1.1, 2.58] as array<double>) x union all select cast(array[10.1, 20.1] as array<double>))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableList.of(11.2, 22.68));
+
+        // Basic aggregation with bigint values
+        actual = computeActual("select array_union_sum(x) from (select cast(array[1, 2] as array<bigint>) x union all select cast(array[10, 20] as array<bigint>))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableList.of(11L, 22L));
+
+        // Arrays of different lengths - shorter array padded with 0
+        actual = computeActual("select array_union_sum(x) from (select cast(array[1, 2, 3] as array<bigint>) x union all select cast(array[10, 5, 4, 1] as array<bigint>) union all select cast(array[9, 0, 5, 4] as array<bigint>))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableList.of(20L, 7L, 12L, 5L));
+
+        // Grouped aggregation
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[1, 2] as array<bigint>) x union all select 1 y, cast(array[10, 30, 20] as array<bigint>)) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of(11L, 32L, 20L));
+
+        // Null handling - null values treated as 0
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[1, null] as array<bigint>) x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of(1L, 0L));
+
+        // Null values with multiple arrays
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 20] as array<integer>) x " +
+                "union all select 1 y, cast(array[1, null] as array<integer>) x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of(1, 30, 20));
+
+        // smallint type
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 20] as array<smallint>) x " +
+                "union all select 1 y, cast(array[1, null] as array<smallint>) x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of((short) 1, (short) 30, (short) 20));
+
+        // tinyint type
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 20] as array<tinyint>) x " +
+                "union all select 1 y, cast(array[1, null] as array<tinyint>) x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of((byte) 1, (byte) 30, (byte) 20));
+
+        // real type with nulls
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 20] as array<real>) x union all select 1 y, cast(array[1, null] as array<real>) x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of(1.0f, 30.0f, 20.0f));
+
+        // Multiple groups
+        actual = computeActual("select y, array_union_sum(x) from (select 1 y, cast(array[1, null] as array<bigint>) x " +
+                "union all select 1 y, cast(array[null, 30, 20] as array<bigint>) " +
+                "union all select 1 y, cast(array[100, 400, 200] as array<bigint>) " +
+                "union all select 3 y, cast(array[-1, 2, -3] as array<bigint>) " +
+                ") group by y order by y");
+        assertEquals(actual.getRowCount(), 2);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableList.of(101L, 430L, 220L));
+        assertEquals(actual.getMaterializedRows().get(1).getField(0), 3);
+        assertEquals(actual.getMaterializedRows().get(1).getField(1), ImmutableList.of(-1L, 2L, -3L));
+
+        // NULL array inputs should be skipped
+        actual = computeActual("SELECT array_union_sum(x) FROM (VALUES (cast(array[1, 2] as array<bigint>)), (CAST(NULL AS array(bigint))), (cast(array[3, 4] as array<bigint>))) AS t(x)");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableList.of(4L, 6L));
+
+        // All NULL array inputs should return NULL
+        actual = computeActual("SELECT array_union_sum(x) FROM (VALUES (CAST(NULL AS array(bigint))), (CAST(NULL AS array(bigint)))) AS t(x)");
+        assertEquals(actual.getRowCount(), 1);
+        assertNull(actual.getMaterializedRows().get(0).getField(0));
+    }
+
+    @Test
+    public void testInvalidArrayUnionSum()
+    {
+        assertQueryFails(
+                "SELECT array_union_sum(x) from (select cast(array[] as array<varchar>) x)",
+                "(?s).*line 1:8: Unexpected parameters \\(array\\(varchar\\)\\) for function (?:native.default.)?array_union_sum. Expected: (?:native.default.)?array_union_sum\\(array\\((T|t)\\)\\) (T|t):nonDecimalNumeric.*");
+        assertQueryFails(
+                "SELECT array_union_sum(x) from (select cast(array[] as array<decimal(10,2)>) x)",
+                "(?s).*line 1:8: Unexpected parameters \\(array\\(decimal\\(10,2\\)\\)\\) for function (?:native.default.)?array_union_sum. Expected: (?:native.default.)?array_union_sum\\(array\\((T|t)\\)\\) (T|t):nonDecimalNumeric.*");
+    }
+
+    @Test
+    public void testArrayUnionSumOverflow()
+    {
+        assertQueryFails(
+                "select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 100] as array<tinyint>) x " +
+                        "union all select 1 y, cast(array[1, 100] as array<tinyint>) x) group by y", "(?s).*Value 130 exceeds.*");
+        assertQueryFails(
+                "select y, array_union_sum(x) from (select 1 y, cast(array[null, 30, 32760] as array<smallint>) x " +
+                        "union all select 1 y, cast(array[1, 100, 100] as array<smallint>) x) group by y", "(?s).*Value 32860 exceeds.*");
+    }
+
+    @Test
     public void testMultipleOrderingOnSameCanonicalVariables()
     {
         assertQuerySucceeds("SELECT ARRAY_AGG( x ORDER BY x ASC, x DESC ) FROM ( SELECT 0 as x, 0 AS y)");
