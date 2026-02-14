@@ -18,7 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -37,11 +37,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestPostgreSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private final PostgreSQLContainer<?> postgresContainer;
+    private final PostgreSQLContainer postgresContainer;
 
     public TestPostgreSqlCaseInsensitiveMapping()
     {
-        this.postgresContainer = new PostgreSQLContainer<>("postgres:14")
+        this.postgresContainer = new PostgreSQLContainer("postgres:14")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");

@@ -44,10 +44,10 @@ import okhttp3.Response;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
@@ -75,7 +75,7 @@ public class TestingHydraIdentityProvider
 
     private final Network network = Network.newNetwork();
 
-    private final PostgreSQLContainer<?> databaseContainer = new PostgreSQLContainer<>()
+    private final PostgreSQLContainer databaseContainer = new PostgreSQLContainer("postgres:14")
             .withNetwork(network)
             .withNetworkAliases("database")
             .withUsername("hydra")

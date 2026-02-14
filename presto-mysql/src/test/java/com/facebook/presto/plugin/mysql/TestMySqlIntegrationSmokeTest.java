@@ -22,7 +22,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
-import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -48,12 +48,12 @@ import static org.testng.Assert.assertTrue;
 public class TestMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final MySQLContainer<?> mysqlContainer;
+    private final MySQLContainer mysqlContainer;
 
     public TestMySqlIntegrationSmokeTest()
             throws Exception
     {
-        this.mysqlContainer = new MySQLContainer<>("mysql:8.0")
+        this.mysqlContainer = new MySQLContainer("mysql:8.0")
                 .withDatabaseName("tpch")
                 .withUsername("testuser")
                 .withPassword("testpass");
