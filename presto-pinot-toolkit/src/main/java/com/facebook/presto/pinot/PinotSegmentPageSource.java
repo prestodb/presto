@@ -210,10 +210,9 @@ public class PinotSegmentPageSource
                         }
                         catch (IOException e) {
                             throw new PinotException(
-                                PINOT_DATA_FETCH_EXCEPTION,
-                                split.getSegmentPinotQuery(),
-                                String.format("Encountered Pinot exceptions when fetching data table from Split: < %s >", split),
-                                e);
+                                    PINOT_DATA_FETCH_EXCEPTION,
+                                    split.getSegmentPinotQuery(),
+                                    String.format("Encountered Pinot exceptions when fetching data table from Split: < %s >", split), e);
                         }
                         break;
                     case CommonConstants.Query.Response.ResponseType.METADATA:
@@ -224,9 +223,9 @@ public class PinotSegmentPageSource
                         return null;
                     default:
                         throw new PinotException(
-                            PINOT_UNEXPECTED_RESPONSE,
-                            split.getSegmentPinotQuery(),
-                            String.format("Encountered Pinot exceptions, unknown response type - %s", responseType));
+                                PINOT_UNEXPECTED_RESPONSE,
+                                split.getSegmentPinotQuery(),
+                                String.format("Encountered Pinot exceptions, unknown response type - %s", responseType));
                 }
             }
             Page page = fillNextPage();
@@ -247,9 +246,9 @@ public class PinotSegmentPageSource
         int grpcPort = split.getGrpcPort().orElseThrow(() -> new PinotException(PINOT_INVALID_SEGMENT_QUERY_GENERATED, Optional.empty(), "Expected the segment split to contain the grpc port"));
         if (grpcPort <= 0) {
             throw new PinotException(
-                PINOT_INVALID_SEGMENT_QUERY_GENERATED,
-                Optional.empty(),
-                "Expected the grpc port > 0 always");
+                    PINOT_INVALID_SEGMENT_QUERY_GENERATED,
+                    Optional.empty(),
+                    "Expected the grpc port > 0 always");
         }
         PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()
                 .setSegments(split.getSegments())

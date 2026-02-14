@@ -61,7 +61,7 @@ public class RatisServer
                 .map(resourceManager -> {
                     RaftPeer.Builder builder = RaftPeer.newBuilder();
                     builder.setId(RaftPeerId.valueOf(resourceManager.getNodeIdentifier()))
-                        .setAddress(resourceManager.getHost() + ":" + resourceManager.getRaftPort().getAsInt());
+                            .setAddress(resourceManager.getHost() + ":" + resourceManager.getRaftPort().getAsInt());
                     return builder.build();
                 }).toArray(RaftPeer[]::new);
     }

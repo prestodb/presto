@@ -169,6 +169,8 @@
 
         <module name="AnnotationUseStyle">
             <property name="trailingArrayComma" value="ignore" />
+            <!-- see https://checkstyle.sourceforge.io/checks/annotation/annotationusestyle.html#Properties -->
+            <property name="elementStyle" value="ignore"/>
         </module>
 
         <module name="AvoidStarImport" />

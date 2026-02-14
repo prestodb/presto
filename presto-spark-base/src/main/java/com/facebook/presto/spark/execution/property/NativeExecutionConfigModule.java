@@ -52,7 +52,7 @@ public class NativeExecutionConfigModule
         bind(new TypeLiteral<Map<String, Map<String, String>>>() {})
             .annotatedWith(
                 Names.named(NativeExecutionCatalogConfig.NATIVE_EXECUTION_CATALOG_CONFIG))
-            .toInstance(catalogConfigs);
+                .toInstance(catalogConfigs);
 
         bind(NativeExecutionSystemConfig.class).in(Scopes.SINGLETON);
         bind(NativeExecutionCatalogConfig.class).in(Scopes.SINGLETON);
