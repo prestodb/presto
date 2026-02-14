@@ -42,6 +42,7 @@ public class SqlFunctionProperties
     private final boolean warnOnCommonNanPatterns;
     private final boolean canonicalizedJsonExtract;
     private final Set<String> tryCatchableErrorCodes;
+    private final boolean legacyStEquals;
 
     private SqlFunctionProperties(
             boolean parseDecimalLiteralAsDouble,
@@ -57,7 +58,8 @@ public class SqlFunctionProperties
             Map<String, String> extraCredentials,
             boolean warnOnCommonNanPatterns,
             boolean canonicalizedJsonExtract,
-            Set<String> tryCatchableErrorCodes)
+            Set<String> tryCatchableErrorCodes,
+            boolean legacyStEquals)
     {
         this.parseDecimalLiteralAsDouble = parseDecimalLiteralAsDouble;
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
@@ -73,6 +75,7 @@ public class SqlFunctionProperties
         this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
         this.canonicalizedJsonExtract = canonicalizedJsonExtract;
         this.tryCatchableErrorCodes = requireNonNull(tryCatchableErrorCodes, "tryCatchableErrorCodes is null");
+        this.legacyStEquals = legacyStEquals;
     }
 
     public boolean isParseDecimalLiteralAsDouble()
@@ -144,6 +147,11 @@ public class SqlFunctionProperties
         return tryCatchableErrorCodes;
     }
 
+    public boolean isLegacyStEquals()
+    {
+        return legacyStEquals;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -165,7 +173,8 @@ public class SqlFunctionProperties
                 Objects.equals(extraCredentials, that.extraCredentials) &&
                 Objects.equals(legacyJsonCast, that.legacyJsonCast) &&
                 Objects.equals(canonicalizedJsonExtract, that.canonicalizedJsonExtract) &&
-                Objects.equals(tryCatchableErrorCodes, that.tryCatchableErrorCodes);
+                Objects.equals(tryCatchableErrorCodes, that.tryCatchableErrorCodes) &&
+                Objects.equals(legacyStEquals, that.legacyStEquals);
     }
 
     @Override
@@ -173,7 +182,7 @@ public class SqlFunctionProperties
     {
         return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey,
                 legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
-                extraCredentials, legacyJsonCast, canonicalizedJsonExtract, tryCatchableErrorCodes);
+                extraCredentials, legacyJsonCast, canonicalizedJsonExtract, tryCatchableErrorCodes, legacyStEquals);
     }
 
     public static Builder builder()
@@ -197,6 +206,7 @@ public class SqlFunctionProperties
         private boolean warnOnCommonNanPatterns;
         private boolean canonicalizedJsonExtract;
         private Set<String> tryCatchableErrorCodes = emptySet();
+        private boolean legacyStEquals;
 
         private Builder() {}
 
@@ -284,6 +294,12 @@ public class SqlFunctionProperties
             return this;
         }
 
+        public Builder setLegacyStEquals(boolean legacyStEquals)
+        {
+            this.legacyStEquals = legacyStEquals;
+            return this;
+        }
+
         public SqlFunctionProperties build()
         {
             return new SqlFunctionProperties(
@@ -300,7 +316,8 @@ public class SqlFunctionProperties
                     extraCredentials,
                     warnOnCommonNanPatterns,
                     canonicalizedJsonExtract,
-                    tryCatchableErrorCodes);
+                    tryCatchableErrorCodes,
+                    legacyStEquals);
         }
     }
 }

@@ -1509,3 +1509,19 @@ Controls behavior when a materialized view is stale and no per-view staleness co
 Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
 
 The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.
+
+Geometry Properties
+-------------------
+
+``legacy-st-equals``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See :func:`functions/geospatial:ST_Equals` for details on the behavior differences.
+This property will be removed in a future release.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`legacy_st_equals\`\``.

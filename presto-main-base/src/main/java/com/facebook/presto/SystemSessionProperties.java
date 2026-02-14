@@ -381,6 +381,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
+    public static final String LEGACY_ST_EQUALS = "legacy_st_equals";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2138,6 +2139,11 @@ public final class SystemSessionProperties
                         TRY_FUNCTION_CATCHABLE_ERRORS,
                         "Comma-separated list of error code names that TRY function should catch (such as 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS')",
                         featuresConfig.getTryFunctionCatchableErrors(),
+                        false),
+                booleanProperty(
+                        LEGACY_ST_EQUALS,
+                        "Use legacy ST_Equals function (warning: this will be removed)",
+                        functionsConfig.isLegacyStEquals(),
                         false));
     }
 
@@ -2723,6 +2729,11 @@ public final class SystemSessionProperties
     public static boolean isLegacyUnnest(Session session)
     {
         return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
+    }
+
+    public static boolean isLegacySTEquals(Session session)
+    {
+        return session.getSystemProperty(LEGACY_ST_EQUALS, Boolean.class);
     }
 
     public static OptionalInt getMaxDriversPerTask(Session session)
