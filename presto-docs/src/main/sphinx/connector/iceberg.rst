@@ -1621,6 +1621,22 @@ Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.default.mytable CREATE OR REPLACE BRANCH 'audit-branch-time' FOR SYSTEM_TIME AS OF TIMESTAMP '2026-01-02 17:30:35.247 Asia/Kolkata';
 
+     ALTER TABLE iceberg.default.mytable CREATE TAG 'audit-tag';
+
+     ALTER TABLE iceberg.default.mytable CREATE TAG IF NOT EXISTS 'audit-tag';
+
+     ALTER TABLE iceberg.default.mytable CREATE OR REPLACE TAG 'audit-tag';
+
+     ALTER TABLE iceberg.default.mytable CREATE TAG 'audit-tag-system' FOR SYSTEM_VERSION AS OF 4176642711908913940;
+
+     ALTER TABLE iceberg.default.mytable CREATE TAG IF NOT EXISTS 'audit-tag-system' FOR SYSTEM_VERSION AS OF 4176642711908913940;
+
+     ALTER TABLE iceberg.default.mytable CREATE TAG 'audit-tag-retain' FOR SYSTEM_VERSION AS OF 4176642711908913940 RETAIN 7 DAYS;
+
+     ALTER TABLE iceberg.default.mytable CREATE TAG 'audit-tag-snap-retain' FOR SYSTEM_VERSION AS OF 4176642711908913940 RETAIN 7 DAYS WITH SNAPSHOT RETENTION 2 SNAPSHOTS 2 DAYS;
+
+     ALTER TABLE iceberg.default.mytable CREATE OR REPLACE TAG 'audit-tag-time' FOR SYSTEM_TIME AS OF TIMESTAMP '2026-01-02 17:30:35.247 Asia/Kolkata';
+
 To add a new column as a partition column, identify the transform functions for the column.
 The table is partitioned by the transformed value of the column::
 

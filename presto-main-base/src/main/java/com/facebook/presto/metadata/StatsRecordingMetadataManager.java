@@ -1020,6 +1020,24 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void createTag(Session session,
+                          TableHandle tableHandle,
+                          String tagName,
+                          boolean replace,
+                          boolean ifNotExists,
+                          Optional<ConnectorTableVersion> tableVersion,
+                          Optional<Long> retainDays)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, tableVersion, retainDays);
+        }
+        finally {
+            stats.recordCreateTagCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
     {
         long startTime = System.nanoTime();

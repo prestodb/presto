@@ -1755,6 +1755,14 @@ public class MetadataManager
     }
 
     @Override
+    public void createTag(Session session, TableHandle tableHandle, String tagName, boolean replace, boolean ifNotExists, Optional<ConnectorTableVersion> tableVersion, Optional<Long> retainDays)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.createTag(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tagName, replace, ifNotExists, tableVersion, retainDays);
+    }
+
+    @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

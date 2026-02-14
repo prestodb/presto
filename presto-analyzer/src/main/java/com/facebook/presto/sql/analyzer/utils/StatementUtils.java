@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateType;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -133,6 +134,7 @@ public final class StatementUtils
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(CreateBranch.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateTag.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);

@@ -760,6 +760,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void createTag(Session session, TableHandle tableHandle, String branchName, boolean replace, boolean ifNotExists, Optional<ConnectorTableVersion> tableVersion, Optional<Long> retainDays)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropBranch(Session session, TableHandle tableHandle, String branchName, boolean branchExists)
     {
         throw new UnsupportedOperationException();

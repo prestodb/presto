@@ -74,6 +74,10 @@ statement
         (RETAIN retainDays=INTEGER_VALUE DAYS)?
         (WITH SNAPSHOT RETENTION (minSnapshots=INTEGER_VALUE SNAPSHOTS)? (maxSnapshotAge=INTEGER_VALUE DAYS)?)?  #createBranch
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        CREATE (OR REPLACE)? TAG (IF NOT EXISTS)? name=string
+        tableVersionExpression?
+        (RETAIN retainDays=INTEGER_VALUE DAYS)?                         #createTag
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP BRANCH (IF EXISTS)? name=string                           #dropBranch
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag

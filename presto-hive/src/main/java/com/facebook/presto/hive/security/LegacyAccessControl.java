@@ -307,6 +307,11 @@ public class LegacyAccessControl
     }
 
     @Override
+    public void checkCanCreateTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
     public void checkCanDropTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
     }

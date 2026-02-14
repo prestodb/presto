@@ -730,6 +730,19 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void createTag(
+            Session session,
+            TableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays)
+    {
+        delegate.createTag(session, tableHandle, tagName, replace, ifNotExists, tableVersion, retainDays);
+    }
+
+    @Override
     public void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists)
     {
         delegate.dropTag(session, tableHandle, tagName, tagExists);

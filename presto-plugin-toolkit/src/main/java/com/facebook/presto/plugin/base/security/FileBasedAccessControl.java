@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCallPro
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -384,6 +385,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyCreateBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCreateTag(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyCreateTag(tableName.toString());
         }
     }
 

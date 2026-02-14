@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalog
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -485,6 +486,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denyCreateBranch(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCreateTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denyCreateTag(table.toString());
         }
     }
 

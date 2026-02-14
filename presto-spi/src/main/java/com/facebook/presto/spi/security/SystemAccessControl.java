@@ -36,6 +36,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCatalog
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateBranch;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -422,6 +423,16 @@ public interface SystemAccessControl
     default void checkCanCreateBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyCreateBranch(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to create tag on the specified table in a catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denyCreateTag(table.toString());
     }
 
     /**
