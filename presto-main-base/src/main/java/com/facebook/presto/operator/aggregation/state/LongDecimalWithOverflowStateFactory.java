@@ -54,7 +54,7 @@ public class LongDecimalWithOverflowStateFactory
             extends AbstractGroupedAccumulatorState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedLongDecimalWithOverflowState.class).instanceSize();
         protected final ObjectBigArray<Slice> unscaledDecimals = new ObjectBigArray<>();
         @Nullable
         protected LongBigArray overflows;
@@ -132,8 +132,8 @@ public class LongDecimalWithOverflowStateFactory
     public static class SingleLongDecimalWithOverflowState
             implements LongDecimalWithOverflowState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize();
-        public static final int SIZE = ClassLayout.parseClass(Slice.class).instanceSize() + UNSCALED_DECIMAL_128_SLICE_LENGTH;
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleLongDecimalWithOverflowState.class).instanceSize();
+        public static final long SIZE = ClassLayout.parseClass(Slice.class).instanceSize() + UNSCALED_DECIMAL_128_SLICE_LENGTH;
 
         protected Slice unscaledDecimal;
         protected long overflow;

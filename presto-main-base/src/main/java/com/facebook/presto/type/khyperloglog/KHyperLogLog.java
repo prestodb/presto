@@ -59,8 +59,8 @@ public class KHyperLogLog
     public static final long DEFAULT_HISTOGRAM_SIZE = 256;
     private static final byte VERSION_BYTE = 1;
     private static final long HASH_OUTPUT_HALF_RANGE = Long.MAX_VALUE;
-    private static final int SIZE_OF_KHYPERLOGLOG = ClassLayout.parseClass(KHyperLogLog.class).instanceSize();
-    private static final int SIZE_OF_RBTREEMAP = ClassLayout.parseClass(Long2ObjectRBTreeMap.class).instanceSize();
+    private static final long SIZE_OF_KHYPERLOGLOG = ClassLayout.parseClass(KHyperLogLog.class).instanceSize();
+    private static final long SIZE_OF_RBTREEMAP = ClassLayout.parseClass(Long2ObjectRBTreeMap.class).instanceSize();
 
     private final Long2ObjectSortedMap<HyperLogLog> minhash;
     private final int maxSize;
@@ -207,7 +207,7 @@ public class KHyperLogLog
         return minhash.size();
     }
 
-    public int estimatedInMemorySize()
+    public long estimatedInMemorySize()
     {
         return SIZE_OF_KHYPERLOGLOG +
                 SIZE_OF_RBTREEMAP +

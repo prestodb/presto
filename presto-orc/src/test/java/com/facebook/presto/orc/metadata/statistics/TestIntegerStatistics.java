@@ -22,7 +22,7 @@ import static java.lang.Long.MIN_VALUE;
 public class TestIntegerStatistics
         extends AbstractRangeStatisticsTest<IntegerStatistics, Long>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntegerStatistics.class).instanceSize();
 
     @Override
     protected IntegerStatistics getCreateStatistics(Long min, Long max)

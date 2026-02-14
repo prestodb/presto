@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(String.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(String.class).instanceSize();
 
     private final String value;
 
@@ -41,7 +41,7 @@ public final class HiveTypeName
         return HiveType.valueOf(value);
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
         return INSTANCE_SIZE + value.length() * Character.BYTES;
     }

@@ -36,7 +36,7 @@ import static java.lang.Math.toIntExact;
 
 public class PageReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PageReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PageReader.class).instanceSize();
 
     private final long valueCountInColumnChunk;
     private final Iterator<DataPage> dataPageIterator;
