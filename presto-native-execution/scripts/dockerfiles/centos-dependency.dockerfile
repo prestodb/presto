@@ -40,7 +40,7 @@ RUN bash -c "mkdir build && \
                  source ../velox/scripts/setup-centos-adapters.sh && \
                  install_adapters && \
                  install_clang15 && \
-                 install_cuda ${CUDA_VERSION}) && \
+                 install_cuda ${CUDA_VERSION} && \
                  install_ucx) && \
     rm -rf build"
 
