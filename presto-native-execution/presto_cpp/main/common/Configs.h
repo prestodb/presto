@@ -438,6 +438,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheNumShards{
       "async-cache-num-shards"};
 
+  /// The maximum threshold in bytes for triggering SSD flush. When the
+  /// accumulated SSD-savable bytes exceed this value, a flush to SSD is
+  /// triggered. Set to 0 to disable this threshold (default).
+  static constexpr std::string_view kAsyncCacheSsdFlushThresholdBytes{
+      "async-cache-ssd-flush-threshold-bytes"};
+
   /// The interval for persisting in-memory cache to SSD. Setting this config
   /// to a non-zero value will activate periodic cache persistence.
   static constexpr std::string_view kAsyncCachePersistenceInterval{
@@ -1078,6 +1084,8 @@ class SystemConfig : public ConfigBase {
   int32_t asyncCacheMinSsdSavableBytes() const;
 
   int32_t asyncCacheNumShards() const;
+
+  uint64_t asyncCacheSsdFlushThresholdBytes() const;
 
   std::chrono::duration<double> asyncCachePersistenceInterval() const;
 
