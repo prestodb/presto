@@ -321,7 +321,7 @@ public class QueryManagerConfig
         return maxQueryRunningTaskCount;
     }
 
-    @Config("experimental.max-total-running-task-count-to-not-execute-new-query")
+    @Config("max-total-running-task-count-to-not-execute-new-query")
     @ConfigDescription("Keep new queries in the queue if total task count exceeds this threshold")
     public QueryManagerConfig setMaxTotalRunningTaskCountToNotExecuteNewQuery(int maxTotalRunningTaskCountToNotExecuteNewQuery)
     {

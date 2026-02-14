@@ -102,7 +102,7 @@ public class TestQueryManagerConfig
                 .put("query.stage-count-warning-threshold", "12300")
                 .put("max-total-running-task-count-to-kill-query", "60000")
                 .put("max-query-running-task-count", "10000")
-                .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
+                .put("max-total-running-task-count-to-not-execute-new-query", "50000")
                 .put("concurrency-threshold-to-enable-resource-group-refresh", "2")
                 .put("resource-group-runtimeinfo-refresh-interval", "10ms")
                 .put("query.schedule-split-batch-size", "99")

@@ -94,7 +94,7 @@ public class TestQueryTaskLimit
     {
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "false")
-                .put("experimental.max-total-running-task-count-to-not-execute-new-query", "2")
+                .put("max-total-running-task-count-to-not-execute-new-query", "2")
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(defaultSession, extraProperties)) {
