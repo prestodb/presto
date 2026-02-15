@@ -242,6 +242,10 @@ public class CassandraClientModule
         // Apply the configuration
         sessionBuilder.withConfigLoader(configLoaderBuilder.build());
 
+        // Register custom codecs
+        // Driver 4.x removed built-in support for java.sql.Timestamp, so we register a custom codec
+        sessionBuilder.addTypeCodecs(TimestampCodec.INSTANCE);
+
         // Build and return the session
         return sessionBuilder.build();
     }

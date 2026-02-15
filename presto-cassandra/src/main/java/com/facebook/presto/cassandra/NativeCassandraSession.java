@@ -129,6 +129,26 @@ public class NativeCassandraSession
     {
         log.info("Invalidating metadata cache for keyspace: %s", keyspaceName);
         keyspaceCache.invalidate(keyspaceName);
+
+        // CRITICAL: Force driver's internal metadata refresh
+        // Driver 4.x caches metadata aggressively and needs explicit refresh
+        try {
+            reopeningSession.forceMetadataRefresh();
+
+            // Add delay for metadata propagation across the cluster
+            // This ensures the driver has time to reload schema information
+            Thread.sleep(2000);
+
+            log.info("Metadata cache invalidation completed for keyspace: %s", keyspaceName);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while waiting for metadata refresh for keyspace: %s", keyspaceName);
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during metadata refresh for keyspace: %s", keyspaceName);
+            // Don't throw - cache invalidation failures shouldn't break operations
+        }
     }
 
     @Override
