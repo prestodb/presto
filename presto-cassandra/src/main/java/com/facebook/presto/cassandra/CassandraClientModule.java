@@ -195,6 +195,11 @@ public class CassandraClientModule
                         config.getClientSoLinger());
             }
 
+            // Schema metadata configuration - include system keyspaces
+            // By default, driver 4.x filters out system keyspaces, but we need them for size estimates
+            configLoaderBuilder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES,
+                    java.util.Collections.emptyList()); // Empty list means include all keyspaces
+
             sessionBuilder.withConfigLoader(configLoaderBuilder.build());
 
             // TLS (only for non-Astra, as Astra bundle includes SSL config)
