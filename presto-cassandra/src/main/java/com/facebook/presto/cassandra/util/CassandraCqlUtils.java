@@ -121,6 +121,12 @@ public final class CassandraCqlUtils
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
 
+        // Driver 4.x requires explicit column list or use .all() for SELECT *
+        // Empty array to .columns() generates invalid CQL: "SELECT FROM table"
+        if (columns.isEmpty()) {
+            return QueryBuilder.selectFrom(schema, table).all();
+        }
+
         String[] columnNames = columns.stream()
                 .map(column -> validColumnName(column.getName()))
                 .toArray(String[]::new);
@@ -132,6 +138,12 @@ public final class CassandraCqlUtils
     {
         String schema = validSchemaName(tableHandle.getSchemaName());
         String table = validTableName(tableHandle.getTableName());
+
+        // Driver 4.x requires explicit column list or use .all() for SELECT DISTINCT *
+        // Empty array to .columns() generates invalid CQL: "SELECT DISTINCT FROM table"
+        if (columns.isEmpty()) {
+            return QueryBuilder.selectFrom(schema, table).distinct().all();
+        }
 
         String[] columnNames = columns.stream()
                 .map(column -> validColumnName(column.getName()))
