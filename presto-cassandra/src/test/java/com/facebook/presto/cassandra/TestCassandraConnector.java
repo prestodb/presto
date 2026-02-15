@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.utils.Bytes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -123,6 +122,8 @@ public class TestCassandraConnector
                         "cassandra.contact-points", server.getHost(),
                         "cassandra.native-protocol-port", Integer.toString(server.getPort()),
                         "cassandra.allow-drop-table", "true"),
+                        "cassandra.load-policy.use-dc-aware", "true",
+                        "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
                 new TestingConnectorContext());
 
         splitManager = connector.getSplitManager();
@@ -222,7 +223,7 @@ public class TestCassandraConnector
 
                     assertEquals(keyValue, String.format("key %d", rowId));
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
+                    assertEquals(bytesToHex(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
@@ -340,5 +341,14 @@ public class TestCassandraConnector
             i++;
         }
         return index.build();
+    }
+
+    private static String bytesToHex(byte[] bytes)
+    {
+        StringBuilder sb = new StringBuilder("0x");
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 }

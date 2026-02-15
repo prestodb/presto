@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
@@ -32,19 +32,21 @@ public class CassandraRecordCursor
     private final ResultSet rs;
     private Row currentRow;
     private long count;
+    private java.util.Iterator<Row> iterator;
 
     public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
         this.fullCassandraTypes = fullCassandraTypes;
         rs = cassandraSession.execute(cql);
+        this.iterator = rs.iterator();
         currentRow = null;
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        if (!rs.isExhausted()) {
-            currentRow = rs.one();
+        if (iterator.hasNext()) {
+            currentRow = iterator.next();
             count++;
             return true;
         }
@@ -83,7 +85,7 @@ public class CassandraRecordCursor
             case FLOAT:
                 return currentRow.getFloat(i);
             case DECIMAL:
-                return currentRow.getDecimal(i).doubleValue();
+                return currentRow.getBigDecimal(i).doubleValue();
             default:
                 throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
         }
@@ -103,9 +105,9 @@ public class CassandraRecordCursor
             case COUNTER:
                 return currentRow.getLong(i);
             case TIMESTAMP:
-                return currentRow.getTimestamp(i).getTime();
+                return currentRow.getInstant(i).toEpochMilli();
             case DATE:
-                return currentRow.getDate(i).getDaysSinceEpoch();
+                return currentRow.getLocalDate(i).toEpochDay();
             case FLOAT:
                 return floatToRawIntBits(currentRow.getFloat(i));
             default:

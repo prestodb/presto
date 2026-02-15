@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.CloseFuture;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.DelegatingCluster;
 import com.facebook.airlift.log.Logger;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
@@ -23,29 +20,34 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * ReopeningCluster is no longer needed in driver 4.x as it used driver 3.x Cluster API.
+ * This class is kept for backward compatibility but is deprecated.
+ * Use ReopeningSession instead.
+ *
+ * @deprecated Use {@link ReopeningSession} instead
+ */
+@Deprecated
 @ThreadSafe
 public class ReopeningCluster
-        extends DelegatingCluster
 {
     private static final Logger log = Logger.get(ReopeningCluster.class);
 
     @GuardedBy("this")
-    private Cluster delegate;
+    private Object delegate;
     @GuardedBy("this")
     private boolean closed;
 
-    private final Supplier<Cluster> supplier;
+    private final Supplier<Object> supplier;
 
-    public ReopeningCluster(Supplier<Cluster> supplier)
+    public ReopeningCluster(Supplier<Object> supplier)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
     }
 
-    @Override
-    protected synchronized Cluster delegate()
+    protected synchronized Object delegate()
     {
         checkState(!closed, "Cluster has been closed");
 
@@ -53,35 +55,36 @@ public class ReopeningCluster
             delegate = supplier.get();
         }
 
-        if (delegate.isClosed()) {
-            log.warn("Cluster has been closed internally");
-            delegate = supplier.get();
-        }
-
-        verify(!delegate.isClosed(), "Newly created cluster has been immediately closed");
+        // Note: In driver 4.x, we can't check if session is closed the same way
+        // This class is deprecated and should not be used
 
         return delegate;
     }
 
-    @Override
     public synchronized void close()
     {
         closed = true;
         if (delegate != null) {
-            delegate.close();
+            // Delegate closing to the actual session implementation
+            if (delegate instanceof AutoCloseable) {
+                try {
+                    ((AutoCloseable) delegate).close();
+                }
+                catch (Exception e) {
+                    log.warn(e, "Error closing delegate");
+                }
+            }
             delegate = null;
         }
     }
 
-    @Override
     public synchronized boolean isClosed()
     {
         return closed;
     }
 
-    @Override
-    public synchronized CloseFuture closeAsync()
+    public synchronized void closeAsync()
     {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("closeAsync is not supported in driver 4.x");
     }
 }

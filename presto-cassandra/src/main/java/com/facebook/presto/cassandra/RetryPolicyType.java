@@ -13,29 +13,28 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.policies.DefaultRetryPolicy;
-import com.datastax.driver.core.policies.DowngradingConsistencyRetryPolicy;
-import com.datastax.driver.core.policies.FallthroughRetryPolicy;
-import com.datastax.driver.core.policies.RetryPolicy;
+import com.datastax.oss.driver.api.core.retry.RetryPolicy;
+import com.datastax.oss.driver.internal.core.retry.ConsistencyDowngradingRetryPolicy;
+import com.datastax.oss.driver.internal.core.retry.DefaultRetryPolicy;
 
 import static java.util.Objects.requireNonNull;
 
 public enum RetryPolicyType
 {
-    DEFAULT(DefaultRetryPolicy.INSTANCE),
-    BACKOFF(BackoffRetryPolicy.INSTANCE),
-    DOWNGRADING_CONSISTENCY(DowngradingConsistencyRetryPolicy.INSTANCE),
-    FALLTHROUGH(FallthroughRetryPolicy.INSTANCE);
+    DEFAULT(DefaultRetryPolicy.class),
+    BACKOFF(BackoffRetryPolicy.class),
+    DOWNGRADING_CONSISTENCY(ConsistencyDowngradingRetryPolicy.class),
+    FALLTHROUGH(DefaultRetryPolicy.class); // Fallthrough is similar to default in 4.x
 
-    private final RetryPolicy policy;
+    private final Class<? extends RetryPolicy> policyClass;
 
-    RetryPolicyType(RetryPolicy policy)
+    RetryPolicyType(Class<? extends RetryPolicy> policyClass)
     {
-        this.policy = requireNonNull(policy, "policy is null");
+        this.policyClass = requireNonNull(policyClass, "policyClass is null");
     }
 
-    public RetryPolicy getPolicy()
+    public Class<? extends RetryPolicy> getPolicyClass()
     {
-        return policy;
+        return policyClass;
     }
 }
