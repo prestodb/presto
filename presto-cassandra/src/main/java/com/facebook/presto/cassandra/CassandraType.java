@@ -125,16 +125,10 @@ public enum CassandraType
 
     /**
      * Returns the CQL type name to use in CREATE TABLE statements.
-     * For DATE type, returns "int" to avoid the reserved keyword "date" in Cassandra.
-     * The DATE type stores days since epoch as an integer, which matches Presto's DATE representation.
+     * Driver 4.x properly supports all CQL type names including 'date'.
      */
     public String getCqlTypeName()
     {
-        if (this == DATE) {
-            // Use "int" instead of "date" to avoid Cassandra reserved keyword issue
-            // DATE values are stored as days since epoch (same as Cassandra's date type internally)
-            return "int";
-        }
         return name().toLowerCase(java.util.Locale.ROOT);
     }
 
