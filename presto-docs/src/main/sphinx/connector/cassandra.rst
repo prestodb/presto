@@ -2,12 +2,18 @@
 Cassandra Connector
 ===================
 
-The Cassandra connector allows querying data stored in Cassandra or in ScyllaDB.
+The Cassandra connector allows querying data stored in Apache Cassandra® or in Cassandra-compatible cluster like Astra DB, ScyllaDB, or Instaclustr.
 
 Compatibility
 -------------
 
-Connector is compatible with all Cassandra versions starting from 2.1.5. Latest ScyllaDB tested is 5.1.11.
+Connector is compatible with all Cassandra versions starting from 2.1.5 and uses the DataStax Java Driver 4.19.2. Latest ScyllaDB tested is 5.1.11.
+
+.. note::
+
+    The connector has been upgraded from Cassandra Java Driver 3.x to 4.19.2, which provides improved performance,
+    better connection management, and support for newer Cassandra features. The upgrade is backward compatible
+    with Cassandra 2.1.5+ and does not require any configuration changes for existing deployments.
 
 Configuration
 -------------
@@ -29,11 +35,11 @@ For ScyllaDB you don't need to add any additional configuration.
 ScyllaDB uses the same port as Cassandra by default.
 Just point to ScyllaDB nodes in ``cassandra.contact-points`` config property.
 
-Multiple Cassandra or ScyllaDB Clusters
+Multiple Cassandra or Cassandra-compatible service Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Cassandra(ScyllaDB) clusters, simply add another properties file to ``etc/catalog``
+Cassandra (or Cassandra-compatible service) clusters, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
@@ -49,6 +55,12 @@ Property Name                                      Description
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver will use these contact points to discover cluster topology.
                                                    At least one Cassandra host is required.
+
+``cassandra.cloud.secure-connect-bundle``          Path to the secure connect bundle for connecting to managed services
+                                                   cloud. This is required when connecting to Astra DB in the cloud.
+                                                   ``cassandra.contact-points`` should be avoided when this property is set.
+                                                   More information about secure connect bundle can be found in the
+                                                   `secure bundle documentation`_. This property is optional.
 
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
@@ -73,7 +85,10 @@ Property Name                                      Description
                                                    of the user who is connected to Presto.
 
 ``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   This property defaults to ``V3``. Possible values include ``V2``, ``V3`` and ``V4``.
+                                                   With Cassandra Java Driver 4.x, the driver automatically negotiates the highest
+                                                   common protocol version supported by both the driver and the cluster. Manual
+                                                   override is rarely needed. Possible values include ``V3``, ``V4``, and ``V5``.
+                                                   Note: Protocol V2 is no longer supported in driver 4.x.
 
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema, table, and column names for the connector.
                                                    When disabled, names are matched case-insensitively using lowercase normalization.
@@ -85,7 +100,8 @@ Property Name                                      Description
         If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
         the ``system.size_estimates`` table.
 
-.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
+.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/dml/dmlConfigConsistency.html
+.. _secure bundle documentation: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
 
 The following advanced configuration properties are available:
 
@@ -142,10 +158,6 @@ Property Name                                                 Description
 
 ``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas
                                                               (defaults to ``false``).
-
-``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy`` (defaults to ``false``).
-
-``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
 
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException`` (defaults to ``1m``).
 
@@ -264,3 +276,40 @@ Limitations
   query with a partition key as a filter.
 * ``IN`` list filters are only allowed on index (that is, partition key or clustering key) columns.
 * Range (``<`` or ``>`` and ``BETWEEN``) filters can be applied only to the partition keys.
+
+
+Migration from Driver 3.x
+-------------------------
+
+If you are upgrading from a previous version of Presto that used Cassandra Java Driver 3.x, please note the following changes:
+
+Removed Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following configuration properties are **no longer supported** in driver 4.x and must be removed from your configuration:
+
+* ``cassandra.load-policy.use-white-list`` - WhiteListPolicy does not exist in driver 4.x
+* ``cassandra.load-policy.white-list.addresses`` - WhiteListPolicy does not exist in driver 4.x
+
+**If you were using whitelist policy**, you have these alternatives:
+
+1. **Network-level filtering**: Use firewall rules or network policies to restrict which Cassandra nodes are accessible.
+
+2. **Contact points selection**: Specify only the desired nodes in ``cassandra.contact-points``. The driver will discover the cluster topology from these nodes.
+
+3. **Custom load balancing**: Implement a custom load balancing policy if you need advanced node filtering logic.
+
+**Action Required**: Remove these properties from your ``cassandra.properties`` configuration file:
+
+.. code-block:: properties
+
+    # REMOVE THESE LINES if present:
+    # cassandra.load-policy.use-white-list=true
+    # cassandra.load-policy.white-list.addresses=node1,node2,node3
+
+Protocol Version Changes
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* Protocol V2 is no longer supported. Minimum supported version is V3.
+* The driver now automatically negotiates the highest common protocol version, so manual configuration is rarely needed.
+* Protocol V5 is now supported for Cassandra 4.0+.
