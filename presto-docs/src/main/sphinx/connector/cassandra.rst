@@ -36,12 +36,11 @@ ScyllaDB uses the same port as Cassandra by default.
 Just point to ScyllaDB nodes in ``cassandra.contact-points`` config property.
 
 Multiple Cassandra or Cassandra-compatible service Clusters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Cassandra (or Cassandra-compatible service) clusters, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For
-example, if you name the property file ``sales.properties``, Presto
+Cassandra or Cassandra-compatible service clusters, add another ``.properties`` file to ``etc/catalog``
+with a different name. For example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
@@ -60,7 +59,7 @@ Property Name                                      Description
                                                    cloud. This is required when connecting to Astra DB in the cloud.
                                                    ``cassandra.contact-points`` should be avoided when this property is set.
                                                    More information about secure connect bundle can be found in the
-                                                   `secure bundle documentation`_. This property is optional.
+                                                   `Use Secure Connect Bundles`_. This property is optional.
 
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
@@ -101,7 +100,7 @@ Property Name                                      Description
         the ``system.size_estimates`` table.
 
 .. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/dml/dmlConfigConsistency.html
-.. _secure bundle documentation: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
+.. _Use Secure Connect Bundles: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
 
 The following advanced configuration properties are available:
 
@@ -176,8 +175,8 @@ Property Name                                                 Description
 ``cassandra.tls.truststore-password``                         Password for the trust store.
 ============================================================= ======================================================================
 
-Querying Cassandra or ScyllaDB Tables
--------------------------------------
+Querying Cassandra or Cassandra-compatible service Tables
+---------------------------------------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
