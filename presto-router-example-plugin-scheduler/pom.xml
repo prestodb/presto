@@ -5,12 +5,12 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.297-edge13.1-SNAPSHOT</version>
+        <version>0.297-edge13.2-SNAPSHOT</version>
     </parent>
 
     <groupId>com.facebook.presto.router</groupId>
     <artifactId>presto-router-example-plugin-scheduler</artifactId>
-    <version>0.297-edge13.1-SNAPSHOT</version>
+    <version>0.297-edge13.2-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>presto-router-example-plugin-scheduler</name>
     <description>Presto-router example custom plugin scheduler</description>
