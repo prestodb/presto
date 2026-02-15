@@ -125,6 +125,7 @@ public class TestCassandraConnector
                         "cassandra.allow-drop-table", "true"),
                         "cassandra.load-policy.use-dc-aware", "true",
                         "cassandra.load-policy.dc-aware.local-dc", "datacenter1"),
+                        "cassandra.consistency-level", "LOCAL_QUORUM",
                 new TestingConnectorContext());
 
         splitManager = connector.getSplitManager();
