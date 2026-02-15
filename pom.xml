@@ -1122,9 +1122,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet</groupId>
-                <artifactId>presto-hive-apache</artifactId>
-                <version>hive4-upgrade-imjalpreet-9</version>
+                <groupId>com.facebook.presto.hive</groupId>
+                <artifactId>hive-apache</artifactId>
+                <version>4.0.1-1</version>
             </dependency>
 
             <dependency>
@@ -2442,8 +2442,8 @@
                         <artifactId>testng</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>com.facebook.presto.hive</groupId>
-                        <artifactId>hive-apache</artifactId>
+                        <groupId>com.github.imjalpreet</groupId>
+                        <artifactId>presto-hive-apache</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
