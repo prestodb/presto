@@ -489,10 +489,29 @@ public final class QueryAssertions
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
 
-        @Language("SQL") String sql = getCopyTableSql(sourceCatalog, table, ifNotExists, bucketed);
-        long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        try {
+            @Language("SQL") String sql = getCopyTableSql(sourceCatalog, table, ifNotExists, bucketed);
+            log.info("Executing SQL: %s", sql);
+            
+            MaterializedResult result = queryRunner.execute(session, sql);
+            
+            if (result.getMaterializedRows().isEmpty()) {
+                throw new RuntimeException(format(
+                    "Table copy returned no rows for %s. This usually means table creation or data insertion failed.",
+                    table.getObjectName()));
+            }
+            
+            long rows = (Long) result.getMaterializedRows().get(0).getField(0);
+            log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+            
+            if (rows == 0) {
+                log.warn("WARNING: Imported 0 rows for %s - this may indicate a problem", table.getObjectName());
+            }
+        }
+        catch (Exception e) {
+            log.error(e, "FATAL ERROR importing table %s", table.getObjectName());
+            throw new RuntimeException(format("Failed to import table %s: %s", table.getObjectName(), e.getMessage()), e);
+        }
     }
 
     private static String getCopyTableSql(String sourceCatalog, QualifiedObjectName table, boolean ifNotExists, boolean bucketed)

@@ -71,7 +71,7 @@ public class TestCassandraIntegrationSmokeTest
     @Override
     protected boolean isDateTypeSupported()
     {
-        return false;
+        return true;
     }
 
     @Override

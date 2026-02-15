@@ -120,7 +120,7 @@ public class TestCassandraDistributed
                 .row("custkey", "bigint", "", "", Long.valueOf(19), null, null)
                 .row("orderstatus", "varchar", "", "", null, null, Long.valueOf(2147483647))
                 .row("totalprice", "double", "", "", Long.valueOf(53), null, null)
-                .row("orderdate", "varchar", "", "", null, null, Long.valueOf(2147483647))
+                .row("orderdate", "date", "", "", null, null, null)
                 .row("orderpriority", "varchar", "", "", null, null, Long.valueOf(2147483647))
                 .row("clerk", "varchar", "", "", null, null, Long.valueOf(2147483647))
                 .row("shippriority", "integer", "", "", Long.valueOf(10), null, null)
