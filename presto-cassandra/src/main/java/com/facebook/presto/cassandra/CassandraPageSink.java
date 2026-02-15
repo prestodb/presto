@@ -119,7 +119,7 @@ public class CassandraPageSink
     public CompletableFuture<?> appendPage(Page page)
     {
         try {
-            log.debug("=== CassandraPageSink: Appending page with %d rows to %s.%s ===",
+            log.info("=== CassandraPageSink: Appending page with %d rows to %s.%s ===",
                     page.getPositionCount(), schemaName, tableName);
 
             for (int position = 0; position < page.getPositionCount(); position++) {
@@ -147,7 +147,7 @@ public class CassandraPageSink
                     boundStatement = boundStatement.setConsistencyLevel(ConsistencyLevel.QUORUM);
                     cassandraSession.execute(boundStatement);
                     rowsWritten++;
-                    log.debug("Successfully inserted row %d/%d with QUORUM consistency", position + 1, page.getPositionCount());
+                    log.info("Successfully inserted row %d/%d with QUORUM consistency", position + 1, page.getPositionCount());
                 }
                 catch (Exception e) {
                     log.error(e, "Failed to insert row %d with values: %s", position, values);
@@ -157,7 +157,7 @@ public class CassandraPageSink
                 }
             }
 
-            log.debug("=== CassandraPageSink: Successfully appended %d rows to %s.%s ===",
+            log.info("=== CassandraPageSink: Successfully appended %d rows to %s.%s ===",
                     page.getPositionCount(), schemaName, tableName);
             return NOT_BLOCKED;
         }
@@ -220,22 +220,27 @@ public class CassandraPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        log.debug("=== CassandraPageSink: Finishing write to %s.%s with %d rows written ===",
+        log.info("=== CassandraPageSink: Finishing write to %s.%s with %d rows written ===",
                 schemaName, tableName, rowsWritten);
-        
-        // Driver 4.x: Add small delay to handle eventual consistency
+
+        // Driver 4.x: Add delay to handle eventual consistency
         // This ensures data is visible immediately after INSERT for test reliability
         if (rowsWritten > 0) {
             try {
-                Thread.sleep(50); // 50ms delay for data propagation
-                log.debug("Applied 50ms delay for eventual consistency after %d row(s) written", rowsWritten);
+                // Force schema refresh to ensure metadata is current
+                cassandraSession.refreshSchema();
+                
+                // Increase delay to 2 seconds for better consistency in CI environment
+                Thread.sleep(2000);
+                
+                log.info("Applied 2000ms delay + schema refresh after %d row(s) written", rowsWritten);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("Interrupted while waiting for data propagation");
             }
         }
-        
+
         CassandraWriteMetadata metadata = new CassandraWriteMetadata(rowsWritten);
         return completedFuture(ImmutableList.of(metadata.toSlice()));
     }
