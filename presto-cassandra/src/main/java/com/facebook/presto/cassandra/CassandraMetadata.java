@@ -267,6 +267,9 @@ public class CassandraMetadata
         }
 
         cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
+
+        // Refresh metadata after DROP to ensure schema cache is updated in Driver 4.x
+        cassandraSession.refreshSchema();
     }
 
     @Override
@@ -376,7 +379,7 @@ public class CassandraMetadata
                 .map(CassandraWriteMetadata::fromSlice)
                 .mapToLong(CassandraWriteMetadata::getRowsWritten)
                 .sum();
-        
+
         // Return metadata with total row count
         return Optional.of(new ConnectorOutputMetadata()
         {
@@ -412,7 +415,11 @@ public class CassandraMetadata
 
     private void setRollback(String schemaName, String tableName)
     {
-        checkState(rollbackAction.compareAndSet(null, () -> cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName))), "rollback action is already set");
+        checkState(rollbackAction.compareAndSet(null, () -> {
+            cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
+            // Refresh metadata after DROP to ensure schema cache is updated in Driver 4.x
+            cassandraSession.refreshSchema();
+        }), "rollback action is already set");
     }
 
     private void clearRollback()

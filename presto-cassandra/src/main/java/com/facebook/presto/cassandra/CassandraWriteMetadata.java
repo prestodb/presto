@@ -55,4 +55,3 @@ public class CassandraWriteMetadata
         return CODEC.fromJson(slice.getBytes());
     }
 }
-
