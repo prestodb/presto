@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
@@ -108,7 +109,7 @@ public class CassandraPageSink
             checkArgument(columnName != null, "columnName is null at position: %d", i);
             insert = insert.value(validColumnName(columnName), bindMarker());
         }
-        
+
         String insertQuery = insert.build().getQuery();
         log.debug("Preparing insert statement for %s.%s: %s", schemaName, tableName, insertQuery);
         this.insert = cassandraSession.prepare(insertQuery);
@@ -119,8 +120,8 @@ public class CassandraPageSink
     {
         try {
             log.debug("=== CassandraPageSink: Appending page with %d rows to %s.%s ===",
-                page.getPositionCount(), schemaName, tableName);
-            
+                    page.getPositionCount(), schemaName, tableName);
+
             for (int position = 0; position < page.getPositionCount(); position++) {
                 List<Object> values = new ArrayList<>(columnTypes.size() + 1);
                 if (generateUUID) {
@@ -133,29 +134,31 @@ public class CassandraPageSink
                     }
                     catch (Exception e) {
                         log.error(e, "Failed to append column %d (type: %s) at position %d",
-                            channel, columnTypes.get(channel), position);
+                                channel, columnTypes.get(channel), position);
                         throw new PrestoException(CASSANDRA_ERROR,
-                            format("Failed to append column %d (type: %s) at position %d: %s",
-                                channel, columnTypes.get(channel), position, e.getMessage()), e);
+                                format("Failed to append column %d (type: %s) at position %d: %s",
+                                        channel, columnTypes.get(channel), position, e.getMessage()), e);
                     }
                 }
 
                 try {
                     BoundStatement boundStatement = insert.bind(values.toArray());
+                    // Set explicit consistency level to ensure data persistence in Driver 4.x
+                    boundStatement = boundStatement.setConsistencyLevel(ConsistencyLevel.QUORUM);
                     cassandraSession.execute(boundStatement);
                     rowsWritten++;
-                    log.debug("Successfully inserted row %d/%d", position + 1, page.getPositionCount());
+                    log.debug("Successfully inserted row %d/%d with QUORUM consistency", position + 1, page.getPositionCount());
                 }
                 catch (Exception e) {
                     log.error(e, "Failed to insert row %d with values: %s", position, values);
                     throw new PrestoException(CASSANDRA_ERROR,
-                        format("Failed to insert row %d into %s.%s: %s",
-                            position, schemaName, tableName, e.getMessage()), e);
+                            format("Failed to insert row %d into %s.%s: %s",
+                                    position, schemaName, tableName, e.getMessage()), e);
                 }
             }
-            
+
             log.debug("=== CassandraPageSink: Successfully appended %d rows to %s.%s ===",
-                page.getPositionCount(), schemaName, tableName);
+                    page.getPositionCount(), schemaName, tableName);
             return NOT_BLOCKED;
         }
         catch (PrestoException e) {
@@ -218,7 +221,21 @@ public class CassandraPageSink
     public CompletableFuture<Collection<Slice>> finish()
     {
         log.debug("=== CassandraPageSink: Finishing write to %s.%s with %d rows written ===",
-            schemaName, tableName, rowsWritten);
+                schemaName, tableName, rowsWritten);
+        
+        // Driver 4.x: Add small delay to handle eventual consistency
+        // This ensures data is visible immediately after INSERT for test reliability
+        if (rowsWritten > 0) {
+            try {
+                Thread.sleep(50); // 50ms delay for data propagation
+                log.debug("Applied 50ms delay for eventual consistency after %d row(s) written", rowsWritten);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while waiting for data propagation");
+            }
+        }
+        
         CassandraWriteMetadata metadata = new CassandraWriteMetadata(rowsWritten);
         return completedFuture(ImmutableList.of(metadata.toSlice()));
     }

@@ -68,19 +68,18 @@ public final class CassandraQueryRunner
             try {
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables, true);
                 System.out.println("=== CassandraQueryRunner: Successfully copied TPCH tables ===");
-                
+
                 // Validate that tables were actually created and populated
                 System.out.println("=== CassandraQueryRunner: Validating table creation ===");
                 for (TpchTable<?> table : tables) {
                     String tableName = table.getTableName();
                     try {
                         MaterializedResult result = queryRunner.execute(
-                            createCassandraSession("tpch"),
-                            String.format("SELECT COUNT(*) FROM cassandra.tpch.%s", tableName)
-                        );
+                                createCassandraSession("tpch"),
+                                String.format("SELECT COUNT(*) FROM cassandra.tpch.%s", tableName));
                         long count = (Long) result.getMaterializedRows().get(0).getField(0);
                         System.out.println(String.format("=== Table %s: %d rows ===", tableName, count));
-                        
+
                         if (count == 0) {
                             throw new RuntimeException(String.format("Table %s was created but contains no data", tableName));
                         }
