@@ -320,6 +320,16 @@ public class CassandraMetadata
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
 
+        // Driver 4.x: Force metadata refresh to ensure table is visible
+        try {
+            Thread.sleep(100); // Small delay to ensure Cassandra has processed the DDL
+            cassandraSession.refreshSchema(); // Force schema refresh
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for table creation", e);
+        }
+
         // set a rollback to delete the created table in case of an abort / failure.
         setRollback(schemaName, tableName);
         return new CassandraOutputTableHandle(
@@ -361,7 +371,21 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return Optional.empty();
+        // Sum up row counts from all fragments
+        long totalRows = fragments.stream()
+                .map(CassandraWriteMetadata::fromSlice)
+                .mapToLong(CassandraWriteMetadata::getRowsWritten)
+                .sum();
+        
+        // Return metadata with total row count
+        return Optional.of(new ConnectorOutputMetadata()
+        {
+            @Override
+            public Object getInfo()
+            {
+                return totalRows;
+            }
+        });
     }
 
     @Override

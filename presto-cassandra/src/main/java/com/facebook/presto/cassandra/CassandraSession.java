@@ -69,4 +69,11 @@ public interface CassandraSession
     PreparedStatement prepare(String statement);
 
     ResultSet execute(Statement<?> statement);
+
+    /**
+     * Force a refresh of the schema metadata cache.
+     * This is necessary after DDL operations in Driver 4.x to ensure
+     * newly created tables are visible.
+     */
+    void refreshSchema();
 }

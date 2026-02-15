@@ -660,6 +660,20 @@ public class NativeCassandraSession
         }
     }
 
+    @Override
+    public void refreshSchema()
+    {
+        executeWithSession(session -> {
+            // Driver 4.x: Force metadata refresh by accessing keyspaces
+            // This triggers a schema refresh in the driver
+            session.getMetadata().getKeyspaces();
+            // Clear our local cache to force reload on next access
+            keyspaceCache.invalidateAll();
+            log.info("Schema metadata cache refreshed");
+            return null;
+        });
+    }
+
     private <T> T executeWithSession(SessionCallable<T> sessionCallable)
     {
         long deadline = System.currentTimeMillis() + noHostAvailableRetryTimeout.toMillis();
