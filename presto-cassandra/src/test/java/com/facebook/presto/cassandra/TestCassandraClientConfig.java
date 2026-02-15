@@ -133,7 +133,8 @@ public class TestCassandraClientConfig
                 .setKeystorePassword("keystore-password")
                 .setTruststorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
-                .setCaseSensitiveNameMatchingEnabled(true);
+                .setCaseSensitiveNameMatchingEnabled(true)
+                .setSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
