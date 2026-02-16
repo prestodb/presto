@@ -163,6 +163,7 @@ to use UNION::
         SELECT o.order_id, c.customer_name, o.order_date
         FROM orders o
         JOIN customers c ON o.customer_id = c.customer_id
+                        AND o.order_date = c.reg_date
         WHERE o.order_date IN ('2024-01-15', '2024-01-16')  -- Stale partition filter
           AND c.reg_date IN ('2024-01-15', '2024-01-16')    -- Propagated via equivalence
           AND o.order_date >= '2024-01-01'  -- Original filter preserved

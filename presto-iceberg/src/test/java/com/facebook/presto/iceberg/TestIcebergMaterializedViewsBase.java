@@ -14,11 +14,19 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ViewExpression;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Optional;
+
+import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 
 @Test(singleThreaded = true)
 public abstract class TestIcebergMaterializedViewsBase
@@ -4667,6 +4675,48 @@ public abstract class TestIcebergMaterializedViewsBase
             MaterializedResult withStorageResult = computeActual(withStorageSession, query);
             MaterializedResult skipStorageResult = computeActual(skipStorageSession, query);
             assertEqualsIgnoreOrder(skipStorageResult.getMaterializedRows(), withStorageResult.getMaterializedRows());
+        }
+    }
+
+    @Test
+    public void testSecurityInvokerWithRowFilterBlocksStitching()
+    {
+        assertUpdate("CREATE TABLE mv_security_base (id BIGINT, value BIGINT, ds VARCHAR) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate("INSERT INTO mv_security_base VALUES (1, 100, '2024-01-01'), (2, 200, '2024-01-01')", 2);
+        assertUpdate("INSERT INTO mv_security_base VALUES (3, 300, '2024-01-02'), (4, 400, '2024-01-02')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_security_test SECURITY INVOKER " +
+                "WITH (partitioning = ARRAY['ds']) AS SELECT id, value, ds FROM mv_security_base");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_security_test", 4);
+
+        // Insert new data to make MV partially stale
+        assertUpdate("INSERT INTO mv_security_base VALUES (5, 500, '2024-01-03'), (6, 600, '2024-01-03')", 2);
+
+        try {
+            // Add row filter: restricted_user cannot see ds='2024-01-01'
+            getQueryRunner().getAccessControl().rowFilter(
+                    new QualifiedObjectName("iceberg", "test_schema", "mv_security_base"),
+                    "restricted_user",
+                    new ViewExpression("restricted_user", Optional.of("iceberg"), Optional.of("test_schema"), "ds <> '2024-01-01'"));
+
+            Session restrictedStitchingSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setIdentity(new Identity("restricted_user", Optional.empty()))
+                    .setSystemProperty("materialized_view_stale_read_behavior", "USE_STITCHING")
+                    .build();
+
+            // With the security fix:
+            // - Stitching is blocked because row filter exists on base table with INVOKER security
+            // - Falls back to view query which applies the row filter
+            // - restricted_user should NOT see ds='2024-01-01' rows
+            // Without the fix, stitching would bypass row filters for fresh partitions
+            assertQuery(restrictedStitchingSession,
+                    "SELECT id, value, ds FROM mv_security_test ORDER BY id",
+                    "VALUES (3, 300, '2024-01-02'), (4, 400, '2024-01-02'), (5, 500, '2024-01-03'), (6, 600, '2024-01-03')");
+        }
+        finally {
+            getQueryRunner().getAccessControl().reset();
+            assertUpdate("DROP MATERIALIZED VIEW mv_security_test");
+            assertUpdate("DROP TABLE mv_security_base");
         }
     }
 }

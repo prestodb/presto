@@ -67,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Rewrites {@link MaterializedViewScanNode} to use pre-computed data when possible.
  *
- * <p>Controlled by the {@code materialized_view_data_consistency} session property:
+E * <p>Controlled by the {@code materialized_view_stale_read_behavior} session property:
  * <ul>
  *   <li>{@code FAIL}: Fail the query if stale.</li>
  *   <li>{@code USE_STITCHING}: If fully fresh, use data table; if partially stale, build
@@ -128,7 +128,7 @@ public class MaterializedViewRewrite
         if (!status.isFullyMaterialized() && !status.getPartitionsFromBaseTables().isEmpty()) {
             Map<SchemaTableName, MaterializedDataPredicates> constraints = status.getPartitionsFromBaseTables();
 
-            if (shouldStitch) {
+            if (shouldStitch && canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context)) {
                 Optional<PlanNode> unionPlan = buildStitchedPlan(
                         metadata,
                         session,
@@ -148,7 +148,7 @@ public class MaterializedViewRewrite
 
         PlanNode plan;
         Map<VariableReferenceExpression, VariableReferenceExpression> mappings;
-        if (canUseDataTable && (status.isFullyMaterialized() || !shouldStitch)) {
+        if (canUseDataTable && !shouldStitch) {
             plan = node.getDataTablePlan();
             mappings = node.getDataTableMappings();
         }
