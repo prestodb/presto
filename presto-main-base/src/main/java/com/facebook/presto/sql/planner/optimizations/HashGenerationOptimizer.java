@@ -330,6 +330,7 @@ public class HashGenerationOptimizer
                             node.getId(),
                             child.getNode(),
                             node.getSpecification(),
+                            node.getRankingFunction(),
                             node.getRowNumberVariable(),
                             node.getMaxRowCountPerPartition(),
                             node.isPartial(),

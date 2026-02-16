@@ -14,6 +14,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
     presto_cpp/plugin
     presto_cpp/properties
     presto_cpp/properties-session
+    presto_cpp/metrics
 
 Overview
 ========
@@ -93,3 +94,20 @@ TPC-DS Connector
 * TPC-DS connector, with ``tpcds.use-varchar-type=true`` in the coordinator's TPCDS catalog file.
 
 For more information see :doc:`/connector/tpcds` documentation.
+
+JMX Connector
+^^^^^^^^^^^^^
+
+* JMX connector is supported for monitoring and observability in Presto C++ clusters.
+
+* In Presto C++ clusters, JMX metrics are only available from the **Java coordinator**, not from C++ workers. This is because C++ workers
+  do not run a JVM and therefore do not have JMX MBeans. Only coordinator-specific metrics are accessible.
+
+* Configuration: The JMX catalog only needs to be configured on the **coordinator**. The C++ workers do not need JMX catalog configuration
+  because they cannot expose JMX metrics.
+
+* Example query to access coordinator metadata metrics::
+
+    SELECT * FROM jmx.current."com.facebook.presto.metadata:name=MetadataManagerStats"
+
+For more information see :doc:`/admin/jmx-metrics`.

@@ -341,6 +341,7 @@ public class PrestoNativeQueryRunnerUtils
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
         // for the native query runner and should NOT be explicitly configured by users.
         private boolean useExternalWorkerLauncher;
+        private boolean addJmxPlugin;
 
         private IcebergQueryRunnerBuilder(QueryRunnerType queryRunnerType)
         {
@@ -360,6 +361,12 @@ public class PrestoNativeQueryRunnerUtils
                 this.extraConnectorProperties.putAll(ImmutableMap.of("hive.parquet.writer.version", "PARQUET_1_0"));
                 this.useExternalWorkerLauncher = false;
             }
+        }
+
+        public IcebergQueryRunnerBuilder setAddJmxPlugin(boolean addJmxPlugin)
+        {
+            this.addJmxPlugin = addJmxPlugin;
+            return this;
         }
 
         public IcebergQueryRunnerBuilder setStorageFormat(String storageFormat)
@@ -384,6 +391,12 @@ public class PrestoNativeQueryRunnerUtils
         public QueryRunner build()
                 throws Exception
         {
+            return buildIcebergQueryRunner().getQueryRunner();
+        }
+
+        public IcebergQueryRunner buildIcebergQueryRunner()
+                throws Exception
+        {
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
@@ -394,14 +407,14 @@ public class PrestoNativeQueryRunnerUtils
                     .setExtraConnectorProperties(extraConnectorProperties)
                     .setFormat(FileFormat.valueOf(storageFormat))
                     .setCreateTpchTables(false)
-                    .setAddJmxPlugin(false)
+                    .setAddJmxPlugin(addJmxPlugin)
                     .setNodeCount(OptionalInt.of(workerCount))
                     .setExternalWorkerLauncher(externalWorkerLauncher)
                     .setAddStorageFormatToPath(addStorageFormatToPath)
                     .setDataDirectory(Optional.of(dataDirectory))
                     .setTpcdsProperties(getNativeWorkerTpcdsProperties())
                     .setCatalogType(catalogType)
-                    .build().getQueryRunner();
+                    .build();
         }
     }
 
