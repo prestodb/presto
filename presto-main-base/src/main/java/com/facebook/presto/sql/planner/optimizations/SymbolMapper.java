@@ -29,7 +29,6 @@ import com.facebook.presto.spi.plan.ExchangeEncoding;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
-import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -524,20 +523,9 @@ public class SymbolMapper
                 map(node.getPartitionBy()));
     }
 
-    public LimitNode map(LimitNode node, PlanNode source, PlanNodeId newNodeId)
-    {
-        return new LimitNode(
-                node.getSourceLocation(),
-                newNodeId,
-                node.getStatsEquivalentPlanNode(),
-                source,
-                node.getCount(),
-                node.getStep());
-    }
-
     public TableScanNode map(TableScanNode node, PlanNodeId newNodeId)
     {
-        Map<VariableReferenceExpression, ColumnHandle> newAssignments = new HashMap<>();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> newAssignments = ImmutableMap.builder();
         for (Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
             newAssignments.put(map(entry.getKey()), entry.getValue());
         }
@@ -547,7 +535,7 @@ public class SymbolMapper
                 newNodeId,
                 node.getTable(),
                 map(node.getOutputVariables()),
-                newAssignments,
+                newAssignments.build(),
                 node.getTableConstraints(),
                 node.getCurrentConstraint(),
                 node.getEnforcedConstraint(),
@@ -559,6 +547,9 @@ public class SymbolMapper
         List<EquiJoinClause> mappedCriteria = node.getCriteria().stream()
                 .map(clause -> new EquiJoinClause(map(clause.getLeft()), map(clause.getRight())))
                 .collect(toImmutableList());
+
+        Map<String, VariableReferenceExpression> mappedDynamicFilters = node.getDynamicFilters().entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, entry -> map(entry.getValue())));
 
         return new JoinNode(
                 node.getSourceLocation(),
@@ -572,7 +563,7 @@ public class SymbolMapper
                 node.getLeftHashVariable().map(this::map),
                 node.getRightHashVariable().map(this::map),
                 node.getDistributionType(),
-                node.getDynamicFilters());
+                mappedDynamicFilters);
     }
 
     public UnionNode map(UnionNode node, List<PlanNode> sources, PlanNodeId newNodeId)

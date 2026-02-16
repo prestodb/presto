@@ -67,6 +67,7 @@ import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STIT
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.Expressions.not;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -321,12 +322,10 @@ public class DifferentialPlanRewriter
         for (VariableReferenceExpression outputVar : node.getOutputVariables()) {
             VariableReferenceExpression freshVar = freshMapping.get(outputVar);
             VariableReferenceExpression deltaVar = deltaMapping.get(outputVar);
-            if (freshVar != null) {
-                outputsToInputs.put(outputVar, freshVar);
-            }
-            if (deltaVar != null) {
-                outputsToInputs.put(outputVar, deltaVar);
-            }
+            checkState(freshVar != null && deltaVar != null,
+                    "Missing mapping for output variable %s: freshVar=%s, deltaVar=%s", outputVar, freshVar, deltaVar);
+            outputsToInputs.put(outputVar, freshVar);
+            outputsToInputs.put(outputVar, deltaVar);
         }
 
         ListMultimap<VariableReferenceExpression, VariableReferenceExpression> mapping = outputsToInputs.build();
@@ -357,9 +356,9 @@ public class DifferentialPlanRewriter
         ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> composedMapping = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, VariableReferenceExpression> entry : viewQueryMappings.entrySet()) {
             VariableReferenceExpression deltaVar = deltaMapping.get(entry.getValue());
-            if (deltaVar != null) {
-                composedMapping.put(entry.getKey(), deltaVar);
-            }
+            checkState(deltaVar != null,
+                    "Missing delta mapping for view query variable %s", entry.getValue());
+            composedMapping.put(entry.getKey(), deltaVar);
         }
 
         return new NodeWithMapping(result.delta().getNode(), composedMapping.build());
