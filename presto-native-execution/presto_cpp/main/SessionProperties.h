@@ -409,6 +409,9 @@ class SessionProperties {
   static constexpr const char* kAggregationCompactionUnusedMemoryRatio =
       "native_aggregation_compaction_unused_memory_ratio";
 
+  static constexpr const char* kPushdownIntegerUpcastsToSource =
+      "native_pushdown_integer_upcasts_to_source";
+
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
     if (sessionProperty == sessionProperties_.end()) {

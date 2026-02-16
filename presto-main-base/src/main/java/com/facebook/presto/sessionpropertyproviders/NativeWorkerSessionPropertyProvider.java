@@ -92,6 +92,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_AGGREGATION_COMPACTION_BYTES_THRESHOLD = "native_aggregation_compaction_bytes_threshold";
     public static final String NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO = "native_aggregation_compaction_unused_memory_ratio";
     public static final String NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE = "native_merge_join_output_batch_start_size";
+    public static final String NATIVE_PUSHDOWN_INTEGER_UPCASTS_TO_SOURCE = "native_pushdown_integer_upcasts_to_source";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -436,6 +437,7 @@ public class NativeWorkerSessionPropertyProvider
                         true,
                         !nativeExecution),
                 booleanProperty(
+
                         NATIVE_USE_VELOX_GEOSPATIAL_JOIN,
                         "If this is true, then the protocol::SpatialJoinNode is converted to a " +
                                 "velox::core::SpatialJoinNode. Otherwise, it is converted to a " +
@@ -465,6 +467,13 @@ public class NativeWorkerSessionPropertyProvider
                                 "the average row size of previous output batches. When zero (default), " +
                                 "dynamic adjustment is disabled and the batch size is fixed at preferred_output_batch_rows.",
                         0,
+                        !nativeExecution),
+
+                booleanProperty(
+                        NATIVE_PUSHDOWN_INTEGER_UPCASTS_TO_SOURCE,
+                        "Native Execution only. Pushdown integer type upcasts to scan if they are " +
+                                "immediately after scan",
+                        false,
                         !nativeExecution));
     }
 
