@@ -141,6 +141,8 @@ public final class HiveSessionProperties
 
     public static final String NATIVE_MAX_TARGET_FILE_SIZE = "native_max_target_file_size";
 
+    public static final String NATIVE_INDEX_ENABLED = "native_index_enabled";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -683,7 +685,12 @@ public final class HiveSessionProperties
                         NATIVE_MAX_TARGET_FILE_SIZE,
                        "Native Execution only. Maximum target file size. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. Zero means no limit.",
                         new DataSize(0, DataSize.Unit.BYTE),
-                        false));
+                        false),
+                booleanProperty(
+                        NATIVE_INDEX_ENABLED,
+                        "Native Execution only. Enable cluster index filtering for row pruning.",
+                        false,
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1185,5 +1192,10 @@ public final class HiveSessionProperties
     public static boolean isSymlinkOptimizedReaderEnabled(ConnectorSession session)
     {
         return session.getProperty(SYMLINK_OPTIMIZED_READER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeIndexEnabled(ConnectorSession session)
+    {
+        return session.getProperty(NATIVE_INDEX_ENABLED, Boolean.class);
     }
 }
