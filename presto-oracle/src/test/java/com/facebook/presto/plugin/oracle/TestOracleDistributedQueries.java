@@ -24,12 +24,9 @@ import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ITERATIVE_OPTIMIZER_TIMEOUT;
-import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.REDISTRIBUTE_WRITES;
-import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
@@ -541,43 +538,5 @@ public class TestOracleDistributedQueries
                 .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
                 .build();
         assertQuerySucceeds(session, query);
-    }
-
-    @Override
-    public void testShardedJoinOptimization()
-    {
-        Session defaultSession = getSession();
-        Session defaultSessionLegacyTimestampDisabled = sessionWithLegacyTimestamp();
-
-        Session session = Session.builder(defaultSession)
-                .setSystemProperty(SHARDED_JOINS_STRATEGY, "ALWAYS")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
-                .setSystemProperty(LEGACY_TIMESTAMP, "false")
-                .build();
-
-        String[] queries = {
-                "select * from lineitem l join orders o on (l.orderkey=o.orderkey)",
-                "select * from lineitem l join orders o on (l.orderkey=o.orderkey) join part p on (l.partkey=p.partkey)",
-                "select * from lineitem l LEFT JOIN orders o on (l.orderkey=o.orderkey)"
-        };
-
-        for (String query : queries) {
-            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            assert (((String) resultExplainQuery.getOnlyValue()).contains("random"));
-            assertQuery(session, query);
-        }
-
-        String[] notSupportedQueries = {
-                "select * from lineitem l right join orders o on (l.orderkey=o.orderkey)",
-                "select * from lineitem l full join orders o on (l.orderkey=o.orderkey)"
-        };
-
-        for (String query : notSupportedQueries) {
-            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
-            assert (!((String) resultExplainQuery.getOnlyValue()).contains("random"));
-
-            assertQueryWithSameQueryRunner(session, query, defaultSessionLegacyTimestampDisabled);
-        }
     }
 }
