@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.io.Closeable;
@@ -59,6 +60,20 @@ public class CloseableSplitSourceProvider
     {
         checkState(!closed, "split source provider is closed");
         SplitSource splitSource = delegate.getSplitsForTableFunction(session, tableFunctionHandle);
+        splitSources.add(splitSource);
+        return splitSource;
+    }
+
+    @Override
+    public synchronized SplitSource getSplits(
+            Session session,
+            TableHandle tableHandle,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            WarningCollector warningCollector,
+            DynamicFilter dynamicFilter)
+    {
+        checkState(!closed, "split source provider is closed");
+        SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, dynamicFilter);
         splitSources.add(splitSource);
         return splitSource;
     }

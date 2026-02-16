@@ -26,6 +26,8 @@ import com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.execution.DynamicFilterResult;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -43,6 +45,7 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.Futures;
@@ -58,7 +61,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -278,6 +283,36 @@ public class TestThriftTaskIntegration
                 public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
                 {
                     throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
+                {
+                    return ImmutableMap.of();
+                }
+
+                @Override
+                public ListenableFuture<DynamicFilterResult> getDynamicFiltersWait(TaskId taskId, long sinceVersion)
+                {
+                    return Futures.immediateFuture(new DynamicFilterResult(ImmutableMap.of(), 0, false, ImmutableSet.of()));
+                }
+
+                @Override
+                public void removeDynamicFiltersThrough(TaskId taskId, long throughVersion)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public boolean isDynamicFilterOperatorCompleted(TaskId taskId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Set<String> getRegisteredDynamicFilterIds(TaskId taskId)
+                {
+                    return ImmutableSet.of();
                 }
             };
         }

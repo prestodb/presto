@@ -18,9 +18,20 @@ import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 
 public interface SplitSourceProvider
 {
     SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector);
     SplitSource getSplits(Session session, TableFunctionHandle tableFunctionHandle);
+
+    default SplitSource getSplits(
+            Session session,
+            TableHandle tableHandle,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            WarningCollector warningCollector,
+            DynamicFilter dynamicFilter)
+    {
+        return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
+    }
 }
