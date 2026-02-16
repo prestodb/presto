@@ -25,7 +25,9 @@ import com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.DynamicFilterResult;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
@@ -60,7 +62,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.drift.client.ExceptionClassifier.NORMAL_RESULT;
@@ -241,6 +245,36 @@ public class TestThriftServerInfoIntegration
 
                 @Override
                 public void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public ListenableFuture<DynamicFilterResult> getDynamicFiltersWait(TaskId taskId, long sinceVersion)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void removeDynamicFiltersThrough(TaskId taskId, long throughVersion)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public boolean isDynamicFilterOperatorCompleted(TaskId taskId)
+                {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Set<String> getRegisteredDynamicFilterIds(TaskId taskId)
                 {
                     throw new UnsupportedOperationException();
                 }

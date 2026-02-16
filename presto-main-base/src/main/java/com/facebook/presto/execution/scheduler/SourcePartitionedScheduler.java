@@ -91,6 +91,7 @@ public class SourcePartitionedScheduler
     private final int splitBatchSize;
     private final PlanNodeId partitionedNode;
     private final boolean groupedExecution;
+    private final boolean hasDynamicPartitionPruning;
 
     // TODO: Add LIFESPAN_ADDED into SourcePartitionedScheduler#State and remove this boolean
     private boolean lifespanAdded;
@@ -106,7 +107,8 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution)
+            boolean groupedExecution,
+            boolean hasDynamicPartitionPruning)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
@@ -116,6 +118,7 @@ public class SourcePartitionedScheduler
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
         this.groupedExecution = groupedExecution;
+        this.hasDynamicPartitionPruning = hasDynamicPartitionPruning;
     }
 
     public PlanNodeId getPlanNodeId()
@@ -136,9 +139,10 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            CTEMaterializationTracker cteMaterializationTracker)
+            CTEMaterializationTracker cteMaterializationTracker,
+            boolean hasDynamicPartitionPruning)
     {
-        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false, hasDynamicPartitionPruning);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
         return new StageScheduler()
@@ -187,7 +191,7 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
+        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution, false);
     }
 
     @Override
@@ -362,7 +366,9 @@ public class SourcePartitionedScheduler
             return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
         }
 
-        if (anyBlockedOnPlacements) {
+        if (anyBlockedOnPlacements
+                || (hasDynamicPartitionPruning && anyBlockedOnNextSplitBatch
+                        && stage.getScheduledNodes().isEmpty())) {
             // In a broadcast join, output buffers of the tasks in build source stage have to
             // hold onto all data produced before probe side task scheduling finishes,
             // even if the data is acknowledged by all known consumers. This is because
@@ -373,6 +379,11 @@ public class SourcePartitionedScheduler
             // The build side blocks due to a full output buffer.
             // In the meantime the probe side split cannot be consumed since
             // builder side hash table construction has not finished.
+            //
+            // When dynamic partition pruning is active and the split source is
+            // blocked waiting for the filter, we also finalize task creation.
+            // This breaks a scheduling deadlock: without tasks, the build
+            // pipeline (which produces the dynamic filter) cannot start.
             //
             // TODO: When SourcePartitionedScheduler is used as a SourceScheduler, it shouldn't need to worry about
             //  task scheduling and creation -- these are done by the StageScheduler.

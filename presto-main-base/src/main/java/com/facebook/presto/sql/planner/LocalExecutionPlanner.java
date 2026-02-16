@@ -249,9 +249,13 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import jakarta.inject.Inject;
 
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -260,7 +264,9 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -281,6 +287,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
@@ -770,6 +777,11 @@ public class LocalExecutionPlanner
         public Session getSession()
         {
             return taskContext.getSession();
+        }
+
+        public TaskContext getTaskContext()
+        {
+            return taskContext;
         }
 
         public StageExecutionId getStageExecutionId()
@@ -2519,8 +2531,15 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
-            createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
-                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+            Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount);
+            if (localDynamicFilter.isPresent()) {
+                factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(localDynamicFilter.get(), node.getId(), buildSource, buildContext));
+            }
+            else {
+                Optional<DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory> coordFilter =
+                        createCoordinatorDynamicFilterSourceOperatorFactory(node, node.getBuild(), buildSource, buildContext);
+                coordFilter.ifPresent(factoriesBuilder::add);
+            }
 
             // Determine if planning broadcast join
             Optional<JoinDistributionType> distributionType = node.getDistributionType();
@@ -2568,16 +2587,124 @@ public class LocalExecutionPlanner
                         Type type = buildSource.getTypes().get(index);
                         return new DynamicFilterSourceOperator.Channel(filterId, type, index);
                     })
-                    .collect(Collectors.toList());
+                    .collect(toImmutableList());
+
+            Set<String> filterIds = filterBuildChannels.stream()
+                    .map(DynamicFilterSourceOperator.Channel::getFilterId)
+                    .collect(ImmutableSet.toImmutableSet());
+            context.getTaskContext().registerDynamicFilterIds(filterIds);
+
+            Consumer<TupleDomain<String>> localConsumer = dynamicFilter.getTupleDomainConsumer();
+            Optional<Consumer<TupleDomain<String>>> coordinatorConsumer = context.getTaskContext().getDynamicFilterConsumer();
+
+            Consumer<TupleDomain<String>> composedConsumer;
+            if (coordinatorConsumer.isPresent()) {
+                int driverCount = context.getDriverInstanceCount().orElse(1);
+                CoordinatorDynamicFilterAggregator aggregator = new CoordinatorDynamicFilterAggregator(
+                        coordinatorConsumer.get(), driverCount);
+                composedConsumer = tupleDomain -> {
+                    localConsumer.accept(tupleDomain);
+                    aggregator.addPartition(tupleDomain);
+                };
+            }
+            else {
+                composedConsumer = localConsumer;
+            }
+
             return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
                     planNodeId,
-                    dynamicFilter.getTupleDomainConsumer(),
+                    composedConsumer,
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
                     getDynamicFilteringMaxPerDriverSize(context.getSession()),
                     getDynamicFilteringRangeRowLimitPerDriver(context.getSession()),
                     useNewNanDefinition);
+        }
+
+        private Optional<DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory> createCoordinatorDynamicFilterSourceOperatorFactory(
+                AbstractJoinNode node,
+                PlanNode buildNode,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext context)
+        {
+            if (!isDistributedDynamicFilterEnabled(context.getSession())) {
+                return Optional.empty();
+            }
+            if (node.getDynamicFilters().isEmpty()) {
+                return Optional.empty();
+            }
+            Optional<Consumer<TupleDomain<String>>> coordinatorConsumer = context.getTaskContext().getDynamicFilterConsumer();
+            if (!coordinatorConsumer.isPresent()) {
+                return Optional.empty();
+            }
+
+            List<DynamicFilterSourceOperator.Channel> filterBuildChannels = new ArrayList<>();
+            for (Map.Entry<String, VariableReferenceExpression> entry : node.getDynamicFilters().entrySet()) {
+                String filterId = entry.getKey();
+                VariableReferenceExpression buildVariable = entry.getValue();
+                int index = buildNode.getOutputVariables().indexOf(buildVariable);
+                if (index >= 0) {
+                    Type type = buildSource.getTypes().get(index);
+                    filterBuildChannels.add(new DynamicFilterSourceOperator.Channel(filterId, type, index));
+                }
+            }
+
+            if (filterBuildChannels.isEmpty()) {
+                return Optional.empty();
+            }
+
+            Set<String> filterIds = filterBuildChannels.stream()
+                    .map(DynamicFilterSourceOperator.Channel::getFilterId)
+                    .collect(ImmutableSet.toImmutableSet());
+            context.getTaskContext().registerDynamicFilterIds(filterIds);
+
+            // Accumulate per-operator results and flush the union to the coordinator
+            // exactly once, after all operators have finished and the factory has closed.
+            // Multiple operators can exist per task due to task.concurrency (non-grouped)
+            // or multiple lifespans (grouped execution).
+            Consumer<TupleDomain<String>> downstream = coordinatorConsumer.get();
+            List<TupleDomain<String>> partitions = Collections.synchronizedList(new ArrayList<>());
+            AtomicInteger createdCount = new AtomicInteger(0);
+            AtomicInteger finishedCount = new AtomicInteger(0);
+            AtomicBoolean factoryClosed = new AtomicBoolean(false);
+            AtomicBoolean flushed = new AtomicBoolean(false);
+
+            Runnable tryFlush = () -> {
+                if (factoryClosed.get()
+                        && finishedCount.get() >= createdCount.get()
+                        && createdCount.get() > 0
+                        && flushed.compareAndSet(false, true)) {
+                    downstream.accept(partitions.isEmpty()
+                            ? TupleDomain.none()
+                            : TupleDomain.columnWiseUnion(new ArrayList<>(partitions)));
+                }
+            };
+
+            Consumer<TupleDomain<String>> perOperator = td -> {
+                partitions.add(td);
+                finishedCount.incrementAndGet();
+                tryFlush.run();
+            };
+
+            Runnable onClose = () -> {
+                factoryClosed.set(true);
+                tryFlush.run();
+            };
+
+            Runnable onCreateOperator = createdCount::incrementAndGet;
+
+            return Optional.of(new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    perOperator,
+                    filterBuildChannels,
+                    getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
+                    getDynamicFilteringMaxPerDriverSize(context.getSession()),
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession()),
+                    useNewNanDefinition,
+                    onClose,
+                    onCreateOperator));
         }
 
         private Optional<LocalDynamicFilter> createDynamicFilter(PhysicalOperation buildSource, AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
@@ -2748,10 +2875,16 @@ public class LocalExecutionPlanner
             ImmutableList.Builder<OperatorFactory> factoriesBuilder = ImmutableList.builder();
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
-            // add collector to the source
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
             Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(buildSource, node, context, partitionCount);
-            localDynamicFilter.ifPresent(filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+            if (localDynamicFilter.isPresent()) {
+                factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(localDynamicFilter.get(), node.getId(), buildSource, buildContext));
+            }
+            else {
+                Optional<DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory> coordFilter =
+                        createCoordinatorDynamicFilterSourceOperatorFactory(node, node.getFilteringSource(), buildSource, buildContext);
+                coordFilter.ifPresent(factoriesBuilder::add);
+            }
 
             factoriesBuilder.add(setBuilderOperatorFactory);
 
@@ -3748,6 +3881,36 @@ public class LocalExecutionPlanner
     private static List<SortOrder> getOrderingList(OrderingScheme orderingScheme)
     {
         return orderingScheme.getOrderByVariables().stream().map(orderingScheme.getOrderingsMap()::get).collect(toImmutableList());
+    }
+
+    @ThreadSafe
+    private static class CoordinatorDynamicFilterAggregator
+    {
+        private final Consumer<TupleDomain<String>> downstream;
+        private final int partitionCount;
+
+        @GuardedBy("this")
+        private final List<TupleDomain<String>> partitions;
+
+        CoordinatorDynamicFilterAggregator(
+                Consumer<TupleDomain<String>> downstream,
+                int partitionCount)
+        {
+            this.downstream = requireNonNull(downstream, "downstream is null");
+            checkArgument(partitionCount > 0, "partitionCount must be positive");
+            this.partitionCount = partitionCount;
+            this.partitions = new ArrayList<>(partitionCount);
+        }
+
+        public synchronized void addPartition(TupleDomain<String> tupleDomain)
+        {
+            verify(partitions.size() < partitionCount,
+                    "Already received all expected partitions (%s)", partitionCount);
+            partitions.add(tupleDomain);
+            if (partitions.size() == partitionCount) {
+                downstream.accept(TupleDomain.columnWiseUnion(partitions));
+            }
+        }
     }
 
     /**

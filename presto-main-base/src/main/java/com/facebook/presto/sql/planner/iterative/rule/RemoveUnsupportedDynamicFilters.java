@@ -43,8 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.DynamicFilters.getPlaceholder;
 import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
@@ -83,7 +83,7 @@ public class RemoveUnsupportedDynamicFilters
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter();
+        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter(session);
         PlanWithConsumedDynamicFilters result = plan.accept(rewriter, ImmutableSet.of());
         return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());
     }
@@ -91,7 +91,13 @@ public class RemoveUnsupportedDynamicFilters
     private class Rewriter
             extends InternalPlanVisitor<PlanWithConsumedDynamicFilters, Set<String>>
     {
+        private final Session session;
         boolean planChanged;
+
+        Rewriter(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         public boolean isPlanChanged()
         {
@@ -180,9 +186,16 @@ public class RemoveUnsupportedDynamicFilters
 
             PlanWithConsumedDynamicFilters leftResult = node.getProbe().accept(this, allowedDynamicFilterIdsProbeSide);
             Set<String> consumedProbeSide = leftResult.getConsumedDynamicFilterIds();
-            Map<String, VariableReferenceExpression> dynamicFilters = node.getDynamicFilters().entrySet().stream()
-                    .filter(entry -> consumedProbeSide.contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            Map<String, VariableReferenceExpression> dynamicFilters;
+            if (isDistributedDynamicFilterEnabled(session)) {
+                // DPP filters are applied at split scheduling, not via probe-side placeholders
+                dynamicFilters = node.getDynamicFilters();
+            }
+            else {
+                dynamicFilters = node.getDynamicFilters().entrySet().stream()
+                        .filter(entry -> consumedProbeSide.contains(entry.getKey()))
+                        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
 
             PlanWithConsumedDynamicFilters rightResult = node.getBuild().accept(this, allowedDynamicFilterIds);
             Set<String> consumed = new HashSet<>(rightResult.getConsumedDynamicFilterIds());

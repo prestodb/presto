@@ -177,6 +177,9 @@ public class FeaturesConfig
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
     private int dynamicFilteringRangeRowLimitPerDriver;
+    private DistributedDynamicFilterStrategy distributedDynamicFilterStrategy = DistributedDynamicFilterStrategy.DISABLED;
+    private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
+    private boolean distributedDynamicFilterExtendedMetrics;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -458,6 +461,12 @@ public class FeaturesConfig
     {
         DISABLED,
         COST_BASED,
+        ALWAYS
+    }
+
+    public enum DistributedDynamicFilterStrategy
+    {
+        DISABLED,
         ALWAYS
     }
 
@@ -1599,6 +1608,44 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
     {
         this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
+        return this;
+    }
+
+    public DistributedDynamicFilterStrategy getDistributedDynamicFilterStrategy()
+    {
+        return distributedDynamicFilterStrategy;
+    }
+
+    @Config("distributed-dynamic-filter.strategy")
+    @ConfigDescription("When to add distributed dynamic filters to joins for split-level pruning")
+    public FeaturesConfig setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy distributedDynamicFilterStrategy)
+    {
+        this.distributedDynamicFilterStrategy = distributedDynamicFilterStrategy;
+        return this;
+    }
+
+    public Duration getDistributedDynamicFilterMaxWaitTime()
+    {
+        return distributedDynamicFilterMaxWaitTime;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-time")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitTime(Duration distributedDynamicFilterMaxWaitTime)
+    {
+        this.distributedDynamicFilterMaxWaitTime = distributedDynamicFilterMaxWaitTime;
+        return this;
+    }
+
+    public boolean isDistributedDynamicFilterExtendedMetrics()
+    {
+        return distributedDynamicFilterExtendedMetrics;
+    }
+
+    @Config("distributed-dynamic-filter.extended-metrics")
+    @ConfigDescription("Emit per-fetcher lifecycle metrics for distributed dynamic filter debugging")
+    public FeaturesConfig setDistributedDynamicFilterExtendedMetrics(boolean distributedDynamicFilterExtendedMetrics)
+    {
+        this.distributedDynamicFilterExtendedMetrics = distributedDynamicFilterExtendedMetrics;
         return this;
     }
 

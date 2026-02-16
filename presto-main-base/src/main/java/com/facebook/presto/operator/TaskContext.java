@@ -19,6 +19,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
@@ -52,6 +53,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.airlift.units.DataSize.succinctBytes;
@@ -132,6 +135,9 @@ public class TaskContext
     // Only contains metrics exposed in this task. Doesn't contain the metrics exposed in the operators.
     // This is merged with the operator metrics when generating the TaskStats in {@link #getTaskStats}.
     private final RuntimeStats runtimeStats = new RuntimeStats();
+
+    private final AtomicReference<Consumer<TupleDomain<String>>> dynamicFilterConsumer = new AtomicReference<>();
+    private final AtomicReference<Consumer<Set<String>>> dynamicFilterIdRegistration = new AtomicReference<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -436,6 +442,29 @@ public class TaskContext
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
+    }
+
+    public void setDynamicFilterConsumer(Consumer<TupleDomain<String>> consumer)
+    {
+        dynamicFilterConsumer.set(consumer);
+    }
+
+    public Optional<Consumer<TupleDomain<String>>> getDynamicFilterConsumer()
+    {
+        return Optional.ofNullable(dynamicFilterConsumer.get());
+    }
+
+    public void setDynamicFilterIdRegistration(Consumer<Set<String>> registration)
+    {
+        dynamicFilterIdRegistration.set(registration);
+    }
+
+    public void registerDynamicFilterIds(Set<String> filterIds)
+    {
+        Consumer<Set<String>> registration = dynamicFilterIdRegistration.get();
+        if (registration != null) {
+            registration.accept(filterIds);
+        }
     }
 
     public TaskStats getTaskStats()

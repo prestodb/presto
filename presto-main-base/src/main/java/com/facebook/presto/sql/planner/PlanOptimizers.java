@@ -30,6 +30,8 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.AddDistinctForSemiJoinBuild;
+import com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterRule;
+import com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterToSemiJoinRule;
 import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
@@ -863,6 +865,16 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new ReorderJoins(costComparator, metadata))));
+
+        // Populate JoinNode.dynamicFilters for distributed dynamic partition pruning
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(
+                        new AddDynamicFilterRule(),
+                        new AddDynamicFilterToSemiJoinRule())));
 
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.

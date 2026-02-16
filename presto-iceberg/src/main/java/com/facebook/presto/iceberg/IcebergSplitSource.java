@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.delete.DeleteFile;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -27,6 +30,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -37,8 +41,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTRAINT_COLUMNS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
@@ -55,6 +67,9 @@ import static org.apache.iceberg.util.TableScanUtil.splitFiles;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
+    private static final ConnectorSplitBatch EMPTY_BATCH_NOT_FINISHED =
+            new ConnectorSplitBatch(ImmutableList.of(), false);
+
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
 
     private final Closer closer = Closer.create();
@@ -65,54 +80,156 @@ public class IcebergSplitSource
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
 
+    private final DynamicFilter dynamicFilter;
+    private TableScan tableScan;
+    private boolean scanInitialized;
+
+    private final RuntimeStats runtimeStats;
+    private final boolean dynamicFilterActive;
+    private long splitsExamined;
+    private boolean filterWaitTimeRecorded;
+    private boolean filterWaitStarted;
+    private long filterWaitStartNanos;
+    private boolean dynamicFilterApplied;
+    private boolean closed;
+
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
-            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            DynamicFilter dynamicFilter)
     {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
-        this.fileScanTaskIterator = closer.register(
-                splitFiles(
-                        closer.register(tableScan.planFiles()),
-                        targetSplitSize)
-                        .iterator());
+
+        // DF already pushed into TableScan by IcebergSplitManager, so just initialize scan
+        if (dynamicFilter.isComplete()) {
+            dynamicFilterApplied = true;
+            initializeScan();
+        }
+
+        this.runtimeStats = session.getRuntimeStats();
+        this.dynamicFilterActive = dynamicFilter.getWaitTimeout().toMillis() > 0;
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        // TODO: move this to a background thread
+        if (!scanInitialized) {
+            if (dynamicFilter.isComplete()) {
+                recordFilterWaitTime();
+                dynamicFilterApplied = true;
+                initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
+                return completedFuture(enumerateSplitBatch(maxSize));
+            }
+
+            if (!filterWaitStarted) {
+                filterWaitStartNanos = System.nanoTime();
+                filterWaitStarted = true;
+            }
+
+            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+            if (!blocked.isDone()) {
+                return blocked.thenApply(v -> EMPTY_BATCH_NOT_FINISHED);
+            }
+
+            recordFilterWaitTime();
+            dynamicFilterApplied = dynamicFilter.isComplete();
+            initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
+        }
+
+        return completedFuture(enumerateSplitBatch(maxSize));
+    }
+
+    private void recordFilterWaitTime()
+    {
+        if (!filterWaitTimeRecorded && filterWaitStarted) {
+            long filterWaitNanos = System.nanoTime() - filterWaitStartNanos;
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_WAIT_TIME_NANOS, NANO, filterWaitNanos);
+            filterWaitTimeRecorded = true;
+        }
+    }
+
+    private void initializeScan()
+    {
+        this.fileScanTaskIterator = closer.register(
+                splitFiles(
+                        closer.register(tableScan.planFiles()),
+                        targetSplitSize)
+                        .iterator());
+        this.scanInitialized = true;
+    }
+
+    private void initializeScanWithDynamicFilter(TupleDomain<ColumnHandle> dynamicFilterConstraint)
+    {
+        if (!dynamicFilterConstraint.isAll()) {
+            TupleDomain<IcebergColumnHandle> icebergConstraint = dynamicFilterConstraint
+                    .transform(columnHandle -> (IcebergColumnHandle) columnHandle);
+            Expression dfExpression = toIcebergExpression(icebergConstraint);
+            tableScan = tableScan.filter(dfExpression);
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
+            icebergConstraint.getDomains().ifPresent(domains ->
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
+        }
+        initializeScan();
+    }
+
+    private ConnectorSplitBatch enumerateSplitBatch(int maxSize)
+    {
         List<ConnectorSplit> splits = new ArrayList<>();
         Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
+            splitsExamined++;
+
             IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
             if (metadataColumnsMatchPredicates(metadataColumnConstraints, icebergSplit.getPath(), icebergSplit.getDataSequenceNumber())) {
                 splits.add(icebergSplit);
             }
         }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+        return new ConnectorSplitBatch(splits, isFinished());
     }
 
     @Override
     public boolean isFinished()
     {
-        return !fileScanTaskIterator.hasNext();
+        return scanInitialized && !fileScanTaskIterator.hasNext();
     }
 
     @Override
     public void close()
     {
+        if (closed) {
+            return;
+        }
+        closed = true;
+
+        if (dynamicFilterActive) {
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_PROCESSED, NONE, splitsExamined);
+
+            long splitsBeforeFilter = dynamicFilterApplied ? 0 : splitsExamined;
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_BEFORE_FILTER, NONE, splitsBeforeFilter);
+        }
+
+        if (dynamicFilterActive && !filterWaitTimeRecorded) {
+            // Filter resolved synchronously — record 0 wait time so the metric is
+            // always present when DPP is enabled (distinguishes "no wait needed" from "DPP off")
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_WAIT_TIME_NANOS, NANO, 0);
+        }
+
         try {
             closer.close();
             // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
             //  correct release resources holds by iterator.
-            fileScanTaskIterator = CloseableIterator.empty();
+            if (fileScanTaskIterator != null) {
+                fileScanTaskIterator = CloseableIterator.empty();
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
