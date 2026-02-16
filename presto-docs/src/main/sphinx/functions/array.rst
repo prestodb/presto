@@ -21,6 +21,8 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:array functions`.
+
 .. function:: all_match(array(T), function(T,boolean)) -> boolean
 
     Returns whether all elements of an array match the given predicate. Returns ``true`` if all the elements
@@ -34,11 +36,6 @@ Array Functions
     elements match the predicate; ``false`` if none of the elements matches (a special case is when the
     array is empty); ``NULL`` if the predicate function returns ``NULL`` for one or more elements and ``false``
     for all other elements.
-
-.. function:: array_average(array(double)) -> double
-
-    Returns the average of all non-null elements of the ``array``. If there is no non-null elements, returns
-    ``null``.
 
 .. function:: array_cum_sum(array(T)) -> array(T)
 
@@ -55,33 +52,12 @@ Array Functions
         SELECT array_distinct(ARRAY [1, 2, null, null, 2]) -- ARRAY[1, 2, null]
         SELECT array_distinct(ARRAY [ROW(1, null), ROW (1, null)] -- ARRAY[ROW(1, null)
 
-.. function:: array_duplicates(array(T)) -> array(bigint/varchar)
-
-    Returns a set of elements that occur more than once in ``array``.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
-
-        SELECT array_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- ARRAY[1, null]
-        SELECT array_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
-
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
     This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
 
         SELECT array_except(ARRAY[1, 3, 3, 2, null], ARRAY[1,2, 2, 4]) -- ARRAY[3, null]
-
-.. function:: array_frequency(array(E)) -> map(E, int)
-
-    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
-    Ignores null elements. Empty array returns empty map.
-
-.. function:: array_has_duplicates(array(T)) -> boolean
-
-    Returns a boolean: whether ``array`` has any elements that occur more than once.
-    Throws an exception if any of the elements are rows or arrays that contain nulls. ::
-
-        SELECT array_has_duplicates(ARRAY[1, 2, null, 1, null, 3]) -- true
-        SELECT array_has_duplicates(ARRAY[ROW(1, null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
 
 .. function:: array_intersect(x, y) -> array
 
@@ -90,35 +66,9 @@ Array Functions
 
         SELECT array_intersect(ARRAY[1, 2, 3, 2, null], ARRAY[1,2, 2, 4, null]) -- ARRAY[1, 2, null]
 
-.. function:: array_intersect(array(array(E))) -> array(E)
-
-    Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
-    This function uses ``IS NOT DISTINCT FROM`` to determine which elements are the same. ::
-
-        SELECT array_intersect(ARRAY[ARRAY[1, 2, 3, 2, null], ARRAY[1,2,2, 4, null], ARRAY [1, 2, 3, 4 null]])  -- ARRAY[1, 2, null]
-
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
-
-.. function:: array_least_frequent(array(T)) -> array(T)
-
-    Returns the least frequent non-null element of an array. If there are multiple elements with the same frequency, the function returns the smallest element.
-    If the array has more than one element and any elements are ``ROWS`` with null fields or ``ARRAYS`` with null elements, an exception is returned. ::
-
-        SELECT array_least_frequent(ARRAY[1, 0 , 5])  -- ARRAY[0]
-        select array_least_frequent(ARRAY[1, null, 1]) -- ARRAY[1]
-        select array_least_frequent(ARRAY[ROW(1,null), ROW(1, null)]) -- "map key cannot be null or contain nulls"
-
-.. function:: array_least_frequent(array(T), n) -> array(T)
-
-    Returns ``n`` least frequent non-null elements of an array. The elements are ordered in increasing order of their frequencies.
-    If two elements have the same frequency, smaller elements will appear first.
-    If the array has more than one element and any elements are ``ROWS`` with null fields or ``ARRAYS`` with null elements, an exception is returned. ::
-
-        SELECT array_least_frequent(ARRAY[3, 2, 2, 6, 6, 1, 1], 3) -- ARRAY[3, 1, 2]
-        select array_least_frequent(ARRAY[1, null, 1], 2) -- ARRAY[1]
-        select array_least_frequent(ARRAY[ROW(1,null), ROW(1, null)], 2) -- "map key cannot be null or contain nulls"
 
 .. function:: array_max(x) -> x
 
@@ -127,20 +77,6 @@ Array Functions
 .. function:: array_min(x) -> x
 
     Returns the minimum value of input array.
-
-.. function:: array_max_by(array(T), function(T, U)) -> T
-
-    Applies the provided function to each element, and returns the element that gives the maximum value.
-    ``U`` can be any orderable type. ::
-
-        SELECT array_max_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'bbb'
-
-.. function:: array_min_by(array(T), function(T, U)) -> T
-
-    Applies the provided function to each element, and returns the element that gives the minimum value.
-    ``U`` can be any orderable type. ::
-
-        SELECT array_min_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'a'
 
 .. function:: array_normalize(x, p) -> array
 
@@ -210,15 +146,6 @@ Array Functions
         SELECT array_sort(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [-Infinity, 0.0, Infinity, NaN]
         SELECT array_sort(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('b', 1), ROW('c', 2), ROW('a', 3)]
 
-.. function:: array_sort_desc(x) -> array
-
-    Returns the ``array`` sorted in the descending order. Elements of the ``array`` must be orderable.
-    Null elements are placed at the end of the returned array. ::
-
-        SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
-        SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
-        SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
-
 .. function:: array_sort_desc(array(T), function(T,U)) -> array(T)
 
     Sorts and returns the ``array`` in descending order using a lambda function to extract sorting keys.
@@ -231,16 +158,6 @@ Array Functions
         SELECT array_sort_desc(ARRAY[CAST(0.0 AS DOUBLE), CAST('NaN' AS DOUBLE), CAST('Infinity' AS DOUBLE), CAST('-Infinity' AS DOUBLE)], x -> x); -- [NaN, Infinity, 0.0, -Infinity]
         SELECT array_sort_desc(ARRAY[ROW('a', 3), ROW('b', 1), ROW('c', 2)], x -> x[2]); -- [ROW('a', 3), ROW('c', 2), ROW('b', 1)]
 
-.. function:: array_split_into_chunks(array(T), int) -> array(array(T))
-
-    Returns an ``array`` of arrays splitting the input ``array`` into chunks of given length.
-    The last chunk will be shorter than the chunk length if the array's length is not an integer multiple of
-    the chunk length. Ignores null inputs, but not elements.
-
-        SELECT array_split_into_chunks(ARRAY [1, 2, 3, 4], 3); -- [[1, 2, 3], [4]]
-        SELECT array_split_into_chunks(null, null); -- null
-        SELECT array_split_into_chunks(array[1, 2, 3, cast(null as int)], 2]); -- [[1, 2], [3, null]]
-
 .. function:: array_sum(array(T)) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
@@ -248,37 +165,6 @@ Array Functions
 
     ``T`` must be coercible to ``double``.
     Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
-
-.. function:: array_top_n(array(T), int) -> array(T)
-
-    Returns an array of the top ``n`` elements from a given ``array``, sorted according to its natural descending order.
-    If ``n`` is larger than the size of the given ``array``, the returned list will be the same size as the input instead of ``n``. ::
-
-        SELECT array_top_n(ARRAY [1, 100, 2, 5, 3], 3); -- [100, 5, 3]
-        SELECT array_top_n(ARRAY [1, 100], 5); -- [100, 1]
-        SELECT array_top_n(ARRAY ['a', 'zzz', 'zz', 'b', 'g', 'f'], 3); -- ['zzz', 'zz', 'g']
-
-.. function:: array_top_n(array(T), int, function(T,T,int)) -> array(T)
-
-    Returns an array of the top ``n`` elements from a given ``array`` using the specified comparator ``function``.
-    The comparator will take two nullable arguments representing two nullable elements of the ``array``. It returns -1, 0, or 1
-    as the first nullable element is less than, equal to, or greater than the second nullable element.
-    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error.
-    If ``n`` is larger than the size of the given ``array``, the returned list will be the same size as the input instead of ``n``. ::
-
-        SELECT array_top_n(ARRAY [100, 1, 3, -10, 6, -5], 3, (x, y) -> IF(abs(x) < abs(y), -1, IF(abs(x) = abs(y), 0, 1))); -- [100, -10, 6]
-        SELECT array_top_n(ARRAY [CAST(ROW(1, 2) AS ROW(x INT, y INT)), CAST(ROW(0, 11) AS ROW(x INT, y INT)), CAST(ROW(5, 10) AS ROW(x INT, y INT))], 2, (a, b) -> IF(a.x*a.y < b.x*b.y, -1, IF(a.x*a.y = b.x*b.y, 0, 1))); -- [ROW(5, 10), ROW(1, 2)]
-
-.. function:: array_transpose(array(array(T))) -> array(array(T))
-
-    Returns a transpose of a 2D array (matrix), where rows become columns and columns become rows.
-    Converts ``a[x][y]`` to ``transpose(a)[y][x]``. All rows in the input array must have the same length, otherwise the function will fail with an error.
-    Returns an empty array if the input is empty or if all rows are empty. ::
-
-        SELECT array_transpose(ARRAY [ARRAY [1, 2, 3], ARRAY [4, 5, 6]]) -- [[1, 4], [2, 5], [3, 6]]
-        SELECT array_transpose(ARRAY [ARRAY ['a', 'b'], ARRAY ['c', 'd'], ARRAY ['e', 'f']]) -- [['a', 'c', 'e'], ['b', 'd', 'f']]
-        SELECT array_transpose(ARRAY [ARRAY [1]]) -- [[1]]
-        SELECT array_transpose(ARRAY []) -- []
 
 .. function:: arrays_overlap(x, y) -> boolean
 
@@ -411,10 +297,6 @@ Array Functions
                       CAST(ROW(0.0, 0) AS ROW(sum DOUBLE, count INTEGER)),
                       (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
                       s -> IF(s.count = 0, NULL, s.sum / s.count));
-
-.. function:: remove_nulls(array(T)) -> array
-
-    Remove all null elements in the array.
 
 .. function:: repeat(element, count) -> array
 
