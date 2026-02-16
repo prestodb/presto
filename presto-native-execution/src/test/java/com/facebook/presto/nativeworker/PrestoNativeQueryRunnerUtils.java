@@ -135,6 +135,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
         private boolean implicitCastCharNToVarchar;
+        private boolean enableCudf;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -235,6 +236,17 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        /**
+         * Enable cuDF-accelerated query execution on the native worker.
+         * GPU clusters currently support single worker nodes only.
+         */
+        public HiveQueryRunnerBuilder setEnableCudf(boolean enableCudf)
+        {
+            this.enableCudf = enableCudf;
+            this.workerCount = 1;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
         {
             this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
@@ -294,7 +306,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
+                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar, enableCudf);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -431,7 +443,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -554,7 +566,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -660,7 +672,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean isBuiltInWorkerFunctionsEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache,
-            boolean implicitCastCharNToVarchar)
+            boolean implicitCastCharNToVarchar,
+            boolean enableCudf)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -719,6 +732,12 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (implicitCastCharNToVarchar) {
                             configProperties = format("%s%n" + "char-n-to-varchar-implicit-cast=true%n", configProperties);
+                        }
+
+                        if (enableCudf) {
+                            configProperties = format("%s%n" +
+                                    "cudf.enabled=true%n" +
+                                    "cudf.debug_enabled=true", configProperties);
                         }
 
                         Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
