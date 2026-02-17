@@ -515,11 +515,11 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-protocol</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>javax.inject:javax.inject</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp-jvm</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.squareup.okhttp3:okhttp-urlconnection</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <ignoredUsedUndeclaredDependencies>
-                        <ignoredUsedUndeclaredDependency>com.squareup.okhttp3:okhttp</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.squareup.okhttp3:okhttp-jvm</ignoredUsedUndeclaredDependency>
                         <ignoredUsedUndeclaredDependency>com.squareup.okhttp3:okhttp-urlconnection</ignoredUsedUndeclaredDependency>
                     </ignoredUsedUndeclaredDependencies>
                 </configuration>
