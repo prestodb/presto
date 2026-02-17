@@ -25,6 +25,16 @@ BUILD_DUCKDB="${BUILD_DUCKDB:-false}"
 source "$(dirname "${BASH_SOURCE[0]}")/../velox/scripts/setup-macos.sh"
 GPERF_VERSION="3.1"
 DATASKETCHES_VERSION="5.2.0"
+# c-ares is required for proxygen
+MACOS_PRESTO_DEPS="c-ares"
+
+function install_presto_deps_from_brew {
+  local pkg
+
+  for pkg in ${MACOS_PRESTO_DEPS}; do
+    install_from_brew "${pkg}"
+  done
+}
 
 function install_proxygen {
   wget_and_untar https://github.com/facebook/proxygen/archive/refs/tags/${FB_OS_VERSION}.tar.gz proxygen
@@ -46,6 +56,7 @@ function install_datasketches {
 }
 
 function install_presto_deps {
+  run_and_time install_presto_deps_from_brew
   run_and_time install_gperf
   run_and_time install_proxygen
   run_and_time install_datasketches
