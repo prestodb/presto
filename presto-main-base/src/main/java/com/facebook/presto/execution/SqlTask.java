@@ -57,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -96,8 +97,8 @@ public class SqlTask
     private final ConcurrentMap<String, Long> dynamicFilterVersions = new ConcurrentHashMap<>();
     private final AtomicLong dynamicFilterOutputsVersion = new AtomicLong(0);
     private final AtomicReference<SettableFuture<Long>> dynamicFilterVersionFuture = new AtomicReference<>();
-    // Set true even when operator produces no data (empty build side)
-    private final AtomicBoolean dynamicFilterOperatorCompleted = new AtomicBoolean(false);
+    private final AtomicInteger expectedDynamicFilterFlushCount = new AtomicInteger(0);
+    private final AtomicInteger completedDynamicFilterFlushCount = new AtomicInteger(0);
     private final Set<String> registeredDynamicFilterIds = ConcurrentHashMap.newKeySet();
 
     public static SqlTask createSqlTask(
@@ -638,11 +639,13 @@ public class SqlTask
     public void registerDynamicFilterIds(Set<String> filterIds)
     {
         registeredDynamicFilterIds.addAll(filterIds);
+        expectedDynamicFilterFlushCount.incrementAndGet();
     }
 
     public boolean isDynamicFilterOperatorCompleted()
     {
-        return dynamicFilterOperatorCompleted.get();
+        int expected = expectedDynamicFilterFlushCount.get();
+        return expected > 0 && completedDynamicFilterFlushCount.get() >= expected;
     }
 
     public Set<String> getRegisteredDynamicFilterIds()
@@ -656,7 +659,7 @@ public class SqlTask
     private void storeDynamicFilters(TupleDomain<String> filters)
     {
         requireNonNull(filters, "filters is null");
-        dynamicFilterOperatorCompleted.set(true);
+        completedDynamicFilterFlushCount.incrementAndGet();
         long newVersion = dynamicFilterOutputsVersion.incrementAndGet();
         if (filters.getDomains().isPresent()) {
             // Multiple drivers may produce the same filterId; merge via union
@@ -739,7 +742,7 @@ public class SqlTask
     private DynamicFilterResult snapshotDynamicFilterResult(long sinceVersion, long version)
     {
         Map<String, TupleDomain<String>> filters = getDynamicFiltersSince(sinceVersion);
-        boolean operatorCompleted = dynamicFilterOperatorCompleted.get();
+        boolean operatorCompleted = isDynamicFilterOperatorCompleted();
         Set<String> completedFilterIds = getRegisteredDynamicFilterIds();
         return new DynamicFilterResult(filters, version, operatorCompleted, completedFilterIds);
     }
