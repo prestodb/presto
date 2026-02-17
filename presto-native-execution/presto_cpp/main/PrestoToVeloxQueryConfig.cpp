@@ -137,6 +137,9 @@ void updateFromSystemConfigs(
            std::string(SystemConfig::kAggregationSpillEnabled),
        .veloxConfig = velox::core::QueryConfig::kAggregationSpillEnabled},
 
+      {.prestoSystemConfig = std::string(SystemConfig::kMaxSpillBytes),
+       .veloxConfig = velox::core::QueryConfig::kMaxSpillBytes},
+
       {.prestoSystemConfig =
            std::string(SystemConfig::kRequestDataSizesMaxWaitSec),
        .veloxConfig = velox::core::QueryConfig::kRequestDataSizesMaxWaitSec},
