@@ -85,12 +85,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxWaitTime;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -183,7 +183,8 @@ public class SplitSourceFactory
                     columnName,
                     waitTimeout,
                     dynamicFilterService.getStats(),
-                    Optional.of(session.getRuntimeStats()));
+                    session.getRuntimeStats(),
+                    isDistributedDynamicFilterExtendedMetrics(session));
             dynamicFilterService.registerFilter(queryId, filterId, filter);
         }
     }

@@ -21,6 +21,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -49,7 +50,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
@@ -202,11 +202,52 @@ public class TestDynamicFilterFetcher
         poll(() -> requestCount.get() >= 5);
     }
 
-    // Reproduces a bug where a task has two DynamicFilterSourceOperators in
-    // different pipelines (two JoinNodes in the same fragment).  Pipeline A
-    // flushes filter f1 first and sets operatorCompleted=true on the task.
-    // The fetcher sees f1 + operatorCompleted, delivers f1, and stops —
-    // never polling again for f2 which Pipeline B flushes later.
+    @Test(timeOut = 30000)
+    public void testPerFilterNoneDelivery()
+            throws Exception
+    {
+        String filterIdA = "filterA";
+        String filterIdB = "filterB";
+        QueryId queryId = new QueryId("test");
+
+        DynamicFilterService dynamicFilterService = new DynamicFilterService();
+        JoinDynamicFilter filterA = new JoinDynamicFilter(
+                filterIdA, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
+        filterA.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterIdA, filterA);
+
+        JoinDynamicFilter filterB = new JoinDynamicFilter(
+                filterIdB, "col2", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
+        filterB.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterIdB, filterB);
+
+        DynamicFilterResponse response = new DynamicFilterResponse(
+                ImmutableMap.of(),
+                1L,
+                false,
+                ImmutableSet.of(filterIdA));
+
+        AtomicInteger fetchCount = new AtomicInteger();
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            if ("DELETE".equals(request.getMethod())) {
+                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+            fetchCount.incrementAndGet();
+            return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(response));
+        });
+
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher.start();
+
+        poll(() -> fetchCount.get() >= 3);
+
+        assertTrue(filterA.hasData(),
+                "Filter A should have received none() — its pipeline flushed");
+
+        assertFalse(filterB.hasData(),
+                "Filter B should not have received data — its pipeline hasn't flushed");
+    }
+
     @Test(timeOut = 30000)
     public void testSecondFilterLostWhenFirstFlushSetsOperatorCompleted()
             throws Exception
@@ -217,24 +258,21 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter filterA = new JoinDynamicFilter(
-                filterIdA, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), Optional.empty());
+                filterIdA, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
         filterA.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdA, filterA);
 
         JoinDynamicFilter filterB = new JoinDynamicFilter(
-                filterIdB, "col2", new Duration(10, SECONDS), new DynamicFilterStats(), Optional.empty());
+                filterIdB, "col2", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
         filterB.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterIdB, filterB);
 
-        // Response 1: Pipeline A flushed f1, but task says operatorCompleted=false
-        // because only 1 of 2 expected factories have flushed
         TupleDomain<String> domainA = TupleDomain.withColumnDomains(
                 ImmutableMap.of(filterIdA, Domain.singleValue(BIGINT, 42L)));
         DynamicFilterResponse firstResponse = DynamicFilterResponse.incomplete(
                 ImmutableMap.of(filterIdA, domainA),
                 1L);
 
-        // Response 2: Pipeline B flushed f2, now all factories done → operatorCompleted=true
         TupleDomain<String> domainB = TupleDomain.withColumnDomains(
                 ImmutableMap.of(filterIdB, Domain.singleValue(BIGINT, 99L)));
         DynamicFilterResponse secondResponse = DynamicFilterResponse.completed(
@@ -257,21 +295,14 @@ public class TestDynamicFilterFetcher
         fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
         fetcher.start();
 
-        // Wait long enough for the fetcher to have polled at least twice if it were going to
         poll(() -> fetchCount.get() >= 1);
         Thread.sleep(1000);
 
-        // BUG: fetcher stops after first poll because it saw operatorCompleted + non-empty filters.
-        // Filter f1 was delivered but f2 was never collected.
         assertTrue(filterA.hasData(), "Filter A should have received data");
-
-        // This assertion exposes the bug: filterB never gets data because the fetcher stopped
         assertTrue(filterB.hasData(),
                 "Filter B should have received data, but fetcher stopped after first pipeline's flush");
     }
 
-    // Verifies fetcher stops when filters arrive with operator completion,
-    // avoiding a spurious none() partition from an extra poll
     @Test(timeOut = 30000)
     public void testStopsPollingWhenFiltersArriveWithOperatorCompletion()
             throws Exception
@@ -281,7 +312,7 @@ public class TestDynamicFilterFetcher
 
         DynamicFilterService dynamicFilterService = new DynamicFilterService();
         JoinDynamicFilter joinFilter = new JoinDynamicFilter(
-                filterId, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), Optional.empty());
+                filterId, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
         joinFilter.setExpectedPartitions(2);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 

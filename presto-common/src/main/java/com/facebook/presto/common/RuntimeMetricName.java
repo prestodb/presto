@@ -103,7 +103,9 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_SOURCE_DISTINCT_VALUES = "dynamicFilterSourceDistinctValues";
     public static final String DYNAMIC_FILTER_SOURCE_FALLBACK_TO_MIN_MAX = "dynamicFilterSourceFallbackToMinMax";
     public static final String DYNAMIC_FILTER_SOURCE_COLLECTION_TIME_NANOS = "dynamicFilterSourceCollectionTimeNanos";
-    // Dynamic filter fetcher extended metrics (gated by distributed_dynamic_filter_extended_metrics)
+    public static final String DYNAMIC_FILTER_TIMED_OUT = "dynamicFilterTimedOut";
+    public static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT = "dynamicFilterDomainRangeCount";
+    public static final String DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER = "dynamicFilterSplitsWithoutFilter";
     public static final String DYNAMIC_FILTER_FETCHER_POLLS = "dynamicFilterFetcherPolls";
     public static final String DYNAMIC_FILTER_FETCHER_STOPPED_BY_CLEANUP = "dynamicFilterFetcherStoppedByCleanup";
     public static final String DYNAMIC_FILTER_FETCHER_FINAL_FETCH_COMPLETED = "dynamicFilterFetcherFinalFetchCompleted";

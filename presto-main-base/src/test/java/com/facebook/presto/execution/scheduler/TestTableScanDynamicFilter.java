@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -402,7 +401,7 @@ public class TestTableScanDynamicFilter
                 columnName,
                 timeout,
                 new DynamicFilterStats(),
-                Optional.of(new RuntimeStats()));
+                new RuntimeStats());
     }
 
     private static class TestColumnHandle

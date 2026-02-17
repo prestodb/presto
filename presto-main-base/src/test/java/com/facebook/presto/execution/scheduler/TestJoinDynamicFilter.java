@@ -22,12 +22,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -37,7 +38,9 @@ import static org.testng.Assert.assertTrue;
 public class TestJoinDynamicFilter
 {
     private static final String DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE = DYNAMIC_FILTER_COLLECTION_TIME_NANOS + "[%s]";
-    private static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_TEMPLATE = DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[%s]";
+    public static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_TEMPLATE = DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[%s]";
+    private static final String DYNAMIC_FILTER_TIMED_OUT_TEMPLATE = DYNAMIC_FILTER_TIMED_OUT + "[%s]";
+    private static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE = DYNAMIC_FILTER_DOMAIN_RANGE_COUNT + "[%s]";
     private static final Duration DEFAULT_TIMEOUT = new Duration(2, TimeUnit.SECONDS);
 
     @Test
@@ -50,7 +53,8 @@ public class TestJoinDynamicFilter
                 "column_a",
                 DEFAULT_TIMEOUT,
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats,
+                true);
         filter.setExpectedPartitions(2);
 
         // Add two partitions keyed by filter ID to trigger per-filter metrics
@@ -78,6 +82,12 @@ public class TestJoinDynamicFilter
                 "Per-filter COLLECTION_TIME_NANOS[549] should be present");
         assertTrue(runtimeStats.getMetrics().get(perFilterCollectionTime).getSum() > 0,
                 "Per-filter collection time should be positive");
+
+        String perFilterRangeCount = format(DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterRangeCount),
+                "Per-filter DOMAIN_RANGE_COUNT[549] should be present with extendedMetrics");
+        assertEquals(runtimeStats.getMetrics().get(perFilterRangeCount).getSum(), 2,
+                "Domain range count should be 2 for two single-value partitions");
     }
 
     @Test
@@ -90,7 +100,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats);
         filter.setExpectedPartitions(3);
 
         // No partitions received — should return all()
@@ -132,14 +142,12 @@ public class TestJoinDynamicFilter
                 "col_a",
                 new Duration(100, TimeUnit.MILLISECONDS),
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats);
         filter.setExpectedPartitions(2);
 
-        // Add one partition (not enough)
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
                 ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
-        // Start timeout and wait for it to fire
         filter.startTimeout();
         Thread.sleep(300);
 
@@ -160,7 +168,7 @@ public class TestJoinDynamicFilter
                 "",
                 DEFAULT_TIMEOUT,
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats);
         filter.setExpectedPartitions(1);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
@@ -188,7 +196,7 @@ public class TestJoinDynamicFilter
                 "column_a",
                 DEFAULT_TIMEOUT,
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats);
         assertEquals(namedFilter.getFilterId(), "549");
     }
 
@@ -202,7 +210,7 @@ public class TestJoinDynamicFilter
                 "col_a",
                 DEFAULT_TIMEOUT,
                 new DynamicFilterStats(),
-                Optional.of(runtimeStats));
+                runtimeStats);
         filter.setExpectedPartitions(1);
 
         CompletableFuture<?> blocked = filter.isBlocked();
@@ -228,5 +236,107 @@ public class TestJoinDynamicFilter
     public void testCreateDisabled()
     {
         assertEquals(JoinDynamicFilter.createDisabled(), DynamicFilter.EMPTY);
+    }
+
+    @Test
+    public void testTimeoutEmitsMetric()
+            throws Exception
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        DynamicFilterStats stats = new DynamicFilterStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                new Duration(100, TimeUnit.MILLISECONDS),
+                stats,
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(2);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+
+        filter.startTimeout();
+        Thread.sleep(300);
+
+        assertFalse(filter.isComplete(), "Timeout should not mark filter as complete");
+
+        String timeoutKey = format(DYNAMIC_FILTER_TIMED_OUT_TEMPLATE, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(timeoutKey),
+                "Timeout metric should be emitted");
+        assertEquals(runtimeStats.getMetrics().get(timeoutKey).getSum(), 1);
+
+        assertEquals(stats.getFilterCollectionTimedOut().getTotalCount(), 1);
+
+        String collectionTimeKey = format(DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(collectionTimeKey),
+                "Collection time should be emitted on timeout with extendedMetrics");
+        assertTrue(runtimeStats.getMetrics().get(collectionTimeKey).getSum() > 0,
+                "Collection time should be positive");
+    }
+
+    @Test
+    public void testNoTimeoutMetricOnSuccess()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                new DynamicFilterStats(),
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+
+        assertTrue(filter.isComplete());
+
+        String timeoutKey = format(DYNAMIC_FILTER_TIMED_OUT_TEMPLATE, "549");
+        assertFalse(runtimeStats.getMetrics().containsKey(timeoutKey),
+                "Timeout metric should not be emitted on successful completion");
+    }
+
+    @Test
+    public void testDomainRangeCountForNone()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                new DynamicFilterStats(),
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.none());
+
+        assertTrue(filter.isComplete());
+
+        String rangeCountKey = format(DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(rangeCountKey),
+                "Domain range count should be emitted for none()");
+        assertEquals(runtimeStats.getMetrics().get(rangeCountKey).getSum(), 0,
+                "Domain range count should be 0 for none() domain");
+    }
+
+    @Test
+    public void testComputeRangeCount()
+    {
+        assertEquals(JoinDynamicFilter.computeRangeCount(TupleDomain.none()), 0);
+        assertEquals(JoinDynamicFilter.computeRangeCount(TupleDomain.all()), 0);
+
+        TupleDomain<String> singleValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.singleValue(INTEGER, 10L)));
+        assertEquals(JoinDynamicFilter.computeRangeCount(singleValue), 1);
+
+        TupleDomain<String> multiValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L))));
+        assertEquals(JoinDynamicFilter.computeRangeCount(multiValue), 3);
     }
 }

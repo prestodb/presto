@@ -26,14 +26,15 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.connector.DynamicFilter.NOT_BLOCKED;
@@ -56,7 +57,8 @@ public class JoinDynamicFilter
     private final String columnName;
     private final Duration waitTimeout;
     private final DynamicFilterStats stats;
-    private final Optional<RuntimeStats> runtimeStats;
+    private final RuntimeStats runtimeStats;
+    private final boolean extendedMetrics;
 
     @GuardedBy("this")
     private final List<TupleDomain<String>> partitionsByFilterId;
@@ -76,10 +78,12 @@ public class JoinDynamicFilter
     private long collectionStartNanos;
     @GuardedBy("this")
     private boolean collectionStarted;
+    @GuardedBy("this")
+    private boolean collectionTimeRecorded;
 
     public JoinDynamicFilter(Duration waitTimeout)
     {
-        this("", "", waitTimeout, new DynamicFilterStats(), Optional.empty());
+        this("", "", waitTimeout, new DynamicFilterStats(), new RuntimeStats(), false);
     }
 
     public JoinDynamicFilter(
@@ -87,7 +91,18 @@ public class JoinDynamicFilter
             String columnName,
             Duration waitTimeout,
             DynamicFilterStats stats,
-            Optional<RuntimeStats> runtimeStats)
+            RuntimeStats runtimeStats)
+    {
+        this(filterId, columnName, waitTimeout, stats, runtimeStats, false);
+    }
+
+    public JoinDynamicFilter(
+            String filterId,
+            String columnName,
+            Duration waitTimeout,
+            DynamicFilterStats stats,
+            RuntimeStats runtimeStats,
+            boolean extendedMetrics)
     {
         this.filterId = requireNonNull(filterId, "filterId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
@@ -95,12 +110,13 @@ public class JoinDynamicFilter
         this.expectedPartitions = Integer.MAX_VALUE;
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
+        this.extendedMetrics = extendedMetrics;
 
         this.partitionsByFilterId = new ArrayList<>();
         this.constraintByFilterIdFuture = new CompletableFuture<>();
     }
 
-    public Optional<RuntimeStats> getRuntimeStats()
+    public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
     }
@@ -109,12 +125,10 @@ public class JoinDynamicFilter
     {
         verify(expectedPartitions > 0, "expectedPartitions must be positive");
         this.expectedPartitions = expectedPartitions;
-        runtimeStats.ifPresent(rs -> {
-            rs.addMetricValue(DYNAMIC_FILTER_EXPECTED_PARTITIONS, NONE, expectedPartitions);
-            if (!filterId.isEmpty()) {
-                rs.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_EXPECTED_PARTITIONS, filterId), NONE, expectedPartitions);
-            }
-        });
+        runtimeStats.addMetricValue(DYNAMIC_FILTER_EXPECTED_PARTITIONS, NONE, expectedPartitions);
+        if (!filterId.isEmpty()) {
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_EXPECTED_PARTITIONS, filterId), NONE, expectedPartitions);
+        }
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
             mergedConstraint = TupleDomain.columnWiseUnion(partitionsByFilterId);
             fullyResolved = true;
@@ -133,6 +147,13 @@ public class JoinDynamicFilter
             long timeoutMs = waitTimeout.toMillis();
             if (timeoutMs > 0) {
                 constraintByFilterIdFuture.completeOnTimeout(TupleDomain.all(), timeoutMs, TimeUnit.MILLISECONDS);
+                if (extendedMetrics) {
+                    constraintByFilterIdFuture.whenComplete((result, throwable) -> {
+                        if (!fullyResolved) {
+                            onTimeout();
+                        }
+                    });
+                }
             }
         }
     }
@@ -167,12 +188,10 @@ public class JoinDynamicFilter
 
         // Accept partitions even after future completion for getCurrentConstraintByColumnName()
         partitionsByFilterId.add(tupleDomain);
-        runtimeStats.ifPresent(rs -> {
-            rs.addMetricValue(DYNAMIC_FILTER_PARTITIONS_RECEIVED, NONE, 1);
-            if (!filterId.isEmpty()) {
-                rs.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_RECEIVED, filterId), NONE, 1);
-            }
-        });
+        runtimeStats.addMetricValue(DYNAMIC_FILTER_PARTITIONS_RECEIVED, NONE, 1);
+        if (!filterId.isEmpty()) {
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_RECEIVED, filterId), NONE, 1);
+        }
 
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
             mergedConstraint = TupleDomain.columnWiseUnion(partitionsByFilterId);
@@ -185,15 +204,41 @@ public class JoinDynamicFilter
     private void recordCollectionCompleted()
     {
         stats.getFilterCollectionCompleted().update(1);
-        if (collectionStarted) {
-            long elapsedNanos = System.nanoTime() - collectionStartNanos;
-            runtimeStats.ifPresent(rs -> {
-                rs.addMetricValue(DYNAMIC_FILTER_COLLECTION_TIME_NANOS, NANO, elapsedNanos);
-                if (!filterId.isEmpty()) {
-                    rs.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_COLLECTION_TIME_NANOS, filterId), NANO, elapsedNanos);
-                }
-            });
+        recordCollectionTime();
+        if (extendedMetrics && !filterId.isEmpty()) {
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_DOMAIN_RANGE_COUNT, filterId), NONE, computeRangeCount(mergedConstraint));
         }
+    }
+
+    private synchronized void onTimeout()
+    {
+        if (!filterId.isEmpty()) {
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_TIMED_OUT, filterId), NONE, 1);
+        }
+        stats.getFilterCollectionTimedOut().update(1);
+        recordCollectionTime();
+    }
+
+    private void recordCollectionTime()
+    {
+        if (collectionStarted && !collectionTimeRecorded) {
+            collectionTimeRecorded = true;
+            long elapsedNanos = System.nanoTime() - collectionStartNanos;
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_COLLECTION_TIME_NANOS, NANO, elapsedNanos);
+            if (!filterId.isEmpty()) {
+                runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_COLLECTION_TIME_NANOS, filterId), NANO, elapsedNanos);
+            }
+        }
+    }
+
+    static long computeRangeCount(TupleDomain<String> tupleDomain)
+    {
+        if (tupleDomain.isNone() || !tupleDomain.getDomains().isPresent()) {
+            return 0;
+        }
+        return tupleDomain.getDomains().get().values().stream()
+                .mapToLong(domain -> domain.getValues().getRanges().getRangeCount())
+                .sum();
     }
 
     public CompletableFuture<?> isBlocked()
