@@ -1368,6 +1368,40 @@ This allows the cluster to quickly ramp up when idle while still providing
 protection against overload when the cluster is busy. Set to ``0`` to always
 apply pacing when ``max-queries-per-second`` is configured.
 
+``max-total-running-task-count-to-not-execute-new-query``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2147483647`` (unlimited)
+
+Maximum total running task count across all queries on the coordinator. When
+this threshold is exceeded, new queries are held in the queue rather than
+being scheduled for execution. This helps prevent coordinator overload by
+limiting the number of concurrent tasks being managed.
+
+Unlike ``max-total-running-task-count-to-kill-query`` which kills queries when
+the limit is exceeded, this property proactively prevents new queries from
+starting while allowing existing queries to complete normally.
+
+This property works in conjunction with query admission pacing
+(``query-manager.query-pacing.max-queries-per-second``) to provide
+comprehensive coordinator load management. When both are configured:
+
+1. Pacing controls the rate at which queries are admitted
+2. This property provides a hard cap on total concurrent tasks
+
+Without query-pacing, the cluster can admit multiple queries at once, which
+can lead to significantly more concurrent tasks than expected over this limit.
+
+Set to a lower value (e.g., ``50000``) to limit coordinator task management
+overhead. The default value effectively disables this feature.
+
+.. note::
+
+    For backwards compatibility, this property can also be configured using the
+    legacy name ``experimental.max-total-running-task-count-to-not-execute-new-query``.
+
 Query Retry Properties
 ----------------------
 
