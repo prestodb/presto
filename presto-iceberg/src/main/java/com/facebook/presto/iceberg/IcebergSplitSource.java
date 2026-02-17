@@ -25,12 +25,14 @@ import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -45,6 +47,7 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTR
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -53,6 +56,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isDynamicFilterExtendedMetrics;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
@@ -86,6 +90,7 @@ public class IcebergSplitSource
 
     private final RuntimeStats runtimeStats;
     private final boolean dynamicFilterActive;
+    private final boolean extendedMetrics;
     private long splitsExamined;
     private boolean filterWaitTimeRecorded;
     private boolean filterWaitStarted;
@@ -108,7 +113,6 @@ public class IcebergSplitSource
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
 
-        // DF already pushed into TableScan by IcebergSplitManager, so just initialize scan
         if (dynamicFilter.isComplete()) {
             dynamicFilterApplied = true;
             initializeScan();
@@ -116,6 +120,7 @@ public class IcebergSplitSource
 
         this.runtimeStats = session.getRuntimeStats();
         this.dynamicFilterActive = dynamicFilter.getWaitTimeout().toMillis() > 0;
+        this.extendedMetrics = isDynamicFilterExtendedMetrics(session);
     }
 
     @Override
@@ -172,12 +177,26 @@ public class IcebergSplitSource
             TupleDomain<IcebergColumnHandle> icebergConstraint = dynamicFilterConstraint
                     .transform(columnHandle -> (IcebergColumnHandle) columnHandle);
             Expression dfExpression = toIcebergExpression(icebergConstraint);
+            if (extendedMetrics) {
+                long baselineCount = countPlanFiles(tableScan);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER, NONE, baselineCount);
+            }
             tableScan = tableScan.filter(dfExpression);
             runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
             icebergConstraint.getDomains().ifPresent(domains ->
                     runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
         }
         initializeScan();
+    }
+
+    private long countPlanFiles(TableScan scan)
+    {
+        try (CloseableIterable<FileScanTask> iterable = splitFiles(scan.planFiles(), targetSplitSize)) {
+            return Iterables.size(iterable);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private ConnectorSplitBatch enumerateSplitBatch(int maxSize)

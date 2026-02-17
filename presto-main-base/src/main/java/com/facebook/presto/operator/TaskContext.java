@@ -138,6 +138,7 @@ public class TaskContext
 
     private final AtomicReference<Consumer<TupleDomain<String>>> dynamicFilterConsumer = new AtomicReference<>();
     private final AtomicReference<Consumer<Set<String>>> dynamicFilterIdRegistration = new AtomicReference<>();
+    private final AtomicReference<Consumer<Set<String>>> dynamicFilterIdFlushedCallback = new AtomicReference<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -464,6 +465,19 @@ public class TaskContext
         Consumer<Set<String>> registration = dynamicFilterIdRegistration.get();
         if (registration != null) {
             registration.accept(filterIds);
+        }
+    }
+
+    public void setDynamicFilterIdFlushedCallback(Consumer<Set<String>> callback)
+    {
+        dynamicFilterIdFlushedCallback.set(callback);
+    }
+
+    public void markFilterIdsFlushed(Set<String> filterIds)
+    {
+        Consumer<Set<String>> callback = dynamicFilterIdFlushedCallback.get();
+        if (callback != null) {
+            callback.accept(filterIds);
         }
     }
 

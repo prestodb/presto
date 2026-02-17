@@ -2678,6 +2678,9 @@ public class LocalExecutionPlanner
                     downstream.accept(partitions.isEmpty()
                             ? TupleDomain.none()
                             : TupleDomain.columnWiseUnion(new ArrayList<>(partitions)));
+                    // Mark after downstream.accept() so filter data is stored before
+                    // the fetcher sees the flushed IDs (avoids premature none() delivery)
+                    context.getTaskContext().markFilterIdsFlushed(filterIds);
                 }
             };
 

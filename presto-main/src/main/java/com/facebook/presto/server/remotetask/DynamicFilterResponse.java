@@ -49,6 +49,11 @@ public class DynamicFilterResponse
         return new DynamicFilterResponse(filters, version, false, ImmutableSet.of());
     }
 
+    public static DynamicFilterResponse incomplete(Map<String, TupleDomain<String>> filters, long version, Set<String> completedFilterIds)
+    {
+        return new DynamicFilterResponse(filters, version, false, completedFilterIds);
+    }
+
     public static DynamicFilterResponse completed(Map<String, TupleDomain<String>> filters, long version, Set<String> completedFilterIds)
     {
         return new DynamicFilterResponse(filters, version, true, completedFilterIds);

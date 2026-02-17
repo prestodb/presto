@@ -36,10 +36,13 @@ import java.nio.file.Path;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTRAINT_COLUMNS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
@@ -64,8 +67,11 @@ public class TestDynamicPartitionPruning
 {
     private static final String DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE = DYNAMIC_FILTER_COLLECTION_TIME_NANOS + "[%s]";
     private static final String DYNAMIC_FILTER_EXPECTED_PARTITIONS_TEMPLATE = DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[%s]";
+    private static final String DYNAMIC_FILTER_TIMED_OUT_TEMPLATE = DYNAMIC_FILTER_TIMED_OUT + "[%s]";
+    private static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE = DYNAMIC_FILTER_DOMAIN_RANGE_COUNT + "[%s]";
     private static final String DISTRIBUTED_DYNAMIC_FILTER_STRATEGY = "distributed_dynamic_filter_strategy";
     private static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME = "distributed_dynamic_filter_max_wait_time";
+    private static final String DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS = "distributed_dynamic_filter_extended_metrics";
 
     private long factOrdersTotalFiles;
     private long factOrdersWestFiles;
@@ -207,7 +213,7 @@ public class TestDynamicPartitionPruning
         assertUpdate("DROP TABLE IF EXISTS dim_active_regions");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testDynamicPartitionPruningMetrics()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -251,7 +257,7 @@ public class TestDynamicPartitionPruning
                         expectedSkippedManifests, factOrdersTotalManifests, skippedManifests));
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testDynamicPartitionPruningResultCorrectness()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -298,7 +304,7 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Result correctness");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testBroadcastJoinDynamicPartitionPruning()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -310,7 +316,9 @@ public class TestDynamicPartitionPruning
         Session dppSession = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_distribution_type", "BROADCAST")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithDpp =
@@ -349,6 +357,16 @@ public class TestDynamicPartitionPruning
         assertFilterResolvesWithinTimeout(dppStats, "Broadcast");
         assertCollectionTimeBoundedByBuildSide(dppStats, resultWithDpp, filterInfo, "Broadcast");
 
+        String rangeCountKey = format(DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE, filterInfo.filterId);
+        assertTrue(getMetricValue(dppStats, rangeCountKey) > 0,
+                format("Broadcast: domain range count for filter %s should be positive", filterInfo.filterId));
+
+        long splitsWithoutFilter = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER);
+        long splitsProcessed = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
+        assertTrue(splitsWithoutFilter > splitsProcessed,
+                format("Broadcast: splitsWithoutFilter (%d) should exceed splitsProcessed (%d)",
+                        splitsWithoutFilter, splitsProcessed));
+
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
         assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
@@ -358,7 +376,7 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Broadcast");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testDynamicPartitionPruningDisabled()
     {
         ResultWithQueryId<MaterializedResult> result = executeWithDppSession(false,
@@ -380,7 +398,7 @@ public class TestDynamicPartitionPruning
                 "Without DPP, no data files should be skipped");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testDynamicPartitionPruningTimeout()
     {
         // 1ms timeout forces all-or-nothing safety path
@@ -393,6 +411,7 @@ public class TestDynamicPartitionPruning
         Session timeoutSession = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "1ms")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithTimeout =
@@ -416,13 +435,19 @@ public class TestDynamicPartitionPruning
                 factOrdersTotalFiles,
                 "Timed-out DPP should process all fact files (filter not applied)");
 
-        // Only fact_orders splits contribute: dim_customers uses DynamicFilter.EMPTY
         long splitsBeforeFilter = getMetricValue(timeoutStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER);
         assertEquals(splitsBeforeFilter, factOrdersTotalFiles,
                 "All fact_orders splits should be 'before filter' when filter timed out");
+
+        DynamicFilterInfo filterInfo = resolveDynamicFilter(resultWithTimeout, "customer_id");
+        if (filterInfo != null) {
+            String timeoutKey = format(DYNAMIC_FILTER_TIMED_OUT_TEMPLATE, filterInfo.filterId);
+            assertEquals(getMetricValue(timeoutStats, timeoutKey), 1,
+                    format("Timeout: dynamicFilterTimedOut[%s] should be 1", filterInfo.filterId));
+        }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testMultiJoinDynamicPartitionPruning()
     {
         // Subquery forces dim_customers x dim_active_regions to execute first,
@@ -463,7 +488,7 @@ public class TestDynamicPartitionPruning
                 "Multi-join: all filters should resolve in time");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testDynamicPartitionPruningWithYearTransform()
     {
         String query = "SELECT f.order_id, f.amount, f.order_date " +
@@ -542,12 +567,14 @@ public class TestDynamicPartitionPruning
 
     private ResultWithQueryId<MaterializedResult> executeWithDppSession(boolean enabled, String sql)
     {
-        Session session = Session.builder(getSession())
+        Session.SessionBuilder builder = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, enabled ? "ALWAYS" : "DISABLED")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
-                .build();
-
-        return getDistributedQueryRunner().executeWithQueryId(session, sql);
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s");
+        if (enabled) {
+            builder.setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true");
+            builder.setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true");
+        }
+        return getDistributedQueryRunner().executeWithQueryId(builder.build(), sql);
     }
 
     private QueryStats getQueryStats(ResultWithQueryId<MaterializedResult> result)
@@ -668,7 +695,7 @@ public class TestDynamicPartitionPruning
                 .orElse(null);
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testStarSchemaMultipleFilters()
     {
         assertUpdate("CREATE TABLE fact_star_orders (" +
@@ -738,7 +765,7 @@ public class TestDynamicPartitionPruning
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testStarSchemaProgressiveRefinement()
     {
         assertUpdate("CREATE TABLE fact_progressive (" +
@@ -818,7 +845,7 @@ public class TestDynamicPartitionPruning
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testRightJoinDynamicPartitionPruning()
     {
         // Optimizer may convert to INNER, but validates AddDynamicFilterRule accepts RIGHT joins
@@ -865,7 +892,7 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "RIGHT join");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testSemiJoinDynamicPartitionPruning()
     {
         // Optimizer may rewrite IN to JoinNode; fallback resolution handles both
@@ -919,7 +946,7 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Semi-join");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testNonSelectiveFilterNoPruning()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -959,7 +986,7 @@ public class TestDynamicPartitionPruning
                 "Non-selective: DPP should not skip any additional manifests");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testEmptyBuildSidePrunesAll()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -1011,7 +1038,7 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Empty build side");
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testNonPartitionedProbeTable()
     {
         // Iceberg may still prune via file-level min/max, so assertions use soft bounds
@@ -1071,7 +1098,7 @@ public class TestDynamicPartitionPruning
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testMultipleEquiJoinKeysDynamicPartitionPruning()
     {
         assertUpdate("CREATE TABLE fact_multi_key (" +
@@ -1154,7 +1181,7 @@ public class TestDynamicPartitionPruning
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testHashWithLocalSplitsDynamicFilterCompletion()
     {
         // Regression test for SectionExecutionFactory: setExpectedPartitionsForFilters
@@ -1181,6 +1208,7 @@ public class TestDynamicPartitionPruning
         Session materializedSession = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "30s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("cte_materialization_strategy", "ALL")
                 .setSystemProperty("cte_partitioning_provider_catalog", "hive")
                 .setSystemProperty("exchange_materialization_strategy", "ALL")
@@ -1218,19 +1246,22 @@ public class TestDynamicPartitionPruning
         }
         assertNotNull(filterInfo, "HASH-with-local-splits: should resolve a dynamic filter from the plan");
 
-        // Verify filter completed (collection time is only emitted when fullyResolved = true).
-        // Without the fix, expectedPartitions stays at MAX_VALUE and the filter times out
-        // without becoming fullyResolved, so collectionTimeNanos would be 0.
+        // Verify setExpectedPartitionsForFilters was called for the HASH-with-local-splits path.
+        // Without the fix, expectedPartitions stays at MAX_VALUE (metric never emitted).
+        // We check expectedPartitions rather than collectionTimeNanos because the latter
+        // is written by an async fetcher callback that may fire after the query's
+        // finalQueryInfo snapshot is taken (the CTE temp table scan is not an Iceberg scan,
+        // so the query doesn't block on the dynamic filter).
         RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
 
-        long collectionTimeNanos = getMetricValue(dppStats,
-                format(DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE, filterInfo.filterId));
-        assertTrue(collectionTimeNanos > 0,
-                format("Dynamic filter %s should complete (collection time > 0). " +
-                        "If 0, setExpectedPartitionsForFilters may not be called for HASH-with-local-splits path",
-                        filterInfo.filterId));
+        long expectedPartitions = getMetricValue(dppStats,
+                format(DYNAMIC_FILTER_EXPECTED_PARTITIONS_TEMPLATE, filterInfo.filterId));
+        assertTrue(expectedPartitions > 0,
+                format("Dynamic filter %s: expectedPartitions should be > 0 (setExpectedPartitionsForFilters " +
+                        "must be called for HASH-with-local-splits path), but was %d",
+                        filterInfo.filterId, expectedPartitions));
 
-        // Verify all dynamic filters in the query completed (not just one)
+        // Verify all dynamic filters in the query had expectedPartitions set
         QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator()
                 .getQueryManager()
                 .getFullQueryInfo(resultWithDpp.getQueryId());
@@ -1244,7 +1275,7 @@ public class TestDynamicPartitionPruning
                 .sum();
 
         if (totalFilters > 0) {
-            long completedFilters = getAllStages(queryInfo.getOutputStage()).stream()
+            long configuredFilters = getAllStages(queryInfo.getOutputStage()).stream()
                     .flatMap(stage -> stage.getPlan().stream())
                     .flatMap(fragment -> searchFrom(fragment.getRoot())
                             .where(node -> node instanceof JoinNode)
@@ -1252,15 +1283,15 @@ public class TestDynamicPartitionPruning
                             .stream())
                     .flatMap(joinNode -> joinNode.getDynamicFilters().keySet().stream())
                     .filter(filterId -> getMetricValue(dppStats,
-                            format(DYNAMIC_FILTER_COLLECTION_TIME_NANOS_TEMPLATE, filterId)) > 0)
+                            format(DYNAMIC_FILTER_EXPECTED_PARTITIONS_TEMPLATE, filterId)) > 0)
                     .count();
-            assertEquals(completedFilters, totalFilters,
-                    format("All %d dynamic filters should complete, but only %d did",
-                            totalFilters, completedFilters));
+            assertEquals(configuredFilters, totalFilters,
+                    format("All %d dynamic filters should have expectedPartitions set, but only %d did",
+                            totalFilters, configuredFilters));
         }
     }
 
-    @Test
+    @Test(invocationCount = 10)
     public void testPartitionedJoinDynamicFilterCompletion()
     {
         // Regression test: when the JoinNode's build side is a RemoteSourceNode

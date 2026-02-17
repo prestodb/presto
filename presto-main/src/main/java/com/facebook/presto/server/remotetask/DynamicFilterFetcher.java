@@ -34,8 +34,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.netty.channel.EventLoop;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -83,7 +86,8 @@ public class DynamicFilterFetcher
     private final AtomicLong lastFetchedVersion = new AtomicLong(0);
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(true);
-    private final AtomicBoolean operatorCompletionHandled = new AtomicBoolean(false);
+    private final Set<String> deliveredFilterIds = new HashSet<>();
+    private final Map<String, JoinDynamicFilter> filterCache = new HashMap<>();
     private final Duration maxWait;
 
     private volatile boolean isFinalFetch;
@@ -128,9 +132,10 @@ public class DynamicFilterFetcher
     {
         verify(started.compareAndSet(false, true), "start() already called");
         dynamicFilterStats.getFetchersStarted().update(1);
-        dynamicFilterService.getAllFiltersForQuery(queryId).values().stream()
+        dynamicFilterService.getAllFiltersForQuery(queryId).forEach(filterCache::putIfAbsent);
+        filterCache.values().stream()
                 .findFirst()
-                .flatMap(JoinDynamicFilter::getRuntimeStats)
+                .map(JoinDynamicFilter::getRuntimeStats)
                 .ifPresent(rs -> rs.addMetricValue(DYNAMIC_FILTER_FETCHERS_STARTED, NONE, 1));
         taskEventLoop.execute(this::sendFetchRequest);
     }
@@ -210,25 +215,23 @@ public class DynamicFilterFetcher
             for (Map.Entry<String, TupleDomain<String>> entry : filters.entrySet()) {
                 String filterId = entry.getKey();
                 TupleDomain<String> filterDomain = entry.getValue();
-                Optional<JoinDynamicFilter> filter = dynamicFilterService.getFilter(queryId, filterId);
-                filter.ifPresent(f -> f.addPartitionByFilterId(filterDomain));
+                resolveFilter(filterId)
+                        .ifPresent(f -> f.addPartitionByFilterId(filterDomain));
+                deliveredFilterIds.add(filterId);
             }
 
             sendDeleteRequest(responseVersion);
+        }
 
-            // Filters already contributed; skip none() on completion
-            if (response.isOperatorCompleted() && operatorCompletionHandled.compareAndSet(false, true)) {
-                dynamicFilterStats.getFilterFlushes().update(1);
-                stop();
-                return;
+        for (String filterId : response.getCompletedFilterIds()) {
+            if (!deliveredFilterIds.contains(filterId)) {
+                resolveFilter(filterId)
+                        .ifPresent(f -> f.addPartitionByFilterId(TupleDomain.none()));
+                deliveredFilterIds.add(filterId);
             }
         }
-        else if (response.isOperatorCompleted() && operatorCompletionHandled.compareAndSet(false, true)) {
-            // none() counts toward expectedPartitions; scope to this task's filters (multi-join safety)
-            for (String filterId : response.getCompletedFilterIds()) {
-                Optional<JoinDynamicFilter> filter = dynamicFilterService.getFilter(queryId, filterId);
-                filter.ifPresent(f -> f.addPartitionByFilterId(TupleDomain.none()));
-            }
+
+        if (response.isOperatorCompleted()) {
             dynamicFilterStats.getFilterFlushes().update(1);
             stop();
             return;
@@ -351,18 +354,36 @@ public class DynamicFilterFetcher
     public void abort()
     {
         running.set(false);
+        // Don't cancel the final fetch — it was dispatched by stopAfterFinalFetch()
+        // to collect any remaining filter data. Let it complete so its success()
+        // callback can deliver the data. Without this, scheduler.abort() (called
+        // on query completion) cancels the final GET and the partition is lost.
+        if (isFinalFetch) {
+            return;
+        }
         ListenableFuture<BaseResponse<DynamicFilterResponse>> pendingFuture = future;
         if (pendingFuture != null && !pendingFuture.isDone()) {
             pendingFuture.cancel(false);
         }
     }
 
+    private Optional<JoinDynamicFilter> resolveFilter(String filterId)
+    {
+        JoinDynamicFilter existing = filterCache.get(filterId);
+        if (existing != null) {
+            return Optional.of(existing);
+        }
+        Optional<JoinDynamicFilter> filter = dynamicFilterService.getFilter(queryId, filterId);
+        filter.ifPresent(f -> filterCache.put(filterId, f));
+        return filter;
+    }
+
     private void emitExtendedMetric(String metricName, long value)
     {
-        dynamicFilterService.getAllFiltersForQuery(queryId).values().stream()
+        filterCache.values().stream()
                 .findFirst()
-                .flatMap(JoinDynamicFilter::getRuntimeStats)
-                .ifPresent(rs -> rs.addMetricValue(metricName, NONE, value));
+                .map(JoinDynamicFilter::getRuntimeStats)
+                .ifPresent(runtimeStats -> runtimeStats.addMetricValue(metricName, NONE, value));
     }
 
     public TaskId getTaskId()

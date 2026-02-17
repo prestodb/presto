@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.EquiJoinClause;
@@ -347,6 +348,6 @@ public class TestDynamicFilterService
 
     private JoinDynamicFilter createTestFilterWithId(String filterId)
     {
-        return new JoinDynamicFilter(filterId, "column_a", DEFAULT_TIMEOUT, new DynamicFilterStats(), Optional.empty());
+        return new JoinDynamicFilter(filterId, "column_a", DEFAULT_TIMEOUT, new DynamicFilterStats(), new RuntimeStats());
     }
 }

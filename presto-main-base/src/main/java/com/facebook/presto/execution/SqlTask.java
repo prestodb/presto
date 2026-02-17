@@ -57,7 +57,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -97,9 +96,8 @@ public class SqlTask
     private final ConcurrentMap<String, Long> dynamicFilterVersions = new ConcurrentHashMap<>();
     private final AtomicLong dynamicFilterOutputsVersion = new AtomicLong(0);
     private final AtomicReference<SettableFuture<Long>> dynamicFilterVersionFuture = new AtomicReference<>();
-    private final AtomicInteger expectedDynamicFilterFlushCount = new AtomicInteger(0);
-    private final AtomicInteger completedDynamicFilterFlushCount = new AtomicInteger(0);
     private final Set<String> registeredDynamicFilterIds = ConcurrentHashMap.newKeySet();
+    private final Set<String> flushedDynamicFilterIds = ConcurrentHashMap.newKeySet();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -452,6 +450,7 @@ public class SqlTask
 
                     Consumer<TupleDomain<String>> dynamicFilterConsumer = this::storeDynamicFilters;
                     Consumer<Set<String>> dynamicFilterIdRegistration = this::registerDynamicFilterIds;
+                    Consumer<Set<String>> dynamicFilterIdFlushedCallback = this::markFilterIdsFlushed;
 
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
@@ -463,7 +462,8 @@ public class SqlTask
                             sources,
                             tableWriteInfo.get(),
                             Optional.of(dynamicFilterConsumer),
-                            Optional.of(dynamicFilterIdRegistration));
+                            Optional.of(dynamicFilterIdRegistration),
+                            Optional.of(dynamicFilterIdFlushedCallback));
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
@@ -639,13 +639,22 @@ public class SqlTask
     public void registerDynamicFilterIds(Set<String> filterIds)
     {
         registeredDynamicFilterIds.addAll(filterIds);
-        expectedDynamicFilterFlushCount.incrementAndGet();
+    }
+
+    public void markFilterIdsFlushed(Set<String> filterIds)
+    {
+        flushedDynamicFilterIds.addAll(filterIds);
+        long newVersion = dynamicFilterOutputsVersion.incrementAndGet();
+        SettableFuture<Long> oldFuture = dynamicFilterVersionFuture.getAndSet(null);
+        if (oldFuture != null) {
+            oldFuture.set(newVersion);
+        }
     }
 
     public boolean isDynamicFilterOperatorCompleted()
     {
-        int expected = expectedDynamicFilterFlushCount.get();
-        return expected > 0 && completedDynamicFilterFlushCount.get() >= expected;
+        return !registeredDynamicFilterIds.isEmpty()
+                && flushedDynamicFilterIds.containsAll(registeredDynamicFilterIds);
     }
 
     public Set<String> getRegisteredDynamicFilterIds()
@@ -659,7 +668,6 @@ public class SqlTask
     private void storeDynamicFilters(TupleDomain<String> filters)
     {
         requireNonNull(filters, "filters is null");
-        completedDynamicFilterFlushCount.incrementAndGet();
         long newVersion = dynamicFilterOutputsVersion.incrementAndGet();
         if (filters.getDomains().isPresent()) {
             // Multiple drivers may produce the same filterId; merge via union
@@ -743,7 +751,7 @@ public class SqlTask
     {
         Map<String, TupleDomain<String>> filters = getDynamicFiltersSince(sinceVersion);
         boolean operatorCompleted = isDynamicFilterOperatorCompleted();
-        Set<String> completedFilterIds = getRegisteredDynamicFilterIds();
+        Set<String> completedFilterIds = ImmutableSet.copyOf(flushedDynamicFilterIds);
         return new DynamicFilterResult(filters, version, operatorCompleted, completedFilterIds);
     }
 
