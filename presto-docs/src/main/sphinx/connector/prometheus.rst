@@ -47,6 +47,7 @@ Property Name                                   Description
 ``prometheus.tls.truststore-path``       Path to the trust store containing the SSL certificates
 ``prometheus.tls.truststore-password``   Password to access the trust store for TLS verification
 ``verify-host-name``                     Enable or disable hostname verification in the SSL certificate
+``case-sensitive-name-matching``         Enable or disable case-sensitive matching for table names. The default is ``false``.
 ======================================== ============================================================================================
 
 Not Exhausting Your Presto Available Heap
@@ -79,3 +80,34 @@ Bearer Token Authentication
 Prometheus can be setup to require a Authorization header with every query. The value in
 ``prometheus.bearer-token-file`` allows for a bearer token to be read from the configured file. This file
 is optional and not required unless your Prometheus setup requires it.
+
+Case-Sensitive Name Matching
+----------------------------
+
+By default, Prometheus metric names (which appear as table names in Presto) are treated as case-insensitive. 
+This means that querying ``up`` or ``UP`` would refer to the same metric. However, since Prometheus itself 
+is case-sensitive, you can enable case-sensitive name matching to preserve the exact case of metric names.
+
+To enable case-sensitive name matching, add the following property to your ``prometheus.properties`` file:
+
+.. code-block:: none
+
+    case-sensitive-name-matching=true
+
+When case-sensitive name matching is enabled:
+
+* Table names must exactly match the case of the corresponding Prometheus metric name.
+* Queries using a different case than the actual metric name will fail with a ``Table not found`` error.
+
+This is useful when you have metrics with similar names that differ only by case.
+
+For example, with case-sensitive name matching enabled:
+
+.. code-block:: sql
+
+    -- This will work if the metric name is exactly "up"
+    SELECT * FROM prometheus.default.up;
+    
+    -- This will fail if the metric name is "up" (not "UP")
+    SELECT * FROM prometheus.default.UP;
+
