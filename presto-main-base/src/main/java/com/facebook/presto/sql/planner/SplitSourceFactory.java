@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -126,6 +127,13 @@ public class SplitSourceFactory
         QueryId queryId = session.getQueryId();
         Duration waitTimeout = getDistributedDynamicFilterMaxWaitTime(session);
 
+        // Step 1: Register filters from this fragment's JoinNodes and SemiJoinNodes.
+        // Build fragment-local filterColumnToFilterIds and register probe-side
+        // fragment targets for cross-fragment matching. Also collect all probe-side
+        // child fragment IDs for transitive propagation in Step 3.
+        Map<String, Set<String>> filterColumnToFilterIds = new HashMap<>();
+        Set<PlanFragmentId> probeChildFragmentIds = new HashSet<>();
+
         List<JoinNode> joinNodes = PlanNodeSearcher.searchFrom(fragment.getRoot())
                 .where(node -> node instanceof JoinNode)
                 .findAll();
@@ -140,11 +148,20 @@ public class SplitSourceFactory
                 buildToProbe.put(clause.getRight(), clause.getLeft());
             }
 
+            Set<String> joinFilterIds = joinNode.getDynamicFilters().keySet();
             for (Map.Entry<String, VariableReferenceExpression> entry : joinNode.getDynamicFilters().entrySet()) {
                 VariableReferenceExpression probeVar = buildToProbe.get(entry.getValue());
                 String columnName = probeVar != null ? probeVar.getName() : "";
                 registerFilterIfAbsent(queryId, entry.getKey(), columnName, waitTimeout, session);
+                if (!columnName.isEmpty()) {
+                    filterColumnToFilterIds.computeIfAbsent(columnName, k -> new HashSet<>()).add(entry.getKey());
+                }
             }
+
+            // Register probe-side fragment targets for cross-fragment matching.
+            // Follow the probe chain through nested JoinNodes/SemiJoinNodes to find
+            // RemoteSourceNodes on the probe path only (never the build path).
+            registerProbeFragmentTargets(queryId, joinNode.getLeft(), joinFilterIds, probeChildFragmentIds);
         }
 
         List<SemiJoinNode> semiJoinNodes = PlanNodeSearcher.searchFrom(fragment.getRoot())
@@ -157,20 +174,43 @@ public class SplitSourceFactory
             }
 
             String columnName = semiJoinNode.getSourceJoinVariable().getName();
-            for (String filterId : semiJoinNode.getDynamicFilters().keySet()) {
+            Set<String> semiJoinFilterIds = semiJoinNode.getDynamicFilters().keySet();
+            for (String filterId : semiJoinFilterIds) {
                 registerFilterIfAbsent(queryId, filterId, columnName, waitTimeout, session);
+                if (!columnName.isEmpty()) {
+                    filterColumnToFilterIds.computeIfAbsent(columnName, k -> new HashSet<>()).add(filterId);
+                }
+            }
+
+            // Register probe-side (source) fragment targets for SemiJoinNodes.
+            registerProbeFragmentTargets(queryId, semiJoinNode.getSource(), semiJoinFilterIds, probeChildFragmentIds);
+        }
+
+        // Step 2: Add cross-fragment filters that were registered for this fragment
+        // by a parent fragment's JoinNode/SemiJoinNode (probe-side matching only).
+        Set<String> crossFragmentFilterIds = dynamicFilterService.getProbeFragmentFilterIds(queryId, fragment.getId());
+        for (String filterId : crossFragmentFilterIds) {
+            dynamicFilterService.getFilter(queryId, filterId).ifPresent(joinFilter -> {
+                String probeColumn = joinFilter.getColumnName();
+                if (!probeColumn.isEmpty()) {
+                    filterColumnToFilterIds.computeIfAbsent(probeColumn, k -> new HashSet<>()).add(filterId);
+                }
+            });
+        }
+
+        // Step 3: Propagate cross-fragment filters to this fragment's probe-side
+        // child fragments for transitive matching across fragment boundaries.
+        // This enables filters from grandparent+ fragments to reach deep probe-side
+        // scans (e.g., star schema: outer join filter reaches fact scan through an
+        // intermediate JoinNode fragment). Since fragments are processed pre-order
+        // (parent first), each level propagates to the next.
+        if (!crossFragmentFilterIds.isEmpty() && !probeChildFragmentIds.isEmpty()) {
+            for (PlanFragmentId probeChildFragId : probeChildFragmentIds) {
+                dynamicFilterService.registerProbeFragmentFilter(queryId, probeChildFragId, crossFragmentFilterIds);
             }
         }
 
-        Map<String, JoinDynamicFilter> allFilters = dynamicFilterService.getAllFiltersForQuery(queryId);
-        if (!allFilters.isEmpty()) {
-            Map<String, Set<String>> filterColumnToFilterIds = new HashMap<>();
-            for (Map.Entry<String, JoinDynamicFilter> entry : allFilters.entrySet()) {
-                String probeColumn = entry.getValue().getColumnName();
-                if (!probeColumn.isEmpty()) {
-                    filterColumnToFilterIds.computeIfAbsent(probeColumn, k -> new HashSet<>()).add(entry.getKey());
-                }
-            }
+        if (!filterColumnToFilterIds.isEmpty()) {
             matchFiltersToScans(fragment.getRoot(), filterColumnToFilterIds, queryId);
         }
     }
@@ -195,6 +235,52 @@ public class SplitSourceFactory
         for (Map.Entry<PlanNodeId, Set<String>> entry : scanToFilterIds.entrySet()) {
             dynamicFilterService.registerScanFilterMapping(queryId, entry.getKey(), entry.getValue());
         }
+    }
+
+    /**
+     * Follows the probe chain from {@code probeRoot} to find RemoteSourceNodes,
+     * then registers the given filter IDs for each target fragment. Also adds
+     * the target fragment IDs to {@code probeChildFragmentIds} for transitive
+     * propagation in Step 3.
+     */
+    private void registerProbeFragmentTargets(
+            QueryId queryId,
+            PlanNode probeRoot,
+            Set<String> filterIds,
+            Set<PlanFragmentId> probeChildFragmentIds)
+    {
+        for (RemoteSourceNode remoteSource : collectProbeChainRemoteSources(probeRoot)) {
+            for (PlanFragmentId probeFragId : remoteSource.getSourceFragmentIds()) {
+                probeChildFragmentIds.add(probeFragId);
+                dynamicFilterService.registerProbeFragmentFilter(queryId, probeFragId, filterIds);
+            }
+        }
+    }
+
+    /**
+     * Follows the probe chain through nested JoinNodes and SemiJoinNodes to find
+     * RemoteSourceNodes that are on the probe path. At join boundaries, only the
+     * probe child (left for JoinNode, source for SemiJoinNode) is traversed.
+     * Build-side children are skipped to prevent registering cross-fragment filters
+     * for fragments that feed into the build side (which could create circular
+     * dependencies where a scan waits for a filter that needs that scan's data).
+     */
+    private static List<RemoteSourceNode> collectProbeChainRemoteSources(PlanNode node)
+    {
+        if (node instanceof RemoteSourceNode) {
+            return ImmutableList.of((RemoteSourceNode) node);
+        }
+        if (node instanceof JoinNode) {
+            return collectProbeChainRemoteSources(((JoinNode) node).getLeft());
+        }
+        if (node instanceof SemiJoinNode) {
+            return collectProbeChainRemoteSources(((SemiJoinNode) node).getSource());
+        }
+        ImmutableList.Builder<RemoteSourceNode> result = ImmutableList.builder();
+        for (PlanNode child : node.getSources()) {
+            result.addAll(collectProbeChainRemoteSources(child));
+        }
+        return result.build();
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
