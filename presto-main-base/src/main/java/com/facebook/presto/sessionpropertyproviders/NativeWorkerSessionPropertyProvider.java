@@ -45,6 +45,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_WRITER_FLUSH_THRESHOLD_BYTES = "native_writer_flush_threshold_bytes";
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
+    public static final String NATIVE_LOCAL_MERGE_SPILL_ENABLED = "native_local_merge_spill_enabled";
+    public static final String NATIVE_LOCAL_MERGE_MAX_NUM_MERGE_SOURCES = "native_local_merge_max_num_merge_sources";
     public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
     public static final String NATIVE_DEBUG_DISABLE_EXPRESSION_WITH_PEELING = "native_debug_disable_expression_with_peeling";
@@ -176,6 +178,16 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED,
                         "Native Execution only. Enable topN row number spilling on native engine",
                         false,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_LOCAL_MERGE_SPILL_ENABLED,
+                        "Native Execution only. Enable local merge spilling on native engine",
+                        false,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_LOCAL_MERGE_MAX_NUM_MERGE_SOURCES,
+                        "Native Execution only. Specify the max number of local sources to merge at a time.",
+                        Integer.MAX_VALUE,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_SPILLER_NUM_PARTITION_BITS,
