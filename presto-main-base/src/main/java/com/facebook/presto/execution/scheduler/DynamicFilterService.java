@@ -14,11 +14,13 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -36,6 +38,10 @@ public class DynamicFilterService
 {
     private final ConcurrentMap<QueryId, ConcurrentMap<String, JoinDynamicFilter>> filters = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, ConcurrentMap<PlanNodeId, Set<String>>> scanToFilterIds = new ConcurrentHashMap<>();
+    // Maps (queryId, targetFragmentId) -> filter IDs that SHOULD be matched to scans in that
+    // fragment via cross-fragment matching. Registered by parent fragments when their JoinNode's
+    // probe child is a RemoteSourceNode pointing to the target fragment.
+    private final ConcurrentMap<QueryId, ConcurrentMap<PlanFragmentId, Set<String>>> probeFragmentFilters = new ConcurrentHashMap<>();
 
     private final DynamicFilterStats stats;
 
@@ -77,6 +83,7 @@ public class DynamicFilterService
         requireNonNull(queryId, "queryId is null");
         filters.remove(queryId);
         scanToFilterIds.remove(queryId);
+        probeFragmentFilters.remove(queryId);
     }
 
     public void registerScanFilterMapping(QueryId queryId, PlanNodeId scanNodeId, Set<String> filterIds)
@@ -121,6 +128,34 @@ public class DynamicFilterService
             return ImmutableMap.of();
         }
         return ImmutableMap.copyOf(queryFilters);
+    }
+
+    public void registerProbeFragmentFilter(QueryId queryId, PlanFragmentId targetFragmentId, Set<String> filterIds)
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(targetFragmentId, "targetFragmentId is null");
+        requireNonNull(filterIds, "filterIds is null");
+
+        probeFragmentFilters
+                .computeIfAbsent(queryId, k -> new ConcurrentHashMap<>())
+                .merge(targetFragmentId, ImmutableSet.copyOf(filterIds), (existing, incoming) -> {
+                    Set<String> merged = new HashSet<>(existing);
+                    merged.addAll(incoming);
+                    return ImmutableSet.copyOf(merged);
+                });
+    }
+
+    public Set<String> getProbeFragmentFilterIds(QueryId queryId, PlanFragmentId fragmentId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        requireNonNull(fragmentId, "fragmentId is null");
+
+        ConcurrentMap<PlanFragmentId, Set<String>> queryProbeFilters = probeFragmentFilters.get(queryId);
+        if (queryProbeFilters == null) {
+            return ImmutableSet.of();
+        }
+        Set<String> filterIds = queryProbeFilters.get(fragmentId);
+        return filterIds != null ? filterIds : ImmutableSet.of();
     }
 
     public DynamicFilterStats getStats()
