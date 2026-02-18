@@ -130,6 +130,7 @@ public class ClusterMemoryManager
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final boolean isWorkScheduledOnCoordinator;
     private final boolean isBinaryTransportEnabled;
+    private final boolean useWorkerAdvertisedMemoryForLimit;
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -183,6 +184,7 @@ public class ClusterMemoryManager
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
         this.isBinaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
+        this.useWorkerAdvertisedMemoryForLimit = config.isUseWorkerAdvertisedMemoryForLimit();
         if (this.isBinaryTransportEnabled) {
             this.memoryInfoCodec = requireNonNull(memoryInfoSmileCodec, "memoryInfoSmileCodec is null");
             this.assignmentsRequestCodec = requireNonNull(assignmentsRequestSmileCodec, "assignmentsRequestSmileCodec is null");
@@ -247,6 +249,19 @@ public class ClusterMemoryManager
             lastTimeNotOutOfMemory = System.nanoTime();
         }
 
+        // When coordinator does not schedule work, cap query limits by worker-advertised capacity
+        // so the coordinator uses min(configured limit, sum of worker general pool capacity).
+        long effectiveMaxQueryMemoryInBytes = maxQueryMemoryInBytes;
+        long effectiveMaxQueryTotalMemoryInBytes = maxQueryTotalMemoryInBytes;
+        if (useWorkerAdvertisedMemoryForLimit && !isWorkScheduledOnCoordinator) {
+            ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+            long workerTotalCapacity = generalPool != null ? generalPool.getTotalDistributedBytes() : 0;
+            if (workerTotalCapacity > 0) {
+                effectiveMaxQueryTotalMemoryInBytes = min(maxQueryTotalMemoryInBytes, workerTotalCapacity);
+                effectiveMaxQueryMemoryInBytes = min(maxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes);
+            }
+        }
+
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
         long totalMemoryBytes = 0L;
@@ -264,13 +279,13 @@ public class ClusterMemoryManager
             }
 
             if (!resourceOvercommit) {
-                long userMemoryLimit = min(maxQueryMemoryInBytes, getQueryMaxMemory(query.getSession()).toBytes());
+                long userMemoryLimit = min(effectiveMaxQueryMemoryInBytes, getQueryMaxMemory(query.getSession()).toBytes());
                 if (userMemoryReservation > userMemoryLimit) {
                     query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
                     queryKilled = true;
                 }
                 QueryLimit<Long> queryTotalMemoryLimit = getMinimum(
-                        createDataSizeLimit(maxQueryTotalMemoryInBytes, SYSTEM),
+                        createDataSizeLimit(effectiveMaxQueryTotalMemoryInBytes, SYSTEM),
                         query.getResourceGroupQueryLimits()
                                 .flatMap(ResourceGroupQueryLimits::getTotalMemoryLimit)
                                 .map(rgLimit -> createDataSizeLimit(rgLimit.toBytes(), RESOURCE_GROUP))
