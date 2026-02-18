@@ -274,6 +274,20 @@ system memory allocated by a query across all workers hits this limit it will be
 killed. The value of ``query.max-total-memory`` must be greater than
 ``query.max-memory``.
 
+``query.use-worker-advertised-memory-for-limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true`` and the coordinator does not schedule work
+(``node-scheduler.include-coordinator=false``), the coordinator caps query memory
+limits by the sum of worker-advertised general pool capacity. That is, the effective
+limit is ``min(query.max-memory or query.max-total-memory, sum of worker capacities)``.
+This allows the coordinator to use worker-advertised capacity for scheduling and OOM
+decisions instead of relying only on configured limits. Set to ``false`` to use only
+the configured ``query.max-memory`` and ``query.max-total-memory`` (previous behavior).
+
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
