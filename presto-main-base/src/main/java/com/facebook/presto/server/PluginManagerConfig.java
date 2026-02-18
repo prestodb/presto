@@ -15,10 +15,10 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.validation.constraints.NotNull;
 
 import java.io.File;
