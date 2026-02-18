@@ -92,6 +92,7 @@ import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
 import com.facebook.presto.operator.aggregation.approxmostfrequent.ApproximateMostFrequent;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggregationFunction;
+import com.facebook.presto.operator.aggregation.arrayagg.CollectListAggregationFunction;
 import com.facebook.presto.operator.aggregation.differentialentropy.DifferentialEntropyAggregation;
 import com.facebook.presto.operator.aggregation.histogram.Histogram;
 import com.facebook.presto.operator.aggregation.multimapagg.AlternativeMultimapAggregationFunction;
@@ -940,6 +941,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .functions(SET_AGG, SET_UNION)
                 .function(new ArrayAggregationFunction(functionsConfig.isLegacyArrayAgg(), functionsConfig.getArrayAggGroupImplementation()))
+                .function(new CollectListAggregationFunction(functionsConfig.isLegacyArrayAgg(), functionsConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator(functionsConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
