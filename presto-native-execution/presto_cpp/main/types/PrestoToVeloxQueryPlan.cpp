@@ -37,6 +37,9 @@
 #include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/plan/CudfPlanNodeChecker.h"
+#endif
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -451,11 +454,20 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
               outputType->childAt(j), desiredSourceOutput->nameOf(j)));
     }
 
-    sourceNodes[i] = std::make_shared<core::ProjectNode>(
+    const auto projectNode = std::make_shared<core::ProjectNode>(
         fmt::format("{}.{}", node->id, i),
         std::move(names),
         std::move(projections),
         sourceNodes[i]);
+#ifdef PRESTO_ENABLE_CUDF
+    if (!facebook::velox::cudf_velox::isProjectNodeSupported(
+            projectNode.get())) {
+      VELOX_FAIL(
+          "Project PlanNode not supported in cudf: {}",
+          sourceNodes[i]->toString());
+    }
+#endif
+    sourceNodes[i] = projectNode;
   }
 
   if (type == core::LocalPartitionNode::Type::kGather) {
@@ -671,10 +683,17 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
     // No clear join type - fallback to the standard 'to velox expr'.
     if (!joinType.has_value()) {
-      return std::make_shared<core::FilterNode>(
+      const auto result = std::make_shared<core::FilterNode>(
           node->id,
           exprConverter_.toVeloxExpr(node->predicate),
           toVeloxQueryPlan(semiJoin, tableWriteInfo, taskId));
+#ifdef PRESTO_ENABLE_CUDF
+      if (!facebook::velox::cudf_velox::isFilterNodeSupported(result.get())) {
+        VELOX_FAIL(
+            "Filter PlanNode not supported in cudf: {}", result->toString());
+      }
+#endif
+      return result;
     }
 
     std::vector<core::FieldAccessTypedExprPtr> leftKeys = {
@@ -715,15 +734,38 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         right,
         left->outputType(),
         useCachedHashTable(*semiJoin));
+#ifdef PRESTO_ENABLE_CUDF
+    if (!facebook::velox::cudf_velox::isHashJoinNodeSupported(
+            hashJoinNode.get())) {
+      VELOX_FAIL(
+          "HashJoin PlanNode not supported in cudf: {}",
+          hashJoinNode->toString());
+    }
+#endif
 
-    return std::make_shared<core::ProjectNode>(
+    const auto projectNode = std::make_shared<core::ProjectNode>(
         node->id, std::move(names), std::move(projections), hashJoinNode);
+#ifdef PRESTO_ENABLE_CUDF
+    if (!facebook::velox::cudf_velox::isProjectNodeSupported(
+            projectNode.get())) {
+      VELOX_FAIL(
+          "Project PlanNode not supported in cudf: {}",
+          projectNode->toString());
+    }
+#endif
+    return projectNode;
   }
 
-  return std::make_shared<core::FilterNode>(
+  const auto result = std::make_shared<core::FilterNode>(
       node->id,
       exprConverter_.toVeloxExpr(node->predicate),
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isFilterNodeSupported(result.get())) {
+    VELOX_FAIL("Filter PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 std::shared_ptr<const core::ProjectNode>
@@ -806,7 +848,7 @@ VeloxQueryPlanConverterBase::tryConvertOffsetLimit(
         }
       }
 
-      return std::make_shared<core::ProjectNode>(
+      const auto projectNode = std::make_shared<core::ProjectNode>(
           node->id,
           getNames(node->assignments),
           getProjections(exprConverter_, node->assignments),
@@ -816,6 +858,15 @@ VeloxQueryPlanConverterBase::tryConvertOffsetLimit(
               limit->count,
               limit->step == protocol::LimitNodeStep::PARTIAL,
               toVeloxQueryPlan(rowNumber->source, tableWriteInfo, taskId)));
+#ifdef PRESTO_ENABLE_CUDF
+      if (!facebook::velox::cudf_velox::isProjectNodeSupported(
+              projectNode.get())) {
+        VELOX_FAIL(
+            "Project PlanNode not supported in cudf: {}",
+            projectNode->toString());
+      }
+#endif
+      return projectNode;
     }
   }
 
@@ -831,11 +882,19 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return limit;
   }
 
-  return std::make_shared<core::ProjectNode>(
+  const auto result = std::make_shared<core::ProjectNode>(
       node->id,
       getNames(node->assignments),
       getProjections(exprConverter_, node->assignments),
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isProjectNodeSupported(result.get())) {
+    VELOX_FAIL(
+        "Project PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 VectorPtr VeloxQueryPlanConverterBase::evaluateConstantExpression(
@@ -1043,8 +1102,15 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
   auto connectorTableHandle =
       toConnectorTableHandle(node->table, exprConverter_, typeParser_);
-  return std::make_shared<core::TableScanNode>(
+  const auto result = std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isTableScanNodeSupported(result.get())) {
+    VELOX_FAIL(
+        "TableScan PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 std::vector<core::FieldAccessTypedExprPtr>
@@ -1108,7 +1174,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     globalGroupingSets = node->groupingSets.globalGroupingSets;
   }
 
-  return std::make_shared<core::AggregationNode>(
+  const auto result = std::make_shared<core::AggregationNode>(
       node->id,
       step,
       toVeloxExprs(node->groupingSets.groupingKeys),
@@ -1121,6 +1187,14 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       /*ignoreNullKeys=*/false,
       /*noGroupsSpanBatches=*/false,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isAggregationNodeSupported(result.get())) {
+    VELOX_FAIL(
+        "Aggregation PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 std::shared_ptr<const core::GroupIdNode>
@@ -1267,7 +1341,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     rightKeys.emplace_back(exprConverter_.toVeloxExpr(right));
   }
 
-  return std::make_shared<core::HashJoinNode>(
+  const auto result = std::make_shared<core::HashJoinNode>(
       node->id,
       joinType,
       false,
@@ -1278,6 +1352,13 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
       toRowType(node->outputVariables, typeParser_),
       useCachedHashTable(*node));
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isHashJoinNodeSupported(result.get())) {
+    VELOX_FAIL(
+        "HashJoin PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
@@ -1299,7 +1380,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<TypePtr> outputTypes = left->outputType()->children();
   outputTypes.push_back(BOOLEAN());
 
-  return std::make_shared<core::HashJoinNode>(
+  const auto result = std::make_shared<core::HashJoinNode>(
       node->id,
       core::JoinType::kLeftSemiProject,
       /*nullAware=*/true,
@@ -1310,6 +1391,13 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       right,
       ROW(std::move(outputNames), std::move(outputTypes)),
       useCachedHashTable(*node));
+#ifdef PRESTO_ENABLE_CUDF
+  if (!facebook::velox::cudf_velox::isHashJoinNodeSupported(result.get())) {
+    VELOX_FAIL(
+        "HashJoin PlanNode not supported in cudf: {}", result->toString());
+  }
+#endif
+  return result;
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(

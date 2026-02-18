@@ -26,6 +26,9 @@
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/functions/remote/PrestoRestFunctionRegistration.h"
 #endif
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/plan/CudfExpressionChecker.h"
+#endif
 
 using namespace facebook::velox::core;
 using facebook::velox::TypeKind;
@@ -880,30 +883,42 @@ std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
 
 TypedExprPtr VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::RowExpression> pexpr) const {
+  facebook::velox::core::TypedExprPtr result = nullptr;
   if (auto call = std::dynamic_pointer_cast<protocol::CallExpression>(pexpr)) {
-    return toVeloxExpr(*call);
-  }
-  if (auto constant =
+    result = toVeloxExpr(*call);
+  } else if (
+      auto constant =
           std::dynamic_pointer_cast<protocol::ConstantExpression>(pexpr)) {
-    return toVeloxExpr(constant);
-  }
-  if (auto special =
+    result = toVeloxExpr(constant);
+  } else if (
+      auto special =
           std::dynamic_pointer_cast<protocol::SpecialFormExpression>(pexpr)) {
-    return toVeloxExpr(special);
-  }
-  if (auto variable =
+    result = toVeloxExpr(special);
+  } else if (
+      auto variable =
           std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
               pexpr)) {
-    return toVeloxExpr(variable);
-  }
-  if (auto lambda =
+    result = toVeloxExpr(variable);
+  } else if (
+      auto lambda =
           std::dynamic_pointer_cast<protocol::LambdaDefinitionExpression>(
               pexpr)) {
-    return toVeloxExpr(lambda);
+    result = toVeloxExpr(lambda);
   }
 
-  throw std::invalid_argument(
-      "Unsupported RowExpression type: " + pexpr->_type);
+#ifdef PRESTO_ENABLE_CUDF
+  if (result &&
+      !facebook::velox::cudf_velox::canBeEvaluatedByCudf(
+          std::vector<facebook::velox::core::TypedExprPtr>{result})) {
+    VELOX_FAIL("Expression not supported in cudf: {}", result->toString());
+  }
+#endif
+
+  if (!result) {
+    throw std::invalid_argument(
+        "Unsupported RowExpression type: " + pexpr->_type);
+  }
+  return result;
 }
 
 } // namespace facebook::presto
