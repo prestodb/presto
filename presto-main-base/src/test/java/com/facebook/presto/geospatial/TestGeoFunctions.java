@@ -454,7 +454,7 @@ public class TestGeoFunctions
         // invalid geometries
         assertInvalidReason("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))", "[MultiPoint] Repeated point: (0.0 1.0)");
         assertInvalidReason("LINESTRING (0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0)", "[LineString] Self-intersection at or near: (0.0 1.0)");
-        assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Error constructing Polygon: shell is empty but holes are not");
+        assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Self-intersection");
         assertInvalidReason("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
         assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
         assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Self-intersection");
@@ -1370,6 +1370,124 @@ public class TestGeoFunctions
     private void assertInvalidGeometryJson(String json)
     {
         assertInvalidFunction("geometry_from_geojson('" + json + "')", "Invalid GeoJSON:.*");
+    }
+
+    @Test
+    public void testDegeneratePolygons()
+    {
+        // Single polygon with CCW orientation - should orient to CW
+        testDegeneratePolygonsFunc(
+                "POLYGON ((1 2, 3 4, 5 7, 1 2))",
+                "POLYGON ((1 2, 5 7, 3 4, 1 2))");
+
+        // Single polygons with no area- should not reverse these
+        testDegeneratePolygonsFunc(
+                "POLYGON ((1 2, 5 6, 3 4, 1 2))", "POLYGON ((1 2, 5 6, 3 4, 1 2))");
+        testDegeneratePolygonsFunc(
+                "POLYGON ((1 2, 3 4, 5 6, 1 2))", "POLYGON ((1 2, 3 4, 5 6, 1 2))");
+
+        // Single polygons with interior rings- should canonicalize so any shells have
+        // CW orientation and holes have CCW orientation.
+        testDegeneratePolygonsFunc(
+                "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 3 7, 7 7, 7 3, 3 3))",
+                "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3))");
+        testDegeneratePolygonsFunc(
+                "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3))",
+                "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3))");
+
+        // Multipolygons where polygons after the first are CCW for shell or CW for
+        // hole. These should be correctly oriented after serde.
+
+        // First polygon has CW shell and CCW hole, second polygon has CCW
+        // shell and CCW hole -> second polygon shell should be reoriented
+        testDegeneratePolygonsFunc(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 20 0, 20 20, 0 20, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))",
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has CW shell and CW hole, second polygon has CCW
+        // shell and CCW hole -> first polygon hole and second polygon shell should be
+        // reoriented
+        testDegeneratePolygonsFunc(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 3 7, 7 7, 7 3, 3 3)), ((0 0, 20 0, 20 20, 0 20, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))",
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has CCW shell and CW hole, second polygon has CCW
+        // shell and CW hole -> both polygons should have shell and hole reoriented
+        testDegeneratePolygonsFunc(
+                "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0), (3 3, 3 7, 7 7, 7 3, 3 3)), ((0 0, 20 0, 20 20, 0 20, 0 0), (6 6, 6 14, 14 14, 14 6, 6 6)))",
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has CCW shell and CCW hole, second polygon has CCW
+        // shell and CCW hole -> both polygons should have shells reoriented
+        testDegeneratePolygonsFunc(
+                "MULTIPOLYGON (((0 0, 10 0, 10 10, 0 10, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 20 0, 20 20, 0 20, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))",
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has CW shell and CW hole, second polygon has CW
+        // shell and CW hole -> both polygons should have holes reoriented
+        testDegeneratePolygonsFunc(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 3 7, 7 7, 7 3, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 6 14, 14 14, 14 6, 6 6)))",
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+
+        // MultiPolygons with zero-area rings. These need to fail because our
+        // serialization format holds MultiPolygons as single vectors that rely on
+        // orientation for determining shell start points.
+
+        // Second polygon is zero area
+        testDegeneratePolygonsFuncInvalid("MULTIPOLYGON (((1 1, 2 1, 2 2, 1 1)), ((1 1, 2 2, 3 3, 2 2, 1 1)))");
+
+        // Single polygon with zero area
+        testDegeneratePolygonsFuncInvalid(
+                        "MULTIPOLYGON (((5 10, 25 30, 15 20, 5 10)))");
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((1 1, 1 2, 1 3, 1 1)))");
+
+        // First polygon has CW shell and CCW hole, second polygon has CW shell and
+        // zero-area hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 9 9, 14 14, 6 6)))");
+
+        // First polygon has CW shell and CCW hole, second polygon has zero-area shell
+        // and CCW hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 0 10, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has CW shell and CCW hole, second polygon has CW shell
+        // and zero-area hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 9 9, 14 14, 9 9, 6 6)))");
+
+
+        // First polygon has CW shell and CCW hole, second polygon has zero-area shell
+        // and zero-area hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 0 10, 0 0), (6 6, 9 9, 14 14, 6 6)))");
+
+        // First polygon has zero-area shell and CCW hole, second polygon has CW shell
+        // and CCW hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 0 15, 0 0), (3 3, 7 3, 7 7, 3 7, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6))))");
+
+        // First polygon has CW shell and zero-area hole, second polygon has CW shell
+        // and CCW hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 10 10, 10 0, 0 0), (3 3, 7 3, 9 3, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+
+        // First polygon has zero-area shell and zero-area hole, second polygon has CW
+        // shell and CCW hole
+        testDegeneratePolygonsFuncInvalid(
+                "MULTIPOLYGON (((0 0, 0 10, 0 5, 0 10, 0 0), (3 3, 7 3, 9 3, 3 3)), ((0 0, 0 20, 20 20, 20 0, 0 0), (6 6, 14 6, 14 14, 6 14, 6 6)))");
+    }
+
+    private void testDegeneratePolygonsFunc(String wkt, String expected)
+    {
+        assertFunction(format("ST_ASText(ST_GeometryFromText('%s'))", wkt), VARCHAR, expected);
+    }
+
+    private void testDegeneratePolygonsFuncInvalid(String wkt)
+    {
+        assertInvalidFunction(format("ST_ASText(ST_GeometryFromText('%s'))", wkt), "Input MultiPolygon contains one or more zero-area rings.");
     }
 
     @Test

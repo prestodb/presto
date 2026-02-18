@@ -179,24 +179,36 @@ public class JtsGeometrySerde
         try {
             for (int i = 0; i < partCount; i++) {
                 Coordinate[] coordinates = readCoordinates(input, partLengths[i]);
-                if (isClockwise(coordinates)) {
-                    // next polygon has started
-                    if (shell != null) {
+                ClockwiseResult isClockwiseFlag = isClockwise(coordinates);
+                if (multitype) {
+                    if (isClockwiseFlag == ClockwiseResult.ZERO_AREA) {
+                        // When serializing a MultiPolygon, we should throw a user error if
+                        // there is a zero-area ring. This should only get hit due to a bug in
+                        // our serde logic.
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected zero-area ring in MultiPolygon deserialization.");
+                    }
+
+                    if ((shell != null) && (isClockwiseFlag == ClockwiseResult.CW)) {
+                        // Next polygon has started
                         polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
                         holes.clear();
+                        shell = null;
                     }
+                }
+
+                if (shell == null) {
                     shell = GEOMETRY_FACTORY.createLinearRing(coordinates);
                 }
                 else {
                     holes.add(GEOMETRY_FACTORY.createLinearRing(coordinates));
                 }
             }
-            polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
         }
         catch (IllegalArgumentException e) {
             throw new TopologyException("Error constructing Polygon: " + e.getMessage());
         }
 
+        polygons.add(GEOMETRY_FACTORY.createPolygon(shell, holes.toArray(new LinearRing[0])));
         if (multitype) {
             return GEOMETRY_FACTORY.createMultiPolygon(polygons.toArray(new Polygon[0]));
         }
@@ -411,7 +423,10 @@ public class JtsGeometrySerde
         }
 
         Coordinate[] coordinates = geometry.getCoordinates();
-        canonicalizePolygonCoordinates(coordinates, partIndexes, shellPart);
+        boolean zeroAreaRingEncountered = canonicalizePolygonCoordinates(coordinates, partIndexes, shellPart);
+        if (zeroAreaRingEncountered && multitype) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Input MultiPolygon contains one or more zero-area rings.");
+        }
         writeCoordinates(coordinates, output);
     }
 
@@ -462,32 +477,44 @@ public class JtsGeometrySerde
         output.writeDouble(envelope.getMaxY());
     }
 
-    private static void canonicalizePolygonCoordinates(Coordinate[] coordinates, int[] partIndexes, boolean[] shellPart)
+    private static boolean canonicalizePolygonCoordinates(Coordinate[] coordinates, int[] partIndexes, boolean[] shellPart)
     {
+        boolean zeroAreaRingEncountered = false;
         for (int part = 0; part < partIndexes.length - 1; part++) {
-            canonicalizePolygonCoordinates(coordinates, partIndexes[part], partIndexes[part + 1], shellPart[part]);
+            zeroAreaRingEncountered |= canonicalizePolygonCoordinates(coordinates, partIndexes[part], partIndexes[part + 1], shellPart[part]);
         }
         if (partIndexes.length > 0) {
-            canonicalizePolygonCoordinates(coordinates, partIndexes[partIndexes.length - 1], coordinates.length, shellPart[partIndexes.length - 1]);
+            zeroAreaRingEncountered |= canonicalizePolygonCoordinates(coordinates, partIndexes[partIndexes.length - 1], coordinates.length, shellPart[partIndexes.length - 1]);
         }
+        return zeroAreaRingEncountered;
     }
 
-    private static void canonicalizePolygonCoordinates(Coordinate[] coordinates, int start, int end, boolean isShell)
+    /**
+     * Ensures that a polygon ring has the canonical orientation:
+     * Exterior rings (shells) must be clockwise.
+     * Interior rings (holes) must be counter-clockwise.
+     * A return value of true indicates a zero-area ring was encountered
+     */
+    private static boolean canonicalizePolygonCoordinates(Coordinate[] coordinates, int start, int end, boolean isShell)
     {
-        boolean isClockwise = isClockwise(coordinates, start, end);
+        ClockwiseResult clockwiseResult = isClockwise(coordinates, start, end);
+        if (clockwiseResult == ClockwiseResult.ZERO_AREA) {
+            return true;
+        }
 
-        if ((isShell && !isClockwise) || (!isShell && isClockwise)) {
+        if ((isShell && clockwiseResult == ClockwiseResult.CCW) || (!isShell && clockwiseResult == ClockwiseResult.CW)) {
             // shell has to be counter clockwise
             reverse(coordinates, start, end);
         }
+        return false;
     }
 
-    private static boolean isClockwise(Coordinate[] coordinates)
+    private static ClockwiseResult isClockwise(Coordinate[] coordinates)
     {
         return isClockwise(coordinates, 0, coordinates.length);
     }
 
-    private static boolean isClockwise(Coordinate[] coordinates, int start, int end)
+    private static ClockwiseResult isClockwise(Coordinate[] coordinates, int start, int end)
     {
         // Sum over the edges: (x2 − x1) * (y2 + y1).
         // If the result is positive the curve is clockwise,
@@ -497,7 +524,10 @@ public class JtsGeometrySerde
             area += (coordinates[i].x - coordinates[i - 1].x) * (coordinates[i].y + coordinates[i - 1].y);
         }
         area += (coordinates[start].x - coordinates[end - 1].x) * (coordinates[start].y + coordinates[end - 1].y);
-        return area > 0;
+        if (area == 0.0) {
+            return ClockwiseResult.ZERO_AREA;
+        }
+        return area > 0.0 ? ClockwiseResult.CW : ClockwiseResult.CCW;
     }
 
     private static void reverse(Coordinate[] coordinates, int start, int end)
@@ -508,6 +538,13 @@ public class JtsGeometrySerde
             coordinates[i] = coordinates[start + end - i - 1];
             coordinates[start + end - i - 1] = buffer;
         }
+    }
+
+    enum ClockwiseResult
+    {
+        CW,
+        CCW,
+        ZERO_AREA
     }
 
     /**
