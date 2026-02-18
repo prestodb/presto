@@ -308,7 +308,32 @@ public class TestAnalyzer
     @Test
     public void testHavingReferencesOutputAlias()
     {
-        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) x FROM t1 HAVING x > 5");
+        // HAVING now support referencing SELECT aliases for improved SQL compatibility
+        analyze("SELECT sum(a) x FROM t1 HAVING x > 5");
+        analyze("SELECT sum(a) AS total FROM t1 GROUP BY b HAVING total > 10");
+        analyze("SELECT count(*) AS cnt, sum(a) AS total FROM t1 GROUP BY b HAVING cnt > 5 AND total > 100");
+        analyze("SELECT sum(a) as sum_a FROM t1 GROUP BY b HAVING sum_a > 1");
+    }
+
+    @Test
+    public void testHavingAmbiguousAlias()
+    {
+        // Ambiguous alias referenced in HAVING should throw appropriate error
+        assertFails(AMBIGUOUS_ATTRIBUTE, "SELECT sum(a) AS x, count(b) AS x FROM t1 GROUP BY c HAVING x > 5");
+    }
+
+    @Test
+    public void testHavingNonExistentAlias()
+    {
+        // Non-existent alias in HAVING should fail with MISSING_ATTRIBUTE
+        assertFails(MISSING_ATTRIBUTE, "SELECT sum(a) AS total FROM t1 GROUP BY b HAVING unknown_alias > 5");
+    }
+
+    @Test
+    public void testHavingWindowFunctionViaAlias()
+    {
+        // Window functions are not allowed in HAVING, even when referenced via alias
+        assertFails(NESTED_WINDOW, "SELECT row_number() OVER () AS rn FROM t1 GROUP BY b HAVING rn > 1");
     }
 
     @Test
