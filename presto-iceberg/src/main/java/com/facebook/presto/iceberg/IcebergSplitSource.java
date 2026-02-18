@@ -18,6 +18,7 @@ import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -46,6 +47,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
 import static java.util.Objects.requireNonNull;
@@ -123,6 +125,13 @@ public class IcebergSplitSource
     {
         PartitionSpec spec = task.spec();
         Optional<PartitionData> partitionData = partitionDataFromStructLike(spec, task.file().partition());
+
+        // Validate no PUFFIN deletion vectors (Iceberg v3 feature not yet supported)
+        for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+            if (deleteFile.format() == org.apache.iceberg.FileFormat.PUFFIN) {
+                throw new PrestoException(NOT_SUPPORTED, "Iceberg deletion vectors (PUFFIN format) are not supported");
+            }
+        }
 
         // TODO: We should leverage residual expression and convert that to TupleDomain.
         //       The predicate here is used by readers for predicate push down at reader level,
