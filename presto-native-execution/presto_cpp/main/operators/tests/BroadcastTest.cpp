@@ -66,6 +66,14 @@ class BroadcastTest : public exec::test::OperatorTestBase,
         BroadcastExchangeSource::createExchangeSource);
   }
 
+  void TearDown() override {
+    exec::test::waitForAllTasksToBeDeleted();
+    executor_.reset();
+    pool_.reset();
+    rootPool_.reset();
+    resetMemory();
+  }
+
   std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
       common::CompressionKind compressionKind) {
     std::unique_ptr<VectorSerde::Options> options = std::make_unique<
