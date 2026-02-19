@@ -53,7 +53,7 @@ bool validateDefaultNamespacePrefix(
   VELOX_CHECK_EQ(prestoDefaultNamespacePrefixParts.size(), 2);
   for (const auto& [functionName, _] : functionMap) {
     // Skip internal functions. They don't have any prefix.
-    if ((kBlockList.count(functionName) != 0) ||
+    if ((kBlockList.contains(functionName)) ||
         (functionName.find("$internal$") != std::string::npos)) {
       continue;
     }
