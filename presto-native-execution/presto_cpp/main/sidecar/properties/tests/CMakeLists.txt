@@ -17,7 +17,7 @@ add_test(NAME session_properties_test COMMAND session_properties_test)
 target_link_libraries(
   session_properties_test
   presto_session_properties
-  presto_protocol
+  $<TARGET_OBJECTS:presto_protocol>
   velox_core
   velox_exec
   velox_functions_prestosql
@@ -25,4 +25,32 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
+  velox_dwio_common
+  velox_dwio_common_exception
 )
+
+if(PRESTO_ENABLE_CUDF)
+  add_executable(cudf_session_properties_test CudfSessionPropertiesTest.cpp)
+
+  add_test(
+    NAME cudf_session_properties_test
+    COMMAND cudf_session_properties_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+
+  target_link_libraries(
+    cudf_session_properties_test
+    presto_session_properties
+    presto_cudf_session_properties
+    $<TARGET_OBJECTS:presto_protocol>
+    velox_core
+    velox_cudf_exec
+    GTest::gmock
+    GTest::gtest
+    GTest::gtest_main
+    ${FOLLY_WITH_DEPENDENCIES}
+    velox_dwio_common
+    velox_dwio_common_exception
+    velox_hive_connector
+  )
+endif()
