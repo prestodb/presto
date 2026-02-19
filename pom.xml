@@ -62,7 +62,7 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.asm.version>9.7.1</dep.asm.version>
-        <dep.gcs.version>1.9.17</dep.gcs.version>
+        <dep.gcs.version>3.1.7</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>2.0.16</dep.slf4j.version>
         <dep.kafka.version>3.9.1</dep.kafka.version>
@@ -1927,6 +1927,7 @@
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>util</artifactId>
                 <version>${dep.gcs.version}</version>
+                <scope>runtime</scope>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.guava</groupId>
@@ -1962,7 +1963,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>util-hadoop</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
+                <version>${dep.gcs.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>commons-logging</groupId>
@@ -2084,7 +2085,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop2-${dep.gcs.version}</version>
+                <version>${dep.gcs.version}</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>log4j</artifactId>
