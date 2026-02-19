@@ -394,6 +394,7 @@ import static com.facebook.presto.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRA
 import static com.facebook.presto.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static com.facebook.presto.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
 import static com.facebook.presto.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
+import static com.facebook.presto.operator.scalar.ArrayTransformWithIndexFunction.ARRAY_TRANSFORM_WITH_INDEX_FUNCTION;
 import static com.facebook.presto.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static com.facebook.presto.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
@@ -978,7 +979,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(DECIMAL_AVERAGE_AGGREGATION)
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
-                .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
+                .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_TRANSFORM_WITH_INDEX_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
                 .function(TRY_CAST)
                 .aggregate(ApproximateMostFrequent.class)
