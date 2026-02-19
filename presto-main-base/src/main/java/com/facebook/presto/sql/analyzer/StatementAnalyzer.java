@@ -108,6 +108,7 @@ import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -1137,6 +1138,17 @@ class StatementAnalyzer
             analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateVectorIndex(CreateVectorIndex node, Optional<Scope> scope)
+        {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            analysis.setCreateVectorIndexTableName(tableName);
+
+            validateProperties(node.getProperties(), scope);
+
+            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "result", BOOLEAN));
         }
 
         @Override
