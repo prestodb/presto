@@ -47,6 +47,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COMPLETED_ID_DELIVERED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_FETCHERS_STARTED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_FETCHER_FINAL_FETCH_COMPLETED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_FETCHER_POLLS;
@@ -225,6 +226,9 @@ public class DynamicFilterFetcher
 
         for (String filterId : response.getCompletedFilterIds()) {
             if (!deliveredFilterIds.contains(filterId)) {
+                if (extendedMetrics) {
+                    emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_COMPLETED_ID_DELIVERED, filterId, taskSuffix), 1);
+                }
                 resolveFilter(filterId)
                         .ifPresent(f -> f.addPartitionByFilterId(TupleDomain.none()));
                 deliveredFilterIds.add(filterId);
