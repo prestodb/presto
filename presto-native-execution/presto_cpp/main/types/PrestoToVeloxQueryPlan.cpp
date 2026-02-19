@@ -101,7 +101,7 @@ RowTypePtr toRowType(
   types.reserve(variables.size());
 
   for (const auto& variable : variables) {
-    if (excludeNames.count(variable.name)) {
+    if (excludeNames.contains(variable.name)) {
       continue;
     }
     names.emplace_back(variable.name);
@@ -1757,7 +1757,7 @@ toSortFieldsAndOrders(
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& [variable, sortOrder] : nodeSpecOrdering) {
       // Drop sorting keys that are present in partitioning keys.
-      if (partitionKeys.count(variable.name) == 0) {
+      if (!partitionKeys.contains(variable.name)) {
         sortFields.emplace_back(exprConverter.toVeloxExpr(variable));
         sortOrders.emplace_back(toVeloxSortOrder(sortOrder));
       }
