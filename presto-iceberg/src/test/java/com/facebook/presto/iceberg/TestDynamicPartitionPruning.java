@@ -192,6 +192,25 @@ public class TestDynamicPartitionPruning
                 "INSERT INTO dim_active_regions VALUES ('WEST', 'West Coast')",
                 1);
 
+        assertUpdate("CREATE TABLE fact_returns (" +
+                "return_id BIGINT, " +
+                "order_id BIGINT, " +
+                "return_amount DECIMAL(10, 2)" +
+                ") WITH (partitioning = ARRAY['order_id'])");
+
+        for (int customerId = 1; customerId <= 10; customerId++) {
+            assertUpdate(format(
+                    "INSERT INTO fact_returns " +
+                            "SELECT " +
+                            "  (row_number() OVER ()) + %d * 100 AS return_id, " +
+                            "  (row_number() OVER ()) + %d * 100 AS order_id, " +
+                            "  CAST(random() * 100 AS DECIMAL(10, 2)) AS return_amount " +
+                            "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
+                            "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
+                    customerId, customerId),
+                    10);
+        }
+
         factOrdersTotalFiles = countFiles("fact_orders");
         factOrdersWestFiles = countFiles("fact_orders", "customer_id IN (1, 2, 3)");
         dimCustomersFiles = countFiles("dim_customers");
@@ -211,6 +230,7 @@ public class TestDynamicPartitionPruning
         assertUpdate("DROP TABLE IF EXISTS fact_orders_by_year");
         assertUpdate("DROP TABLE IF EXISTS dim_selected_dates");
         assertUpdate("DROP TABLE IF EXISTS dim_active_regions");
+        assertUpdate("DROP TABLE IF EXISTS fact_returns");
     }
 
     @Test(invocationCount = 10)
@@ -1361,6 +1381,28 @@ public class TestDynamicPartitionPruning
                 "Partitioned join: filter resolved in time — no splits scheduled before filter");
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Partitioned join");
+    }
+
+    @Test
+    public void testMultiJoinCrossFragmentCorrectness()
+    {
+        String query = "SELECT combined.order_id, combined.amount, c.customer_name " +
+                "FROM (" +
+                "  SELECT f.order_id, f.customer_id, f.amount " +
+                "  FROM fact_orders f " +
+                "  JOIN fact_returns r ON f.order_id = r.order_id" +
+                ") combined " +
+                "JOIN dim_customers c ON combined.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY combined.order_id";
+
+        ResultWithQueryId<MaterializedResult> dppResult = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> noDppResult = executeWithDppSession(false, query);
+
+        assertEquals(
+                dppResult.getResult().getMaterializedRows(),
+                noDppResult.getResult().getMaterializedRows(),
+                "Multi-join cross-fragment: DPP results should match non-DPP results");
     }
 
     private long getBuildSideWallNanos(ResultWithQueryId<MaterializedResult> result, PlanNodeId joinNodeId)
