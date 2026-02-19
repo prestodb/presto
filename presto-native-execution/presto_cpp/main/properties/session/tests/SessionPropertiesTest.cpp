@@ -13,7 +13,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "presto_cpp/main/SessionProperties.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/core/QueryConfig.h"
 
 using namespace facebook::presto;

@@ -23,6 +23,10 @@
 
 namespace facebook::presto::util {
 
+std::string boolToString(bool value) {
+  return value ? "true" : "false";
+}
+
 DateTime toISOTimestamp(uint64_t timeMilli) {
   char buf[80];
   time_t timeSecond = timeMilli / 1000;
