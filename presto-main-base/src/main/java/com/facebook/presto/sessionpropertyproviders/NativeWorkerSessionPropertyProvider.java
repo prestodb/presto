@@ -54,7 +54,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_DEBUG_MEMORY_POOL_NAME_REGEX = "native_debug_memory_pool_name_regex";
     public static final String NATIVE_DEBUG_MEMORY_POOL_WARN_THRESHOLD_BYTES = "native_debug_memory_pool_warn_threshold_bytes";
     public static final String NATIVE_SELECTIVE_NIMBLE_READER_ENABLED = "native_selective_nimble_reader_enabled";
-    public static final String NATIVE_ROW_SIZE_TRACKING_ENABLED = "row_size_tracking_enabled";
+    public static final String NATIVE_ROW_SIZE_TRACKING_MODE = "row_size_tracking_mode";
     public static final String NATIVE_PREFERRED_OUTPUT_BATCH_BYTES = "preferred_output_batch_bytes";
     public static final String NATIVE_PREFERRED_OUTPUT_BATCH_ROWS = "preferred_output_batch_rows";
     public static final String NATIVE_MAX_OUTPUT_BATCH_ROWS = "max_output_batch_rows";
@@ -242,11 +242,12 @@ public class NativeWorkerSessionPropertyProvider
                                 "reader is fully rolled out.",
                         false,
                         !nativeExecution),
-                booleanProperty(
-                        NATIVE_ROW_SIZE_TRACKING_ENABLED,
+                integerProperty(
+                        NATIVE_ROW_SIZE_TRACKING_MODE,
                         "Flag to control whether row size tracking should be enabled as a fallback " +
-                                "for reader row size estimates.",
-                        true,
+                                "for reader row size estimates. Mapping to the enum values: " +
+                                "DISABLED = 0, EXCLUDE_DELTA_SPLITS = 1, ENABLED_FOR_ALL = 2",
+                        2,
                         !nativeExecution),
                 longProperty(
                         NATIVE_PREFERRED_OUTPUT_BATCH_BYTES,
