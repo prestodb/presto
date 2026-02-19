@@ -91,6 +91,7 @@ std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleWriteNode(
 std::function<PlanNodePtr(std::string, PlanNodePtr)> addBroadcastWriteNode(
     const std::string& basePath,
     uint64_t maxBroadcastBytes,
+    uint64_t targetFileSize,
     const std::optional<std::vector<std::string>>& outputLayout) {
   return [=](core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
@@ -106,7 +107,7 @@ std::function<PlanNodePtr(std::string, PlanNodePtr)> addBroadcastWriteNode(
     }
 
     return std::make_shared<BroadcastWriteNode>(
-        nodeId, basePath, maxBroadcastBytes, outputType, std::move(source));
+        nodeId, basePath, maxBroadcastBytes, targetFileSize, outputType, std::move(source));
   };
 }
 } // namespace facebook::presto::operators

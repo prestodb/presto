@@ -15,6 +15,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <limits>
 #include "presto_cpp/main/operators/BroadcastFile.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/OperatorUtils.h"
@@ -58,6 +59,7 @@ class BroadcastWriteOperator : public Operator {
     fileBroadcastWriter_ = std::make_unique<BroadcastFileWriter>(
         fmt::format("{}/file_broadcast_{}", basePath, makeUuid()),
         planNode->maxBroadcastBytes(),
+        planNode->targetFileSize(),
         8 << 20,
         getVectorSerdeOptions(
             common::stringToCompressionKind(
@@ -134,6 +136,7 @@ folly::dynamic BroadcastWriteNode::serialize() const {
   obj["broadcastWriteBasePath"] =
       ISerializable::serialize<std::string>(basePath_);
   obj["maxBroadcastBytes"] = maxBroadcastBytes_;
+  obj["targetFileSize"] = targetFileSize_;
   obj["rowType"] = serdeRowType_->serialize();
   obj["sources"] = ISerializable::serialize(sources_);
   return obj;
@@ -142,11 +145,16 @@ folly::dynamic BroadcastWriteNode::serialize() const {
 velox::core::PlanNodePtr BroadcastWriteNode::create(
     const folly::dynamic& obj,
     void* context) {
+  auto maxBroadcastBytes = obj["maxBroadcastBytes"].asInt();
+  uint64_t targetFileSize = obj.count("targetFileSize")
+      ? static_cast<uint64_t>(obj["targetFileSize"].asInt())
+      : std::numeric_limits<uint64_t>::max();
   return std::make_shared<BroadcastWriteNode>(
       deserializePlanNodeId(obj),
       ISerializable::deserialize<std::string>(
           obj["broadcastWriteBasePath"], context),
-      obj["maxBroadcastBytes"].asInt(),
+      maxBroadcastBytes,
+      targetFileSize,
       ISerializable::deserialize<RowType>(obj["rowType"]),
       ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
           obj["sources"], context)[0]);
