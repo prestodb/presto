@@ -238,6 +238,28 @@ public class ClusterMemoryManager
         return pools.containsKey(poolId);
     }
 
+    /**
+     * Computes effective query memory limits from config and worker-advertised capacity.
+     * Used by {@link #process(Iterable)} and by tests to verify worker-advertised capping behavior.
+     *
+     * @return long[0] = effective max query user memory in bytes, long[1] = effective max query total memory in bytes
+     */
+    static long[] computeEffectiveQueryMemoryLimits(
+            long maxQueryMemoryInBytes,
+            long maxQueryTotalMemoryInBytes,
+            boolean useWorkerAdvertisedMemoryForLimit,
+            boolean isWorkScheduledOnCoordinator,
+            long workerTotalCapacityBytes)
+    {
+        long effectiveMaxQueryMemoryInBytes = maxQueryMemoryInBytes;
+        long effectiveMaxQueryTotalMemoryInBytes = maxQueryTotalMemoryInBytes;
+        if (useWorkerAdvertisedMemoryForLimit && !isWorkScheduledOnCoordinator && workerTotalCapacityBytes > 0) {
+            effectiveMaxQueryTotalMemoryInBytes = min(maxQueryTotalMemoryInBytes, workerTotalCapacityBytes);
+            effectiveMaxQueryMemoryInBytes = min(maxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes);
+        }
+        return new long[] {effectiveMaxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes};
+    }
+
     public synchronized void process(Iterable<QueryExecution> runningQueries)
     {
         if (!enabled) {
@@ -251,16 +273,19 @@ public class ClusterMemoryManager
 
         // When coordinator does not schedule work, cap query limits by worker-advertised capacity
         // so the coordinator uses min(configured limit, sum of worker general pool capacity).
-        long effectiveMaxQueryMemoryInBytes = maxQueryMemoryInBytes;
-        long effectiveMaxQueryTotalMemoryInBytes = maxQueryTotalMemoryInBytes;
-        if (useWorkerAdvertisedMemoryForLimit && !isWorkScheduledOnCoordinator) {
-            ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
-            long workerTotalCapacity = generalPool != null ? generalPool.getTotalDistributedBytes() : 0;
-            if (workerTotalCapacity > 0) {
-                effectiveMaxQueryTotalMemoryInBytes = min(maxQueryTotalMemoryInBytes, workerTotalCapacity);
-                effectiveMaxQueryMemoryInBytes = min(maxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes);
-            }
+        long workerTotalCapacity = 0;
+        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+        if (generalPool != null) {
+            workerTotalCapacity = generalPool.getTotalDistributedBytes();
         }
+        long[] effective = computeEffectiveQueryMemoryLimits(
+                maxQueryMemoryInBytes,
+                maxQueryTotalMemoryInBytes,
+                useWorkerAdvertisedMemoryForLimit,
+                isWorkScheduledOnCoordinator,
+                workerTotalCapacity);
+        long effectiveMaxQueryMemoryInBytes = effective[0];
+        long effectiveMaxQueryTotalMemoryInBytes = effective[1];
 
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
