@@ -110,4 +110,8 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_FETCHER_STOPPED_BY_CLEANUP = "dynamicFilterFetcherStoppedByCleanup";
     public static final String DYNAMIC_FILTER_FETCHER_FINAL_FETCH_COMPLETED = "dynamicFilterFetcherFinalFetchCompleted";
     public static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_FROM_TASK = "dynamicFilterPartitionsReceivedFromTask";
+    public static final String DYNAMIC_FILTER_OPERATOR_CALLBACK = "dynamicFilterOperatorCallback";
+    public static final String DYNAMIC_FILTER_FACTORY_CLOSED = "dynamicFilterFactoryClosed";
+    public static final String DYNAMIC_FILTER_FLUSH_FIRED = "dynamicFilterFlushFired";
+    public static final String DYNAMIC_FILTER_COMPLETED_ID_DELIVERED = "dynamicFilterCompletedIdDelivered";
 }

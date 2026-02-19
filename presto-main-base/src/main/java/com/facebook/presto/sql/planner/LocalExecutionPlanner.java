@@ -288,6 +288,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWrit
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
@@ -297,6 +298,10 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeJoinProbeFor
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_FACTORY_CLOSED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_FLUSH_FIRED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_OPERATOR_CALLBACK;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -2663,6 +2668,7 @@ public class LocalExecutionPlanner
             // exactly once, after all operators have finished and the factory has closed.
             // Multiple operators can exist per task due to task.concurrency (non-grouped)
             // or multiple lifespans (grouped execution).
+            boolean extendedMetrics = isDistributedDynamicFilterExtendedMetrics(context.getSession());
             Consumer<TupleDomain<String>> downstream = coordinatorConsumer.get();
             List<TupleDomain<String>> partitions = Collections.synchronizedList(new ArrayList<>());
             AtomicInteger createdCount = new AtomicInteger(0);
@@ -2675,6 +2681,12 @@ public class LocalExecutionPlanner
                         && finishedCount.get() >= createdCount.get()
                         && createdCount.get() > 0
                         && flushed.compareAndSet(false, true)) {
+                    if (extendedMetrics) {
+                        for (String fid : filterIds) {
+                            context.getTaskContext().getRuntimeStats()
+                                    .addMetricValue(format("%s[%s]", DYNAMIC_FILTER_FLUSH_FIRED, fid), NONE, 1);
+                        }
+                    }
                     downstream.accept(partitions.isEmpty()
                             ? TupleDomain.none()
                             : TupleDomain.columnWiseUnion(new ArrayList<>(partitions)));
@@ -2687,11 +2699,23 @@ public class LocalExecutionPlanner
             Consumer<TupleDomain<String>> perOperator = td -> {
                 partitions.add(td);
                 finishedCount.incrementAndGet();
+                if (extendedMetrics) {
+                    for (String fid : filterIds) {
+                        context.getTaskContext().getRuntimeStats()
+                                .addMetricValue(format("%s[%s]", DYNAMIC_FILTER_OPERATOR_CALLBACK, fid), NONE, 1);
+                    }
+                }
                 tryFlush.run();
             };
 
             Runnable onClose = () -> {
                 factoryClosed.set(true);
+                if (extendedMetrics) {
+                    for (String fid : filterIds) {
+                        context.getTaskContext().getRuntimeStats()
+                                .addMetricValue(format("%s[%s]", DYNAMIC_FILTER_FACTORY_CLOSED, fid), NONE, 1);
+                    }
+                }
                 tryFlush.run();
             };
 
