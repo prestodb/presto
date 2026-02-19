@@ -1383,6 +1383,52 @@ public class TestDynamicPartitionPruning
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Partitioned join");
     }
 
+    @Test(invocationCount = 10)
+    public void testJoinKeyNotInSelectList()
+    {
+        String query = "SELECT f.order_id, f.amount " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+
+        assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+                "Join key not in SELECT: should return all WEST rows");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultWithoutDpp.getResult().getMaterializedRows(),
+                "Join key not in SELECT: results must be identical with DPP enabled vs disabled");
+
+        RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+        RuntimeStats noDppStats = getRuntimeStats(resultWithoutDpp);
+
+        assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                "Join key not in SELECT: DF should be pushed into Iceberg scan");
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED),
+                factOrdersWestFiles,
+                "Join key not in SELECT: should process only WEST partition files with DPP");
+        assertEquals(getMetricValue(noDppStats, DYNAMIC_FILTER_SPLITS_PROCESSED), 0,
+                "Join key not in SELECT: metric should not be emitted without DPP");
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER), 0,
+                "Join key not in SELECT: filter resolved in time");
+
+        DynamicFilterInfo filterInfo = resolveDynamicFilter(resultWithDpp, "customer_id");
+        assertNotNull(filterInfo, "Join key not in SELECT: should resolve a dynamic filter from the plan");
+
+        assertFilterResolvesWithinTimeout(dppStats, "Join key not in SELECT");
+        assertCollectionTimeBoundedByBuildSide(dppStats, resultWithDpp, filterInfo, "Join key not in SELECT");
+
+        long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
+        long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
+                format("Join key not in SELECT: DPP should skip exactly %d non-WEST manifests (total=%d, WEST=3)",
+                        factOrdersTotalManifests - 3, factOrdersTotalManifests));
+
+        assertDppReducesData(resultWithDpp, resultWithoutDpp, "Join key not in SELECT");
+    }
+
     @Test
     public void testMultiJoinCrossFragmentCorrectness()
     {
