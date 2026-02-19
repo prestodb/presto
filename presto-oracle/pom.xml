@@ -185,7 +185,7 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>oracle-xe</artifactId>
             <scope>test</scope>
-            <version>1.14.3</version>
+            <version>1.21.3</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
