@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.inject.Injector;
 
 import java.util.Map;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -43,14 +47,33 @@ public class BlackHoleConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
-        ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
-        return new BlackHoleConnector(
-                new BlackHoleMetadata(),
-                new BlackHoleSplitManager(),
-                new BlackHolePageSourceProvider(executorService),
-                new BlackHolePageSinkProvider(executorService),
-                new BlackHoleNodePartitioningProvider(context.getNodeManager()),
-                context.getTypeManager(),
-                executorService);
+        try {
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    binder -> {
+                        configBinder(binder).bindConfig(BlackHoleClientConfig.class);
+                    });
+
+            Injector injector = app
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(requiredConfig)
+                    .initialize();
+
+            BlackHoleClientConfig config = injector.getInstance(BlackHoleClientConfig.class);
+
+            ListeningScheduledExecutorService executorService = listeningDecorator(newSingleThreadScheduledExecutor(daemonThreadsNamed("blackhole")));
+            return new BlackHoleConnector(
+                    new BlackHoleMetadata(),
+                    new BlackHoleSplitManager(),
+                    new BlackHolePageSourceProvider(executorService),
+                    new BlackHolePageSinkProvider(executorService),
+                    new BlackHoleNodePartitioningProvider(context.getNodeManager()),
+                    context.getTypeManager(),
+                    executorService,
+                    config);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
