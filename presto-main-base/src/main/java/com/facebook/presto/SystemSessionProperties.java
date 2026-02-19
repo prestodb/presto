@@ -197,6 +197,7 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
+    public static final String MAX_SPLIT_PRELOAD_PER_DRIVER = "max_split_preload_per_driver";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String CTE_MATERIALIZATION_STRATEGY = "cte_materialization_strategy";
@@ -1054,6 +1055,11 @@ public final class SystemSessionProperties
                         false,
                         value -> min(taskManagerConfig.getMaxDriversPerTask(), validateNullablePositiveIntegerValue(value, MAX_DRIVERS_PER_TASK)),
                         object -> object),
+                integerProperty(
+                        MAX_SPLIT_PRELOAD_PER_DRIVER,
+                        "Maximum number of splits to preload per driver. Set to 0 to disable preloading",
+                        0,
+                        false),
                 booleanProperty(
                         IGNORE_STATS_CALCULATOR_FAILURES,
                         "Ignore statistics calculator failures",
@@ -2732,6 +2738,11 @@ public final class SystemSessionProperties
             return OptionalInt.empty();
         }
         return OptionalInt.of(value);
+    }
+
+    public static int getMaxSplitPreloadPerDriver(Session session)
+    {
+        return session.getSystemProperty(MAX_SPLIT_PRELOAD_PER_DRIVER, Integer.class);
     }
 
     public static int getMaxTasksPerStage(Session session)
