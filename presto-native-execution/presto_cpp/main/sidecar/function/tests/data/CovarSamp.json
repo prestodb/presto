@@ -1,0 +1,48 @@
+{
+  "covar_samp": [
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(double,bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.covar_samp",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "double",
+      "paramTypes": [
+        "double",
+        "double"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(double,bigint,double,double)",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.covar_samp",
+      "functionKind": "AGGREGATE",
+      "longVariableConstraints":[],
+      "outputType": "real",
+      "paramTypes": [
+        "real",
+        "real"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints":[],
+      "variableArity":false
+    }
+  ]
+}

@@ -10,8 +10,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
+add_library(
+  presto_function_metadata OBJECT
+  BaseFunctionMetadataProvider.cpp
+  NativeFunctionMetadata.cpp
+)
 target_link_libraries(presto_function_metadata presto_common velox_function_registry)
+
+if(PRESTO_ENABLE_CUDF)
+  add_library(presto_cudf_function_metadata OBJECT CudfFunctionMetadata.cpp)
+  target_link_libraries(
+    presto_cudf_function_metadata
+    cudf::cudf
+    presto_function_metadata
+    presto_common
+    velox_function_registry
+  )
+endif()
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

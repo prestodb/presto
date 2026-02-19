@@ -14,7 +14,8 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/sidecar/function/NativeFunctionMetadata.h"
+#include "presto_cpp/main/sidecar/function/tests/FunctionMetadataTestUtils.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -22,6 +23,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::presto;
+using facebook::presto::test::function::testFunctionMetadata;
 
 using json = nlohmann::json;
 
@@ -36,108 +38,105 @@ class FunctionMetadataTest : public ::testing::Test {
   }
 
   void SetUp() override {
-    functionMetadata_ = getFunctionsMetadata();
-  }
-
-  void sortMetadataList(json::array_t& list) {
-    for (auto& metadata : list) {
-      // Sort constraint arrays for deterministic test comparisons.
-      for (auto const& [key, val] : metadata.items()) {
-        if (key.ends_with("Constraints") && metadata[key].is_array()) {
-          std::sort(
-              metadata[key].begin(),
-              metadata[key].end(),
-              [](const json& a, const json& b) { return a.dump() < b.dump(); });
-        }
-      }
-    }
-    std::sort(list.begin(), list.end(), [](const json& a, const json& b) {
-      return folly::hasher<std::string>()(
-                 a["functionKind"].dump() + a["paramTypes"].dump()) <
-          folly::hasher<std::string>()(
-                 b["functionKind"].dump() + b["paramTypes"].dump());
-    });
-  }
-
-  void testFunction(
-      const std::string& name,
-      const std::string& expectedFile,
-      size_t expectedSize) {
-    json::array_t metadataList = functionMetadata_.at(name);
-    EXPECT_EQ(metadataList.size(), expectedSize);
-    std::string expectedStr = slurp(
-        test::utils::getDataPath(
-            "/github/presto-trunk/presto-native-execution/presto_cpp/main/functions/tests/data/",
-            expectedFile));
-    auto expected = json::parse(expectedStr);
-
-    json::array_t expectedList = expected[name];
-    sortMetadataList(expectedList);
-    sortMetadataList(metadataList);
-    for (auto i = 0; i < expectedSize; i++) {
-      EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
-    }
+    functionMetadata_ = nativeFunctionMetadata().getFunctionsMetadata();
   }
 
   json functionMetadata_;
 };
 
 TEST_F(FunctionMetadataTest, approxMostFrequent) {
-  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 7);
+  testFunctionMetadata(
+      functionMetadata_,
+      "approx_most_frequent",
+      "ApproxMostFrequent.json",
+  7);
 }
 
 TEST_F(FunctionMetadataTest, arrayFrequency) {
-  testFunction("array_frequency", "ArrayFrequency.json", 10);
+  testFunctionMetadata(
+      functionMetadata_,
+      "array_frequency",
+      "ArrayFrequency.json",
+  10);
 }
 
 TEST_F(FunctionMetadataTest, combinations) {
-  testFunction("combinations", "Combinations.json", 11);
+  testFunctionMetadata(
+      functionMetadata_,
+      "combinations",
+      "Combinations.json",
+  11);
 }
 
 TEST_F(FunctionMetadataTest, covarSamp) {
-  testFunction("covar_samp", "CovarSamp.json", 2);
+  testFunctionMetadata(
+      functionMetadata_,
+      "covar_samp",
+      "CovarSamp.json",
+  2);
 }
 
 TEST_F(FunctionMetadataTest, elementAt) {
-  testFunction("element_at", "ElementAt.json", 3);
+  testFunctionMetadata(
+      functionMetadata_,
+      "element_at",
+      "ElementAt.json",
+  3);
 }
 
 TEST_F(FunctionMetadataTest, greatest) {
-  testFunction("greatest", "Greatest.json", 15);
+  testFunctionMetadata(
+      functionMetadata_,
+      "greatest",
+      "Greatest.json",
+  15);
 }
 
 TEST_F(FunctionMetadataTest, lead) {
-  testFunction("lead", "Lead.json", 3);
+  testFunctionMetadata(
+      functionMetadata_,
+      "lead",
+      "Lead.json",
+  3);
 }
 
 TEST_F(FunctionMetadataTest, mod) {
-  testFunction("mod", "Mod.json", 7);
+  testFunctionMetadata(functionMetadata_, "mod", "Mod.json", 7);
 }
 
 TEST_F(FunctionMetadataTest, ntile) {
-  testFunction("ntile", "Ntile.json", 1);
+  testFunctionMetadata(functionMetadata_, "ntile", "Ntile.json", 1);
 }
 
 TEST_F(FunctionMetadataTest, setAgg) {
-  testFunction("set_agg", "SetAgg.json", 1);
+  testFunctionMetadata(functionMetadata_, "set_agg", "SetAgg.json", 1);
 }
 
 TEST_F(FunctionMetadataTest, stddevSamp) {
-  testFunction("stddev_samp", "StddevSamp.json", 5);
+  testFunctionMetadata(
+      functionMetadata_,
+      "stddev_samp",
+      "StddevSamp.json",
+  5);
 }
 
 TEST_F(FunctionMetadataTest, transformKeys) {
-  testFunction("transform_keys", "TransformKeys.json", 1);
+  testFunctionMetadata(
+      functionMetadata_,
+      "transform_keys",
+      "TransformKeys.json",
+  1);
 }
 
 TEST_F(FunctionMetadataTest, variance) {
-  testFunction("variance", "Variance.json", 5);
+  testFunctionMetadata(functionMetadata_, "variance", "Variance.json", 5);
 }
 
 TEST_F(FunctionMetadataTest, catalog) {
   // Test with the "presto" catalog that is registered in SetUpTestSuite
   std::string catalog = "presto";
-  auto metadata = getFunctionsMetadata(catalog);
+  auto metadata =
+      nativeFunctionMetadata().getFunctionsMetadata(catalog);
 
   // The result should be a JSON object with function names as keys
   ASSERT_TRUE(metadata.is_object());
@@ -168,7 +167,8 @@ TEST_F(FunctionMetadataTest, catalog) {
 }
 
 TEST_F(FunctionMetadataTest, nonExistentCatalog) {
-  auto metadata = getFunctionsMetadata("nonexistent");
+  auto metadata =
+      nativeFunctionMetadata().getFunctionsMetadata("nonexistent");
 
   // When no functions match, it returns a null JSON value or empty object
   // The default json() constructor creates a null value

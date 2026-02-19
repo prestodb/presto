@@ -1,0 +1,44 @@
+{
+  "transform_keys": [
+    {
+      "docString": "presto.default.transform_keys",
+      "functionKind": "SCALAR",
+      "longVariableConstraints":[],
+      "outputType": "map(k2,v)",
+      "paramTypes": [
+        "map(k1,v)",
+        "function(k1,v,k2)"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints": [
+        {
+          "comparableRequired":false,
+          "name":"v",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        },
+        {
+          "comparableRequired":false,
+          "name":"k2",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        },
+        {
+          "comparableRequired":false,
+          "name":"k1",
+          "nonDecimalNumericRequired":false,
+          "orderableRequired":false,
+          "variadicBound":""
+        }
+      ],
+      "variableArity":false
+    }
+  ]
+}
