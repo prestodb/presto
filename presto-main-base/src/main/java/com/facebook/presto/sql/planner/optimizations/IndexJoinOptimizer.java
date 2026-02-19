@@ -883,6 +883,11 @@ public class IndexJoinOptimizer
                         && isVariable(callExpression.getArguments().get(1))) {
                     context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(1));
                 }
+                else if (callExpression.getDisplayName().equalsIgnoreCase("IN")
+                        && callExpression.getArguments().size() >= 2
+                        && isVariable(callExpression.getArguments().get(0))) {
+                    context.getLookupVariables().add((VariableReferenceExpression) callExpression.getArguments().get(0));
+                }
             }
         }
 
