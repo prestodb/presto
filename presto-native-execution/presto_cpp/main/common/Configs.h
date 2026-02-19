@@ -162,6 +162,30 @@ class ConfigBase {
 class SystemConfig : public ConfigBase {
  public:
   static constexpr std::string_view kPrestoVersion{"presto.version"};
+
+  /// Thrift server configuration
+  static constexpr std::string_view kThriftServerEnabled{
+    "presto.thrift-server.enabled"};
+
+  static constexpr std::string_view kThriftServerPort{
+    "presto.thrift-server.port"};
+
+  static constexpr std::string_view kThriftServerMaxConnections{
+    "presto.thrift-server.max-connections"};
+
+  static constexpr std::string_view kThriftServerMaxRequests{
+    "presto.thrift-server.max-requests"};
+
+  static constexpr std::string_view kThriftServerIdleTimeout{
+    "presto.thrift-server.idle-timeout"};
+
+  static constexpr std::string_view kThriftServerTaskExpireTimeMs{
+    "presto.thrift-server.task-expire-time-ms"};
+
+  static constexpr std::string_view kThriftServerStreamExpireTime{
+    "presto.thrift-server.stream-expire-time"};
+
+  /// HTTP server configuration
   static constexpr std::string_view kHttpServerHttpPort{
       "http-server.http.port"};
 
@@ -905,6 +929,22 @@ class SystemConfig : public ConfigBase {
 
   static SystemConfig* instance();
 
+  // Thrift server configuration
+  bool thriftServerEnabled() const;
+
+  int32_t thriftServerPort() const;
+
+  int32_t thriftServerMaxConnections() const;
+
+  int32_t thriftServerMaxRequests() const;
+
+  int32_t thriftServerIdleTimeout() const;
+
+  int32_t thriftServerTaskExpireTimeMs() const;
+
+  int32_t thriftServerStreamExpireTime() const;
+
+  // HTTP server configuration
   int httpServerHttpPort() const;
 
   bool httpServerReusePort() const;

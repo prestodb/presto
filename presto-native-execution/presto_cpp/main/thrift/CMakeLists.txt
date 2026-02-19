@@ -80,3 +80,32 @@ add_dependencies(presto_thrift_extra presto_thrift-cpp2)
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
+
+add_library(
+  presto_thrift_server
+        server/ThriftServer.cpp
+        server/PrestoThriftServiceHandler.cpp
+)
+
+target_include_directories(
+  presto_thrift_server PUBLIC 
+    ${presto_thrift_INCLUDES} 
+    ${THRIFT_INCLUDES}
+    ${GLOG_INCLUDE_DIR}
+    # Include main directory for PrestoThriftServiceHandler.h
+    ${CMAKE_SOURCE_DIR}/presto_cpp/main
+)
+
+target_link_libraries(
+  presto_thrift_server
+  presto_thrift
+  ${presto_thrift_LIBRARIES}
+  ${THRIFT_LIBRARIES}
+  ${GLOG_LIBRARY}
+  presto_cpp_main_common
+  presto_cpp_main_types
+  presto_task_lib
+  ${THRIFT_TRANSPORT}
+  xsimd
+)
+

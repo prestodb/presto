@@ -47,6 +47,7 @@
 #include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "thrift/server/ThriftServer.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -312,9 +313,9 @@ void PrestoServer::run() {
       }
 
       sslContext_ = util::createSSLContext(
-          optionalClientCertPath.value(),
-          ciphers,
-          systemConfig->httpClientHttp2Enabled());
+          optionalClientCertPath.value(), ciphers, util::SSLProtocol::HTTP_1_1);
+      thriftSslContext_ = util::createSSLContext(
+          optionalClientCertPath.value(), ciphers, util::SSLProtocol::THRIFT);
     }
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
@@ -682,6 +683,8 @@ void PrestoServer::run() {
     }
   };
 
+  startThriftServer(bindToNodeInternalAddressOnly, certPath, keyPath, ciphers);
+
   // Start everything. After the return from the following call we are shutting
   // down.
   auto startupOptions = systemConfig->httpServerStartupOptions();
@@ -747,6 +750,7 @@ void PrestoServer::run() {
   taskManager_.reset();
   PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
   httpServer_.reset();
+  thriftServer_.reset();
 
   unregisterFileReadersAndWriters();
   unregisterFileSystems();
@@ -1142,6 +1146,7 @@ void PrestoServer::stop() {
     httpServer_->stop();
     PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
   }
+  shutdownThriftServer();
 }
 
 size_t PrestoServer::numDriverThreads() const {
@@ -1581,7 +1586,7 @@ void PrestoServer::enableWorkerStatsReporting() {
 
 void PrestoServer::initVeloxPlanValidator() {
   VELOX_CHECK_NULL(planValidator_);
-  planValidator_ = std::make_unique<VeloxPlanValidator>();
+  planValidator_ = std::make_shared<VeloxPlanValidator>();
 }
 
 VeloxPlanValidator* PrestoServer::getVeloxPlanValidator() {
@@ -1892,6 +1897,70 @@ void PrestoServer::registerDynamicFunctions() {
 void PrestoServer::createTaskManager() {
   taskManager_ = std::make_unique<TaskManager>(
       driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
+}
+
+void PrestoServer::startThriftServer(
+    bool bindToNodeInternalAddressOnly,
+    const std::string& certPath,
+    const std::string& keyPath,
+    const std::string& ciphers) {
+  auto* systemConfig = SystemConfig::instance();
+  bool thriftServerEnabled = systemConfig->thriftServerEnabled();
+
+  if (thriftServerEnabled) {
+    std::unique_ptr<thrift::ThriftConfig> thriftConfig;
+    folly::SocketAddress thriftAddress;
+    int thriftPort = systemConfig->thriftServerPort();
+    if (bindToNodeInternalAddressOnly) {
+      thriftAddress.setFromHostPort(address_, thriftPort);
+    } else {
+      thriftAddress.setFromLocalPort(thriftPort);
+    }
+    thriftConfig = std::make_unique<thrift::ThriftConfig>(
+        thriftAddress, certPath, keyPath, ciphers);
+    thriftServer_ = std::make_unique<thrift::ThriftServer>(
+        std::move(thriftConfig),
+        httpSrvIoExecutor_,
+        pool_,
+        planValidator_,
+        taskManager_);
+
+    thriftServerFuture_ =
+        folly::via(folly::getGlobalCPUExecutor().get())
+            .thenTry([this](folly::Try<folly::Unit>) {
+              try {
+                PRESTO_STARTUP_LOG(INFO)
+                    << "Starting Thrift server asynchronously...";
+                thriftServer_->start();
+                PRESTO_STARTUP_LOG(INFO)
+                    << "Thrift server started successfully";
+              } catch (const std::exception& e) {
+                PRESTO_STARTUP_LOG(ERROR)
+                    << "Thrift server failed to start: " << e.what();
+                throw;
+              }
+            });
+  }
+}
+
+void PrestoServer::shutdownThriftServer() {
+  if (thriftServer_) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Thrift server";
+    thriftServer_->stop();
+
+    // Wait for Thrift server thread to complete with timeout
+    try {
+      std::move(thriftServerFuture_)
+          .within(std::chrono::seconds(5)) // 5-second timeout
+          .get();
+      PRESTO_SHUTDOWN_LOG(INFO) << "Thrift server stopped gracefully";
+    } catch (const std::exception& e) {
+      PRESTO_SHUTDOWN_LOG(WARNING)
+          << "Thrift server shutdown timeout or error: " << e.what();
+    }
+
+    thriftServer_.reset();
+  }
 }
 
 void PrestoServer::reportNodeStats(proxygen::ResponseHandler* downstream) {

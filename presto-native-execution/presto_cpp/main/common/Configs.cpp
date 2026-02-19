@@ -135,6 +135,13 @@ SystemConfig::SystemConfig() {
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
           NONE_PROP(kPrestoVersion),
+          BOOL_PROP(kThriftServerEnabled, true),
+          NUM_PROP(kThriftServerPort, 9090),
+          NUM_PROP(kThriftServerMaxConnections, 50000),
+          NUM_PROP(kThriftServerMaxRequests, 200),
+          NUM_PROP(kThriftServerIdleTimeout, 120000),
+          NUM_PROP(kThriftServerTaskExpireTimeMs, 60000),
+          NUM_PROP(kThriftServerStreamExpireTime, 60000),
           NONE_PROP(kHttpServerHttpPort),
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
@@ -301,6 +308,34 @@ SystemConfig* SystemConfig::instance() {
   static std::unique_ptr<SystemConfig> instance =
       std::make_unique<SystemConfig>();
   return instance.get();
+}
+
+bool SystemConfig::thriftServerEnabled() const {
+  return optionalProperty<bool>(kThriftServerEnabled).value();
+}
+
+int32_t SystemConfig::thriftServerPort() const {
+  return optionalProperty<int32_t>(kThriftServerPort).value();
+}
+
+int32_t SystemConfig::thriftServerMaxConnections() const {
+  return optionalProperty<int32_t>(kThriftServerMaxConnections).value();
+}
+
+int32_t SystemConfig::thriftServerMaxRequests() const {
+  return optionalProperty<int32_t>(kThriftServerMaxRequests).value();
+}
+
+int32_t SystemConfig::thriftServerIdleTimeout() const {
+  return optionalProperty<int32_t>(kThriftServerIdleTimeout).value();
+}
+
+int32_t SystemConfig::thriftServerTaskExpireTimeMs() const {
+  return optionalProperty<int32_t>(kThriftServerTaskExpireTimeMs).value();
+}
+
+int32_t SystemConfig::thriftServerStreamExpireTime() const {
+  return optionalProperty<int32_t>(kThriftServerStreamExpireTime).value();
 }
 
 int SystemConfig::httpServerHttpPort() const {
