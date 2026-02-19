@@ -161,6 +161,7 @@
         <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
+        <module>presto-internal-communication</module>
         <module>presto-main-base</module>
         <module>presto-main-tests</module>
         <module>presto-main</module>
@@ -595,6 +596,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-prometheus</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-internal-communication</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
