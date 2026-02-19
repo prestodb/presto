@@ -109,7 +109,12 @@ target_link_libraries(
 )
 
 if(PRESTO_ENABLE_CUDF)
-  target_link_libraries(presto_server_lib velox_cudf_exec)
+  target_link_libraries(
+    presto_server_lib
+    presto_cudf_function_metadata
+    presto_cudf_session_properties
+    velox_cudf_exec
+  )
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
