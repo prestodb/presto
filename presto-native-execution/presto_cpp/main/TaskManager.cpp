@@ -1323,7 +1323,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
   ++prestoTask->info.taskStatus.version;
 
   taskMap_.withWLock([&](auto& taskMap) {
-    if (taskMap.count(taskId) == 0) {
+    if (!taskMap.contains(taskId)) {
       taskMap[taskId] = prestoTask;
     } else {
       prestoTask = taskMap[taskId];
