@@ -117,6 +117,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveCrossJoinWithConstan
 import com.facebook.presto.sql.planner.iterative.rule.RemoveEmptyDelete;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveFullSample;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveIdentityProjectionsBelowProjection;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveInsensitiveAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveMapCastRule;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantAggregateDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantCastToVarcharInJoinClause;
@@ -450,6 +451,7 @@ public class PlanOptimizers
                                         new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(metadata.getFunctionAndTypeManager()),
+                                        new RemoveInsensitiveAggregateDistinct(metadata.getFunctionAndTypeManager()),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(metadata.getFunctionAndTypeManager()),
@@ -671,6 +673,7 @@ public class PlanOptimizers
                                 new RemoveRedundantSortColumns(),
                                 new RemoveRedundantLimit(),
                                 new RemoveRedundantDistinctLimit(),
+                                new RemoveInsensitiveAggregateDistinct(metadata.getFunctionAndTypeManager()),
                                 new RemoveRedundantAggregateDistinct(),
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))),
@@ -883,6 +886,7 @@ public class PlanOptimizers
                         new RemoveRedundantSort(),
                         new RemoveRedundantLimit(),
                         new RemoveRedundantDistinctLimit(),
+                        new RemoveInsensitiveAggregateDistinct(metadata.getFunctionAndTypeManager()),
                         new RemoveRedundantAggregateDistinct(),
                         new RemoveRedundantIdentityProjections(),
                         new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))));

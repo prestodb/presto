@@ -421,6 +421,7 @@ namespace facebook::presto::protocol {
 struct AggregationFunctionMetadata {
   TypeSignature intermediateType = {};
   bool isOrderSensitive = {};
+  bool isDistinctSensitive = {};
 };
 void to_json(json& j, const AggregationFunctionMetadata& p);
 void from_json(const json& j, AggregationFunctionMetadata& p);

@@ -25,15 +25,17 @@ public class AggregationHeader
     private final Optional<String> description;
     private final boolean decomposable;
     private final boolean orderSensitive;
+    private final boolean distinctSensitive;
     private final SqlFunctionVisibility visibility;
     private final boolean isCalledOnNullInput;
 
-    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, SqlFunctionVisibility visibility, boolean isCalledOnNullInput)
+    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean distinctSensitive, SqlFunctionVisibility visibility, boolean isCalledOnNullInput)
     {
         this.name = requireNonNull(name, "name cannot be null");
         this.description = requireNonNull(description, "description cannot be null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
+        this.distinctSensitive = distinctSensitive;
         this.visibility = visibility;
         this.isCalledOnNullInput = isCalledOnNullInput;
     }
@@ -56,6 +58,11 @@ public class AggregationHeader
     public boolean isOrderSensitive()
     {
         return orderSensitive;
+    }
+
+    public boolean isDistinctSensitive()
+    {
+        return distinctSensitive;
     }
 
     public SqlFunctionVisibility getVisibility()
