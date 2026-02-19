@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -1280,6 +1281,36 @@ public final class SqlFormatter
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateVectorIndex(CreateVectorIndex node, Integer indent)
+        {
+            builder.append("CREATE VECTOR INDEX ");
+            builder.append(formatName(node.getIndexName()));
+            builder.append(" ON ");
+            builder.append(formatName(node.getTableName()));
+            builder.append(" (");
+            builder.append(node.getColumns().stream()
+                    .map(Formatter::formatName)
+                    .collect(joining(", ")));
+            builder.append(")");
+
+            node.getWhere().ifPresent(where -> {
+                builder.append("\nWHERE ");
+                builder.append(formatExpression(where, parameters));
+            });
+
+            if (!node.getProperties().isEmpty()) {
+                builder.append("\nWITH (");
+                builder.append(node.getProperties().stream()
+                        .map(property -> formatName(property.getName()) + " = " +
+                                formatExpression(property.getValue(), parameters))
+                        .collect(joining(", ")));
+                builder.append(")");
+            }
 
             return null;
         }
