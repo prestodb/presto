@@ -128,10 +128,10 @@ public class SplitSourceFactory
         Duration waitTimeout = getDistributedDynamicFilterMaxWaitTime(session);
 
         // Step 1: Register filters from this fragment's JoinNodes and SemiJoinNodes.
-        // Build fragment-local filterColumnToFilterIds and register probe-side
-        // fragment targets for cross-fragment matching. Also collect all probe-side
-        // child fragment IDs for transitive propagation in Step 3.
-        Map<String, Set<String>> filterColumnToFilterIds = new HashMap<>();
+        // Same-fragment filters are matched from the JoinNode's probe child (not the
+        // fragment root), because the fragment root's ProjectNode may strip the probe
+        // column (it's consumed by the join but not needed downstream). Matching from
+        // the probe child guarantees the probe variable is in scope.
         Set<PlanFragmentId> probeChildFragmentIds = new HashSet<>();
 
         List<JoinNode> joinNodes = PlanNodeSearcher.searchFrom(fragment.getRoot())
@@ -148,14 +148,19 @@ public class SplitSourceFactory
                 buildToProbe.put(clause.getRight(), clause.getLeft());
             }
 
+            Map<String, Set<String>> localFilterColumns = new HashMap<>();
             Set<String> joinFilterIds = joinNode.getDynamicFilters().keySet();
             for (Map.Entry<String, VariableReferenceExpression> entry : joinNode.getDynamicFilters().entrySet()) {
                 VariableReferenceExpression probeVar = buildToProbe.get(entry.getValue());
                 String columnName = probeVar != null ? probeVar.getName() : "";
                 registerFilterIfAbsent(queryId, entry.getKey(), columnName, waitTimeout, session);
                 if (!columnName.isEmpty()) {
-                    filterColumnToFilterIds.computeIfAbsent(columnName, k -> new HashSet<>()).add(entry.getKey());
+                    localFilterColumns.computeIfAbsent(columnName, k -> new HashSet<>()).add(entry.getKey());
                 }
+            }
+
+            if (!localFilterColumns.isEmpty()) {
+                matchFiltersToScans(joinNode.getLeft(), localFilterColumns, queryId);
             }
 
             // Register probe-side fragment targets for cross-fragment matching.
@@ -174,26 +179,35 @@ public class SplitSourceFactory
             }
 
             String columnName = semiJoinNode.getSourceJoinVariable().getName();
+            Map<String, Set<String>> localFilterColumns = new HashMap<>();
             Set<String> semiJoinFilterIds = semiJoinNode.getDynamicFilters().keySet();
             for (String filterId : semiJoinFilterIds) {
                 registerFilterIfAbsent(queryId, filterId, columnName, waitTimeout, session);
                 if (!columnName.isEmpty()) {
-                    filterColumnToFilterIds.computeIfAbsent(columnName, k -> new HashSet<>()).add(filterId);
+                    localFilterColumns.computeIfAbsent(columnName, k -> new HashSet<>()).add(filterId);
                 }
+            }
+
+            if (!localFilterColumns.isEmpty()) {
+                matchFiltersToScans(semiJoinNode.getSource(), localFilterColumns, queryId);
             }
 
             // Register probe-side (source) fragment targets for SemiJoinNodes.
             registerProbeFragmentTargets(queryId, semiJoinNode.getSource(), semiJoinFilterIds, probeChildFragmentIds);
         }
 
-        // Step 2: Add cross-fragment filters that were registered for this fragment
+        // Step 2: Collect cross-fragment filters that were registered for this fragment
         // by a parent fragment's JoinNode/SemiJoinNode (probe-side matching only).
+        // Cross-fragment filters are matched from the fragment root because the probe
+        // column is guaranteed to be in the fragment root output (the parent fragment's
+        // RemoteSourceNode references it).
+        Map<String, Set<String>> crossFragmentFilterColumns = new HashMap<>();
         Set<String> crossFragmentFilterIds = dynamicFilterService.getProbeFragmentFilterIds(queryId, fragment.getId());
         for (String filterId : crossFragmentFilterIds) {
             dynamicFilterService.getFilter(queryId, filterId).ifPresent(joinFilter -> {
                 String probeColumn = joinFilter.getColumnName();
                 if (!probeColumn.isEmpty()) {
-                    filterColumnToFilterIds.computeIfAbsent(probeColumn, k -> new HashSet<>()).add(filterId);
+                    crossFragmentFilterColumns.computeIfAbsent(probeColumn, k -> new HashSet<>()).add(filterId);
                 }
             });
         }
@@ -210,8 +224,8 @@ public class SplitSourceFactory
             }
         }
 
-        if (!filterColumnToFilterIds.isEmpty()) {
-            matchFiltersToScans(fragment.getRoot(), filterColumnToFilterIds, queryId);
+        if (!crossFragmentFilterColumns.isEmpty()) {
+            matchFiltersToScans(fragment.getRoot(), crossFragmentFilterColumns, queryId);
         }
     }
 

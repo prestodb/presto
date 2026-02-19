@@ -24,12 +24,14 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -47,6 +49,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -574,6 +577,76 @@ public class TestDynamicFilterService
                 "Dimension scan (build side of outer join) must not be wired to any filter.");
     }
 
+    @Test
+    public void testSameFragmentFilterMatchesWhenRootProjectStripsProbeColumn()
+    {
+        String filterId = "500";
+        VariableReferenceExpression orderIdVar = new VariableReferenceExpression(Optional.empty(), "order_id", BIGINT);
+        VariableReferenceExpression customerIdVar = new VariableReferenceExpression(Optional.empty(), "customer_id", BIGINT);
+        VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "customer_id_0", BIGINT);
+
+        // Probe-side TableScan with both columns
+        PlanNodeId factScanId = new PlanNodeId("fact_scan");
+        TableScanNode factScan = createTableScan(factScanId,
+                ImmutableList.of(orderIdVar, customerIdVar),
+                ImmutableMap.of(orderIdVar, "order_id", customerIdVar, "customer_id"));
+
+        // Build-side RemoteSource
+        RemoteSourceNode buildSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("build_source"), new PlanFragmentId(2),
+                ImmutableList.of(buildVar), false, Optional.empty(), REPARTITION);
+
+        // JoinNode with dynamic filter
+        JoinNode joinNode = new JoinNode(
+                Optional.empty(),
+                new PlanNodeId("join_1"),
+                INNER,
+                factScan,
+                buildSource,
+                ImmutableList.of(new EquiJoinClause(customerIdVar, buildVar)),
+                ImmutableList.of(orderIdVar, customerIdVar, buildVar),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(filterId, buildVar));
+
+        // Root ProjectNode that strips customer_id (only outputs order_id)
+        ProjectNode rootProject = new ProjectNode(
+                new PlanNodeId("project_root"),
+                joinNode,
+                Assignments.builder()
+                        .put(orderIdVar, orderIdVar)
+                        .build());
+
+        PlanFragment fragment = new PlanFragment(
+                new PlanFragmentId(1),
+                rootProject,
+                ImmutableSet.of(orderIdVar),
+                SOURCE_DISTRIBUTION,
+                ImmutableList.of(factScanId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(orderIdVar)),
+                Optional.empty(),
+                StageExecutionDescriptor.ungroupedExecution(),
+                false,
+                Optional.of(StatsAndCosts.empty()),
+                Optional.empty());
+
+        Session session = createDppSession();
+        QueryId queryId = session.getQueryId();
+
+        SplitSourceFactory factory = createSplitSourceFactory();
+        factory.registerDynamicFilters(fragment, session);
+
+        // The filter should be registered
+        assertTrue(service.hasFilter(queryId, filterId),
+                "Filter should be registered");
+
+        // The scan should be wired to the filter despite the root ProjectNode stripping customer_id
+        assertEquals(service.getFilterIdsForScan(queryId, factScanId), ImmutableSet.of(filterId),
+                "Same-fragment filter should match probe-side scan even when root ProjectNode strips the probe column");
+    }
+
     private static Session createDppSession()
     {
         return testSessionBuilder()
@@ -631,6 +704,30 @@ public class TestDynamicFilterService
                         Optional.empty()),
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle(columnName)),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                Optional.empty());
+    }
+
+    private static TableScanNode createTableScan(
+            PlanNodeId scanId,
+            List<VariableReferenceExpression> variables,
+            Map<VariableReferenceExpression, String> variableToColumnName)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, com.facebook.presto.spi.ColumnHandle> assignments = ImmutableMap.builder();
+        for (Map.Entry<VariableReferenceExpression, String> entry : variableToColumnName.entrySet()) {
+            assignments.put(entry.getKey(), new TestingColumnHandle(entry.getValue()));
+        }
+        return new TableScanNode(
+                Optional.empty(),
+                scanId,
+                new TableHandle(
+                        new ConnectorId("test"),
+                        new TestingTableHandle(),
+                        TestingTransactionHandle.create(),
+                        Optional.empty()),
+                variables,
+                assignments.build(),
                 TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty());
