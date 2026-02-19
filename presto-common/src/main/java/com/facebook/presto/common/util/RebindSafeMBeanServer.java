@@ -11,22 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.common.util;
 
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package com.facebook.presto.pinot;
-
+import com.facebook.airlift.log.Logger;
 import com.google.errorprone.annotations.ThreadSafe;
 
 import javax.management.Attribute;
@@ -54,21 +41,24 @@ import javax.management.loading.ClassLoaderRepository;
 import java.io.ObjectInputStream;
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * MBeanServer wrapper that a ignores calls to registerMBean when there is already
  * a MBean registered with the specified object name.
- * <p>
- * This originally existed in hive, raptor and cassandra and I am promoting it to SPI
  */
+@SuppressWarnings("deprecation")
 @ThreadSafe
 public class RebindSafeMBeanServer
         implements MBeanServer
 {
+    private static final Logger log = Logger.get(RebindSafeMBeanServer.class);
+
     private final MBeanServer mbeanServer;
 
     public RebindSafeMBeanServer(MBeanServer mbeanServer)
     {
-        this.mbeanServer = mbeanServer;
+        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
     }
 
     /**
@@ -90,6 +80,7 @@ public class RebindSafeMBeanServer
             try {
                 // a mbean is already installed, try to return the already registered instance
                 ObjectInstance objectInstance = mbeanServer.getObjectInstance(name);
+                log.debug("%s already bound to %s", name, objectInstance);
                 return objectInstance;
             }
             catch (InstanceNotFoundException ignored) {
@@ -270,7 +261,6 @@ public class RebindSafeMBeanServer
 
     @Override
     @Deprecated
-    @SuppressWarnings("deprecation")
     public ObjectInputStream deserialize(ObjectName name, byte[] data)
             throws OperationsException
     {
@@ -279,7 +269,6 @@ public class RebindSafeMBeanServer
 
     @Override
     @Deprecated
-    @SuppressWarnings("deprecation")
     public ObjectInputStream deserialize(String className, byte[] data)
             throws OperationsException, ReflectionException
     {
@@ -288,7 +277,6 @@ public class RebindSafeMBeanServer
 
     @Override
     @Deprecated
-    @SuppressWarnings("deprecation")
     public ObjectInputStream deserialize(String className, ObjectName loaderName, byte[] data)
             throws OperationsException, ReflectionException
     {
