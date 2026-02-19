@@ -82,6 +82,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kQueryTraceMaxBytes},
       {SessionProperties::kOpTraceDirectoryCreateConfig,
        core::QueryConfig::kOpTraceDirectoryCreateConfig},
+      {SessionProperties::kTaskTraceDirectoryCreateConfig,
+       core::QueryConfig::kTaskTraceDirectoryCreateConfig},
       {SessionProperties::kMaxOutputBufferSize,
        core::QueryConfig::kMaxOutputBufferSize},
       {SessionProperties::kMaxPartitionedOutputBufferSize,
