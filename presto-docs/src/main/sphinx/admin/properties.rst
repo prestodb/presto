@@ -1509,3 +1509,36 @@ Controls behavior when a materialized view is stale and no per-view staleness co
 Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
 
 The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.
+
+Resource Manager Properties
+---------------------------
+
+``resource-manager-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Set to true when a resource manager exists in the cluster.
+
+``resource-manager.http-server-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Controls whether the resource manager's REST server is turned on. This will enable
+nodes to communicate with the resource manager using HTTP/S.
+
+``internal-communication.resource-manager-communication-protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``THRIFT``, ``HTTP``
+* **Default value:** ``THRIFT``
+
+Controls whether the node will communicate with the resource manager using Thrift,
+or HTTP/S. HTTPS are supported using the same internal communication HTTPS
+configs.
+
+For details on how to enable SSL/TLS visit `<../security/internal-communication.html>`_.

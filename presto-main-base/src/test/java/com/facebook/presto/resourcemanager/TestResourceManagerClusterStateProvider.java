@@ -724,7 +724,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(clusterMemoryPoolInfo.getLargestMemoryQuery().map(QueryId::getId), largestMemoryQuery);
     }
 
-    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
+    public static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
     {
         return createQueryInfo(queryId, state, "global", GENERAL_POOL);
     }

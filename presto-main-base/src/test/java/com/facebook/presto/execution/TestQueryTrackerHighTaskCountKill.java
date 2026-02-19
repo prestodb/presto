@@ -14,10 +14,12 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
+import com.facebook.presto.resourcemanager.NoOpHttpResourceManagerClient;
 import com.facebook.presto.resourcemanager.ResourceManagerClient;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.TestingClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.TestingResourceManagerClient;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
@@ -79,7 +81,7 @@ public class TestQueryTrackerHighTaskCountKill
                 .setMaxTotalRunningTaskCountToKillQuery(200);
         ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor();
         ResourceManagerClient resourceManagerClient = new TestingResourceManagerClient();
-        ClusterQueryTrackerService clusterQueryTrackerService = new TestingClusterQueryTrackerService((addressSelectionContext, headers) -> resourceManagerClient, newSingleThreadScheduledExecutor(), new ResourceManagerConfig(), 201);
+        ClusterQueryTrackerService clusterQueryTrackerService = new TestingClusterQueryTrackerService((addressSelectionContext, headers) -> resourceManagerClient, new NoOpHttpResourceManagerClient(), newSingleThreadScheduledExecutor(), new ResourceManagerConfig(), new InternalCommunicationConfig(), 201);
         try {
             QueryTracker<MockQueryExecution> queryTracker = new QueryTracker<>(config, scheduledExecutorService, Optional.of(clusterQueryTrackerService));
             MockQueryExecution smallQuery = MockQueryExecution.withRunningTaskCount(50);

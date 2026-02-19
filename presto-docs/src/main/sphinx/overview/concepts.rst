@@ -38,7 +38,7 @@ data from all coordinators and workers and constructs a global view of the clust
 A Presto installation with a disaggregated coordinator needs a resource manager.
 Clusters support multiple resource managers, each acting as a primary.
 
-Coordinators and workers communicate with resource managers using a thrift API.
+Coordinators and workers can communicate with resource managers using either a Thrift or HTTP API.
 
 Coordinator
 ^^^^^^^^^^^

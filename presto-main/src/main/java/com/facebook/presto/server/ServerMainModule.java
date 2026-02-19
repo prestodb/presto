@@ -147,6 +147,8 @@ import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.HttpResourceManagerClient;
+import com.facebook.presto.resourcemanager.ImplHttpResourceManagerClient;
 import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RaftConfig;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
@@ -500,12 +502,14 @@ public class ServerMainModule
                     @Override
                     public void configure(Binder moduleBinder)
                     {
+                        binder.bind(HttpResourceManagerClient.class).to(ImplHttpResourceManagerClient.class).in(Scopes.SINGLETON);
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
-                        // HTTP endpoint for some of ResourceManagerServer methods.
                         ResourceManagerConfig resourceManagerConfig = buildConfigObject(ResourceManagerConfig.class);
-                        if (resourceManagerConfig.getHeartbeatHttpEnabled()) {
-                            jaxrsBinder(moduleBinder).bind(ResourceManagerHeartbeatResource.class);
+
+                        if (serverConfig.isResourceManager() && resourceManagerConfig.getHttpServerEnabled()) {
+                            jaxrsBinder(moduleBinder).bind(ResourceManagerResource.class);
                         }
+
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
