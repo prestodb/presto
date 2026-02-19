@@ -193,6 +193,7 @@ import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
 import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
@@ -1143,12 +1144,90 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateVectorIndex(CreateVectorIndex node, Optional<Scope> scope)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
-            analysis.setCreateVectorIndexTableName(tableName);
+            QualifiedObjectName sourceTableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            if (!metadataResolver.tableExists(sourceTableName)) {
+                throw new SemanticException(MISSING_TABLE, node, "Source table '%s' does not exist", sourceTableName);
+            }
 
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, QualifiedName.of(node.getIndexName().getValue()), metadata);
+            if (metadataResolver.tableExists(targetTable)) {
+                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+            }
+
+            analysis.setCreateVectorIndexTableName(sourceTableName);
             validateProperties(node.getProperties(), scope);
 
-            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "result", BOOLEAN));
+            // Extract property values for UDF arguments
+            Map<String, Expression> properties = mapFromProperties(node.getProperties());
+            String indexType = extractStringProperty(properties, "index_type", "ivf_rabitq4");
+            String metric = extractStringProperty(properties, "metric", "cosine");
+            String indexParams = extractStringProperty(properties, "index_params", "");
+
+            // Build synthetic query: SELECT create_vector_index('col1', 'col2', ..., 'type', 'metric', 'params') FROM source
+            // Column names are passed as string literals since the UDF expects all varchar parameters
+            List<Expression> functionArgs = new ArrayList<>();
+            for (Identifier column : node.getColumns()) {
+                functionArgs.add(new StringLiteral(column.getValue()));
+            }
+            functionArgs.add(new StringLiteral(indexType));
+            functionArgs.add(new StringLiteral(metric));
+            functionArgs.add(new StringLiteral(indexParams));
+
+            FunctionCall functionCall = new FunctionCall(
+                    QualifiedName.of("create_vector_index"),
+                    functionArgs);
+
+            SingleColumn selectColumn = new SingleColumn(functionCall, new Identifier("result"));
+            Select select = new Select(false, ImmutableList.of(selectColumn));
+            Table sourceTable = new Table(node.getTableName());
+
+            QuerySpecification querySpec = new QuerySpecification(
+                    select,
+                    Optional.of(sourceTable),
+                    node.getWhere(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            Query query = new Query(
+                    Optional.empty(),
+                    querySpec,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+
+            // Set CTAS analysis state so LogicalPlanner treats this as CTAS
+            analysis.setCreateTableDestination(targetTable);
+            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
+            analysis.setCreateTableAsSelectWithData(true);
+
+            analysis.addAccessControlCheckForTable(TABLE_CREATE,
+                    new AccessControlInfoForTable(accessControl, session.getIdentity(),
+                            session.getTransactionId(), session.getAccessControlContext(), targetTable));
+
+            analysis.setVectorIndexQuery(query);
+
+            Scope queryScope = process(query, scope);
+
+            validateColumns(node, queryScope.getRelationType());
+            ImmutableList.Builder<OutputColumnMetadata> outputColumns = ImmutableList.builder();
+            queryScope.getRelationType().getVisibleFields().stream()
+                    .map(this::createOutputColumn)
+                    .forEach(outputColumns::add);
+            analysis.setUpdatedSourceColumns(Optional.of(outputColumns.build()));
+
+            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
+        }
+
+        private String extractStringProperty(Map<String, Expression> properties, String key, String defaultValue)
+        {
+            Expression value = properties.get(key);
+            if (value instanceof StringLiteral) {
+                return ((StringLiteral) value).getValue();
+            }
+            return defaultValue;
         }
 
         @Override
