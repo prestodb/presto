@@ -228,6 +228,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
+          BOOL_PROP(kEnableFbRemoteReportBuilderFunction, true),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
@@ -755,6 +756,10 @@ bool SystemConfig::enableVeloxTaskLogging() const {
 
 bool SystemConfig::enableVeloxExprSetLogging() const {
   return optionalProperty<bool>(kEnableVeloxExprSetLogging).value();
+}
+
+bool SystemConfig::enableFbRemoteReportBuilderFunction() const {
+  return optionalProperty<bool>(kEnableFbRemoteReportBuilderFunction).value();
 }
 
 bool SystemConfig::useMmapAllocator() const {
