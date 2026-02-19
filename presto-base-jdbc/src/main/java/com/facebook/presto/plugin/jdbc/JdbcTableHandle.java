@@ -17,11 +17,13 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
 import jakarta.annotation.Nullable;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
@@ -35,19 +37,29 @@ public final class JdbcTableHandle
     private final String schemaName;
     private final String tableName;
 
+//    joinTables holds all the table handles for the same connector which are participating for the join push down
+//    this is used later in query builder to rebuild the join query
+
+    private List<ConnectorTableHandle> joinTables;
+    private Optional<String> tableAlias;
+
     @JsonCreator
     public JdbcTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("joinTables") List<ConnectorTableHandle> joinTables,
+            @JsonProperty("tableAlias") Optional<String> tableAlias)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.joinTables = requireNonNull(joinTables, "joinTables is null");
+        this.tableAlias = requireNonNull(tableAlias, "tableAlias is null");
     }
 
     @JsonProperty
@@ -82,6 +94,18 @@ public final class JdbcTableHandle
         return tableName;
     }
 
+    @JsonProperty
+    public List<ConnectorTableHandle> getJoinTables()
+    {
+        return joinTables;
+    }
+
+    @JsonProperty
+    public Optional<String> getTableAlias()
+    {
+        return tableAlias;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -93,18 +117,32 @@ public final class JdbcTableHandle
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
         return Objects.equals(this.connectorId, o.connectorId) &&
-                Objects.equals(this.schemaTableName, o.schemaTableName);
+                Objects.equals(this.schemaTableName, o.schemaTableName) &&
+                Objects.equals(this.tableAlias, o.tableAlias) &&
+                Objects.equals(this.joinTables, o.joinTables);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaTableName);
+        return Objects.hash(connectorId, schemaTableName, tableAlias);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").useForNull("null").join(connectorId, schemaTableName, catalogName, schemaName, tableName);
+        return toStringHelper(this)
+                .add("connectorId", connectorId)
+                .add("schemaTableName", schemaTableName)
+                .add("catalogName", catalogName)
+                .add("schemaName", schemaName)
+                .add("tableName", tableName)
+                .add("joinTables", joinTables)
+                .toString();
+    }
+
+    public boolean hasJoinTables()
+    {
+        return !this.getJoinTables().isEmpty();
     }
 }

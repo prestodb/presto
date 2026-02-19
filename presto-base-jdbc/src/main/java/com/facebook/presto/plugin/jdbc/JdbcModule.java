@@ -52,6 +52,7 @@ public class JdbcModule
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, JdbcSessionPropertiesProvider.class);
+        binder.bind(JdbcSessionPropertiesProvider.class).to(JdbcSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);

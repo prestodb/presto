@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import jakarta.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
@@ -23,12 +24,14 @@ public class JdbcMetadataFactory
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
     private final TableLocationProvider tableLocationProvider;
+    private final FunctionMetadataManager functionMetadataManager;
 
     @Inject
-    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, TableLocationProvider tableLocationProvider)
+    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, TableLocationProvider tableLocationProvider, FunctionMetadataManager functionMetadataManager)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
         this.tableLocationProvider = requireNonNull(tableLocationProvider, "tableLocationProvider is null");
@@ -36,6 +39,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
+        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider, functionMetadataManager);
     }
 }

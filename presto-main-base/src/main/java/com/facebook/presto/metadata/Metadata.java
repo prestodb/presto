@@ -48,6 +48,7 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -617,6 +618,15 @@ public interface Metadata
     default boolean isPushdownSupportedForFilter(Session session, TableHandle tableHandle, RowExpression filter, Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
     {
         return false;
+    }
+
+    /**
+     * Creates a new {@link TableScanNode} for a set of joined tables.
+     * @return a new {@link TableScanNode} referencing the joined tables with proper aliases and updated column mappings
+     */
+    default TableScanNode buildJoinTableScanNode(TableScanNode joinedTableScanNode, TableHandle intermediateTableHandle, Session session)
+    {
+        return joinedTableScanNode;
     }
 
     String normalizeIdentifier(Session session, String catalogName, String identifier);

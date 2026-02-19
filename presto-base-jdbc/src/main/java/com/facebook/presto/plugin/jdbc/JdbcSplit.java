@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -40,6 +41,8 @@ public class JdbcSplit
     private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<JdbcExpression> additionalPredicate;
+    private final List<ConnectorTableHandle> joinTables;
+    private Optional<String> tableAlias;
 
     @JsonCreator
     public JdbcSplit(
@@ -48,7 +51,9 @@ public class JdbcSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate)
+            @JsonProperty("additionalProperty") Optional<JdbcExpression> additionalPredicate,
+            @JsonProperty("joinTables") List<ConnectorTableHandle> joinTables,
+            @JsonProperty("tableAlias") Optional<String> tableAlias)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -56,6 +61,8 @@ public class JdbcSplit
         this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
+        this.joinTables = requireNonNull(joinTables, "joinTables is null");
+        this.tableAlias = requireNonNull(tableAlias, "tableAlias is null");
     }
 
     @JsonProperty
@@ -82,6 +89,18 @@ public class JdbcSplit
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public List<ConnectorTableHandle> getJoinTables()
+    {
+        return joinTables;
+    }
+
+    @JsonProperty
+    public Optional<String> getTableAlias()
+    {
+        return tableAlias;
     }
 
     @JsonProperty

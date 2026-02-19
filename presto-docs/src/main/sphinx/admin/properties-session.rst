@@ -638,6 +638,15 @@ Setting a duration controls how long to cache data.
 
 The value represents the max background fetch threads for refreshing metadata.
 
+``partialPredicatePushDown``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable partial predicate push down to the underlying data source.
+Use :ref:`admin/properties-session:\`\`optimizer_inner_join_pushdown_enabled\`\`` with this configuration for join push down to be effective with JDBC connectors.
+
 Query Manager Properties
 ------------------------
 

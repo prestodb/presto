@@ -28,6 +28,7 @@ import java.util.OptionalLong;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -64,7 +65,7 @@ public class TestSimpleJdbcConnectorCompatibility
         SimpleTestTableLocationProvider locationProvider = new SimpleTestTableLocationProvider(simpleConfig);
 
         // Create JdbcMetadata with the simple provider (not using BaseJdbcConfig)
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, locationProvider);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, locationProvider, FUNCTION_AND_TYPE_MANAGER);
     }
 
     @AfterMethod(alwaysRun = true)

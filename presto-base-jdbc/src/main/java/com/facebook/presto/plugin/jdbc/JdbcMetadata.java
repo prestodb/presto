@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.expressions.translator.TranslatedExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
+import com.facebook.presto.plugin.jdbc.optimization.JdbcJoinPredicateToSqlTranslator;
+import com.facebook.presto.plugin.jdbc.optimization.function.JoinOperatorTranslators;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -25,19 +29,28 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.JoinTableInfo;
+import com.facebook.presto.spi.JoinTableSet;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +58,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
+import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -57,11 +72,13 @@ public class JdbcMetadata
     private final boolean allowDropTable;
     private final String url;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final FunctionMetadataManager functionMetadataManager;
 
-    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, TableLocationProvider tableLocationProvider)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, TableLocationProvider tableLocationProvider, FunctionMetadataManager functionMetadataManager)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.allowDropTable = allowDropTable;
         this.url = requireNonNull(tableLocationProvider, "tableLocationProvider is null").getTableLocation();
     }
@@ -283,5 +300,85 @@ public class JdbcMetadata
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
         return Optional.of(new JdbcInputInfo(url));
+    }
+
+    public boolean isPushdownSupportedForFilter(ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            RowExpression filter,
+            Map<VariableReferenceExpression, ColumnHandle> symbolToColumnHandleMap)
+    {
+        if (tableHandle instanceof JoinTableSet) {
+            JdbcJoinPredicateToSqlTranslator jdbcJoinPredicateToSqlTranslator = new JdbcJoinPredicateToSqlTranslator(
+                    functionMetadataManager,
+                    buildFunctionTranslator(ImmutableSet.of(JoinOperatorTranslators.class)), "");
+            TranslatedExpression<JdbcExpression> jdbcExpression = translateWith(
+                    filter,
+                    jdbcJoinPredicateToSqlTranslator,
+                    symbolToColumnHandleMap);
+            return jdbcExpression.getTranslated().isPresent();
+        }
+        return false;
+    }
+
+    @Override
+    public TableScanNode buildJoinTableScanNode(TableScanNode updatedTableScanNode, TableHandle intermediateTableHandle)
+    {
+        JoinTableSet joinTableSet = (JoinTableSet) intermediateTableHandle.getConnectorHandle();
+        ImmutableList.Builder<JoinTableInfo> joinTableInfoBuilder = ImmutableList.builder();
+        generateAllJoinTableInfos(joinTableSet, joinTableInfoBuilder);
+        ImmutableList.Builder<ConnectorTableHandle> newConnectorTableHandlesBuilder = ImmutableList.builder();
+        Map<VariableReferenceExpression, ColumnHandle> groupAssignments = new HashMap<>();
+
+        //Generate aliases for each table being joined to avoid any ambiguous column name references.
+        // These aliases are used in QueryBuilder#buildSql
+        final String aliasPrefix = "T";
+        int aliasTableCounter = 0;
+
+        // Create new table handles and update column handles
+        for (JoinTableInfo tableMapping : joinTableInfoBuilder.build()) {
+            JdbcTableHandle handle = (JdbcTableHandle) tableMapping.getTableHandle();
+            JdbcTableHandle newHandle = new JdbcTableHandle(handle.getConnectorId(), handle.getSchemaTableName(), handle.getCatalogName(),
+                    handle.getSchemaName(), handle.getTableName(), handle.getJoinTables(), Optional.of(aliasPrefix + (++aliasTableCounter)));
+            newConnectorTableHandlesBuilder.add(newHandle);
+
+            tableMapping.getAssignments().forEach((key, oldColumnHandle) -> {
+                JdbcColumnHandle newColumnHandle = new JdbcColumnHandle(((JdbcColumnHandle) oldColumnHandle).getConnectorId(), ((JdbcColumnHandle) oldColumnHandle).getColumnName(),
+                        ((JdbcColumnHandle) oldColumnHandle).getJdbcTypeHandle(), ((JdbcColumnHandle) oldColumnHandle).getColumnType(), ((JdbcColumnHandle) oldColumnHandle).isNullable(),
+                        ((JdbcColumnHandle) oldColumnHandle).getComment(), newHandle.getTableAlias());
+                groupAssignments.put(key, newColumnHandle); // Update the map entry
+            });
+        }
+
+        List<ConnectorTableHandle> newConnectorTableHandles = newConnectorTableHandlesBuilder.build();
+        JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) newConnectorTableHandles.get(0);
+        JdbcTableHandle newConnectorTableHandle = new JdbcTableHandle(jdbcTableHandle.getConnectorId(), jdbcTableHandle.getSchemaTableName(), jdbcTableHandle.getCatalogName(),
+                jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName(), newConnectorTableHandles, jdbcTableHandle.getTableAlias());
+
+        Optional<ConnectorTableLayoutHandle> optionalTableLayoutHandle = intermediateTableHandle.getLayout().map(oldTableLayoutHandle -> {
+            JdbcTableLayoutHandle oldLayout = (JdbcTableLayoutHandle) oldTableLayoutHandle;
+            return new JdbcTableLayoutHandle(newConnectorTableHandle, oldLayout.getTupleDomain(), oldLayout.getAdditionalPredicate(), oldLayout.getLayoutString());
+        });
+
+        TableHandle newTableHandle = new TableHandle(intermediateTableHandle.getConnectorId(), newConnectorTableHandle, intermediateTableHandle.getTransaction(), optionalTableLayoutHandle, intermediateTableHandle.getDynamicFilter());
+        return new TableScanNode(updatedTableScanNode.getSourceLocation(), updatedTableScanNode.getId(), newTableHandle, updatedTableScanNode.getOutputVariables(), groupAssignments, updatedTableScanNode.getCurrentConstraint(), updatedTableScanNode.getEnforcedConstraint(), updatedTableScanNode.getCteMaterializationInfo());
+    }
+
+    /**
+     * Recursively build all join table infos from a JoinTableSet
+     *
+     * @param tableHandles
+     * @param joinTableInfoBuilder
+     * @return
+     */
+    private void generateAllJoinTableInfos(JoinTableSet tableHandles, ImmutableList.Builder<JoinTableInfo> joinTableInfoBuilder)
+    {
+        for (JoinTableInfo innerJoinTableInfo : tableHandles.getInnerJoinTableInfos()) {
+            if (innerJoinTableInfo.getTableHandle() instanceof JoinTableSet) {
+                generateAllJoinTableInfos((JoinTableSet) innerJoinTableInfo.getTableHandle(), joinTableInfoBuilder);
+            }
+            else {
+                joinTableInfoBuilder.add(innerJoinTableInfo);
+            }
+        }
     }
 }

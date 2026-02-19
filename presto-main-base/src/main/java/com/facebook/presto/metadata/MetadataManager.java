@@ -69,6 +69,7 @@ import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PartitioningHandle;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -1900,5 +1901,14 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         return metadata.isPushdownSupportedForFilter(connectorSession, tableHandle.getConnectorHandle(), filter, symbolToColumnHandleMap);
+    }
+
+    public TableScanNode buildJoinTableScanNode(TableScanNode updatedTableScanNode, TableHandle intermediateTableHandle, Session session)
+    {
+        ConnectorId connectorId = intermediateTableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        return metadata.buildJoinTableScanNode(updatedTableScanNode, intermediateTableHandle);
     }
 }

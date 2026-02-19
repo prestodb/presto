@@ -40,10 +40,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -1046,5 +1048,25 @@ public interface ConnectorMetadata
     default Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Constructs a new {@link TableScanNode} for a set of joined tables.
+     *
+     * <p>This method transforms an intermediate {@link TableHandle} representing multiple tables
+     * in a JOIN into a {@link TableScanNode} that can be executed. It assigns unique aliases to each table
+     * to avoid column name conflicts, updates the column mappings accordingly, and preserves any
+     * existing layout or constraints from the original table handle.
+     *
+     * <p>The resulting {@link TableScanNode} effectively represents a scan over the combined
+     * joined tables, ready for downstream query execution.
+     *
+     * @param joinedTableScanNode
+     * @param intermediateTableHandle
+     * @return a new {@link TableScanNode} referencing the joined tables with proper aliases and updated column mappings
+     */
+    default TableScanNode buildJoinTableScanNode(TableScanNode joinedTableScanNode, TableHandle intermediateTableHandle)
+    {
+        return joinedTableScanNode;
     }
 }
