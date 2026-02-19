@@ -26,7 +26,10 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STALE_DATA;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public abstract class TestIcebergMaterializedViewsBase
@@ -1744,7 +1747,10 @@ public abstract class TestIcebergMaterializedViewsBase
                         "WHERE table_schema = 'test_schema' AND table_name = 'test_staleness_window_mv'",
                 "SELECT 'PARTIALLY_MATERIALIZED'");
 
-        assertQuery("SELECT COUNT(*) FROM test_staleness_window_mv", "SELECT 2");
+        MaterializedResult staleResult = getQueryRunner().execute(getSession(), "SELECT COUNT(*) FROM test_staleness_window_mv");
+        assertEquals((long) staleResult.getMaterializedRows().get(0).getField(0), 2L);
+        assertTrue(staleResult.getWarnings().stream()
+                .anyMatch(warning -> warning.getWarningCode().equals(MATERIALIZED_VIEW_STALE_DATA.toWarningCode())));
 
         assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_staleness_window_mv\"", "SELECT 2");
 

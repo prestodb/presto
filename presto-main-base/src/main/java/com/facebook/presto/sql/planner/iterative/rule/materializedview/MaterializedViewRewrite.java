@@ -54,6 +54,7 @@ import static com.facebook.presto.SystemSessionProperties.isMaterializedViewForc
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
 import static com.facebook.presto.spi.StandardErrorCode.MATERIALIZED_VIEW_STALE;
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_ACCESS_CONTROL_FALLBACK;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STALE_DATA;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
@@ -186,7 +187,14 @@ public class MaterializedViewRewrite
             return shouldUseDataTableWhenStale(staleReadBehavior, node.getMaterializedViewName());
         }
 
-        if (status.isFullyMaterialized() || isWithinStalenessWindow(status, stalenessWindow)) {
+        if (status.isFullyMaterialized()) {
+            return canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context);
+        }
+
+        if (isWithinStalenessWindow(status, stalenessWindow)) {
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STALE_DATA,
+                    "Materialized view " + node.getMaterializedViewName() + " is stale but within the configured staleness window; results may not reflect the latest base table data"));
             return canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context);
         }
         return shouldUseDataTableWhenStale(staleReadBehavior, node.getMaterializedViewName());
