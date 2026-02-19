@@ -168,6 +168,8 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String QUERY_ANALYZER_TIMEOUT = "query_analyzer_timeout";
     public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
+    public static final String RESULT_COMPRESSION_CODEC = "result_compression_codec";
+    public static final String RESULT_CHECKSUM = "result_checksum";
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
@@ -894,6 +896,20 @@ public final class SystemSessionProperties
                         RUNTIME_OPTIMIZER_ENABLED,
                         "Experimental: enable runtime optimizer",
                         featuresConfig.isRuntimeOptimizerEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        RESULT_COMPRESSION_CODEC,
+                        "Serialized result compression codec",
+                        VARCHAR,
+                        CompressionCodec.class,
+                        featuresConfig.getResultCompressionCodec(),
+                        false,
+                        value -> CompressionCodec.valueOf(((String) value).toUpperCase()),
+                        CompressionCodec::name),
+                booleanProperty(
+                        RESULT_CHECKSUM,
+                        "Enable checksum in serialized results",
+                        featuresConfig.isResultChecksumEnabled(),
                         false),
                 new PropertyMetadata<>(
                         EXCHANGE_COMPRESSION_CODEC,
@@ -2576,6 +2592,16 @@ public final class SystemSessionProperties
     public static Duration getQueryAnalyzerTimeout(Session session)
     {
         return session.getSystemProperty(QUERY_ANALYZER_TIMEOUT, Duration.class);
+    }
+
+    public static CompressionCodec getResultCompressionCodec(Session session)
+    {
+        return session.getSystemProperty(RESULT_COMPRESSION_CODEC, CompressionCodec.class);
+    }
+
+    public static boolean isResultChecksumEnabled(Session session)
+    {
+        return session.getSystemProperty(RESULT_CHECKSUM, Boolean.class);
     }
 
     public static CompressionCodec getExchangeCompressionCodec(Session session)
