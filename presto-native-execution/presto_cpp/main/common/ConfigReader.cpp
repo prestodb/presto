@@ -27,15 +27,13 @@ namespace {
 void extractValueIfEnvironmentVariable(std::string& value) {
   if (value.size() > 3 && value.substr(0, 2) == "${" && value.back() == '}') {
     auto envName = value.substr(2, value.size() - 3);
-
     const char* envVal = std::getenv(envName.c_str());
-    if (envVal != nullptr) {
-      if (strlen(envVal) == 0) {
-        LOG(WARNING) << fmt::format(
-            "Config environment variable {} is empty.", envName);
-      }
-      value = std::string(envVal);
+
+    if (envVal == nullptr || strlen(envVal) == 0) {
+      VELOX_USER_FAIL(
+          "Config environment variable {} doesn't exist or is empty.", envName);
     }
+    value = std::string(envVal);
   }
 }
 } // namespace

@@ -334,6 +334,8 @@ TEST_F(ConfigTest, optionalNodeId) {
 TEST_F(ConfigTest, readConfigEnvVarTest) {
   const std::string kEnvVarName = "PRESTO_READ_CONFIG_TEST_VAR";
   const std::string kEmptyEnvVarName = "PRESTO_READ_CONFIG_TEST_EMPTY_VAR";
+  const std::string kNonExistEnvVarName =
+      "PRESTO_READ_CONFIG_TEST_NON_EXIST_VAR";
 
   const std::string kPlainTextKey = "plain-text";
   const std::string kPlainTextValue = "plain-text-value";
@@ -352,11 +354,9 @@ TEST_F(ConfigTest, readConfigEnvVarTest) {
       fmt::format("{}=${{{}}}\n", kEnvVarKey, kEnvVarName) +
       fmt::format("{}=${{{}\n", kEnvVarKey2, kEnvVarName) +
       fmt::format("{}={}}}\n", kEnvVarKey3, kEnvVarName) +
-      fmt::format("{}=${{}}\n", kNoEnvVarKey) +
-      fmt::format("{}=${{{}}}\n", kEmptyEnvVarKey, kEmptyEnvVarName));
+      fmt::format("{}=${{}}\n", kNoEnvVarKey));
 
   setenv(kEnvVarName.c_str(), kEnvVarValue.c_str(), 1);
-  setenv(kEmptyEnvVarName.c_str(), "", 1);
 
   auto properties = presto::util::readConfig(configFilePath_);
   std::unordered_map<std::string, std::string> expected{
@@ -364,9 +364,31 @@ TEST_F(ConfigTest, readConfigEnvVarTest) {
       {kEnvVarKey, kEnvVarValue},
       {kEnvVarKey2, "${PRESTO_READ_CONFIG_TEST_VAR"},
       {kEnvVarKey3, "PRESTO_READ_CONFIG_TEST_VAR}"},
-      {kNoEnvVarKey, "${}"},
-      {kEmptyEnvVarKey, ""}};
+      {kNoEnvVarKey, "${}"}};
   ASSERT_EQ(properties, expected);
+
+  // Empty env var
+  auto testInvalidEnvVar = [this](
+                               const std::string& fileContent,
+                               const std::string& expectedErrorMsg) {
+    cleanupConfigFilePath();
+    setUpConfigFilePath();
+    writeConfigFile(fileContent);
+    VELOX_ASSERT_THROW(
+        presto::util::readConfig(configFilePath_), expectedErrorMsg);
+  };
+
+  setenv(kEmptyEnvVarName.c_str(), "", 1);
+  testInvalidEnvVar(
+      fmt::format("{}=${{{}}}\n", kEmptyEnvVarKey, kEmptyEnvVarName),
+      fmt::format(
+          "Config environment variable {} doesn't exist or is empty",
+          kEmptyEnvVarName));
+  testInvalidEnvVar(
+      fmt::format("{}=${{{}}}\n", kEmptyEnvVarKey, kNonExistEnvVarName),
+      fmt::format(
+          "Config environment variable {} doesn't exist or is empty",
+          kNonExistEnvVarName));
 
   unsetenv(kEnvVarName.c_str());
   unsetenv(kEmptyEnvVarName.c_str());
