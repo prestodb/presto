@@ -109,7 +109,7 @@ public class ArrowMetadata
         for (Field field : columnList) {
             String columnName = field.getName();
             Type type = getPrestoTypeFromArrowField(field);
-            columnHandles.put(columnName, new ArrowColumnHandle(columnName, type));
+            columnHandles.put(columnName, new ArrowColumnHandle(columnName, type, Optional.empty()));
         }
         return columnHandles;
     }
