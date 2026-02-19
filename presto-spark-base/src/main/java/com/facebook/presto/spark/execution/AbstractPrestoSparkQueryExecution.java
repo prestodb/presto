@@ -841,7 +841,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         ConnectorId connectorId;
         if (writerTarget instanceof ExecutionWriterTarget.DeleteHandle) {
-            throw new PrestoException(NOT_SUPPORTED, "delete queries are not supported by presto on spark");
+            connectorId = ((ExecutionWriterTarget.DeleteHandle) writerTarget).getHandle().getConnectorId();
         }
         else if (writerTarget instanceof ExecutionWriterTarget.CreateHandle) {
             connectorId = ((ExecutionWriterTarget.CreateHandle) writerTarget).getHandle().getConnectorId();
