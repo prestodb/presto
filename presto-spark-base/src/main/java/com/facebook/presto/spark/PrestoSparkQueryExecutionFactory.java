@@ -670,6 +670,7 @@ public class PrestoSparkQueryExecutionFactory
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
             if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION || queryType.get() == QueryType.CONTROL)) {
                 queryStateTimer.endAnalysis();
+                accessControl.checkQueryIntegrity(session.getIdentity(), session.getAccessControlContext(), sql, ImmutableMap.of(), ImmutableMap.of());
                 DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
                 return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector, sql);
             }
@@ -677,6 +678,8 @@ public class PrestoSparkQueryExecutionFactory
                 return accessControlChecker.createExecution(session, preparedQuery, queryStateTimer, warningCollector, sql);
             }
             else {
+                accessControl.checkQueryIntegrity(session.getIdentity(), session.getAccessControlContext(), sql, ImmutableMap.of(), ImmutableMap.of());
+
                 VariableAllocator variableAllocator = new VariableAllocator();
                 PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
                 planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector, variableAllocator, planNodeIdAllocator, sparkContext, sql);
