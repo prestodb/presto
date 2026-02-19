@@ -40,7 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class LongDirectSelectiveStreamReader
         extends AbstractLongSelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongDirectSelectiveStreamReader.class).instanceSize();
     private final OrcLocalMemoryContext systemMemoryContext;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();

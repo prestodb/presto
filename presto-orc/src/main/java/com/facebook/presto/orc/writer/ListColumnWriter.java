@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class ListColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ListColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ListColumnWriter.class).instanceSize();
     private final int column;
     private final int sequence;
     private final boolean compressed;

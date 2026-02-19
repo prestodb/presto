@@ -51,7 +51,7 @@ public class SfmSketchStateFactory
     public static class GroupedSfmSketchState
             implements SfmSketchState, GroupedAccumulatorState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedSfmSketchState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedSfmSketchState.class).instanceSize();
 
         private final ObjectBigArray<SfmSketch> sketches = new ObjectBigArray<>();
         private final ObjectBigArray<Double> epsilons = new ObjectBigArray<>();
@@ -125,7 +125,7 @@ public class SfmSketchStateFactory
     public static class SingleSfmSketchState
             implements SfmSketchState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleSfmSketchState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleSfmSketchState.class).instanceSize();
 
         private SfmSketch sketch;
         private double epsilon;

@@ -34,8 +34,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestVariableWidthBlockBuilder
 {
-    private static final int BLOCK_BUILDER_INSTANCE_SIZE = parseClass(VariableWidthBlockBuilder.class).instanceSize();
-    private static final int SLICE_INSTANCE_SIZE = parseClass(DynamicSliceOutput.class).instanceSize() + parseClass(Slice.class).instanceSize();
+    private static final long BLOCK_BUILDER_INSTANCE_SIZE = parseClass(VariableWidthBlockBuilder.class).instanceSize();
+    private static final long SLICE_INSTANCE_SIZE = parseClass(DynamicSliceOutput.class).instanceSize() + parseClass(Slice.class).instanceSize();
     private static final int VARCHAR_VALUE_SIZE = 7;
     private static final int VARCHAR_ENTRY_SIZE = SIZE_OF_INT + VARCHAR_VALUE_SIZE;
     private static final int EXPECTED_ENTRY_COUNT = 3;

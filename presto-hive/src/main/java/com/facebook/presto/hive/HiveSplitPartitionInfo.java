@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class HiveSplitPartitionInfo
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveSplitPartitionInfo.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(HiveSplitPartitionInfo.class).instanceSize();
 
     private final Storage storage;
     private final String path;
@@ -118,9 +118,9 @@ public class HiveSplitPartitionInfo
         return redundantColumnDomains;
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
+        long result = INSTANCE_SIZE;
         result += sizeOfObjectArray(partitionKeys.size());
         for (HivePartitionKey partitionKey : partitionKeys) {
             result += partitionKey.getEstimatedSizeInBytes();

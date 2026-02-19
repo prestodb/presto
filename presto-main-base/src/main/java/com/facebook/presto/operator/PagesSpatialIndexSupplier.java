@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class PagesSpatialIndexSupplier
         implements Supplier<PagesSpatialIndex>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PagesSpatialIndexSupplier.class).instanceSize();
     private static final int MEMORY_USAGE_UPDATE_INCREMENT_BYTES = 100 * 1024 * 1024;   // 100 MB
 
     private final Session session;

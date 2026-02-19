@@ -51,7 +51,7 @@ public class HyperLogLogStateFactory
             extends AbstractGroupedAccumulatorState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedHyperLogLogState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedHyperLogLogState.class).instanceSize();
         private final ObjectBigArray<HyperLogLog> hlls = new ObjectBigArray<>();
         private long size;
 
@@ -90,7 +90,7 @@ public class HyperLogLogStateFactory
     public static class SingleHyperLogLogState
             implements HyperLogLogState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleHyperLogLogState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleHyperLogLogState.class).instanceSize();
         private HyperLogLog hll;
 
         @Override

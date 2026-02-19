@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class FloatBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FloatBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
 

@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class StringColumnStatistics
         extends ColumnStatistics
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StringColumnStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StringColumnStatistics.class).instanceSize();
 
     private final StringStatistics stringStatistics;
 

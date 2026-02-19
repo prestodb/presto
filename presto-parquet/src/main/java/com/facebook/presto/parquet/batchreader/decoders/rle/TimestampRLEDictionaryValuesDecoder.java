@@ -29,7 +29,7 @@ public class TimestampRLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements TimestampValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampRLEDictionaryValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TimestampRLEDictionaryValuesDecoder.class).instanceSize();
 
     private final TimestampDictionary dictionary;
 

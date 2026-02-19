@@ -29,7 +29,7 @@ public class StringStatistics
     // 1 byte to denote if null + 4 bytes to denote offset
     public static final long STRING_VALUE_BYTES_OVERHEAD = Byte.BYTES + Integer.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
 
     @Nullable
     private final Slice minimum;

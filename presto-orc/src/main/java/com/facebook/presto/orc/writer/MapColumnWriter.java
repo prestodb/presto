@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class MapColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapColumnWriter.class).instanceSize();
     private final int column;
     private final int sequence;
     private final boolean compressed;

@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampDictionary
         extends Dictionary
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampDictionary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TimestampDictionary.class).instanceSize();
 
     private final long[] dictionary;
 

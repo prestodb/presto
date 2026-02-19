@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ChangelogRecord
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ChangelogRecord.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ChangelogRecord.class).instanceSize();
     private Block lastRow;
     private Slice lastOperation;
     private int lastOrdinal;
