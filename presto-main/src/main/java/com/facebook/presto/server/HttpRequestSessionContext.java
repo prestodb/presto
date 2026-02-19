@@ -229,22 +229,30 @@ public final class HttpRequestSessionContext
         Map<String, String> requestHeaders = getRequestHeaders(servletRequest);
         TracerHandle tracerHandle = tracerProvider.getHandleGenerator().apply(requestHeaders);
 
-        if (isTracingEnabled()) {
+        TraceTokenFactory traceTokenFactory = new PrestoTraceTokenFactory();
+
+        if (traceTokenFactory.getTraceToken(clientInfo).isPresent()) {
             this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(tracerHandle), "tracer is null"));
-            traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
+            traceToken = (traceTokenFactory.getTraceToken(clientInfo));
         }
         else {
-            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
-
-            // If tunnel trace token is null, we expose the Presto tracing id.
-            // Otherwise we preserve the ability of trace token tunneling but
-            // still trace Presto internally for aggregation purposes.
-            String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
-            if (tunnelTraceId != null) {
-                traceToken = Optional.of(tunnelTraceId);
+            if (isTracingEnabled()) {
+                this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(tracerHandle), "tracer is null"));
+                traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
             }
             else {
-                traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
+                this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
+
+                // If tunnel trace token is null, we expose the Presto tracing id.
+                // Otherwise we preserve the ability of trace token tunneling but
+                // still trace Presto internally for aggregation purposes.
+                String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
+                if (tunnelTraceId != null) {
+                    traceToken = Optional.of(tunnelTraceId);
+                }
+                else {
+                    traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
+                }
             }
         }
     }
