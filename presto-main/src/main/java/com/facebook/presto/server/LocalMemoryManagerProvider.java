@@ -16,8 +16,8 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import jakarta.inject.Inject;
-import jakarta.inject.Provider;
+import com.google.inject.Inject;
+import javax.inject.Provider;
 
 /**
  * Provides {@link LocalMemoryManager} with coordinator-only validation when this process is a
