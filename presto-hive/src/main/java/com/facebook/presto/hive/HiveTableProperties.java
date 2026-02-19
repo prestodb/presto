@@ -57,6 +57,11 @@ public class HiveTableProperties
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
+    public static final String TEXTFILE_FIELD_DELIM = "textfile_field_delim";
+    public static final String TEXTFILE_MAPKEY_DELIM = "textfile_mapkey_delim";
+    public static final String TEXTFILE_COLLECTION_DELIM = "textfile_collection_delim";
+    public static final String TEXTFILE_ESCAPE_DELIM = "textfile_escape_delim";
+
     public static final String SKIP_HEADER_LINE_COUNT = "skip_header_line_count";
     public static final String SKIP_FOOTER_LINE_COUNT = "skip_footer_line_count";
 
@@ -157,6 +162,10 @@ public class HiveTableProperties
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
+                stringProperty(TEXTFILE_FIELD_DELIM, "Textfile field delimiter character", null, false),
+                stringProperty(TEXTFILE_ESCAPE_DELIM, "Textfile escape delimiter character", null, false),
+                stringProperty(TEXTFILE_COLLECTION_DELIM, "Textfile collection delimiter character", null, false),
+                stringProperty(TEXTFILE_MAPKEY_DELIM, "Textfile map key delimiter character", null, false),
                 integerProperty(SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 new PropertyMetadata<>(
@@ -248,17 +257,17 @@ public class HiveTableProperties
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
     }
 
-    public static Optional<Character> getCsvProperty(Map<String, Object> tableProperties, String key)
+    public static Optional<Character> getSingleCharacterProperty(Map<String, Object> tableProperties, String key)
     {
         Object value = tableProperties.get(key);
         if (value == null) {
             return Optional.empty();
         }
-        String csvValue = (String) value;
-        if (csvValue.length() != 1) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, csvValue));
+        String stringValue = (String) value;
+        if (stringValue.length() != 1) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, stringValue));
         }
-        return Optional.of(csvValue.charAt(0));
+        return Optional.of(stringValue.charAt(0));
     }
 
     @SuppressWarnings("unchecked")

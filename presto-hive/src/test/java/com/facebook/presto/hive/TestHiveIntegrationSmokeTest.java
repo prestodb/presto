@@ -7090,6 +7090,157 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE csv_table_skip_header");
     }
 
+    @Test
+    public void testSerdeParametersForTextfileRead()
+            throws Exception
+    {
+        File tempDir = createTempDir();
+        File dataFile = new File(tempDir, "custom-delim.txt");
+        Files.write(
+                "1001" +
+                "|he\u0001|llo" +
+                "|true" +
+                "|88.5" +
+                "|alpha;beta;gamma" +
+                "|size:large;color:blue" +
+                "|42;1.1:2.2:3.3;20\u0004bar:10\u0004foo\n", dataFile, UTF_8);
+
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String table = "test_textfile_custom_delim";
+        String path = new Path(tempDir.toURI().toASCIIString()).toString();
+
+        String createTableWithCustomSerdeFormat =
+                "CREATE TABLE %s.%s.%s (\n" +
+                        "   %s bigint,\n" +
+                        "   %s varchar,\n" +
+                        "   %s boolean,\n" +
+                        "   %s double,\n" +
+                        "   %s array(varchar),\n" +
+                        "   %s map(varchar, varchar),\n" +
+                        "   %s row(%s integer, %s array(real), %s map(smallint, varchar))\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   external_location = '%s',\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_collection_delim = ';',\n" +
+                        "   textfile_escape_delim = %s,\n" +
+                        "   textfile_field_delim = '|',\n" +
+                        "   textfile_mapkey_delim = ':'\n" +
+                        ")";
+
+        @Language("SQL") String createTableSql = format(
+                createTableWithCustomSerdeFormat,
+                catalog, schema, table,
+                "c1", "c2", "c3", "c4", "c5", "c6", "c7",
+                "s_int", "s_arr", "s_map",
+                path,
+                "'\u0001'");
+
+        String expectedCreateTableSql = format(
+                createTableWithCustomSerdeFormat,
+                catalog, schema, table,
+                "\"c1\"", "\"c2\"", "\"c3\"", "\"c4\"", "\"c5\"", "\"c6\"", "\"c7\"",
+                "\"s_int\"", "\"s_arr\"", "\"s_map\"",
+                path,
+                "U&'\\0001'");
+
+        try {
+            assertUpdate(createTableSql);
+
+            MaterializedResult actualCreateTableSql = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
+            assertEquals(actualCreateTableSql.getOnlyValue(), expectedCreateTableSql);
+
+            assertQuery(
+                    format(
+                            "SELECT\n" +
+                                    "c1, c2, c3, c4, c5, \n" +
+                                    "element_at(c6, 'size'), element_at(c6, 'color'), \n" +
+                                    "c7.s_arr, element_at(c7.s_map, 10), element_at(c7.s_map, 20) FROM %s.%s.%s", catalog, schema, table),
+                    "VALUES(" +
+                            "1001, 'he|llo', true, 88.5, \n" +
+                            "ARRAY['alpha', 'beta', 'gamma'], \n" +
+                            "'large', 'blue', \n" +
+                            "ARRAY[CAST(1.1 AS REAL), CAST(2.2 AS REAL), CAST(3.3 AS REAL)], 'foo', 'bar')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s.%s", catalog, schema, table));
+            deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
+        }
+    }
+
+    @Test
+    public void testSerdeParametersForTextfileWrite()
+    {
+        String catalog = getSession().getCatalog().get();
+        String schema = getSession().getSchema().get();
+        String table = "test_textfile_custom_delim";
+
+        String createTableWithCustomSerdeFormat =
+                "CREATE TABLE %s.%s.%s (\n" +
+                        "   %s bigint,\n" +
+                        "   %s varchar,\n" +
+                        "   %s boolean,\n" +
+                        "   %s double,\n" +
+                        "   %s array(varchar),\n" +
+                        "   %s map(varchar, varchar),\n" +
+                        "   %s row(%s integer, %s array(real), %s map(smallint, varchar))\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_collection_delim = ';',\n" +
+                        "   textfile_escape_delim = %s,\n" +
+                        "   textfile_field_delim = '|',\n" +
+                        "   textfile_mapkey_delim = ':'\n" +
+                        ")";
+
+        @Language("SQL") String createTableSql = format(
+                createTableWithCustomSerdeFormat,
+                catalog, schema, table,
+                "c1", "c2", "c3", "c4", "c5", "c6", "c7",
+                "s_int", "s_arr", "s_map",
+                "'\u0001'");
+
+        String expectedCreateTableSql = format(
+                createTableWithCustomSerdeFormat,
+                catalog, schema, table,
+                "\"c1\"", "\"c2\"", "\"c3\"", "\"c4\"", "\"c5\"", "\"c6\"", "\"c7\"",
+                "\"s_int\"", "\"s_arr\"", "\"s_map\"",
+                "U&'\\0001'");
+
+        try {
+            assertUpdate(createTableSql);
+
+            MaterializedResult actualCreateTableSql = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
+            assertEquals(actualCreateTableSql.getOnlyValue(), expectedCreateTableSql);
+
+            assertUpdate(format(
+                    "INSERT INTO %s.%s.%s VALUES (" +
+                            "1001, " +
+                            "'he|llo', " +
+                            "true, " +
+                            "88.5, " +
+                            "ARRAY['alpha','beta', 'gamma'], " +
+                            "MAP(ARRAY['size', 'color'], ARRAY['large', 'blue']), " +
+                            "ROW(42, ARRAY[REAL '1.1', REAL '2.2',REAL '3.3'], MAP(ARRAY[SMALLINT '10', SMALLINT '20'], ARRAY['foo', 'bar'])))", catalog, schema, table), 1);
+
+            assertQuery(
+                    format(
+                            "SELECT\n" +
+                                    "c1, c2, c3, c4, c5, \n" +
+                                    "element_at(c6, 'size'), element_at(c6, 'color'), \n" +
+                                    "c7.s_arr, element_at(c7.s_map, 10), element_at(c7.s_map, 20) FROM %s.%s.%s", catalog, schema, table),
+                    "VALUES(" +
+                            "1001, 'he|llo', true, 88.5, \n" +
+                            "ARRAY['alpha', 'beta', 'gamma'], \n" +
+                            "'large', 'blue', \n" +
+                            "ARRAY[CAST(1.1 AS REAL), CAST(2.2 AS REAL), CAST(3.3 AS REAL)], 'foo', 'bar')");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s.%s.%s", catalog, schema, table));
+        }
+    }
+
     protected String retentionDays(int days)
     {
         return "";
