@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "presto_cpp/main/QueryContextManager.h"
-#include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
+
+#include <folly/executors/IOThreadPoolExecutor.h>
 
 using namespace facebook::velox;
 
@@ -60,8 +61,11 @@ std::shared_ptr<velox::core::QueryCtx> QueryContextCache::insert(
     evict();
   }
   queryIds_.push_front(queryId);
-  queryCtxs_[queryId] = {
-      folly::to_weak_ptr(queryCtx), queryIds_.begin(), false};
+  queryCtxs_.insert(
+      {queryId,
+       {.queryCtx = folly::to_weak_ptr(queryCtx),
+        .idListIterator = queryIds_.begin(),
+        .hasStartedTasks = false}});
   return queryCtx;
 }
 
@@ -83,11 +87,11 @@ void QueryContextCache::setTasksStarted(const protocol::QueryId& queryId) {
 
 void QueryContextCache::evict() {
   // Evict least recently used queryCtx if it is not referenced elsewhere.
-  for (auto victim = queryIds_.end(); victim != queryIds_.begin();) {
-    --victim;
-    if (!queryCtxs_[*victim].queryCtx.lock()) {
-      queryCtxs_.erase(*victim);
-      queryIds_.erase(victim);
+  for (auto victim = queryIds_.rbegin(); victim != queryIds_.rend(); ++victim) {
+    auto iter = queryCtxs_.find(*victim);
+    if (iter != queryCtxs_.end() && !iter->second.queryCtx.lock()) {
+      queryCtxs_.erase(iter);
+      queryIds_.erase(std::next(victim).base());
       return;
     }
   }
