@@ -195,7 +195,7 @@ Run IntelliJ IDEA:
 Run HiveExternalWorkerQueryRunner,
 * Edit/Create `HiveExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.nativeworker.HiveExternalWorkerQueryRunner`.
-  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-execution` module.
@@ -203,7 +203,7 @@ Run HiveExternalWorkerQueryRunner,
 Run IcebergExternalWorkerQueryRunner,
 * Edit/Create `IcebergExternalWorkerQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.nativeworker.IcebergExternalWorkerQueryRunner`.
-  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * VM options: `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables:
     - PRESTO_SERVER: Absolute path to the native worker binary. For example: `/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server`
@@ -218,7 +218,7 @@ Run IcebergExternalWorkerQueryRunner,
 Run NativeSidecarPluginQueryRunner:
 * Edit/Create `NativeSidecarPluginQueryRunner` Application Run/Debug Configuration (alter paths accordingly).
   * Main class: `com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner`.
-  * VM options : `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas -Dhive.security=legacy`.
+  * VM options : `-ea -Xmx5G -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Bahia_Banderas`.
   * Working directory: `$MODULE_DIR$`
   * Environment variables: `PRESTO_SERVER=/Users/<user>/git/presto/presto-native-execution/cmake-build-debug/presto_cpp/main/presto_server;DATA_DIR=/Users/<user>/Desktop/data;WORKER_COUNT=0`
   * Use classpath of module: choose `presto-native-sidecar-plugin` module.
