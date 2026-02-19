@@ -293,7 +293,7 @@ public final class MaterializedViewDefinition
         private final String columnName;
         // This signifies whether the mapping is direct or not.
         // Mapping is always direct in inner join case. In the outer join case, only the mapping from a column to its source column in the join input table is direct.
-        // For e.g. in case of SELECT t1_a as t1.a, t2_a as t2.a FROM t1 LEFT JOIN t2 ON t1.a = t2.a
+        // For e.g. in case of SELECT t1.a as t1_a, t2.a as t2_a FROM t1 LEFT JOIN t2 ON t1.a = t2.a
         // t1_a -> t1.a is direct mapped
         // t1_a -> t2.a is NOT direct mapped(as t1,t2 are in outer join)
         // t2_a -> t2.a is direct mapped(value can become null but column mapping is not altered)
