@@ -130,7 +130,7 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     return;
   }
 
-  throw TypeError(type + " no abstract type FunctionHandle ");
+  throw TypeError(type + " here 444 no abstract type FunctionHandle ");
 }
 
 void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
@@ -177,7 +177,7 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
     return;
   }
 
-  throw TypeError(type + " no abstract type FunctionHandle ");
+  throw TypeError(type + " here 333 no abstract type FunctionHandle ");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
