@@ -71,11 +71,10 @@ public class TestDistributedEngineOnlyQueries
         // TODO #7122 assertQueryFails(chicago, "SELECT TIME '3:04:05'", timeTypeUnsupportedError);
         // TODO #7122 assertQueryFails(kathmandu, "SELECT TIME '3:04:05'", timeTypeUnsupportedError);
 
-        // TODO: re-enable the timestamp related test failures later.
-        //assertQueryFails("SELECT TIME '01:02:03.400 Z'", timeTypeUnsupportedError);
-        //assertQueryFails("SELECT TIME '01:02:03.400 UTC'", timeTypeUnsupportedError);
-        //assertQueryFails("SELECT TIME '3:04:05 +06:00'", timeTypeUnsupportedError);
-        //assertQueryFails("SELECT TIME '3:04:05 +0507'", timeTypeUnsupportedError);
-        //assertQueryFails("SELECT TIME '3:04:05 +03'", timeTypeUnsupportedError);
+        assertQueryFails("SELECT TIME '01:02:03.400 Z'", timeTypeUnsupportedError);
+        assertQueryFails("SELECT TIME '01:02:03.400 UTC'", timeTypeUnsupportedError);
+        assertQueryFails("SELECT TIME '3:04:05 +06:00'", timeTypeUnsupportedError);
+        assertQueryFails("SELECT TIME '3:04:05 +0507'", timeTypeUnsupportedError);
+        assertQueryFails    ("SELECT TIME '3:04:05 +03'", timeTypeUnsupportedError);
     }
 }
