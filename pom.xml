@@ -205,6 +205,8 @@
         <module>presto-spark-package</module>
         <module>presto-spark-launcher</module>
         <module>presto-spark-testing</module>
+        <module>presto-spark-classloader-spark3</module>
+        <module>presto-spark-classloader-spark2</module>
         <module>presto-druid</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
@@ -1002,13 +1004,6 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-package</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto.spark</groupId>
-                <artifactId>spark-core</artifactId>
-                <version>${dep.spark.version}</version>
-                <scope>provided</scope>
             </dependency>
 
             <dependency>
@@ -3229,10 +3224,6 @@
                 <dep.spark.version>2.0.2-6</dep.spark.version>
             </properties>
 
-            <modules>
-                <module>presto-spark-classloader-spark2</module>
-            </modules>
-
             <build>
                 <pluginManagement>
                     <plugins>
@@ -3300,10 +3291,6 @@
             <properties>
                 <dep.spark.version>3.4.1-1</dep.spark.version>
             </properties>
-
-            <modules>
-                <module>presto-spark-classloader-spark3</module>
-            </modules>
 
             <build>
                 <pluginManagement>

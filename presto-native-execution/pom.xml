@@ -343,17 +343,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.spark</groupId>
-            <artifactId>spark-core</artifactId>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.facebook.drift</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-base</artifactId>
             <type>test-jar</type>
