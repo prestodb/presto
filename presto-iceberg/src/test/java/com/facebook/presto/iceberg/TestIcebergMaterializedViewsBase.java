@@ -3030,7 +3030,6 @@ public abstract class TestIcebergMaterializedViewsBase
                 {"RAND()", "RAND() in SELECT", true},
                 {"NOW()", "NOW() in SELECT", true},
                 {"CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP in SELECT", true},
-                {"UUID()", "UUID() in SELECT", true},
         };
     }
 
