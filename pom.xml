@@ -208,6 +208,7 @@
         <module>presto-druid</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
+        <module>presto-thrift-connector-toolkit</module>
         <module>presto-thrift-spec</module>
         <module>presto-testng-services</module>
         <module>presto-node-ttl-fetchers</module>
@@ -1130,6 +1131,12 @@
                 <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-connector-toolkit</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
