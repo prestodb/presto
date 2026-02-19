@@ -2715,19 +2715,41 @@ public abstract class AbstractTestQueries
     @Test
     public void testExplainDdl()
     {
+        // CREATE TABLE
         assertExplainDdl("CREATE TABLE foo (pk bigint)", "CREATE TABLE foo");
+        assertExplainDdl("CREATE TABLE IF NOT EXISTS foo (pk bigint)", "CREATE TABLE IF NOT EXISTS foo");
+        assertExplainDdl("CREATE TABLE mycatalog.myschema.foo (pk bigint)", "CREATE TABLE mycatalog.myschema.foo");
+        assertExplainDdl("CREATE TABLE IF NOT EXISTS mycatalog.myschema.foo (pk bigint)", "CREATE TABLE IF NOT EXISTS mycatalog.myschema.foo");
+
+        // DROP TABLE
+        assertExplainDdl("DROP TABLE orders");
+        assertExplainDdl("DROP TABLE IF EXISTS orders");
+        assertExplainDdl("DROP TABLE IF EXISTS mycatalog.myschema.orders");
+
+        // CREATE VIEW
         assertExplainDdl("CREATE VIEW foo AS SELECT * FROM orders", "CREATE VIEW foo");
+
+        // DROP VIEW
+        assertExplainDdl("DROP VIEW view");
+
+        // CREATE/ALTER/DROP FUNCTION
         assertExplainDdl("CREATE OR REPLACE FUNCTION testing.default.tan (x int) RETURNS double COMMENT 'tangent trigonometric function' LANGUAGE SQL DETERMINISTIC CALLED ON NULL INPUT RETURN sin(x) / cos(x)", "CREATE FUNCTION testing.default.tan");
         assertExplainDdl("ALTER FUNCTION testing.default.tan CALLED ON NULL INPUT", "ALTER FUNCTION testing.default.tan");
         assertExplainDdl("DROP FUNCTION IF EXISTS testing.default.tan (int)", "DROP FUNCTION testing.default.tan");
-        assertExplainDdl("DROP TABLE orders");
-        assertExplainDdl("DROP VIEW view");
+
+        // ALTER TABLE
         assertExplainDdl("ALTER TABLE orders RENAME TO new_name");
         assertExplainDdl("ALTER TABLE orders RENAME COLUMN orderkey TO new_column_name");
+
+        // SESSION
         assertExplainDdl("SET SESSION foo = 'bar'");
+        assertExplainDdl("RESET SESSION foo");
+
+        // PREPARE/DEALLOCATE
         assertExplainDdl("PREPARE my_query FROM SELECT * FROM orders", "PREPARE my_query");
         assertExplainDdl("DEALLOCATE PREPARE my_query");
-        assertExplainDdl("RESET SESSION foo");
+
+        // TRANSACTION
         assertExplainDdl("START TRANSACTION");
         assertExplainDdl("COMMIT");
         assertExplainDdl("ROLLBACK");
