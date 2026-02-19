@@ -425,7 +425,7 @@ public class NodeScheduler
                 throw new PrestoException(NO_NODES_AVAILABLE, format("No assignment for split in bucketNodeMap. Split Info: %s", split.getConnectorSplit().getInfoMap()));
             }
             InternalNode node = optionalNode.get();
-            boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
+            boolean isCacheable = split.getConnectorSplit().isCacheable().orElse(true) && bucketNodeMap.isSplitCacheable(split);
             SplitWeight splitWeight = split.getSplitWeight();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
