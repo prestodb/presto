@@ -41,7 +41,6 @@ import org.joda.time.format.ISODateTimeFormat;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
@@ -1441,22 +1440,66 @@ public final class DateTimeFunctions
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long parseDuration(@SqlType("varchar(x)") Slice duration)
     {
-        String durationStr = duration.toStringUtf8();
+        String str = duration.toStringUtf8();
 
-        if (durationStr.isEmpty()) {
+        if (str.isEmpty()) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "duration is empty");
         }
 
         try {
-            Matcher matcher = PATTERN.matcher(durationStr);
+            int i = 0;
 
-            if (!matcher.matches()) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
-                        "duration is not a valid data duration string: " + durationStr);
+            StringBuilder numSb = new StringBuilder();
+            boolean hasDot = false;
+            while (i < str.length()) {
+                char c = str.charAt(i);
+                if (Character.isDigit(c)) {
+                    numSb.append(c);
+                    i++;
+                }
+                else if (c == '.' && !hasDot) {
+                    hasDot = true;
+                    numSb.append(c);
+                    i++;
+                }
+                else {
+                    break;
+                }
             }
 
-            BigDecimal value = new BigDecimal(matcher.group(1));
-            TimeUnit timeUnit = Duration.valueOfTimeUnit(matcher.group(2));
+            String numStr = numSb.toString();
+            if (numStr.isEmpty() || numStr.equals(".") || numStr.endsWith(".")) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "duration is not a valid data duration string: " + str);
+            }
+
+            // Skip optional spaces after the number
+            while (i < str.length() && Character.isWhitespace(str.charAt(i))) {
+                i++;
+            }
+
+            StringBuilder unitSb = new StringBuilder();
+            while (i < str.length() && Character.isLetter(str.charAt(i))) {
+                unitSb.append(str.charAt(i));
+                i++;
+            }
+
+            String unitStr = unitSb.toString();
+            if (unitStr.isEmpty()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "duration is not a valid data duration string: " + str);
+            }
+
+            // Skip optional trailing spaces
+            while (i < str.length() && Character.isWhitespace(str.charAt(i))) {
+                i++;
+            }
+
+            // Ensure no extra characters remain
+            if (i != str.length()) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "duration is not a valid data duration string: " + str);
+            }
+
+            BigDecimal value = new BigDecimal(numStr);
+            TimeUnit timeUnit = Duration.valueOfTimeUnit(unitStr);
 
             return value.multiply(millisPerTimeUnit(timeUnit))
                     .add(BigDecimal.valueOf(0.5)).longValue();
