@@ -29,10 +29,21 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.errorprone.annotations.Immutable;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
@@ -47,6 +58,7 @@ public final class TableWriterNode
         extends PlanNode
 {
     private final PlanNode source;
+    @JsonDeserialize(using = WriterTargetDeserializer.class)
     private final Optional<WriterTarget> target;
     private final VariableReferenceExpression rowCountVariable;
     private final VariableReferenceExpression fragmentVariable;
@@ -122,12 +134,16 @@ public final class TableWriterNode
         this.target = requireNonNull(target, "target is null");
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.fragmentVariable = requireNonNull(fragmentVariable, "fragmentVariable is null");
-        this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
+        this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable,
+                "tableCommitContextVariable is null");
         this.columns = Collections.unmodifiableList(new ArrayList<>(columns));
         this.columnNames = Collections.unmodifiableList(new ArrayList<>(columnNames));
-        this.notNullColumnVariables = Collections.unmodifiableSet(new LinkedHashSet<>(requireNonNull(notNullColumnVariables, "notNullColumns is null")));
-        this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme, "partitioningScheme is null");
-        this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
+        this.notNullColumnVariables = Collections.unmodifiableSet(new LinkedHashSet<>(
+                requireNonNull(notNullColumnVariables, "notNullColumns is null")));
+        this.tablePartitioningScheme = requireNonNull(tablePartitioningScheme,
+                "partitioningScheme is null");
+        this.statisticsAggregation = requireNonNull(statisticsAggregation,
+                "statisticsAggregation is null");
 
         List<VariableReferenceExpression> outputsList = new ArrayList<>();
         outputsList.add(rowCountVariable);
@@ -138,8 +154,10 @@ public final class TableWriterNode
             outputsList.addAll(aggregation.getAggregations().keySet());
         });
         this.outputs = Collections.unmodifiableList(outputsList);
-        this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter, "taskCountIfScaledWriter is null");
-        this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter, "isTemporaryTableWriter is null");
+        this.taskCountIfScaledWriter = requireNonNull(taskCountIfScaledWriter,
+                "taskCountIfScaledWriter is null");
+        this.isTemporaryTableWriter = requireNonNull(isTemporaryTableWriter,
+                "isTemporaryTableWriter is null");
     }
 
     @JsonProperty
@@ -148,7 +166,7 @@ public final class TableWriterNode
         return source;
     }
 
-    @JsonIgnore
+    @JsonProperty
     public Optional<WriterTarget> getTarget()
     {
         return target;
@@ -275,11 +293,55 @@ public final class TableWriterNode
 
     public boolean isSingleWriterPerPartitionRequired()
     {
-        return tablePartitioningScheme.isPresent() && !tablePartitioningScheme.get().isScaleWriters();
+        return tablePartitioningScheme.isPresent() && !tablePartitioningScheme.get()
+                .isScaleWriters();
+    }
+
+    public static class WriterTargetDeserializer
+            extends JsonDeserializer<Optional<WriterTarget>>
+    {
+        private static final Set<String> ALLOWED_TYPES = new HashSet<>(Arrays.asList(
+                "insertReference",
+                "deleteHandle",
+                "refreshMaterializedView",
+                "updateTarget"));
+
+        @Override
+        public Optional<WriterTarget> deserialize(JsonParser p, DeserializationContext ctxt)
+                throws IOException
+        {
+            JsonNode node = p.getCodec().readTree(p);
+
+            if (node == null || node.isNull()) {
+                return Optional.empty();
+            }
+
+            JsonNode typeNode = node.get("@type");
+            if (typeNode == null) {
+                return Optional.empty();
+            }
+
+            String type = typeNode.asText();
+            if (!ALLOWED_TYPES.contains(type)) {
+                return Optional.empty();
+            }
+
+            ObjectMapper mapper = (ObjectMapper) p.getCodec();
+            WriterTarget target = mapper.treeToValue(node, WriterTarget.class);
+            return Optional.of(target);
+        }
     }
 
     // only used during planning -- will not be serialized
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = CreateName.class, name = "createName"),
+            @JsonSubTypes.Type(value = InsertReference.class, name = "insertReference"),
+            @JsonSubTypes.Type(value = DeleteHandle.class, name = "deleteHandle"),
+            @JsonSubTypes.Type(value = RefreshMaterializedViewReference.class, name = "refreshMaterializedView"),
+            @JsonSubTypes.Type(value = UpdateTarget.class, name = "updateTarget")
+    })
     public abstract static class WriterTarget
     {
         public abstract ConnectorId getConnectorId();
@@ -300,7 +362,10 @@ public final class TableWriterNode
         private final Optional<NewTableLayout> layout;
         private final Optional<List<OutputColumnMetadata>> columns;
 
-        public CreateName(ConnectorId connectorId, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout, Optional<List<OutputColumnMetadata>> columns)
+        public CreateName(ConnectorId connectorId,
+                ConnectorTableMetadata tableMetadata,
+                Optional<NewTableLayout> layout,
+                Optional<List<OutputColumnMetadata>> columns)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -309,38 +374,42 @@ public final class TableWriterNode
         }
 
         @Override
+        @JsonIgnore
         public ConnectorId getConnectorId()
         {
             return connectorId;
         }
 
+        @JsonIgnore
         public ConnectorTableMetadata getTableMetadata()
         {
             return tableMetadata;
         }
 
+        @JsonIgnore
         public Optional<NewTableLayout> getLayout()
         {
             return layout;
         }
 
         @Override
+        @JsonIgnore
         public SchemaTableName getSchemaTableName()
-
         {
             return tableMetadata.getTable();
+        }
+
+        @Override
+        @JsonIgnore
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return columns;
         }
 
         @Override
         public String toString()
         {
             return connectorId + "." + tableMetadata.getTable();
-        }
-
-        @Override
-        public Optional<List<OutputColumnMetadata>> getOutputColumns()
-        {
-            return columns;
         }
     }
 
@@ -351,31 +420,46 @@ public final class TableWriterNode
         private final SchemaTableName schemaTableName;
         private final Optional<List<OutputColumnMetadata>> columns;
 
-        public InsertReference(TableHandle handle, SchemaTableName schemaTableName, Optional<List<OutputColumnMetadata>> columns)
+        @JsonCreator
+        public InsertReference(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+        {
+            this(handle, schemaTableName, Optional.empty());
+        }
+
+        public InsertReference(
+                TableHandle handle,
+                SchemaTableName schemaTableName,
+                Optional<List<OutputColumnMetadata>> columns)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.columns = requireNonNull(columns, "columns is null");
         }
 
+        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
         @Override
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
-        @Override
+        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
         @Override
+        @JsonIgnore
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        @JsonIgnore
         public Optional<List<OutputColumnMetadata>> getOutputColumns()
         {
             return columns;
@@ -394,32 +478,37 @@ public final class TableWriterNode
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
 
+        @JsonCreator
         public DeleteHandle(
-                TableHandle handle,
-                SchemaTableName schemaTableName)
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
+        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
         @Override
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
-        @Override
+        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
         @Override
+        @JsonIgnore
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        @JsonIgnore
         public Optional<List<OutputColumnMetadata>> getOutputColumns()
         {
             return Optional.empty();
@@ -437,30 +526,37 @@ public final class TableWriterNode
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
 
-        public RefreshMaterializedViewReference(TableHandle handle, SchemaTableName schemaTableName)
+        @JsonCreator
+        public RefreshMaterializedViewReference(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
+        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
         @Override
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
-        @Override
+        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
         @Override
+        @JsonIgnore
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        @JsonIgnore
         public Optional<List<OutputColumnMetadata>> getOutputColumns()
         {
             return Optional.empty();
@@ -481,6 +577,14 @@ public final class TableWriterNode
         private final List<String> updatedColumns;
         private final List<ColumnHandle> updatedColumnHandles;
 
+        @JsonCreator
+        public UpdateTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+        {
+            this(handle, schemaTableName, Collections.emptyList(), Collections.emptyList());
+        }
+
         public UpdateTarget(
                 TableHandle handle,
                 SchemaTableName schemaTableName,
@@ -494,32 +598,40 @@ public final class TableWriterNode
             this.updatedColumnHandles = requireNonNull(updatedColumnHandles, "updatedColumnHandles is null");
         }
 
+        @JsonProperty
         public TableHandle getHandle()
         {
             return handle;
         }
 
-        public ConnectorId getConnectorId()
-        {
-            return handle.getConnectorId();
-        }
-
+        @Override
+        @JsonProperty
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
         }
 
         @Override
+        @JsonIgnore
+        public ConnectorId getConnectorId()
+        {
+            return handle.getConnectorId();
+        }
+
+        @Override
+        @JsonIgnore
         public Optional<List<OutputColumnMetadata>> getOutputColumns()
         {
             return Optional.empty();
         }
 
+        @JsonIgnore
         public List<String> getUpdatedColumns()
         {
             return updatedColumns;
         }
 
+        @JsonIgnore
         public List<ColumnHandle> getUpdatedColumnHandles()
         {
             return updatedColumnHandles;

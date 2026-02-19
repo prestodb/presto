@@ -89,6 +89,7 @@ public class ColumnMetadata
     {
         return properties;
     }
+
     public Builder toBuilder()
     {
         return ColumnMetadata.builder()

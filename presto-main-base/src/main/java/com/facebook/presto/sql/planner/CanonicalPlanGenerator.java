@@ -66,6 +66,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1082,7 +1083,7 @@ public class CanonicalPlanGenerator
         return Optional.of(sourceToPosition.values().stream().collect(toImmutableList()));
     }
 
-    private static class CanonicalWriterTarget
+    public static class CanonicalWriterTarget
             extends TableWriterNode.WriterTarget
     {
         private final ConnectorId connectorId;
@@ -1111,6 +1112,7 @@ public class CanonicalPlanGenerator
         }
 
         @Override
+        @JsonIgnore
         public SchemaTableName getSchemaTableName()
         {
             // Just return a sample table name, which is always same
@@ -1118,6 +1120,7 @@ public class CanonicalPlanGenerator
         }
 
         @Override
+        @JsonIgnore
         public Optional<List<OutputColumnMetadata>> getOutputColumns()
         {
             return Optional.empty();
