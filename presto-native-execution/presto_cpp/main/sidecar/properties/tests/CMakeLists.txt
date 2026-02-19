@@ -10,8 +10,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(dynamic_registry)
+add_executable(session_properties_test SessionPropertiesTest.cpp)
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
+add_test(NAME session_properties_test COMMAND session_properties_test)
+
+target_link_libraries(
+  session_properties_test
+  presto_session_properties
+  presto_protocol
+  velox_core
+  velox_exec
+  velox_functions_prestosql
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main
+  ${FOLLY_WITH_DEPENDENCIES}
+)

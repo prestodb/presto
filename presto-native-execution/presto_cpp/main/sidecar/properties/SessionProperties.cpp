@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/SessionProperties.h"
+#include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "velox/core/QueryConfig.h"
 
 using namespace facebook::velox;

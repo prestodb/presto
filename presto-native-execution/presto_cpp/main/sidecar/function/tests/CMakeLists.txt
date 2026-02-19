@@ -10,8 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(dynamic_registry)
+add_executable(function_metadata_test FunctionMetadataTest.cpp)
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
+add_test(NAME function_metadata_test COMMAND function_metadata_test)
+
+target_link_libraries(
+  function_metadata_test
+  presto_function_metadata
+  gtest
+  gtest_main
+  velox_function_registry
+  presto_common
+)

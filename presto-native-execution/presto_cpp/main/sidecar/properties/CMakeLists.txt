@@ -10,8 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(dynamic_registry)
+add_library(presto_session_properties SessionProperties.cpp)
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
+target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+
+if(PRESTO_ENABLE_TESTING)
+  add_subdirectory(tests)
 endif()

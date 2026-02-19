@@ -17,10 +17,7 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
-
-add_library(presto_session_properties SessionProperties.cpp)
-
-target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+add_subdirectory(sidecar)
 
 add_library(
   presto_server_lib

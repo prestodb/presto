@@ -13,8 +13,8 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
