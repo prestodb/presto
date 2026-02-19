@@ -25,6 +25,9 @@ namespace facebook::presto::util {
 #define PRESTO_SHUTDOWN_LOG(severity) \
   LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 
+/// Convert boolean to lowercase string representation.
+std::string boolToString(bool value);
+
 using DateTime = std::string;
 DateTime toISOTimestamp(uint64_t timeMilli);
 
