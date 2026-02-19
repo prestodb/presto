@@ -586,8 +586,6 @@
             <artifactId>node</artifactId>
         </dependency>
 
-        <!-- for testing -->
-
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>

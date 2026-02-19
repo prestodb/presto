@@ -13,15 +13,16 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.services.s3.model.StorageClass;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import static java.util.Objects.requireNonNull;
 
-public enum PrestoS3StorageClass {
-    STANDARD(StorageClass.Standard),
-    INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
+public enum PrestoS3StorageClass
+{
+    STANDARD(StorageClass.STANDARD),
+    INTELLIGENT_TIERING(StorageClass.INTELLIGENT_TIERING);
 
-    private StorageClass s3StorageClass;
+    private final StorageClass s3StorageClass;
 
     PrestoS3StorageClass(StorageClass s3StorageClass)
     {
