@@ -46,7 +46,7 @@ public class NullExpressionMatcher
     public Optional<VariableReferenceExpression> getAssignedVariable(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         Optional<VariableReferenceExpression> result = Optional.empty();
-        ImmutableList.Builder<Object> matchesBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> matchesBuilder = ImmutableList.builder();
         Map<VariableReferenceExpression, RowExpression> assignments = getAssignments(node);
 
         if (assignments == null) {
@@ -62,9 +62,9 @@ public class NullExpressionMatcher
             }
         }
 
-        Set<Object> matches = new HashSet<>(matchesBuilder.build());
-        checkState(matches.size() < 2, "Ambiguous expression %s %s matches multiple assignments", type, NULL_LITERAL,
-                (matches.stream().map(Object::toString).collect(Collectors.joining(", "))));
+        Set<RowExpression> matches = new HashSet<>(matchesBuilder.build());
+        checkState(matches.size() < 2, "Ambiguous expression %s[%s] matches multiple assignments %s", NULL_LITERAL, type,
+                (matches.stream().map(RowExpression::toString).collect(Collectors.joining(", "))));
         return result;
     }
 }
