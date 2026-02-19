@@ -286,7 +286,7 @@ limits by the sum of worker-advertised general pool capacity. That is, the effec
 limit is ``min(query.max-memory or query.max-total-memory, sum of worker capacities)``.
 This allows the coordinator to use worker-advertised capacity for scheduling and OOM
 decisions instead of relying only on configured limits. Set to ``false`` to use only
-the configured ``query.max-memory`` and ``query.max-total-memory`` (previous behavior).
+the configured ``query.max-memory`` and ``query.max-total-memory``.
 
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
