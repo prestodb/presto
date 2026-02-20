@@ -81,6 +81,9 @@ public class JsonRenderer
                 .map(n -> renderJson(plan, n))
                 .collect(toImmutableList());
 
+        Optional<PlanNodeStats> stats = node.getStats().isPresent()
+                ? node.getStats()
+                : Optional.of(PlanNodeStats.createEmpty(node.getId()));
         return new JsonRenderedNode(
                 node.getSourceLocation(),
                 node.getId().toString(),
@@ -92,7 +95,7 @@ public class JsonRenderer
                         .map(PlanFragmentId::toString)
                         .collect(toImmutableList()),
                 node.getEstimatedStats(),
-                node.getStats());
+                stats);
     }
 
     public static class JsonRenderedNode
