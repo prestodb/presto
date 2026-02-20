@@ -562,6 +562,7 @@
                     <!-- Not used, but required to compile due to use of an implementation which uses the "Address" type from this dependency -->
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-transport-spi</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>com.facebook.airlift.drift:drift-transport-netty</ignoredNonTestScopedDependency>
                         <!-- Used in tests, but required by drift-transport-netty which is in compile scope -->
                         <ignoredNonTestScopedDependency>io.netty:netty-buffer</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
