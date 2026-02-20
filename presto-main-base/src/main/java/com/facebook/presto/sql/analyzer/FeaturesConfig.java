@@ -155,6 +155,7 @@ public class FeaturesConfig
     private double defaultJoinSelectivityCoefficient;
     private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
+    private boolean pushSemiJoinThroughUnion;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
@@ -1673,6 +1674,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isPushSemiJoinThroughUnion()
+    {
+        return pushSemiJoinThroughUnion;
+    }
+
+    @Config("optimizer.push-semi-join-through-union")
+    @ConfigDescription("Push semi join through union to allow parallel semi join execution")
+    public FeaturesConfig setPushSemiJoinThroughUnion(boolean pushSemiJoinThroughUnion)
+    {
+        this.pushSemiJoinThroughUnion = pushSemiJoinThroughUnion;
         return this;
     }
 

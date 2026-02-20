@@ -110,6 +110,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExcha
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughGroupId;
+import com.facebook.presto.sql.planner.iterative.rule.PushSemiJoinThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushTopNThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.RandomizeSourceKeyInSemiJoin;
@@ -643,6 +644,12 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new LeftJoinNullFilterToSemiJoin(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushSemiJoinThroughUnion())),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
