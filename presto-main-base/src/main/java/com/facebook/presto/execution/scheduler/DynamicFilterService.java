@@ -94,7 +94,11 @@ public class DynamicFilterService
 
         scanToFilterIds
                 .computeIfAbsent(queryId, k -> new ConcurrentHashMap<>())
-                .put(scanNodeId, ImmutableSet.copyOf(filterIds));
+                .merge(scanNodeId, ImmutableSet.copyOf(filterIds), (existing, incoming) -> {
+                    Set<String> merged = new HashSet<>(existing);
+                    merged.addAll(incoming);
+                    return ImmutableSet.copyOf(merged);
+                });
     }
 
     public Set<String> getFilterIdsForScan(QueryId queryId, PlanNodeId scanNodeId)

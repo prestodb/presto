@@ -272,6 +272,26 @@ public class TestDynamicFilterService
     }
 
     @Test
+    public void testScanFilterMappingMergesOnDuplicateRegistration()
+    {
+        // Regression test: registerScanFilterMapping must merge filter IDs
+        // when called multiple times for the same scan (e.g., local filters
+        // from Step 1 and cross-fragment filters from Step 2).
+        QueryId queryId = QueryId.valueOf("test_query_merge");
+        PlanNodeId scanNodeId = new PlanNodeId("scan_1");
+
+        // Step 1: register local filter (e.g., date_sk)
+        service.registerScanFilterMapping(queryId, scanNodeId, ImmutableSet.of("filter_date"));
+
+        // Step 2: register cross-fragment filter (e.g., customer_sk)
+        service.registerScanFilterMapping(queryId, scanNodeId, ImmutableSet.of("filter_customer"));
+
+        // Both filters should be present (merge, not overwrite)
+        assertEquals(service.getFilterIdsForScan(queryId, scanNodeId),
+                ImmutableSet.of("filter_date", "filter_customer"));
+    }
+
+    @Test
     public void testScanFilterMappingNonexistent()
     {
         QueryId queryId = QueryId.valueOf("nonexistent_query");

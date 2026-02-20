@@ -14,7 +14,11 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -40,6 +44,7 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -174,12 +179,35 @@ public class IcebergSplitSource
     private void initializeScanWithDynamicFilter(TupleDomain<ColumnHandle> dynamicFilterConstraint)
     {
         if (!dynamicFilterConstraint.isAll()) {
+            if (extendedMetrics && dynamicFilterConstraint.isNone()) {
+                runtimeStats.addMetricValue("dynamicFilterConstraintIsNone", NONE, 1);
+            }
+
             TupleDomain<IcebergColumnHandle> icebergConstraint = dynamicFilterConstraint
                     .transform(columnHandle -> (IcebergColumnHandle) columnHandle);
-            Expression dfExpression = toIcebergExpression(icebergConstraint);
+
             if (extendedMetrics) {
+                if (icebergConstraint.isNone()) {
+                    runtimeStats.addMetricValue("dynamicFilterIcebergConstraintIsNone", NONE, 1);
+                }
+                if (icebergConstraint.isAll()) {
+                    runtimeStats.addMetricValue("dynamicFilterIcebergConstraintIsAll", NONE, 1);
+                }
+                recordDomainDetails(icebergConstraint);
+            }
+
+            Expression dfExpression = toIcebergExpression(icebergConstraint);
+
+            if (extendedMetrics) {
+                // Check if expression collapsed to always-false or always-true
+                runtimeStats.addMetricValue("dynamicFilterExpressionOp", NONE, dfExpression.op().ordinal());
+
                 long baselineCount = countPlanFiles(tableScan);
                 runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER, NONE, baselineCount);
+
+                // Count files after filter separately to isolate Iceberg evaluation
+                long postFilterCount = countPlanFiles(tableScan.filter(dfExpression));
+                runtimeStats.addMetricValue("dynamicFilterSplitsAfterIcebergFilter", NONE, postFilterCount);
             }
             tableScan = tableScan.filter(dfExpression);
             runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
@@ -187,6 +215,50 @@ public class IcebergSplitSource
                     runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
         }
         initializeScan();
+    }
+
+    private void recordDomainDetails(TupleDomain<IcebergColumnHandle> constraint)
+    {
+        constraint.getDomains().ifPresent(domains -> {
+            for (Map.Entry<IcebergColumnHandle, Domain> entry : domains.entrySet()) {
+                String colName = entry.getKey().getName();
+                Type prestoType = entry.getKey().getType();
+                Domain domain = entry.getValue();
+
+                if (domain.isNone()) {
+                    runtimeStats.addMetricValue("dynamicFilterDomainIsNone[" + colName + "]", NONE, 1);
+                    continue;
+                }
+                if (domain.isAll()) {
+                    runtimeStats.addMetricValue("dynamicFilterDomainIsAll[" + colName + "]", NONE, 1);
+                    continue;
+                }
+
+                long rangeCount = domain.getValues().getRanges().getRangeCount();
+                runtimeStats.addMetricValue("dynamicFilterConnectorRangeCount[" + colName + "]", NONE, rangeCount);
+
+                // Presto type ordinal helps detect type mismatches
+                // (e.g., integer domain pushed to a bigint partition column)
+                runtimeStats.addMetricValue("dynamicFilterDomainPrestoTypeId[" + colName + "]", NONE, prestoType.getTypeSignature().hashCode());
+
+                // Min/max of the domain — verifies the actual filter values reaching Iceberg
+                if (domain.getValues() instanceof SortedRangeSet) {
+                    List<Range> ranges = ((SortedRangeSet) domain.getValues()).getOrderedRanges();
+                    if (!ranges.isEmpty()) {
+                        Range first = ranges.get(0);
+                        Range last = ranges.get(ranges.size() - 1);
+                        if (first.getLow().getValueBlock().isPresent()) {
+                            runtimeStats.addMetricValue("dynamicFilterDomainMin[" + colName + "]", NONE,
+                                    ((Number) first.getLow().getValue()).longValue());
+                        }
+                        if (last.getHigh().getValueBlock().isPresent()) {
+                            runtimeStats.addMetricValue("dynamicFilterDomainMax[" + colName + "]", NONE,
+                                    ((Number) last.getHigh().getValue()).longValue());
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private long countPlanFiles(TableScan scan)
