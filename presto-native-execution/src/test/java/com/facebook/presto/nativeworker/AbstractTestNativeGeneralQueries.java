@@ -1739,10 +1739,10 @@ public abstract class AbstractTestNativeGeneralQueries
                     ColumnMetadata.builder()
                             .setName("col")
                             .setType(RowType.from(ImmutableList.of(
-                            new RowType.Field(Optional.of("NationKey"), BIGINT),
-                            new RowType.Field(Optional.of("NAME"), VARCHAR),
-                            new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
-                            new RowType.Field(Optional.of("commenT"), VARCHAR))))
+                                new RowType.Field(Optional.of("NationKey"), BIGINT),
+                                new RowType.Field(Optional.of("NAME"), VARCHAR),
+                                new RowType.Field(Optional.of("ReGiOnKeY"), BIGINT),
+                                new RowType.Field(Optional.of("commenT"), VARCHAR))))
                             .build()),
                     tableProperties);
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())

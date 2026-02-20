@@ -263,9 +263,9 @@ public class PinotBrokerPageSource
             JsonNode result = rows.get(rowNumber);
             if (result == null || result.size() < blockBuilders.size()) {
                 throw new PinotException(
-                    PINOT_UNEXPECTED_RESPONSE,
-                    Optional.of(query),
-                    String.format("Expected row of %d columns", blockBuilders.size()));
+                        PINOT_UNEXPECTED_RESPONSE,
+                        Optional.of(query),
+                        String.format("Expected row of %d columns", blockBuilders.size()));
             }
             for (int columnNumber = 0; columnNumber < blockBuilders.size(); columnNumber++) {
                 setValue(types.get(columnNumber), blockBuilders.get(columnNumber), result.get(columnNumber));
@@ -280,25 +280,25 @@ public class PinotBrokerPageSource
 
         if (numServersQueried == null || numServersResponded == null || numServersQueried.asInt() > numServersResponded.asInt()) {
             throw new PinotException(
-                PINOT_INSUFFICIENT_SERVER_RESPONSE,
-                Optional.of(pinotQuery),
-                String.format("Only %s out of %s servers responded for query %s", numServersResponded.asInt(), numServersQueried.asInt(), pinotQuery));
+                    PINOT_INSUFFICIENT_SERVER_RESPONSE,
+                    Optional.of(pinotQuery),
+                    String.format("Only %s out of %s servers responded for query %s", numServersResponded.asInt(), numServersQueried.asInt(), pinotQuery));
         }
 
         JsonNode exceptions = jsonBody.get("exceptions");
         if (exceptions != null && exceptions.isArray() && exceptions.size() > 0) {
             if (exceptions.get(0).get("errorCode").asInt() == 180) {
                 throw new PinotException(
-                    PINOT_UNAUTHENTICATED_EXCEPTION,
-                    Optional.empty(),
-                    "Query authentication failed.");
+                        PINOT_UNAUTHENTICATED_EXCEPTION,
+                        Optional.empty(),
+                        "Query authentication failed.");
             }
             // Pinot is known to return exceptions with benign errorcodes like 200
             // so we treat any exception as an error
             throw new PinotException(
-                PINOT_EXCEPTION,
-                Optional.of(pinotQuery),
-                String.format("Query %s encountered exception %s", pinotQuery, exceptions.get(0)));
+                    PINOT_EXCEPTION,
+                    Optional.of(pinotQuery),
+                    String.format("Query %s encountered exception %s", pinotQuery, exceptions.get(0)));
         }
     }
 
@@ -389,9 +389,9 @@ public class PinotBrokerPageSource
             JsonNode dataSchema = resultTable.get("dataSchema");
             if (dataSchema == null) {
                 throw new PinotException(
-                    PINOT_UNEXPECTED_RESPONSE,
-                    Optional.of(sql),
-                    "Expected data schema in the response");
+                        PINOT_UNEXPECTED_RESPONSE,
+                        Optional.of(sql),
+                        "Expected data schema in the response");
             }
             JsonNode columnDataTypes = dataSchema.get("columnDataTypes");
             JsonNode columnNames = dataSchema.get("columnNames");
@@ -400,17 +400,17 @@ public class PinotBrokerPageSource
                     || !columnDataTypes.isArray()
                     || columnDataTypes.size() < blockBuilders.size()) {
                 throw new PinotException(
-                    PINOT_UNEXPECTED_RESPONSE,
-                    Optional.of(sql),
-                    String.format("ColumnDataTypes and results expected for %s, expected %d columnDataTypes but got %d", sql, blockBuilders.size(), columnDataTypes == null ? 0 : columnDataTypes.size()));
+                        PINOT_UNEXPECTED_RESPONSE,
+                        Optional.of(sql),
+                        String.format("ColumnDataTypes and results expected for %s, expected %d columnDataTypes but got %d", sql, blockBuilders.size(), columnDataTypes == null ? 0 : columnDataTypes.size()));
             }
             if (columnNames == null
                     || !columnNames.isArray()
                     || columnNames.size() < blockBuilders.size()) {
                 throw new PinotException(
-                    PINOT_UNEXPECTED_RESPONSE,
-                    Optional.of(sql),
-                    String.format("ColumnNames and results expected for %s, expected %d columnNames but got %d", sql, blockBuilders.size(), columnNames == null ? 0 : columnNames.size()));
+                        PINOT_UNEXPECTED_RESPONSE,
+                        Optional.of(sql),
+                        String.format("ColumnNames and results expected for %s, expected %d columnNames but got %d", sql, blockBuilders.size(), columnNames == null ? 0 : columnNames.size()));
             }
 
             JsonNode rows = resultTable.get("rows");
