@@ -2,4 +2,5 @@
 
 set -euxo pipefail
 
-java -jar /docker/volumes/presto-cli/presto-cli-executable.jar ${CLI_ARGUMENTS} "$@"
+/docker/volumes/overridejdk/bin/java -version
+/docker/volumes/overridejdk/bin/java -jar /docker/volumes/presto-cli/presto-cli-executable.jar ${CLI_ARGUMENTS} "$@"
