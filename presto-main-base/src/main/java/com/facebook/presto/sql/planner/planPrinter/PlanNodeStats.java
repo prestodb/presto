@@ -108,24 +108,6 @@ public class PlanNodeStats
         this.dynamicFilterStats = dynamicFilterStats;
     }
 
-    /**
-     * Creates a zeroed stats instance for a plan node that was not executed (e.g. pruned or in a different fragment).
-     * Used so EXPLAIN ANALYZE JSON can always emit a stats object for every node.
-     */
-    public static PlanNodeStats createEmpty(PlanNodeId planNodeId)
-    {
-        Duration zero = new Duration(0, MILLISECONDS);
-        DataSize zeroBytes = succinctBytes(0);
-        return new PlanNodeStats(
-                planNodeId,
-                zero, zero, zero, zero, zero, zero, zero,
-                0, zeroBytes, 0, zeroBytes, 0, zeroBytes,
-                null,
-                Collections.emptyMap(),
-                0, 0, 0, 0,
-                Optional.empty());
-    }
-
     private static double computedStdDev(double sumSquared, double sum, long n)
     {
         double average = sum / n;
