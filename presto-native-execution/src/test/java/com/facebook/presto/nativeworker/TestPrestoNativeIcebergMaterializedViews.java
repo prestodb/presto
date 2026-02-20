@@ -11,28 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg.rest;
+package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.iceberg.TestIcebergMaterializedViewsBase;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.builder;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
-import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 
 @Test(singleThreaded = true)
-public class TestIcebergMaterializedViewsRest
+public class TestPrestoNativeIcebergMaterializedViews
         extends TestIcebergMaterializedViewsBase
 {
     private TestingHttpServer restServer;
@@ -50,7 +47,6 @@ public class TestIcebergMaterializedViewsRest
 
         serverUri = restServer.getBaseUrl().toString();
         super.init();
-        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS test_schema");
     }
 
     @AfterClass(alwaysRun = true)
@@ -60,20 +56,36 @@ public class TestIcebergMaterializedViewsRest
         if (restServer != null) {
             restServer.stop();
         }
-        deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
+        if (warehouseLocation != null) {
+            deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE);
+        }
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return builder()
+        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
                 .setCatalogType(REST)
-                .setExtraConnectorProperties(restConnectorProperties(serverUri))
-                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
                 .setSchemaName("test_schema")
-                .setCreateTpchTables(false)
-                .setExtraProperties(ImmutableMap.of("experimental.legacy-materialized-views", "false"))
-                .build().getQueryRunner();
+                .setDataDirectory(warehouseLocation.toPath())
+                .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
+                .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .build();
+    }
+
+    @Override
+    protected ExpectedQueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
+                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
+                .setCatalogType(REST)
+                .setSchemaName("test_schema")
+                .setDataDirectory(warehouseLocation.toPath())
+                .setExtraConnectorProperty("iceberg.rest.uri", serverUri)
+                .setExtraProperty("experimental.legacy-materialized-views", "false")
+                .build();
     }
 }

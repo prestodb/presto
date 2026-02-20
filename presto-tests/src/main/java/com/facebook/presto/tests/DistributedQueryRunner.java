@@ -23,6 +23,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -52,6 +53,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -91,6 +93,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -872,6 +875,52 @@ public class DistributedQueryRunner
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
         return execute(getRandomCoordinatorIndex(), session, sql);
+    }
+
+    @Override
+    public MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
+    {
+        MaterializedResult result = execute(session, sql);
+        List<Type> actualTypes = result.getTypes();
+        if (actualTypes.equals(resultTypes)) {
+            return result;
+        }
+        checkState(actualTypes.size() == resultTypes.size(),
+                "Expected %s result types but got %s", resultTypes.size(), actualTypes.size());
+
+        List<MaterializedRow> coercedRows = result.getMaterializedRows().stream()
+                .map(row -> {
+                    List<Object> coercedValues = new java.util.ArrayList<>();
+                    for (int i = 0; i < row.getFieldCount(); i++) {
+                        Object value = row.getField(i);
+                        Type fromType = actualTypes.get(i);
+                        Type toType = resultTypes.get(i);
+                        if (value == null || fromType.equals(toType)) {
+                            coercedValues.add(value);
+                        }
+                        else if (value instanceof Number && isNumericType(fromType) && isNumericType(toType)) {
+                            coercedValues.add(coerceNumeric((Number) value, toType));
+                        }
+                        else {
+                            coercedValues.add(value);
+                        }
+                    }
+                    return new MaterializedRow(row.getPrecision(), coercedValues);
+                })
+                .collect(ImmutableList.toImmutableList());
+        return new MaterializedResult(coercedRows, resultTypes);
+    }
+
+    private static Object coerceNumeric(Number value, Type toType)
+    {
+        Class<?> javaType = toType.getJavaType();
+        if (javaType == long.class) {
+            return value.longValue();
+        }
+        if (javaType == double.class) {
+            return value.doubleValue();
+        }
+        return value;
     }
 
     public ResultWithQueryId<MaterializedResult> executeWithQueryId(Session session, @Language("SQL") String sql)
