@@ -93,6 +93,7 @@ target_link_libraries(
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
+  velox_key_encoder
   velox_presto_serializer
   velox_presto_type_parser
   velox_s3fs
