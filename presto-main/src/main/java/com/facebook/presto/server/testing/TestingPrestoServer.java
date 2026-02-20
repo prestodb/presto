@@ -15,6 +15,7 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.discovery.client.Announcer;
 import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
@@ -186,6 +187,7 @@ public class TestingPrestoServer
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final Map<String, String> allCoordinatorProperties;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -414,6 +416,7 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         expressionManager = injector.getInstance(ExpressionOptimizerManager.class);
+        allCoordinatorProperties = injector.getInstance(ConfigurationFactory.class).getProperties();
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -431,7 +434,7 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
             planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
-            expressionManager.loadExpressionOptimizerFactories();
+            expressionManager.loadExpressionOptimizerFactories(allCoordinatorProperties);
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -561,6 +564,11 @@ public class TestingPrestoServer
                 deleteRecursively(dataDirectory, ALLOW_INSECURE);
             }
         }
+    }
+
+    public Map<String, String> getAllCoordinatorProperties()
+    {
+        return allCoordinatorProperties;
     }
 
     public PluginManager getPluginManager()

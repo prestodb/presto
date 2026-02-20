@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.discovery.client.Announcer;
 import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
@@ -162,6 +163,9 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
+            // get all coordinator configs
+            Map<String, String> allCoordinatorConfigs = injector.getInstance(ConfigurationFactory.class).getProperties();
+
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
             if (!serverConfig.isResourceManager()) {
@@ -180,7 +184,7 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(DriftServer.class));
 
-            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(allCoordinatorConfigs);
             injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -202,7 +206,7 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders(allCoordinatorConfigs);
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
@@ -210,7 +214,7 @@ public class PrestoServer
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
-            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories(allCoordinatorConfigs);
 
             injector.getInstance(FunctionAndTypeManager.class)
                     .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();

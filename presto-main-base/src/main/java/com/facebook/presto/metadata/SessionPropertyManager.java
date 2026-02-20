@@ -163,7 +163,7 @@ public final class SessionPropertyManager
                 new SessionPropertyProviderConfig());
     }
 
-    public void loadSessionPropertyProviders()
+    public void loadSessionPropertyProviders(Map<String, String> allCoordinatorConfigs)
             throws Exception
     {
         if (!sessionPropertyProvidersLoading.compareAndSet(false, true)) {
@@ -179,6 +179,8 @@ public final class SessionPropertyManager
                         file.getAbsoluteFile(),
                         SESSION_PROPERTY_PROVIDER_NAME);
                 properties = new HashMap<>(properties);
+                // add all coordinator configs
+                properties.putAll(allCoordinatorConfigs);
                 properties.remove(SESSION_PROPERTY_PROVIDER_NAME);
                 loadSessionPropertyProvider(sessionPropertyProviderName, properties, functionAndTypeManager, nodeManager);
             }

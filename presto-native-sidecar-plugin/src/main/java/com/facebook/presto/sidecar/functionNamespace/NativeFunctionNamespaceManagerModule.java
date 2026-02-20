@@ -15,6 +15,8 @@ package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.node.NodeConfig;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
@@ -23,6 +25,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 
 import java.util.List;
@@ -61,5 +64,7 @@ public class NativeFunctionNamespaceManagerModule
         binder.bind(NativeFunctionNamespaceManager.class).in(SINGLETON);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(FunctionMetadataManager.class).toInstance(functionMetadataManager);
+        configBinder(binder).bindConfig(NodeConfig.class);
+        binder.bind(NodeInfo.class).in(Scopes.SINGLETON);
     }
 }

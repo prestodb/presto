@@ -15,6 +15,7 @@ package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutorsModule;
+import com.facebook.presto.server.CommonInternalCommunicationModule;
 import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.sidecar.NativeSidecarPlugin;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
@@ -57,11 +58,13 @@ public class NativeFunctionNamespaceManagerFactory
             Bootstrap app = new Bootstrap(
                     new NativeFunctionNamespaceManagerModule(catalogName, context.getNodeManager(), context.getFunctionMetadataManager()),
                     new NoopSqlFunctionExecutorsModule(),
+                    new CommonInternalCommunicationModule(),
                     new NativeSidecarCommunicationModule());
 
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
+                    .noStrictConfig()
                     .initialize();
             return injector.getInstance(NativeFunctionNamespaceManager.class);
         }

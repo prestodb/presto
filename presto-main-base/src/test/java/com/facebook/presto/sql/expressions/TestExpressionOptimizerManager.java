@@ -43,6 +43,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.newOutputStream;
+import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -86,7 +87,7 @@ public class TestExpressionOptimizerManager
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("bar"));
-        manager.loadExpressionOptimizerFactories();
+        manager.loadExpressionOptimizerFactories(emptyMap());
 
         assertOptimizedExpression("1+1", "2", ImmutableMap.of());
         assertOptimizedExpression("1+1", "2", ImmutableMap.of("expression_optimizer_name", "default"));
@@ -103,7 +104,7 @@ public class TestExpressionOptimizerManager
         createPropertiesFile("default.properties", ImmutableMap.of("expression-manager-factory.name", "default"));
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("default"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories());
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
     }
 
     @Test
@@ -113,7 +114,7 @@ public class TestExpressionOptimizerManager
         createPropertiesFile("foo.properties", ImmutableMap.of());
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories());
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
     }
 
     @Test
@@ -121,7 +122,7 @@ public class TestExpressionOptimizerManager
             throws Exception
     {
         createPropertiesFile("foo.properties", ImmutableMap.of("expression-manager-factory.name", "foo"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories());
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
     }
 
     private void assertOptimizedExpression(String originalExpression, String optimizedExpression, Map<String, String> systemProperties)
