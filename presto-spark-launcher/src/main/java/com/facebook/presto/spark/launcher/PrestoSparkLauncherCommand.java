@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.launcher;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
@@ -67,7 +68,7 @@ public class PrestoSparkLauncherCommand
                 Optional.empty(),
                 clientOptions.sessionPropertyConfig == null ? Optional.empty() : Optional.of(
                         loadProperties(checkFile(new File(clientOptions.sessionPropertyConfig)))),
-                    Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
@@ -75,6 +76,7 @@ public class PrestoSparkLauncherCommand
                     "test",
                     Optional.empty(),
                     ImmutableMap.of(),
+                    ImmutableList.of(),
                     clientOptions.catalog,
                     clientOptions.schema,
                     Optional.empty(),

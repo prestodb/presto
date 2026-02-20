@@ -14,12 +14,16 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -33,6 +37,7 @@ public class PrestoSparkSession
     private final String user;
     private final Optional<Principal> principal;
     private final Map<String, String> extraCredentials;
+    private final List<X509Certificate> certificates;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final Optional<String> source;
@@ -49,6 +54,7 @@ public class PrestoSparkSession
             String user,
             Optional<Principal> principal,
             Map<String, String> extraCredentials,
+            List<X509Certificate> certificates,
             Optional<String> catalog,
             Optional<String> schema,
             Optional<String> source,
@@ -65,6 +71,7 @@ public class PrestoSparkSession
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
+        this.certificates = unmodifiableList(new ArrayList<>(requireNonNull(certificates, "certificates is null")));
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.source = requireNonNull(source, "source is null");
@@ -92,6 +99,11 @@ public class PrestoSparkSession
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
+    }
+
+    public List<X509Certificate> getCertificates()
+    {
+        return certificates;
     }
 
     public Optional<String> getCatalog()
