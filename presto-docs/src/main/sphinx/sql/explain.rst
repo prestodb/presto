@@ -20,9 +20,9 @@ Description
 -----------
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
-Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each 
-`plan fragment <https://prestodb.io/docs/current/overview/concepts.html#plan-fragment>`_ 
-is executed by a single or multiple Presto nodes. Fragment type specifies how the fragment 
+Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each
+`plan fragment <https://prestodb.io/docs/current/overview/concepts.html#plan-fragment>`_
+is executed by a single or multiple Presto nodes. Fragment type specifies how the fragment
 is executed by Presto nodes and how the data is distributed between fragments:
 
 ``SINGLE``
@@ -151,6 +151,48 @@ IO:
          }
        }
      }
+
+DDL Statements
+^^^^^^^^^^^^^^
+
+``EXPLAIN`` can also be used with DDL statements such as ``CREATE TABLE`` and ``DROP TABLE``.
+For these statements, the output shows a summary of the operation rather than an execution plan.
+
+CREATE TABLE:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN CREATE TABLE new_table (id BIGINT, name VARCHAR);
+            Query Plan
+    --------------------------
+     CREATE TABLE new_table
+
+CREATE TABLE IF NOT EXISTS:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN CREATE TABLE IF NOT EXISTS new_table (id BIGINT, name VARCHAR);
+                  Query Plan
+    --------------------------------------
+     CREATE TABLE IF NOT EXISTS new_table
+
+DROP TABLE:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN DROP TABLE test_table;
+                            Query Plan
+    --------------------------------------------------------------
+     DROP TABLE test_table
+
+DROP TABLE IF EXISTS:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN DROP TABLE IF EXISTS test_table;
+                            Query Plan
+    --------------------------------------------------------------
+     DROP TABLE IF EXISTS test_table
 
 
 See Also
