@@ -247,11 +247,11 @@ public class IcebergSplitSource
                     if (!ranges.isEmpty()) {
                         Range first = ranges.get(0);
                         Range last = ranges.get(ranges.size() - 1);
-                        if (first.getLow().getValueBlock().isPresent()) {
+                        if (first.getLow().getValueBlock().isPresent() && first.getLow().getValue() instanceof Number) {
                             runtimeStats.addMetricValue("dynamicFilterDomainMin[" + colName + "]", NONE,
                                     ((Number) first.getLow().getValue()).longValue());
                         }
-                        if (last.getHigh().getValueBlock().isPresent()) {
+                        if (last.getHigh().getValueBlock().isPresent() && last.getHigh().getValue() instanceof Number) {
                             runtimeStats.addMetricValue("dynamicFilterDomainMax[" + colName + "]", NONE,
                                     ((Number) last.getHigh().getValue()).longValue());
                         }
