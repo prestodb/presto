@@ -16,6 +16,7 @@ package com.facebook.presto.spark.launcher;
 import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +29,7 @@ public class PrestoSparkRunnerContext
     private final String user;
     private final Optional<Principal> principal;
     private final Map<String, String> extraCredentials;
+    private final List<X509Certificate> certificates;
     private final String catalog;
     private final String schema;
     private final Optional<String> source;
@@ -50,6 +52,7 @@ public class PrestoSparkRunnerContext
             String user,
             Optional<Principal> principal,
             Map<String, String> extraCredentials,
+            List<X509Certificate> certificates,
             String catalog,
             String schema,
             Optional<String> source,
@@ -71,6 +74,7 @@ public class PrestoSparkRunnerContext
         this.user = user;
         this.principal = principal;
         this.extraCredentials = extraCredentials;
+        this.certificates = certificates;
         this.catalog = catalog;
         this.schema = schema;
         this.source = source;
@@ -103,6 +107,11 @@ public class PrestoSparkRunnerContext
     public Map<String, String> getExtraCredentials()
     {
         return extraCredentials;
+    }
+
+    public List<X509Certificate> getCertificates()
+    {
+        return certificates;
     }
 
     public String getCatalog()
@@ -195,6 +204,7 @@ public class PrestoSparkRunnerContext
         private String user;
         private Optional<Principal> principal;
         private Map<String, String> extraCredentials;
+        private List<X509Certificate> certificates;
         private String catalog;
         private String schema;
         private Optional<String> source;
@@ -218,6 +228,7 @@ public class PrestoSparkRunnerContext
             this.user = prestoSparkRunnerContext.getUser();
             this.principal = prestoSparkRunnerContext.getPrincipal();
             this.extraCredentials = prestoSparkRunnerContext.getExtraCredentials();
+            this.certificates = prestoSparkRunnerContext.getCertificates();
             this.catalog = prestoSparkRunnerContext.getCatalog();
             this.schema = prestoSparkRunnerContext.getSchema();
             this.source = prestoSparkRunnerContext.getSource();
@@ -249,6 +260,7 @@ public class PrestoSparkRunnerContext
                     user,
                     principal,
                     extraCredentials,
+                    certificates,
                     catalog,
                     schema,
                     source,
