@@ -230,7 +230,7 @@ public class DynamicFilterFetcher
                     emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_COMPLETED_ID_DELIVERED, filterId, taskSuffix), 1);
                 }
                 resolveFilter(filterId)
-                        .ifPresent(f -> f.addPartitionByFilterId(TupleDomain.none()));
+                        .ifPresent(f -> f.addPartitionByFilterId(TupleDomain.all()));
                 deliveredFilterIds.add(filterId);
             }
         }
