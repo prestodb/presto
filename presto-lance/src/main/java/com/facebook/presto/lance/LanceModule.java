@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.lance;
 
-import com.facebook.presto.lance.client.LanceClient;
-import com.facebook.presto.lance.ingestion.LancePageWriter;
-import com.facebook.presto.lance.metadata.LanceMetadata;
-import com.facebook.presto.lance.ingestion.LancePageSinkProvider;
-import com.facebook.presto.lance.scan.LancePageSourceProvider;
-import com.facebook.presto.lance.splits.LanceSplitManager;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 
 public class LanceModule
         implements Module
@@ -32,13 +30,12 @@ public class LanceModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(LanceConfig.class);
-        binder.bind(LanceClient.class).in(Scopes.SINGLETON);
+        binder.bind(LanceNamespaceHolder.class).in(Scopes.SINGLETON);
         binder.bind(LanceConnector.class).in(Scopes.SINGLETON);
         binder.bind(LanceMetadata.class).in(Scopes.SINGLETON);
-        binder.bind(LanceHandleResolver.class).in(Scopes.SINGLETON);
-        binder.bind(LanceSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(LancePageSourceProvider.class).in(Scopes.SINGLETON);
-        binder.bind(LancePageSinkProvider.class).in(Scopes.SINGLETON);
-        binder.bind(LancePageWriter.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorSplitManager.class).to(LanceSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(LancePageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSinkProvider.class).to(LancePageSinkProvider.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(LanceCommitTaskData.class);
     }
 }

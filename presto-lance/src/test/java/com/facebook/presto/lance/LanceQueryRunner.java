@@ -18,6 +18,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,7 +31,7 @@ public class LanceQueryRunner
     private static final Logger log = Logger.get(LanceQueryRunner.class);
     private static final String DEFAULT_SOURCE = "test";
     private static final String DEFAULT_CATALOG = "lance";
-    private static final String DEFAULT_SCHEMA = "lance";
+    private static final String DEFAULT_SCHEMA = "default";
 
     private LanceQueryRunner()
     {
@@ -39,11 +41,15 @@ public class LanceQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080")).build();
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .build();
         try {
             queryRunner.installPlugin(new LancePlugin());
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            connectorProperties.putIfAbsent("lance.root-url", "/tmp");
+
+            // Use a temp directory for lance root
+            Path tempDir = Files.createTempDirectory("lance-test");
+            connectorProperties.putIfAbsent("lance.root-url", tempDir.toString());
 
             queryRunner.createCatalog(DEFAULT_CATALOG, "lance", connectorProperties);
             return queryRunner;

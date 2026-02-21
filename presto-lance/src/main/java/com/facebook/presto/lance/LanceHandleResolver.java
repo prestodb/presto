@@ -13,22 +13,13 @@
  */
 package com.facebook.presto.lance;
 
-import com.facebook.presto.lance.ingestion.LanceIngestionTableHandle;
-import com.facebook.presto.lance.metadata.LanceColumnHandle;
-import com.facebook.presto.lance.metadata.LanceTableHandle;
-import com.facebook.presto.lance.metadata.LanceTableLayoutHandle;
-import com.facebook.presto.lance.metadata.LanceTransactionHandle;
-import com.facebook.presto.lance.splits.LanceSplit;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class LanceHandleResolver
@@ -59,38 +50,20 @@ public class LanceHandleResolver
     }
 
     @Override
-    public Class<? extends ConnectorIndexHandle> getIndexHandleClass()
-    {
-        return ConnectorHandleResolver.super.getIndexHandleClass();
-    }
-
-    @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
-        return LanceIngestionTableHandle.class;
+        return LanceWritableTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        return LanceIngestionTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
-    {
-        return ConnectorHandleResolver.super.getPartitioningHandleClass();
+        return LanceWritableTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         return LanceTransactionHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorMetadataUpdateHandle> getMetadataUpdateHandleClass()
-    {
-        return ConnectorHandleResolver.super.getMetadataUpdateHandleClass();
     }
 }

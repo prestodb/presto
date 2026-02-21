@@ -14,18 +14,13 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorHandleResolver;
-import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
-import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -48,28 +43,19 @@ public class LanceConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        {
-            ClassLoader classLoader = LanceConnectorFactory.class.getClassLoader();
-            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-                Bootstrap app = new Bootstrap(
-                        new LanceModule(),
-                        binder -> {
-                            binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                            binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                            binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
-                            binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
-                            binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
-                            binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
-                            binder.bind(FilterStatsCalculatorService.class).toInstance(context.getFilterStatsCalculatorService());
-                        });
+        ClassLoader classLoader = LanceConnectorFactory.class.getClassLoader();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new LanceModule(),
+                    binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()));
 
-                Injector injector = app
-                        .doNotInitializeLogging()
-                        .setRequiredConfigurationProperties(config)
-                        .initialize();
+            Injector injector = app
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
-                return injector.getInstance(LanceConnector.class);
-            }
+            return injector.getInstance(LanceConnector.class);
         }
     }
 }
