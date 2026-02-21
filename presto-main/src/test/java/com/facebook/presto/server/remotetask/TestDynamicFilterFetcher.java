@@ -249,6 +249,48 @@ public class TestDynamicFilterFetcher
     }
 
     @Test(timeOut = 30000)
+    public void testCompletedFilterWithNoDataDeliversAll()
+            throws Exception
+    {
+        String filterId = "f1";
+        QueryId queryId = new QueryId("test");
+
+        DynamicFilterService dynamicFilterService = new DynamicFilterService();
+        JoinDynamicFilter joinFilter = new JoinDynamicFilter(
+                filterId, "col1", new Duration(10, SECONDS), new DynamicFilterStats(), new RuntimeStats());
+        joinFilter.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
+
+        // Empty filters map + filterId in completedFilterIds = operator sent TupleDomain.all()
+        DynamicFilterResponse response = DynamicFilterResponse.completed(
+                ImmutableMap.of(),
+                1L,
+                ImmutableSet.of(filterId));
+
+        AtomicInteger fetchCount = new AtomicInteger();
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            if ("DELETE".equals(request.getMethod())) {
+                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+            fetchCount.incrementAndGet();
+            return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(response));
+        });
+
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher.start();
+
+        poll(() -> fetchCount.get() >= 1);
+        Thread.sleep(500);
+
+        assertTrue(joinFilter.hasData(), "Filter should have received data");
+        assertTrue(joinFilter.isComplete(), "Filter should be complete (1 of 1 partitions)");
+
+        TupleDomain<String> constraint = joinFilter.getCurrentConstraintByColumnName();
+        assertTrue(constraint.isAll(),
+                "Constraint should be all() (let everything through), but was: " + constraint);
+    }
+
+    @Test(timeOut = 30000)
     public void testSecondFilterLostWhenFirstFlushSetsOperatorCompleted()
             throws Exception
     {
