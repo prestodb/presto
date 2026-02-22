@@ -204,6 +204,45 @@ class PrestoServer {
 
   void addServerPeriodicTasks();
 
+  /// Loads config files, validates HTTPS/JWT settings, and populates member
+  /// variables from config. Called at the start of run().
+  void initializeConfigs();
+
+  /// Creates the HTTP server with appropriate socket bindings and
+  /// optional HTTPS configuration.
+  void initializeHttpServer();
+
+  /// Registers all HTTP API endpoints on the HTTP server.
+  void registerHttpEndpoints();
+
+  /// Registers exchange source factories for Presto exchange, shuffle, and
+  /// broadcast exchange.
+  void registerExchangeSources();
+
+  /// Creates memory pools, task manager, task resource, and related
+  /// components.
+  void initializeTaskResources();
+
+  /// Registers task, split, and expression set listeners based on config.
+  void registerListeners();
+
+  /// Starts the HTTP server (blocking), announcer, and heartbeat manager.
+  /// Returns when the server is stopped.
+  void startServer(const std::vector<std::string>& catalogNames);
+
+  /// Shuts down all server components in the correct order after the HTTP
+  /// server stops.
+  void shutdownServer();
+
+  /// Logs thread pool sizes for all executors.
+  void logExecutorInfo();
+
+  /// Stops announcer and heartbeat manager.
+  void stopAnnouncer();
+
+  /// Joins all thread pool executors in the correct shutdown order.
+  void joinExecutors();
+
   void reportMemoryInfo(proxygen::ResponseHandler* downstream);
 
   void reportServerInfo(proxygen::ResponseHandler* downstream);
@@ -322,6 +361,14 @@ class PrestoServer {
   std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
   std::string prestoBuiltinFunctionPrefix_;
+
+  // HTTP/HTTPS configuration populated by initializeConfigs() and consumed
+  // by initializeHttpServer() and startServer().
+  int httpPort_{0};
+  std::optional<int> httpsPort_;
+  std::string certPath_;
+  std::string keyPath_;
+  std::string ciphers_;
 };
 
 } // namespace facebook::presto
