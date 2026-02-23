@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class FixedLenByteArrayShortDecimalDeltaValueDecoder
         implements ShortDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedLenByteArrayShortDecimalDeltaValueDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FixedLenByteArrayShortDecimalDeltaValueDecoder.class).instanceSize();
 
     private final ValuesReader delegate;
     private final ColumnDescriptor descriptor;

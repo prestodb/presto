@@ -43,8 +43,8 @@ public class TypedSet
     @VisibleForTesting
     public static final DataSize MAX_FUNCTION_MEMORY = new DataSize(4, MEGABYTE);
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
-    private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
+    private static final long INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
 
     private final Type elementType;

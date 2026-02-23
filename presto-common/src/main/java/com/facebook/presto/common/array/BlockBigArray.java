@@ -18,7 +18,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BlockBigArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BlockBigArray.class).instanceSize();
     private final ObjectBigArray<Block> array;
     private final ReferenceCountMap trackedObjects = new ReferenceCountMap();
     private long sizeOfBlocks;

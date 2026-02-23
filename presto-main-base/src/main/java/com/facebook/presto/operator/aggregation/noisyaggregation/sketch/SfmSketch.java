@@ -54,7 +54,7 @@ public class SfmSketch
 
     private static final byte FORMAT_TAG = 7;
     private static final int MAX_ESTIMATION_ITERATIONS = 1000;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SfmSketch.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SfmSketch.class).instanceSize();
 
     private final int indexBitLength;
     private final int precision;

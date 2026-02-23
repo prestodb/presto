@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDirectBatchStreamReader
         implements BatchStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectBatchStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
     private final int maxCodePointCount;

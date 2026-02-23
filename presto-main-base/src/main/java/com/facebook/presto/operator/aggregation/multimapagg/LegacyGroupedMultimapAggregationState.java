@@ -27,7 +27,7 @@ public class LegacyGroupedMultimapAggregationState
         extends AbstractGroupedAccumulatorState
         implements MultimapAggregationState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LegacyGroupedMultimapAggregationState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LegacyGroupedMultimapAggregationState.class).instanceSize();
     private static final int EXPECTED_ENTRIES = 10;
     private static final int EXPECTED_ENTRY_SIZE = 16;
     private final Type keyType;

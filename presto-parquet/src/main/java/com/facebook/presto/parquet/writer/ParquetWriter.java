@@ -65,7 +65,7 @@ import static org.apache.parquet.hadoop.metadata.CompressionCodecName.ZSTD;
 public class ParquetWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
     private static final ParquetMetadataConverter METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.valueOf("128MB").toBytes());

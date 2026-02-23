@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class SetOfValues
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SetOfValues.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SetOfValues.class).instanceSize();
     private static final int EXPECTED_ENTRIES = 10;
     private static final int EXPECTED_ENTRY_SIZE = 16;
     private static final float FILL_RATIO = 0.75f;

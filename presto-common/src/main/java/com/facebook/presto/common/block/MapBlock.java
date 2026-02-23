@@ -31,7 +31,7 @@ public class MapBlock
         extends AbstractMapBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapBlock.class).instanceSize();
 
     private final int startOffset;
     private final int positionCount;

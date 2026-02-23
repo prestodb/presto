@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>108</version>
+        <version>109</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -44,9 +44,9 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.13.2</dep.antlr.version>
-        <dep.airlift.version>0.225</dep.airlift.version>
+        <dep.airlift.version>0.228</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.slice.version>0.38</dep.slice.version>
+        <dep.slice.version>0.45</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
@@ -1496,7 +1496,7 @@
             <dependency>
                 <groupId>org.openjdk.jol</groupId>
                 <artifactId>jol-core</artifactId>
-                <version>0.2</version>
+                <version>0.17</version>
             </dependency>
 
             <dependency>

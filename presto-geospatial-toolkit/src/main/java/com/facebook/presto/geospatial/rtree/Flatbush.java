@@ -72,7 +72,7 @@ public class Flatbush<T extends HasExtent>
     // Number of coordinates to define an envelope
     @VisibleForTesting
     static final int ENVELOPE_SIZE = 4;
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Flatbush.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Flatbush.class).instanceSize();
     private static final int DEFAULT_DEGREE = 16;
     // Number of children per node
     private final int degree;

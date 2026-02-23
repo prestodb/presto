@@ -28,7 +28,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 public class NoChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(NoChannelGroupByHash.class).instanceSize();
 
     private int groupCount;
 
