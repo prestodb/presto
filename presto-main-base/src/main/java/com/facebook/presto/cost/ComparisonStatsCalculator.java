@@ -254,8 +254,10 @@ public final class ComparisonStatsCalculator
         double filterFactor = 1.0 / max(leftNdv, rightNdv, 1);
         double retainedNdv = min(leftNdv, rightNdv);
 
+        double overlapPercent = leftExpressionRange.overlapPercentWith(rightExpressionRange);
+        double outputRowCount = overlapPercent == 0D ? 0D : inputStatistics.getOutputRowCount() * nullsFilterFactor * filterFactor;
         PlanNodeStatsEstimate.Builder estimate = PlanNodeStatsEstimate.buildFrom(inputStatistics)
-                .setOutputRowCount(inputStatistics.getOutputRowCount() * nullsFilterFactor * filterFactor);
+                .setOutputRowCount(outputRowCount);
 
         VariableStatsEstimate equalityStats = VariableStatsEstimate.builder()
                 .setAverageRowSize(averageExcludingNaNs(leftExpressionStatistics.getAverageRowSize(), rightExpressionStatistics.getAverageRowSize()))
