@@ -291,6 +291,33 @@ Add the ``metastore.storage.schema.reader.impl`` property to ``hive-site.xml`` w
 
 You must restart the metastore service for this configuration to take effect. This setting allows the metastore to read storage schemas for Avro tables and avoids ``Storage schema reading not supported`` errors.
 
+Textfile Configuration Properties
+---------------------------------
+
+Table Properties
+^^^^^^^^^^^^^^^^
+
+These properties can be used when creating TEXTFILE tables in Presto:
+
+======================================================== ============================================================================== =============================
+Property Name                                            Description                                                                    Default
+======================================================== ============================================================================== =============================
+``textfile_field_delim``                                 A custom single-character delimiter to separate fields.                        NONE
+
+``textfile_escape_delim``                                A custom single-character delimiter to escape characters.                      NONE
+
+``textfile_collection_delim``                            A custom single-character delimiter to separate collection elements.           NONE
+
+``textfile_mapkey_delim``                                A custom single-character delimiter to separate map keys.                      NONE
+
+======================================================== ============================================================================== =============================
+
+.. note::
+These properties are mapped to the corresponding properties in Hive ``LazySerDeParameters`` during serialization and
+follow the same behaviors with ``LazySimpleSerDe``.
+If they are not defined, the Hive defaults are used, which are typically ``\001`` for field delimiter, ``\002`` for
+collection delimiter, ``\003`` for map key delimiter, and escape character is disabled.
+
 Metastore Configuration Properties
 ----------------------------------
 

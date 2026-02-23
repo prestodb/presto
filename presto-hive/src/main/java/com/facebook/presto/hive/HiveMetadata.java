@@ -261,9 +261,12 @@ import static com.facebook.presto.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUN
 import static com.facebook.presto.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.TEXTFILE_COLLECTION_DELIM;
+import static com.facebook.presto.hive.HiveTableProperties.TEXTFILE_ESCAPE_DELIM;
+import static com.facebook.presto.hive.HiveTableProperties.TEXTFILE_FIELD_DELIM;
+import static com.facebook.presto.hive.HiveTableProperties.TEXTFILE_MAPKEY_DELIM;
 import static com.facebook.presto.hive.HiveTableProperties.getAvroSchemaUrl;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
-import static com.facebook.presto.hive.HiveTableProperties.getCsvProperty;
 import static com.facebook.presto.hive.HiveTableProperties.getDwrfEncryptionAlgorithm;
 import static com.facebook.presto.hive.HiveTableProperties.getDwrfEncryptionProvider;
 import static com.facebook.presto.hive.HiveTableProperties.getEncryptColumns;
@@ -276,6 +279,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColu
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveTableProperties.getPreferredOrderingColumns;
+import static com.facebook.presto.hive.HiveTableProperties.getSingleCharacterProperty;
 import static com.facebook.presto.hive.HiveTableProperties.isExternalTable;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -417,6 +421,17 @@ public class HiveMetadata
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+
+    private static final String TEXTFILE_FIELD_DELIM_KEY = "field.delim";
+    private static final String TEXTFILE_ESCAPE_DELIM_KEY = "escape.delim";
+    private static final String TEXTFILE_COLLECTION_DELIM_KEY = "collection.delim";
+    private static final String TEXTFILE_MAPKEY_DELIM_KEY = "mapkey.delim";
+
+    private static final Set<String> TEXTFILE_SERDE_KEYS = ImmutableSet.of(
+            TEXTFILE_FIELD_DELIM_KEY,
+            TEXTFILE_ESCAPE_DELIM_KEY,
+            TEXTFILE_COLLECTION_DELIM_KEY,
+            TEXTFILE_MAPKEY_DELIM_KEY);
 
     public static final String SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
     public static final String SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
@@ -767,6 +782,16 @@ public class HiveMetadata
                         .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
         getSerdeProperty(table.get(), SKIP_FOOTER_COUNT_KEY)
                         .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
+
+        // Textfile specific properties
+        getSerdeProperty(table.get(), TEXTFILE_FIELD_DELIM_KEY)
+                .ifPresent(fieldDelim -> properties.put(TEXTFILE_FIELD_DELIM, fieldDelim));
+        getSerdeProperty(table.get(), TEXTFILE_ESCAPE_DELIM_KEY)
+                        .ifPresent(escapeDelim -> properties.put(TEXTFILE_ESCAPE_DELIM, escapeDelim));
+        getSerdeProperty(table.get(), TEXTFILE_COLLECTION_DELIM_KEY)
+                        .ifPresent(textCollectionDelim -> properties.put(TEXTFILE_COLLECTION_DELIM, textCollectionDelim));
+        getSerdeProperty(table.get(), TEXTFILE_MAPKEY_DELIM_KEY)
+                        .ifPresent(textMapKeyDelim -> properties.put(TEXTFILE_MAPKEY_DELIM, textMapKeyDelim));
 
         // CSV specific property
         getCsvSerdeProperty(table.get(), CSV_SEPARATOR_KEY)
@@ -1335,20 +1360,43 @@ public class HiveMetadata
         });
 
         // CSV specific properties
-        getCsvProperty(tableMetadata.getProperties(), CSV_ESCAPE)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_ESCAPE)
                 .ifPresent(escape -> {
                     checkFormatForProperty(hiveStorageFormat, CSV, CSV_ESCAPE);
                     tableProperties.put(CSV_ESCAPE_KEY, escape.toString());
                 });
-        getCsvProperty(tableMetadata.getProperties(), CSV_QUOTE)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_QUOTE)
                 .ifPresent(quote -> {
                     checkFormatForProperty(hiveStorageFormat, CSV, CSV_QUOTE);
                     tableProperties.put(CSV_QUOTE_KEY, quote.toString());
                 });
-        getCsvProperty(tableMetadata.getProperties(), CSV_SEPARATOR)
+        getSingleCharacterProperty(tableMetadata.getProperties(), CSV_SEPARATOR)
                 .ifPresent(separator -> {
                     checkFormatForProperty(hiveStorageFormat, CSV, CSV_SEPARATOR);
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
+                });
+
+        // TEXT specific properties
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_FIELD_DELIM)
+                .ifPresent(fieldDelim -> {
+                    checkFormatForProperty(hiveStorageFormat, TEXTFILE, TEXTFILE_FIELD_DELIM_KEY);
+                    tableProperties.put(TEXTFILE_FIELD_DELIM_KEY, fieldDelim.toString());
+                });
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_ESCAPE_DELIM)
+                .ifPresent(escapeDelim -> {
+                    checkFormatForProperty(hiveStorageFormat, TEXTFILE, TEXTFILE_ESCAPE_DELIM_KEY);
+                    tableProperties.put(TEXTFILE_ESCAPE_DELIM_KEY, escapeDelim.toString());
+                });
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_COLLECTION_DELIM)
+                .ifPresent(collectionDelim -> {
+                    checkFormatForProperty(hiveStorageFormat, TEXTFILE, TEXTFILE_COLLECTION_DELIM_KEY);
+                    tableProperties.put(TEXTFILE_COLLECTION_DELIM_KEY, collectionDelim.toString());
+                });
+
+        getSingleCharacterProperty(tableMetadata.getProperties(), TEXTFILE_MAPKEY_DELIM)
+                .ifPresent(mapKeyDelim -> {
+                    checkFormatForProperty(hiveStorageFormat, TEXTFILE, TEXTFILE_MAPKEY_DELIM_KEY);
+                    tableProperties.put(TEXTFILE_MAPKEY_DELIM_KEY, mapKeyDelim.toString());
                 });
 
         // Table comment property
@@ -1461,10 +1509,14 @@ public class HiveMetadata
             }
         }
 
+        Map<String, String> serdeParameters = extractSerdeParameters(additionalTableParameters);
+
         ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.<String, String>builder()
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, queryId)
-                .putAll(additionalTableParameters);
+                .putAll(additionalTableParameters.entrySet().stream()
+                        .filter(entry -> !serdeParameters.containsKey(entry.getKey()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         if (tableType.equals(EXTERNAL_TABLE)) {
             tableParameters.put("EXTERNAL", "TRUE");
@@ -1483,6 +1535,7 @@ public class HiveMetadata
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
                 .setBucketProperty(bucketProperty)
                 .setParameters(ImmutableMap.of(PREFERRED_ORDERING_COLUMNS, encodePreferredOrderingColumns(preferredOrderingColumns)))
+                .setSerdeParameters(serdeParameters)
                 .setLocation(targetPath.toString());
 
         return tableBuilder.build();
@@ -3507,6 +3560,13 @@ public class HiveMetadata
             }
         }
         throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
+    }
+
+    private static Map<String, String> extractSerdeParameters(Map<String, String> tableParameters)
+    {
+        return tableParameters.entrySet().stream()
+                .filter(entry -> TEXTFILE_SERDE_KEYS.contains(entry.getKey()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     @VisibleForTesting
