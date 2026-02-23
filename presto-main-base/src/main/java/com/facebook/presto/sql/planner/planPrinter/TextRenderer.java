@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.planPrinter;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.TableWriterNodeStatsEstimate;
@@ -147,6 +148,7 @@ public class TextRenderer
     {
         Map<String, Double> inputAverages = stats.getOperatorInputPositionsAverages();
         Map<String, Double> inputStdDevs = stats.getOperatorInputPositionsStdDevs();
+        Map<String, OperatorInputStats> inputStats = stats.getOperatorInputStats();
 
         Map<String, Double> hashCollisionsAverages = emptyMap();
         Map<String, Double> hashCollisionsStdDevs = emptyMap();
@@ -162,10 +164,15 @@ public class TextRenderer
         for (String operator : translatedOperatorTypes.keySet()) {
             String translatedOperatorType = translatedOperatorTypes.get(operator);
             double inputAverage = inputAverages.get(operator);
+            long inputTotalRowCount = inputStats.get(operator).getInputPositions();
+            long inputDataSizeInBytes = inputStats.get(operator).getInputDataSizeInBytes();
 
             output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%%n",
-                    formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
+            output.append(format(Locale.US, "Input total: %s (%s), avg.: %s rows, std.dev.: %s%%%n",
+                    formatPositions(inputTotalRowCount),
+                    DataSize.succinctBytes(inputDataSizeInBytes).toString(),
+                    formatDouble(inputAverage),
+                    formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
 
             double hashCollisionsAverage = hashCollisionsAverages.getOrDefault(operator, 0.0d);
             double expectedHashCollisionsAverage = expectedHashCollisionsAverages.getOrDefault(operator, 0.0d);
