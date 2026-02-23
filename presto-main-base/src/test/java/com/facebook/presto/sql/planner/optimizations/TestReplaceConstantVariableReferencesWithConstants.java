@@ -14,15 +14,26 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.cost.VariableStatsEstimate;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.assertions.MatchResult;
+import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -48,10 +59,21 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
+import static org.testng.Assert.assertEquals;
 
 public class TestReplaceConstantVariableReferencesWithConstants
         extends BasePlanTest
 {
+    @DataProvider
+    public static Object[][] filterProviders()
+    {
+        return new Object[][] {
+                {"3-MEDIUM"},
+                {"2-LOOOOOOONG"},
+                {"123456789012345"} // orderpriority is a VARCHAR(15), this is the max length after which a Constant replacement is not applied
+        };
+    }
+
     private Session enableOptimization()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
@@ -179,18 +201,46 @@ public class TestReplaceConstantVariableReferencesWithConstants
                                                                         tableScan("lineitem", ImmutableMap.of("orderkey_1", "orderkey"))))))))));
     }
 
-    @Test
-    public void testSimpleFilter()
+    @Test(dataProvider = "filterProviders")
+    public void testSimpleFilter(String filter)
     {
-        assertPlan("select orderkey, orderpriority from orders where orderpriority='3-MEDIUM'",
+        assertPlan("select orderkey, orderpriority from orders where orderpriority='" + filter + "'",
                 enableOptimization(),
                 output(
                         ImmutableList.of("orderkey", "expr_6"),
                         project(
-                                ImmutableMap.of("expr_6", expression("'3-MEDIUM'")),
+                                ImmutableMap.of("expr_6", expression("'" + filter + "'")),
                                 filter(
-                                        "orderpriority = '3-MEDIUM'",
-                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority"))))));
+                                        "orderpriority = '" + filter + "'",
+                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey", "orderpriority", "orderpriority")))))
+                        .with(new Matcher()
+                        {
+                            @Override
+                            public boolean shapeMatches(PlanNode node)
+                            {
+                                return node instanceof OutputNode;
+                            }
+
+                            @Override
+                            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+                            {
+                                // Assert additionally ont size estimate of the replaced VARCHAR ConstantExpression
+                                VariableStatsEstimate expectedStats = VariableStatsEstimate.builder()
+                                        .setAverageRowSize(filter.length())
+                                        .setDistinctValuesCount(1)
+                                        .setNullsFraction(0.0)
+                                        .build();
+
+                                VariableStatsEstimate actualStats = stats.getStats(node).getVariableStatistics().entrySet().stream()
+                                        .filter(es -> es.getKey().getName().equals("orderpriority"))
+                                        .map(Map.Entry::getValue)
+                                        .findFirst()
+                                        .orElseThrow(() -> new AssertionError("Variable 'orderpriority' not found in statistics"));
+
+                                assertEquals(actualStats, expectedStats);
+                                return MatchResult.match();
+                            }
+                        }));
     }
 
     @Test
