@@ -282,7 +282,6 @@ public class AddExchanges
                         checkState(taskCount > 0, "taskCount should be larger than 0");
                         PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, planWithProperties.getNode(), taskCount);
                         newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
-                        newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, newNode);
                         return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
                     }
                 }

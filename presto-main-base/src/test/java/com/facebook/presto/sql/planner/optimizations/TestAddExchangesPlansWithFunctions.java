@@ -732,7 +732,7 @@ public class TestAddExchangesPlansWithFunctions
                         .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
                         .build(),
                 anyTree(
-                        exchange(REMOTE_STREAMING, REPARTITION,
+                        exchange(REMOTE_STREAMING, GATHER,
                                 project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
@@ -753,7 +753,7 @@ public class TestAddExchangesPlansWithFunctions
                         .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
                         .build(),
                 anyTree(
-                        exchange(REMOTE_STREAMING, REPARTITION,
+                        exchange(REMOTE_STREAMING, GATHER,
                                 project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
@@ -813,7 +813,7 @@ public class TestAddExchangesPlansWithFunctions
                         .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
                         .build(),
                 anyTree(
-                        exchange(REMOTE_STREAMING, REPARTITION,
+                        exchange(REMOTE_STREAMING, GATHER,
                                 project(ImmutableMap.of(
                                                 "remote_foo", expression("remote_foo(nationkey)"),
                                                 "remote_baz", expression("remote_baz(nationkey)")),
@@ -842,6 +842,41 @@ public class TestAddExchangesPlansWithFunctions
     }
 
     @Test
+    public void testRemoteFunctionFixedParallelismSkipsTrailingExchangeWhenUndistributed()
+    {
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation LIMIT 1",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_foo")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                output(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))))))));
+
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(nationkey) FROM nation",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_foo")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
+    }
+
+    @Test
     public void testRemoteFunctionNamesForFixedParallelismWithComplexRegex()
     {
         // Test complex regex pattern with character classes
@@ -855,7 +890,7 @@ public class TestAddExchangesPlansWithFunctions
                         .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
                         .build(),
                 anyTree(
-                        exchange(REMOTE_STREAMING, REPARTITION,
+                        exchange(REMOTE_STREAMING, GATHER,
                                 project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))))));
