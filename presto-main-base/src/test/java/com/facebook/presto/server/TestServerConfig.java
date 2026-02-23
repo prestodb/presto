@@ -35,6 +35,7 @@ public class TestServerConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
+                .setWebUIEnabled(true)
                 .setPrestoVersion(null)
                 .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
@@ -58,6 +59,7 @@ public class TestServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
+                .put("webui-enabled", "false")
                 .put("presto.version", "test")
                 .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
@@ -78,6 +80,7 @@ public class TestServerConfig
 
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
+                .setWebUIEnabled(false)
                 .setPrestoVersion("test")
                 .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)

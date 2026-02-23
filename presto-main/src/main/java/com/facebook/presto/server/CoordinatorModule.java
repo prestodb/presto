@@ -148,6 +148,13 @@ public class CoordinatorModule
             "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src 'self' data:; form-action 'self'";
 
+    private final boolean isWebUIEnabled;
+
+    public CoordinatorModule(boolean webUIEnabled)
+    {
+        this.isWebUIEnabled = webUIEnabled;
+    }
+
     public static HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
     {
         return httpServerBinder(binder).bindResource(path, classPathResourceBase)
@@ -158,9 +165,14 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        webUIBinder(binder, "/ui/dev", "webapp/dev").withWelcomeFile("index.html");
-        webUIBinder(binder, "/ui", "webapp").withWelcomeFile("index.html");
-        webUIBinder(binder, "/tableau", "webapp/tableau");
+        if (isWebUIEnabled) {
+            webUIBinder(binder, "/ui/dev", "webapp/dev").withWelcomeFile("index.html");
+            webUIBinder(binder, "/ui", "webapp").withWelcomeFile("index.html");
+            webUIBinder(binder, "/tableau", "webapp/tableau");
+        }
+        else {
+            webUIBinder(binder, "/ui", "nowebapp").withWelcomeFile("index.html");
+        }
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
