@@ -250,9 +250,12 @@ public class DifferentialPlanRewriter
         Map<TableColumn, VariableReferenceExpression> columnMapping = buildColumnToVariableMapping(metadata, session, dataTablePlan, lookup);
         RowExpressionDomainTranslator translator = new RowExpressionDomainTranslator(metadata);
 
+        // Transform stale partition predicates to row expressions using the data table's variables.
+        // After transform(), a predicate becomes isNone() if a column couldn't be mapped (should not
+        // happen since collectStalePredicatesForDataTable already filters out isAll() predicates).
         List<RowExpression> staleExpressions = stalePredicates.stream()
                 .map(predicate -> predicate.transform(col -> columnMapping.get(new TableColumn(dataTable, col))))
-                .filter(pred -> !pred.isAll() && !pred.isNone())
+                .filter(pred -> !pred.isNone())
                 .map(translator::toPredicate)
                 .collect(toImmutableList());
 

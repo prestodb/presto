@@ -2552,7 +2552,6 @@ class StatementAnalyzer
                         warningCollector);
                 materializedViewAnalyzer.analyze(viewQuery, scope);
 
-                analysis.markMaterializedViewDataTableAsVisiting(dataTable);
                 Scope queryScope = process(dataTable, scope);
                 RelationType relationType = queryScope.getRelationType().withOnlyVisibleFields().withAlias(materializedViewName.getObjectName(), null);
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);

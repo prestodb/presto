@@ -128,6 +128,7 @@ import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -136,6 +137,8 @@ import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
 import org.apache.iceberg.view.View;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -260,7 +263,7 @@ import static java.time.Duration.ofDays;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.DataOperations.APPEND;
-import static org.apache.iceberg.DataOperations.OVERWRITE;
+import static org.apache.iceberg.DataOperations.REPLACE;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
@@ -1991,7 +1994,7 @@ public abstract class IcebergAbstractMetadata
         Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesMap = dataDisjuncts.entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        // We pass an empty list of column names for now as they are not used when legacy_materialized_views=true
+                        // We pass an empty list of column names for now as they are not used when legacy_materialized_views=false
                         entry -> new MaterializedViewStatus.MaterializedDataPredicates(entry.getValue(), ImmutableList.of())));
 
         return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, predicatesMap, lastFreshTime);
@@ -2007,8 +2010,15 @@ public abstract class IcebergAbstractMetadata
         PartitionSpec spec = baseIcebergTable.spec();
 
         if (spec.isUnpartitioned()) {
-            // For unpartitioned tables, empty list means the entire table is changed
+            // Optional.of(emptyList) = "the entire table is stale" (no per-partition predicates to stitch on).
+            // This is distinct from Optional.empty() = "we cannot determine staleness" (bail out to NOT_MATERIALIZED).
             return Optional.of(ImmutableList.of());
+        }
+
+        for (PartitionField field : spec.fields()) {
+            if (!field.transform().isIdentity()) {
+                return Optional.of(ImmutableList.of());
+            }
         }
 
         if (hasPartitionEvolution(baseIcebergTable, recordedSnapshotId, currentSnapshotId)) {
@@ -2043,20 +2053,20 @@ public abstract class IcebergAbstractMetadata
             long toSnapshotId)
     {
         // Check for operations that would make incremental partition detection unreliable.
+        // IncrementalAppendScan only tracks files added by APPEND operations, so we must
+        // reject any snapshot with an operation whose changes it cannot capture:
         // - APPEND: Safe - new files are tracked by IncrementalAppendScan
-        // - OVERWRITE: Safe - replaces data in partitions, but new files are still tracked.
-        //   This includes compaction (files rewritten, data unchanged) and partition overwrites
-        //   (data replaced). In both cases, affected partitions are identified via new files.
+        // - REPLACE: Safe - files rewritten without changing data (compaction), no staleness
+        // - OVERWRITE: Unsafe - adds and removes files, but IncrementalAppendScan only sees
+        //   APPEND operations, so partitions affected by overwrites would be missed
         // - DELETE: Unsafe - data removed without adding new files, IncrementalAppendScan misses this
-        // - REPLACE: Unsafe - schema/partition spec changes that require full refresh
+        long fromSequenceNumber = icebergTable.snapshot(fromSnapshotId).sequenceNumber();
+        long toSequenceNumber = icebergTable.snapshot(toSnapshotId).sequenceNumber();
         for (Snapshot snapshot : icebergTable.snapshots()) {
-            if (snapshot.snapshotId() == fromSnapshotId) {
-                break;
-            }
-            if (snapshot.sequenceNumber() > icebergTable.snapshot(fromSnapshotId).sequenceNumber() &&
-                    snapshot.sequenceNumber() <= icebergTable.snapshot(toSnapshotId).sequenceNumber()) {
+            if (snapshot.sequenceNumber() > fromSequenceNumber &&
+                    snapshot.sequenceNumber() <= toSequenceNumber) {
                 String operation = snapshot.operation();
-                if (!APPEND.equals(operation) && !OVERWRITE.equals(operation)) {
+                if (!APPEND.equals(operation) && !REPLACE.equals(operation)) {
                     return Optional.empty();
                 }
             }
@@ -2068,8 +2078,13 @@ public abstract class IcebergAbstractMetadata
                 .fromSnapshotExclusive(fromSnapshotId)
                 .toSnapshot(toSnapshotId);
 
-        for (FileScanTask task : scan.planFiles()) {
-            partitions.add(task.file().partition());
+        try (CloseableIterable<FileScanTask> tasks = scan.planFiles()) {
+            for (FileScanTask task : tasks) {
+                partitions.add(task.file().partition());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan changed partitions", e);
         }
 
         return Optional.of(ImmutableSet.copyOf(partitions));
@@ -2093,10 +2108,6 @@ public abstract class IcebergAbstractMetadata
                 if (sourceColumnName == null) {
                     throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
                             format("Partition field %s references non-existent column ID %d", field.name(), field.sourceId()));
-                }
-
-                if (!field.transform().isIdentity()) {
-                    return ImmutableList.of();
                 }
 
                 String normalizedColumnName = normalizeIdentifier(session, sourceColumnName);
