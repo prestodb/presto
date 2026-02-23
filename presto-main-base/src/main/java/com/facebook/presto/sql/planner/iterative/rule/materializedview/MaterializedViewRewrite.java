@@ -68,7 +68,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Rewrites {@link MaterializedViewScanNode} to use pre-computed data when possible.
  *
-E * <p>Controlled by the {@code materialized_view_stale_read_behavior} session property:
+ * <p>Controlled by the {@code materialized_view_stale_read_behavior} session property:
  * <ul>
  *   <li>{@code FAIL}: Fail the query if stale.</li>
  *   <li>{@code USE_STITCHING}: If fully fresh, use data table; if partially stale, build
