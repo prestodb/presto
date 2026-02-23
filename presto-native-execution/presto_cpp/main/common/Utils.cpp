@@ -141,9 +141,6 @@ const std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction) {
   std::vector<std::string> parts;
   folly::split('.', registeredFunction, parts, true);
-  VELOX_USER_CHECK(
-      parts.size() == 3,
-      fmt::format("Prefix missing for function {}", registeredFunction));
   return parts;
 }
 } // namespace facebook::presto::util

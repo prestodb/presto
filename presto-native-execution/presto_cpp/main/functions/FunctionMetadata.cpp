@@ -256,9 +256,13 @@ json buildWindowMetadata(
 json getFunctionsMetadata(const std::optional<std::string>& catalog) {
   json j;
 
-  // Lambda to check if a function should be skipped based on catalog filter
-  auto skipCatalog = [&catalog](const std::string& functionCatalog) {
-    return catalog.has_value() && functionCatalog != catalog.value();
+  // Lambda to check if a function should be skipped based on function prefix
+  // and catalog filter.
+  auto skipFunction = [&catalog](const std::vector<std::string>& parts) {
+    if (parts.size() < 3) {
+      return true;
+    }
+    return catalog.has_value() && parts[0] != catalog.value();
   };
 
   // Get metadata for all registered scalar functions in velox.
@@ -278,7 +282,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
     }
 
     const auto parts = util::getFunctionNameParts(name);
-    if (skipCatalog(parts[0])) {
+    if (skipFunction(parts)) {
       continue;
     }
     const auto schema = parts[1];
@@ -291,7 +295,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
     if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
       const auto parts = util::getFunctionNameParts(name);
-      if (skipCatalog(parts[0])) {
+      if (skipFunction(parts)) {
         continue;
       }
       const auto schema = parts[1];
@@ -308,7 +312,7 @@ json getFunctionsMetadata(const std::optional<std::string>& catalog) {
     if (aggregateFunctions.count(entry.first) == 0) {
       const auto name = entry.first;
       const auto parts = util::getFunctionNameParts(entry.first);
-      if (skipCatalog(parts[0])) {
+      if (skipFunction(parts)) {
         continue;
       }
       const auto schema = parts[1];
