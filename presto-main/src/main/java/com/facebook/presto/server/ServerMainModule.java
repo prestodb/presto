@@ -336,7 +336,7 @@ public class ServerMainModule
             install(new CatalogServerModule());
         }
         else if (serverConfig.isCoordinator()) {
-            install(new CoordinatorModule());
+            install(new CoordinatorModule(serverConfig.isWebUIEnabled()));
         }
         else {
             install(new WorkerModule());

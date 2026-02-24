@@ -43,6 +43,7 @@ public class ServerConfig
     private boolean nestedDataSerializationEnabled = true;
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
     private String clusterTag;
+    private boolean webUIEnabled = true;
 
     public boolean isResourceManager()
     {
@@ -113,6 +114,18 @@ public class ServerConfig
     public ServerConfig setCoordinator(boolean coordinator)
     {
         this.coordinator = coordinator;
+        return this;
+    }
+
+    public boolean isWebUIEnabled()
+    {
+        return webUIEnabled;
+    }
+
+    @Config("webui-enabled")
+    public ServerConfig setWebUIEnabled(boolean webUIEnabled)
+    {
+        this.webUIEnabled = webUIEnabled;
         return this;
     }
 
