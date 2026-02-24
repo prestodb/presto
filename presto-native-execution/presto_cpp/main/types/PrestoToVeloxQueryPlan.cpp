@@ -918,7 +918,8 @@ VeloxQueryPlanConverterBase::generateOutputVariables(
   if (statisticsAggregation == nullptr) {
     return outputVariables;
   }
-  const auto statisticsOutputVariables = statisticsAggregation->outputVariables;
+  const auto& statisticsOutputVariables =
+      statisticsAggregation->outputVariables;
   auto statisticsGroupingVariables = statisticsAggregation->groupingVariables;
   outputVariables.insert(
       outputVariables.end(),
@@ -1752,7 +1753,7 @@ toSortFieldsAndOrders(
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
   if (orderingScheme != nullptr) {
-    auto nodeSpecOrdering = orderingScheme->orderBy;
+    const auto& nodeSpecOrdering = orderingScheme->orderBy;
     sortFields.reserve(nodeSpecOrdering.size());
     sortOrders.reserve(nodeSpecOrdering.size());
     for (const auto& [variable, sortOrder] : nodeSpecOrdering) {

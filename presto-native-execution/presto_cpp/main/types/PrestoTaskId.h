@@ -12,8 +12,13 @@
  * limitations under the License.
  */
 #pragma once
-#include <folly/Conv.h>
+
+#include <cstdint>
 #include <string>
+#include <vector>
+
+#include <folly/Conv.h>
+
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
