@@ -11,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <boost/algorithm/string.hpp>
-#include <iostream>
-
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 #include "presto_cpp/main/common/Configs.h"
+#include "velox/functions/prestosql/types/parser/TypeParser.h"
 
 namespace facebook::presto {
 
 velox::TypePtr TypeParser::parse(const std::string& text) const {
   if (SystemConfig::instance()->charNToVarcharImplicitCast()) {
-    if (text.find("char(") == 0 || text.find("CHAR(") == 0) {
+    if (text.starts_with("char(") || text.starts_with("CHAR(")) {
       return velox::VARCHAR();
     }
   }
