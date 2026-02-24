@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/PrestoTask.h"
 #include <sys/resource.h>
+#include <glog/logging.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -977,6 +978,104 @@ protocol::RuntimeMetric toRuntimeMetric(
       metric.count,
       metric.max,
       metric.min};
+}
+
+// --- Dynamic filter methods ---
+
+void PrestoTask::storeDynamicFilters(
+    const std::map<std::string, protocol::TupleDomain<std::string>>& filters) {
+  VLOG(1) << "storeDynamicFilters: filterCount=" << filters.size();
+  auto version = dynamicFilterVersion_.fetch_add(1) + 1;
+  {
+    auto locked = dynamicFilters_.wlock();
+    for (const auto& [filterId, domain] : filters) {
+      (*locked)[filterId] = VersionedFilter{domain, version};
+    }
+  }
+  wakeDynamicFilterWaiters(version);
+}
+
+void PrestoTask::markFilterIdsFlushed(
+    const std::unordered_set<std::string>& filterIds) {
+  flushedFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
+  auto version = dynamicFilterVersion_.fetch_add(1) + 1;
+  wakeDynamicFilterWaiters(version);
+}
+
+void PrestoTask::wakeDynamicFilterWaiters(int64_t version) {
+  std::shared_ptr<folly::SharedPromise<int64_t>> promise;
+  {
+    std::lock_guard<std::mutex> l(dfMutex_);
+    promise = std::move(dfPromise_);
+  }
+  if (promise) {
+    promise->setValue(version);
+  }
+}
+
+PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
+    int64_t sinceVersion) {
+  DynamicFilterSnapshot snapshot;
+  // Read filters BEFORE completion flag (matches Java ordering).
+  {
+    auto locked = dynamicFilters_.rlock();
+    for (const auto& [filterId, vf] : *locked) {
+      if (vf.version > sinceVersion) {
+        snapshot.filters[filterId] = vf.domain;
+      }
+    }
+  }
+  snapshot.version = dynamicFilterVersion_.load();
+  snapshot.completedFilterIds = *flushedFilterIds_.rlock();
+  snapshot.operatorCompleted = !snapshot.completedFilterIds.empty();
+  return snapshot;
+}
+
+folly::SemiFuture<PrestoTask::DynamicFilterSnapshot>
+PrestoTask::getDynamicFilters(
+    int64_t sinceVersion,
+    std::optional<std::chrono::milliseconds> maxWait) {
+  auto snapshot = snapshotDynamicFilters(sinceVersion);
+  if (!snapshot.filters.empty() || snapshot.operatorCompleted) {
+    return folly::makeSemiFuture(std::move(snapshot));
+  }
+
+  if (!maxWait.has_value() || maxWait->count() == 0) {
+    return folly::makeSemiFuture(std::move(snapshot));
+  }
+
+  // Create long-poll promise.
+  std::shared_ptr<folly::SharedPromise<int64_t>> promise;
+  {
+    std::lock_guard<std::mutex> l(dfMutex_);
+    if (!dfPromise_) {
+      dfPromise_ = std::make_shared<folly::SharedPromise<int64_t>>();
+    }
+    promise = dfPromise_;
+  }
+
+  // Return a future that resolves to a snapshot when data arrives or timeout.
+  return promise->getSemiFuture()
+      .within(*maxWait)
+      .deferValue([this, sinceVersion](int64_t /*version*/) {
+        return snapshotDynamicFilters(sinceVersion);
+      })
+      .deferError(
+          folly::tag_t<folly::FutureTimeout>{},
+          [this, sinceVersion](auto&&) {
+            return snapshotDynamicFilters(sinceVersion);
+          });
+}
+
+void PrestoTask::removeDynamicFiltersThrough(int64_t throughVersion) {
+  auto locked = dynamicFilters_.wlock();
+  for (auto it = locked->begin(); it != locked->end();) {
+    if (it->second.version <= throughVersion) {
+      it = locked->erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 bool isFinalState(protocol::TaskState state) {
