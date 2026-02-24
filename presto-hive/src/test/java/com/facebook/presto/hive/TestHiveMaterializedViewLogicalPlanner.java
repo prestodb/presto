@@ -2169,6 +2169,11 @@ public class TestHiveMaterializedViewLogicalPlanner
 
             assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(
                     node(JoinNode.class,
+                            exchange(
+                                    anyTree(
+                                            constrainedTableScan(table,
+                                                    ImmutableMap.of(),
+                                                    ImmutableMap.of()))),
                             anyTree(
                                     exchange(
                                             anyTree(
@@ -2178,12 +2183,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                                             anyTree(
                                                     constrainedTableScan(view2,
                                                             ImmutableMap.of(),
-                                                            ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey"))))),
-                            exchange(
-                                    anyTree(
-                                            constrainedTableScan(table,
-                                                    ImmutableMap.of(),
-                                                    ImmutableMap.of()))))));
+                                                            ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey"))))))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);

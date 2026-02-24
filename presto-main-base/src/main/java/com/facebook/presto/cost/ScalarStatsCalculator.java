@@ -51,6 +51,7 @@ import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import jakarta.inject.Inject;
 
 import java.util.Map;
@@ -172,6 +173,9 @@ public class ScalarStatsCalculator
                 estimate.setLowValue(doubleValue.getAsDouble());
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
+
+            setConstantSizeEstimate(literal.getValue(), estimate);
+
             return estimate.build();
         }
 
@@ -373,6 +377,9 @@ public class ScalarStatsCalculator
                 estimate.setLowValue(doubleValue.getAsDouble());
                 estimate.setHighValue(doubleValue.getAsDouble());
             }
+
+            setConstantSizeEstimate(value, estimate);
+
             return estimate.build();
         }
 
@@ -393,10 +400,13 @@ public class ScalarStatsCalculator
             }
 
             // value is a constant
-            return VariableStatsEstimate.builder()
+            VariableStatsEstimate.Builder statsEstimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
-                    .setDistinctValuesCount(1)
-                    .build();
+                    .setDistinctValuesCount(1);
+
+            setConstantSizeEstimate(value, statsEstimate);
+
+            return statsEstimate.build();
         }
 
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
@@ -552,6 +562,13 @@ public class ScalarStatsCalculator
                 }
             }
             return requireNonNull(result, "result is null");
+        }
+    }
+
+    private static void setConstantSizeEstimate(Object value, VariableStatsEstimate.Builder statsEstimate)
+    {
+        if (value instanceof Slice) {
+            statsEstimate.setAverageRowSize(((Slice) value).length());
         }
     }
 
