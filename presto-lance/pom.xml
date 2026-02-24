@@ -97,7 +97,7 @@
         <dependency>
             <groupId>org.lance</groupId>
             <artifactId>lance-core</artifactId>
-            <version>2.0.0</version>
+            <version>3.0.0-rc.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>

@@ -27,6 +27,7 @@ from different data sources.
     connector/kafka
     connector/kafka-tutorial
     connector/kudu
+    connector/lance
     connector/larksheets
     connector/localfile
     connector/memory
