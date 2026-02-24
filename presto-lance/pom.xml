@@ -97,7 +97,7 @@
         <dependency>
             <groupId>org.lance</groupId>
             <artifactId>lance-core</artifactId>
-            <version>3.0.0-rc.1</version>
+            <version>2.0.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -106,6 +106,10 @@
                 <exclusion>
                     <groupId>com.fasterxml.jackson.datatype</groupId>
                     <artifactId>jackson-datatype-jsr310</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.lance</groupId>
+                    <artifactId>lance-namespace-apache-client</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
