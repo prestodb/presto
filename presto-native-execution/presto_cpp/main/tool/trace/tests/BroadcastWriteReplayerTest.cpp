@@ -20,15 +20,16 @@
 
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/tool/trace/BroadcastWriteReplayer.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
 #include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::tool::trace;
