@@ -221,6 +221,9 @@ public class FixedSourcePartitionedScheduler
                 for (SourceScheduler sourceScheduler : sourceSchedulers) {
                     sourceScheduler.notifyAllLifespansFinishedExecution();
                 }
+                // Return immediately: notifyAllLifespansFinishedExecution closes split
+                // sources, so we must not enter the scheduling loop below.
+                return ScheduleResult.nonBlocked(true, newTasks, 0);
             }
             else {
                 // Start new driver groups on the first scheduler if necessary,
