@@ -162,6 +162,9 @@ public class ClientOptions
     @Option(name = "--disable-redirects", title = "disable redirects", description = "Disable client following redirects from server")
     public boolean disableRedirects;
 
+    @Option(name = "--serialized", title = "enabled serialized results", description = "Enable serialized response encoding from server")
+    public boolean serialized;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -197,7 +200,8 @@ public class ClientOptions
                 disableCompression,
                 emptyMap(),
                 emptyMap(),
-                validateNextUriSource);
+                validateNextUriSource,
+                serialized);
     }
 
     public static URI parseServer(String server)

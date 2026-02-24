@@ -192,4 +192,12 @@ public class TestClientOptions
         assertTrue(console.clientOptions.validateNextUriSource);
         assertTrue(console.clientOptions.toClientSession().validateNextUriSource());
     }
+
+    @Test
+    public void testSerializedFormat()
+    {
+        Console console = singleCommand(Console.class).parse("--serialized");
+        assertTrue(console.clientOptions.serialized);
+        assertTrue(console.clientOptions.toClientSession().isBinaryResults());
+    }
 }

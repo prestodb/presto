@@ -279,7 +279,8 @@ public class PlanCheckerRouterPluginPrestoClient
                 true,
                 getSerializedSessionFunctions(sessionContext),
                 customHeaders,
-                true);
+                true,
+                false);
     }
 
     private URI getPlanCheckerClusterDestination()

@@ -85,6 +85,7 @@ public abstract class AbstractCliTest
                 true,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
+                false,
                 false);
     }
 

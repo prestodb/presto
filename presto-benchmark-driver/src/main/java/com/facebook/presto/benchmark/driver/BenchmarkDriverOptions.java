@@ -111,6 +111,7 @@ public class BenchmarkDriverOptions
                 disableCompression,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
+                false,
                 false);
     }
 
