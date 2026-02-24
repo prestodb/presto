@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <project.build.targetJdk>17</project.build.targetJdk>
         <kudu.version>1.12.0</kudu.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <yetus.audience-annotations.version>0.15.1</yetus.audience-annotations.version>

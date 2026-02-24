@@ -16,6 +16,7 @@
         <project.build.targetJdk>8</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.lucene.version>8.11.3</dep.lucene.version>
+        <dep.jgrapht-core.version>1.4.0</dep.jgrapht-core.version>
     </properties>
 
     <dependencies>
@@ -324,6 +325,7 @@
         <dependency>
             <groupId>org.jgrapht</groupId>
             <artifactId>jgrapht-core</artifactId>
+            <version>${dep.jgrapht-core.version}</version>
         </dependency>
 
         <dependency>
@@ -522,6 +524,20 @@
                         <excludes combine.children="append">
                             <exclude>**/*.graffle</exclude>
                         </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                    <exclude>javax.annotation:javax.annotation-api</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
                     </configuration>
                 </plugin>
             </plugins>

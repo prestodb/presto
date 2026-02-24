@@ -614,6 +614,9 @@
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
+                        <ignoredClassPatterns>
+                            <ignoredClassPattern>org.apache.helix.*</ignoredClassPattern>
+                        </ignoredClassPatterns>
                         <ignoredDependencies>
                             <dependency>
                                 <groupId>org.apache.helix</groupId>

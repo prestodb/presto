@@ -526,11 +526,15 @@
                         <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>META-INF.versions.9.module-info</ignoredResourcePattern>
+                        <!-- Ignore duplicate resources in com.starburstdata and org.bouncycastle -->
+                       <ignoredResourcePattern>org/bouncycastle/x509/CertPathReviewerMessages.*.properties</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                        <!-- Ignore duplicate classes in org.bouncycastle -->
+                        <ignoredClassPattern>org.bouncycastle.*</ignoredClassPattern>
                     </ignoredClassPatterns>
                     <ignoredDependencies>
                         <dependency>

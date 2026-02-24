@@ -136,4 +136,31 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                    <exclude>javax.annotation:javax.annotation-api</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                            <enforceBytecodeVersion>
+                                <maxJdkVersion>20</maxJdkVersion>
+                                <excludes combine.children="append">
+                                    <exclude>io.leangen.geantyref:geantyref:jar</exclude>
+                                    <exclude>org.jdbi:jdbi3-core:jar</exclude>
+                                </excludes>
+                            </enforceBytecodeVersion>
+                        </rules>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>
