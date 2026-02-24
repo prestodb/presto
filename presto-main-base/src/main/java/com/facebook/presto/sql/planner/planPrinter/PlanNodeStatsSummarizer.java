@@ -139,6 +139,7 @@ public class PlanNodeStatsSummarizer
                                 new OperatorInputStats(
                                         operatorStats.getTotalDrivers(),
                                         operatorStats.getInputPositions(),
+                                        operatorStats.getInputDataSizeInBytes(),
                                         operatorStats.getSumSquaredInputPositions())),
                         (map1, map2) -> mergeMaps(map1, map2, OperatorInputStats::merge));
 

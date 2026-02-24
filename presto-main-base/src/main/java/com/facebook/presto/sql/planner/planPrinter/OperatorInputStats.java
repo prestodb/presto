@@ -20,16 +20,19 @@ public class OperatorInputStats
 {
     private final long totalDrivers;
     private final long inputPositions;
+    private final long inputDataSizeInBytes;
     private final double sumSquaredInputPositions;
 
     @JsonCreator
     public OperatorInputStats(
             @JsonProperty("totalDrivers") long totalDrivers,
             @JsonProperty("inputPositions") long inputPositions,
+            @JsonProperty("inputDataSizeInBytes") long inputDataSizeInBytes,
             @JsonProperty("sumSquaredInputPositions") double sumSquaredInputPositions)
     {
         this.totalDrivers = totalDrivers;
         this.inputPositions = inputPositions;
+        this.inputDataSizeInBytes = inputDataSizeInBytes;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
     }
 
@@ -46,6 +49,12 @@ public class OperatorInputStats
     }
 
     @JsonProperty
+    public long getInputDataSizeInBytes()
+    {
+        return inputDataSizeInBytes;
+    }
+
+    @JsonProperty
     public double getSumSquaredInputPositions()
     {
         return sumSquaredInputPositions;
@@ -56,6 +65,7 @@ public class OperatorInputStats
         return new OperatorInputStats(
                 first.totalDrivers + second.totalDrivers,
                 first.inputPositions + second.inputPositions,
+                first.inputDataSizeInBytes + second.inputDataSizeInBytes,
                 first.sumSquaredInputPositions + second.sumSquaredInputPositions);
     }
 }
