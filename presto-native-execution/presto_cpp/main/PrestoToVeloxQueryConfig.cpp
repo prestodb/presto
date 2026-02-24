@@ -13,10 +13,13 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
+#include <glog/logging.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/properties/session/CudfSessionProperties.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/experimental/cudf/common/CudfConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::presto {
@@ -222,10 +225,49 @@ void updateFromSystemConfigs(
     }
   }
 }
+
+void applyCudfConfigs(const protocol::SessionRepresentation& session) {
+  using facebook::presto::cudf::CudfSessionProperties;
+  using facebook::velox::cudf_velox::CudfConfig;
+
+  std::unordered_map<std::string, std::string> cudfConfigs;
+  auto* cudfSessionProperties = CudfSessionProperties::instance();
+
+  // Iterate through session properties and extract cuDF configs
+  for (const auto& [sessionPropName, sessionPropValue] :
+       session.systemProperties) {
+    // Use toVeloxConfig to get the mapped Velox config name
+    // CudfConfig::updateConfigs() will only process keys it recognizes
+    const auto veloxConfigName =
+        cudfSessionProperties->toVeloxConfig(sessionPropName);
+
+    if (!veloxConfigName.empty()) {
+      cudfConfigs[veloxConfigName] = sessionPropValue;
+    }
+  }
+
+  // Update CudfConfig with collected configs.
+  if (!cudfConfigs.empty()) {
+    try {
+      CudfConfig::getInstance().updateConfigs(std::move(cudfConfigs));
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "[CudfDebug] CudfConfig::updateConfigs() threw exception: "
+                 << e.what();
+      throw;
+    }
+  } else {
+    LOG(INFO) << "[CudfDebug] No cuDF configs to update";
+  }
+}
+
 } // namespace
 
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
+  LOG(INFO) << "[CudfDebug] toVeloxConfigs() called";
+  LOG(INFO) << "[CudfDebug] Session has " << session.systemProperties.size()
+            << " system properties";
+
   std::unordered_map<std::string, std::string> configs;
 
   // Firstly apply Presto system properties to Velox query config.
@@ -233,6 +275,17 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 
   // Secondly apply and possibly override with Presto session properties.
   updateFromSessionConfigs(session, configs);
+
+  // Apply cuDF configs if enabled (after session properties to allow
+  // overrides).
+#ifdef PRESTO_ENABLE_CUDF
+  LOG(INFO)
+      << "[CudfDebug] PRESTO_ENABLE_CUDF is defined, calling applyCudfConfigs()";
+  applyCudfConfigs(session);
+#else
+  LOG(INFO)
+      << "[CudfDebug] PRESTO_ENABLE_CUDF is NOT defined, skipping applyCudfConfigs()";
+#endif
 
   // Finally apply special case configs.
   updateVeloxConfigsWithSpecialCases(configs);

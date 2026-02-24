@@ -10,14 +10,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_session_properties SessionPropertiesProvider.cpp SessionProperties.cpp)
+add_library(presto_session_properties_provider SessionPropertiesProvider.cpp)
 
 target_link_libraries(
-  presto_session_properties
+  presto_session_properties_provider
   ${FOLLY_WITH_DEPENDENCIES}
-  presto_protocol_core
+  presto_protocol
   presto_common
 )
+
+add_library(presto_session_properties SessionProperties.cpp)
+
+target_link_libraries(presto_session_properties presto_session_properties_provider)
+
+if(PRESTO_ENABLE_CUDF)
+  add_library(presto_cudf_session_properties CudfSessionProperties.cpp)
+
+  target_link_libraries(
+    presto_cudf_session_properties
+    presto_session_properties_provider
+    velox_cudf_config
+  )
+endif()
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

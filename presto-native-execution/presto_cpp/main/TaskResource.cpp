@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <glog/logging.h>
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -378,6 +379,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
         } else {
           updateRequest = json::parse(requestBody);
         }
+
         velox::core::PlanFragment planFragment;
         std::shared_ptr<velox::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {

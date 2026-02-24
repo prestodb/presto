@@ -63,7 +63,6 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
-  presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
   velox_abfs
@@ -107,6 +106,12 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread
 )
+
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_server_lib presto_cudf_session_properties)
+else()
+  target_link_libraries(presto_server_lib presto_session_properties)
+endif()
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)

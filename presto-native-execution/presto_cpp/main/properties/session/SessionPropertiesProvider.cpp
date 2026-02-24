@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/properties/session/SessionPropertiesProvider.h"
 #include <boost/algorithm/string.hpp>
+#include <glog/logging.h>
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 
@@ -38,9 +39,11 @@ void SessionPropertiesProvider::addSessionProperty(
 const std::string SessionPropertiesProvider::toVeloxConfig(
     const std::string& name) const {
   auto it = sessionProperties_.find(name);
-  if (it != sessionProperties_.end() &&
-      it->second->getVeloxConfig().has_value()) {
-    return it->second->getVeloxConfig().value();
+  if (it != sessionProperties_.end()) {
+    if (it->second->getVeloxConfig().has_value()) {
+      std::string veloxConfigValue = it->second->getVeloxConfig().value();
+      return veloxConfigValue;
+    }
   }
   return name;
 }
