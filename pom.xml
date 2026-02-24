@@ -1105,7 +1105,7 @@
             <dependency>
                 <groupId>com.github.bibith4</groupId>
                 <artifactId>presto-hive-apache</artifactId>
-                <version>3.0.0-12-SNAPSHOT-test_v1</version>
+                <version>3.0.0-12-SNAPSHOT-test_v2</version>
             </dependency>
 
             <dependency>

@@ -102,6 +102,12 @@
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.presto.hive</groupId>
+                    <artifactId>hive-apache</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -221,8 +227,8 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.bibith4</groupId>
+            <artifactId>presto-hive-apache</artifactId>
         </dependency>
     </dependencies>
 
