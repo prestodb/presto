@@ -16,11 +16,12 @@
 #include <gtest/gtest.h>
 #include <fstream>
 #include "velox/common/base/Fs.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
+#include "velox/common/testutil/TempFilePath.h"
 #include "velox/expression/VectorFunction.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::presto::test {
 namespace {
@@ -56,7 +57,7 @@ TEST_F(RemoteFunctionRegistererTest, singleFile) {
   })";
 
   // Write to a single output file.
-  auto path = exec::test::TempFilePath::create();
+  auto path = TempFilePath::create();
   writeToFile(path->getPath(), json);
 
   // Check functions do not exist first.
@@ -86,7 +87,7 @@ TEST_F(RemoteFunctionRegistererTest, prefixes) {
   })";
 
   // Write to a single output file.
-  auto path = exec::test::TempFilePath::create();
+  auto path = TempFilePath::create();
   writeToFile(path->getPath(), json);
 
   EXPECT_TRUE(exec::getVectorFunctionSignatures("mock3") == std::nullopt);
@@ -124,7 +125,7 @@ std::string getJson(const std::string& functionName) {
 }
 
 TEST_F(RemoteFunctionRegistererTest, directory) {
-  auto tempDir = exec::test::TempDirectoryPath::create();
+  auto tempDir = TempDirectoryPath::create();
 
   // Create the following structure:
   //
