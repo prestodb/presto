@@ -105,6 +105,7 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_SOURCE_COLLECTION_TIME_NANOS = "dynamicFilterSourceCollectionTimeNanos";
     public static final String DYNAMIC_FILTER_TIMED_OUT = "dynamicFilterTimedOut";
     public static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT = "dynamicFilterDomainRangeCount";
+    public static final String DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE = "dynamicFilterCoordinatorFallbackToRange";
     public static final String DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER = "dynamicFilterSplitsWithoutFilter";
     public static final String DYNAMIC_FILTER_FETCHER_POLLS = "dynamicFilterFetcherPolls";
     public static final String DYNAMIC_FILTER_FETCHER_STOPPED_BY_CLEANUP = "dynamicFilterFetcherStoppedByCleanup";

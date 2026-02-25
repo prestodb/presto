@@ -753,13 +753,29 @@ public class TestDynamicFilterService
                 Optional.empty());
     }
 
+    private static final long DEFAULT_MAX_SIZE_BYTES = 1_048_576L; // 1 MB
+
     private JoinDynamicFilter createTestFilter()
     {
-        return new JoinDynamicFilter(DEFAULT_TIMEOUT);
+        return new JoinDynamicFilter(
+                "",
+                "",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                new RuntimeStats(),
+                false);
     }
 
     private JoinDynamicFilter createTestFilterWithId(String filterId)
     {
-        return new JoinDynamicFilter(filterId, "column_a", DEFAULT_TIMEOUT, new DynamicFilterStats(), new RuntimeStats());
+        return new JoinDynamicFilter(
+                filterId,
+                "column_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                new RuntimeStats(),
+                false);
     }
 }

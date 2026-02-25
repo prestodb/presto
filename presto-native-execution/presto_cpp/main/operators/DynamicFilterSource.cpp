@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/DynamicFilterSource.h"
+#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/types/TupleDomainBuilder.h"
 #include "velox/exec/Task.h"
 #include "velox/vector/SimpleVector.h"
@@ -24,9 +25,9 @@ namespace facebook::presto::operators {
 
 namespace {
 
-/// Maximum number of discrete values to collect per channel before falling
-/// back to min/max range.
-constexpr size_t kMaxDiscreteValues = 1000;
+/// Default maximum size in bytes of discrete values per channel before
+/// falling back to min/max range (1MB).
+constexpr size_t kDefaultMaxSizeBytes = 1048576;
 
 /// Returns true if the type uses int64-based storage for discrete values.
 bool isIntLikeType(const TypePtr& type) {
@@ -62,8 +63,13 @@ struct ChannelCollector {
   std::optional<std::string> maxStr;
   bool hasNull{false};
   bool overflowed{false};
+  size_t estimatedSizeBytes{0};
+  size_t maxSizeBytes;
 
-  explicit ChannelCollector(const DynamicFilterChannel& ch) : channel(ch) {}
+  explicit ChannelCollector(
+      const DynamicFilterChannel& ch,
+      size_t maxSizeBytes = kDefaultMaxSizeBytes)
+      : channel(ch), maxSizeBytes(maxSizeBytes) {}
 
   void addInt(int64_t value) {
     if (!minInt.has_value() || value < *minInt) {
@@ -75,10 +81,15 @@ struct ChannelCollector {
     if (overflowed) {
       return;
     }
-    intValues.insert(value);
-    if (intValues.size() > kMaxDiscreteValues) {
-      overflowed = true;
-      intValues.clear();
+    auto [it, inserted] = intValues.insert(value);
+    if (inserted) {
+      // sizeof(int64_t) for value + ~16 bytes hash table overhead per entry.
+      estimatedSizeBytes += sizeof(int64_t) + 16;
+      if (estimatedSizeBytes > maxSizeBytes) {
+        overflowed = true;
+        intValues.clear();
+        estimatedSizeBytes = 0;
+      }
     }
   }
 
@@ -92,10 +103,15 @@ struct ChannelCollector {
     if (overflowed) {
       return;
     }
-    stringValues.insert(std::move(value));
-    if (stringValues.size() > kMaxDiscreteValues) {
-      overflowed = true;
-      stringValues.clear();
+    auto valueSize = value.size();
+    auto [it, inserted] = stringValues.insert(std::move(value));
+    if (inserted) {
+      estimatedSizeBytes += sizeof(std::string) + valueSize + 16;
+      if (estimatedSizeBytes > maxSizeBytes) {
+        overflowed = true;
+        stringValues.clear();
+        estimatedSizeBytes = 0;
+      }
     }
   }
 
@@ -172,6 +188,7 @@ struct SharedFilterState {
 
   std::vector<DynamicFilterChannel> channels;
   std::string taskId;
+  size_t maxSizeBytes{kDefaultMaxSizeBytes};
 
   void tryFlush(memory::MemoryPool* pool) {
     VLOG(1) << "tryFlush: task=" << taskId
@@ -228,18 +245,22 @@ struct SharedFilterState {
 
         if (!src.overflowed && !dst.overflowed) {
           for (auto v : src.intValues) {
-            dst.intValues.insert(v);
+            auto [it, inserted] = dst.intValues.insert(v);
+            if (inserted) {
+              dst.estimatedSizeBytes += sizeof(int64_t) + 16;
+            }
           }
           for (const auto& v : src.stringValues) {
-            dst.stringValues.insert(v);
+            auto [it, inserted] = dst.stringValues.insert(v);
+            if (inserted) {
+              dst.estimatedSizeBytes += sizeof(std::string) + v.size() + 16;
+            }
           }
-          if (dst.intValues.size() > kMaxDiscreteValues) {
+          if (dst.estimatedSizeBytes > maxSizeBytes) {
             dst.overflowed = true;
             dst.intValues.clear();
-          }
-          if (dst.stringValues.size() > kMaxDiscreteValues) {
-            dst.overflowed = true;
             dst.stringValues.clear();
+            dst.estimatedSizeBytes = 0;
           }
         } else {
           dst.overflowed = true;
@@ -283,7 +304,7 @@ struct SharedFilterState {
             << " filters=" << filters.size()
             << " filterIds=" << filterIds.size()
             << " allEmpty=" << allEmpty;
-    DynamicFilterCallbackRegistry::instance().fireAndRemove(
+    DynamicFilterCallbackRegistry::instance().fire(
         taskId, std::move(filters), std::move(filterIds));
   }
 };
@@ -308,7 +329,7 @@ class DynamicFilterSource : public Operator {
     const auto& channels = planNode->channels();
     collectors_.reserve(channels.size());
     for (const auto& channel : channels) {
-      collectors_.emplace_back(channel);
+      collectors_.emplace_back(channel, sharedState_->maxSizeBytes);
     }
   }
 
@@ -458,29 +479,49 @@ DynamicFilterCallbackRegistry& DynamicFilterCallbackRegistry::instance() {
   return registry;
 }
 
-void DynamicFilterCallbackRegistry::registerCallback(
+void DynamicFilterCallbackRegistry::registerCallbacks(
     const std::string& taskId,
-    Callback callback) {
-  callbacks_.wlock()->emplace(taskId, std::move(callback));
+    FlushCallback flushCallback,
+    RegisterCallback registerCallback) {
+  callbacks_.wlock()->emplace(
+      taskId, Callbacks{std::move(flushCallback), std::move(registerCallback)});
 }
 
-void DynamicFilterCallbackRegistry::fireAndRemove(
+void DynamicFilterCallbackRegistry::registerFilterIds(
+    const std::string& taskId,
+    const std::unordered_set<std::string>& filterIds) {
+  RegisterCallback callback;
+  {
+    auto locked = callbacks_.rlock();
+    auto it = locked->find(taskId);
+    if (it == locked->end()) {
+      LOG(WARNING) << "registerFilterIds: no callback found for task="
+                   << taskId;
+      return;
+    }
+    callback = it->second.registerIds;
+  }
+  if (callback) {
+    callback(filterIds);
+  }
+}
+
+void DynamicFilterCallbackRegistry::fire(
     const std::string& taskId,
     std::map<std::string, protocol::TupleDomain<std::string>> filters,
     std::unordered_set<std::string> flushedFilterIds) {
-  VLOG(1) << "fireAndRemove: task=" << taskId
+  VLOG(1) << "fire: task=" << taskId
           << " filters=" << filters.size()
           << " flushedFilterIds=" << flushedFilterIds.size();
-  Callback callback;
+  FlushCallback callback;
   {
-    auto locked = callbacks_.wlock();
+    auto locked = callbacks_.rlock();
     auto it = locked->find(taskId);
     if (it == locked->end()) {
-      LOG(WARNING) << "fireAndRemove: no callback found for task=" << taskId;
+      LOG(WARNING) << "fire: no callback found for task=" << taskId;
       return;
     }
-    callback = std::move(it->second);
-    locked->erase(it);
+    callback = it->second.flush;
   }
   if (callback) {
     callback(filters, flushedFilterIds);
@@ -511,7 +552,23 @@ std::unique_ptr<Operator> DynamicFilterSourceTranslator::toOperator(
         auto state = std::make_shared<SharedFilterState>();
         state->channels = dfNode->channels();
         state->taskId = ctx->task->taskId();
+        // Read max size from session property if available.
+        auto& queryConfig = ctx->task->queryCtx()->queryConfig();
+        auto maxSizeStr = queryConfig.get<std::string>(
+            SessionProperties::kDistributedDynamicFilterMaxSize,
+            std::to_string(kDefaultMaxSizeBytes));
+        state->maxSizeBytes =
+            static_cast<size_t>(std::stoull(maxSizeStr));
         it = locked->emplace(key, std::move(state)).first;
+
+        // Register filter IDs on the PrestoTask so it knows how many
+        // pipelines must flush before operatorCompleted can be true.
+        std::unordered_set<std::string> filterIds;
+        for (const auto& ch : dfNode->channels()) {
+          filterIds.insert(ch.filterId);
+        }
+        DynamicFilterCallbackRegistry::instance().registerFilterIds(
+            it->second->taskId, filterIds);
       }
       sharedState = it->second;
     }

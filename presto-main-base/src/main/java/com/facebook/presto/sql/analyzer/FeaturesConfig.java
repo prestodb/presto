@@ -179,6 +179,7 @@ public class FeaturesConfig
     private int dynamicFilteringRangeRowLimitPerDriver;
     private DistributedDynamicFilterStrategy distributedDynamicFilterStrategy = DistributedDynamicFilterStrategy.DISABLED;
     private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
+    private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
     private boolean distributedDynamicFilterExtendedMetrics;
 
     private boolean fragmentResultCachingEnabled;
@@ -1633,6 +1634,19 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedDynamicFilterMaxWaitTime(Duration distributedDynamicFilterMaxWaitTime)
     {
         this.distributedDynamicFilterMaxWaitTime = distributedDynamicFilterMaxWaitTime;
+        return this;
+    }
+
+    public DataSize getDistributedDynamicFilterMaxSize()
+    {
+        return distributedDynamicFilterMaxSize;
+    }
+
+    @Config("distributed-dynamic-filter.max-size")
+    @ConfigDescription("Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range")
+    public FeaturesConfig setDistributedDynamicFilterMaxSize(DataSize distributedDynamicFilterMaxSize)
+    {
+        this.distributedDynamicFilterMaxSize = distributedDynamicFilterMaxSize;
         return this;
     }
 

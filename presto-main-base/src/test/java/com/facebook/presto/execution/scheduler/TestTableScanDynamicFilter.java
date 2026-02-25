@@ -394,14 +394,18 @@ public class TestTableScanDynamicFilter
         return createFilter(filterId, columnName, DEFAULT_TIMEOUT);
     }
 
+    private static final long DEFAULT_MAX_SIZE_BYTES = 1_048_576L; // 1 MB
+
     private JoinDynamicFilter createFilter(String filterId, String columnName, Duration timeout)
     {
         return new JoinDynamicFilter(
                 filterId,
                 columnName,
                 timeout,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                new RuntimeStats());
+                new RuntimeStats(),
+                false);
     }
 
     private static class TestColumnHandle

@@ -222,6 +222,12 @@ struct PrestoTask {
       const std::map<std::string, protocol::TupleDomain<std::string>>&
           filters);
 
+  /// Registers filter IDs that this task's DynamicFilterSource operators will
+  /// produce. Must be called before operators start so that operatorCompleted
+  /// can check flushed ⊇ registered.
+  void registerDynamicFilterIds(
+      const std::unordered_set<std::string>& filterIds);
+
   /// Marks the given filter IDs as flushed (all operators for those filters
   /// have completed).
   void markFilterIdsFlushed(
@@ -249,6 +255,7 @@ struct PrestoTask {
       std::map<std::string, VersionedFilter>>
       dynamicFilters_;
   std::atomic<int64_t> dynamicFilterVersion_{0};
+  folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
   folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
 
   // Long-poll support for dynamic filters.

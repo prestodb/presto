@@ -593,9 +593,9 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       startTask = true;
       prestoTask->createFinishTimeMs = getCurrentTimeMs();
 
-      // Register dynamic filter callback so operators can deliver filters.
+      // Register dynamic filter callbacks so operators can deliver filters.
       auto weakTask = std::weak_ptr<PrestoTask>(prestoTask);
-      operators::DynamicFilterCallbackRegistry::instance().registerCallback(
+      operators::DynamicFilterCallbackRegistry::instance().registerCallbacks(
           taskId,
           [weakTask](
               const auto& filters,
@@ -603,6 +603,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
             if (auto task = weakTask.lock()) {
               task->storeDynamicFilters(filters);
               task->markFilterIdsFlushed(flushedIds);
+            }
+          },
+          [weakTask](const auto& filterIds) {
+            if (auto task = weakTask.lock()) {
+              task->registerDynamicFilterIds(filterIds);
             }
           });
     }

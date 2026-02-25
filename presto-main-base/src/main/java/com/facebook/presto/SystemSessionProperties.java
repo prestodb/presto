@@ -230,6 +230,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_RANGE_ROW_LIMIT_PER_DRIVER = "dynamic_filtering_range_row_limit_per_driver";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_STRATEGY = "distributed_dynamic_filter_strategy";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME = "distributed_dynamic_filter_max_wait_time";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE = "distributed_dynamic_filter_max_size";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS = "distributed_dynamic_filter_extended_metrics";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
@@ -1290,6 +1291,15 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                new PropertyMetadata<>(
+                        DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE,
+                        "Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getDistributedDynamicFilterMaxSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString),
                 booleanProperty(
                         DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS,
                         "Emit per-fetcher lifecycle metrics for distributed dynamic filter debugging",
@@ -3001,6 +3011,11 @@ public final class SystemSessionProperties
     public static Duration getDistributedDynamicFilterMaxWaitTime(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, Duration.class);
+    }
+
+    public static DataSize getDistributedDynamicFilterMaxSize(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, DataSize.class);
     }
 
     public static boolean isDistributedDynamicFilterExtendedMetrics(Session session)

@@ -401,6 +401,12 @@ class SessionProperties {
   static constexpr const char* kAggregationCompactionBytesThreshold =
       "native_aggregation_compaction_bytes_threshold";
 
+  /// Maximum size in bytes of discrete values collected per channel in the
+  /// dynamic filter source operator before falling back to min/max range.
+  /// Default is 1MB (1048576).
+  static constexpr const char* kDistributedDynamicFilterMaxSize =
+      "distributed_dynamic_filter_max_size";
+
   /// Ratio of unused (evicted) bytes to total bytes that triggers compaction.
   /// The value is in the range of [0, 1). Default is 0.25.
   ///

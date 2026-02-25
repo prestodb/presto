@@ -22,10 +22,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
@@ -42,6 +45,7 @@ public class TestJoinDynamicFilter
     private static final String DYNAMIC_FILTER_TIMED_OUT_TEMPLATE = DYNAMIC_FILTER_TIMED_OUT + "[%s]";
     private static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE = DYNAMIC_FILTER_DOMAIN_RANGE_COUNT + "[%s]";
     private static final Duration DEFAULT_TIMEOUT = new Duration(2, TimeUnit.SECONDS);
+    private static final long DEFAULT_MAX_SIZE_BYTES = 1_048_576L; // 1 MB
 
     @Test
     public void testPerFilterMetrics()
@@ -52,6 +56,7 @@ public class TestJoinDynamicFilter
                 "549",
                 "column_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
                 true);
@@ -99,8 +104,10 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                runtimeStats);
+                runtimeStats,
+                false);
         filter.setExpectedPartitions(3);
 
         // No partitions received — should return all()
@@ -141,8 +148,10 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 new Duration(100, TimeUnit.MILLISECONDS),
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                runtimeStats);
+                runtimeStats,
+                false);
         filter.setExpectedPartitions(2);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
@@ -167,8 +176,10 @@ public class TestJoinDynamicFilter
                 "",
                 "",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                runtimeStats);
+                runtimeStats,
+                false);
         filter.setExpectedPartitions(1);
 
         filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
@@ -187,7 +198,14 @@ public class TestJoinDynamicFilter
     @Test
     public void testGetFilterId()
     {
-        JoinDynamicFilter defaultFilter = new JoinDynamicFilter(DEFAULT_TIMEOUT);
+        JoinDynamicFilter defaultFilter = new JoinDynamicFilter(
+                "",
+                "",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                new RuntimeStats(),
+                false);
         assertEquals(defaultFilter.getFilterId(), "");
 
         RuntimeStats runtimeStats = new RuntimeStats();
@@ -195,8 +213,10 @@ public class TestJoinDynamicFilter
                 "549",
                 "column_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                runtimeStats);
+                runtimeStats,
+                false);
         assertEquals(namedFilter.getFilterId(), "549");
     }
 
@@ -209,8 +229,10 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
-                runtimeStats);
+                runtimeStats,
+                false);
         filter.setExpectedPartitions(1);
 
         CompletableFuture<?> blocked = filter.isBlocked();
@@ -227,7 +249,14 @@ public class TestJoinDynamicFilter
     public void testGetWaitTimeout()
     {
         Duration timeout = new Duration(5, TimeUnit.SECONDS);
-        JoinDynamicFilter filter = new JoinDynamicFilter(timeout);
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "",
+                "",
+                timeout,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                new RuntimeStats(),
+                false);
 
         assertEquals(filter.getWaitTimeout(), timeout);
     }
@@ -249,6 +278,7 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 new Duration(100, TimeUnit.MILLISECONDS),
+                DEFAULT_MAX_SIZE_BYTES,
                 stats,
                 runtimeStats,
                 true);
@@ -285,6 +315,7 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
                 true);
@@ -309,6 +340,7 @@ public class TestJoinDynamicFilter
                 "549",
                 "col_a",
                 DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
                 new DynamicFilterStats(),
                 runtimeStats,
                 true);
@@ -338,5 +370,208 @@ public class TestJoinDynamicFilter
         TupleDomain<String> multiValue = TupleDomain.withColumnDomains(
                 ImmutableMap.of("col", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L))));
         assertEquals(JoinDynamicFilter.computeRangeCount(multiValue), 3);
+    }
+
+    @Test
+    public void testSizeBasedCollapseToRange()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        // Use a very small max size (1 byte) to force collapse on any non-trivial domain
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                1L, // maxSizeInBytes — 1 byte forces collapse
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
+
+        assertTrue(filter.isComplete());
+
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        assertFalse(constraint.isAll());
+        assertFalse(constraint.isNone());
+
+        Domain domain = constraint.getDomains().get().get("col_a");
+        assertEquals(domain.getValues().getRanges().getRangeCount(), 1);
+
+        assertTrue(domain.includesNullableValue(10L));
+        assertTrue(domain.includesNullableValue(20L));
+        assertTrue(domain.includesNullableValue(30L));
+
+        assertTrue(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE),
+                "Aggregate fallback-to-range metric should be present");
+    }
+
+    @Test
+    public void testSizeBasedCollapseEmitsPerFilterMetric()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                1L, // force collapse
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
+
+        assertTrue(filter.isComplete());
+
+        String perFilterFallbackKey = format("%s[%s]", DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterFallbackKey),
+                "Per-filter fallback-to-range metric should be present");
+        assertEquals(runtimeStats.getMetrics().get(perFilterFallbackKey).getSum(), 1);
+    }
+
+    @Test
+    public void testNoCollapseWhenUnderSizeLimit()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        // Use a large max size (1MB) — small domains should not be collapsed
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                1_048_576L, // 1MB
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
+
+        assertTrue(filter.isComplete());
+
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        Domain domain = constraint.getDomains().get().get("col_a");
+
+        // Should keep all 3 discrete values (not collapsed)
+        assertEquals(domain.getValues().getRanges().getRangeCount(), 3);
+
+        // Verify no fallback metric
+        assertFalse(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE),
+                "Fallback metric should not be emitted when under size limit");
+    }
+
+    @Test
+    public void testSizeBasedCollapseInSetExpectedPartitions()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        // Use 1 byte max to force collapse
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                1L,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        // Add partitions before setting expected count
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))));
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(30L, 40L)))));
+        assertFalse(filter.isComplete());
+
+        // Setting expected = 2 triggers merge, which should trigger collapse
+        filter.setExpectedPartitions(2);
+        assertTrue(filter.isComplete());
+
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        Domain domain = constraint.getDomains().get().get("col_a");
+        // Collapsed to single range spanning 10-40
+        assertEquals(domain.getValues().getRanges().getRangeCount(), 1);
+        assertTrue(domain.includesNullableValue(10L));
+        assertTrue(domain.includesNullableValue(40L));
+    }
+
+    @Test
+    public void testEstimateRetainedSizeInBytes()
+    {
+        // none/all have zero size
+        assertEquals(JoinDynamicFilter.estimateRetainedSizeInBytes(TupleDomain.none()), 0);
+        assertEquals(JoinDynamicFilter.estimateRetainedSizeInBytes(TupleDomain.all()), 0);
+
+        // Single value has non-zero size (block storage for low + high markers)
+        TupleDomain<String> singleValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.singleValue(INTEGER, 10L)));
+        assertTrue(JoinDynamicFilter.estimateRetainedSizeInBytes(singleValue) > 0);
+
+        // More values = more size
+        TupleDomain<String> multiValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L))));
+        assertTrue(JoinDynamicFilter.estimateRetainedSizeInBytes(multiValue) >
+                JoinDynamicFilter.estimateRetainedSizeInBytes(singleValue));
+    }
+
+    @Test
+    public void testCollapseToRange()
+    {
+        // Single value — no collapse needed
+        TupleDomain<String> singleValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.singleValue(INTEGER, 10L)));
+        TupleDomain<String> collapsed = JoinDynamicFilter.collapseToRange(singleValue);
+        assertEquals(collapsed, singleValue);
+
+        // Multiple values — collapse to span
+        TupleDomain<String> multiValue = TupleDomain.withColumnDomains(
+                ImmutableMap.of("col", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L))));
+        collapsed = JoinDynamicFilter.collapseToRange(multiValue);
+        Domain domain = collapsed.getDomains().get().get("col");
+        assertEquals(domain.getValues().getRanges().getRangeCount(), 1);
+        assertTrue(domain.includesNullableValue(10L));
+        assertTrue(domain.includesNullableValue(15L)); // intermediate value included in range
+        assertTrue(domain.includesNullableValue(30L));
+
+        // none() and all() pass through unchanged
+        assertEquals(JoinDynamicFilter.collapseToRange(TupleDomain.none()), TupleDomain.none());
+        assertEquals(JoinDynamicFilter.collapseToRange(TupleDomain.all()), TupleDomain.all());
+    }
+
+    @Test
+    public void testNoCollapseWithDefaultSize()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        // Default max size (1 MB) — small domains should not be collapsed
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+        filter.setExpectedPartitions(1);
+
+        // Build a domain with many values — still well under 1 MB
+        List<Long> values = new ArrayList<>();
+        for (long i = 0; i < 100; i++) {
+            values.add(i);
+        }
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, values))));
+
+        assertTrue(filter.isComplete());
+
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        Domain domain = constraint.getDomains().get().get("col_a");
+        // Should preserve all 100 discrete values (well under 1 MB limit)
+        assertEquals(domain.getValues().getRanges().getRangeCount(), 100);
     }
 }

@@ -89,6 +89,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxWaitTime;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
@@ -236,6 +237,7 @@ public class SplitSourceFactory
                     filterId,
                     columnName,
                     waitTimeout,
+                    getDistributedDynamicFilterMaxSize(session).toBytes(),
                     dynamicFilterService.getStats(),
                     session.getRuntimeStats(),
                     isDistributedDynamicFilterExtendedMetrics(session));
