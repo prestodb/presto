@@ -101,6 +101,15 @@ public class PassthroughColumnEquivalences
     }
 
     /**
+     * Returns the equivalence class for the given column, or a singleton set containing
+     * just the column itself if it has no equivalences.
+     */
+    public Set<TableColumn> getEquivalenceClass(TableColumn column)
+    {
+        return columnToEquivalenceClass.getOrDefault(column, ImmutableSet.of(column));
+    }
+
+    /**
      * Returns equivalent predicates for other tables based on column equivalences.
      * Given a predicate on the source table, returns a map from each equivalent table
      * to its corresponding predicate with column names mapped through equivalences.
