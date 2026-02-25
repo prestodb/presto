@@ -59,7 +59,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
@@ -71,7 +70,6 @@ import static com.facebook.presto.sql.relational.Expressions.not;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -342,6 +340,17 @@ public class DifferentialPlanRewriter
                 SetOperationNodeUtils.fromListMultimap(mapping));
     }
 
+    private void validateStaleColumnsArePassthrough()
+    {
+        staleConstraints.forEach((staleTable, predicates) -> {
+            if (!columnEquivalences.hasAnyPassthroughStaleColumn(staleTable, predicates)) {
+                throw new UnsupportedOperationException(
+                        "No stale partition column from " + staleTable +
+                        " has passthrough column equivalences for differential stitching");
+            }
+        });
+    }
+
     /**
      * Builds a delta plan for the given view query plan.
      *
@@ -354,6 +363,7 @@ public class DifferentialPlanRewriter
             PlanNode viewQueryPlan,
             Map<VariableReferenceExpression, VariableReferenceExpression> viewQueryMappings)
     {
+        validateStaleColumnsArePassthrough();
         PlanVariants result = viewQueryPlan.accept(new DeltaBuilder(), null);
         Map<VariableReferenceExpression, VariableReferenceExpression> deltaMapping = result.delta().getMapping();
 
@@ -473,10 +483,6 @@ public class DifferentialPlanRewriter
             node.getAggregations().values().forEach(agg -> agg.getCall().getArguments()
                     .forEach(expr -> checkDeterministic(expr, "aggregation")));
 
-            // ∆(γ(R)) = γ(∆R) is only correct when the delta covers complete groups,
-            // i.e. stale partition boundaries align with grouping keys.
-            validateStaleColumnsInGroupingKeys(node);
-
             PlanVariants child = node.getSources().get(0).accept(this, context);
 
             // ∆(γ(R)) = γ(∆R), γ(R') = γ(R'), γ(R) = γ(R)
@@ -484,37 +490,6 @@ public class DifferentialPlanRewriter
                     buildAggregation(node, child.delta()),
                     buildAggregation(node, child.current()),
                     buildAggregation(node, child.unchanged()));
-        }
-
-        private void validateStaleColumnsInGroupingKeys(AggregationNode node)
-        {
-            Map<TableColumn, VariableReferenceExpression> columnMapping =
-                    buildColumnToVariableMapping(metadata, session, node.getSources().get(0), lookup);
-
-            Set<TableColumn> groupingKeyAndEquivalents = columnMapping.entrySet().stream()
-                    .filter(entry -> node.getGroupingKeys().contains(entry.getValue()))
-                    .map(Map.Entry::getKey)
-                    .flatMap(column -> columnEquivalences.getEquivalenceClass(column).stream())
-                    .collect(toImmutableSet());
-
-            Set<SchemaTableName> tablesUnderAggregation = columnMapping.keySet().stream()
-                    .map(TableColumn::getTableName)
-                    .collect(toImmutableSet());
-
-            staleConstraints.forEach((staleTable, predicates) -> {
-                if (!tablesUnderAggregation.contains(staleTable)) {
-                    return;
-                }
-                boolean aligned = predicates.stream()
-                        .filter(p -> p.getDomains().isPresent())
-                        .flatMap(p -> p.getDomains().get().keySet().stream())
-                        .anyMatch(col -> groupingKeyAndEquivalents.contains(new TableColumn(staleTable, col)));
-                if (!aligned) {
-                    throw new UnsupportedOperationException(
-                            "No stale partition column from " + staleTable +
-                            " maps to an aggregation grouping key (directly or via column equivalences)");
-                }
-            });
         }
 
         private NodeWithMapping buildAggregation(AggregationNode original, NodeWithMapping source)

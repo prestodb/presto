@@ -101,6 +101,17 @@ public class PassthroughColumnEquivalences
     }
 
     /**
+     * Returns true if any column in the given stale predicates has a passthrough equivalence.
+     */
+    public boolean hasAnyPassthroughStaleColumn(SchemaTableName table, List<TupleDomain<String>> predicates)
+    {
+        return predicates.stream()
+                .filter(p -> p.getDomains().isPresent())
+                .flatMap(p -> p.getDomains().get().keySet().stream())
+                .anyMatch(col -> hasEquivalence(new TableColumn(table, col)));
+    }
+
+    /**
      * Returns the equivalence class for the given column, or a singleton set containing
      * just the column itself if it has no equivalences.
      */
