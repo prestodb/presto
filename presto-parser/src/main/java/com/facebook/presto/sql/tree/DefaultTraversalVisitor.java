@@ -591,6 +591,20 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitCreateVectorIndex(CreateVectorIndex node, C context)
+    {
+        process(node.getIndexName(), context);
+        for (Identifier column : node.getColumns()) {
+            process(column, context);
+        }
+        node.getUpdatingFor().ifPresent(updatingFor -> process(updatingFor, context));
+        for (Property property : node.getProperties()) {
+            process(property, context);
+        }
+        return null;
+    }
+
+    @Override
     protected R visitStartTransaction(StartTransaction node, C context)
     {
         node.getTransactionModes().forEach(transactionMode -> process(transactionMode, context));

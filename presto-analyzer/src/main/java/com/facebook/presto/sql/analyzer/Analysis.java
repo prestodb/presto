@@ -186,6 +186,10 @@ public class Analysis
     private Optional<TableHandle> callTarget = Optional.empty();
     private Optional<QuerySpecification> targetQuery = Optional.empty();
 
+    // for create vector index
+    private Optional<QualifiedObjectName> createVectorIndexTableName = Optional.empty();
+    private Optional<Query> vectorIndexQuery = Optional.empty();
+
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
@@ -698,6 +702,26 @@ public class Analysis
     public Optional<QualifiedObjectName> getCreateTableDestination()
     {
         return createTableDestination;
+    }
+
+    public void setCreateVectorIndexTableName(QualifiedObjectName tableName)
+    {
+        this.createVectorIndexTableName = Optional.of(tableName);
+    }
+
+    public Optional<QualifiedObjectName> getCreateVectorIndexTableName()
+    {
+        return createVectorIndexTableName;
+    }
+
+    public void setVectorIndexQuery(Query query)
+    {
+        this.vectorIndexQuery = Optional.of(query);
+    }
+
+    public Optional<Query> getVectorIndexQuery()
+    {
+        return vectorIndexQuery;
     }
 
     public Optional<QualifiedObjectName> getProcedureName()
