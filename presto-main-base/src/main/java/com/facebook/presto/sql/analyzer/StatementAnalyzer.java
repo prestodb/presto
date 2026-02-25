@@ -46,6 +46,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
@@ -763,6 +764,9 @@ class StatementAnalyzer
             if (metadataResolver.tableExists(targetTable)) {
                 if (node.isNotExists()) {
                     analysis.setCreateTableAsSelectNoOp(true);
+                    warningCollector.add(new PrestoWarning(
+                            StandardWarningCode.SEMANTIC_WARNING,
+                            format("Table '%s' already exists, skipping table creation", targetTable)));
                     return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
                 }
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);

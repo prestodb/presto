@@ -126,6 +126,13 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testCTASIfNotExistsWhenExists()
+    {
+        assertHasWarning(analyzeWithWarnings("CREATE TABLE IF NOT EXISTS t1 AS SELECT a, b FROM t1"),
+                SEMANTIC_WARNING, "Table 'tpch.s1.t1' already exists, skipping table creation");
+    }
+
+    @Test
     public void testNonComparableGroupBy()
     {
         assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1)) GROUP BY 1");
