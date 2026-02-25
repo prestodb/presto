@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DeleteNode;
@@ -47,6 +49,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
@@ -66,6 +69,7 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
@@ -98,6 +102,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.PartitionedTableWritePolicy.MULTIPLE_WRITERS_PER_PARTITION_ALLOWED;
@@ -214,6 +219,35 @@ public class LogicalPlanner
         else if (statement instanceof RefreshMaterializedView) {
             checkState(analysis.getRefreshMaterializedViewAnalysis().isPresent(), "RefreshMaterializedView analysis is missing");
             return createRefreshMaterializedViewPlan(analysis, (RefreshMaterializedView) statement);
+        }
+        else if (statement instanceof CreateVectorIndex) {
+            Query query = analysis.getVectorIndexQuery()
+                    .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "VectorIndex query is missing"));
+            RelationPlan ctasPlan = createTableCreationPlan(analysis, query);
+
+            // Wrap the CTAS plan with a CAST(rows AS VARCHAR) ProjectNode so the
+            // OutputNode emits VARCHAR.  The connector optimizer will replace this
+            // entire subtree with the actual UDF VARCHAR result.
+            VariableReferenceExpression rowCountVar = ctasPlan.getFieldMappings().get(0);
+            VariableReferenceExpression resultVar = variableAllocator.newVariable("result", VARCHAR);
+
+            FunctionHandle castHandle = metadata.getFunctionAndTypeManager()
+                    .lookupCast(CastType.CAST, BIGINT, VARCHAR);
+            RowExpression castExpr = new CallExpression(
+                    rowCountVar.getSourceLocation(),
+                    "CAST",
+                    castHandle,
+                    VARCHAR,
+                    ImmutableList.of(rowCountVar));
+
+            PlanNode wrapperNode = new ProjectNode(
+                    ctasPlan.getRoot().getSourceLocation(),
+                    idAllocator.getNextId(),
+                    ctasPlan.getRoot(),
+                    Assignments.builder().put(resultVar, castExpr).build(),
+                    ProjectNode.Locality.UNKNOWN);
+
+            return new RelationPlan(wrapperNode, analysis.getRootScope(), ImmutableList.of(resultVar));
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
