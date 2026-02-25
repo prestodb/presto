@@ -13,8 +13,8 @@
  */
 
 #include "presto_cpp/main/PrestoTask.h"
-#include <sys/resource.h>
 #include <glog/logging.h>
+#include <sys/resource.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -1083,8 +1083,7 @@ PrestoTask::getDynamicFilters(
         return snapshotDynamicFilters(sinceVersion);
       })
       .deferError(
-          folly::tag_t<folly::FutureTimeout>{},
-          [this, sinceVersion](auto&&) {
+          folly::tag_t<folly::FutureTimeout>{}, [this, sinceVersion](auto&&) {
             return snapshotDynamicFilters(sinceVersion);
           });
 }

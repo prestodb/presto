@@ -61,8 +61,7 @@ core::PlanNodePtr maybeWrapWithDynamicFilterSource(
   for (const auto& [filterId, buildVar] : dynamicFilters) {
     auto index = buildSide->outputType()->getChildIdx(buildVar.name);
     auto type = buildSide->outputType()->childAt(index);
-    channels.push_back(
-        {filterId, static_cast<column_index_t>(index), type});
+    channels.push_back({filterId, static_cast<column_index_t>(index), type});
   }
   return std::make_shared<operators::DynamicFilterSourceNode>(
       fmt::format("df_source_{}", joinNodeId),

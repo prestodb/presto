@@ -35,13 +35,11 @@ velox::VectorPtr createSingleValueVector(
 std::string serializeVectorToBase64(
     const velox::VectorPtr& vector,
     velox::memory::MemoryPool* pool) {
-  auto serde =
-      std::make_unique<velox::serializer::presto::PrestoVectorSerde>();
+  auto serde = std::make_unique<velox::serializer::presto::PrestoVectorSerde>();
   std::ostringstream output;
   serde->serializeSingleColumn(vector, nullptr, pool, &output);
   const auto serialized = output.str();
-  return velox::encoding::Base64::encode(
-      serialized.c_str(), serialized.size());
+  return velox::encoding::Base64::encode(serialized.c_str(), serialized.size());
 }
 
 /// Builds a protocol::Marker with the given type, value, and bound.

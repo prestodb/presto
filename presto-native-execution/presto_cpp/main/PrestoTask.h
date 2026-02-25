@@ -219,8 +219,7 @@ struct PrestoTask {
 
   /// Stores dynamic filter data produced by DynamicFilterSourceOperator.
   void storeDynamicFilters(
-      const std::map<std::string, protocol::TupleDomain<std::string>>&
-          filters);
+      const std::map<std::string, protocol::TupleDomain<std::string>>& filters);
 
   /// Registers filter IDs that this task's DynamicFilterSource operators will
   /// produce. Must be called before operators start so that operatorCompleted
@@ -230,8 +229,7 @@ struct PrestoTask {
 
   /// Marks the given filter IDs as flushed (all operators for those filters
   /// have completed).
-  void markFilterIdsFlushed(
-      const std::unordered_set<std::string>& filterIds);
+  void markFilterIdsFlushed(const std::unordered_set<std::string>& filterIds);
 
   /// Takes a snapshot of dynamic filters with version > sinceVersion.
   DynamicFilterSnapshot snapshotDynamicFilters(int64_t sinceVersion);
@@ -251,9 +249,7 @@ struct PrestoTask {
     protocol::TupleDomain<std::string> domain;
     int64_t version;
   };
-  folly::Synchronized<
-      std::map<std::string, VersionedFilter>>
-      dynamicFilters_;
+  folly::Synchronized<std::map<std::string, VersionedFilter>> dynamicFilters_;
   std::atomic<int64_t> dynamicFilterVersion_{0};
   folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
   folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
