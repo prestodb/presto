@@ -356,6 +356,54 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testAddColumnWithDefault()
+    {
+        testWithAllFileFormats(getSession(), this::testAddColumnWithDefault);
+    }
+
+    private void testAddColumnWithDefault(Session session, FileFormat fileFormat)
+    {
+        String tableName = "test_add_column_with_default_" + randomTableSuffix();
+        // Test varchar default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int, name varchar) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'Alice'), (2, 'Bob')", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'IN'");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test integer default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1), (2)", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN priority integer DEFAULT 5");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test double default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN score double DEFAULT 0.0E0");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test boolean default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN is_active boolean DEFAULT true");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test NOT NULL with default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test multiple columns with defaults
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1), (2)", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'US'");
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN priority integer DEFAULT 10");
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN is_enabled boolean DEFAULT false");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     @DataProvider(name = "transforms")
     public String[][] transforms()
     {

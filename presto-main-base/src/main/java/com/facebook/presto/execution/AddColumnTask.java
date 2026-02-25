@@ -118,6 +118,17 @@ public class AddColumnTask
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
 
+        // Handle default expression if present
+        if (element.getDefaultExpression().isPresent()) {
+            Expression defaultExpr = element.getDefaultExpression().get();
+            // Store the default expression as a string in column properties
+            // The connector will parse and use this during schema evolution
+            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
+            updatedProperties.put(com.facebook.presto.spi.ColumnMetadata.INITIAL_DEFAULT_VALUE_PROPERTY,
+                    defaultExpr.toString());
+            columnProperties = updatedProperties;
+        }
+
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)

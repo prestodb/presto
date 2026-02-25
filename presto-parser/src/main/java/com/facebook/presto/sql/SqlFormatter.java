@@ -1378,6 +1378,8 @@ public final class SqlFormatter
             }
             column.getComment().ifPresent(comment ->
                     sb.append(" COMMENT ").append(formatStringLiteral(comment)));
+            column.getDefaultExpression().ifPresent(defaultExpr ->
+                    sb.append(" DEFAULT ").append(formatExpression(defaultExpr, parameters)));
             sb.append(formatPropertiesSingleLine(column.getProperties()));
             return sb.toString();
         }

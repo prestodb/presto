@@ -78,6 +78,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -1427,5 +1428,44 @@ public final class IcebergUtil
         sb.append(identifier.name());
 
         return sb.toString();
+    }
+
+    /**
+     * Convert a string default value to an Iceberg Literal based on the column type.
+     * This is used to set initial-default and write-default values in Iceberg V3 schemas.
+     */
+    public static Literal<?> convertToIcebergLiteral(String defaultValueStr, org.apache.iceberg.types.Type icebergType, com.facebook.presto.common.type.Type prestoType)
+    {
+        String value = defaultValueStr.trim();
+        if (value.startsWith("'") && value.endsWith("'")) {
+            value = value.substring(1, value.length() - 1);
+        }
+
+        // Convert based on Iceberg type
+        switch (icebergType.typeId()) {
+            case STRING:
+                return Literal.of(value);
+            case INTEGER:
+                return Literal.of(Integer.parseInt(value));
+            case LONG:
+                return Literal.of(Long.parseLong(value));
+            case FLOAT:
+                return Literal.of(Float.parseFloat(value));
+            case DOUBLE:
+                return Literal.of(Double.parseDouble(value));
+            case BOOLEAN:
+                return Literal.of(Boolean.parseBoolean(value));
+            case DATE:
+                return Literal.of(Integer.parseInt(value));
+            case TIMESTAMP:
+                return Literal.of(Long.parseLong(value));
+            case DECIMAL:
+                return Literal.of(new java.math.BigDecimal(value));
+            case BINARY:
+            case FIXED:
+                return Literal.of(java.nio.ByteBuffer.wrap(value.getBytes()));
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
+        }
     }
 }
