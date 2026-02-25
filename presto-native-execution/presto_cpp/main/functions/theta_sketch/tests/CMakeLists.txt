@@ -10,16 +10,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common velox_function_registry)
+add_executable(presto_theta_sketch_functions_test ThetaSketchAggregationTest.cpp)
 
-add_subdirectory(dynamic_registry)
-add_subdirectory(theta_sketch)
+add_test(
+  NAME presto_theta_sketch_functions_test
+  COMMAND presto_theta_sketch_functions_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+target_link_libraries(
+  presto_theta_sketch_functions_test
+  presto_theta_sketch_functions
+  velox_exec
+  velox_exec_test_lib
+  velox_functions_aggregates_test_lib
+  GTest::gtest
+  GTest::gtest_main
+)
