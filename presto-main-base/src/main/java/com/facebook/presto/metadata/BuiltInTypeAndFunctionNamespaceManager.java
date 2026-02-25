@@ -159,6 +159,7 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CharacterStringCasts;
 import com.facebook.presto.operator.scalar.ColorFunctions;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
+import com.facebook.presto.operator.scalar.CreateVectorIndexFromTableFunction;
 import com.facebook.presto.operator.scalar.DataSizeFunctions;
 import com.facebook.presto.operator.scalar.DateTimeFunctions;
 import com.facebook.presto.operator.scalar.EmptyMapConstructor;
@@ -997,6 +998,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(ThetaSketchFunctions.class)
                 .function(MergeTDigestFunction.MERGE)
                 .scalar(DynamicFilterPlaceholderFunction.class)
+                .scalar(CreateVectorIndexFromTableFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
                 .scalars(VarcharEnumOperators.class)
