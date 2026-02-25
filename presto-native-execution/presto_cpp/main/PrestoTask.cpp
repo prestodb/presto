@@ -995,6 +995,11 @@ void PrestoTask::storeDynamicFilters(
   wakeDynamicFilterWaiters(version);
 }
 
+void PrestoTask::registerDynamicFilterIds(
+    const std::unordered_set<std::string>& filterIds) {
+  registeredFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
+}
+
 void PrestoTask::markFilterIdsFlushed(
     const std::unordered_set<std::string>& filterIds) {
   flushedFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
@@ -1027,7 +1032,24 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
   }
   snapshot.version = dynamicFilterVersion_.load();
   snapshot.completedFilterIds = *flushedFilterIds_.rlock();
-  snapshot.operatorCompleted = !snapshot.completedFilterIds.empty();
+  // operatorCompleted is true only when ALL registered filter IDs have been
+  // flushed, matching the Java SqlTask.isDynamicFilterOperatorCompleted()
+  // semantics: flushedFilterIds.containsAll(registeredDynamicFilterIds).
+  {
+    auto registered = registeredFilterIds_.rlock();
+    if (registered->empty()) {
+      snapshot.operatorCompleted = false;
+    } else {
+      snapshot.operatorCompleted = true;
+      for (const auto& id : *registered) {
+        if (snapshot.completedFilterIds.find(id) ==
+            snapshot.completedFilterIds.end()) {
+          snapshot.operatorCompleted = false;
+          break;
+        }
+      }
+    }
+  }
   return snapshot;
 }
 

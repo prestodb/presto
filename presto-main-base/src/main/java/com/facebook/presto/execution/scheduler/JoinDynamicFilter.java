@@ -15,8 +15,12 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
@@ -56,6 +61,7 @@ public class JoinDynamicFilter
     private final String filterId;
     private final String columnName;
     private final Duration waitTimeout;
+    private final long maxSizeInBytes;
     private final DynamicFilterStats stats;
     private final RuntimeStats runtimeStats;
     private final boolean extendedMetrics;
@@ -81,25 +87,11 @@ public class JoinDynamicFilter
     @GuardedBy("this")
     private boolean collectionTimeRecorded;
 
-    public JoinDynamicFilter(Duration waitTimeout)
-    {
-        this("", "", waitTimeout, new DynamicFilterStats(), new RuntimeStats(), false);
-    }
-
     public JoinDynamicFilter(
             String filterId,
             String columnName,
             Duration waitTimeout,
-            DynamicFilterStats stats,
-            RuntimeStats runtimeStats)
-    {
-        this(filterId, columnName, waitTimeout, stats, runtimeStats, false);
-    }
-
-    public JoinDynamicFilter(
-            String filterId,
-            String columnName,
-            Duration waitTimeout,
+            long maxSizeInBytes,
             DynamicFilterStats stats,
             RuntimeStats runtimeStats,
             boolean extendedMetrics)
@@ -107,6 +99,7 @@ public class JoinDynamicFilter
         this.filterId = requireNonNull(filterId, "filterId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.waitTimeout = requireNonNull(waitTimeout, "waitTimeout is null");
+        this.maxSizeInBytes = maxSizeInBytes;
         this.expectedPartitions = Integer.MAX_VALUE;
         this.stats = requireNonNull(stats, "stats is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
@@ -130,7 +123,7 @@ public class JoinDynamicFilter
             runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_EXPECTED_PARTITIONS, filterId), NONE, expectedPartitions);
         }
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
-            mergedConstraint = TupleDomain.columnWiseUnion(partitionsByFilterId);
+            mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
             fullyResolved = true;
             constraintByFilterIdFuture.complete(mergedConstraint);
             recordCollectionCompleted();
@@ -194,11 +187,63 @@ public class JoinDynamicFilter
         }
 
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
-            mergedConstraint = TupleDomain.columnWiseUnion(partitionsByFilterId);
+            mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
             fullyResolved = true;
             constraintByFilterIdFuture.complete(mergedConstraint);
             recordCollectionCompleted();
         }
+    }
+
+    private TupleDomain<String> collapseIfOversized(TupleDomain<String> tupleDomain)
+    {
+        if (estimateRetainedSizeInBytes(tupleDomain) > maxSizeInBytes) {
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE, NONE, 1);
+            if (!filterId.isEmpty()) {
+                runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE, filterId), NONE, 1);
+            }
+            return collapseToRange(tupleDomain);
+        }
+        return tupleDomain;
+    }
+
+    static long estimateRetainedSizeInBytes(TupleDomain<String> tupleDomain)
+    {
+        if (tupleDomain.isNone() || tupleDomain.isAll() || !tupleDomain.getDomains().isPresent()) {
+            return 0;
+        }
+        long totalSize = 0;
+        for (Domain domain : tupleDomain.getDomains().get().values()) {
+            for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+                totalSize += range.getLow().getValueBlock()
+                        .map(Block::getRetainedSizeInBytes)
+                        .orElse(0L);
+                totalSize += range.getHigh().getValueBlock()
+                        .map(Block::getRetainedSizeInBytes)
+                        .orElse(0L);
+            }
+        }
+        return totalSize;
+    }
+
+    static TupleDomain<String> collapseToRange(TupleDomain<String> tupleDomain)
+    {
+        if (tupleDomain.isNone() || tupleDomain.isAll() || !tupleDomain.getDomains().isPresent()) {
+            return tupleDomain;
+        }
+        ImmutableMap.Builder<String, Domain> collapsed = ImmutableMap.builder();
+        for (Map.Entry<String, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
+            Domain domain = entry.getValue();
+            ValueSet values = domain.getValues();
+            if (values instanceof SortedRangeSet) {
+                SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
+                if (sortedRangeSet.getRangeCount() > 1) {
+                    collapsed.put(entry.getKey(), Domain.create(ValueSet.ofRanges(sortedRangeSet.getSpan()), domain.isNullAllowed()));
+                    continue;
+                }
+            }
+            collapsed.put(entry.getKey(), domain);
+        }
+        return TupleDomain.withColumnDomains(collapsed.build());
     }
 
     private void recordCollectionCompleted()

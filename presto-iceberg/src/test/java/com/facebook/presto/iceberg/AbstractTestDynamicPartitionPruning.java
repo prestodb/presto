@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTRAINT_COLUMNS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
@@ -68,7 +69,9 @@ public abstract class AbstractTestDynamicPartitionPruning
     private static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT_TEMPLATE = DYNAMIC_FILTER_DOMAIN_RANGE_COUNT + "[%s]";
     private static final String DISTRIBUTED_DYNAMIC_FILTER_STRATEGY = "distributed_dynamic_filter_strategy";
     private static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME = "distributed_dynamic_filter_max_wait_time";
+    private static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE = "distributed_dynamic_filter_max_size";
     private static final String DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS = "distributed_dynamic_filter_extended_metrics";
+    private static final String DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE_TEMPLATE = DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE + "[%s]";
 
     protected long factOrdersTotalFiles;
     protected long factOrdersWestFiles;
@@ -1287,6 +1290,56 @@ public abstract class AbstractTestDynamicPartitionPruning
                 dppResult.getResult().getMaterializedRows(),
                 noDppResult.getResult().getMaterializedRows(),
                 "Multi-join cross-fragment: DPP results should match non-DPP results");
+    }
+
+    @Test(invocationCount = 10)
+    public void testSizeBasedFallbackToRange()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        // Run with a tiny max-size to force the coordinator to collapse discrete values to range.
+        Session tinyMaxSizeSession = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, "1B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> tinyResult =
+                getDistributedQueryRunner().executeWithQueryId(tinyMaxSizeSession, query);
+
+        ResultWithQueryId<MaterializedResult> noDppResult = executeWithDppSession(false, query);
+
+        assertEquals(tinyResult.getResult().getRowCount(), 30,
+                "Collapsed-range DPP should still return all 30 WEST rows");
+        assertEquals(tinyResult.getResult().getMaterializedRows(),
+                noDppResult.getResult().getMaterializedRows(),
+                "Collapsed-range DPP must produce identical results to no-DPP");
+
+        RuntimeStats tinyStats = getRuntimeStats(tinyResult);
+        assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE) > 0,
+                "Aggregate fallback-to-range metric should be emitted with 1B max-size");
+
+        DynamicFilterInfo filterInfo = resolveDynamicFilter(tinyResult, "customer_id");
+        assertNotNull(filterInfo, "Should resolve a dynamic filter from the plan");
+        String perFilterKey = format(DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE_TEMPLATE, filterInfo.filterId);
+        assertTrue(getMetricValue(tinyStats, perFilterKey) > 0,
+                format("Per-filter fallback metric %s should be emitted", perFilterKey));
+
+        assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                "Range-collapsed filter should still be pushed into Iceberg scan");
+        assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_COLLECTION_TIME_NANOS) > 0,
+                "Filter should have completed collection (not timed out)");
+
+        ResultWithQueryId<MaterializedResult> normalResult = executeWithDppSession(true, query);
+        RuntimeStats normalStats = getRuntimeStats(normalResult);
+        assertEquals(getMetricValue(normalStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE), 0,
+                "With default (1MB) max-size, no fallback should occur for 3 integer values");
     }
 
     protected long countFiles(String tableName)

@@ -80,15 +80,33 @@ class DynamicFilterSourceNode : public velox::core::PlanNode {
 /// DynamicFilterSourceOperator to PrestoTask.
 class DynamicFilterCallbackRegistry {
  public:
-  using Callback = std::function<void(
+  /// Called when a DynamicFilterSource pipeline flushes its collected filters.
+  using FlushCallback = std::function<void(
       const std::map<std::string, protocol::TupleDomain<std::string>>&,
       const std::unordered_set<std::string>&)>;
 
+  /// Called at operator creation time to register filter IDs the task will
+  /// produce, so the coordinator knows when all pipelines have flushed.
+  using RegisterCallback =
+      std::function<void(const std::unordered_set<std::string>&)>;
+
   static DynamicFilterCallbackRegistry& instance();
 
-  void registerCallback(const std::string& taskId, Callback callback);
+  void registerCallbacks(
+      const std::string& taskId,
+      FlushCallback flushCallback,
+      RegisterCallback registerCallback);
 
-  void fireAndRemove(
+  /// Registers filter IDs for a task (called at operator creation time).
+  void registerFilterIds(
+      const std::string& taskId,
+      const std::unordered_set<std::string>& filterIds);
+
+  /// Invokes the flush callback for the given task without removing it.
+  /// Multiple pipelines (DynamicFilterSourceNodes) within the same task can
+  /// each call fire() independently — the callback stays registered until
+  /// removeCallback() is called at task deletion time.
+  void fire(
       const std::string& taskId,
       std::map<std::string, protocol::TupleDomain<std::string>> filters,
       std::unordered_set<std::string> flushedFilterIds);
@@ -96,7 +114,11 @@ class DynamicFilterCallbackRegistry {
   void removeCallback(const std::string& taskId);
 
  private:
-  folly::Synchronized<std::map<std::string, Callback>> callbacks_;
+  struct Callbacks {
+    FlushCallback flush;
+    RegisterCallback registerIds;
+  };
+  folly::Synchronized<std::map<std::string, Callbacks>> callbacks_;
 };
 
 /// Translator that converts DynamicFilterSourceNode to the operator.
