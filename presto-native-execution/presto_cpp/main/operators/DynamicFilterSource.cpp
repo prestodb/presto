@@ -12,11 +12,11 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/DynamicFilterSource.h"
+#include <glog/logging.h>
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/types/TupleDomainBuilder.h"
 #include "velox/exec/Task.h"
 #include "velox/vector/SimpleVector.h"
-#include <glog/logging.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -191,8 +191,7 @@ struct SharedFilterState {
   size_t maxSizeBytes{kDefaultMaxSizeBytes};
 
   void tryFlush(memory::MemoryPool* pool) {
-    VLOG(1) << "tryFlush: task=" << taskId
-            << " flushed=" << flushed.load()
+    VLOG(1) << "tryFlush: task=" << taskId << " flushed=" << flushed.load()
             << " finished=" << finishedCount.load()
             << " created=" << createdCount.load();
     if (flushed.load()) {
@@ -302,8 +301,7 @@ struct SharedFilterState {
 
     VLOG(1) << "tryFlush: firing callback for task=" << taskId
             << " filters=" << filters.size()
-            << " filterIds=" << filterIds.size()
-            << " allEmpty=" << allEmpty;
+            << " filterIds=" << filterIds.size() << " allEmpty=" << allEmpty;
     DynamicFilterCallbackRegistry::instance().fire(
         taskId, std::move(filters), std::move(filterIds));
   }
@@ -451,8 +449,7 @@ velox::core::PlanNodePtr DynamicFilterSourceNode::create(
   for (const auto& chObj : obj["channels"]) {
     DynamicFilterChannel ch;
     ch.filterId = chObj["filterId"].asString();
-    ch.columnIndex =
-        static_cast<column_index_t>(chObj["columnIndex"].asInt());
+    ch.columnIndex = static_cast<column_index_t>(chObj["columnIndex"].asInt());
     // Derive type from the source output type.
     ch.type = sources[0]->outputType()->childAt(ch.columnIndex);
     channels.push_back(std::move(ch));
@@ -510,8 +507,7 @@ void DynamicFilterCallbackRegistry::fire(
     const std::string& taskId,
     std::map<std::string, protocol::TupleDomain<std::string>> filters,
     std::unordered_set<std::string> flushedFilterIds) {
-  VLOG(1) << "fire: task=" << taskId
-          << " filters=" << filters.size()
+  VLOG(1) << "fire: task=" << taskId << " filters=" << filters.size()
           << " flushedFilterIds=" << flushedFilterIds.size();
   FlushCallback callback;
   {
@@ -528,8 +524,7 @@ void DynamicFilterCallbackRegistry::fire(
   }
 }
 
-void DynamicFilterCallbackRegistry::removeCallback(
-    const std::string& taskId) {
+void DynamicFilterCallbackRegistry::removeCallback(const std::string& taskId) {
   callbacks_.wlock()->erase(taskId);
   cleanupSharedStatesForTask(taskId);
 }
@@ -557,8 +552,7 @@ std::unique_ptr<Operator> DynamicFilterSourceTranslator::toOperator(
         auto maxSizeStr = queryConfig.get<std::string>(
             SessionProperties::kDistributedDynamicFilterMaxSize,
             std::to_string(kDefaultMaxSizeBytes));
-        state->maxSizeBytes =
-            static_cast<size_t>(std::stoull(maxSizeStr));
+        state->maxSizeBytes = static_cast<size_t>(std::stoull(maxSizeStr));
         it = locked->emplace(key, std::move(state)).first;
 
         // Register filter IDs on the PrestoTask so it knows how many

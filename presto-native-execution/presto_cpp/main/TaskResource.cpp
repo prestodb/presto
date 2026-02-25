@@ -766,12 +766,11 @@ proxygen::RequestHandler* TaskResource::getDynamicFilters(
               std::optional<std::chrono::milliseconds> maxWaitMs;
               if (maxWait.has_value()) {
                 maxWaitMs = std::chrono::milliseconds(
-                    static_cast<int64_t>(maxWait->getValue(
-                        protocol::TimeUnit::MILLISECONDS)));
+                    static_cast<int64_t>(
+                        maxWait->getValue(protocol::TimeUnit::MILLISECONDS)));
               }
 
-              taskManager_
-                  .getDynamicFilters(taskId, sinceVersion, maxWaitMs)
+              taskManager_.getDynamicFilters(taskId, sinceVersion, maxWaitMs)
                   .via(evb)
                   .thenValue([downstream, handlerState](
                                  PrestoTask::DynamicFilterSnapshot snapshot) {
@@ -822,8 +821,7 @@ proxygen::RequestHandler* TaskResource::deleteDynamicFilters(
         folly::via(
             httpSrvCpuExecutor_,
             [this, taskId, throughVersion]() {
-              taskManager_.removeDynamicFiltersThrough(
-                  taskId, throughVersion);
+              taskManager_.removeDynamicFiltersThrough(taskId, throughVersion);
               return true;
             })
             .via(

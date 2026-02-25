@@ -597,9 +597,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       auto weakTask = std::weak_ptr<PrestoTask>(prestoTask);
       operators::DynamicFilterCallbackRegistry::instance().registerCallbacks(
           taskId,
-          [weakTask](
-              const auto& filters,
-              const auto& flushedIds) {
+          [weakTask](const auto& filters, const auto& flushedIds) {
             if (auto task = weakTask.lock()) {
               task->storeDynamicFilters(filters);
               task->markFilterIdsFlushed(flushedIds);

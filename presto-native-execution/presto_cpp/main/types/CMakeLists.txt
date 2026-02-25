@@ -20,7 +20,13 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_velox_expr_conversion presto_to_velox_remote_functions)
 endif()
 
-add_library(presto_types PrestoToVeloxQueryPlan.cpp TupleDomainBuilder.cpp VeloxPlanValidator.cpp PrestoToVeloxSplit.cpp)
+add_library(
+  presto_types
+  PrestoToVeloxQueryPlan.cpp
+  TupleDomainBuilder.cpp
+  VeloxPlanValidator.cpp
+  PrestoToVeloxSplit.cpp
+)
 target_link_libraries(
   presto_types
   presto_velox_expr_conversion
