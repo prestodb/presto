@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
@@ -70,6 +71,7 @@ import static com.facebook.presto.sql.relational.Expressions.not;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -470,6 +472,11 @@ public class DifferentialPlanRewriter
         {
             node.getAggregations().values().forEach(agg -> agg.getCall().getArguments()
                     .forEach(expr -> checkDeterministic(expr, "aggregation")));
+
+            // ∆(γ(R)) = γ(∆R) is only correct when the delta covers complete groups,
+            // i.e. stale partition boundaries align with grouping keys.
+            validateStaleColumnsInGroupingKeys(node);
+
             PlanVariants child = node.getSources().get(0).accept(this, context);
 
             // ∆(γ(R)) = γ(∆R), γ(R') = γ(R'), γ(R) = γ(R)
@@ -477,6 +484,37 @@ public class DifferentialPlanRewriter
                     buildAggregation(node, child.delta()),
                     buildAggregation(node, child.current()),
                     buildAggregation(node, child.unchanged()));
+        }
+
+        private void validateStaleColumnsInGroupingKeys(AggregationNode node)
+        {
+            Map<TableColumn, VariableReferenceExpression> columnMapping =
+                    buildColumnToVariableMapping(metadata, session, node.getSources().get(0), lookup);
+
+            Set<TableColumn> groupingKeyAndEquivalents = columnMapping.entrySet().stream()
+                    .filter(entry -> node.getGroupingKeys().contains(entry.getValue()))
+                    .map(Map.Entry::getKey)
+                    .flatMap(column -> columnEquivalences.getEquivalenceClass(column).stream())
+                    .collect(toImmutableSet());
+
+            Set<SchemaTableName> tablesUnderAggregation = columnMapping.keySet().stream()
+                    .map(TableColumn::getTableName)
+                    .collect(toImmutableSet());
+
+            staleConstraints.forEach((staleTable, predicates) -> {
+                if (!tablesUnderAggregation.contains(staleTable)) {
+                    return;
+                }
+                boolean aligned = predicates.stream()
+                        .filter(p -> p.getDomains().isPresent())
+                        .flatMap(p -> p.getDomains().get().keySet().stream())
+                        .anyMatch(col -> groupingKeyAndEquivalents.contains(new TableColumn(staleTable, col)));
+                if (!aligned) {
+                    throw new UnsupportedOperationException(
+                            "No stale partition column from " + staleTable +
+                            " maps to an aggregation grouping key (directly or via column equivalences)");
+                }
+            });
         }
 
         private NodeWithMapping buildAggregation(AggregationNode original, NodeWithMapping source)
@@ -554,7 +592,12 @@ public class DifferentialPlanRewriter
         public PlanVariants visitIntersect(IntersectNode node, Void context)
         {
             // ∆(R ∩ S) = (∆R ∩ S'[R's stale]) ∪ (R[S's stale] ∩ ∆S)
+            // The delta formula assumes binary INTERSECT; n-ary INTERSECT should be
+            // decomposed into a binary tree before reaching this code.
             List<PlanNode> sources = node.getSources();
+            checkState(sources.size() == 2,
+                    "INTERSECT with more than 2 sources is not supported for differential stitching, found %s sources",
+                    sources.size());
             List<PlanVariants> allVariants = visitAllSources(sources, context);
 
             // Current: R' ∩ S'
@@ -649,14 +692,27 @@ public class DifferentialPlanRewriter
             // EXCEPT is anti-monotonic in the right input.
             // deltaLeft: (∆A - B') handles stale left side via delta algebra
             // deltaRight: (A[B's stale] - B') handles stale right side via partition replacement
+            // The delta formula assumes binary EXCEPT; n-ary EXCEPT should be
+            // decomposed into a binary tree before reaching this code.
             List<PlanNode> sources = node.getSources();
+            checkState(sources.size() == 2,
+                    "EXCEPT with more than 2 sources is not supported for differential stitching, found %s sources",
+                    sources.size());
             List<PlanVariants> allVariants = visitAllSources(sources, context);
 
             // Current: A' - B'
             NodeWithMapping currentResult = buildExcept(node, allVariants.stream().map(PlanVariants::current).collect(toImmutableList()));
 
-            // Unchanged: A - B
-            NodeWithMapping unchangedResult = buildExcept(node, allVariants.stream().map(PlanVariants::unchanged).collect(toImmutableList()));
+            // Unchanged: A - B'
+            // The right side must be B' (current) because rows added to B since the last
+            // refresh may cancel out rows in A. Using stale B would include rows that no
+            // longer survive the EXCEPT.
+            ImmutableList.Builder<NodeWithMapping> unchangedSources = ImmutableList.builder();
+            unchangedSources.add(allVariants.get(0).unchanged());
+            for (int i = 1; i < allVariants.size(); i++) {
+                unchangedSources.add(cloneNodeWithMapping(allVariants.get(i).current()));
+            }
+            NodeWithMapping unchangedResult = buildExcept(node, unchangedSources.build());
 
             // Delta: union of left and right delta terms
             ExceptNode deltaLeft = buildExceptDeltaLeft(node, allVariants);
@@ -752,7 +808,7 @@ public class DifferentialPlanRewriter
         }
 
         /**
-         * Builds a stale predicate for the left side of EXCEPT by finding stale TableScans
+         * Builds a stale predicate for the left side of INTERSECT/EXCEPT by finding stale TableScans
          * in the right subtree and rewriting their stale predicates to left-side columns
          * using column equivalences from MV metadata.
          */
@@ -963,6 +1019,14 @@ public class DifferentialPlanRewriter
                         .collect(toImmutableList());
                 ensureVariablesMapped(node.getOutputVariables());
                 return getMapper().map(node, newSources, idAllocator.getNextId());
+            }
+
+            @Override
+            public PlanNode visitGroupReference(GroupReference node, Void context)
+            {
+                throw new IllegalStateException(
+                        "GroupReference should have been resolved by DeltaBuilder before cloning. " +
+                        "This indicates the plan was not fully resolved before SubtreeRemappingVisitor was invoked.");
             }
         }
     }

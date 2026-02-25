@@ -4608,6 +4608,64 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate("DROP TABLE except_same_left");
     }
 
+    @Test
+    public void testExceptJoinTableScan()
+    {
+        // Pattern: (A EXCEPT B) JOIN C
+        // Tests that EXCEPT's unchanged variant correctly accounts for anti-monotonicity
+        // in the right input when used as the left child of a JOIN.
+        assertUpdate("CREATE TABLE exjt_a (id BIGINT, key BIGINT) " +
+                "WITH (partitioning = ARRAY['id', 'key'])");
+        assertUpdate("CREATE TABLE exjt_b (id BIGINT, key BIGINT) " +
+                "WITH (partitioning = ARRAY['id', 'key'])");
+        assertUpdate("CREATE TABLE exjt_c (key BIGINT, value VARCHAR) " +
+                "WITH (partitioning = ARRAY['key', 'value'])");
+
+        // Left side (A EXCEPT B): produces (1, 100), (3, 300)
+        assertUpdate("INSERT INTO exjt_a VALUES (1, 100), (2, 200), (3, 300), (4, 400)", 4);
+        assertUpdate("INSERT INTO exjt_b VALUES (2, 200), (4, 400), (5, 500)", 3);
+        // Right side C: (300, 'z')
+        assertUpdate("INSERT INTO exjt_c VALUES (300, 'z')", 1);
+
+        // MV: (A EXCEPT B) JOIN C -> should produce (3, 'z')
+        assertUpdate("CREATE MATERIALIZED VIEW mv_exjt AS " +
+                "WITH nt(id, key) AS (SELECT * FROM exjt_a EXCEPT SELECT * FROM exjt_b) " +
+                "SELECT a.id, b.value " +
+                "FROM nt a JOIN exjt_c b ON a.key = b.key");
+        getQueryRunner().execute("REFRESH MATERIALIZED VIEW mv_exjt");
+
+        // Verify initial state
+        assertQuery("SELECT * FROM mv_exjt ORDER BY id", "VALUES (3, 'z')");
+
+        // Now make changes:
+        // A gains (5, 500), (6, 600), (7, 700)
+        // B gains (1, 100), (6, 600) -- note: (1, 100) was in A EXCEPT B before, now removed
+        // C gains (100, 'x'), (700, 'h')
+        assertUpdate("INSERT INTO exjt_a VALUES (5, 500), (6, 600), (7, 700)", 3);
+        assertUpdate("INSERT INTO exjt_b VALUES (1, 100), (6, 600)", 2);
+        assertUpdate("INSERT INTO exjt_c VALUES (100, 'x'), (700, 'h')", 2);
+
+        // After updates:
+        // A EXCEPT B = {(3, 300), (7, 700)}
+        //   - (1, 100) removed because B now has it
+        //   - (5, 500) in both A and B
+        //   - (6, 600) in both A and B
+        //   - (7, 700) only in A
+        // (A EXCEPT B) JOIN C = {(3, 'z'), (7, 'h')}
+        //   - (3, 300) joins C's (300, 'z')
+        //   - (7, 700) joins C's (700, 'h')
+        //   - (1, 100) should NOT appear since it's no longer in A EXCEPT B
+        assertQuery("SELECT * FROM mv_exjt ORDER BY id", "VALUES (3, 'z'), (7, 'h')");
+        assertMaterializedViewResultsMatch(getSession(),
+                "SELECT * FROM mv_exjt ORDER BY id",
+                true);
+
+        assertUpdate("DROP MATERIALIZED VIEW mv_exjt");
+        assertUpdate("DROP TABLE exjt_c");
+        assertUpdate("DROP TABLE exjt_b");
+        assertUpdate("DROP TABLE exjt_a");
+    }
+
     private void assertMaterializedViewQuery(@Language("SQL") String actual, @Language("SQL") String expected)
     {
         assertQuery(actual, expected);
