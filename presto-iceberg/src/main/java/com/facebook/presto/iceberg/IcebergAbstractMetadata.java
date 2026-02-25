@@ -106,7 +106,6 @@ import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
-import org.apache.iceberg.IsolationLevel;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataColumns;
@@ -1948,14 +1947,21 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName storageTableName = new SchemaTableName(definition.get().getSchema(), definition.get().getTable());
         Table storageTable = getIcebergTable(session, storageTableName);
         long lastRefreshSnapshotId = parseLong(lastRefreshSnapshotStr);
-        Snapshot lastRefreshSnapshot = storageTable.snapshot(lastRefreshSnapshotId);
-        if (lastRefreshSnapshot == null) {
-            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                    format("Storage table snapshot %d not found for materialized view %s. " +
-                            "The snapshot may have been expired. Consider refreshing the view.",
-                            lastRefreshSnapshotId, materializedViewName));
+        Optional<Long> lastFreshTime;
+        if (lastRefreshSnapshotId == 0L) {
+            // Empty table refresh: no real snapshot was created
+            lastFreshTime = Optional.empty();
         }
-        Optional<Long> lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
+        else {
+            Snapshot lastRefreshSnapshot = storageTable.snapshot(lastRefreshSnapshotId);
+            if (lastRefreshSnapshot == null) {
+                throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                        format("Storage table snapshot %d not found for materialized view %s. " +
+                                "The snapshot may have been expired. Consider refreshing the view.",
+                                lastRefreshSnapshotId, materializedViewName));
+            }
+            lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
+        }
 
         Map<SchemaTableName, List<TupleDomain<String>>> dataDisjuncts = new HashMap<>();
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
@@ -2232,8 +2238,15 @@ public abstract class IcebergAbstractMetadata
                 }
             }
 
-            // Update materialized view should run after the data refresh of the underlying storage table
-            this.transactionContext.registerCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
+            if (fragments.isEmpty()) {
+                // When no data was written, finishInsert already committed the transaction.
+                // Callbacks registered after that commit won't execute, so update properties directly.
+                updateIcebergViewProperties(session, materializedViewName, properties);
+            }
+            else {
+                // Update materialized view should run after the data refresh of the underlying storage table
+                this.transactionContext.registerCallback(() -> updateIcebergViewProperties(session, materializedViewName, properties));
+            }
         });
 
         return result;
