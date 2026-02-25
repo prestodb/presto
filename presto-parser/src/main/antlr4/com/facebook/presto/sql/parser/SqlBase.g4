@@ -164,7 +164,11 @@ statement
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
     | MERGE INTO qualifiedName (AS? identifier)?
-        USING relation ON expression mergeCase+                        #mergeInto
+          USING relation ON expression mergeCase+                        #mergeInto
+    | CREATE VECTOR INDEX identifier ON TABLE? qualifiedName
+          '(' identifier (',' identifier)* ')'
+          (WITH properties)?
+          (UPDATING FOR booleanExpression)?                              #createVectorIndex
     ;
 
 query
@@ -190,7 +194,7 @@ likeClause
     ;
 
 properties
-    : '(' property (',' property)* ')'
+    : '(' property (',' property)* ','? ')'
     ;
 
 property
@@ -700,7 +704,7 @@ nonReserved
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
     | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | INCLUDING | INDEX | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY
     | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
@@ -712,8 +716,8 @@ nonReserved
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SNAPSHOT | SNAPSHOTS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
     | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
-    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | USE | USER
-    | VALIDATE | VERBOSE | VERSION | VIEW
+    | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | UPDATING | USE | USER
+    | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW
     | WORK | WRITE
     | YEAR
     | ZONE
@@ -809,6 +813,7 @@ IF: 'IF';
 IGNORE: 'IGNORE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
+INDEX: 'INDEX';
 INNER: 'INNER';
 INPUT: 'INPUT';
 INSERT: 'INSERT';
@@ -938,10 +943,12 @@ UNIQUE: 'UNIQUE';
 UNNEST: 'UNNEST';
 UPDATE: 'UPDATE';
 USE: 'USE';
+UPDATING: 'UPDATING';
 USER: 'USER';
 USING: 'USING';
 VALIDATE: 'VALIDATE';
 VALUES: 'VALUES';
+VECTOR: 'VECTOR';
 VERBOSE: 'VERBOSE';
 VERSION: 'VERSION';
 VIEW: 'VIEW';

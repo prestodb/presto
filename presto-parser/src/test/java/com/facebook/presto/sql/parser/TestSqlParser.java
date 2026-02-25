@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -1376,6 +1377,56 @@ public class TestSqlParser
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateVectorIndex()
+    {
+        // Basic CREATE VECTOR INDEX
+        assertStatement("CREATE VECTOR INDEX idx ON t(a, b)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a"), identifier("b")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // With UPDATING FOR clause
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf') UPDATING FOR ds = '2024-01-01'",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.of(new ComparisonExpression(
+                                EQUAL,
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"))),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")))));
+
+        // With properties
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf', metric = 'cosine')",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")),
+                                new Property(identifier("metric"), new StringLiteral("cosine")))));
+
+        // With properties and UPDATING FOR clause
+        assertStatement("CREATE VECTOR INDEX my_index ON t(id, embedding) WITH (index_type = 'ivf_rabitq4') UPDATING FOR ds = '2024-01-01'",
+                new CreateVectorIndex(
+                        identifier("my_index"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("id"), identifier("embedding")),
+                        Optional.of(new ComparisonExpression(
+                                EQUAL,
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"))),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf_rabitq4")))));
     }
 
     @Test
