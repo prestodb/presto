@@ -20,7 +20,6 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.annotations.AfterClass;
@@ -330,89 +329,5 @@ public class TestMongoIntegrationSmokeTest
                 "Can't convert json to MongoDB Document.*");
 
         assertUpdate("DROP TABLE test_json");
-    }
-
-//    @Test
-//    public void testQueryView()
-//    {
-//        assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
-//        assertUpdate("INSERT INTO test_json VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
-//
-//        String db = getSession().getSchema().get();
-//        MongoDatabase database = mongoQueryRunner.getMongoClient().getDatabase(db);
-//
-//        database.createView("test_view", "test_json", ImmutableList.of(
-//                new Document("$project", new Document()
-//                        .append("id", 1)
-//                        .append("col", 1))));
-//
-//        System.out.println("=== Verifying view was created:");
-//        for (String name : database.listCollectionNames()) {
-//            System.out.println("  Collection: " + name);
-//        }
-//
-//        assertQuery("SELECT * FROM test_view", "SELECT * FROM test_json");
-//        database.getCollection("test_json").drop();
-//        database.getCollection("test_view").drop();
-//    }
-
-    @Test
-    public void testQueryView()
-    {
-        assertUpdate("CREATE TABLE test_json (id INT, col JSON)");
-        assertUpdate("INSERT INTO test_json VALUES (1, JSON '{\"name\":\"alice\"}')", 1);
-
-        String db = getSession().getSchema().get();
-        MongoDatabase database = mongoQueryRunner.getMongoClient().getDatabase(db);
-
-        // Explicitly check if test_view already exists and drop it
-        boolean viewExists = false;
-        for (String name : database.listCollectionNames()) {
-            if ("test_view".equals(name)) {
-                viewExists = true;
-                break;
-            }
-        }
-
-        if (viewExists) {
-            System.out.println("=== test_view already exists, dropping it");
-            database.getCollection("test_view").drop();
-
-            // Wait a moment for the drop to complete
-            try {
-                Thread.sleep(100);
-            }
-            catch (InterruptedException ignored) {
-            }
-        }
-
-        // Verify it's gone
-        System.out.println("=== Collections before creating view:");
-        for (String name : database.listCollectionNames()) {
-            System.out.println("  - " + name);
-        }
-
-        // Now create the view
-        Document result = database.runCommand(new Document("create", "test_view")
-                .append("viewOn", "test_json")
-                .append("pipeline", Arrays.asList(
-                        new Document("$project", new Document()
-                                .append("id", 1)
-                                .append("col", 1)))));
-
-        System.out.println("=== Create result: " + result.toJson());
-
-        // Check what type it is
-        System.out.println("=== Collections after creating view:");
-        for (Document doc : database.listCollections()) {
-            if ("test_view".equals(doc.getString("name"))) {
-                System.out.println("=== test_view details: " + doc.toJson());
-            }
-        }
-
-        assertQuery("SELECT * FROM test_view", "SELECT * FROM test_json");
-
-        database.getCollection("test_json").drop();
-        database.getCollection("test_view").drop();
     }
 }
