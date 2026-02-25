@@ -17,9 +17,10 @@
 #include <gtest/gtest.h>
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
+#include "velox/common/testutil/TempFilePath.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::presto {
 class LinuxMemoryCheckerTest : public testing::Test {
@@ -31,11 +32,11 @@ class LinuxMemoryCheckerTest : public testing::Test {
   void checkAvailableMemoryOfDeployment(
       const std::string& content,
       int64_t expectedMemoryMax) {
-    auto tempMemInfoFile = exec::test::TempFilePath::create();
+    auto tempMemInfoFile = TempFilePath::create();
     tempMemInfoFile->append(kMemInfoText_);
     auto memInfoPath = tempMemInfoFile->getPath();
 
-    auto tempMemMaxFile = exec::test::TempFilePath::create();
+    auto tempMemMaxFile = TempFilePath::create();
     tempMemMaxFile->append(content);
     auto tempMemMaxFilePath = tempMemMaxFile->getPath();
 
@@ -47,7 +48,7 @@ class LinuxMemoryCheckerTest : public testing::Test {
   void checkMemoryUsage(
       const std::string& content,
       int64_t expectedMemoryUsage) {
-    auto tempTestFile = exec::test::TempFilePath::create();
+    auto tempTestFile = TempFilePath::create();
     tempTestFile->append(content);
     auto testFilePath = tempTestFile->getPath();
 
@@ -147,11 +148,11 @@ TEST_F(LinuxMemoryCheckerTest, basic) {
 }
 
 TEST_F(LinuxMemoryCheckerTest, sysMemLimitBytesCheck) {
-  auto tempMemInfoFile = exec::test::TempFilePath::create();
+  auto tempMemInfoFile = TempFilePath::create();
   tempMemInfoFile->append(kMemInfoText_);
   auto memInfoPath = tempMemInfoFile->getPath();
 
-  auto tempTestFile = exec::test::TempFilePath::create();
+  auto tempTestFile = TempFilePath::create();
   tempTestFile->append("131000000000\n");
   auto memMaxFilePath = tempTestFile->getPath();
 

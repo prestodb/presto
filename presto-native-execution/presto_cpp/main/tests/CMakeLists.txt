@@ -90,7 +90,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
     presto_server_remote_function_test
     presto_server_remote_function
     velox_expression
-    velox_temp_path
+    velox_test_util
     GTest::gmock
     GTest::gtest
     GTest::gtest_main
