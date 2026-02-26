@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -115,10 +116,30 @@ public class TestDynamicPartitionPruningPlan
                                                                                 "DIM_REGION", "region"))))))))));
     }
 
+    @Test
+    public void testCostBasedJoinPlanProducesValidResults()
+    {
+        assertQuery(costBasedDppSession(),
+                "SELECT f.order_id " +
+                        "FROM plan_fact_orders f " +
+                        "JOIN plan_dim_customers c ON f.customer_id = c.customer_id " +
+                        "WHERE c.region = 'WEST'",
+                "VALUES 1, 2");
+    }
+
     private Session dppSession()
     {
         return Session.builder(getSession())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+    }
+
+    private Session costBasedDppSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
                 .build();

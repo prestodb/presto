@@ -1293,6 +1293,30 @@ public abstract class AbstractTestDynamicPartitionPruning
     }
 
     @Test(invocationCount = 10)
+    public void testCostBasedDynamicPartitionPruning()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultCostBased = executeWithCostBasedSession(query);
+        MaterializedResult cbResult = resultCostBased.getResult();
+
+        ResultWithQueryId<MaterializedResult> resultDisabled = executeWithDppSession(false, query);
+        MaterializedResult noDppResult = resultDisabled.getResult();
+
+        assertEquals(cbResult.getRowCount(), 30);
+        assertEquals(cbResult.getMaterializedRows(), noDppResult.getMaterializedRows());
+
+        RuntimeStats cbStats = getRuntimeStats(resultCostBased);
+        assertEquals(getMetricValue(cbStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 1);
+        assertEquals(getMetricValue(cbStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersWestFiles);
+        assertFilterResolvesWithinTimeout(cbStats, "Cost-based");
+    }
+
+    @Test(invocationCount = 10)
     public void testSizeBasedFallbackToRange()
     {
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -1383,6 +1407,17 @@ public abstract class AbstractTestDynamicPartitionPruning
             builder.setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true");
         }
         return getDistributedQueryRunner().executeWithQueryId(builder.build(), sql);
+    }
+
+    private ResultWithQueryId<MaterializedResult> executeWithCostBasedSession(String sql)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .build();
+        return getDistributedQueryRunner().executeWithQueryId(session, sql);
     }
 
     private QueryStats getQueryStats(ResultWithQueryId<MaterializedResult> result)

@@ -14,23 +14,42 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterCardinalityRatioThreshold;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static java.lang.Double.isFinite;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Populates JoinNode.dynamicFilters for distributed dynamic partition pruning.
- * Creates a filter ID per equi-join clause, mapping it to the build-side variable.
+ * When strategy is COST_BASED, filters are only created for clauses that meet
+ * NDV or cardinality ratio criteria.
  */
 public class AddDynamicFilterRule
         implements Rule<JoinNode>
@@ -39,6 +58,13 @@ public class AddDynamicFilterRule
             .matching(node -> (node.getType() == JoinType.INNER || node.getType() == JoinType.RIGHT)
                     && node.getDynamicFilters().isEmpty()
                     && !node.getCriteria().isEmpty());
+
+    private final Metadata metadata;
+
+    public AddDynamicFilterRule(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
 
     @Override
     public Pattern<JoinNode> getPattern()
@@ -55,10 +81,19 @@ public class AddDynamicFilterRule
     @Override
     public Result apply(JoinNode node, Captures captures, Context context)
     {
+        boolean costBased = getDistributedDynamicFilterStrategy(context.getSession()) == COST_BASED;
+
         Map<String, VariableReferenceExpression> dynamicFilters = new LinkedHashMap<>();
         for (EquiJoinClause clause : node.getCriteria()) {
+            if (costBased && !shouldCreateFilter(clause, node, context)) {
+                continue;
+            }
             String filterId = context.getIdAllocator().getNextId().toString();
             dynamicFilters.put(filterId, clause.getRight());
+        }
+
+        if (dynamicFilters.isEmpty()) {
+            return Result.empty();
         }
 
         return Result.ofPlanNode(new JoinNode(
@@ -75,5 +110,105 @@ public class AddDynamicFilterRule
                 node.getRightHashVariable(),
                 node.getDistributionType(),
                 dynamicFilters));
+    }
+
+    boolean shouldCreateFilter(EquiJoinClause clause, JoinNode node, Context context)
+    {
+        Session session = context.getSession();
+        double cardinalityRatioThreshold = getDistributedDynamicFilterCardinalityRatioThreshold(session);
+        long discreteValuesLimit = getDistributedDynamicFilterDiscreteValuesLimit(session);
+
+        PlanNodeStatsEstimate buildStats = context.getStatsProvider().getStats(node.getRight());
+        PlanNodeStatsEstimate probeStats = context.getStatsProvider().getStats(node.getLeft());
+
+        double buildRowCount = buildStats.getOutputRowCount();
+        double probeRowCount = probeStats.getOutputRowCount();
+
+        if (!isFinite(buildRowCount) || !isFinite(probeRowCount)) {
+            return isSplitFilteringColumn(clause.getLeft(), node.getLeft(), context);
+        }
+
+        VariableStatsEstimate buildVarStats = buildStats.getVariableStatistics(clause.getRight());
+        double buildNdv = buildVarStats.getDistinctValuesCount();
+        if (isFinite(buildNdv) && buildNdv <= discreteValuesLimit) {
+            return true;
+        }
+
+        return probeRowCount > 0 && (buildRowCount / probeRowCount) < cardinalityRatioThreshold;
+    }
+
+    private boolean isSplitFilteringColumn(VariableReferenceExpression variable, PlanNode probeNode, Context context)
+    {
+        Optional<ProbeColumnMapping> mapping = resolveProbeColumnMapping(variable, probeNode, context.getLookup());
+        if (!mapping.isPresent()) {
+            return false;
+        }
+
+        TableScanNode tableScan = mapping.get().getTableScanNode();
+        ColumnHandle columnHandle = mapping.get().getColumnHandle();
+
+        if (!tableScan.getTable().getLayout().isPresent()) {
+            return false;
+        }
+
+        TableLayout layout = metadata.getLayout(context.getSession(), tableScan.getTable());
+        return layout.getDiscretePredicates()
+                .map(dp -> dp.getColumns().contains(columnHandle))
+                .orElse(false);
+    }
+
+    static Optional<ProbeColumnMapping> resolveProbeColumnMapping(
+            VariableReferenceExpression variable,
+            PlanNode node,
+            Lookup lookup)
+    {
+        PlanNode resolved = lookup.resolve(node);
+
+        if (resolved instanceof TableScanNode) {
+            TableScanNode tableScan = (TableScanNode) resolved;
+            ColumnHandle columnHandle = tableScan.getAssignments().get(variable);
+            if (columnHandle != null) {
+                return Optional.of(new ProbeColumnMapping(tableScan, columnHandle));
+            }
+            return Optional.empty();
+        }
+
+        if (resolved instanceof ProjectNode) {
+            ProjectNode project = (ProjectNode) resolved;
+            Assignments assignments = project.getAssignments();
+            RowExpression expression = assignments.getMap().get(variable);
+            if (expression instanceof VariableReferenceExpression) {
+                return resolveProbeColumnMapping((VariableReferenceExpression) expression, project.getSource(), lookup);
+            }
+            return Optional.empty();
+        }
+
+        if (resolved.getSources().size() == 1) {
+            return resolveProbeColumnMapping(variable, resolved.getSources().get(0), lookup);
+        }
+
+        return Optional.empty();
+    }
+
+    static class ProbeColumnMapping
+    {
+        private final TableScanNode tableScanNode;
+        private final ColumnHandle columnHandle;
+
+        ProbeColumnMapping(TableScanNode tableScanNode, ColumnHandle columnHandle)
+        {
+            this.tableScanNode = requireNonNull(tableScanNode, "tableScanNode is null");
+            this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
+        }
+
+        public TableScanNode getTableScanNode()
+        {
+            return tableScanNode;
+        }
+
+        public ColumnHandle getColumnHandle()
+        {
+            return columnHandle;
+        }
     }
 }
