@@ -164,9 +164,18 @@ Property Name                                            Description            
                                                          absolutely necessary to access HDFS.
                                                          Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                                  The default file format used when creating new tables.       ``ORC``
+``hive.storage-format``                                  The default file format used when creating new tables. The   ``ORC``
+                                                         available values are ``ORC``, ``PARQUET``, ``AVRO``,
+                                                         ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE``, ``JSON``,
+                                                         and ``TEXTFILE``.
 
-``hive.compression-codec``                               The compression codec to use when writing files.             ``GZIP``
+``hive.compression-codec``                               The compression codec to use when writing files. The         ``GZIP``
+                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
+                                                         ``LZ4``, and ``ZSTD``.
+                                                         
+                                                         Note: ``LZ4`` is only available when
+                                                         ``hive.storage-format=ORC``. ``ZSTD`` is available
+                                                         for both ``ORC`` and ``PARQUET`` formats.
 
 ``hive.force-local-scheduling``                          Force splits to be scheduled on the same node as the Hadoop  ``false``
                                                          DataNode process serving the split data. This is useful for
