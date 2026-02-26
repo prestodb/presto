@@ -75,6 +75,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -491,6 +492,13 @@ public class PushdownSubfields
                 context.get().variables.addAll(node.getInputDistribution().get().getInputVariables());
             }
             node.getRowId().ifPresent(r -> context.get().variables.add(r));
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getSource().getOutputVariables());
             return context.defaultRewrite(node, context.get());
         }
 
