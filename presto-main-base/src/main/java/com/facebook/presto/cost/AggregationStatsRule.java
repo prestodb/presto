@@ -20,12 +20,14 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
@@ -54,47 +56,83 @@ public class AggregationStatsRule
             return Optional.empty();
         }
 
-        if (node.getStep() != SINGLE) {
-            return Optional.empty();
-        }
+        PlanNodeStatsEstimate estimate;
 
-        return Optional.of(groupBy(
-                statsProvider.getStats(node.getSource()),
-                node.getGroupingKeys(),
-                node.getAggregations()));
+        if (node.getStep() == PARTIAL || node.getStep() == INTERMEDIATE) {
+            estimate = partialGroupBy(
+                    statsProvider.getStats(node.getSource()),
+                    node.getGroupingKeys(),
+                    node.getAggregations());
+        }
+        else {
+            estimate = groupBy(
+                    statsProvider.getStats(node.getSource()),
+                    node.getGroupingKeys(),
+                    node.getAggregations());
+        }
+        return Optional.of(estimate);
     }
 
     public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
     {
+        // Used to estimate FINAL or SINGLE step aggregations
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
-
-        if (isGlobalAggregation(groupByVariables)) {
+        if (groupByVariables.isEmpty()) {
             result.setConfidence(FACT);
+            result.setOutputRowCount(1);
         }
-
-        for (VariableReferenceExpression groupByVariable : groupByVariables) {
-            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
-            result.addVariableStatistics(groupByVariable, symbolStatistics.mapNullsFraction(nullsFraction -> {
-                if (nullsFraction == 0.0) {
-                    return 0.0;
-                }
-                return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
-            }));
+        else {
+            result.addVariableStatistics(getGroupByVariablesStatistics(sourceStats, groupByVariables));
+            double rowsCount = getRowsCount(sourceStats, groupByVariables);
+            result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
         }
-
-        double rowsCount = 1;
-        for (VariableReferenceExpression groupByVariable : groupByVariables) {
-            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
-            int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
-            rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
-        }
-        result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
             result.addVariableStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
         }
 
         return result.build();
+    }
+
+    public static double getRowsCount(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables)
+    {
+        double rowsCount = 1;
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
+            int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
+            rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
+        }
+        return rowsCount;
+    }
+
+    private static PlanNodeStatsEstimate partialGroupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
+    {
+        // Pessimistic assumption of no reduction from PARTIAL and INTERMEDIATE aggregation, forwarding of the source statistics.
+        // This makes the CBO estimates in the EXPLAIN plan output easier to understand,
+        // even though partial aggregations are added after the CBO rules have been run.
+        PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+        result.setOutputRowCount(sourceStats.getOutputRowCount());
+        result.addVariableStatistics(getGroupByVariablesStatistics(sourceStats, groupByVariables));
+        for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
+            result.addVariableStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
+        }
+
+        return result.build();
+    }
+
+    private static Map<VariableReferenceExpression, VariableStatsEstimate> getGroupByVariablesStatistics(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables)
+    {
+        ImmutableMap.Builder<VariableReferenceExpression, VariableStatsEstimate> variableStatsEstimates = ImmutableMap.builder();
+        for (VariableReferenceExpression groupByVariable : groupByVariables) {
+            VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
+            variableStatsEstimates.put(groupByVariable, symbolStatistics.mapNullsFraction(nullsFraction -> {
+                if (nullsFraction == 0.0) {
+                    return 0.0;
+                }
+                return 1.0 / (symbolStatistics.getDistinctValuesCount() + 1);
+            }));
+        }
+        return variableStatsEstimates.build();
     }
 
     private static VariableStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
@@ -104,10 +142,5 @@ public class AggregationStatsRule
 
         // TODO implement simple aggregations like: min, max, count, sum
         return VariableStatsEstimate.unknown();
-    }
-
-    private static boolean isGlobalAggregation(Collection<VariableReferenceExpression> groupingKeys)
-    {
-        return groupingKeys.isEmpty();
     }
 }
