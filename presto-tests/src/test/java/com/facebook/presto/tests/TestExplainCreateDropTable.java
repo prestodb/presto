@@ -28,6 +28,7 @@ public class TestExplainCreateDropTable
 {
     @Override
     protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return createLocalQueryRunner();
     }
@@ -93,4 +94,3 @@ public class TestExplainCreateDropTable
         assertExplainAnalyze("EXPLAIN DROP TABLE test_explain_table");
     }
 }
-
