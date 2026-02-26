@@ -589,6 +589,17 @@ Native Execution only. Ratio of unused (evicted) bytes to total bytes that trigg
 compaction. The value is in the range of [0, 1). Currently only applies to
 approx_most_frequent aggregate with StringView type during global aggregation.
 
+``native_aggregation_memory_compaction_reclaim_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. If true, enables lightweight memory compaction before
+spilling during memory reclaim in aggregation. When enabled, the aggregation
+operator will try to compact aggregate function state (for example, free dead strings)
+before resorting to spilling.
+
 ``optimizer.optimize_top_n_rank``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
