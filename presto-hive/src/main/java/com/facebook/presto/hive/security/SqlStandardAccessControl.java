@@ -61,6 +61,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateB
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -285,6 +286,24 @@ public class SqlStandardAccessControl
                 context.getRuntimeStats());
         if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
             denyCreateBranch(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanCreateTag(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(
+                identity, context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+        if (!isTableOwner(transaction, identity, metastoreContext, tableName)) {
+            denyCreateTag(tableName.toString());
         }
     }
 

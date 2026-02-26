@@ -603,6 +603,14 @@ public interface Metadata
             Optional<Integer> minSnapshotsToKeep,
             Optional<Long> maxSnapshotAgeDays);
 
+    void createTag(Session session,
+            TableHandle tableHandle,
+            String tagName,
+            boolean replace,
+            boolean ifNotExists,
+            Optional<ConnectorTableVersion> tableVersion,
+            Optional<Long> retainDays);
+
     void dropTag(Session session, TableHandle tableHandle, String tagName, boolean tagExists);
 
     void dropConstraint(Session session, TableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName);

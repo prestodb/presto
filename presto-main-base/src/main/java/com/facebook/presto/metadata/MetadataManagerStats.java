@@ -118,6 +118,7 @@ public class MetadataManagerStats
     private final AtomicLong getConnectorCapabilitiesCalls = new AtomicLong();
     private final AtomicLong dropBranchCalls = new AtomicLong();
     private final AtomicLong createBranchCalls = new AtomicLong();
+    private final AtomicLong createTagCalls = new AtomicLong();
     private final AtomicLong dropTagCalls = new AtomicLong();
     private final AtomicLong dropConstraintCalls = new AtomicLong();
     private final AtomicLong addConstraintCalls = new AtomicLong();
@@ -227,6 +228,7 @@ public class MetadataManagerStats
     private final TimeStat getConnectorCapabilitiesTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropBranchTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat createBranchTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat createTagTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropTagTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat addConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -1731,6 +1733,12 @@ public class MetadataManagerStats
     {
         createBranchCalls.incrementAndGet();
         createBranchTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordCreateTagCall(long duration)
+    {
+        createTagCalls.incrementAndGet();
+        createTagTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordDropTagCall(long duration)

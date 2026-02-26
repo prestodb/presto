@@ -358,6 +358,13 @@ public interface AccessControl
     void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
 
     /**
+     * Check if identity is allowed to create tag for the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanCreateTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName);
+
+    /**
      * Check if identity is allowed to drop tag from the specified table.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

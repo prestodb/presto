@@ -632,6 +632,11 @@ public abstract class AstVisitor<R, C>
         return visitStatement(node, context);
     }
 
+    protected R visitCreateTag(CreateTag node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitDropTag(DropTag node, C context)
     {
         return visitStatement(node, context);

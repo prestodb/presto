@@ -729,6 +729,24 @@ public final class StatsRecordingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateTag(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        long start = System.nanoTime();
+        try {
+            delegate.get().checkCanCreateTag(identity, context, table);
+        }
+        catch (RuntimeException e) {
+            stats.checkCanCreateTag.recordFailure();
+            throw e;
+        }
+        finally {
+            long duration = System.nanoTime() - start;
+            context.getRuntimeStats().addMetricValue("systemAccessControl.checkCanCreateTag", RuntimeUnit.NANO, duration);
+            stats.checkCanCreateTag.record(duration);
+        }
+    }
+
+    @Override
     public void checkCanDropBranch(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         long start = System.nanoTime();
@@ -879,6 +897,7 @@ public final class StatsRecordingSystemAccessControl
         final SystemAccessControlStats checkCanDropConstraint = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanAddConstraint = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanCreateBranch = new SystemAccessControlStats();
+        final SystemAccessControlStats checkCanCreateTag = new SystemAccessControlStats();
         final SystemAccessControlStats getRowFilters = new SystemAccessControlStats();
         final SystemAccessControlStats getColumnMasks = new SystemAccessControlStats();
 

@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -2915,6 +2916,39 @@ public class TestSqlParser
                 new CreateBranch(QualifiedName.of("foo", "t"), false, false, true, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.of(2), Optional.of(3L)));
         assertStatement("ALTER TABLE foo.t CREATE OR REPLACE BRANCH 'test_branch' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS WITH SNAPSHOT RETENTION 2 SNAPSHOTS 3 DAYS",
                 new CreateBranch(QualifiedName.of("foo", "t"), false, true, false, "test_branch", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L), Optional.of(2), Optional.of(3L)));
+    }
+
+    @Test
+    public void testCreateTag()
+    {
+        assertStatement("ALTER TABLE foo.t CREATE TAG 'test_tag'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, false, "test_tag", Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE IF EXISTS foo.t CREATE TAG 'test_tag'",
+                new CreateTag(QualifiedName.of("foo", "t"), true, false, false, "test_tag", Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG IF NOT EXISTS 'test_tag'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, true, "test_tag", Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE TAG 'test_tag'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, true, false, "test_tag", Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE IF EXISTS foo.t CREATE OR REPLACE TAG 'test_tag'",
+                new CreateTag(QualifiedName.of("foo", "t"), true, true, false, "test_tag", Optional.empty(), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG 'test_tag' FOR SYSTEM_VERSION AS OF 123",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, false, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG IF NOT EXISTS 'test_tag' FOR SYSTEM_VERSION AS OF 123",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, true, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE TAG 'test_tag' FOR SYSTEM_VERSION AS OF 123",
+                new CreateTag(QualifiedName.of("foo", "t"), false, true, false, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG 'test_tag' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, false, "test_tag", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG IF NOT EXISTS 'test_tag' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, true, "test_tag", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE TAG 'test_tag' FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00'",
+                new CreateTag(QualifiedName.of("foo", "t"), false, true, false, "test_tag", Optional.of(new TableVersionExpression(TIMESTAMP, TableVersionExpression.TableVersionOperator.EQUAL, new TimestampLiteral("2024-01-01 00:00:00"))), Optional.empty()));
+        assertStatement("ALTER TABLE foo.t CREATE TAG 'test_tag' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, false, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L)));
+        assertStatement("ALTER TABLE foo.t CREATE TAG IF NOT EXISTS 'test_tag' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateTag(QualifiedName.of("foo", "t"), false, false, true, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L)));
+        assertStatement("ALTER TABLE foo.t CREATE OR REPLACE TAG 'test_tag' FOR SYSTEM_VERSION AS OF 123 RETAIN 7 DAYS",
+                new CreateTag(QualifiedName.of("foo", "t"), false, true, false, "test_tag", Optional.of(new TableVersionExpression(VERSION, TableVersionExpression.TableVersionOperator.EQUAL, new LongLiteral("123"))), Optional.of(7L)));
     }
 
     @Test
