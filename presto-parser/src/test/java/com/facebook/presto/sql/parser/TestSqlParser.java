@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -1376,6 +1377,185 @@ public class TestSqlParser
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateVectorIndex()
+    {
+        // Basic CREATE VECTOR INDEX
+        assertStatement("CREATE VECTOR INDEX idx ON t(a, b)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a"), identifier("b")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // Single column
+        assertStatement("CREATE VECTOR INDEX idx ON t(a)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // Three columns
+        assertStatement("CREATE VECTOR INDEX idx ON t(a, b, c)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a"), identifier("b"), identifier("c")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // With optional TABLE keyword
+        assertStatement("CREATE VECTOR INDEX idx ON TABLE t(a, b)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a"), identifier("b")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // With qualified table name
+        assertStatement("CREATE VECTOR INDEX idx ON catalog.schema.t(a, b)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("catalog", "schema", "t"),
+                        ImmutableList.of(identifier("a"), identifier("b")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // With qualified table name and TABLE keyword
+        assertStatement("CREATE VECTOR INDEX idx ON TABLE catalog.schema.t(a)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("catalog", "schema", "t"),
+                        ImmutableList.of(identifier("a")),
+                        Optional.empty(),
+                        ImmutableList.of()));
+
+        // With single property
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf')",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")))));
+
+        // With multiple properties
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf', metric = 'cosine')",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")),
+                                new Property(identifier("metric"), new StringLiteral("cosine")))));
+
+        // With trailing comma in properties (grammar allows it)
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf',)",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")))));
+
+        // With UPDATING FOR equality
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) UPDATING FOR ds = '2024-01-01'",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.of(new ComparisonExpression(
+                                EQUAL,
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"))),
+                        ImmutableList.of()));
+
+        // With UPDATING FOR BETWEEN expression
+        assertStatement("CREATE VECTOR INDEX idx ON t(a, b) UPDATING FOR ds BETWEEN '2024-01-01' AND '2024-01-31'",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("a"), identifier("b")),
+                        Optional.of(new BetweenPredicate(
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"),
+                                new StringLiteral("2024-01-31"))),
+                        ImmutableList.of()));
+
+        // With properties and UPDATING FOR
+        assertStatement("CREATE VECTOR INDEX idx ON t(c) WITH (index_type = 'ivf') UPDATING FOR ds = '2024-01-01'",
+                new CreateVectorIndex(
+                        identifier("idx"),
+                        QualifiedName.of("t"),
+                        ImmutableList.of(identifier("c")),
+                        Optional.of(new ComparisonExpression(
+                                EQUAL,
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"))),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf")))));
+
+        // Full example with all clauses
+        assertStatement("CREATE VECTOR INDEX my_index ON TABLE catalog.schema.t(id, embedding) WITH (index_type = 'ivf_rabitq4', distance_metric = 'cosine') UPDATING FOR ds BETWEEN '2024-01-01' AND '2024-01-31'",
+                new CreateVectorIndex(
+                        identifier("my_index"),
+                        QualifiedName.of("catalog", "schema", "t"),
+                        ImmutableList.of(identifier("id"), identifier("embedding")),
+                        Optional.of(new BetweenPredicate(
+                                new Identifier("ds"),
+                                new StringLiteral("2024-01-01"),
+                                new StringLiteral("2024-01-31"))),
+                        ImmutableList.of(
+                                new Property(identifier("index_type"), new StringLiteral("ivf_rabitq4")),
+                                new Property(identifier("distance_metric"), new StringLiteral("cosine")))));
+
+        // Negative tests
+
+        // Missing index name
+        assertInvalidStatement("CREATE VECTOR INDEX ON t(a)", "mismatched input 'ON'.*");
+
+        // Missing column list
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t", "mismatched input '<EOF>'.*");
+
+        // Empty column list
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t()", "mismatched input '\\)'.*");
+
+        // Missing table name
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON (a)", "mismatched input '\\('.*");
+
+        // Missing ON keyword
+        assertInvalidStatement("CREATE VECTOR INDEX idx t(a)", "mismatched input 't'.*");
+
+        // Missing VECTOR keyword
+        assertInvalidStatement("CREATE INDEX idx ON t(a)", "mismatched input 'INDEX'.*");
+
+        // Missing INDEX keyword
+        assertInvalidStatement("CREATE VECTOR idx ON t(a)", "mismatched input 'idx'.*");
+
+        // WITH without parentheses
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t(a) WITH index_type = 'ivf'",
+                "mismatched input 'index_type'.*");
+
+        // Invalid WHERE clause instead of UPDATING FOR
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t(a) WHERE a > 1",
+                "mismatched input 'WHERE'.*");
+
+        // UPDATING without FOR
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t(a) UPDATING ds = '2024-01-01'",
+                "mismatched input 'ds'.*");
+
+        // UPDATING FOR without expression
+        assertInvalidStatement("CREATE VECTOR INDEX idx ON t(a) UPDATING FOR",
+                "mismatched input '<EOF>'.*");
     }
 
     @Test
