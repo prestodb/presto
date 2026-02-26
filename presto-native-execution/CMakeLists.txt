@@ -236,6 +236,7 @@ if(PRESTO_ENABLE_JWT)
 endif()
 
 find_package(DataSketches)
+add_compile_definitions(PRESTO_ENABLE_THETA_SKETCH)
 
 if("${MAX_LINK_JOBS}")
   set_property(GLOBAL APPEND PROPERTY JOB_POOLS "presto_link_job_pool=${MAX_LINK_JOBS}")
