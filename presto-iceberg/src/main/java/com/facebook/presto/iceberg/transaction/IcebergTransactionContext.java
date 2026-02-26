@@ -43,6 +43,7 @@ import org.apache.iceberg.UpdateStatistics;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
@@ -58,7 +59,7 @@ public class IcebergTransactionContext
     private final boolean autoCommitContext;
     private final Map<SchemaTableName, Transaction> txByTable;
     private final Map<SchemaTableName, Table> initiallyReadTables;
-    private Optional<Runnable> callbacksOnCommit = Optional.empty();
+    private final AtomicReference<Runnable> callbacksOnCommit = new AtomicReference<>();
 
     public IcebergTransactionContext(IsolationLevel isolationLevel, boolean autoCommitContext)
     {
@@ -129,19 +130,21 @@ public class IcebergTransactionContext
 
     public void registerCallback(Runnable callback)
     {
-        checkArgument(this.callbacksOnCommit.isEmpty(), "Cannot set callbacksOnCommit multiple times");
-        this.callbacksOnCommit = Optional.of(callback);
+        checkArgument(this.callbacksOnCommit.get() == null, "Cannot set callbacksOnCommit multiple times");
+        this.callbacksOnCommit.set(callback);
     }
 
     public void commit()
     {
         if (!txByTable.isEmpty()) {
             getOnlyElement(txByTable.values().iterator()).commitTransaction();
-            callbacksOnCommit.ifPresent(Runnable::run);
+            if (callbacksOnCommit.get() != null) {
+                callbacksOnCommit.get().run();
+            }
             txByTable.clear();
         }
         initiallyReadTables.clear();
-        callbacksOnCommit = Optional.empty();
+        callbacksOnCommit.set(null);
     }
 
     public void rollback()
