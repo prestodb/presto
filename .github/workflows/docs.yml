@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: 17.0.16
           cache: maven
       - name: Maven Install
         run: |
