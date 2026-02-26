@@ -157,8 +157,31 @@ DDL Statements
 
 ``EXPLAIN`` can also be used with DDL statements such as ``CREATE TABLE`` and ``DROP TABLE``.
 For these statements, the output shows a summary of the operation rather than an execution plan.
+This is useful for validating DDL syntax and understanding what operation will be performed
+without actually executing it.
 
-CREATE TABLE:
+CREATE TABLE
+""""""""""""
+
+The ``EXPLAIN CREATE TABLE`` statement shows a summary of the table creation operation.
+It validates the syntax and table structure without actually creating the table.
+
+Syntax
+''''''
+
+.. code-block:: none
+
+    EXPLAIN CREATE TABLE [ IF NOT EXISTS ] table_name (
+      column_name data_type [NOT NULL] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
+      [, ...]
+    )
+    [ COMMENT table_comment ]
+    [ WITH ( property_name = expression [, ...] ) ]
+
+Examples
+''''''''
+
+Basic table creation:
 
 .. code-block:: none
 
@@ -167,7 +190,7 @@ CREATE TABLE:
     --------------------------
      CREATE TABLE new_table
 
-CREATE TABLE IF NOT EXISTS:
+Table creation with IF NOT EXISTS clause:
 
 .. code-block:: none
 
@@ -176,7 +199,48 @@ CREATE TABLE IF NOT EXISTS:
     --------------------------------------
      CREATE TABLE IF NOT EXISTS new_table
 
-DROP TABLE:
+Table creation with column constraints and properties:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN CREATE TABLE orders (
+              ->   orderkey BIGINT NOT NULL,
+              ->   orderstatus VARCHAR,
+              ->   totalprice DOUBLE COMMENT 'Price in cents',
+              ->   orderdate DATE
+              -> )
+              -> COMMENT 'Orders table'
+              -> WITH (format = 'ORC');
+                  Query Plan
+    --------------------------------------
+     CREATE TABLE orders
+
+Table creation with LIKE clause:
+
+.. code-block:: none
+
+    presto:tiny> EXPLAIN CREATE TABLE new_orders (
+              ->   LIKE orders INCLUDING PROPERTIES
+              -> );
+                  Query Plan
+    --------------------------------------
+     CREATE TABLE new_orders
+
+.. note::
+
+    ``EXPLAIN CREATE TABLE`` validates the syntax and checks if the table structure is valid,
+    but it does not verify if the table already exists. The actual table creation will fail
+    if the table exists (unless ``IF NOT EXISTS`` is specified).
+
+DROP TABLE
+""""""""""
+
+The ``EXPLAIN DROP TABLE`` statement shows a summary of the table drop operation.
+
+Examples
+''''''''
+
+Basic table drop:
 
 .. code-block:: none
 
@@ -185,7 +249,7 @@ DROP TABLE:
     --------------------------------------------------------------
      DROP TABLE test_table
 
-DROP TABLE IF EXISTS:
+Table drop with IF EXISTS clause:
 
 .. code-block:: none
 
