@@ -116,7 +116,7 @@ final class ExplainRewrite
             }
 
             Statement innerStatement = node.getStatement();
-            
+
             // Validate table existence for CREATE TABLE and DROP TABLE
             if (innerStatement instanceof CreateTable || innerStatement instanceof DropTable) {
                 validateTableExistence(innerStatement);
