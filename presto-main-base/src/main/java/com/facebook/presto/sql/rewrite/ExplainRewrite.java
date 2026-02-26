@@ -115,12 +115,15 @@ final class ExplainRewrite
                 return process(node.getStatement());
             }
 
-            // Validate table existence for CREATE TABLE and DROP TABLE
             Statement innerStatement = node.getStatement();
-            validateTableExistence(innerStatement);
+            
+            // Validate table existence for CREATE TABLE and DROP TABLE
+            if (innerStatement instanceof CreateTable || innerStatement instanceof DropTable) {
+                validateTableExistence(innerStatement);
+            }
 
             if (node.isAnalyze()) {
-                Statement statement = (Statement) process(node.getStatement(), context);
+                Statement statement = (Statement) process(innerStatement, context);
                 return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
             }
 
