@@ -178,8 +178,8 @@ Syntax
     [ COMMENT table_comment ]
     [ WITH ( property_name = expression [, ...] ) ]
 
-Examples
-''''''''
+CREATE TABLE Examples
+'''''''''''''''''''''
 
 Basic table creation:
 
@@ -237,8 +237,8 @@ DROP TABLE
 
 The ``EXPLAIN DROP TABLE`` statement shows a summary of the table drop operation.
 
-Examples
-''''''''
+DROP TABLE Examples
+'''''''''''''''''''
 
 Basic table drop:
 
