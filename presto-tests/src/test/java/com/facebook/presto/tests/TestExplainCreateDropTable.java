@@ -65,6 +65,13 @@ public class TestExplainCreateDropTable
     }
 
     @Test
+    public void testExplainCreateTableIfNotExistsNonExisting()
+    {
+        // EXPLAIN CREATE TABLE IF NOT EXISTS should succeed when table doesn't exist
+        assertExplainAnalyze("EXPLAIN CREATE TABLE IF NOT EXISTS test_new_table (id INTEGER)");
+    }
+
+    @Test
     public void testExplainCreateTableNonExisting()
     {
         // EXPLAIN CREATE TABLE should succeed when table doesn't exist
@@ -85,6 +92,13 @@ public class TestExplainCreateDropTable
     {
         // EXPLAIN DROP TABLE IF EXISTS should succeed even if table doesn't exist
         assertExplainAnalyze("EXPLAIN DROP TABLE IF EXISTS non_existing_table");
+    }
+
+    @Test
+    public void testExplainDropTableIfExistsExisting()
+    {
+        // EXPLAIN DROP TABLE IF EXISTS should succeed when table exists
+        assertExplainAnalyze("EXPLAIN DROP TABLE IF EXISTS test_explain_table");
     }
 
     @Test
