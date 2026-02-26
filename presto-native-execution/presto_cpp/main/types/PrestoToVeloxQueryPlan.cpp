@@ -19,6 +19,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
@@ -106,6 +107,19 @@ RowTypePtr toRowType(
     }
     names.emplace_back(variable.name);
     types.emplace_back(stringToType(variable.type, typeParser));
+  }
+
+  return ROW(std::move(names), std::move(types));
+}
+
+RowTypePtr toRowType(
+    const std::vector<protocol::VariableReferenceExpression>& variables,
+    const std::vector<TypePtr>& types) {
+  VELOX_CHECK_EQ(types.size(), variables.size());
+  std::vector<std::string> names;
+  names.reserve(variables.size());
+  for (const auto& variable : variables) {
+    names.emplace_back(variable.name);
   }
 
   return ROW(std::move(names), std::move(types));
@@ -1566,9 +1580,28 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sourceVeloxPlan,
       tableWriteInfo,
       taskId);
+
+  // For TableWriteNode, column types are not parsed but taken from the
+  // column definition for the table handle itself to ensure that the type
+  // used for the write matches the column type and not a possible derived type
+  // from a literal.
+  std::vector<TypePtr> tableTypes;
+  auto hiveHandle =
+      std::dynamic_pointer_cast<const connector::hive::HiveInsertTableHandle>(
+          insertTableHandle->connectorInsertTableHandle());
+
+  if (hiveHandle) {
+    auto inputColumns = hiveHandle->inputColumns();
+    tableTypes.reserve(inputColumns.size());
+    for (const auto& inputColumn : inputColumns) {
+      tableTypes.emplace_back(inputColumn->dataType());
+    }
+  }
+
   return std::make_shared<core::TableWriteNode>(
       node->id,
-      toRowType(node->columns, typeParser_),
+      hiveHandle ? toRowType(node->columns, tableTypes)
+                 : toRowType(node->columns, typeParser_),
       node->columnNames,
       columnStatsSpec,
       std::move(insertTableHandle),
