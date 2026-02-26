@@ -1651,7 +1651,7 @@ public final class MathFunctions
     @ScalarFunction("cosine_similarity")
     @SqlNullable
     @SqlType(StandardTypes.DOUBLE)
-    public static Double arrayCosineSimilarity(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
+    public static Double arrayCosineSimilarityDouble(@SqlType("array(double)") Block leftArray, @SqlType("array(double)") Block rightArray)
     {
         checkCondition(
                 leftArray.getPositionCount() == rightArray.getPositionCount(),
@@ -1673,6 +1673,34 @@ public final class MathFunctions
         double dotProduct = arrayDotProduct(leftArray, rightArray);
 
         return dotProduct / (normLeftArray * normRightArray);
+    }
+
+    @Description("cosine similarity between the given identical sized vectors represented as arrays")
+    @ScalarFunction("cosine_similarity")
+    @SqlNullable
+    @SqlType(StandardTypes.REAL)
+    public static Long arrayCosineSimilarityReal(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
+        Float normLeftArray = array2NormReal(leftArray);
+        Float normRightArray = array2NormReal(rightArray);
+
+        if (normLeftArray == null || normRightArray == null) {
+            return null;
+        }
+
+        long dotProduct = arrayDotProductReal(leftArray, rightArray);
+
+        return (long) floatToRawIntBits(intBitsToFloat((int) dotProduct) / (normLeftArray * normRightArray));
     }
 
     @Description("squared Euclidean distance between the given identical sized vectors represented as arrays")
@@ -1829,6 +1857,19 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
+    }
+
+    private static Float array2NormReal(Block array)
+    {
+        float norm = 0.0f;
+        for (int i = 0; i < array.getPositionCount(); i++) {
+            if (array.isNull(i)) {
+                return null;
+            }
+            norm += intBitsToFloat((int) REAL.getLong(array, i)) * intBitsToFloat((int) REAL.getLong(array, i));
+        }
+
+        return (float) Math.sqrt(norm);
     }
 
     @Description("factorial of a given integer in the range of 0 to 20")
