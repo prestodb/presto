@@ -181,6 +181,8 @@ class Query
     @GuardedBy("this")
     private Set<SqlFunctionId> removedSessionFunctions = ImmutableSet.of();
 
+    private final Optional<CoordinatorResultBuffer> coordinatorResultBuffer;
+
     public static Query create(
             Session session,
             String slug,
@@ -194,7 +196,8 @@ class Query
             RetryConfig retryConfig,
             Optional<URI> retryUrl,
             OptionalLong retryExpirationEpochTime,
-            boolean isRetryQuery)
+            boolean isRetryQuery,
+            Optional<CoordinatorResultBuffer> coordinatorResultBuffer)
     {
         Query result = new Query(
                 session,
@@ -209,12 +212,20 @@ class Query
                 timeoutExecutor,
                 blockEncodingSerde,
                 retryCircuitBreaker,
-                retryConfig);
+                retryConfig,
+                coordinatorResultBuffer);
 
         result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
 
         result.queryManager.addStateChangeListener(result.getQueryId(), (state) -> {
+            if (state == QueryState.FINISHED) {
+                result.coordinatorResultBuffer.ifPresent(CoordinatorResultBuffer::release);
+            }
             if (state.isDone()) {
+                if (state != QueryState.FINISHED) {
+                    // Clean up storage buffer on failure to promptly free SSD files
+                    result.coordinatorResultBuffer.ifPresent(CoordinatorResultBuffer::discardForRetry);
+                }
                 QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
                 result.closeExchangeClientIfNecessary(queryInfo);
             }
@@ -236,7 +247,8 @@ class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde,
             RetryCircuitBreaker retryCircuitBreaker,
-            RetryConfig retryConfig)
+            RetryConfig retryConfig,
+            Optional<CoordinatorResultBuffer> coordinatorResultBuffer)
     {
         requireNonNull(session, "session is null");
         requireNonNull(slug, "slug is null");
@@ -250,6 +262,7 @@ class Query
         requireNonNull(blockEncodingSerde, "serde is null");
         requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
         requireNonNull(retryConfig, "retryConfig is null");
+        requireNonNull(coordinatorResultBuffer, "coordinatorResultBuffer is null");
 
         this.queryManager = queryManager;
         this.transactionManager = transactionManager;
@@ -267,6 +280,7 @@ class Query
         this.serde = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session), isExchangeChecksumEnabled(session)).createPagesSerde();
         this.retryCircuitBreaker = retryCircuitBreaker;
         this.retryConfig = retryConfig;
+        this.coordinatorResultBuffer = coordinatorResultBuffer;
     }
 
     public void cancel()
@@ -277,6 +291,7 @@ class Query
 
     public synchronized void dispose()
     {
+        coordinatorResultBuffer.ifPresent(CoordinatorResultBuffer::discardForRetry);
         exchangeClient.close();
     }
 
@@ -375,6 +390,7 @@ class Query
     {
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
+            coordinatorResultBuffer.ifPresent(CoordinatorResultBuffer::drainExchangeClient);
             return exchangeClient.isBlocked();
         }
 
@@ -459,6 +475,9 @@ class Query
             }
         }
 
+        // discard any buffered results before retrying
+        coordinatorResultBuffer.ifPresent(CoordinatorResultBuffer::discardForRetry);
+
         // build a new query with next uri
         // we expect failed nodes have been removed from discovery server upon query failure
         URI nextUri = createRetryUri(scheme, uriInfo);
@@ -479,6 +498,13 @@ class Query
                 ImmutableList.of(),
                 queryResults.getUpdateType(),
                 queryResults.getUpdateCount());
+    }
+
+    private SerializedPage pollNextPage()
+    {
+        return coordinatorResultBuffer
+                .map(CoordinatorResultBuffer::pollPage)
+                .orElseGet(exchangeClient::pollPage);
     }
 
     private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
@@ -511,7 +537,7 @@ class Query
             if (binaryResults) {
                 ImmutableList.Builder<String> pages = ImmutableList.builder();
                 while (bytes < targetResultBytes) {
-                    SerializedPage serializedPage = exchangeClient.pollPage();
+                    SerializedPage serializedPage = pollNextPage();
                     if (serializedPage == null) {
                         break;
                     }
@@ -533,7 +559,7 @@ class Query
             else {
                 ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
                 while (bytes < targetResultBytes) {
-                    SerializedPage serializedPage = exchangeClient.pollPage();
+                    SerializedPage serializedPage = pollNextPage();
                     if (serializedPage == null) {
                         break;
                     }
@@ -587,7 +613,12 @@ class Query
         // (1) the query is not done AND the query state is not FAILED
         //   OR
         // (2)there is more data to send (due to buffering)
-        if ((!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED) || !exchangeClient.isClosed()) {
+        boolean hasMoreData = queryInfo.getState() != FAILED
+                && coordinatorResultBuffer
+                        .map(CoordinatorResultBuffer::hasRemainingData)
+                        .orElse(!exchangeClient.isClosed());
+
+        if ((!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED) || hasMoreData) {
             nextToken = OptionalLong.of(token + 1);
         }
         else {

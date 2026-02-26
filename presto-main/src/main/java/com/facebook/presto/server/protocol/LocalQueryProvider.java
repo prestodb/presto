@@ -18,6 +18,11 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.execution.StateMachine;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.buffer.BufferState;
+import com.facebook.presto.execution.buffer.SpoolingOutputBuffer;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -37,11 +42,16 @@ import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.presto.SystemSessionProperties.isCoordinatorOutputBufferingEnabled;
+import static com.facebook.presto.execution.buffer.BufferState.OPEN;
+import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.Objects.requireNonNull;
@@ -60,6 +70,7 @@ public class LocalQueryProvider
     private final ScheduledExecutorService timeoutExecutor;
     private final RetryCircuitBreaker retryCircuitBreaker;
     private final RetryConfig retryConfig;
+    private final SpoolingOutputBufferFactory spoolingOutputBufferFactory;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
@@ -73,7 +84,8 @@ public class LocalQueryProvider
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor,
             RetryCircuitBreaker retryCircuitBreaker,
-            RetryConfig retryConfig)
+            RetryConfig retryConfig,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -83,6 +95,7 @@ public class LocalQueryProvider
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.retryCircuitBreaker = requireNonNull(retryCircuitBreaker, "retryCircuitBreaker is null");
         this.retryConfig = requireNonNull(retryConfig, "retryConfig is null");
+        this.spoolingOutputBufferFactory = requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
     }
 
     @PostConstruct
@@ -151,6 +164,20 @@ public class LocalQueryProvider
 
         query = queries.computeIfAbsent(queryId, id -> {
             ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), LocalQueryProvider.class.getSimpleName()));
+
+            Optional<CoordinatorResultBuffer> coordinatorResultBuffer;
+            if (isCoordinatorOutputBufferingEnabled(session)) {
+                TaskId bufferTaskId = new TaskId(session.getQueryId().getId(), 0, 0, 0, 0);
+                String bufferInstanceId = UUID.randomUUID().toString();
+                StateMachine<BufferState> bufferState = new StateMachine<>("coordinator-buffer", responseExecutor, OPEN, TERMINAL_BUFFER_STATES);
+                SpoolingOutputBuffer storageBuffer = spoolingOutputBufferFactory.createSpoolingOutputBuffer(
+                        bufferTaskId, bufferInstanceId, createSpoolingOutputBuffers(), bufferState);
+                coordinatorResultBuffer = Optional.of(new CoordinatorResultBuffer(exchangeClient, storageBuffer, session.getRuntimeStats()));
+            }
+            else {
+                coordinatorResultBuffer = Optional.empty();
+            }
+
             return Query.create(
                     session,
                     slug,
@@ -164,7 +191,8 @@ public class LocalQueryProvider
                     retryConfig,
                     retryUrl,
                     retryExpirationEpochTime,
-                    isRetryQuery);
+                    isRetryQuery,
+                    coordinatorResultBuffer);
         });
         return query;
     }

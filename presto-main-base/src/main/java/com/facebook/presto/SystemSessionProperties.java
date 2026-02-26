@@ -239,6 +239,7 @@ public final class SystemSessionProperties
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
     public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
+    public static final String COORDINATOR_OUTPUT_BUFFERING_ENABLED = "coordinator_output_buffering_enabled";
     public static final String SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED = "spark_assign_bucket_to_partition_for_partitioned_table_write_enabled";
     public static final String LOG_FORMATTED_QUERY_ENABLED = "log_formatted_query_enabled";
     public static final String LOG_INVOKED_FUNCTION_NAMES_ENABLED = "log_invoked_function_names_enabled";
@@ -1331,6 +1332,11 @@ public final class SystemSessionProperties
                         featuresConfig.isSpoolingOutputBufferEnabled(),
                         false),
                 booleanProperty(
+                        COORDINATOR_OUTPUT_BUFFERING_ENABLED,
+                        "Buffer all query output at the coordinator until query completion to enable retry",
+                        featuresConfig.isCoordinatorOutputBufferingEnabled(),
+                        false),
+                booleanProperty(
                         SPARK_ASSIGN_BUCKET_TO_PARTITION_FOR_PARTITIONED_TABLE_WRITE_ENABLED,
                         "Assign bucket to partition map for partitioned table write when adding an exchange",
                         featuresConfig.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(),
@@ -2155,6 +2161,11 @@ public final class SystemSessionProperties
     public static boolean isSpoolingOutputBufferEnabled(Session session)
     {
         return session.getSystemProperty(SPOOLING_OUTPUT_BUFFER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCoordinatorOutputBufferingEnabled(Session session)
+    {
+        return session.getSystemProperty(COORDINATOR_OUTPUT_BUFFERING_ENABLED, Boolean.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)
