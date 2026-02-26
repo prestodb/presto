@@ -625,8 +625,7 @@ public class IcebergHiveMetadata
         Set<ColumnStatisticMetadata> supportedStatistics = ImmutableSet.<ColumnStatisticMetadata>builder()
                 .addAll(hiveColumnStatistics)
                 // iceberg table-supported statistics
-                .addAll(!connectorSystemConfig.isNativeExecution() ?
-                        super.getStatisticsCollectionMetadata(session, tableMetadata).getColumnStatistics() : ImmutableSet.of())
+                .addAll(super.getStatisticsCollectionMetadata(session, tableMetadata).getColumnStatistics())
                 .build();
         Set<TableStatisticType> tableStatistics = ImmutableSet.of(ROW_COUNT);
         return new TableStatisticsMetadata(supportedStatistics, tableStatistics, emptyList());
