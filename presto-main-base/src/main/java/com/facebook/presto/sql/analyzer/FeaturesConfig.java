@@ -181,6 +181,8 @@ public class FeaturesConfig
     private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
     private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
     private boolean distributedDynamicFilterExtendedMetrics;
+    private double distributedDynamicFilterCardinalityRatioThreshold = 0.5;
+    private long distributedDynamicFilterDiscreteValuesLimit = 10000;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -468,6 +470,7 @@ public class FeaturesConfig
     public enum DistributedDynamicFilterStrategy
     {
         DISABLED,
+        COST_BASED,
         ALWAYS
     }
 
@@ -1660,6 +1663,35 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedDynamicFilterExtendedMetrics(boolean distributedDynamicFilterExtendedMetrics)
     {
         this.distributedDynamicFilterExtendedMetrics = distributedDynamicFilterExtendedMetrics;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDistributedDynamicFilterCardinalityRatioThreshold()
+    {
+        return distributedDynamicFilterCardinalityRatioThreshold;
+    }
+
+    @Config("distributed-dynamic-filter.cardinality-ratio-threshold")
+    @ConfigDescription("Maximum build/probe cardinality ratio for cost-based dynamic filter creation")
+    public FeaturesConfig setDistributedDynamicFilterCardinalityRatioThreshold(double distributedDynamicFilterCardinalityRatioThreshold)
+    {
+        this.distributedDynamicFilterCardinalityRatioThreshold = distributedDynamicFilterCardinalityRatioThreshold;
+        return this;
+    }
+
+    @Min(1)
+    public long getDistributedDynamicFilterDiscreteValuesLimit()
+    {
+        return distributedDynamicFilterDiscreteValuesLimit;
+    }
+
+    @Config("distributed-dynamic-filter.discrete-values-limit")
+    @ConfigDescription("Maximum build-side NDV for cost-based dynamic filter creation (filter stored as discrete values)")
+    public FeaturesConfig setDistributedDynamicFilterDiscreteValuesLimit(long distributedDynamicFilterDiscreteValuesLimit)
+    {
+        this.distributedDynamicFilterDiscreteValuesLimit = distributedDynamicFilterDiscreteValuesLimit;
         return this;
     }
 

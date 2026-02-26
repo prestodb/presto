@@ -232,6 +232,8 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME = "distributed_dynamic_filter_max_wait_time";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE = "distributed_dynamic_filter_max_size";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS = "distributed_dynamic_filter_extended_metrics";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD = "distributed_dynamic_filter_cardinality_ratio_threshold";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT = "distributed_dynamic_filter_discrete_values_limit";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
@@ -1304,6 +1306,16 @@ public final class SystemSessionProperties
                         DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS,
                         "Emit per-fetcher lifecycle metrics for distributed dynamic filter debugging",
                         featuresConfig.isDistributedDynamicFilterExtendedMetrics(),
+                        false),
+                doubleProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD,
+                        "Maximum build/probe cardinality ratio for cost-based dynamic filter creation",
+                        featuresConfig.getDistributedDynamicFilterCardinalityRatioThreshold(),
+                        false),
+                longProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT,
+                        "Maximum build-side NDV for cost-based dynamic filter creation (filter stored as discrete values)",
+                        featuresConfig.getDistributedDynamicFilterDiscreteValuesLimit(),
                         false),
                 booleanProperty(
                         FRAGMENT_RESULT_CACHING_ENABLED,
@@ -3021,6 +3033,16 @@ public final class SystemSessionProperties
     public static boolean isDistributedDynamicFilterExtendedMetrics(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, Boolean.class);
+    }
+
+    public static double getDistributedDynamicFilterCardinalityRatioThreshold(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static long getDistributedDynamicFilterDiscreteValuesLimit(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT, Long.class);
     }
 
     public static boolean isFragmentResultCachingEnabled(Session session)
