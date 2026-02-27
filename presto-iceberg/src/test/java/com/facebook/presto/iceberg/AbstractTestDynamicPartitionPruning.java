@@ -38,7 +38,11 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTR
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER;
@@ -50,6 +54,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -826,8 +831,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
         RuntimeStats noDppStats = getRuntimeStats(resultWithoutDpp);
 
-        assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
-                "Non-selective: DF should still be pushed into Iceberg scan");
+        assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED) > 0,
+                "Non-selective: runtime short-circuit should fire when build covers probe");
         assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED),
                 factOrdersTotalFiles,
                 "Non-selective: should process all fact files (no pruning benefit)");
@@ -1364,6 +1369,238 @@ public abstract class AbstractTestDynamicPartitionPruning
         RuntimeStats normalStats = getRuntimeStats(normalResult);
         assertEquals(getMetricValue(normalStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE), 0,
                 "With default (1MB) max-size, no fallback should occur for 3 integer values");
+    }
+
+    @Test(invocationCount = 10)
+    public void testRuntimeShortCircuitWhenBuildCoversProbe()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+
+        assertEquals(resultWithDpp.getResult().getRowCount(), 100,
+                "All 100 fact rows should be returned (no WHERE filter on dimension)");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultWithoutDpp.getResult().getMaterializedRows(),
+                "Short-circuited DPP must produce identical results to no-DPP");
+
+        RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+        long shortCircuited = getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED);
+        assertTrue(shortCircuited > 0,
+                "Runtime short-circuit should fire when build covers full probe domain");
+
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersTotalFiles,
+                "Short-circuited filter should process ALL fact splits, not just a subset");
+    }
+
+    @Test(invocationCount = 10)
+    public void testNoShortCircuitWhenBuildDoesNotCoverProbe()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        MaterializedResult dppResult = resultWithDpp.getResult();
+
+        assertEquals(dppResult.getRowCount(), 30, "Should return 30 WEST rows");
+
+        RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
+                "Short-circuit should NOT fire when build only covers a subset of probe partitions");
+
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersWestFiles,
+                "Non-short-circuited filter should prune to WEST files only");
+    }
+
+    @Test(invocationCount = 10)
+    public void testStarSchemaShortCircuitWithMixedFilters()
+    {
+        executeTableDdl("CREATE TABLE fact_mixed_star (" +
+                "order_id BIGINT, " +
+                "customer_id BIGINT, " +
+                "product_id BIGINT, " +
+                "amount DECIMAL(10, 2)" +
+                ") WITH (partitioning = ARRAY['customer_id', 'product_id'])");
+
+        for (int customerId = 1; customerId <= 3; customerId++) {
+            for (int productId = 1; productId <= 4; productId++) {
+                executeTableDdl(format(
+                        "INSERT INTO fact_mixed_star VALUES (%d, %d, %d, DECIMAL '100.00')",
+                        customerId * 100 + productId, customerId, productId),
+                        1);
+            }
+        }
+
+        executeTableDdl("CREATE TABLE dim_all_customers (" +
+                "customer_id BIGINT, " +
+                "label VARCHAR)");
+        executeTableDdl("INSERT INTO dim_all_customers VALUES (1, 'A'), (2, 'B'), (3, 'C')", 3);
+
+        executeTableDdl("CREATE TABLE dim_selected_products (" +
+                "product_id BIGINT, " +
+                "category VARCHAR)");
+        executeTableDdl("INSERT INTO dim_selected_products VALUES (1, 'ELECTRONICS'), (2, 'BOOKS')", 2);
+
+        try {
+            String query = "SELECT f.order_id, f.amount, c.label, p.category " +
+                    "FROM fact_mixed_star f " +
+                    "JOIN dim_all_customers c ON f.customer_id = c.customer_id " +
+                    "JOIN dim_selected_products p ON f.product_id = p.product_id " +
+                    "ORDER BY f.order_id";
+
+            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+
+            assertEquals(resultWithDpp.getResult().getRowCount(), 6,
+                    "Mixed star: should return 6 rows (3 customers × 2 products)");
+            assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                    resultWithoutDpp.getResult().getMaterializedRows(),
+                    "Mixed star: DPP results must match no-DPP results");
+
+            RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED) > 0,
+                    "Mixed star: customer_id filter should short-circuit (covers all partition values)");
+
+            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                    "Mixed star: product_id filter should be pushed into scan for pruning");
+
+            assertDppReducesData(resultWithDpp, resultWithoutDpp, "Mixed star");
+        }
+        finally {
+            executeTableDdl("DROP TABLE IF EXISTS fact_mixed_star");
+            executeTableDdl("DROP TABLE IF EXISTS dim_all_customers");
+            executeTableDdl("DROP TABLE IF EXISTS dim_selected_products");
+        }
+    }
+
+    @Test(invocationCount = 10)
+    public void testSemiJoinShortCircuit()
+    {
+        String query = "SELECT f.order_id, f.amount " +
+                "FROM fact_orders f " +
+                "WHERE f.customer_id IN (" +
+                "  SELECT customer_id FROM dim_customers" +
+                ") " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+
+        assertEquals(resultWithDpp.getResult().getRowCount(), 100,
+                "Semi-join short-circuit: should return all 100 rows");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultWithoutDpp.getResult().getMaterializedRows(),
+                "Semi-join short-circuit: results must match no-DPP");
+
+        RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+        assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED) > 0,
+                "Semi-join short-circuit: should fire when IN subquery covers all partitions");
+
+        assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersTotalFiles,
+                "Semi-join short-circuit: all fact files should be processed");
+    }
+
+    @Test(invocationCount = 10)
+    public void testNoShortCircuitWithUnpartitionedProbe()
+    {
+        executeTableDdl("CREATE TABLE fact_unpart_sc (" +
+                "order_id BIGINT, " +
+                "customer_id BIGINT, " +
+                "amount DECIMAL(10, 2))");
+
+        executeTableDdl(
+                "INSERT INTO fact_unpart_sc " +
+                        "SELECT order_id, customer_id, amount FROM fact_orders",
+                100);
+
+        try {
+            String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                    "FROM fact_unpart_sc f " +
+                    "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                    "ORDER BY f.order_id";
+
+            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+
+            assertEquals(resultWithDpp.getResult().getRowCount(), 100,
+                    "Unpartitioned no-SC: should return all 100 rows");
+            assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                    resultWithoutDpp.getResult().getMaterializedRows(),
+                    "Unpartitioned no-SC: results must match no-DPP");
+
+            RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
+                    "Unpartitioned no-SC: short-circuit should NOT fire (no partition-level domain)");
+
+            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                    "Unpartitioned no-SC: filter should still be pushed into scan");
+        }
+        finally {
+            executeTableDdl("DROP TABLE IF EXISTS fact_unpart_sc");
+        }
+    }
+
+    @Test(invocationCount = 10)
+    public void testExtendedMetricsCostBasedDecisions()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultCostBased = executeWithCostBasedSession(query);
+        assertEquals(resultCostBased.getResult().getRowCount(), 30,
+                "Cost-based DPP should return all 30 WEST rows");
+
+        RuntimeStats runtimeStats = getRuntimeStats(resultCostBased);
+
+        boolean hasLowNdv = runtimeStats.getMetrics().keySet().stream()
+                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV + "[")
+                        && k.contains("customer_id"));
+        boolean hasFavorableRatio = runtimeStats.getMetrics().keySet().stream()
+                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[")
+                        && k.contains("customer_id"));
+        boolean hasPartitionFallback = runtimeStats.getMetrics().keySet().stream()
+                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")
+                        && k.contains("customer_id"));
+        assertTrue(hasLowNdv || hasFavorableRatio || hasPartitionFallback,
+                format("Cost-based extended metrics should emit a PLAN_CREATED metric for customer_id " +
+                                "(lowNdv=%s, favorableRatio=%s, partitionFallback=%s). All metric keys: %s",
+                        hasLowNdv, hasFavorableRatio, hasPartitionFallback,
+                        runtimeStats.getMetrics().keySet()));
+
+        String matchedKey = runtimeStats.getMetrics().keySet().stream()
+                .filter(k -> k.contains("customer_id") && (
+                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV + "[") ||
+                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[") ||
+                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(matchedKey, "Should find a PLAN_CREATED metric for customer_id");
+        assertEquals(runtimeStats.getMetrics().get(matchedKey).getSum(), 1,
+                format("Plan decision metric %s should have value 1", matchedKey));
+
+        assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
+                "Selective filter should NOT trigger short-circuit");
+
+        boolean hasSkipped = runtimeStats.getMetrics().keySet().stream()
+                .anyMatch(k -> k.contains("customer_id") && k.contains("Skipped"));
+        assertFalse(hasSkipped,
+                format("No PLAN_SKIPPED metrics should be emitted for customer_id when filter is created. Keys: %s",
+                        runtimeStats.getMetrics().keySet()));
     }
 
     protected long countFiles(String tableName)

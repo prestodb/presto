@@ -22,6 +22,7 @@ import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
@@ -103,6 +104,7 @@ public class PrestoSparkRddFactory
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
     private final FeaturesConfig featuresConfig;
+    private final Metadata metadata;
 
     @Inject
     public PrestoSparkRddFactory(
@@ -110,13 +112,15 @@ public class PrestoSparkRddFactory
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            Metadata metadata)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
@@ -267,7 +271,7 @@ public class PrestoSparkRddFactory
         List<PrestoSparkSource> sources = findTableScanNodes(fragment.getRoot());
         if (!sources.isEmpty()) {
             try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager)) {
-                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, new DynamicFilterService());
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, new DynamicFilterService(), metadata);
                 Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
                         fragment.getId(),

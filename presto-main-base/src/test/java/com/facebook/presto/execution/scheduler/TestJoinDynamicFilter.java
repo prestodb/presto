@@ -31,6 +31,7 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLEC
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static java.lang.String.format;
@@ -573,5 +574,228 @@ public class TestJoinDynamicFilter
         Domain domain = constraint.getDomains().get().get("col_a");
         // Should preserve all 100 discrete values (well under 1 MB limit)
         assertEquals(domain.getValues().getRanges().getRangeCount(), 100);
+    }
+
+    @Test
+    public void testShortCircuitWhenBuildCoversProbe()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L, 4L, 5L)))));
+
+        assertTrue(filter.isComplete());
+
+        assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
+                "Filter should short-circuit to all() when build covers probe");
+
+        assertTrue(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED),
+                "Aggregate short-circuit metric should be emitted");
+        assertEquals(runtimeStats.getMetrics().get(DYNAMIC_FILTER_SHORT_CIRCUITED).getSum(), 1);
+    }
+
+    @Test
+    public void testShortCircuitEmitsPerFilterMetric()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+
+        assertTrue(filter.isComplete());
+        assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
+
+        // Per-filter short-circuit metric
+        String perFilterKey = format("%s[%s]", DYNAMIC_FILTER_SHORT_CIRCUITED, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterKey),
+                "Per-filter DYNAMIC_FILTER_SHORT_CIRCUITED[549] should be present");
+        assertEquals(runtimeStats.getMetrics().get(perFilterKey).getSum(), 1);
+    }
+
+    @Test
+    public void testNoShortCircuitWhenBuildDoesNotCoverProbe()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        // Probe column domain: values [1, 2, 3, 4, 5]
+        filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L, 4L, 5L)));
+        filter.setExpectedPartitions(1);
+
+        // Build side only covers subset [1, 2, 3] — cannot short-circuit
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+
+        assertTrue(filter.isComplete());
+
+        // No short-circuit: constraint preserved
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        assertFalse(constraint.isAll(),
+                "Filter should NOT short-circuit when build does not cover probe");
+        assertEquals(
+                constraint,
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of("col_a", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+
+        // No short-circuit metric
+        assertFalse(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED),
+                "Short-circuit metric should NOT be emitted when build does not cover probe");
+    }
+
+    @Test
+    public void testNoShortCircuitWithoutProbeColumnDomain()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        // No probeColumnDomain set — should never short-circuit
+        filter.setExpectedPartitions(1);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+
+        assertTrue(filter.isComplete());
+
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        assertFalse(constraint.isAll(),
+                "Filter should NOT short-circuit without probeColumnDomain");
+        assertEquals(
+                constraint,
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of("col_a", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+
+        assertFalse(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED));
+    }
+
+    @Test
+    public void testShortCircuitViaSetExpectedPartitions()
+    {
+        // Test the setExpectedPartitions completion path (add partitions first, then set expected)
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L)));
+
+        // Add partitions before setting expected count
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
+        assertFalse(filter.isComplete());
+
+        // Setting expected = 1 triggers completion through setExpectedPartitions path
+        filter.setExpectedPartitions(1);
+        assertTrue(filter.isComplete());
+
+        // Short-circuit should have fired in setExpectedPartitions path
+        assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
+                "Short-circuit should fire via setExpectedPartitions path");
+
+        assertTrue(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED));
+    }
+
+    @Test
+    public void testShortCircuitWithExactMatch()
+    {
+        // Build domain exactly matches probe domain — should short-circuit
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        Domain probeDomain = Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L));
+        filter.setProbeColumnDomain(probeDomain);
+        filter.setExpectedPartitions(1);
+
+        // Build side collects exactly the same values
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
+
+        assertTrue(filter.isComplete());
+        assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
+                "Exact match of build and probe domains should short-circuit");
+        assertTrue(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED));
+    }
+
+    @Test
+    public void testNoShortCircuitWhenBuildIsNone()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);
+
+        filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
+        filter.setExpectedPartitions(1);
+
+        // Build side produces none() (empty build)
+        filter.addPartitionByFilterId(TupleDomain.none());
+
+        assertTrue(filter.isComplete());
+
+        // none() should NOT be short-circuited — it means the build was empty and
+        // we should prune everything
+        TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
+        assertTrue(constraint.isNone(),
+                "none() constraint should be preserved (empty build prunes everything)");
+        assertFalse(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_SHORT_CIRCUITED));
     }
 }

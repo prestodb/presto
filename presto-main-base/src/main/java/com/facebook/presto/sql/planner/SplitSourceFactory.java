@@ -16,10 +16,14 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.JoinDynamicFilter;
 import com.facebook.presto.execution.scheduler.TableScanDynamicFilter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
@@ -106,15 +110,18 @@ public class SplitSourceFactory
     private final SplitSourceProvider splitSourceProvider;
     private final WarningCollector warningCollector;
     private final DynamicFilterService dynamicFilterService;
+    private final Metadata metadata;
 
     public SplitSourceFactory(
             SplitSourceProvider splitSourceProvider,
             WarningCollector warningCollector,
-            DynamicFilterService dynamicFilterService)
+            DynamicFilterService dynamicFilterService,
+            Metadata metadata)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     /**
@@ -377,6 +384,22 @@ public class SplitSourceFactory
                     }
 
                     if (!matchingFilters.isEmpty()) {
+                        // Set probe-side column domain for runtime short-circuit detection
+                        if (table.getLayout().isPresent()) {
+                            TableLayout layout = metadata.getLayout(session, table);
+                            TupleDomain<ColumnHandle> predicate = layout.getPredicate();
+                            if (predicate.getDomains().isPresent()) {
+                                for (JoinDynamicFilter joinFilter : matchingFilters) {
+                                    ColumnHandle handle = columnNameToHandle.get(joinFilter.getColumnName());
+                                    if (handle != null) {
+                                        Domain columnDomain = predicate.getDomains().get().get(handle);
+                                        if (columnDomain != null) {
+                                            joinFilter.setProbeColumnDomain(columnDomain);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         dynamicFilter = new TableScanDynamicFilter(matchingFilters, columnNameToHandle);
                     }
                 }

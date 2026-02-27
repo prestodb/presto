@@ -58,6 +58,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -692,7 +693,8 @@ public class TestDynamicFilterService
                     }
                 },
                 WarningCollector.NOOP,
-                service);
+                service,
+                createTestMetadataManager());
     }
 
     private static PlanFragment createScanFragment(int fragmentId, PlanNodeId scanId, VariableReferenceExpression variable, String columnName)

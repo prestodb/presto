@@ -39,6 +39,7 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDI
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -79,6 +80,9 @@ public class JoinDynamicFilter
 
     @GuardedBy("this")
     private TupleDomain<String> mergedConstraint;
+
+    @GuardedBy("this")
+    private Domain probeColumnDomain;
 
     @GuardedBy("this")
     private long collectionStartNanos;
@@ -124,6 +128,7 @@ public class JoinDynamicFilter
         }
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
             mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
+            maybeShortCircuit();
             fullyResolved = true;
             constraintByFilterIdFuture.complete(mergedConstraint);
             recordCollectionCompleted();
@@ -166,6 +171,11 @@ public class JoinDynamicFilter
         return columnName;
     }
 
+    public synchronized void setProbeColumnDomain(Domain domain)
+    {
+        this.probeColumnDomain = requireNonNull(domain, "domain is null");
+    }
+
     public boolean isComplete()
     {
         return fullyResolved;
@@ -188,6 +198,7 @@ public class JoinDynamicFilter
 
         if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
             mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
+            maybeShortCircuit();
             fullyResolved = true;
             constraintByFilterIdFuture.complete(mergedConstraint);
             recordCollectionCompleted();
@@ -244,6 +255,28 @@ public class JoinDynamicFilter
             collapsed.put(entry.getKey(), domain);
         }
         return TupleDomain.withColumnDomains(collapsed.build());
+    }
+
+    private void maybeShortCircuit()
+    {
+        if (probeColumnDomain == null || mergedConstraint.isAll() || mergedConstraint.isNone()) {
+            return;
+        }
+        if (!mergedConstraint.getDomains().isPresent()) {
+            return;
+        }
+        Map<String, Domain> domains = mergedConstraint.getDomains().get();
+        if (domains.size() != 1) {
+            return;
+        }
+        Domain filterDomain = domains.values().iterator().next();
+        if (filterDomain.contains(probeColumnDomain)) {
+            mergedConstraint = TupleDomain.all();
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_SHORT_CIRCUITED, NONE, 1);
+            if (!filterId.isEmpty()) {
+                runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_SHORT_CIRCUITED, filterId), NONE, 1);
+            }
+        }
     }
 
     private void recordCollectionCompleted()

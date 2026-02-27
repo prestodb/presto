@@ -41,9 +41,18 @@ import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicF
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static java.lang.Double.isFinite;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -115,6 +124,8 @@ public class AddDynamicFilterRule
     boolean shouldCreateFilter(EquiJoinClause clause, JoinNode node, Context context)
     {
         Session session = context.getSession();
+        boolean extendedMetrics = isDistributedDynamicFilterExtendedMetrics(session);
+        String columnName = clause.getLeft().getName();
         double cardinalityRatioThreshold = getDistributedDynamicFilterCardinalityRatioThreshold(session);
         long discreteValuesLimit = getDistributedDynamicFilterDiscreteValuesLimit(session);
 
@@ -125,16 +136,54 @@ public class AddDynamicFilterRule
         double probeRowCount = probeStats.getOutputRowCount();
 
         if (!isFinite(buildRowCount) || !isFinite(probeRowCount)) {
-            return isSplitFilteringColumn(clause.getLeft(), node.getLeft(), context);
+            boolean create = isSplitFilteringColumn(clause.getLeft(), node.getLeft(), context);
+            if (extendedMetrics) {
+                emitPlanDecisionMetric(session, create
+                        ? DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK
+                        : DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN, columnName);
+            }
+            return create;
         }
 
         VariableStatsEstimate buildVarStats = buildStats.getVariableStatistics(clause.getRight());
         double buildNdv = buildVarStats.getDistinctValuesCount();
+
+        // If the build-side domain fully covers the probe-side domain,
+        // the filter cannot prune anything
+        VariableStatsEstimate probeVarStats = probeStats.getVariableStatistics(clause.getLeft());
+        double buildLow = buildVarStats.getLowValue();
+        double buildHigh = buildVarStats.getHighValue();
+        double probeLow = probeVarStats.getLowValue();
+        double probeHigh = probeVarStats.getHighValue();
+        double probeNdv = probeVarStats.getDistinctValuesCount();
+        if (isFinite(buildLow) && isFinite(buildHigh) && isFinite(buildNdv)
+                && isFinite(probeLow) && isFinite(probeHigh) && isFinite(probeNdv)
+                && buildLow <= probeLow && buildHigh >= probeHigh && buildNdv >= probeNdv) {
+            if (extendedMetrics) {
+                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE, columnName);
+            }
+            return false;
+        }
+
         if (isFinite(buildNdv) && buildNdv <= discreteValuesLimit) {
+            if (extendedMetrics) {
+                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV, columnName);
+            }
             return true;
         }
 
-        return probeRowCount > 0 && (buildRowCount / probeRowCount) < cardinalityRatioThreshold;
+        boolean create = probeRowCount > 0 && (buildRowCount / probeRowCount) < cardinalityRatioThreshold;
+        if (extendedMetrics) {
+            emitPlanDecisionMetric(session, create
+                    ? DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO
+                    : DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY, columnName);
+        }
+        return create;
+    }
+
+    private static void emitPlanDecisionMetric(Session session, String metricName, String columnName)
+    {
+        session.getRuntimeStats().addMetricValue(format("%s[%s]", metricName, columnName), NONE, 1);
     }
 
     private boolean isSplitFilteringColumn(VariableReferenceExpression variable, PlanNode probeNode, Context context)
