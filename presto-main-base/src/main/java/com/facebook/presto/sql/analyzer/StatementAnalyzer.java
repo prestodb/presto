@@ -241,6 +241,9 @@ import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLi
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_STALE_PARTITIONS_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_STATUS;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_USED_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -2573,12 +2576,21 @@ class StatementAnalyzer
         {
             MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(materializedViewName, scope, materializedView);
 
+            session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_STATUS, NONE, materializedViewStatus.getMaterializedViewState().ordinal());
+
+            long stalePartitions = materializedViewStatus.getPartitionsFromBaseTables().values().stream()
+                    .mapToLong(p -> p.getPredicateDisjuncts().size())
+                    .sum();
+            session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_STALE_PARTITIONS_COUNT, NONE, stalePartitions);
+
             String materializedViewCreateSql = materializedViewDefinition.getOriginalSql();
 
             if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
                 session.getRuntimeStats().addMetricValue(SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT, NONE, 1);
                 return materializedViewCreateSql;
             }
+
+            session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_USED_COUNT, NONE, 1);
 
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
 

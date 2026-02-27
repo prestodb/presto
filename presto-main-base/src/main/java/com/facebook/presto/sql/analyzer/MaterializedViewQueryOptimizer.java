@@ -87,6 +87,9 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_STALE_PARTITIONS_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_STATUS;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_USED_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -407,13 +410,22 @@ public class MaterializedViewQueryOptimizer
 
                 if (!isMaterializedViewDataConsistencyEnabled(session)) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_USED_COUNT, NONE, 1);
                     return rewrittenQuerySpecification;
                 }
 
                 // TODO: We should be able to leverage this information in the StatementAnalyzer as well.
                 MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(querySpecification);
+                session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_STATUS, NONE, materializedViewStatus.getMaterializedViewState().ordinal());
+
+                long stalePartitions = materializedViewStatus.getPartitionsFromBaseTables().values().stream()
+                        .mapToLong(p -> p.getPredicateDisjuncts().size())
+                        .sum();
+                session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_STALE_PARTITIONS_COUNT, NONE, stalePartitions);
+
                 if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    session.getRuntimeStats().addMetricValue(MATERIALIZED_VIEW_USED_COUNT, NONE, 1);
                     return rewrittenQuerySpecification;
                 }
                 session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);

@@ -30,11 +30,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_USED_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestMaterializedViewQueryOptimizer
@@ -1531,6 +1535,108 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'UK'", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
+    }
+
+    @Test
+    public void testRuntimeStatsSetWhenMaterializedViewUsed()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+
+        Session freshSession = testSessionBuilder()
+                .setCatalog(TPCH_CATALOG)
+                .setSchema(SESSION_SCHEMA)
+                .setSystemProperty("parse_decimal_literals_as_double", "true")
+                .build();
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(freshSession, session -> {
+                    Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
+
+                    metadata.createMaterializedView(
+                            session,
+                            TPCH_CATALOG,
+                            null,
+                            createStubConnectorMaterializedViewDefinition(
+                                    VIEW_1,
+                                    originalViewSql,
+                                    SESSION_SCHEMA,
+                                    ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, BASE_TABLE_1))),
+                            false);
+
+                    Query optimizedQuery = (Query) new MaterializedViewQueryOptimizer(
+                            metadata,
+                            session,
+                            SQL_PARSER,
+                            accessControl,
+                            domainTranslator)
+                            .process(baseQuery);
+
+                    // Rewrite should have occurred
+                    Query expectedQuery = (Query) SQL_PARSER.createStatement(
+                            format("SELECT a, b FROM %s", VIEW_1), createParsingOptions(session));
+                    assertEquals(optimizedQuery, expectedQuery);
+
+                    // materializedViewUsedCount should be set (data consistency not enabled by default)
+                    assertNotNull(session.getRuntimeStats().getMetric(MATERIALIZED_VIEW_USED_COUNT));
+                    assertEquals(session.getRuntimeStats().getMetric(MATERIALIZED_VIEW_USED_COUNT).getSum(), 1);
+
+                    // optimizedWithMaterializedViewSubqueryCount should also be set
+                    assertNotNull(session.getRuntimeStats().getMetric(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT));
+                    assertEquals(session.getRuntimeStats().getMetric(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT).getSum(), 1);
+
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, BASE_TABLE_1));
+                });
+    }
+
+    @Test
+    public void testRuntimeStatsNotSetWhenMaterializedViewNotUsed()
+    {
+        // MV has WHERE a = 5 but base query has WHERE a = 4, so MV can't be used
+        String originalViewSql = format("SELECT a, b, c FROM %s WHERE a = 5", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b, c FROM %s WHERE a = 4", BASE_TABLE_1);
+
+        Session freshSession = testSessionBuilder()
+                .setCatalog(TPCH_CATALOG)
+                .setSchema(SESSION_SCHEMA)
+                .setSystemProperty("parse_decimal_literals_as_double", "true")
+                .build();
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(freshSession, session -> {
+                    Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
+
+                    metadata.createMaterializedView(
+                            session,
+                            TPCH_CATALOG,
+                            null,
+                            createStubConnectorMaterializedViewDefinition(
+                                    VIEW_1,
+                                    originalViewSql,
+                                    SESSION_SCHEMA,
+                                    ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, BASE_TABLE_1))),
+                            false);
+
+                    Query optimizedQuery = (Query) new MaterializedViewQueryOptimizer(
+                            metadata,
+                            session,
+                            SQL_PARSER,
+                            accessControl,
+                            domainTranslator)
+                            .process(baseQuery);
+
+                    // Query should not have been rewritten
+                    assertEquals(optimizedQuery, baseQuery);
+
+                    // materializedViewUsedCount should not be set
+                    assertNull(session.getRuntimeStats().getMetric(MATERIALIZED_VIEW_USED_COUNT));
+
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, BASE_TABLE_1));
+                });
     }
 
     private void assertOptimizedQuery(String baseQuerySql, String expectedViewSql, String originalViewSql, String baseTableName, String originalViewName)
