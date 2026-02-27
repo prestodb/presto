@@ -17,10 +17,7 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
-
-add_library(presto_session_properties SessionProperties.cpp)
-
-target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+add_subdirectory(properties)
 
 add_library(
   presto_server_lib
@@ -66,7 +63,6 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
-  presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
@@ -111,6 +107,12 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread
 )
+
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_server_lib presto_cudf_session_properties)
+else()
+  target_link_libraries(presto_server_lib presto_session_properties)
+endif()
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)

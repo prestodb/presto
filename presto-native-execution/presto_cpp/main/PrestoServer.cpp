@@ -22,7 +22,6 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -44,6 +43,7 @@
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
@@ -77,7 +77,8 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
-#include "velox/experimental/cudf/CudfConfig.h"
+#include "presto_cpp/main/properties/session/CudfSessionProperties.h"
+#include "velox/experimental/cudf/common/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
 
@@ -172,16 +173,13 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  // Disable by default.
-  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
   auto systemConfig = SystemConfig::instance();
-  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
-      systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
-          velox::cudf_velox::CudfConfig::kCudfEnabled)) {
-    velox::cudf_velox::CudfConfig::getInstance().initialize(
+          velox::cudf_velox::CudfConfig::kCudfEnabledEntry.name)) {
+    velox::cudf_velox::CudfConfig::getInstance().updateConfigs(
         systemConfig->values());
-    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    if (velox::cudf_velox::CudfConfig::getInstance().get<bool>(
+            velox::cudf_velox::CudfConfig::kCudfEnabledEntry.name)) {
       velox::cudf_velox::registerCudf();
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
@@ -193,8 +191,9 @@ void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
   auto systemConfig = SystemConfig::instance();
   if (systemConfig->values().contains(
-          velox::cudf_velox::CudfConfig::kCudfEnabled) &&
-      velox::cudf_velox::CudfConfig::getInstance().enabled) {
+          velox::cudf_velox::CudfConfig::kCudfEnabledEntry.name) &&
+      velox::cudf_velox::CudfConfig::getInstance().get<bool>(
+          velox::cudf_velox::CudfConfig::kCudfEnabledEntry.name)) {
     velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
   }
@@ -419,6 +418,14 @@ void PrestoServer::initializeConfigs() {
     nodeLocation_ = nodeConfig->nodeLocation();
     nodePoolType_ = systemConfig->poolType();
     prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
+
+#ifdef PRESTO_ENABLE_CUDF
+    velox::cudf_velox::CudfConfig::getInstance().set(
+        velox::cudf_velox::CudfConfig::kCudfEnabledEntry.name, "false");
+    velox::cudf_velox::CudfConfig::getInstance().set(
+        velox::cudf_velox::CudfConfig::kCudfFunctionNamePrefixEntry.name,
+        prestoBuiltinFunctionPrefix_);
+#endif
   } catch (const velox::VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -1832,9 +1839,16 @@ void PrestoServer::registerSidecarEndpoints() {
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
+#ifdef PRESTO_ENABLE_CUDF
+        const auto* sessionProperties =
+            facebook::presto::cudf::CudfSessionProperties::instance();
+        http::sendOkResponse(downstream, sessionProperties->serialize());
+#else
         const auto* sessionProperties = SessionProperties::instance();
         http::sendOkResponse(downstream, sessionProperties->serialize());
+#endif
       });
+
   httpServer_->registerGet(
       "/v1/functions",
       [](proxygen::HTTPMessage* /*message*/,
