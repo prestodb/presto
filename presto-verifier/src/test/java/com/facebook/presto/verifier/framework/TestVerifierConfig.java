@@ -56,7 +56,8 @@ public class TestVerifierConfig
                 .setExtendedVerification(false)
                 .setSaveSnapshot(false)
                 .setFunctionSubstitutes(null)
-                .setValidateStringAsDouble(false));
+                .setValidateStringAsDouble(false)
+                .setJsonParseSafetyWrapperEnabled(false));
     }
 
     @Test
@@ -92,6 +93,7 @@ public class TestVerifierConfig
                 .put("save-snapshot", "true")
                 .put("function-substitutes", "/approx_distinct(c)/count(c)/")
                 .put("validate-string-as-double", "true")
+                .put("json-parse-safety-wrapper-enabled", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -122,7 +124,8 @@ public class TestVerifierConfig
                 .setExtendedVerification(true)
                 .setSaveSnapshot(true)
                 .setFunctionSubstitutes("/approx_distinct(c)/count(c)/")
-                .setValidateStringAsDouble(true);
+                .setValidateStringAsDouble(true)
+                .setJsonParseSafetyWrapperEnabled(true);
 
         assertFullMapping(properties, expected);
     }

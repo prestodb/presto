@@ -57,6 +57,7 @@ public class VerificationQueryRewriterFactory
     private final boolean testReuseTable;
 
     private final Multimap<String, FunctionCallSubstitute> functionSubstitutes;
+    private final boolean jsonParseSafetyWrapperEnabled;
 
     @Inject
     public VerificationQueryRewriterFactory(
@@ -77,6 +78,7 @@ public class VerificationQueryRewriterFactory
         this.controlReuseTable = controlConfig.isReuseTable();
         this.testReuseTable = testConfig.isReuseTable();
         this.functionSubstitutes = verifierConfig.getFunctionSubstitutes();
+        this.jsonParseSafetyWrapperEnabled = verifierConfig.isJsonParseSafetyWrapperEnabled();
     }
 
     @Override
@@ -90,7 +92,8 @@ public class VerificationQueryRewriterFactory
                 ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
                 ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties),
                 ImmutableMap.of(CONTROL, controlReuseTable, TEST, testReuseTable),
-                functionSubstitutes);
+                functionSubstitutes,
+                jsonParseSafetyWrapperEnabled);
     }
 
     private static List<Property> constructProperties(Map<String, Object> propertiesMap)
