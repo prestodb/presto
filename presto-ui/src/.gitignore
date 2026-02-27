@@ -1,0 +1,6 @@
+# Test coverage
+coverage/
+*.lcov
+
+# Jest
+.jest-cache/
