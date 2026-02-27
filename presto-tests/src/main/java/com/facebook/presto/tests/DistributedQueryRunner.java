@@ -788,7 +788,25 @@ public class DistributedQueryRunner
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
+            // add all properties
+            Map<String, String> allProperties = new HashMap<>(properties);
+            allProperties.putAll(server.getAllCoordinatorProperties());
+            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(
+                    functionNamespaceManagerName, catalogName, ImmutableMap.copyOf(allProperties), server.getPluginNodeManager());
+        }
+    }
+
+    @Override
+    public void loadExpressionOptimizer(String expressionOptimizerFactoryName, String expressionOptimizerName, Map<String, String> properties)
+    {
+        for (TestingPrestoServer server : servers) {
+            // add all properties
+            Map<String, String> allProperties = new HashMap<>(properties);
+            allProperties.putAll(server.getAllCoordinatorProperties());
+            server.getExpressionManager().loadExpressionOptimizerFactory(
+                    expressionOptimizerFactoryName,
+                    expressionOptimizerName,
+                    ImmutableMap.copyOf(allProperties));
         }
     }
 
@@ -1100,9 +1118,13 @@ public class DistributedQueryRunner
     public void loadSessionPropertyProvider(String sessionPropertyProviderName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
+            // add all properties
+            Map<String, String> allProperties = new HashMap<>(properties);
+            allProperties.putAll(server.getAllCoordinatorProperties());
+
             server.getMetadata().getSessionPropertyManager().loadSessionPropertyProvider(
                     sessionPropertyProviderName,
-                    properties,
+                    ImmutableMap.copyOf(allProperties),
                     Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
                     Optional.ofNullable(server.getPluginNodeManager()));
         }

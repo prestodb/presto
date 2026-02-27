@@ -25,6 +25,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -159,5 +160,11 @@ public class NativeSidecarExpressionInterpreter
         }
 
         return Optional.of(primary);
+    }
+
+    @VisibleForTesting
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
     }
 }
