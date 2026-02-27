@@ -120,7 +120,7 @@ public class TestHistoryBasedStatsTracking
                 anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(12.5)));
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(5).withOutputSize(90)));
 
         // HBO Statistics
         executeAndTrackHistory("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey");
@@ -227,7 +227,7 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 sessionWithDefaultTimeoutLimit,
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(5).withOutputSize(90)));
 
         // Write HBO statistics failed as we set timeout limit to be 0
         executeAndNoHistoryWritten("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey", sessionWithZeroTimeoutLimit);
@@ -239,7 +239,7 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 sessionWithDefaultTimeoutLimit,
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(5).withOutputSize(90)));
 
         // Write HBO Statistics is successful, as we use the default 10 seconds timeout limit
         executeAndTrackHistory("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey", sessionWithDefaultTimeoutLimit);
@@ -261,7 +261,7 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 sessionWithZeroTimeoutLimit,
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(Double.NaN)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(5)));
     }
 
     @Test
