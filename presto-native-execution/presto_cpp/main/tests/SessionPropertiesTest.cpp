@@ -134,6 +134,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kAggregationCompactionBytesThreshold},
       {SessionProperties::kAggregationCompactionUnusedMemoryRatio,
        core::QueryConfig::kAggregationCompactionUnusedMemoryRatio},
+      {SessionProperties::kAggregationMemoryCompactionReclaimEnabled,
+       core::QueryConfig::kAggregationMemoryCompactionReclaimEnabled},
       {SessionProperties::kMergeJoinOutputBatchStartSize,
        core::QueryConfig::kMergeJoinOutputBatchStartSize}};
 
