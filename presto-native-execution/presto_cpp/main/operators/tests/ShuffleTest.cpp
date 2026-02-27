@@ -33,7 +33,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
 #include "velox/row/CompactRow.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -191,7 +191,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
         std::make_unique<LocalPersistentShuffleFactory>());
     registerExchangeSource(std::string(shuffleName_));
     // Create a temporary directory for shuffle files
-    tempDir_ = exec::test::TempDirectoryPath::create();
+    tempDir_ = TempDirectoryPath::create();
   }
 
   void TearDown() override {
@@ -660,7 +660,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
         {"c16", MAP(TINYINT(), REAL())},
     });
 
-    auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
+    auto rootDirectory = TempDirectoryPath::create();
     auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
         localShuffleWriteInfo(rootPath, numPartitions);
@@ -701,7 +701,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
   }
 
   std::string_view shuffleName_;
-  std::shared_ptr<exec::test::TempDirectoryPath> tempDir_;
+  std::shared_ptr<TempDirectoryPath> tempDir_;
   enum class DataType {
     BASIC,
     BASIC_WITH_NULLS,
@@ -1412,10 +1412,10 @@ TEST_F(ShuffleTest, shuffleEndToEnd) {
   for (const auto& config : testSettings) {
     SCOPED_TRACE(config.debugString());
 
-    std::shared_ptr<exec::test::TempDirectoryPath> customTempDir;
+    std::shared_ptr<TempDirectoryPath> customTempDir;
     std::string rootPath;
     if (config.useCustomTempDir) {
-      customTempDir = exec::test::TempDirectoryPath::create();
+      customTempDir = TempDirectoryPath::create();
       rootPath = customTempDir->getPath();
     } else {
       rootPath = tempDir_->getPath();
@@ -1564,7 +1564,7 @@ TEST_F(ShuffleTest, shuffleWriterReader) {
   for (const auto& config : testSettings) {
     SCOPED_TRACE(config.debugString());
 
-    auto tempRootDir = velox::exec::test::TempDirectoryPath::create();
+    auto tempRootDir = TempDirectoryPath::create();
     const auto testRootPath = tempRootDir->getPath();
 
     LocalShuffleWriteInfo writeInfo = LocalShuffleWriteInfo::deserialize(
