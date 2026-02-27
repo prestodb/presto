@@ -17,6 +17,8 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.iceberg.function.IcebergBucketFunction;
 import com.facebook.presto.iceberg.function.changelog.ApplyChangelogFunction;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -45,7 +47,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
-import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +111,7 @@ public class IcebergConnector
     @Override
     public boolean isSingleStatementWritesOnly()
     {
-        return true;
+        return false;
     }
 
     @Override
@@ -204,12 +206,12 @@ public class IcebergConnector
     }
 
     @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
+    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean autoCommitContext, boolean readOnly)
     {
-        checkConnectorSupports(SERIALIZABLE, isolationLevel);
+        checkConnectorSupports(REPEATABLE_READ, isolationLevel);
         ConnectorTransactionHandle transaction = new HiveTransactionHandle();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            transactionManager.put(transaction, metadataFactory.create());
+            transactionManager.put(transaction, metadataFactory.create(isolationLevel, autoCommitContext));
         }
         return transaction;
     }
@@ -217,14 +219,22 @@ public class IcebergConnector
     @Override
     public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
-        transactionManager.remove(transaction);
+        IcebergTransactionMetadata icebergTransactionMetadata = transactionManager.get(transaction);
+        if (icebergTransactionMetadata != null) {
+            icebergTransactionMetadata.commit();
+            transactionManager.remove(transaction);
+        }
         return INSTANCE;
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        transactionManager.remove(transaction);
+        IcebergTransactionMetadata icebergTransactionMetadata = transactionManager.get(transaction);
+        if (icebergTransactionMetadata != null) {
+            icebergTransactionMetadata.rollback();
+            transactionManager.remove(transaction);
+        }
     }
 
     @Override

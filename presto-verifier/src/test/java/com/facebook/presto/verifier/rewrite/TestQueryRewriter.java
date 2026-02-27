@@ -84,7 +84,8 @@ public class TestQueryRewriter
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
             .setTablePrefix("local.tmp")
             .setTableProperties("{\"p_int\": 30, \"p_long\": 4294967297, \"p_double\": 1.5, \"p_varchar\": \"test\", \"p_bool\": true}");
-    private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig();
+    private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig()
+            .setJsonParseSafetyWrapperEnabled(true);
     private static final SqlParser SQL_PARSER = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
@@ -666,6 +667,106 @@ public class TestQueryRewriter
                 .map(statement -> formatSql(statement, Optional.empty()))
                 .collect(toImmutableList());
         assertEquals(actualQueries, expectedQueries);
+    }
+
+    @Test
+    public void testJsonParseSafetyWrapper()
+    {
+        QueryRewriter queryRewriter = getQueryRewriter();
+
+        // Bare json_parse should be wrapped in TRY
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT json_parse(b) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(b)) FROM test_table");
+
+        // Already wrapped in TRY should not be double-wrapped
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT TRY(json_parse(b)) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(b)) FROM test_table");
+
+        // Mixed: some wrapped, some not
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT TRY(json_parse(b)), json_parse(b) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(b)), TRY(json_parse(b)) FROM test_table");
+
+        // json_parse inside complex expression with lambda
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT transform(ARRAY[b], x -> json_parse(x)) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT transform(ARRAY[b], x -> TRY(json_parse(x))) FROM test_table");
+
+        // json_parse in subquery
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT * FROM (SELECT json_parse(b) AS parsed FROM test_table) t",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT * FROM (SELECT TRY(json_parse(b)) AS parsed FROM test_table) t");
+
+        // json_parse in WHERE clause
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT a FROM test_table WHERE json_parse(b) IS NOT NULL",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT a FROM test_table WHERE TRY(json_parse(b)) IS NOT NULL");
+
+        // json_parse nested inside json_extract (common pattern from function substitution)
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT json_extract(json_parse(CAST(b AS varchar)), '$.key') FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT json_extract(TRY(json_parse(CAST(b AS varchar))), '$.key') FROM test_table");
+
+        // No json_parse - should pass through unchanged
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT a, b FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT a, b FROM test_table");
+
+        // Multiple json_parse in SELECT + WHERE (both should be wrapped independently)
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT json_parse(b) FROM test_table WHERE CAST(json_parse(b) AS VARCHAR) <> ''",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(b)) FROM test_table WHERE CAST(TRY(json_parse(b)) AS VARCHAR) <> ''");
+
+        // COALESCE(TRY(json_parse(col)), JSON 'null') - json_parse already inside TRY, no wrapping
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT COALESCE(TRY(json_parse(b)), JSON 'null') FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT COALESCE(TRY(json_parse(b)), JSON 'null') FROM test_table");
+
+        // Many json_parse calls in a single query (stress test for AST approach vs regex)
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT json_parse(b), TRY(json_parse(b)), json_parse(CONCAT(b, '')), json_parse(UPPER(b)), json_parse(LOWER(b)) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(b)), TRY(json_parse(b)), TRY(json_parse(CONCAT(b, ''))), TRY(json_parse(UPPER(b))), TRY(json_parse(LOWER(b))) FROM test_table");
+    }
+
+    @Test
+    public void testJsonParseSafetyWrapperWithFunctionSubstitutes()
+    {
+        // Test that json_parse wrapping works AFTER function substitution
+        VerifierConfig verifierConfig = new VerifierConfig()
+                .setJsonParseSafetyWrapperEnabled(true)
+                .setFunctionSubstitutes("/arbitrary(x)/min(x)/");
+        QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
+
+        // Function substitution + json_parse wrapping should both apply
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT json_parse(ARBITRARY(b)) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT TRY(json_parse(MIN(b))) FROM test_table");
     }
 
     private QueryRewriter getQueryRewriter()

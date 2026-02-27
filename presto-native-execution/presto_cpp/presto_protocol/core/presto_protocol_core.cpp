@@ -752,7 +752,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TopNNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TopNRowNumberNode") {
+  if (type == ".TopNRowNumberNode") {
     j = *std::static_pointer_cast<TopNRowNumberNode>(p);
     return;
   }
@@ -940,7 +940,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.TopNRowNumberNode") {
+  if (type == ".TopNRowNumberNode") {
     std::shared_ptr<TopNRowNumberNode> k =
         std::make_shared<TopNRowNumberNode>();
     j.get_to(*k);
@@ -5206,6 +5206,13 @@ void to_json(json& j, const ErrorCode& p) {
   to_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   to_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   to_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  to_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 
 void from_json(const json& j, ErrorCode& p) {
@@ -5213,6 +5220,13 @@ void from_json(const json& j, ErrorCode& p) {
   from_json_key(j, "name", p.name, "ErrorCode", "String", "name");
   from_json_key(j, "type", p.type, "ErrorCode", "ErrorType", "type");
   from_json_key(j, "retriable", p.retriable, "ErrorCode", "bool", "retriable");
+  from_json_key(
+      j,
+      "catchableByTry",
+      p.catchableByTry,
+      "ErrorCode",
+      "bool",
+      "catchableByTry");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -12177,7 +12191,7 @@ void from_json(const json& j, TopNNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<RankingFunction, json> RankingFunction_enum_table[] =
@@ -12216,12 +12230,12 @@ void from_json(const json& j, RankingFunction& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 TopNRowNumberNode::TopNRowNumberNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.TopNRowNumberNode";
+  _type = ".TopNRowNumberNode";
 }
 
 void to_json(json& j, const TopNRowNumberNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.TopNRowNumberNode";
+  j["@type"] = ".TopNRowNumberNode";
   to_json_key(j, "id", p.id, "TopNRowNumberNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "TopNRowNumberNode", "PlanNode", "source");
   to_json_key(

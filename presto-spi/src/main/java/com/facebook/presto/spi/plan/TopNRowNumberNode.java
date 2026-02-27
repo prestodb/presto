@@ -11,29 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.DataOrganizationSpecification;
-import com.facebook.presto.spi.plan.OrderingScheme;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public final class TopNRowNumberNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     public enum RankingFunction
     {
@@ -99,18 +96,17 @@ public final class TopNRowNumberNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return singletonList(source);
     }
 
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        ImmutableList.Builder<VariableReferenceExpression> builder = ImmutableList.<VariableReferenceExpression>builder().addAll(source.getOutputVariables());
-
+        List<VariableReferenceExpression> outputVariables = new ArrayList<>(source.getOutputVariables());
         if (!partial) {
-            builder.add(rowNumberVariable);
+            outputVariables.add(rowNumberVariable);
         }
-        return builder.build();
+        return unmodifiableList(outputVariables);
     }
 
     @JsonProperty
@@ -166,7 +162,7 @@ public final class TopNRowNumberNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitTopNRowNumber(this, context);
     }
@@ -174,7 +170,8 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, rankingFunction, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
+        return new TopNRowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), specification, rankingFunction, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 
     @Override

@@ -11,14 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg;
+package com.facebook.presto.iceberg.transaction;
 
-import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
-import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.spi.connector.ConnectorCommitHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadata;
 
-public interface IcebergMetadataFactory
+public interface IcebergTransactionMetadata
+        extends ConnectorMetadata
 {
-    IcebergTransactionMetadata create();
+    ConnectorCommitHandle commit();
 
-    IcebergTransactionMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext);
+    void rollback();
 }

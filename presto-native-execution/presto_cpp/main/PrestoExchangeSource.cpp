@@ -14,6 +14,7 @@
 #include "presto_cpp/main/PrestoExchangeSource.h"
 
 #include <fmt/core.h>
+#include <folly/Conv.h>
 #include <folly/SocketAddress.h>
 #include <re2/re2.h>
 #include <sstream>
@@ -297,10 +298,10 @@ void PrestoExchangeSource::processDataResponse(
         !headers->getIsChunked(),
         "Chunked http transferring encoding is not supported.");
   }
+  const auto contentLengthStr = headers->getHeaders().getSingleOrEmpty(
+      proxygen::HTTP_HEADER_CONTENT_LENGTH);
   const uint64_t contentLength =
-      atol(headers->getHeaders()
-               .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)
-               .c_str());
+      contentLengthStr.empty() ? 0 : folly::to<uint64_t>(contentLengthStr);
   VLOG(1) << "Fetched data for " << basePath_ << "/" << sequence_ << ": "
           << contentLength << " bytes";
 
@@ -331,7 +332,7 @@ void PrestoExchangeSource::processDataResponse(
     // token so we shouldn't update 'sequence_' if it is empty. Otherwise,
     // 'sequence_' gets reset and we can't fetch any data from the source with
     // the rolled back 'sequence_'.
-    ackSequenceOpt = atol(nextTokenStr.c_str());
+    ackSequenceOpt = folly::to<int64_t>(nextTokenStr);
   } else {
     VELOX_CHECK_EQ(
         contentLength, 0, "next token is not set in non-empty data response");

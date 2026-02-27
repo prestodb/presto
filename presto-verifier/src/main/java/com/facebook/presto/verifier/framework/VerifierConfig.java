@@ -70,6 +70,8 @@ public class VerifierConfig
     private boolean extendedVerification;
     private String runningMode = CONTROL_TEST_MODE;
 
+    private boolean jsonParseSafetyWrapperEnabled;
+
     private Multimap<String, FunctionCallSubstitute> functionSubstitutes = ImmutableMultimap.of();
 
     @NotNull
@@ -452,6 +454,19 @@ public class VerifierConfig
         if (QUERY_BANK_MODE.toLowerCase(ENGLISH).equals(runningMode)) {
             skipControl = true;
         }
+        return this;
+    }
+
+    public boolean isJsonParseSafetyWrapperEnabled()
+    {
+        return jsonParseSafetyWrapperEnabled;
+    }
+
+    @ConfigDescription("Wrap bare json_parse() calls with TRY() during query rewriting to prevent failures on malformed JSON")
+    @Config("json-parse-safety-wrapper-enabled")
+    public VerifierConfig setJsonParseSafetyWrapperEnabled(boolean jsonParseSafetyWrapperEnabled)
+    {
+        this.jsonParseSafetyWrapperEnabled = jsonParseSafetyWrapperEnabled;
         return this;
     }
 

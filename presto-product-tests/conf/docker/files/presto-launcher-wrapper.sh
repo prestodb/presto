@@ -25,8 +25,10 @@ if [ -d /docker/volumes/overridejdk ]; then
   export PATH=$JAVA_HOME/bin:$PATH
 
   if [[ "$CONFIG" == "singlenode-ldap" ]]; then
-      # For LDAP tests use the cacert file from the container JDK which has certs installed
-      JAVA_PROPERTIES="-Djavax.net.ssl.trustStore=$CONTAINER_JAVA_HOME/jre/lib/security/cacerts"
+      # For LDAP tests use the cacert file from the container JDK which has certs installed.
+      # Also relax TLS restrictions for compatibility with the CentOS 7 OpenLDAP server,
+      # which requires TLS_RSA cipher suites disabled in JDK 17.0.18+ (JDK-8344257).
+      JAVA_PROPERTIES="-Djavax.net.ssl.trustStore=$CONTAINER_JAVA_HOME/jre/lib/security/cacerts -Djava.security.properties=${PRESTO_CONFIG_DIRECTORY}/ldap-jdk-security.properties"
   fi
 fi
 
