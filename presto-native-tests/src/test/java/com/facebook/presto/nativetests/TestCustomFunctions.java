@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestCustomFunctions
@@ -98,9 +97,6 @@ public class TestCustomFunctions
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .setPluginDirectory(Optional.of(getCustomFunctionsPluginDirectory().toString()))
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 
