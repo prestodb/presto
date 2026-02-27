@@ -13,13 +13,35 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
 import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
 import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class NativeSidecarPluginQueryRunnerUtils
 {
@@ -54,5 +76,34 @@ public class NativeSidecarPluginQueryRunnerUtils
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
+    }
+
+    /**
+     * Return a Guice Module wired up with components needed for sidecar expression tests.
+     * Tests should use this module as a base and add any extra, test-specific bindings.
+     */
+    public static Module createSidecarTestModule(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager)
+    {
+        return binder -> {
+            binder.bind(NodeManager.class).toInstance(nodeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
+            binder.install(new JsonModule());
+            binder.install(new HandleJsonModule(functionAndTypeManager.getHandleResolver()));
+            binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
+            binder.install(new ThriftCodecModule());
+            configBinder(binder).bindConfig(com.facebook.presto.sql.analyzer.FeaturesConfig.class);
+
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            newSetBinder(binder, Type.class);
+
+            binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, BlockEncoding.class);
+            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+            jsonCodecBinder(binder).bindListJsonCodec(com.facebook.presto.spi.relation.RowExpression.class);
+            jsonCodecBinder(binder).bindListJsonCodec(com.facebook.presto.sidecar.expressions.RowExpressionOptimizationResult.class);
+
+            httpClientBinder(binder).bindHttpClient("sidecar", com.facebook.presto.sidecar.ForSidecarInfo.class);
+        };
     }
 }
