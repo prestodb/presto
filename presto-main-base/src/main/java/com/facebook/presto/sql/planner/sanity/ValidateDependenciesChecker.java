@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
@@ -522,6 +523,36 @@ public final class ValidateDependenciesChecker
                         outputVariable,
                         viewQueryOutputs);
             }
+
+            return null;
+        }
+
+        @Override
+        public Void visitMVRewriteCandidates(MVRewriteCandidatesNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            // Visit original plan
+            node.getOriginalPlan().accept(this, boundVariables);
+
+            // Visit all candidate plans and validate output sizes match the original
+            int expectedOutputSize = node.getOriginalPlan().getOutputVariables().size();
+            for (MVRewriteCandidatesNode.MVRewriteCandidate candidate : node.getCandidates()) {
+                candidate.getPlan().accept(this, boundVariables);
+                checkArgument(
+                        candidate.getPlan().getOutputVariables().size() == expectedOutputSize,
+                        "MV candidate %s has %s output variables but original plan has %s",
+                        candidate.getFullyQualifiedName(),
+                        candidate.getPlan().getOutputVariables().size(),
+                        expectedOutputSize);
+            }
+
+            // Validate that output variables match the original plan's output
+            Set<VariableReferenceExpression> originalOutputs = ImmutableSet.copyOf(node.getOriginalPlan().getOutputVariables());
+            checkDependencies(
+                    originalOutputs,
+                    node.getOutputVariables(),
+                    "Invalid node. Output variables (%s) not in original plan output (%s)",
+                    node.getOutputVariables(),
+                    originalOutputs);
 
             return null;
         }
