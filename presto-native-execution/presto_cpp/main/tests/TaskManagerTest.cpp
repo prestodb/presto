@@ -26,6 +26,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -36,7 +37,6 @@
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/type/Type.h"
 
 DECLARE_int32(old_task_ms);
@@ -45,6 +45,7 @@ DECLARE_bool(velox_memory_leak_check_enabled);
 static const std::string kHiveConnectorId = "test-hive";
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
@@ -609,8 +610,8 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
   // Setup the temporary spilling directory and initialize the system config
   // file (in the same temporary directory) to contain the spilling path
   // setting.
-  static std::shared_ptr<exec::test::TempDirectoryPath> setupSpillPath() {
-    auto spillDirectory = exec::test::TempDirectoryPath::create();
+  static std::shared_ptr<TempDirectoryPath> setupSpillPath() {
+    auto spillDirectory = TempDirectoryPath::create();
     auto sysConfigFilePath =
         fmt::format("{}/config.properties", spillDirectory->getPath());
     auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
@@ -692,7 +693,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
 // Runs "select * from t where c0 % 5 = 0" query.
 // Creates one task and provides all splits at once.
 TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -720,7 +721,7 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
 }
 
 TEST_P(TaskManagerTest, addSplitsWithSameSourceNode) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -755,7 +756,7 @@ TEST_P(TaskManagerTest, addSplitsWithSameSourceNode) {
 }
 
 TEST_P(TaskManagerTest, fecthFromFinishedTask) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -872,7 +873,7 @@ TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
   taskManager_->setOldTaskCleanUpMs(0);
 
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -977,7 +978,7 @@ TEST_P(TaskManagerTest, queuedEmptyGroupedExecutionTask) {
 // Runs "select * from t where c0 % 5 = 1" query.
 // Creates one task and provides splits one at a time.
 TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -1013,7 +1014,7 @@ TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
 
 // Runs 2-stage tableScan: (1) multiple table scan tasks; (2) single output task
 TEST_P(TaskManagerTest, tableScanMultipleTasks) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -1047,7 +1048,7 @@ TEST_P(TaskManagerTest, tableScanMultipleTasks) {
 }
 
 TEST_P(TaskManagerTest, countAggregation) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -1061,7 +1062,7 @@ TEST_P(TaskManagerTest, countAggregation) {
 // Run distributed sort query that has 2 stages. First stage runs multiple
 // tasks with partial sort. Second stage runs single task with merge exchange.
 TEST_P(TaskManagerTest, distributedSort) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
@@ -1136,7 +1137,7 @@ TEST_P(TaskManagerTest, distributedSort) {
 }
 
 TEST_P(TaskManagerTest, outOfQueryUserMemory) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (auto i = 0; i < filePaths.size(); i++) {
@@ -1175,7 +1176,7 @@ TEST_P(TaskManagerTest, outOfOrderRequests) {
   auto longWait = protocol::Duration("300s");
   auto shortWait = std::chrono::seconds(1);
 
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1000);
   duckDbQueryRunner_.createTable("tmp", vectors);
@@ -1261,7 +1262,7 @@ TEST_P(TaskManagerTest, aggregationSpill) {
   // trigger spill.
   const int numBatchesPerFile = 5;
   const int numFiles = 5;
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, numFiles);
   std::vector<std::vector<RowVectorPtr>> batches(numFiles);
   for (int i = 0; i < numFiles; ++i) {
@@ -1279,7 +1280,7 @@ TEST_P(TaskManagerTest, aggregationSpill) {
   int queryId = 0;
   for (const bool doSpill : {false, true}) {
     SCOPED_TRACE(fmt::format("doSpill: {}", doSpill));
-    std::shared_ptr<exec::test::TempDirectoryPath> spillDirectory;
+    std::shared_ptr<TempDirectoryPath> spillDirectory;
     std::map<std::string, std::string> queryConfigs;
 
     int32_t spillPct{0};
@@ -1655,7 +1656,7 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
 }
 
 TEST_P(TaskManagerTest, summarize) {
-  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto tableDir = TempDirectoryPath::create();
   auto filePaths = makeFilePaths(tableDir, 5);
   auto vectors = makeVectors(filePaths.size(), 1'000);
   for (int i = 0; i < filePaths.size(); i++) {
