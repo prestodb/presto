@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateB
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTag;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
@@ -349,6 +350,12 @@ public class DenyAllAccessControl
     public void checkCanCreateBranch(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
         denyCreateBranch(tableName.toString());
+    }
+
+    @Override
+    public void checkCanCreateTag(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        denyCreateTag(tableName.toString());
     }
 
     @Override

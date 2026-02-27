@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -1875,6 +1876,40 @@ public final class SqlFormatter
                             .append(node.getMaxSnapshotAgeDays().get())
                             .append(" DAYS");
                 }
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateTag(CreateTag node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()))
+                    .append(" CREATE ");
+            if (node.isReplace()) {
+                builder.append("OR REPLACE ");
+            }
+            builder.append("TAG ");
+            if (node.isIfNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatStringLiteral(node.getTagName()));
+            if (node.getTableVersion().isPresent()) {
+                TableVersionExpression tableVersion = node.getTableVersion().get();
+                builder.append(" FOR ")
+                        .append(tableVersion.getTableVersionType().name())
+                        .append(tableVersion.getTableVersionOperator() == TableVersionExpression.TableVersionOperator.EQUAL ? " AS OF " : " BEFORE ")
+                        .append(formatExpression(tableVersion.getStateExpression(), parameters));
+            }
+
+            if (node.getRetainDays().isPresent()) {
+                builder.append(" RETAIN ")
+                        .append(node.getRetainDays().get())
+                        .append(" DAYS");
             }
 
             return null;
