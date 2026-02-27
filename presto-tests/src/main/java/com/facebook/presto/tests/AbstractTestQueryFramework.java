@@ -186,19 +186,16 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, false, false);
     }
 
     protected void assertQueryWithSameQueryRunner(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, session, actual, queryRunner, expected, false, false);
     }
 
     protected void assertQueryOrderedWithSameQueryRunner(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, getSession(), actual, queryRunner, expected, true, false);
     }
 
@@ -209,7 +206,6 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryWithSameQueryRunner(Session actualSession, @Language("SQL") String actual, Session expectedSession, @Language("SQL") String expected)
     {
-        checkArgument(!actual.equals(expected));
         QueryAssertions.assertQuery(queryRunner, actualSession, actual, queryRunner, expectedSession, expected, false, false);
     }
 

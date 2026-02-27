@@ -73,6 +73,7 @@ public final class IcebergSessionProperties
     public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
     public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
+    public static final String MATERIALIZED_VIEW_MAX_CHANGED_PARTITIONS = "materialized_view_max_changed_partitions";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -242,6 +243,12 @@ public final class IcebergSessionProperties
                                 "This is only used when the storage_table table property is not explicitly set. " +
                                 "When a custom table name is provided, it takes precedence over this prefix.",
                         icebergConfig.getMaterializedViewStoragePrefix(),
+                        false))
+                .add(integerProperty(
+                        MATERIALIZED_VIEW_MAX_CHANGED_PARTITIONS,
+                        "Maximum number of changed partitions to track for materialized view staleness detection. " +
+                                "If the number of changed partitions exceeds this threshold, the materialized view will fall back to full recompute.",
+                        icebergConfig.getMaterializedViewMaxChangedPartitions(),
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -395,5 +402,10 @@ public final class IcebergSessionProperties
     public static String getMaterializedViewStoragePrefix(ConnectorSession session)
     {
         return session.getProperty(MATERIALIZED_VIEW_STORAGE_PREFIX, String.class);
+    }
+
+    public static int getMaterializedViewMaxChangedPartitions(ConnectorSession session)
+    {
+        return session.getProperty(MATERIALIZED_VIEW_MAX_CHANGED_PARTITIONS, Integer.class);
     }
 }

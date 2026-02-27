@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.iterative.rule;
+package com.facebook.presto.sql.planner.iterative.rule.materializedview;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.AbstractMockMetadata;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -33,7 +35,11 @@ import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
+import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ViewExpression;
+import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -86,7 +92,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -113,7 +119,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(false);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), false);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -140,7 +146,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(true);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -172,7 +178,7 @@ public class TestMaterializedViewRewrite
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMissingBaseTable(true);
+        Metadata metadata = new TestingMetadataWithMissingBaseTable(tester().getMetadata(), true);
 
         tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
                 .on(planBuilder -> {
@@ -222,7 +228,7 @@ public class TestMaterializedViewRewrite
 
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
 
-        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(false);
+        Metadata metadata = new TestingMetadataWithMaterializedViewStatus(testerWithFail.getMetadata(), false);
 
         PrestoException exception = expectThrows(PrestoException.class, () ->
                 testerWithFail.assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
@@ -381,21 +387,88 @@ public class TestMaterializedViewRewrite
         assertEquals(exception.getErrorCode(), MATERIALIZED_VIEW_STALE.toErrorCode());
     }
 
+    @Test
+    public void testStitchingBlockedByRowFilterUsesViewQuery()
+    {
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
+
+        MaterializedViewStalenessConfig stalenessConfig = new MaterializedViewStalenessConfig(
+                MaterializedViewStaleReadBehavior.USE_STITCHING,
+                new Duration(0, TimeUnit.SECONDS));
+
+        Metadata metadata = new TestingMetadataWithStalenessConfig(
+                false,
+                stalenessConfig,
+                Optional.empty(),
+                INVOKER,
+                ImmutableMap.of(
+                        new SchemaTableName("schema", "base_table"),
+                        new MaterializedViewStatus.MaterializedDataPredicates(
+                                ImmutableList.of(TupleDomain.all()),
+                                ImmutableList.of("ds"))));
+
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AccessControlWithRowFilter()))
+                .on(planBuilder -> {
+                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
+                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
+                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
+
+                    return planBuilder.materializedViewScan(
+                            materializedViewName,
+                            planBuilder.values(dataTableA),
+                            planBuilder.values(viewQueryA),
+                            ImmutableMap.of(outputA, dataTableA),
+                            ImmutableMap.of(outputA, viewQueryA),
+                            outputA);
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("a", expression("view_query_a")),
+                                values("view_query_a")));
+    }
+
+    private static class AccessControlWithRowFilter
+            extends AllowAllAccessControl
+    {
+        @Override
+        public List<ViewExpression> getRowFilters(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+        {
+            if (tableName.getObjectName().equals("base_table")) {
+                return ImmutableList.of(new ViewExpression("test_user", Optional.of("catalog"), Optional.of("schema"), "true"));
+            }
+            return ImmutableList.of();
+        }
+    }
+
     private static class TestingMetadataWithStalenessConfig
             extends AbstractMockMetadata
     {
         private final boolean isFullyMaterialized;
         private final MaterializedViewStalenessConfig stalenessConfig;
         private final Optional<Long> lastFreshTime;
+        private final ViewSecurity securityMode;
+        private final Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables;
 
         public TestingMetadataWithStalenessConfig(
                 boolean isFullyMaterialized,
                 MaterializedViewStalenessConfig stalenessConfig,
                 Optional<Long> lastFreshTime)
         {
+            this(isFullyMaterialized, stalenessConfig, lastFreshTime, DEFINER, ImmutableMap.of());
+        }
+
+        public TestingMetadataWithStalenessConfig(
+                boolean isFullyMaterialized,
+                MaterializedViewStalenessConfig stalenessConfig,
+                Optional<Long> lastFreshTime,
+                ViewSecurity securityMode,
+                Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables)
+        {
             this.isFullyMaterialized = isFullyMaterialized;
             this.stalenessConfig = stalenessConfig;
             this.lastFreshTime = lastFreshTime;
+            this.securityMode = securityMode;
+            this.partitionsFromBaseTables = ImmutableMap.copyOf(partitionsFromBaseTables);
         }
 
         @Override
@@ -405,7 +478,9 @@ public class TestMaterializedViewRewrite
                     super.getMetadataResolver(session),
                     isFullyMaterialized,
                     stalenessConfig,
-                    lastFreshTime);
+                    lastFreshTime,
+                    securityMode,
+                    partitionsFromBaseTables);
         }
     }
 
@@ -416,17 +491,23 @@ public class TestMaterializedViewRewrite
         private final boolean isFullyMaterialized;
         private final MaterializedViewStalenessConfig stalenessConfig;
         private final Optional<Long> lastFreshTime;
+        private final ViewSecurity securityMode;
+        private final Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables;
 
         protected MaterializedViewTestingMetadataResolverWithStalenessConfig(
                 MetadataResolver delegate,
                 boolean isFullyMaterialized,
                 MaterializedViewStalenessConfig stalenessConfig,
-                Optional<Long> lastFreshTime)
+                Optional<Long> lastFreshTime,
+                ViewSecurity securityMode,
+                Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables)
         {
             this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
             this.stalenessConfig = stalenessConfig;
             this.lastFreshTime = lastFreshTime;
+            this.securityMode = securityMode;
+            this.partitionsFromBaseTables = ImmutableMap.copyOf(partitionsFromBaseTables);
         }
 
         @Override
@@ -474,7 +555,7 @@ public class TestMaterializedViewRewrite
                     "mv",
                     ImmutableList.of(new SchemaTableName("schema", "base_table")),
                     Optional.of("test_owner"),
-                    Optional.of(DEFINER),
+                    Optional.of(securityMode),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     Optional.empty(),
@@ -487,7 +568,7 @@ public class TestMaterializedViewRewrite
         {
             return new MaterializedViewStatus(
                     isFullyMaterialized ? FULLY_MATERIALIZED : PARTIALLY_MATERIALIZED,
-                    ImmutableMap.of(),
+                    partitionsFromBaseTables,
                     lastFreshTime);
         }
     }
@@ -495,11 +576,19 @@ public class TestMaterializedViewRewrite
     private static class TestingMetadataWithMaterializedViewStatus
             extends AbstractMockMetadata
     {
+        private final Metadata delegate;
         private final boolean isFullyMaterialized;
 
-        public TestingMetadataWithMaterializedViewStatus(boolean isFullyMaterialized)
+        public TestingMetadataWithMaterializedViewStatus(Metadata delegate, boolean isFullyMaterialized)
         {
+            this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
+        }
+
+        @Override
+        public FunctionAndTypeManager getFunctionAndTypeManager()
+        {
+            return delegate.getFunctionAndTypeManager();
         }
 
         @Override
@@ -512,11 +601,19 @@ public class TestMaterializedViewRewrite
     private static class TestingMetadataWithMissingBaseTable
             extends AbstractMockMetadata
     {
+        private final Metadata delegate;
         private final boolean isFullyMaterialized;
 
-        public TestingMetadataWithMissingBaseTable(boolean isFullyMaterialized)
+        public TestingMetadataWithMissingBaseTable(Metadata delegate, boolean isFullyMaterialized)
         {
+            this.delegate = delegate;
             this.isFullyMaterialized = isFullyMaterialized;
+        }
+
+        @Override
+        public FunctionAndTypeManager getFunctionAndTypeManager()
+        {
+            return delegate.getFunctionAndTypeManager();
         }
 
         @Override

@@ -257,6 +257,8 @@ public final class SystemSessionProperties
     public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
     public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
     public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
+    public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "materialized_view_staleness_window";
+    public static final String MATERIALIZED_VIEW_FORCE_STALE = "materialized_view_force_stale";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1449,6 +1451,20 @@ public final class SystemSessionProperties
                         false,
                         value -> MaterializedViewStaleReadBehavior.valueOf(((String) value).toUpperCase()),
                         MaterializedViewStaleReadBehavior::name),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_STALENESS_WINDOW,
+                        "Default staleness window for materialized views (e.g., '1h', '30m'). Use negative values (e.g., '-1ms') to always use the view query.",
+                        VARCHAR,
+                        Duration.class,
+                        null,
+                        false,
+                        value -> value == null ? null : Duration.valueOf((String) value),
+                        value -> value == null ? null : ((Duration) value).toString()),
+                booleanProperty(
+                        MATERIALIZED_VIEW_FORCE_STALE,
+                        "Force materialized views to be treated as stale even when fresh, triggering the stale read behavior. For testing only.",
+                        false,
+                        true),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
                         "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
@@ -3090,6 +3106,16 @@ public final class SystemSessionProperties
     public static MaterializedViewStaleReadBehavior getMaterializedViewStaleReadBehavior(Session session)
     {
         return session.getSystemProperty(MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, MaterializedViewStaleReadBehavior.class);
+    }
+
+    public static Optional<Duration> getMaterializedViewStalenessWindow(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(MATERIALIZED_VIEW_STALENESS_WINDOW, Duration.class));
+    }
+
+    public static boolean isMaterializedViewForceStale(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_FORCE_STALE, Boolean.class);
     }
 
     public static boolean isVerboseRuntimeStatsEnabled(Session session)

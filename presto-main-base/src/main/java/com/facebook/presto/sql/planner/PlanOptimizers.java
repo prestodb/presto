@@ -57,7 +57,6 @@ import com.facebook.presto.sql.planner.iterative.rule.InlineProjectionsOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
-import com.facebook.presto.sql.planner.iterative.rule.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
@@ -166,6 +165,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformTableFunctionToTa
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewrite;
 import com.facebook.presto.sql.planner.optimizations.AddExchanges;
 import com.facebook.presto.sql.planner.optimizations.AddExchangesForSingleNodeExecution;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
@@ -339,7 +339,11 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
+                ImmutableSet.<Rule<?>>builder()
+                        .add(new MaterializedViewRewrite(metadata, accessControl))
+                        .add(new RemoveRedundantIdentityProjections())
+                        .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
+                        .build()));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
