@@ -53,5 +53,6 @@ std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
 addBroadcastWriteNode(
     const std::string& basePath,
     uint64_t maxBroadcastBytes = std::numeric_limits<uint64_t>::max(),
+    uint64_t targetFileSize = std::numeric_limits<uint64_t>::max(),
     const std::optional<std::vector<std::string>>& outputLayout = std::nullopt);
 } // namespace facebook::presto::operators

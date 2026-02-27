@@ -35,12 +35,13 @@ struct BroadcastFileInfo {
       const std::string& info);
 };
 
-/// Writes broadcast data to a single file.
+/// Writes broadcast data to one or more files.
 class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
  public:
   BroadcastFileWriter(
       const std::string& pathPrefix,
       uint64_t maxBroadcastBytes,
+      uint64_t targetFileSize,
       uint64_t writeBufferSize,
       std::unique_ptr<velox::VectorSerde::Options> serdeOptions,
       velox::memory::MemoryPool* pool);

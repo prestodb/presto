@@ -2322,6 +2322,7 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         *broadcastBasePath_,
         maxBroadcastBytesOpt.has_value() ? maxBroadcastBytesOpt.value()
                                          : std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<uint64_t>::max(),
         partitionedOutputNode->outputType(),
         core::LocalPartitionNode::gather(
             "broadcast-write-gather",

@@ -13,6 +13,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <limits>
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
@@ -49,7 +50,7 @@ TEST(PlanNodeBuilderTest, testBroadcastWrite) {
       };
 
   const auto node = std::make_shared<BroadcastWriteNode>(
-      id, basePath, maxBroadcastBytes, serdeRowType, kShuffleRead);
+      id, basePath, maxBroadcastBytes, std::numeric_limits<uint64_t>::max(), serdeRowType, kShuffleRead);
 
   verify(node);
 }
