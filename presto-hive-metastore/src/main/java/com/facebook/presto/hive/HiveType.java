@@ -208,6 +208,9 @@ public final class HiveType
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
+                if (typeInfo.getTypeName().equals(UUID)) {
+                    return true;
+                }
                 return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
             case MAP:
                 MapTypeInfo mapTypeInfo = (MapTypeInfo) typeInfo;
@@ -269,10 +272,10 @@ public final class HiveType
     {
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
-                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
-                if (primitiveType == null && typeInfo.getTypeName().equals(UUID)) {
+                if (typeInfo.getTypeName().equals(UUID)) {
                     return UuidType.UUID.getTypeSignature();
                 }
+                Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
                 if (primitiveType == null) {
                     break;
                 }
