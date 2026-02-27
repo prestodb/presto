@@ -144,7 +144,7 @@ TEST_F(PlanConverterTest, partitionedOutput) {
   ASSERT_EQ(keys.size(), 2);
   ASSERT_EQ(keys[0]->toString(), "{cluster_label_v2}");
   ASSERT_EQ(keys[1]->toString(), "\"expr_181\"");
-  ASSERT_EQ(partitionedOutput->serdeKind(), VectorSerde::Kind::kCompactRow);
+  ASSERT_EQ(partitionedOutput->serdeKind(), "CompactRow");
 }
 
 // Final Agg stage plan for select regionkey, sum(1) from nation group by 1

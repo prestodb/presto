@@ -360,12 +360,12 @@ core::LocalPartitionNode::Type toLocalExchangeType(
   }
 }
 
-VectorSerde::Kind toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
+std::string toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
   switch (encoding) {
     case protocol::ExchangeEncoding::COLUMNAR:
-      return VectorSerde::Kind::kPresto;
+      return "Presto";
     case protocol::ExchangeEncoding::ROW_WISE:
-      return VectorSerde::Kind::kCompactRow;
+      return "CompactRow";
   }
   VELOX_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
 }
@@ -2261,7 +2261,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return core::PartitionedOutputNode::single(
       node->id,
       toRowType(node->outputVariables, typeParser_),
-      VectorSerde::Kind::kPresto,
+      "Presto",
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -2331,7 +2331,7 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
-        VectorSerde::Kind::kPresto,
+        "Presto",
         {broadcastWriteNode});
     return planFragment;
   }
@@ -2403,7 +2403,7 @@ core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
     return std::make_shared<core::ExchangeNode>(
-        node->id, rowType, VectorSerde::Kind::kPresto);
+        node->id, rowType, "Presto");
   }
   // Partitioned shuffle exchange source.
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
