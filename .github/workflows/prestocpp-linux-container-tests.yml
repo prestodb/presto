@@ -61,7 +61,7 @@ jobs:
       - name: Build worker image
         run: |
           ./mvnw install ${MAVEN_FAST_INSTALL} -X -e \
-            -Pdocker-build \
+            -Pdocker-build,centos \
             -Denable.docker.build.worker=true \
             -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
 

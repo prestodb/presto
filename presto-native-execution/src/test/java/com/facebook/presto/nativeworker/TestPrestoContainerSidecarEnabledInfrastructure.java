@@ -23,7 +23,7 @@ public class TestPrestoContainerSidecarEnabledInfrastructure
     protected ContainerQueryRunner createQueryRunner()
             throws Exception
     {
-        return new ContainerQueryRunner(8080, "tpch", "tiny", 4, true, true, 0,false);
+        return new ContainerQueryRunner(8080, "tpch", "tiny", 4, true, true, 0, false);
     }
 
     @Override

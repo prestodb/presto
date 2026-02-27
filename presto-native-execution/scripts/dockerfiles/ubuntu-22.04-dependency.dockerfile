@@ -37,19 +37,10 @@ COPY velox/scripts /velox/scripts
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
 ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
 # install rpm needed for minio install.
-#RUN mkdir build && \
-#    (cd build && ../scripts/setup-ubuntu.sh && \
-#                         apt install -y rpm && \
-#                 ../velox/scripts/setup-ubuntu.sh install_adapters && \
-#                 ../scripts/setup-adapters.sh ) && \
-#    rm -rf build \
-RUN mkdir build && bash -c "{ \
-    set -euxo pipefail; \
-    cd build; \
-    ../scripts/setup-ubuntu.sh; \
-    apt-get update && apt-get install -y rpm; \
-    ../velox/scripts/setup-ubuntu.sh install_adapters; \
-    ../scripts/setup-adapters.sh; \
-  }" && \
-  rm -rf build
+RUN mkdir build && \
+    (cd build && ../scripts/setup-ubuntu.sh && \
+                         apt install -y rpm && \
+                 ../velox/scripts/setup-ubuntu.sh install_adapters && \
+                 ../scripts/setup-adapters.sh ) && \
+    rm -rf build \
 

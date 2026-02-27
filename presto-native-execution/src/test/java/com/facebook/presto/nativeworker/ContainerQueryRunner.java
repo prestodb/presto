@@ -61,7 +61,6 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static java.sql.DriverManager.getConnection;
 
 public class ContainerQueryRunner
         implements QueryRunner
@@ -161,7 +160,7 @@ public class ContainerQueryRunner
 
         startCoordinatorAndLogUI();
         initializeConnection();
-        cleanupDirectories(numberOfWorkers, isNativeCluster, isSidecarEnabled,enableFunctionServer);
+        cleanupDirectories(numberOfWorkers, isNativeCluster, isSidecarEnabled, enableFunctionServer);
     }
 
     private void startWorkers(int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled)
@@ -304,7 +303,7 @@ public class ContainerQueryRunner
                 .withExposedPorts(coordinatorPort);
     }
     protected GenericContainer<?> createJavaWorker(int port, String nodeId)
-        throws IOException
+            throws IOException
     {
         ContainerQueryRunnerUtils.createJavaWorkerConfigProperties(port, coordinatorPort, nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
@@ -319,7 +318,7 @@ public class ContainerQueryRunner
     }
 
     protected GenericContainer<?> createSidecar(int port, String nodeId, boolean isNativeCluster)
-        throws IOException
+            throws IOException
     {
         return createNativeWorker(port, nodeId, isNativeCluster, true, true);
     }
