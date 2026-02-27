@@ -32,7 +32,6 @@
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
-#include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -84,6 +83,10 @@
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#endif
+
+#ifdef PRESTO_ENABLE_THETA_SKETCH
+#include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #endif
 
 #ifdef __linux__
@@ -1496,8 +1499,10 @@ void PrestoServer::registerFunctions() {
     hive::functions::registerHiveNativeFunctions();
   }
 
+#ifdef PRESTO_ENABLE_THETA_SKETCH
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
+#endif
 }
 
 void PrestoServer::registerRemoteFunctions() {
