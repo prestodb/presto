@@ -218,6 +218,8 @@ public class FeaturesConfig
     private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
     private String spoolingOutputBufferTempStorage = "local";
 
+    private boolean coordinatorOutputBufferingEnabled;
+
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
@@ -2159,6 +2161,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
     {
         this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
+        return this;
+    }
+
+    public boolean isCoordinatorOutputBufferingEnabled()
+    {
+        return coordinatorOutputBufferingEnabled;
+    }
+
+    @Config("coordinator-output-buffering-enabled")
+    public FeaturesConfig setCoordinatorOutputBufferingEnabled(boolean coordinatorOutputBufferingEnabled)
+    {
+        this.coordinatorOutputBufferingEnabled = coordinatorOutputBufferingEnabled;
         return this;
     }
 

@@ -92,13 +92,17 @@ public abstract class AbstractTestingPrestoClient<T>
         return execute(defaultSession, sql);
     }
 
+    public StatementClient createStatementClient(Session session, @Language("SQL") String sql)
+    {
+        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
+        return newStatementClient(httpClient, clientSession, sql);
+    }
+
     public ResultWithQueryId<T> execute(Session session, @Language("SQL") String sql)
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
-
-        try (StatementClient client = newStatementClient(httpClient, clientSession, sql)) {
+        try (StatementClient client = createStatementClient(session, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentData());
                 client.advance();
