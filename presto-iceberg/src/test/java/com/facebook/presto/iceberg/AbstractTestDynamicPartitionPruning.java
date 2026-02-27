@@ -34,6 +34,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLUMNS_RELEVANT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLUMNS_SKIPPED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTRAINT_COLUMNS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
@@ -43,9 +45,11 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_C
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -118,15 +122,15 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         for (int customerId = 1; customerId <= 10; customerId++) {
             executeTableDdl(format(
-                    "INSERT INTO fact_orders " +
-                            "SELECT " +
-                            "  (row_number() OVER ()) + %d * 100 AS order_id, " +
-                            "  CAST(%d AS BIGINT) AS customer_id, " +
-                            "  CAST(random() * 1000 AS DECIMAL(10, 2)) AS amount, " +
-                            "  DATE '2024-01-01' + INTERVAL '%d' DAY AS order_date " +
-                            "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
-                            "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
-                    customerId, customerId, customerId),
+                            "INSERT INTO fact_orders " +
+                                    "SELECT " +
+                                    "  (row_number() OVER ()) + %d * 100 AS order_id, " +
+                                    "  CAST(%d AS BIGINT) AS customer_id, " +
+                                    "  CAST(random() * 1000 AS DECIMAL(10, 2)) AS amount, " +
+                                    "  DATE '2024-01-01' + INTERVAL '%d' DAY AS order_date " +
+                                    "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
+                                    "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
+                            customerId, customerId, customerId),
                     10);
         }
 
@@ -199,14 +203,14 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         for (int customerId = 1; customerId <= 10; customerId++) {
             executeTableDdl(format(
-                    "INSERT INTO fact_returns " +
-                            "SELECT " +
-                            "  (row_number() OVER ()) + %d * 100 AS return_id, " +
-                            "  (row_number() OVER ()) + %d * 100 AS order_id, " +
-                            "  CAST(random() * 100 AS DECIMAL(10, 2)) AS return_amount " +
-                            "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
-                            "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
-                    customerId, customerId),
+                            "INSERT INTO fact_returns " +
+                                    "SELECT " +
+                                    "  (row_number() OVER ()) + %d * 100 AS return_id, " +
+                                    "  (row_number() OVER ()) + %d * 100 AS order_id, " +
+                                    "  CAST(random() * 100 AS DECIMAL(10, 2)) AS return_amount " +
+                                    "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
+                                    "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
+                            customerId, customerId),
                     10);
         }
 
@@ -240,7 +244,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "JOIN dim_customers c ON f.customer_id = c.customer_id " +
                 "WHERE c.region = 'WEST'";
 
-        ResultWithQueryId<MaterializedResult> result = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> result = execute(dppBlockingSession(), query);
 
         DynamicFilterInfo filterInfo = resolveDynamicFilter(result, "customer_id");
         assertNotNull(filterInfo, "Should resolve a dynamic filter from the plan");
@@ -269,10 +273,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 format("Collection time (%d ms) exceeds build side bound (%d ms) for filter %s",
                         NANOSECONDS.toMillis(collectionTimeNanos), NANOSECONDS.toMillis(buildSideNanos), filterInfo.filterId));
 
-        // skippedDataManifests is 2x because extendedMetrics countPlanFiles triggers an
-        // additional Iceberg ScanReport alongside the actual initializeScan planFiles call.
         long skippedManifests = getIcebergScanMetric(runtimeStats, "fact_orders", "skippedDataManifests");
-        long expectedSkippedManifests = 2 * (factOrdersTotalManifests - 3);
+        long expectedSkippedManifests = factOrdersTotalManifests - 3;
         assertEquals(skippedManifests, expectedSkippedManifests,
                 format("Iceberg ManifestEvaluator should skip %d non-WEST manifests (total=%d, WEST=3), but skipped %d",
                         expectedSkippedManifests, factOrdersTotalManifests, skippedManifests));
@@ -287,10 +289,10 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         MaterializedResult dppResult = resultWithDpp.getResult();
 
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
         assertEquals(dppResult.getRowCount(), 30,
@@ -318,9 +320,9 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersTotalManifests - 3),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
                 format("DPP should skip exactly %d non-WEST manifests (total=%d, WEST=3)",
-                        2 * (factOrdersTotalManifests - 3), factOrdersTotalManifests));
+                        factOrdersTotalManifests - 3, factOrdersTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Result correctness");
     }
@@ -340,6 +342,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_distribution_type", "BROADCAST")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithDpp =
@@ -382,17 +385,11 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertTrue(getMetricValue(dppStats, rangeCountKey) > 0,
                 format("Broadcast: domain range count for filter %s should be positive", filterInfo.filterId));
 
-        long splitsWithoutFilter = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER);
-        long splitsProcessed = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
-        assertTrue(splitsWithoutFilter > splitsProcessed,
-                format("Broadcast: splitsWithoutFilter (%d) should exceed splitsProcessed (%d)",
-                        splitsWithoutFilter, splitsProcessed));
-
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersTotalManifests - 3),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
                 format("Broadcast: DPP should skip exactly %d non-WEST manifests",
-                        2 * (factOrdersTotalManifests - 3)));
+                        factOrdersTotalManifests - 3));
 
         // For broadcast joins on native workers, Velox's built-in dynamic filtering
         // (HashBuild → TableScan push-down) prunes the probe scan within the task,
@@ -405,7 +402,7 @@ public abstract class AbstractTestDynamicPartitionPruning
     @Test(invocationCount = 10)
     public void testDynamicPartitionPruningDisabled()
     {
-        ResultWithQueryId<MaterializedResult> result = executeWithDppSession(false,
+        ResultWithQueryId<MaterializedResult> result = execute(dppDisabledSession(),
                 "SELECT f.order_id, f.amount, c.customer_name " +
                         "FROM fact_orders f " +
                         "JOIN dim_customers c ON f.customer_id = c.customer_id " +
@@ -444,7 +441,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 getDistributedQueryRunner().executeWithQueryId(timeoutSession, query);
         MaterializedResult timeoutResult = resultWithTimeout.getResult();
 
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
         assertEquals(timeoutResult.getRowCount(), 30,
@@ -487,8 +484,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 ") dc ON f.customer_id = dc.customer_id " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(),
                 resultWithoutDpp.getResult().getRowCount(),
@@ -522,10 +519,10 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "JOIN dim_selected_dates d ON f.order_date = d.order_date " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         MaterializedResult dppResult = resultWithDpp.getResult();
 
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
         assertEquals(dppResult.getRowCount(), 3,
@@ -553,9 +550,9 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders_by_year", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders_by_year", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersByYearTotalManifests - 1),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersByYearTotalManifests - 1,
                 format("Year transform: DPP should skip exactly %d non-2024 manifests (total=%d, 2024=1)",
-                        2 * (factOrdersByYearTotalManifests - 1), factOrdersByYearTotalManifests));
+                        factOrdersByYearTotalManifests - 1, factOrdersByYearTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Year transform");
     }
@@ -573,8 +570,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         for (int customerId = 1; customerId <= 3; customerId++) {
             for (int productId = 1; productId <= 4; productId++) {
                 executeTableDdl(format(
-                        "INSERT INTO fact_star_orders VALUES (%d, %d, %d, DECIMAL '100.00')",
-                        customerId * 100 + productId, customerId, productId),
+                                "INSERT INTO fact_star_orders VALUES (%d, %d, %d, DECIMAL '100.00')",
+                                customerId * 100 + productId, customerId, productId),
                         1);
             }
         }
@@ -596,8 +593,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_electronics_products p ON f.product_id = p.product_id " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 4,
                     "Star schema: should return 4 rows (2 customers × 2 products)");
@@ -643,8 +640,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         for (int customerId = 1; customerId <= 3; customerId++) {
             for (int productId = 1; productId <= 4; productId++) {
                 executeTableDdl(format(
-                        "INSERT INTO fact_progressive VALUES (%d, %d, %d, DECIMAL '100.00')",
-                        customerId * 100 + productId, customerId, productId),
+                                "INSERT INTO fact_progressive VALUES (%d, %d, %d, DECIMAL '100.00')",
+                                customerId * 100 + productId, customerId, productId),
                         1);
             }
         }
@@ -666,8 +663,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_progressive_products p ON f.product_id = p.product_id " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 4,
                     "Progressive refinement: should return 4 rows (2 customers x 2 products)");
@@ -720,8 +717,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 30,
                 "RIGHT join DPP should return all matching rows");
@@ -750,9 +747,9 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersTotalManifests - 3),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
                 format("RIGHT join: DPP should skip exactly %d non-WEST manifests (total=%d, WEST=3)",
-                        2 * (factOrdersTotalManifests - 3), factOrdersTotalManifests));
+                        factOrdersTotalManifests - 3, factOrdersTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "RIGHT join");
     }
@@ -768,8 +765,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 ") " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 30,
                 "Semi-join DPP should return all WEST rows");
@@ -804,9 +801,9 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersTotalManifests - 3),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
                 format("Semi-join: DPP should skip exactly %d non-WEST manifests (total=%d, WEST=3)",
-                        2 * (factOrdersTotalManifests - 3), factOrdersTotalManifests));
+                        factOrdersTotalManifests - 3, factOrdersTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Semi-join");
     }
@@ -819,8 +816,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "JOIN dim_customers c ON f.customer_id = c.customer_id " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 100,
                 "Non-selective filter should return all 100 rows");
@@ -860,8 +857,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'NONEXISTENT' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 0,
                 "Empty build side should return 0 rows");
@@ -897,8 +894,8 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * factOrdersTotalManifests,
-                format("Empty build side: DPP should skip all %d manifests", 2 * factOrdersTotalManifests));
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests,
+                format("Empty build side: DPP should skip all %d manifests", factOrdersTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Empty build side");
     }
@@ -926,8 +923,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "WHERE c.region = 'WEST' " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 30,
                     "Non-partitioned probe should return all WEST rows");
@@ -976,8 +973,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         for (int customerId = 1; customerId <= 3; customerId++) {
             for (int regionCode = 1; regionCode <= 2; regionCode++) {
                 executeTableDdl(format(
-                        "INSERT INTO fact_multi_key VALUES (%d, %d, %d, DECIMAL '100.00')",
-                        customerId * 10 + regionCode, customerId, regionCode),
+                                "INSERT INTO fact_multi_key VALUES (%d, %d, %d, DECIMAL '100.00')",
+                                customerId * 10 + regionCode, customerId, regionCode),
                         1);
             }
         }
@@ -999,8 +996,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "  ON f.customer_id = d.customer_id AND f.region_code = d.region_code " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 1,
                     "Multi-key join should return 1 matching row");
@@ -1124,7 +1121,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 format(DYNAMIC_FILTER_EXPECTED_PARTITIONS_TEMPLATE, filterInfo.filterId));
         assertTrue(expectedPartitions > 0,
                 format("Dynamic filter %s: expectedPartitions should be > 0 (setExpectedPartitionsForFilters " +
-                        "must be called for HASH-with-local-splits path), but was %d",
+                                "must be called for HASH-with-local-splits path), but was %d",
                         filterInfo.filterId, expectedPartitions));
 
         // Verify all dynamic filters in the query had expectedPartitions set
@@ -1204,7 +1201,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 format(DYNAMIC_FILTER_EXPECTED_PARTITIONS_TEMPLATE, filterInfo.filterId));
         assertTrue(expectedPartitions > 0,
                 format("Partitioned join: expected partitions for filter %s should be > 0, but was %d. " +
-                        "setExpectedPartitionsForFilters may be skipping RemoteSourceNode build sides",
+                                "setExpectedPartitionsForFilters may be skipping RemoteSourceNode build sides",
                         filterInfo.filterId, expectedPartitions));
 
         // Filter completed (collection time only emitted when fullyResolved = true)
@@ -1238,8 +1235,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 30,
                 "Join key not in SELECT: should return all WEST rows");
@@ -1268,9 +1265,9 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders", "skippedDataManifests");
         long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders", "skippedDataManifests");
-        assertEquals(dppSkippedManifests - noDppSkippedManifests, 2 * (factOrdersTotalManifests - 3),
+        assertEquals(dppSkippedManifests - noDppSkippedManifests, factOrdersTotalManifests - 3,
                 format("Join key not in SELECT: DPP should skip exactly %d non-WEST manifests (total=%d, WEST=3)",
-                        2 * (factOrdersTotalManifests - 3), factOrdersTotalManifests));
+                        factOrdersTotalManifests - 3, factOrdersTotalManifests));
 
         assertDppReducesData(resultWithDpp, resultWithoutDpp, "Join key not in SELECT");
     }
@@ -1288,8 +1285,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY combined.order_id";
 
-        ResultWithQueryId<MaterializedResult> dppResult = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> noDppResult = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> dppResult = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> noDppResult = execute(dppDisabledSession(), query);
 
         assertEquals(
                 dppResult.getResult().getMaterializedRows(),
@@ -1306,10 +1303,10 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultCostBased = executeWithCostBasedSession(query);
+        ResultWithQueryId<MaterializedResult> resultCostBased = execute(dppCostBasedSession(), query);
         MaterializedResult cbResult = resultCostBased.getResult();
 
-        ResultWithQueryId<MaterializedResult> resultDisabled = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultDisabled = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultDisabled.getResult();
 
         assertEquals(cbResult.getRowCount(), 30);
@@ -1342,7 +1339,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> tinyResult =
                 getDistributedQueryRunner().executeWithQueryId(tinyMaxSizeSession, query);
 
-        ResultWithQueryId<MaterializedResult> noDppResult = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> noDppResult = execute(dppDisabledSession(), query);
 
         assertEquals(tinyResult.getResult().getRowCount(), 30,
                 "Collapsed-range DPP should still return all 30 WEST rows");
@@ -1365,7 +1362,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_COLLECTION_TIME_NANOS) > 0,
                 "Filter should have completed collection (not timed out)");
 
-        ResultWithQueryId<MaterializedResult> normalResult = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> normalResult = execute(dppBlockingSession(), query);
         RuntimeStats normalStats = getRuntimeStats(normalResult);
         assertEquals(getMetricValue(normalStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE), 0,
                 "With default (1MB) max-size, no fallback should occur for 3 integer values");
@@ -1379,8 +1376,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "JOIN dim_customers c ON f.customer_id = c.customer_id " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 100,
                 "All 100 fact rows should be returned (no WHERE filter on dimension)");
@@ -1407,7 +1404,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         MaterializedResult dppResult = resultWithDpp.getResult();
 
         assertEquals(dppResult.getRowCount(), 30, "Should return 30 WEST rows");
@@ -1434,8 +1431,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         for (int customerId = 1; customerId <= 3; customerId++) {
             for (int productId = 1; productId <= 4; productId++) {
                 executeTableDdl(format(
-                        "INSERT INTO fact_mixed_star VALUES (%d, %d, %d, DECIMAL '100.00')",
-                        customerId * 100 + productId, customerId, productId),
+                                "INSERT INTO fact_mixed_star VALUES (%d, %d, %d, DECIMAL '100.00')",
+                                customerId * 100 + productId, customerId, productId),
                         1);
             }
         }
@@ -1457,8 +1454,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_selected_products p ON f.product_id = p.product_id " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 6,
                     "Mixed star: should return 6 rows (3 customers × 2 products)");
@@ -1493,8 +1490,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 ") " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-        ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+        ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
         assertEquals(resultWithDpp.getResult().getRowCount(), 100,
                 "Semi-join short-circuit: should return all 100 rows");
@@ -1530,8 +1527,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_customers c ON f.customer_id = c.customer_id " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultWithDpp = executeWithDppSession(true, query);
-            ResultWithQueryId<MaterializedResult> resultWithoutDpp = executeWithDppSession(false, query);
+            ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultWithDpp.getResult().getRowCount(), 100,
                     "Unpartitioned no-SC: should return all 100 rows");
@@ -1561,7 +1558,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> resultCostBased = executeWithCostBasedSession(query);
+        ResultWithQueryId<MaterializedResult> resultCostBased = execute(dppCostBasedSession(), query);
         assertEquals(resultCostBased.getResult().getRowCount(), 30,
                 "Cost-based DPP should return all 30 WEST rows");
 
@@ -1585,8 +1582,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         String matchedKey = runtimeStats.getMetrics().keySet().stream()
                 .filter(k -> k.contains("customer_id") && (
                         k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV + "[") ||
-                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[") ||
-                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")))
+                                k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[") ||
+                                k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")))
                 .findFirst()
                 .orElse(null);
         assertNotNull(matchedKey, "Should find a PLAN_CREATED metric for customer_id");
@@ -1601,6 +1598,319 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertFalse(hasSkipped,
                 format("No PLAN_SKIPPED metrics should be emitted for customer_id when filter is created. Keys: %s",
                         runtimeStats.getMetrics().keySet()));
+    }
+
+    // =====================================================================
+    // Speculative Split Enumeration Tests
+    // =====================================================================
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationCorrectness()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultDpp = execute(dppSpeculativeSession(), query);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+        assertEquals(resultDpp.getResult().getRowCount(), 30,
+                "Speculative: should return 30 WEST rows");
+        assertEquals(resultDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "Speculative: results must match no-DPP baseline");
+    }
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationMetrics()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+        RuntimeStats runtimeStats = getRuntimeStats(result);
+
+        long buffered = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED);
+        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
+        long processed = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
+
+        assertTrue(buffered > 0,
+                format("Speculative: should have buffered tasks, got %d", buffered));
+        assertTrue(pruned > 0,
+                format("Speculative: should have retroactively pruned tasks, got %d", pruned));
+        assertEquals(buffered - pruned, processed,
+                format("Speculative: buffered (%d) - pruned (%d) should equal processed (%d)",
+                        buffered, pruned, processed));
+    }
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationRetroactiveFiltering()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+        RuntimeStats runtimeStats = getRuntimeStats(result);
+
+        long processed = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
+        assertEquals(processed, factOrdersWestFiles,
+                format("Speculative: should process only WEST partition files (%d), got %d",
+                        factOrdersWestFiles, processed));
+
+        long buffered = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED);
+        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
+        if (buffered > 0) {
+            assertEquals(pruned, factOrdersTotalFiles - factOrdersWestFiles,
+                    format("Speculative: retroactively pruned should be totalFiles - westFiles = %d, got %d",
+                            factOrdersTotalFiles - factOrdersWestFiles, pruned));
+        }
+    }
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationWithTimeout()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        Session timeoutSession = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "1ms")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> result =
+                getDistributedQueryRunner().executeWithQueryId(timeoutSession, query);
+        RuntimeStats runtimeStats = getRuntimeStats(result);
+
+        assertEquals(result.getResult().getRowCount(), 30,
+                "Timeout speculative: should return all WEST rows (no incorrect pruning)");
+
+        long splitsBeforeFilter = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER);
+        assertEquals(splitsBeforeFilter, factOrdersTotalFiles,
+                "Timeout speculative: all splits should be 'before filter' when timed out");
+        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
+        assertEquals(pruned, 0,
+                "Timeout speculative: no retroactive pruning on timeout");
+    }
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationStarSchema()
+    {
+        executeTableDdl("CREATE TABLE fact_spec_star (" +
+                "order_id BIGINT, " +
+                "customer_id BIGINT, " +
+                "product_id BIGINT, " +
+                "amount DECIMAL(10, 2)" +
+                ") WITH (partitioning = ARRAY['customer_id', 'product_id'])");
+
+        for (int customerId = 1; customerId <= 3; customerId++) {
+            for (int productId = 1; productId <= 4; productId++) {
+                executeTableDdl(format(
+                                "INSERT INTO fact_spec_star VALUES (%d, %d, %d, DECIMAL '100.00')",
+                                customerId * 100 + productId, customerId, productId),
+                        1);
+            }
+        }
+
+        executeTableDdl("CREATE TABLE dim_spec_customers (" +
+                "customer_id BIGINT, segment VARCHAR)");
+        executeTableDdl("INSERT INTO dim_spec_customers VALUES (1, 'PREMIUM'), (2, 'PREMIUM')", 2);
+
+        executeTableDdl("CREATE TABLE dim_spec_products (" +
+                "product_id BIGINT, category VARCHAR)");
+        executeTableDdl("INSERT INTO dim_spec_products VALUES (1, 'ELECTRONICS'), (2, 'ELECTRONICS')", 2);
+
+        try {
+            String query = "SELECT f.order_id, f.amount, c.segment, p.category " +
+                    "FROM fact_spec_star f " +
+                    "JOIN dim_spec_customers c ON f.customer_id = c.customer_id " +
+                    "JOIN dim_spec_products p ON f.product_id = p.product_id " +
+                    "ORDER BY f.order_id";
+
+            ResultWithQueryId<MaterializedResult> resultDpp = execute(dppSpeculativeSession(), query);
+            ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+            assertEquals(resultDpp.getResult().getRowCount(), 4,
+                    "Speculative star schema: should return 4 rows");
+            assertEquals(resultDpp.getResult().getMaterializedRows(),
+                    resultNoDpp.getResult().getMaterializedRows(),
+                    "Speculative star schema: results must match no-DPP baseline");
+
+            RuntimeStats specStats = getRuntimeStats(resultDpp);
+            assertTrue(getMetricValue(specStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                    "Speculative star schema: at least one DF should be pushed");
+        }
+        finally {
+            executeTableDdl("DROP TABLE IF EXISTS fact_spec_star");
+            executeTableDdl("DROP TABLE IF EXISTS dim_spec_customers");
+            executeTableDdl("DROP TABLE IF EXISTS dim_spec_products");
+        }
+    }
+
+    // =====================================================================
+    // Column Selectivity Check Tests
+    // =====================================================================
+
+    @Test(invocationCount = 10)
+    public void testColumnSelectivityNonDiscriminatingColumn()
+    {
+        executeTableDdl("CREATE TABLE fact_enriched (" +
+                "order_id BIGINT, " +
+                "customer_id BIGINT, " +
+                "status VARCHAR, " +
+                "amount DECIMAL(10, 2)" +
+                ") WITH (partitioning = ARRAY['customer_id'])");
+
+        for (int customerId = 1; customerId <= 5; customerId++) {
+            for (String status : new String[]{"PENDING", "SHIPPED", "DELIVERED"}) {
+                executeTableDdl(format(
+                                "INSERT INTO fact_enriched VALUES (%d, %d, '%s', DECIMAL '100.00')",
+                                customerId * 100 + status.hashCode() % 10, customerId, status),
+                        1);
+            }
+        }
+
+        executeTableDdl("CREATE TABLE dim_status (status VARCHAR, label VARCHAR)");
+        executeTableDdl("INSERT INTO dim_status VALUES ('SHIPPED', 'Shipped')", 1);
+
+        try {
+            String query = "SELECT f.order_id, f.amount, d.label " +
+                    "FROM fact_enriched f " +
+                    "JOIN dim_status d ON f.status = d.status " +
+                    "ORDER BY f.order_id";
+
+            ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+            RuntimeStats runtimeStats = getRuntimeStats(result);
+
+            long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
+            assertTrue(skipped >= 1,
+                    format("Column selectivity: status column should be skipped, got skipped=%d", skipped));
+        }
+        finally {
+            executeTableDdl("DROP TABLE IF EXISTS fact_enriched");
+            executeTableDdl("DROP TABLE IF EXISTS dim_status");
+        }
+    }
+
+    @Test(invocationCount = 10)
+    public void testColumnSelectivityDiscriminatingColumn()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+        RuntimeStats runtimeStats = getRuntimeStats(result);
+
+        long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
+        long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
+        assertTrue(relevant >= 1,
+                format("Column selectivity: customer_id partition column should be relevant, got relevant=%d", relevant));
+        assertEquals(skipped, 0,
+                format("Column selectivity: no columns should be skipped for partition join, got skipped=%d", skipped));
+
+        assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersWestFiles,
+                "Column selectivity: should prune to WEST partition files");
+    }
+
+    @Test(invocationCount = 10)
+    public void testColumnSelectivityMixedFilters()
+    {
+        executeTableDdl("CREATE TABLE fact_mixed (" +
+                "order_id BIGINT, " +
+                "customer_id BIGINT, " +
+                "status VARCHAR, " +
+                "amount DECIMAL(10, 2)" +
+                ") WITH (partitioning = ARRAY['customer_id'])");
+
+        for (int customerId = 1; customerId <= 5; customerId++) {
+            for (String status : new String[]{"PENDING", "SHIPPED"}) {
+                executeTableDdl(format(
+                                "INSERT INTO fact_mixed VALUES (%d, %d, '%s', DECIMAL '100.00')",
+                                customerId * 100 + status.hashCode() % 10, customerId, status),
+                        1);
+            }
+        }
+
+        executeTableDdl("CREATE TABLE dim_mixed_cust (customer_id BIGINT, segment VARCHAR)");
+        executeTableDdl("INSERT INTO dim_mixed_cust VALUES (1, 'PREMIUM'), (2, 'PREMIUM')", 2);
+
+        executeTableDdl("CREATE TABLE dim_mixed_status (status VARCHAR, label VARCHAR)");
+        executeTableDdl("INSERT INTO dim_mixed_status VALUES ('SHIPPED', 'Shipped')", 1);
+
+        try {
+            String query = "SELECT f.order_id, f.amount, c.segment, s.label " +
+                    "FROM fact_mixed f " +
+                    "JOIN dim_mixed_cust c ON f.customer_id = c.customer_id " +
+                    "JOIN dim_mixed_status s ON f.status = s.status " +
+                    "ORDER BY f.order_id";
+
+            ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+            RuntimeStats runtimeStats = getRuntimeStats(result);
+
+            long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
+            long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
+            assertTrue(relevant >= 1,
+                    format("Mixed: customer_id should be relevant, got relevant=%d", relevant));
+            assertTrue(skipped >= 1,
+                    format("Mixed: status should be skipped, got skipped=%d", skipped));
+        }
+        finally {
+            executeTableDdl("DROP TABLE IF EXISTS fact_mixed");
+            executeTableDdl("DROP TABLE IF EXISTS dim_mixed_cust");
+            executeTableDdl("DROP TABLE IF EXISTS dim_mixed_status");
+        }
+    }
+
+    // =====================================================================
+    // Buffer Overflow Fallback Test
+    // =====================================================================
+
+    @Test(invocationCount = 10)
+    public void testSpeculativeEnumerationBufferOverflow()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        Session overflowSession = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "2")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> result =
+                getDistributedQueryRunner().executeWithQueryId(overflowSession, query);
+        RuntimeStats runtimeStats = getRuntimeStats(result);
+
+        assertEquals(result.getResult().getRowCount(), 30,
+                "Buffer overflow: should still return correct WEST rows");
+
+        long overflow = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW);
+        assertTrue(overflow > 0,
+                format("Buffer overflow: should have triggered overflow, got %d", overflow));
+
+        assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersWestFiles,
+                format("Buffer overflow: should still prune to WEST files (%d) after falling back",
+                        factOrdersWestFiles));
     }
 
     protected long countFiles(String tableName)
@@ -1634,26 +1944,63 @@ public abstract class AbstractTestDynamicPartitionPruning
         return 0;
     }
 
-    private ResultWithQueryId<MaterializedResult> executeWithDppSession(boolean enabled, String sql)
+    /**
+     * DPP disabled — baseline for result comparison.
+     */
+    private Session dppDisabledSession()
     {
-        Session.SessionBuilder builder = Session.builder(getSession())
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, enabled ? "ALWAYS" : "DISABLED")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s");
-        if (enabled) {
-            builder.setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true");
-            builder.setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true");
-        }
-        return getDistributedQueryRunner().executeWithQueryId(builder.build(), sql);
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "DISABLED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .build();
     }
 
-    private ResultWithQueryId<MaterializedResult> executeWithCostBasedSession(String sql)
+    /**
+     * DPP enabled, blocking path (speculative enumeration off).
+     * Use for tests that verify Iceberg-level pruning metrics (e.g. skippedDataManifests)
+     * which require Iceberg's ManifestEvaluator to see the filter during planFiles().
+     */
+    private Session dppBlockingSession()
     {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
+                .build();
+    }
+
+    /**
+     * DPP enabled, speculative path (default buffer size).
+     * Use for tests that verify speculative enumeration and column selectivity behavior.
+     */
+    private Session dppSpeculativeSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
                 .build();
+    }
+
+    /**
+     * DPP cost-based strategy, blocking path.
+     */
+    private Session dppCostBasedSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
+                .build();
+    }
+
+    private ResultWithQueryId<MaterializedResult> execute(Session session, String sql)
+    {
         return getDistributedQueryRunner().executeWithQueryId(session, sql);
     }
 

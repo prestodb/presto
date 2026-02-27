@@ -148,6 +148,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
+import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
@@ -434,10 +435,14 @@ public abstract class IcebergAbstractMetadata
         Optional<? extends Iterable<HivePartition>> partitions = icebergTableLayoutHandle.getPartitions();
         Optional<DiscretePredicates> discretePredicates = partitions.flatMap(parts -> getDiscretePredicates(partitionColumns, parts));
         if (!isPushdownFilterEnabled(session)) {
+            TupleDomain<ColumnHandle> predicate = partitions
+                    .map(parts ->
+                            icebergTableLayoutHandle.getPartitionColumnPredicate().intersect(createPredicate(partitionColumns, ImmutableList.copyOf(parts))))
+                    .orElse(TupleDomain.none());
             return new ConnectorTableLayout(
                     icebergTableLayoutHandle,
                     Optional.empty(),
-                    partitions.isPresent() ? icebergTableLayoutHandle.getPartitionColumnPredicate() : TupleDomain.none(),
+                    predicate,
                     Optional.empty(),
                     Optional.empty(),
                     discretePredicates,
