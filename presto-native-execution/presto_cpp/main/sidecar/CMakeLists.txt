@@ -10,9 +10,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(dynamic_registry)
-add_subdirectory(theta_sketch)
-
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
+add_subdirectory(properties)
+add_subdirectory(function)

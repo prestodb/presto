@@ -22,7 +22,6 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -31,7 +30,6 @@
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
-#include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -44,6 +42,8 @@
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/sidecar/function/NativeFunctionMetadata.h"
+#include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
@@ -77,6 +77,8 @@
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_CUDF
+#include "presto_cpp/main/sidecar/function/CudfFunctionMetadata.h"
+#include "presto_cpp/main/sidecar/properties/CudfSessionProperties.h"
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
@@ -1826,32 +1828,62 @@ void PrestoServer::handleGracefulShutdown(
 
 void PrestoServer::registerSidecarEndpoints() {
   VELOX_CHECK(httpServer_);
+
   httpServer_->registerGet(
       "/v1/properties/session",
-      [this](
+      [](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
+#ifdef PRESTO_ENABLE_CUDF
+        const auto* sessionProperties =
+            facebook::presto::cudf::CudfSessionProperties::instance();
+        http::sendOkResponse(downstream, sessionProperties->serialize());
+#else
         const auto* sessionProperties = SessionProperties::instance();
         http::sendOkResponse(downstream, sessionProperties->serialize());
+#endif
       });
+
   httpServer_->registerGet(
       "/v1/functions",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        http::sendOkResponse(downstream, getFunctionsMetadata());
+        [](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+#ifdef PRESTO_ENABLE_CUDF
+        http::sendOkResponse(
+            downstream,
+            presto::cudf::cudfFunctionMetadataProvider().getFunctionsMetadata(
+                std::nullopt));
+#else
+        http::sendOkResponse(
+            downstream,
+          nativeFunctionMetadata().getFunctionsMetadata(
+                std::nullopt));
+#endif
       });
+
   httpServer_->registerGet(
       R"(/v1/functions/([^/]+))",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::string>& pathMatch) {
+        [](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::string>& pathMatch) {
         return new http::CallbackRequestHandler(
-            [catalog = pathMatch[1]](
+          [catalog = pathMatch[1]](
                 proxygen::HTTPMessage* /*message*/,
                 std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
                 proxygen::ResponseHandler* downstream) {
-              http::sendOkResponse(downstream, getFunctionsMetadata(catalog));
+#ifdef PRESTO_ENABLE_CUDF
+              http::sendOkResponse(
+                  downstream,
+                  presto::cudf::cudfFunctionMetadataProvider()
+                      .getFunctionsMetadata(catalog));
+#else
+              http::sendOkResponse(
+                  downstream,
+                  nativeFunctionMetadata().getFunctionsMetadata(catalog));
+#endif
             });
       });
   httpServer_->registerPost(

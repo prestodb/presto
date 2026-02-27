@@ -15,8 +15,8 @@
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
 

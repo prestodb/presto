@@ -37,6 +37,10 @@ target_link_libraries(
   velox_hive_partition_function
 )
 
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_velox_split_test velox_cudf_plan)
+endif()
+
 add_executable(
   presto_expressions_test
   RowExpressionTest.cpp
@@ -102,6 +106,10 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
 )
+
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_to_velox_connector_test velox_cudf_plan)
+endif()
 
 add_executable(
   presto_to_velox_query_plan_test

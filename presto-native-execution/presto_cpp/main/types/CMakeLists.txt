@@ -20,6 +20,10 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_velox_expr_conversion presto_to_velox_remote_functions)
 endif()
 
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_velox_expr_conversion velox_cudf_plan)
+endif()
+
 add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp PrestoToVeloxSplit.cpp)
 target_link_libraries(
   presto_types
@@ -31,6 +35,10 @@ target_link_libraries(
   velox_type
   velox_type_fbhive
 )
+
+if(PRESTO_ENABLE_CUDF)
+  target_link_libraries(presto_types velox_cudf_plan)
+endif()
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
