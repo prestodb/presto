@@ -15,8 +15,8 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
