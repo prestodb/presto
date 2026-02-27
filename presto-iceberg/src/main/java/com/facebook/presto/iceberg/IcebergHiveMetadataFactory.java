@@ -19,18 +19,20 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.spi.transaction.IsolationLevel;
 import jakarta.inject.Inject;
 
 import java.util.List;
 
 import static com.facebook.presto.spi.MaterializedViewDefinition.ColumnMapping;
+import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergHiveMetadataFactory
@@ -93,7 +95,12 @@ public class IcebergHiveMetadataFactory
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
-    public ConnectorMetadata create()
+    public IcebergTransactionMetadata create()
+    {
+        return create(REPEATABLE_READ, true);
+    }
+
+    public IcebergTransactionMetadata create(IsolationLevel isolationLevel, boolean autoCommitContext)
     {
         return new IcebergHiveMetadata(
                 catalogName,
@@ -112,6 +119,8 @@ public class IcebergHiveMetadataFactory
                 statisticsFileCache,
                 manifestFileCache,
                 tableProperties,
-                connectorSystemConfig);
+                connectorSystemConfig,
+                isolationLevel,
+                autoCommitContext);
     }
 }

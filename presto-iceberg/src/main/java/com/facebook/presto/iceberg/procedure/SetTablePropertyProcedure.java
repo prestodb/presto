@@ -17,11 +17,11 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -93,7 +93,7 @@ public class SetTablePropertyProcedure
                 session.getWarningCollector().add(warning);
             }
 
-            ConnectorMetadata metadata = metadataFactory.create();
+            IcebergTransactionMetadata metadata = metadataFactory.create();
             IcebergTableName tableName = IcebergTableName.from(table);
             SchemaTableName schemaTableName = new SchemaTableName(schema, tableName.getTableName());
             Table icebergTable = IcebergUtil.getIcebergTable(metadata, session, schemaTableName);
@@ -101,6 +101,7 @@ public class SetTablePropertyProcedure
             icebergTable.updateProperties()
                     .set(key, value)
                     .commit();
+            metadata.commit();
         }
     }
 }

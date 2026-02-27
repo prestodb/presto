@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.iceberg.procedure;
 
+import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -73,7 +73,7 @@ public class RewriteManifestsProcedure
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-            ConnectorMetadata metadata = metadataFactory.create();
+            IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
             Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
             RewriteManifests rewriteManifests = icebergTable.rewriteManifests().clusterBy(file -> "file");
             int targetSpecId;
@@ -87,6 +87,7 @@ public class RewriteManifestsProcedure
                 targetSpecId = icebergTable.spec().specId();
             }
             rewriteManifests.rewriteIf(manifest -> manifest.partitionSpecId() == targetSpecId).commit();
+            metadata.commit();
         }
     }
 }
