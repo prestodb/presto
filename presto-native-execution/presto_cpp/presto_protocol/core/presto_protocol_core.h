@@ -1271,6 +1271,7 @@ struct ErrorCode {
   String name = {};
   ErrorType type = {};
   bool retriable = {};
+  bool catchableByTry = {};
 };
 void to_json(json& j, const ErrorCode& p);
 void from_json(const json& j, ErrorCode& p);

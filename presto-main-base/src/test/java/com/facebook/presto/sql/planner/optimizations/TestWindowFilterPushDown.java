@@ -15,9 +15,9 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

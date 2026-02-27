@@ -37,7 +37,8 @@ TEST_F(TaskStatusTest, errorCode) {
     "code": 1234,
     "name": "name",
     "type": "INTERNAL_ERROR",
-    "retriable": false
+    "retriable": false,
+    "catchableByTry": false
   })";
 
   json j = json::parse(str);
@@ -65,7 +66,8 @@ TEST_F(TaskStatusTest, executionFailureInfoOptionalFieldsEmpty) {
         "code": 1234,
         "name": "name",
         "type": "INTERNAL_ERROR",
-        "retriable": false
+        "retriable": false,
+        "catchableByTry": false
     },
     "remoteHost": "localhost:8080",
     "errorCause": "EXCEEDS_BROADCAST_MEMORY_LIMIT"
