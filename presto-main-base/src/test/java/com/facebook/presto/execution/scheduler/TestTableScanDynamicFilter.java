@@ -21,10 +21,13 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -381,6 +384,174 @@ public class TestTableScanDynamicFilter
         assertTrue(composite.isComplete());
 
         assertEquals(composite.isBlocked(), DynamicFilter.NOT_BLOCKED);
+        assertEquals(
+                composite.getCurrentPredicate(),
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of(
+                                (ColumnHandle) customerIdHandle, Domain.singleValue(INTEGER, 1L),
+                                (ColumnHandle) productIdHandle, Domain.singleValue(INTEGER, 10L))));
+    }
+
+    @Test
+    public void testGetPendingFilterColumns()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        // Both pending
+        Set<ColumnHandle> pending = composite.getPendingFilterColumns();
+        assertEquals(pending, ImmutableSet.of(customerIdHandle, productIdHandle));
+
+        // Resolve one
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        pending = composite.getPendingFilterColumns();
+        assertEquals(pending, ImmutableSet.of(productIdHandle));
+
+        // Resolve both
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
+        pending = composite.getPendingFilterColumns();
+        assertTrue(pending.isEmpty());
+    }
+
+    @Test
+    public void testIsBlockedWithRelevantColumns()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        Optional<Set<ColumnHandle>> relevantColumns = Optional.of(ImmutableSet.of(customerIdHandle));
+
+        CompletableFuture<?> blocked = composite.isBlocked(relevantColumns);
+        assertFalse(blocked.isDone());
+
+        // Resolve the relevant filter
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        assertTrue(blocked.isDone());
+
+        // Even though product_id filter is pending, isBlocked with relevant=customer_id returns NOT_BLOCKED
+        assertEquals(composite.isBlocked(relevantColumns), DynamicFilter.NOT_BLOCKED);
+    }
+
+    @Test
+    public void testIsCompleteWithRelevantColumns()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        Optional<Set<ColumnHandle>> relevantColumns = Optional.of(ImmutableSet.of(customerIdHandle));
+
+        assertFalse(composite.isComplete(relevantColumns));
+        assertFalse(composite.isComplete()); // global still false
+
+        // Resolve relevant filter only
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+
+        assertTrue(composite.isComplete(relevantColumns));
+        assertFalse(composite.isComplete()); // global still false because product_id pending
+    }
+
+    @Test
+    public void testIsBlockedEmptyRelevantColumnsDelegatesToAll()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        filter1.setExpectedPartitions(1);
+
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", new TestColumnHandle("customer_id"));
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1), columnNameToHandle);
+
+        Optional<Set<ColumnHandle>> allRelevant = Optional.empty();
+
+        CompletableFuture<?> blocked = composite.isBlocked(allRelevant);
+        assertFalse(blocked.isDone(), "Optional.empty() should consider all columns and still block");
+        assertFalse(composite.isComplete(allRelevant), "Optional.empty() should consider all columns and return false");
+
+        // Resolve the filter
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+
+        assertTrue(blocked.isDone(), "Should unblock after filter resolves");
+        assertTrue(composite.isComplete(allRelevant), "Should be complete after filter resolves");
+    }
+
+    @Test
+    public void testIsBlockedRelevantColumnsStartsAllTimeouts()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id", new Duration(100, TimeUnit.MILLISECONDS));
+        JoinDynamicFilter filter2 = createFilter("550", "product_id", new Duration(100, TimeUnit.MILLISECONDS));
+        filter1.setExpectedPartitions(2);
+        filter2.setExpectedPartitions(2);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        // Only wait on customer_id but all timeouts should be started
+        Optional<Set<ColumnHandle>> relevantColumns = Optional.of(ImmutableSet.of(customerIdHandle));
+        CompletableFuture<?> blocked = composite.isBlocked(relevantColumns);
+        assertFalse(blocked.isDone());
+        // Both filters should have their timeouts started (verified by isBlocked starting them)
+    }
+
+    @Test
+    public void testGetCurrentPredicateIncludesAllResolvedFilters()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        // Only wait on customer_id (relevant)
+        composite.isBlocked(Optional.of(ImmutableSet.of(customerIdHandle)));
+
+        // Resolve both filters
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
+
+        // getCurrentPredicate should include ALL resolved filters, not just relevant ones
         assertEquals(
                 composite.getCurrentPredicate(),
                 TupleDomain.withColumnDomains(

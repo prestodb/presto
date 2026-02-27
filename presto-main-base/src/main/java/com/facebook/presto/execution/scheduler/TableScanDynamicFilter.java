@@ -19,16 +19,20 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
@@ -89,9 +93,15 @@ public class TableScanDynamicFilter
     @Override
     public CompletableFuture<?> isBlocked()
     {
+        return isBlocked(Optional.empty());
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked(Optional<Set<ColumnHandle>> relevantColumns)
+    {
         filters.forEach(JoinDynamicFilter::startTimeout);
 
-        List<CompletableFuture<?>> pendingFutures = filters.stream()
+        List<CompletableFuture<?>> pendingFutures = getRelevantFilters(relevantColumns).stream()
                 .map(JoinDynamicFilter::isBlocked)
                 .filter(future -> !future.isDone())
                 .collect(toList());
@@ -112,7 +122,43 @@ public class TableScanDynamicFilter
     @Override
     public boolean isComplete()
     {
-        return filters.stream().allMatch(JoinDynamicFilter::isComplete);
+        return isComplete(Optional.empty());
+    }
+
+    @Override
+    public boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns)
+    {
+        return getRelevantFilters(relevantColumns).stream()
+                .allMatch(JoinDynamicFilter::isComplete);
+    }
+
+    @Override
+    public Set<ColumnHandle> getPendingFilterColumns()
+    {
+        return filters.stream()
+                .filter(f -> !f.isComplete())
+                .map(f -> columnNameToHandle.get(f.getColumnName()))
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    private List<JoinDynamicFilter> getRelevantFilters(Optional<Set<ColumnHandle>> relevantColumns)
+    {
+        if (!relevantColumns.isPresent()) {
+            return filters;
+        }
+
+        Set<ColumnHandle> columns = relevantColumns.get();
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        for (Map.Entry<String, ColumnHandle> entry : columnNameToHandle.entrySet()) {
+            if (columns.contains(entry.getValue())) {
+                builder.add(entry.getKey());
+            }
+        }
+        Set<String> relevantColumnNames = builder.build();
+
+        return filters.stream()
+                .filter(f -> relevantColumnNames.contains(f.getColumnName()))
+                .collect(toImmutableList());
     }
 
     public String getFilterId()

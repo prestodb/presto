@@ -17,6 +17,9 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 
+import java.util.Collections;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -86,4 +89,33 @@ public interface DynamicFilter
      * Returns {@link #NOT_BLOCKED} when complete.
      */
     CompletableFuture<?> isBlocked();
+
+    /**
+     * Returns column handles targeted by pending (not yet resolved) dynamic filters.
+     * Allows connectors to pre-evaluate column discriminating power before values arrive.
+     */
+    default Set<ColumnHandle> getPendingFilterColumns()
+    {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Returns a future that completes when any filter on a relevant column resolves.
+     * Filters on columns NOT in relevantColumns are not waited on.
+     * {@code Optional.empty()} means all columns are relevant and delegates to {@link #isBlocked()}.
+     */
+    default CompletableFuture<?> isBlocked(Optional<Set<ColumnHandle>> relevantColumns)
+    {
+        return isBlocked();
+    }
+
+    /**
+     * Returns true if all filters on relevant columns are complete.
+     * Filters on irrelevant columns are treated as already complete.
+     * {@code Optional.empty()} means all columns are relevant and delegates to {@link #isComplete()}.
+     */
+    default boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns)
+    {
+        return isComplete();
+    }
 }

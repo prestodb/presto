@@ -74,7 +74,9 @@ public class TestIcebergConfig
                 .setManifestCacheMaxChunkSize(succinctDataSize(2, MEGABYTE))
                 .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
                 .setStatisticsKllSketchKParameter(1024)
-                .setMaterializedViewStoragePrefix("__mv_storage__"));
+                .setMaterializedViewStoragePrefix("__mv_storage__")
+                .setDynamicFilterExtendedMetrics(false)
+                .setDynamicFilterMaxSpeculativeSplits(10000));
     }
 
     @Test
@@ -111,6 +113,8 @@ public class TestIcebergConfig
                 .put("iceberg.max-statistics-file-cache-size", "512MB")
                 .put("iceberg.statistics-kll-sketch-k-parameter", "4096")
                 .put("iceberg.materialized-view-storage-prefix", "custom_mv_prefix")
+                .put("iceberg.dynamic-filter-extended-metrics", "true")
+                .put("iceberg.dynamic-filter-max-speculative-splits", "500")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -143,7 +147,9 @@ public class TestIcebergConfig
                 .setMetricsMaxInferredColumn(16)
                 .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
                 .setStatisticsKllSketchKParameter(4096)
-                .setMaterializedViewStoragePrefix("custom_mv_prefix");
+                .setMaterializedViewStoragePrefix("custom_mv_prefix")
+                .setDynamicFilterExtendedMetrics(true)
+                .setDynamicFilterMaxSpeculativeSplits(500);
 
         assertFullMapping(properties, expected);
     }
