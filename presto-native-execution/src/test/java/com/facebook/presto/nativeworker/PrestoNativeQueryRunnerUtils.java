@@ -296,7 +296,7 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
-            return HiveQueryRunner.createQueryRunner(
+            QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
                     ImmutableList.of(),
                     extraProperties,
@@ -307,6 +307,10 @@ public class PrestoNativeQueryRunnerUtils
                     Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString())),
                     externalWorkerLauncher,
                     tpcdsProperties);
+            if (coordinatorSidecarEnabled) {
+                setupNativeSidecarPlugin(queryRunner);
+            }
+            return queryRunner;
         }
     }
 

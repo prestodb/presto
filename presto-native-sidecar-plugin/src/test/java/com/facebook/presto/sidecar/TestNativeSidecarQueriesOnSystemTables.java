@@ -43,12 +43,10 @@ public class TestNativeSidecarQueriesOnSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        return (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
-        return queryRunner;
     }
 
     @Override
