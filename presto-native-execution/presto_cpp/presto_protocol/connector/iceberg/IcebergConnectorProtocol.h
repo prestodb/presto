@@ -27,7 +27,7 @@ using IcebergConnectorProtocol = ConnectorProtocolTemplate<
     IcebergSplit,
     NotImplemented,
     hive::HiveTransactionHandle,
-    NotImplemented,
+    IcebergDistributedProcedureHandle,
     NotImplemented,
     NotImplemented>;
 

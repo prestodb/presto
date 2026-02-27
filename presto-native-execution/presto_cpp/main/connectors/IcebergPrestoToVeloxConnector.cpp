@@ -321,6 +321,36 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       typeParser);
 }
 
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+    const TypeParser& typeParser) const {
+  auto icebergDistributedProcedureHandle = std::dynamic_pointer_cast<
+      protocol::iceberg::IcebergDistributedProcedureHandle>(
+      executeProcedureHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergDistributedProcedureHandle,
+      "Unexpected call distributed procedure handle type {}",
+      executeProcedureHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns = toHiveColumns(
+      icebergDistributedProcedureHandle->inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
+          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergDistributedProcedureHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergDistributedProcedureHandle->partitionSpec, typeParser),
+      std::optional(toFileCompressionKind(
+          icebergDistributedProcedureHandle->compressionCodec)));
+}
+
 std::unique_ptr<protocol::ConnectorProtocol>
 IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::iceberg::IcebergConnectorProtocol>();
