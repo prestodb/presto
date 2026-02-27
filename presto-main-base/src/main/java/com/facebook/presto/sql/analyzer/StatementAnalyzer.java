@@ -2203,15 +2203,20 @@ class StatementAnalyzer
             }
 
             Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), name);
-            // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
-            if (optionalMaterializedView.isPresent()
-                    && (analysis.getStatement() instanceof Insert || analysis.getStatement() instanceof CreateTableAsSelect)) {
-                throw new SemanticException(
-                        NOT_SUPPORTED,
-                        table,
-                        "%s by selecting from a materialized view %s is not supported",
-                        analysis.getStatement().getClass().getSimpleName(),
-                        optionalMaterializedView.get().getTable());
+            // Prevent INSERT when selecting from a materialized view into one of its base tables (circular dependency).
+            if (optionalMaterializedView.isPresent() && analysis.getStatement() instanceof Insert) {
+                Insert insert = (Insert) analysis.getStatement();
+                QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget(), metadata);
+                SchemaTableName targetSchemaTable = new SchemaTableName(targetTable.getSchemaName(), targetTable.getObjectName());
+                if (optionalMaterializedView.get().getBaseTables().contains(targetSchemaTable)) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            table,
+                            "INSERT into table %s by selecting from materialized view %s is not supported because %s is a base table of the materialized view",
+                            targetTable,
+                            optionalMaterializedView.get().getTable(),
+                            targetTable);
+                }
             }
             Statement statement = analysis.getStatement();
             if (optionalMaterializedView.isPresent() && statement instanceof Query) {
