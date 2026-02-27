@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [17.0.15]
+        java: ['17']
     runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 60
