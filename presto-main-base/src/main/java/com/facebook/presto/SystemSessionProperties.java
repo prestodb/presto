@@ -254,6 +254,7 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
+    public static final String MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED = "materialized_view_query_rewrite_cost_based_selection_enabled";
     public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
     public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
     public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
@@ -1414,6 +1415,11 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
+                booleanProperty(
+                        MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED,
+                        "When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV",
+                        featuresConfig.isMaterializedViewQueryRewriteCostBasedSelectionEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         LEGACY_MATERIALIZED_VIEWS,
                         "Experimental: Use legacy materialized views.  This feature is under active development and may change " +
@@ -3075,6 +3081,11 @@ public final class SystemSessionProperties
     public static boolean isQueryOptimizationWithMaterializedViewEnabled(Session session)
     {
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMaterializedViewQueryRewriteCostBasedSelectionEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED, Boolean.class);
     }
 
     public static boolean isLegacyMaterializedViews(Session session)

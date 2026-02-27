@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -89,6 +90,7 @@ import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
@@ -1100,6 +1102,35 @@ class RelationPlanner
     {
         return new QueryPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session, context, sqlParser)
                 .plan(node);
+    }
+
+    @Override
+    protected RelationPlan visitQueryWithMVRewriteCandidates(QueryWithMVRewriteCandidates node, SqlPlannerContext context)
+    {
+        // Plan the original query
+        RelationPlan originalPlan = process(node.getOriginalQuery(), context);
+
+        // Plan each MV candidate
+        ImmutableList.Builder<MVRewriteCandidatesNode.MVRewriteCandidate> candidatePlans = ImmutableList.builder();
+        for (QueryWithMVRewriteCandidates.MVRewriteCandidate candidate : node.getCandidates()) {
+            RelationPlan candidatePlan = process(candidate.getRewrittenQuery(), context);
+            candidatePlans.add(new MVRewriteCandidatesNode.MVRewriteCandidate(
+                    candidatePlan.getRoot(),
+                    candidate.getMaterializedViewCatalog(),
+                    candidate.getMaterializedViewSchema(),
+                    candidate.getMaterializedViewName()));
+        }
+
+        // Create the MVRewriteCandidatesNode
+        MVRewriteCandidatesNode mvNode = new MVRewriteCandidatesNode(
+                getSourceLocation(node),
+                idAllocator.getNextId(),
+                originalPlan.getRoot(),
+                candidatePlans.build(),
+                originalPlan.getFieldMappings());
+
+        Scope scope = analysis.getScope(node);
+        return new RelationPlan(mvNode, scope, originalPlan.getFieldMappings());
     }
 
     @Override

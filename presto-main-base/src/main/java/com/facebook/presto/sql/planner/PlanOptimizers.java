@@ -147,6 +147,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
+import com.facebook.presto.sql.planner.iterative.rule.SelectLowestCostMVRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
@@ -340,6 +341,14 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
+
+        // Cost-based MV selection: selects the lowest-cost plan from MV candidates
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new SelectLowestCostMVRewrite(costComparator))));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,

@@ -233,6 +233,7 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean materializedViewQueryRewriteCostBasedSelectionEnabled;
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
@@ -2262,6 +2263,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewQueryRewriteCostBasedSelectionEnabled()
+    {
+        return materializedViewQueryRewriteCostBasedSelectionEnabled;
+    }
+
+    @Config("materialized-view-query-rewrite-cost-based-selection-enabled")
+    @ConfigDescription("When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV")
+    public FeaturesConfig setMaterializedViewQueryRewriteCostBasedSelectionEnabled(boolean value)
+    {
+        this.materializedViewQueryRewriteCostBasedSelectionEnabled = value;
         return this;
     }
 
