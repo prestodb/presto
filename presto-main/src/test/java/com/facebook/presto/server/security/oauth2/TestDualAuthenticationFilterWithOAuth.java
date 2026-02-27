@@ -189,7 +189,7 @@ public class TestDualAuthenticationFilterWithOAuth
     private void assertAllUnauthorizedHeaders(Response response)
             throws IOException
     {
-        String redirectServer = "x_redirect_server=\"" + proxyURI.resolve("/oauth2/token/initiate/").toString();
+        String redirectServer = "x_redirect_server=\"" + proxyURI.resolve("/oauth2/token/initiate/");
         String tokenServer = "x_token_server=\"" + proxyURI.resolve("/oauth2/token/");
         assertUnauthorizedResponse(response);
         List<String> headers = response.headers(WWW_AUTHENTICATE);
