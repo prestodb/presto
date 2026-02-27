@@ -19,9 +19,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
 import com.facebook.presto.hudi.split.ForHudiSplitAsyncQueue;
 import com.facebook.presto.hudi.split.ForHudiSplitSource;
@@ -33,8 +31,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -48,19 +44,13 @@ import org.apache.hudi.common.util.HoodieTimer;
 import org.apache.hudi.storage.StorageConfiguration;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
-import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_METADATA;
-import static com.facebook.presto.hudi.HudiMetadata.fromDataColumns;
 import static com.facebook.presto.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static com.facebook.presto.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMemoryFileSystemViewWithTimeline;
 import static org.apache.hudi.hadoop.fs.HadoopFSUtils.getStorageConfWithCopy;
@@ -107,7 +97,7 @@ public class HudiSplitManager
 
         // Retrieve and prune partitions
         HoodieTimer timer = HoodieTimer.start();
-        List<String> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaTableName(), layout.getTupleDomain());
+        Map<String, Partition> partitions = hudiPartitionManager.getEffectivePartitions(session, metastore, table.getSchemaTableName(), table.getPath(), layout.getTupleDomain());
         log.debug("Took %d ms to get %d partitions", timer.endTimer(), partitions.size());
         if (partitions.isEmpty()) {
             return new FixedSplitSource(ImmutableList.of());
@@ -129,7 +119,6 @@ public class HudiSplitManager
 
         return new HudiSplitSource(
                 session,
-                metastore,
                 layout,
                 fsView,
                 partitions,
@@ -154,37 +143,5 @@ public class HudiSplitManager
         catch (IOException e) {
             throw new PrestoException(HUDI_FILESYSTEM_ERROR, "Could not open file system for " + table, e);
         }
-    }
-
-    public static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
-    {
-        String databaseName = tableLayout.getTable().getSchemaName();
-        String tableName = tableLayout.getTable().getTableName();
-        List<HudiColumnHandle> partitionColumns = tableLayout.getPartitionColumns();
-
-        if (partitionColumns.isEmpty()) {
-            // non-partitioned tableLayout
-            Table table = metastore.getTable(context, databaseName, tableName)
-                    .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Table %s.%s expected but not found", databaseName, tableName)));
-            return new HudiPartition(partitionName, ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns());
-        }
-        else {
-            // partitioned tableLayout
-            List<String> partitionValues = extractPartitionValues(partitionName);
-            checkArgument(partitionColumns.size() == partitionValues.size(),
-                    format("Invalid partition name %s for partition columns %s", partitionName, partitionColumns));
-            Partition partition = metastore.getPartition(context, databaseName, tableName, partitionValues)
-                    .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Partition %s expected but not found", partitionName)));
-            Map<String, String> keyValues = zipPartitionKeyValues(partitionColumns, partitionValues);
-            return new HudiPartition(partitionName, partitionValues, keyValues, partition.getStorage(), fromDataColumns(partition.getColumns()));
-        }
-    }
-
-    private static Map<String, String> zipPartitionKeyValues(List<HudiColumnHandle> partitionColumns, List<String> partitionValues)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        Streams.forEachPair(partitionColumns.stream(), partitionValues.stream(),
-                (column, value) -> builder.put(column.getName(), value));
-        return builder.build();
     }
 }

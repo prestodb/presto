@@ -14,13 +14,16 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class HudiTableHandle
@@ -30,6 +33,7 @@ public class HudiTableHandle
     private final String tableName;
     private final String path;
     private final HudiTableType hudiTableType;
+    private final transient Optional<Table> table;
 
     @JsonCreator
     public HudiTableHandle(
@@ -38,10 +42,29 @@ public class HudiTableHandle
             @JsonProperty("path") String path,
             @JsonProperty("tableType") HudiTableType hudiTableType)
     {
+        this(Optional.empty(), schemaName, tableName, path, hudiTableType);
+    }
+
+    public HudiTableHandle(
+            Optional<Table> table,
+            String schemaName,
+            String tableName,
+            String path,
+            HudiTableType hudiTableType)
+    {
+        this.table = requireNonNull(table, "table is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.path = requireNonNull(path, "path is null");
         this.hudiTableType = requireNonNull(hudiTableType, "tableType is null");
+    }
+
+    public Table getTable()
+    {
+        checkArgument(table.isPresent(),
+                "getTable() called on a table handle that has no metastore table object; "
+                        + "this is likely because it is called on the worker.");
+        return table.get();
     }
 
     @JsonProperty

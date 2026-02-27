@@ -15,7 +15,7 @@
 package com.facebook.presto.hudi.split;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.util.AsyncQueue;
 import com.facebook.presto.hudi.HudiTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -26,6 +26,7 @@ import org.apache.hudi.common.util.HoodieTimer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -44,27 +45,24 @@ public class HudiBackgroundSplitLoader
     private static final Logger log = Logger.get(HudiBackgroundSplitLoader.class);
 
     private final ConnectorSession session;
-    private final ExtendedHiveMetastore metastore;
     private final HudiTableLayoutHandle layout;
     private final HoodieTableFileSystemView fsView;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
-    private final List<String> partitions;
+    private final Map<String, Partition> partitions;
     private final String latestInstant;
     private final int splitGeneratorNumThreads;
     private final ExecutorService splitGeneratorExecutorService;
 
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
-            ExtendedHiveMetastore metastore,
             ExecutorService splitGeneratorExecutorService,
             HudiTableLayoutHandle layout,
             HoodieTableFileSystemView fsView,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            List<String> partitions,
+            Map<String, Partition> partitions,
             String latestInstant)
     {
         this.session = requireNonNull(session, "session is null");
-        this.metastore = requireNonNull(metastore, "metastore is null");
         this.layout = requireNonNull(layout, "layout is null");
         this.fsView = requireNonNull(fsView, "fsView is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
@@ -78,15 +76,15 @@ public class HudiBackgroundSplitLoader
     @Override
     public void run()
     {
-        HoodieTimer timer = new HoodieTimer().startTimer();
+        HoodieTimer timer = HoodieTimer.start();
         List<HudiPartitionSplitGenerator> splitGeneratorList = new ArrayList<>();
         List<Future> splitGeneratorFutures = new ArrayList<>();
-        ConcurrentLinkedQueue<String> concurrentPartitionQueue = new ConcurrentLinkedQueue<>(partitions);
+        ConcurrentLinkedQueue<String> concurrentPartitionQueue = new ConcurrentLinkedQueue<>(partitions.keySet());
 
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
             HudiPartitionSplitGenerator generator = new HudiPartitionSplitGenerator(
-                    session, metastore, layout, fsView, asyncQueue, concurrentPartitionQueue, latestInstant);
+                    session, layout, fsView, partitions, asyncQueue, concurrentPartitionQueue, latestInstant);
             splitGeneratorList.add(generator);
             splitGeneratorFutures.add(splitGeneratorExecutorService.submit(generator));
         }

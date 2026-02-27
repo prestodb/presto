@@ -23,18 +23,21 @@ import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -51,6 +54,7 @@ public class TestHudiPartitionManager
 {
     private static final String SCHEMA_NAME = "schema";
     private static final String TABLE_NAME = "table";
+    private static final String NON_PARTITIONED_TABLE_NAME = "non_partitioned_table";
     private static final String USER_NAME = "user";
     private static final String LOCATION = "somewhere/over/the/rainbow";
     private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Optional.empty());
@@ -78,13 +82,65 @@ public class TestHudiPartitionManager
             Optional.empty(),
             Optional.empty());
 
-    private static final List<String> PARTITIONS = ImmutableList.of("ds=2019-07-23", "ds=2019-08-23");
+    private static final Map<String, Optional<Partition>> PARTITION_MAP = ImmutableMap.of(
+            "ds=2019-07-23",
+            Optional.of(
+                    Partition.builder()
+                            .setCatalogName(Optional.empty())
+                            .setDatabaseName(SCHEMA_NAME)
+                            .setTableName(TABLE_NAME)
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(LOCATION)
+                                            .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of(PARTITION_COLUMN))
+                            .setValues(Collections.singletonList("2019-07-23"))
+                            .build()),
+            "ds=2019-08-23",
+            Optional.of(
+                    Partition.builder()
+                            .setCatalogName(Optional.empty())
+                            .setDatabaseName(SCHEMA_NAME)
+                            .setTableName(TABLE_NAME)
+                            .withStorage(storageBuilder ->
+                                    storageBuilder.setLocation(LOCATION)
+                                            .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                            .setColumns(ImmutableList.of(PARTITION_COLUMN))
+                            .setValues(Collections.singletonList("2019-08-23"))
+                            .build()));
+
+    private static final Table NON_PARTITIONED_TABLE = new Table(
+            Optional.of("catalogName"),
+            SCHEMA_NAME,
+            NON_PARTITIONED_TABLE_NAME,
+            USER_NAME,
+            PrestoTableType.MANAGED_TABLE,
+            new Storage(fromHiveStorageFormat(PARQUET),
+                    LOCATION,
+                    Optional.of(new HiveBucketProperty(
+                            ImmutableList.of(BUCKET_COLUMN.getName()),
+                            100,
+                            ImmutableList.of(),
+                            HIVE_COMPATIBLE,
+                            Optional.empty())),
+                    false,
+                    ImmutableMap.of(),
+                    ImmutableMap.of()),
+            ImmutableList.of(BUCKET_COLUMN),
+            ImmutableList.of(),
+            ImmutableMap.of(),
+            Optional.empty(),
+            Optional.empty());
+
+    private static final Map<String, Optional<Partition>> NON_PARTITION_MAP = ImmutableMap.of(
+            "",
+            Optional.empty());
+
     private final HudiPartitionManager hudiPartitionManager = new HudiPartitionManager(new TestingTypeManager());
-    private final TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(TABLE, PARTITIONS);
 
     @Test
     public void testParseValuesAndFilterPartition()
     {
+        TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(TABLE, PARTITION_MAP);
         ConnectorSession session = new TestingConnectorSession(
                 new HiveSessionProperties(
                         new HiveClientConfig().setMaxBucketsForGroupedExecution(100),
@@ -100,11 +156,37 @@ public class TestHudiPartitionManager
                                 Optional.empty(),
                                 HudiColumnHandle.ColumnType.PARTITION_KEY),
                         Domain.singleValue(VARCHAR, utf8Slice("2019-07-23"))));
-        List<String> actualPartitions = hudiPartitionManager.getEffectivePartitions(
+        HudiTableHandle tableHandle = new HudiTableHandle(SCHEMA_NAME, TABLE_NAME, LOCATION, HudiTableType.COW);
+        Map<String, Partition> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 session,
                 metastore,
-                new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                tableHandle.getSchemaTableName(),
+                tableHandle.getPath(),
                 constraintSummary);
-        assertEquals(actualPartitions, ImmutableList.of("ds=2019-07-23"));
+        assertEquals(actualPartitions.keySet(), ImmutableSet.of("ds=2019-07-23"));
+        assertEquals(actualPartitions.get("ds=2019-07-23"), PARTITION_MAP.get("ds=2019-07-23").get());
+
+        // Non-partitioned table case
+        HudiTableHandle nonPartitionedTableHandle = new HudiTableHandle(SCHEMA_NAME, NON_PARTITIONED_TABLE_NAME, LOCATION, HudiTableType.COW);
+        metastore = new TestingExtendedHiveMetastore(NON_PARTITIONED_TABLE, NON_PARTITION_MAP);
+        actualPartitions = hudiPartitionManager.getEffectivePartitions(
+                session,
+                metastore,
+                nonPartitionedTableHandle.getSchemaTableName(),
+                nonPartitionedTableHandle.getPath(),
+                constraintSummary);
+        assertEquals(actualPartitions.keySet(), ImmutableSet.of(""));
+        assertEquals(
+                actualPartitions.get(""),
+                Partition.builder()
+                        .setCatalogName(Optional.empty())
+                        .setDatabaseName(nonPartitionedTableHandle.getSchemaName())
+                        .setTableName(nonPartitionedTableHandle.getTableName())
+                        .withStorage(storageBuilder ->
+                                storageBuilder.setLocation(LOCATION)
+                                        .setStorageFormat(StorageFormat.VIEW_STORAGE_FORMAT))
+                        .setColumns(ImmutableList.of())
+                        .setValues(ImmutableList.of())
+                        .build());
     }
 }
