@@ -14,18 +14,18 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
@@ -46,14 +46,23 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 @Test(singleThreaded = true)
 public class TestAddDynamicFilterRule
@@ -237,7 +246,6 @@ public class TestAddDynamicFilterRule
 
         JoinNode joinResult = (JoinNode) result;
         assertEquals(joinResult.getDynamicFilters().size(), 1);
-        assertFalse(joinResult.getDynamicFilters().isEmpty());
     }
 
     @Test
@@ -294,6 +302,66 @@ public class TestAddDynamicFilterRule
     }
 
     @Test
+    public void testCostBasedSkipsBuildCoveringProbe()
+    {
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "probeKey", BIGINT),
+                                new VariableStatsEstimate(0, 1000, 0, 8, 1000)))
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 1000, 0, 8, 1000)))
+                        .build())
+                .doesNotFire();
+    }
+
+    @Test
+    public void testCostBasedCreatesFilterWhenBuildDoesNotCoverProbe()
+    {
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "probeKey", BIGINT),
+                                new VariableStatsEstimate(0, 1000, 0, 8, 1000)))
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100, 0, 8, 100)))
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        values("probeKey"),
+                        values("buildKey")));
+    }
+
+    @Test
     public void testDisabledDoesNotFire()
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
@@ -312,10 +380,305 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedCreatesFilterForPartitionColumn()
     {
-        // Create a metadata wrapper that returns discrete predicates for the probe column,
-        // simulating a partitioned table (like Iceberg or Hive)
         TpchColumnHandle partitionColumn = new TpchColumnHandle("nationkey", BIGINT);
-        Metadata metadataWithDiscretePredicates = new DelegatingMetadataManager((MetadataManager) tester.getMetadata())
+        Metadata metadataWithDiscretePredicates = createMetadataWithDiscretePredicates(partitionColumn);
+        TableHandle tableHandle = createTableHandle();
+
+        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates))
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.tableScan(tableHandle, ImmutableList.of(probeKey), ImmutableMap.of(probeKey, partitionColumn)),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        tableScan("nation", ImmutableMap.of("probeKey", "nationkey")),
+                        values("buildKey")));
+    }
+
+    @Test
+    public void testExtendedMetricsSkippedBuildCoversProbe()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "probeKey", BIGINT),
+                                new VariableStatsEstimate(0, 1000, 0, 8, 1000)))
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 1000, 0, 8, 1000)))
+                        .build())
+                .doesNotFire();
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_SKIPPED_BUILD_COVERS_PROBE metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsCreatedLowNdv()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100, 0, 8, 100)))
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        values("probeKey"),
+                        values("buildKey")));
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_CREATED_LOW_NDV metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsCreatedFavorableRatio()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100_000, 0, 8, 100_000)))
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        values("probeKey"),
+                        values("buildKey")));
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_CREATED_FAVORABLE_RATIO metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsSkippedHighCardinality()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 1_000_000, 0, 8, 1_000_000)))
+                        .build())
+                .doesNotFire();
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_SKIPPED_HIGH_CARDINALITY metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsCreatedPartitionFallback()
+    {
+        TpchColumnHandle partitionColumn = new TpchColumnHandle("nationkey", BIGINT);
+        Metadata metadataWithDiscretePredicates = createMetadataWithDiscretePredicates(partitionColumn);
+        TableHandle tableHandle = createTableHandle();
+
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.tableScan(tableHandle, ImmutableList.of(probeKey), ImmutableMap.of(probeKey, partitionColumn)),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        tableScan("nation", ImmutableMap.of("probeKey", "nationkey")),
+                        values("buildKey")));
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_CREATED_PARTITION_FALLBACK metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsSkippedNotPartitionColumn()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(Double.NaN)
+                        .build())
+                .doesNotFire();
+
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN, "probeKey");
+        assertNotNull(session.getRuntimeStats().getMetrics().get(metricKey),
+                "Should emit PLAN_SKIPPED_NOT_PARTITION_COLUMN metric for probeKey");
+        assertEquals(session.getRuntimeStats().getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testExtendedMetricsNotEmittedWhenDisabled()
+    {
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "false")
+                .setRuntimeStats(new RuntimeStats())
+                .build();
+
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+                .withSession(session)
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            new EquiJoinClause(probeKey, buildKey));
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100, 0, 8, 100)))
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        values("probeKey"),
+                        values("buildKey")));
+
+        // No plan decision metrics should be emitted when extended metrics is disabled
+        assertNull(session.getRuntimeStats().getMetrics().get(
+                        format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV, "probeKey")),
+                "Should NOT emit plan decision metrics when extended metrics is disabled");
+    }
+
+    private Metadata createMetadataWithDiscretePredicates(TpchColumnHandle partitionColumn)
+    {
+        return new DelegatingMetadataManager((MetadataManager) tester.getMetadata())
         {
             @Override
             public MetadataResolver getMetadataResolver(Session session)
@@ -344,39 +707,16 @@ public class TestAddDynamicFilterRule
                         connectorLayout);
             }
         };
+    }
 
+    private TableHandle createTableHandle()
+    {
         TpchTableHandle tpchTableHandle = new TpchTableHandle("nation", 1.0);
         TpchTableLayoutHandle layoutHandle = new TpchTableLayoutHandle(tpchTableHandle, TupleDomain.all());
-        TableHandle tableHandle = new TableHandle(
+        return new TableHandle(
                 tester.getCurrentConnectorId(),
                 tpchTableHandle,
                 TestingTransactionHandle.create(),
                 Optional.of(layoutHandle));
-
-        // Unknown row counts — cost-based would normally reject (no stats).
-        // But the probe column is a partition column, so the partition column
-        // fallback creates the filter (runtime max-tuple-domain-size caps
-        // oversized domains).
-        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates))
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .on(p -> {
-                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
-                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
-                    return p.join(JoinType.INNER,
-                            p.tableScan(tableHandle, ImmutableList.of(probeKey), ImmutableMap.of(probeKey, partitionColumn)),
-                            p.values(buildKey),
-                            new EquiJoinClause(probeKey, buildKey));
-                })
-                .overrideStats("0", PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(Double.NaN)
-                        .build())
-                .overrideStats("1", PlanNodeStatsEstimate.builder()
-                        .setOutputRowCount(Double.NaN)
-                        .build())
-                .matches(join(JoinType.INNER,
-                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
-                        Optional.empty(),
-                        tableScan("nation", ImmutableMap.of("probeKey", "nationkey")),
-                        values("buildKey")));
     }
 }

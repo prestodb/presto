@@ -127,6 +127,16 @@ public class TestDynamicPartitionPruningPlan
                 "VALUES 1, 2");
     }
 
+    @Test
+    public void testCostBasedNoWhereClauseProducesCorrectResults()
+    {
+        assertQuery(costBasedDppSession(),
+                "SELECT f.order_id " +
+                        "FROM plan_fact_orders f " +
+                        "JOIN plan_dim_customers c ON f.customer_id = c.customer_id",
+                "VALUES 1, 2, 3");
+    }
+
     private Session dppSession()
     {
         return Session.builder(getSession())
