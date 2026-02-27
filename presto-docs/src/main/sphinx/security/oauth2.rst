@@ -38,6 +38,8 @@ Below are the key configuration properties for enabling OAuth2 authentication in
     http-server.authentication.oauth2.state-key=your-hmac-secret
     http-server.authentication.oauth2.additional-audiences=your-client-id,another-audience
     http-server.authentication.oauth2.user-mapping.pattern=(.*)
+    http-server.authentication.oauth2.userinfo-cache=false
+    http-server.authentication.oauth2.userinfo-cache-ttl=10m
 
 It is worth noting that ``configuration-based-authorizer.role-regex-map.file-path`` must be configured if
 authentication type is set to ``OAUTH2``.
@@ -58,11 +60,13 @@ If your IdP uses a custom or self-signed certificate, import it into the Java tr
 Notes
 -----
 
-- **Issuer**: The base URL of your IdP’s OIDC discovery endpoint.
+- **Issuer**: The base URL of your IdP's OIDC discovery endpoint.
 - **Client ID/Secret**: Registered credentials for Presto in your IdP.
 - **Scopes**: Must include ``openid``; others like ``email``, ``profile``, or ``groups`` are optional.
-- **Principal Field**: The claim in the ID token used as the Presto username.
+- **Principal Field**: The claim used as the Presto username. For OIDC flows (when ``openid`` scope is included), this is extracted from the ID token. If the claim is not present in the ID token, Presto will query the UserInfo endpoint as a fallback. For pure OAuth2 flows (without ``openid`` scope), the UserInfo endpoint is queried first, with the access token as a last resort.
 - **Groups Field**: Optional claim used for role-based access control.
 - **State Key**: A secret used to sign the OAuth2 state parameter (HMAC).
 - **Refresh Tokens**: Enable if your IdP supports issuing refresh tokens.
+- **UserInfo Cache**: Enable caching of UserInfo endpoint responses to reduce load on the IdP and improve performance. When enabled, responses are cached using a SHA-256 hash of the access token as the key. Default is ``false``.
+- **UserInfo Cache TTL**: Time-to-live for cached UserInfo entries. Only applicable when ``userinfo-cache`` is enabled. Default is ``10m`` (10 minutes). Minimum value is ``1m``.
 - **Callback**: When configuring your IdP the callback URI must be set to ``[presto]/oauth2/callback``
