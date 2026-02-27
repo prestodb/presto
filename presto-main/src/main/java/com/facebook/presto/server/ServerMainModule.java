@@ -560,7 +560,7 @@ public class ServerMainModule
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
         configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
-        binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
+        binder.bind(LocalMemoryManager.class).toProvider(Key.get(LocalMemoryManagerProvider.class)).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TaskManager.class).withGeneratedName();

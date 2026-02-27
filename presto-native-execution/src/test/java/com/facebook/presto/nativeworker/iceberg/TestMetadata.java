@@ -55,7 +55,10 @@ public class TestMetadata
         try {
             assertUpdate(String.format("CREATE TABLE %s (id INTEGER, data VARCHAR) WITH (format = 'PARQUET')", table1));
             assertUpdate(String.format("CREATE TABLE %s (id BIGINT, value DOUBLE) WITH (format = 'PARQUET')", table2));
-            assertQuery("SHOW TABLES LIKE 'metadata_table%'");
+            // Use information_schema instead of SHOW TABLES LIKE so the expected (Java) query runs reliably
+            // in native-vs-java comparison; SHOW TABLES can behave differently across runners.
+            assertQuery(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'tpch' AND table_name LIKE 'metadata_table%' ORDER BY table_name");
         }
         finally {
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", table2));

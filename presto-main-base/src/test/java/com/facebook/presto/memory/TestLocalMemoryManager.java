@@ -76,4 +76,35 @@ public class TestLocalMemoryManager
 
         new LocalMemoryManager(config, new DataSize(10, GIGABYTE).toBytes());
     }
+
+    /**
+     * When coordinator-only validation is used, the coordinator only validates that heap headroom
+     * fits in the JVM heap. Large query.max-memory-per-node / query.max-total-memory-per-node
+     * (intended for workers) do not need to fit in the coordinator's heap.
+     */
+    @Test
+    public void testCoordinatorOnlyValidationAllowsLargePerNodeConfigWithSmallHeap()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig()
+                .setHeapHeadroom(new DataSize(1, GIGABYTE))
+                .setMaxQueryMemoryPerNode(new DataSize(32, GIGABYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(64, GIGABYTE));
+
+        long smallCoordinatorHeap = new DataSize(4, GIGABYTE).toBytes();
+        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, smallCoordinatorHeap, true);
+
+        assertFalse(localMemoryManager.getReservedPool().isPresent());
+        assertEquals(localMemoryManager.getPools().size(), 1);
+        assertEquals(localMemoryManager.getGeneralPool().getMaxBytes(), smallCoordinatorHeap - new DataSize(1, GIGABYTE).toBytes());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "Invalid memory configuration for coordinator.*")
+    public void testCoordinatorOnlyValidationFailsWhenHeadroomExceedsHeap()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig()
+                .setHeapHeadroom(new DataSize(5, GIGABYTE));
+
+        new LocalMemoryManager(config, new DataSize(4, GIGABYTE).toBytes(), true);
+    }
 }
