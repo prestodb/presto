@@ -2,6 +2,26 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>sonatype-oss</id>
+            <url>https://oss.sonatype.org/content/repositories/releases</url>
+        </repository>
+    </repositories>
+
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
@@ -80,7 +100,7 @@
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.15.4</dep.jackson.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
-        <dep.avro.version>1.12.0</dep.avro.version>
+        <dep.avro.version>1.12.1</dep.avro.version>
         <dep.commons.compress.version>1.27.1</dep.commons.compress.version>
         <dep.protobuf-java.version>4.30.2</dep.protobuf-java.version>
         <dep.jetty.version>12.0.29</dep.jetty.version>
@@ -1096,9 +1116,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.0.0-11</version>
+                <groupId>com.github.bibith4</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>3.0.0-12-SNAPSHOT-test_v2</version>
             </dependency>
 
             <dependency>
