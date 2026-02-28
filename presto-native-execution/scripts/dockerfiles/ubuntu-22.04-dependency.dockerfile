@@ -43,4 +43,3 @@ RUN mkdir build && \
                  ../velox/scripts/setup-ubuntu.sh install_adapters && \
                  ../scripts/setup-adapters.sh ) && \
     rm -rf build \
-

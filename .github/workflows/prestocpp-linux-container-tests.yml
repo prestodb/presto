@@ -47,23 +47,28 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
-
-      - name: Enable verbose Docker build logs
+      - name: Build dependency image
         run: |
-          echo "BUILDKIT_PROGRESS=plain" >> $GITHUB_ENV
+          cd presto-native-execution
+          docker build \
+            -t presto-native-dependency:latest \
+            -f scripts/dockerfiles/centos-dependency.dockerfile \
+            --progress=plain \
+            .
 
-      - name: Export Buildx builder
+      - name: Build worker image (BuildKit)
         run: |
-          echo "BUILDX_BUILDER=${{ steps.buildx.outputs.name }}" >> "$GITHUB_ENV"
-
-      - name: Build worker image
-        run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} -X -e \
-            -Pdocker-build,centos \
-            -Denable.docker.build.worker=true \
-            -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
+          cd presto-native-execution
+          export DOCKER_BUILDKIT=1
+          docker build \
+            -t presto-worker:latest \
+            --build-arg BUILD_TYPE=Release \
+            --build-arg DEPENDENCY_IMAGE=presto-native-dependency:latest \
+            --build-arg EXTRA_CMAKE_FLAGS="-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON" \
+            --build-arg NUM_THREADS=2 \
+            -f scripts/dockerfiles/prestissimo-runtime.dockerfile \
+            --progress=plain \
+            .
 
       - name: Save Docker image
         run: |
@@ -104,24 +109,29 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Update velox
+      - name: Build Java artifacts only
         run: |
-          cd presto-native-execution
-          make velox-submodule
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.1
-
-      - name: Export Buildx builder
-        run: |
-          echo "BUILDX_BUILDER=${{ steps.buildx.outputs.name }}" >> "$GITHUB_ENV"
-
-      - name: Build coordinator image
-        run: |
-          ./mvnw install ${MAVEN_FAST_INSTALL} \
-            -Pdocker-build \
-            -Denable.docker.build.coordinator=true \
+          ./mvnw clean install ${MAVEN_FAST_INSTALL} \
+            -Denable.docker.build.worker=false \
+            -Denable.docker.build.coordinator=false \
             -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage'
+
+      - name: Build coordinator image (BuildKit)
+        run: |
+          VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+
+          cd docker
+
+          cp ../presto-server/target/presto-server-${VERSION}.tar.gz .
+          cp ../presto-cli/target/presto-cli-${VERSION}-executable.jar .
+
+          export DOCKER_BUILDKIT=1
+
+          docker build \
+            -t presto-coordinator:latest \
+            --build-arg PRESTO_VERSION=${VERSION} \
+            --progress=plain \
+            .
 
       - name: Save Docker image
         run: |
