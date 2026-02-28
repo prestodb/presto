@@ -234,6 +234,7 @@ public final class SystemSessionProperties
     public static final String DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS = "distributed_dynamic_filter_extended_metrics";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD = "distributed_dynamic_filter_cardinality_ratio_threshold";
     public static final String DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT = "distributed_dynamic_filter_discrete_values_limit";
+    public static final String DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE = "distributed_dynamic_filter_min_probe_size";
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
@@ -1316,6 +1317,11 @@ public final class SystemSessionProperties
                         DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT,
                         "Maximum build-side NDV for cost-based dynamic filter creation (filter stored as discrete values)",
                         featuresConfig.getDistributedDynamicFilterDiscreteValuesLimit(),
+                        false),
+                dataSizeProperty(
+                        DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE,
+                        "Minimum per-node probe-side estimated size for cost-based dynamic filter creation",
+                        featuresConfig.getDistributedDynamicFilterMinProbeSize(),
                         false),
                 booleanProperty(
                         FRAGMENT_RESULT_CACHING_ENABLED,
@@ -3043,6 +3049,11 @@ public final class SystemSessionProperties
     public static long getDistributedDynamicFilterDiscreteValuesLimit(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT, Long.class);
+    }
+
+    public static DataSize getDistributedDynamicFilterMinProbeSize(Session session)
+    {
+        return session.getSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, DataSize.class);
     }
 
     public static boolean isFragmentResultCachingEnabled(Session session)

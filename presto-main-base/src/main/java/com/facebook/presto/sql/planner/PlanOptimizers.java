@@ -873,8 +873,8 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
-                        new AddDynamicFilterRule(metadata),
-                        new AddDynamicFilterToSemiJoinRule(metadata))));
+                        new AddDynamicFilterRule(metadata, taskCountEstimator),
+                        new AddDynamicFilterToSemiJoinRule(metadata, taskCountEstimator))));
 
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.

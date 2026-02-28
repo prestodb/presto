@@ -38,16 +38,12 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.TableScan;
-import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
-import org.apache.iceberg.expressions.Projections;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -59,12 +55,8 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLUMN
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLUMNS_SKIPPED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTRAINT_COLUMNS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -72,7 +64,6 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getDynamicFilterMaxSpeculativeSplits;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isDynamicFilterExtendedMetrics;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
@@ -89,17 +80,8 @@ import static org.apache.iceberg.util.TableScanUtil.splitFiles;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private enum State
-    {
-        WAITING_FOR_FILTER,
-        SPECULATING,
-        SCANNING,
-    }
-
     private static final ConnectorSplitBatch EMPTY_BATCH_NOT_FINISHED =
             new ConnectorSplitBatch(ImmutableList.of(), false);
-
-    private static final int SPECULATIVE_DRAIN_BATCH_SIZE = 1000;
 
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
 
@@ -113,7 +95,7 @@ public class IcebergSplitSource
 
     private final DynamicFilter dynamicFilter;
     private TableScan tableScan;
-    private State state;
+    private boolean scanning;
 
     private final RuntimeStats runtimeStats;
     private final boolean dynamicFilterActive;
@@ -122,12 +104,6 @@ public class IcebergSplitSource
     private long filterWaitStartNanos;
     private boolean dynamicFilterApplied;
     private boolean closed;
-
-    // Speculative split enumeration
-    private final int maxSpeculativeBufferSize;
-    private List<FileScanTask> speculativeBuffer;
-    private long speculativeTasksBuffered;
-    private long speculativeTasksPruned;
 
     private final Optional<Set<ColumnHandle>> relevantFilterColumns;
 
@@ -149,7 +125,6 @@ public class IcebergSplitSource
         this.runtimeStats = session.getRuntimeStats();
         this.dynamicFilterActive = dynamicFilter.getWaitTimeout().toMillis() > 0;
         this.extendedMetrics = isDynamicFilterExtendedMetrics(session);
-        this.maxSpeculativeBufferSize = getDynamicFilterMaxSpeculativeSplits(session);
 
         if (dynamicFilterActive && !dynamicFilter.isComplete()) {
             Set<ColumnHandle> relevant = computeRelevantFilterColumns(
@@ -163,69 +138,17 @@ public class IcebergSplitSource
         if (dynamicFilter.isComplete()) {
             dynamicFilterApplied = true;
             initializeScan();
-            state = State.SCANNING;
-        }
-        else if (dynamicFilterActive && maxSpeculativeBufferSize > 0) {
-            // Start planFiles() immediately with static predicates
-            initializeScan();
-            state = State.SPECULATING;
-            speculativeBuffer = new ArrayList<>();
-        }
-        else {
-            state = State.WAITING_FOR_FILTER;
+            scanning = true;
         }
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
-        switch (state) {
-            case SCANNING:
-                return completedFuture(enumerateSplitBatch(maxSize));
-            case SPECULATING:
-                return handleSpeculativeBatch(maxSize);
-            case WAITING_FOR_FILTER:
-                return handleBlockingBatch(maxSize);
-            default:
-                throw new IllegalStateException("Unexpected state: " + state);
-        }
-    }
-
-    private CompletableFuture<ConnectorSplitBatch> handleSpeculativeBatch(int maxSize)
-    {
-        drainAvailableTasks();
-
-        if (speculativeBuffer == null) {
-            return handleBlockingBatch(maxSize);
-        }
-
-        startFilterWaitTimer();
-
-        if (dynamicFilter.isComplete(relevantFilterColumns)) {
-            recordFilterWaitTime();
-            dynamicFilterApplied = true;
-            applyRetroactiveFilter(dynamicFilter.getCurrentPredicate());
+        if (scanning) {
             return completedFuture(enumerateSplitBatch(maxSize));
         }
-
-        CompletableFuture<?> blocked = dynamicFilter.isBlocked(relevantFilterColumns);
-
-        if (!blocked.isDone()) {
-            return blocked.thenApply(v -> EMPTY_BATCH_NOT_FINISHED);
-        }
-
-        // Timeout or unblocked but not complete — apply whatever we have
-        recordFilterWaitTime();
-        if (dynamicFilter.isComplete(relevantFilterColumns)) {
-            dynamicFilterApplied = true;
-            applyRetroactiveFilter(dynamicFilter.getCurrentPredicate());
-        }
-        else {
-            // Timeout — use buffer as-is (no retroactive pruning)
-            dynamicFilterApplied = false;
-            applyRetroactiveFilter(TupleDomain.all());
-        }
-        return completedFuture(enumerateSplitBatch(maxSize));
+        return handleBlockingBatch(maxSize);
     }
 
     private CompletableFuture<ConnectorSplitBatch> handleBlockingBatch(int maxSize)
@@ -234,7 +157,7 @@ public class IcebergSplitSource
             recordFilterWaitTime();
             dynamicFilterApplied = true;
             initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
-            state = State.SCANNING;
+            scanning = true;
             return completedFuture(enumerateSplitBatch(maxSize));
         }
 
@@ -249,7 +172,7 @@ public class IcebergSplitSource
         recordFilterWaitTime();
         dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
         initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
-        state = State.SCANNING;
+        scanning = true;
 
         return completedFuture(enumerateSplitBatch(maxSize));
     }
@@ -259,114 +182,6 @@ public class IcebergSplitSource
         if (filterWaitStartNanos == 0) {
             filterWaitStartNanos = System.nanoTime();
         }
-    }
-
-    private void drainAvailableTasks()
-    {
-        int drained = 0;
-        while (drained < SPECULATIVE_DRAIN_BATCH_SIZE
-                && speculativeBuffer.size() < maxSpeculativeBufferSize
-                && fileScanTaskIterator.hasNext()) {
-            speculativeBuffer.add(fileScanTaskIterator.next());
-            drained++;
-        }
-        speculativeTasksBuffered += drained;
-
-        if (speculativeBuffer.size() >= maxSpeculativeBufferSize && fileScanTaskIterator.hasNext()) {
-            fallBackToBlockingPath();
-        }
-    }
-
-    private void fallBackToBlockingPath()
-    {
-        state = State.WAITING_FOR_FILTER;
-        speculativeBuffer = null;
-        speculativeTasksBuffered = 0;
-        speculativeTasksPruned = 0;
-        try {
-            if (fileScanTaskIterator != null) {
-                fileScanTaskIterator.close();
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        runtimeStats.addMetricValue(DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW, NONE, 1);
-    }
-
-    private void applyRetroactiveFilter(TupleDomain<ColumnHandle> constraint)
-    {
-        while (fileScanTaskIterator.hasNext()) {
-            speculativeBuffer.add(fileScanTaskIterator.next());
-            speculativeTasksBuffered++;
-        }
-
-        if (constraint.isAll()) {
-            switchToFilteredMode(speculativeBuffer);
-            return;
-        }
-
-        if (constraint.isNone()) {
-            speculativeTasksPruned = speculativeTasksBuffered;
-            switchToFilteredMode(ImmutableList.of());
-            return;
-        }
-
-        TupleDomain<IcebergColumnHandle> icebergConstraint = constraint
-                .transform(columnHandle -> (IcebergColumnHandle) columnHandle);
-        Expression dfExpression = toIcebergExpression(icebergConstraint);
-        InclusiveMetricsEvaluator metricsEvaluator = new InclusiveMetricsEvaluator(tableScan.schema(), dfExpression);
-        Map<Integer, Evaluator> partitionEvaluatorCache = new HashMap<>();
-
-        List<FileScanTask> filtered = new ArrayList<>();
-        for (FileScanTask task : speculativeBuffer) {
-            if (taskMatchesFilter(task, dfExpression, metricsEvaluator, partitionEvaluatorCache)) {
-                filtered.add(task);
-            }
-            else {
-                speculativeTasksPruned++;
-            }
-        }
-
-        runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
-        icebergConstraint.getDomains().ifPresent(domains ->
-                runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
-
-        if (extendedMetrics) {
-            runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER, NONE, speculativeTasksBuffered);
-        }
-
-        switchToFilteredMode(filtered);
-    }
-
-    private boolean taskMatchesFilter(
-            FileScanTask task,
-            Expression expression,
-            InclusiveMetricsEvaluator metricsEvaluator,
-            Map<Integer, Evaluator> partitionEvaluatorCache)
-    {
-        // Level 1: Partition-level evaluation
-        if (task.spec().isPartitioned()) {
-            Evaluator partitionEvaluator = partitionEvaluatorCache.computeIfAbsent(
-                    task.spec().specId(),
-                    specId -> {
-                        Expression projected = Projections.inclusive(task.spec()).project(expression);
-                        return new Evaluator(task.spec().partitionType(), projected, false);
-                    });
-            if (!partitionEvaluator.eval(task.file().partition())) {
-                return false;
-            }
-        }
-
-        // Level 2: File-level column stats (min/max bounds, null counts)
-        return metricsEvaluator.eval(task.file());
-    }
-
-    private void switchToFilteredMode(List<FileScanTask> filteredTasks)
-    {
-        state = State.SCANNING;
-        fileScanTaskIterator = CloseableIterator.withClose(filteredTasks.iterator());
-        speculativeBuffer = null; // allow GC
     }
 
     private void recordFilterWaitTime()
@@ -532,7 +347,7 @@ public class IcebergSplitSource
     @Override
     public boolean isFinished()
     {
-        return state == State.SCANNING && !fileScanTaskIterator.hasNext();
+        return scanning && !fileScanTaskIterator.hasNext();
     }
 
     @Override
@@ -548,14 +363,9 @@ public class IcebergSplitSource
 
             long splitsBeforeFilter = dynamicFilterApplied ? 0 : splitsExamined;
             runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_BEFORE_FILTER, NONE, splitsBeforeFilter);
-
-            if (speculativeTasksBuffered > 0) {
-                runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED, NONE, speculativeTasksBuffered);
-                runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED, NONE, speculativeTasksPruned);
-            }
         }
 
-        boolean waitTimeAlreadyRecorded = (state == State.SCANNING && filterWaitStartNanos != 0);
+        boolean waitTimeAlreadyRecorded = (scanning && filterWaitStartNanos != 0);
         if (dynamicFilterActive && !waitTimeAlreadyRecorded) {
             runtimeStats.addMetricValue(DYNAMIC_FILTER_WAIT_TIME_NANOS, NANO, 0);
         }

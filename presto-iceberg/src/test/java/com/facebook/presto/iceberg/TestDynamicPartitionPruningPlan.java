@@ -110,7 +110,7 @@ public class TestDynamicPartitionPruningPlan
                                         exchange(
                                                 exchange(
                                                         project(
-                                                                filter("DIM_REGION = 'WEST'",
+                                                                filter("DIM_REGION = 'WEST' AND DIM_CID IN (1, 2, 3)",
                                                                         tableScan("plan_dim_customers", ImmutableMap.of(
                                                                                 "DIM_CID", "customer_id",
                                                                                 "DIM_REGION", "region"))))))))));

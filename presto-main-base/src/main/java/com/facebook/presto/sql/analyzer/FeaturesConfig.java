@@ -181,8 +181,9 @@ public class FeaturesConfig
     private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
     private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
     private boolean distributedDynamicFilterExtendedMetrics;
-    private double distributedDynamicFilterCardinalityRatioThreshold = 0.5;
+    private double distributedDynamicFilterCardinalityRatioThreshold = 0.1;
     private long distributedDynamicFilterDiscreteValuesLimit = 10000;
+    private DataSize distributedDynamicFilterMinProbeSize = new DataSize(256, MEGABYTE);
 
     private boolean fragmentResultCachingEnabled;
 
@@ -1692,6 +1693,20 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedDynamicFilterDiscreteValuesLimit(long distributedDynamicFilterDiscreteValuesLimit)
     {
         this.distributedDynamicFilterDiscreteValuesLimit = distributedDynamicFilterDiscreteValuesLimit;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getDistributedDynamicFilterMinProbeSize()
+    {
+        return distributedDynamicFilterMinProbeSize;
+    }
+
+    @Config("distributed-dynamic-filter.min-probe-size")
+    @ConfigDescription("Minimum per-node probe-side estimated size for cost-based dynamic filter creation")
+    public FeaturesConfig setDistributedDynamicFilterMinProbeSize(DataSize distributedDynamicFilterMinProbeSize)
+    {
+        this.distributedDynamicFilterMinProbeSize = distributedDynamicFilterMinProbeSize;
         return this;
     }
 

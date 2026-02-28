@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.Metadata;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
@@ -68,6 +70,7 @@ import static org.testng.Assert.assertNull;
 public class TestAddDynamicFilterRule
 {
     private RuleTester tester;
+    private final TaskCountEstimator taskCountEstimator = new TaskCountEstimator(() -> 4);
 
     @BeforeClass
     public void setUp()
@@ -84,7 +87,7 @@ public class TestAddDynamicFilterRule
     @Test
     public void testAlwaysCreatesAllFilters()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -104,7 +107,7 @@ public class TestAddDynamicFilterRule
     @Test
     public void testAlwaysCreatesTwoClauses()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .on(p -> {
                     VariableReferenceExpression probeKey1 = p.variable("probeKey1", BIGINT);
@@ -132,8 +135,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedSkipsHighRatioAndHighNdv()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -157,8 +162,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedCreatesFilterForLowNdv()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -186,8 +193,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedCreatesFilterForGoodRatio()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -215,8 +224,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedMixedClauses()
     {
-        PlanNode result = tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        PlanNode result = tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey1 = p.variable("probeKey1", BIGINT);
                     VariableReferenceExpression probeKey2 = p.variable("probeKey2", BIGINT);
@@ -251,8 +262,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedSkipsUnknownStats()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -273,8 +286,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedRespectsCustomThresholds()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD, "0.9")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT, "10")
                 .on(p -> {
@@ -304,8 +319,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedSkipsBuildCoveringProbe()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -332,8 +349,10 @@ public class TestAddDynamicFilterRule
     @Test
     public void testCostBasedCreatesFilterWhenBuildDoesNotCoverProbe()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -364,7 +383,7 @@ public class TestAddDynamicFilterRule
     @Test
     public void testDisabledDoesNotFire()
     {
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "DISABLED")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -384,8 +403,10 @@ public class TestAddDynamicFilterRule
         Metadata metadataWithDiscretePredicates = createMetadataWithDiscretePredicates(partitionColumn);
         TableHandle tableHandle = createTableHandle();
 
-        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates))
+        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates, taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
                     VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
@@ -412,11 +433,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -451,11 +474,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -491,11 +516,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -531,11 +558,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -571,11 +600,13 @@ public class TestAddDynamicFilterRule
 
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates))
+        tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates, taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -608,11 +639,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -641,11 +674,13 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "false")
                 .setRuntimeStats(new RuntimeStats())
                 .build();
 
-        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata()))
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .withSession(session)
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);

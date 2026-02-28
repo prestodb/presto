@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -33,15 +35,19 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterCardinalityRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMinProbeSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
+import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterRule.resolveProbeColumnMapping;
@@ -62,10 +68,12 @@ public class AddDynamicFilterToSemiJoinRule
             .matching(node -> node.getDynamicFilters().isEmpty());
 
     private final Metadata metadata;
+    private final TaskCountEstimator taskCountEstimator;
 
-    public AddDynamicFilterToSemiJoinRule(Metadata metadata)
+    public AddDynamicFilterToSemiJoinRule(Metadata metadata, TaskCountEstimator taskCountEstimator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
@@ -130,6 +138,29 @@ public class AddDynamicFilterToSemiJoinRule
                         : DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN, columnName);
             }
             return create;
+        }
+
+        // Skip DPP for joins likely to be broadcast — Velox handles same-fragment filtering
+        double buildSizeBytes = buildStats.getOutputSizeInBytes(node.getFilteringSource());
+        DataSize broadcastThreshold = getJoinMaxBroadcastTableSize(session);
+        if (isFinite(buildSizeBytes) && buildSizeBytes <= broadcastThreshold.toBytes()) {
+            if (extendedMetrics) {
+                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN, columnName);
+            }
+            return false;
+        }
+
+        // Skip DPP for small probe-side scans — overhead exceeds possible savings
+        // Threshold is per-node: divide total probe size by cluster size
+        double probeSizeBytes = probeStats.getOutputSizeInBytes(node.getSource());
+        DataSize minProbeSize = getDistributedDynamicFilterMinProbeSize(session);
+        int taskCount = Math.max(1, taskCountEstimator.estimateSourceDistributedTaskCount());
+        double perNodeProbeSizeBytes = probeSizeBytes / taskCount;
+        if (isFinite(perNodeProbeSizeBytes) && perNodeProbeSizeBytes <= minProbeSize.toBytes()) {
+            if (extendedMetrics) {
+                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE, columnName);
+            }
+            return false;
         }
 
         VariableStatsEstimate buildVarStats = buildStats.getVariableStatistics(node.getFilteringSourceJoinVariable());
