@@ -216,7 +216,11 @@ public class TestGeoFunctions
     @Test
     public void testSTCentroid()
     {
-        assertCentroid("LINESTRING EMPTY", new Point());
+        // empty geometries
+        assertCentroidIsNull("LINESTRING EMPTY");
+        assertCentroidIsNull("POLYGON EMPTY");
+        assertCentroidIsNull("MULTIPOLYGON EMPTY");
+
         assertCentroid("POINT (3 5)", new Point(3, 5));
         assertCentroid("MULTIPOINT (1 2, 2 4, 3 6, 4 8)", new Point(2.5, 5));
         assertCentroid("LINESTRING (1 1, 2 2, 3 3)", new Point(2, 2));
@@ -245,6 +249,11 @@ public class TestGeoFunctions
         assertApproximateCentroid(
                 "POLYGON ((-81.0387349 29.20822, -81.039974 29.210597, -81.0410331 29.2101579, -81.0404758 29.2090879, -81.0404618 29.2090609, -81.040433 29.209005, -81.0404269 29.208993, -81.0404161 29.2089729, -81.0398001 29.20779, -81.0387349 29.20822), (-81.0404229 29.208986, -81.04042 29.2089809, -81.0404269 29.208993, -81.0404229 29.208986))",
                 new Point(-81.039885, 29.209191), 1e-6);
+    }
+
+    private void assertCentroidIsNull(String wkt)
+    {
+        assertFunction(format("ST_Centroid(ST_GeometryFromText('%s'))", wkt), GEOMETRY, null);
     }
 
     private void assertCentroid(String wkt, Point centroid)
