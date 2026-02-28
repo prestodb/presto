@@ -1,0 +1,786 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.flightshim;
+
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorPageSource;
+import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.AllocationHelper;
+import org.apache.arrow.vector.BaseFixedWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
+import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Objects.requireNonNull;
+
+public class ArrowBatchSource
+        implements Closeable
+{
+    private final List<ColumnMetadata> columns;
+    private final VectorSchemaRoot root;
+    private final List<ArrowShimWriter> writers;
+    private final int maxRowsPerBatch;
+    private final ConnectorPageSource pageSource;
+
+    private Page currentPage;
+    private int currentPosition;
+
+    public ArrowBatchSource(BufferAllocator allocator, List<ColumnMetadata> columns, ConnectorPageSource pageSource, int maxRowsPerBatch)
+    {
+        this.columns = unmodifiableList(new ArrayList<>(requireNonNull(columns, "columns is null")));
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
+        this.maxRowsPerBatch = maxRowsPerBatch;
+        this.root = createVectorSchemaRoot(allocator, columns);
+        this.writers = createArrowWriters(root);
+    }
+
+    public VectorSchemaRoot getVectorSchemaRoot()
+    {
+        return root;
+    }
+
+    /**
+     * Loads the next record batch from the source.
+     * Returns false if there are no more batches from the source.
+     */
+    public boolean nextBatch()
+    {
+        // Release previous buffers
+        root.clear();
+
+        // Reserve capacity for next batch
+        allocateVectorCapacity(root, maxRowsPerBatch);
+
+        int row = 0;
+        while (row < maxRowsPerBatch) {
+            if (currentPage == null || currentPosition >= currentPage.getPositionCount()) {
+                if (pageSource.isFinished()) {
+                    break;
+                }
+
+                currentPage = pageSource.getNextPage();
+                currentPosition = 0;
+
+                if (currentPage == null || currentPage.getPositionCount() == 0) {
+                    continue;
+                }
+            }
+
+            int position = currentPosition;
+            for (int column = 0; column < writers.size(); column++) {
+                Block block = currentPage.getBlock(column);
+                ArrowShimWriter writer = writers.get(column);
+
+                if (block.isNull(position)) {
+                    writer.writeNull(row);
+                }
+                else {
+                    ColumnMetadata columnMetadata = columns.get(column);
+                    Type type = columnMetadata.getType();
+                    writeValueFromBlock(writer, row, type, block, position);
+                }
+            }
+            currentPosition++;
+            row++;
+        }
+        root.setRowCount(row);
+        return row > 0;
+    }
+
+    private static void writeValueFromBlock(ArrowShimWriter writer, int row, Type type, Block block, int position)
+    {
+        Class<?> javaType = type.getJavaType();
+        if (javaType == boolean.class) {
+            writer.writeBoolean(row, type.getBoolean(block, position));
+        }
+        else if (javaType == long.class) {
+            if (block instanceof IntArrayBlock) {
+                writer.writeLong(row, block.toLong(position));
+            }
+            else {
+                writer.writeLong(row, type.getLong(block, position));
+            }
+        }
+        else if (javaType == double.class) {
+            writer.writeDouble(row, type.getDouble(block, position));
+        }
+        else if (javaType == Slice.class) {
+            Slice slice = type.getSlice(block, position);
+            writer.writeSlice(row, slice, 0, slice.length());
+        }
+        else if (javaType == Block.class) {
+            writer.writeBlock(row, block, position, type);
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported block type: " + type);
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        root.close();
+        pageSource.close();
+    }
+
+    private static VectorSchemaRoot createVectorSchemaRoot(BufferAllocator allocator, List<ColumnMetadata> columns)
+    {
+        List<Field> fields = columns.stream().map(ArrowBatchSource::prestoToArrowField).collect(Collectors.toList());
+        Schema schema = new Schema(fields);
+
+        return VectorSchemaRoot.create(schema, allocator);
+    }
+
+    private static Field prestoToArrowField(ColumnMetadata column)
+    {
+        Field field;
+        Map<String, String> metadata = column.getProperties().entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, Object::toString));
+        if (column.getType().getTypeSignature().getBase().equals(ARRAY)) {
+            ArrayType arrayType = (ArrayType) column.getType();
+            Field childField = prestoToArrowField(ColumnMetadata.builder().setName(BaseRepeatedValueVector.DATA_VECTOR_NAME).setType(arrayType.getElementType()).build());
+            field = new Field(column.getName(), new FieldType(column.isNullable(), ArrowType.List.INSTANCE, null, metadata), ImmutableList.of(childField));
+        }
+        else if (column.getType().getTypeSignature().getBase().equals(MAP)) {
+            MapType mapType = (MapType) column.getType();
+            // NOTE: Arrow key type must be non-nullable
+            Field keyField = prestoToArrowField(ColumnMetadata.builder().setName(MapVector.KEY_NAME).setType(mapType.getKeyType()).setNullable(false).build());
+            Field valueField = prestoToArrowField(ColumnMetadata.builder().setName(MapVector.VALUE_NAME).setType(mapType.getValueType()).build());
+            Field entriesField = new Field(MapVector.DATA_VECTOR_NAME, FieldType.notNullable(ArrowType.Struct.INSTANCE), ImmutableList.of(keyField, valueField));
+            field = new Field(column.getName(), new FieldType(column.isNullable(), new ArrowType.Map(false), null, metadata), ImmutableList.of(entriesField));
+        }
+        else if (column.getType().getTypeSignature().getBase().equals(ROW)) {
+            RowType rowType = (RowType) column.getType();
+            List<RowType.Field> rowFields = rowType.getFields();
+
+            AtomicInteger childCount = new AtomicInteger();
+            List<Field> childFields = rowFields.stream().map(f -> prestoToArrowField(
+                    ColumnMetadata.builder().setName(f.getName().orElse(format("$child%s$", childCount.incrementAndGet()))).setType(f.getType()).build()))
+                    .collect(toImmutableList());
+
+            field = new Field(column.getName(), new FieldType(column.isNullable(), ArrowType.Struct.INSTANCE, null, metadata), childFields);
+        }
+        else {
+            ArrowType arrowType = prestoToArrowType(column.getType());
+            field = new Field(column.getName(), new FieldType(column.isNullable(), arrowType, null, metadata), ImmutableList.of());
+        }
+
+        return field;
+    }
+
+    private static ArrowType prestoToArrowType(Type type)
+    {
+        if (type.equals(BooleanType.BOOLEAN)) {
+            return ArrowType.Bool.INSTANCE;
+        }
+        else if (type.equals(TinyintType.TINYINT)) {
+            return Types.MinorType.TINYINT.getType();
+        }
+        else if (type.equals(SmallintType.SMALLINT)) {
+            return Types.MinorType.SMALLINT.getType();
+        }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return Types.MinorType.INT.getType();
+        }
+        else if (type.equals(BigintType.BIGINT)) {
+            return Types.MinorType.BIGINT.getType();
+        }
+        else if (type.equals(RealType.REAL)) {
+            return Types.MinorType.FLOAT4.getType();
+        }
+        else if (type.equals(DoubleType.DOUBLE)) {
+            return Types.MinorType.FLOAT8.getType();
+        }
+        else if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            return new ArrowType.Decimal(decimalType.getPrecision(), decimalType.getScale(), 128);
+        }
+        else if (type.equals(VarbinaryType.VARBINARY)) {
+            return ArrowType.Binary.INSTANCE;
+        }
+        else if (type instanceof CharType) {
+            return ArrowType.Utf8.INSTANCE;
+        }
+        else if (isVarcharType(type)) {
+            return ArrowType.Utf8.INSTANCE;
+        }
+        else if (type instanceof DateType) {
+            return Types.MinorType.DATEDAY.getType();
+        }
+        else if (type instanceof TimeType) {
+            return Types.MinorType.TIMEMILLI.getType();
+        }
+        else if (type instanceof TimestampType) {
+            return Types.MinorType.TIMESTAMPMILLI.getType();
+        }
+        else if (type instanceof TimestampWithTimeZoneType) {
+            // Read as plain timestamp, timezone not supplied with type
+            return Types.MinorType.TIMESTAMPMILLI.getType();
+        }
+        throw new IllegalArgumentException("unsupported type: " + type);
+    }
+
+    private static List<ArrowShimWriter> createArrowWriters(VectorSchemaRoot root)
+    {
+        final List<FieldVector> vectors = root.getFieldVectors();
+        return vectors.stream().map(ArrowBatchSource::createArrowWriter).collect(Collectors.toList());
+    }
+
+    private static ArrowShimWriter createArrowWriter(FieldVector vector)
+    {
+        switch (vector.getMinorType()) {
+            case BIT:
+                return new ArrowShimBitWriter((BitVector) vector);
+            case TINYINT:
+                return new ArrowShimTinyIntWriter((TinyIntVector) vector);
+            case SMALLINT:
+                return new ArrowShimSmallIntWriter((SmallIntVector) vector);
+            case INT:
+                return new ArrowShimIntWriter((IntVector) vector);
+            case BIGINT:
+                return new ArrowShimLongWriter((BigIntVector) vector);
+            case FLOAT4:
+                return new ArrowShimRealWriter((Float4Vector) vector);
+            case FLOAT8:
+                return new ArrowShimDoubleWriter((Float8Vector) vector);
+            case DECIMAL:
+                return new ArrowShimDecimalWriter((DecimalVector) vector);
+            case VARBINARY:
+            case VARCHAR:
+                return new ArrowShimVariableWidthWriter((BaseVariableWidthVector) vector);
+            case DATEDAY:
+                return new ArrowShimDateWriter((DateDayVector) vector);
+            case TIMEMILLI:
+                return new ArrowShimTimeWriter((TimeMilliVector) vector);
+            case TIMESTAMPMILLI:
+                return new ArrowShimTimeStampWriter((TimeStampVector) vector);
+            case LIST:
+                return new ArrowShimListWriter((ListVector) vector);
+            case MAP:
+                return new ArrowShimMapWriter((MapVector) vector);
+            case STRUCT:
+                return new ArrowShimStructWriter((StructVector) vector);
+            default:
+                throw new IllegalArgumentException("Unsupported Arrow type: " + vector.getMinorType().name());
+        }
+    }
+
+    private static void allocateVectorCapacity(VectorSchemaRoot root, int capacity)
+    {
+        for (ValueVector vector : root.getFieldVectors()) {
+            vector.setInitialCapacity(capacity);
+            AllocationHelper.allocateNew(vector, capacity);
+        }
+    }
+
+    private abstract static class ArrowShimWriter
+    {
+        public abstract void writeNull(int index);
+
+        public void writeBoolean(int index, boolean value)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+
+        public void writeLong(int index, long value)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+
+        public void writeDouble(int index, double value)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+
+        public void writeSlice(int index, Slice value, int offset, int length)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            throw new UnsupportedOperationException(getClass().getName());
+        }
+    }
+
+    private abstract static class ArrowFixedWidthShimWriter
+            extends ArrowShimWriter
+    {
+        public abstract BaseFixedWidthVector getVector();
+
+        @Override
+        public void writeNull(int index)
+        {
+            getVector().setNull(index);
+        }
+    }
+
+    private static class ArrowShimBitWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final BitVector vector;
+
+        public ArrowShimBitWriter(BitVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public BitVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeBoolean(int index, boolean value)
+        {
+            vector.set(index, value ? 1 : 0);
+        }
+    }
+
+    private static class ArrowShimTinyIntWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final TinyIntVector vector;
+
+        public ArrowShimTinyIntWriter(TinyIntVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public TinyIntVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimSmallIntWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final SmallIntVector vector;
+
+        public ArrowShimSmallIntWriter(SmallIntVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public SmallIntVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimIntWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final IntVector vector;
+
+        public ArrowShimIntWriter(IntVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public IntVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimLongWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final BigIntVector vector;
+
+        public ArrowShimLongWriter(BigIntVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public BigIntVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, value);
+        }
+    }
+
+    private static class ArrowShimRealWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final Float4Vector vector;
+
+        public ArrowShimRealWriter(Float4Vector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public Float4Vector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, intBitsToFloat(toIntExact(value)));
+        }
+    }
+
+    private static class ArrowShimDoubleWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final Float8Vector vector;
+
+        public ArrowShimDoubleWriter(Float8Vector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public Float8Vector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeDouble(int index, double value)
+        {
+            vector.set(index, value);
+        }
+    }
+
+    private static class ArrowShimDecimalWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final DecimalVector vector;
+
+        public ArrowShimDecimalWriter(DecimalVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public DecimalVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            // ShortDecimalType
+            BigInteger unscaledValue = BigInteger.valueOf(value);
+            BigDecimal bigDecimal = new BigDecimal(unscaledValue, vector.getScale(), new MathContext(vector.getPrecision()));
+            vector.set(index, bigDecimal);
+        }
+
+        @Override
+        public void writeSlice(int index, Slice value, int offset, int length)
+        {
+            // LongDecimalType
+            BigInteger unscaledValue = decodeUnscaledValue(value);
+            BigDecimal bigDecimal = new BigDecimal(unscaledValue, vector.getScale(), new MathContext(vector.getPrecision()));
+            vector.set(index, bigDecimal);
+        }
+    }
+
+    private static class ArrowShimVariableWidthWriter
+            extends ArrowShimWriter
+    {
+        private final BaseVariableWidthVector vector;
+
+        public ArrowShimVariableWidthWriter(BaseVariableWidthVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeSlice(int index, Slice value, int offset, int length)
+        {
+            vector.setSafe(index, value.getBytes(offset, length));
+        }
+    }
+
+    private static class ArrowShimDateWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final DateDayVector vector;
+
+        public ArrowShimDateWriter(DateDayVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public DateDayVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            // Value is supplied as days since epoch UTC
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimTimeWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final TimeMilliVector vector;
+
+        public ArrowShimTimeWriter(TimeMilliVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public TimeMilliVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, (int) value);
+        }
+    }
+
+    private static class ArrowShimTimeStampWriter
+            extends ArrowFixedWidthShimWriter
+    {
+        private final TimeStampVector vector;
+
+        public ArrowShimTimeStampWriter(TimeStampVector vector)
+        {
+            this.vector = vector;
+        }
+
+        @Override
+        public TimeStampVector getVector()
+        {
+            return vector;
+        }
+
+        @Override
+        public void writeLong(int index, long value)
+        {
+            vector.set(index, value);
+        }
+    }
+
+    private static class ArrowShimListWriter
+            extends ArrowShimWriter
+    {
+        private final ListVector vector;
+        private final ArrowShimWriter childWriter;
+
+        public ArrowShimListWriter(ListVector vector)
+        {
+            this.vector = vector;
+            this.childWriter = createArrowWriter(vector.getDataVector());
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            checkArgument(type instanceof ArrayType, "Unknown type for writeBlock: %s", type);
+            ArrayType arrayType = ((ArrayType) type);
+            Block elementBlock = arrayType.getObject(block, position);
+            int dataIndex = vector.startNewValue(index);
+            for (int i = 0; i < elementBlock.getPositionCount(); ++i) {
+                writeValueFromBlock(childWriter, dataIndex + i, arrayType.getElementType(), elementBlock, i);
+            }
+            vector.endValue(index, elementBlock.getPositionCount());
+        }
+    }
+
+    private static class ArrowShimMapWriter
+            extends ArrowShimWriter
+    {
+        private final MapVector vector;
+        private final StructVector structVector;
+        private final ArrowShimWriter keyWriter;
+        private final ArrowShimWriter valueWriter;
+
+        public ArrowShimMapWriter(MapVector vector)
+        {
+            this.vector = vector;
+            this.structVector = (StructVector) vector.getDataVector();
+            this.keyWriter = createArrowWriter((FieldVector) structVector.getChildByOrdinal(0));
+            this.valueWriter = createArrowWriter((FieldVector) structVector.getChildByOrdinal(1));
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            checkArgument(type instanceof MapType, "Unknown type for writeBlock: %s", type);
+            MapType mapType = ((MapType) type);
+            Block singleMapBlock = mapType.getObject(block, position);
+            int dataIndex = vector.startNewValue(index);
+            int numPairs = singleMapBlock.getPositionCount() / 2;
+            for (int i = 0; i < numPairs; ++i) {
+                writeValueFromBlock(keyWriter, dataIndex + i, mapType.getKeyType(), singleMapBlock, i * 2);
+                writeValueFromBlock(valueWriter, dataIndex + i, mapType.getValueType(), singleMapBlock, (i * 2) + 1);
+                structVector.setIndexDefined(dataIndex + i);
+            }
+            vector.endValue(index, numPairs);
+        }
+    }
+
+    private static class ArrowShimStructWriter
+            extends ArrowShimWriter
+    {
+        private final StructVector vector;
+        private final List<ArrowShimWriter> childWriters;
+
+        public ArrowShimStructWriter(StructVector vector)
+        {
+            this.vector = vector;
+            this.childWriters = vector.getChildrenFromFields().stream().map(ArrowBatchSource::createArrowWriter).collect(Collectors.toList());
+        }
+
+        @Override
+        public void writeNull(int index)
+        {
+            vector.setNull(index);
+        }
+
+        @Override
+        public void writeBlock(int index, Block block, int position, Type type)
+        {
+            checkArgument(type instanceof RowType, "Unknown type for writeBlock: %s", type);
+            RowType rowType = ((RowType) type);
+            Block singleRowBlock = rowType.getObject(block, position);
+            for (int i = 0; i < childWriters.size(); ++i) {
+                writeValueFromBlock(childWriters.get(i), index, rowType.getTypeParameters().get(i), singleRowBlock, i);
+            }
+            vector.setIndexDefined(index);
+        }
+    }
+}
