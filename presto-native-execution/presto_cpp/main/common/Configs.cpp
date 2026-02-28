@@ -92,6 +92,19 @@ bool ConfigBase::registerProperty(
   return true;
 }
 
+bool ConfigBase::updatePropertyDefault(
+    const std::string& propertyName,
+    const folly::Optional<std::string>& newDefaultValue) {
+  auto it = registeredProps_.find(propertyName);
+  if (it == registeredProps_.end()) {
+    PRESTO_STARTUP_LOG(WARNING)
+        << "Property '" << propertyName << "' is not registered.";
+    return false;
+  }
+  it->second = newDefaultValue;
+  return true;
+}
+
 folly::Optional<std::string> ConfigBase::setValue(
     const std::string& propertyName,
     const std::string& value) {

@@ -386,6 +386,51 @@ TEST_F(ConfigTest, readConfigEnvVarTest) {
   unsetenv(kEmptyEnvVarName.c_str());
 }
 
+TEST_F(ConfigTest, updatePropertyDefault) {
+  SystemConfig config;
+  init(config, {});
+
+  // Test updating an existing registered property's default value.
+  // kMaxDriversPerTask has a default of hardware_concurrency, so we update it.
+  ASSERT_TRUE(config.updatePropertyDefault(
+      std::string(SystemConfig::kMaxDriversPerTask), std::string("42")));
+  ASSERT_EQ(config.maxDriversPerTask(), 42);
+
+  // Test updating to a different value.
+  ASSERT_TRUE(config.updatePropertyDefault(
+      std::string(SystemConfig::kMaxDriversPerTask), std::string("100")));
+  ASSERT_EQ(config.maxDriversPerTask(), 100);
+
+  // Test that updating an unregistered property returns false.
+  ASSERT_FALSE(config.updatePropertyDefault(
+      "unregistered.property", std::string("value")));
+
+  // Test clearing a default by passing folly::none.
+  // kDiscoveryUri has no default, so we first set one, then clear it.
+  ASSERT_TRUE(config.updatePropertyDefault(
+      std::string(SystemConfig::kDiscoveryUri), std::string("http://test")));
+  ASSERT_EQ(config.discoveryUri(), "http://test");
+  ASSERT_TRUE(config.updatePropertyDefault(
+      std::string(SystemConfig::kDiscoveryUri), folly::none));
+  ASSERT_EQ(config.discoveryUri(), folly::none);
+}
+
+TEST_F(ConfigTest, updatePropertyDefaultDoesNotOverrideExplicitValue) {
+  SystemConfig config;
+  // Initialize with an explicit value for kMaxDriversPerTask.
+  init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "200"}});
+
+  // The explicit value should be used.
+  ASSERT_EQ(config.maxDriversPerTask(), 200);
+
+  // Update the default value.
+  ASSERT_TRUE(config.updatePropertyDefault(
+      std::string(SystemConfig::kMaxDriversPerTask), std::string("42")));
+
+  // The explicit value should still be used, not the updated default.
+  ASSERT_EQ(config.maxDriversPerTask(), 200);
+}
+
 TEST_F(ConfigTest, prestoDefaultNamespacePrefix) {
   SystemConfig config;
   init(
