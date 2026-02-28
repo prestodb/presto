@@ -125,6 +125,25 @@ public class PrestoConnection
 
         this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
         initializeQueryInterceptors();
+
+        // Validate connection if requested
+        if (uri.shouldValidateConnection()) {
+            validateConnection();
+        }
+    }
+
+    private void validateConnection()
+            throws SQLException
+    {
+        try (Statement statement = createStatement();
+                ResultSet rs = statement.executeQuery("SELECT 1")) {
+            if (!rs.next()) {
+                throw new SQLException("Connection validation failed: query returned no results");
+            }
+        }
+        catch (SQLException e) {
+            throw new SQLException("Connection validation failed: " + e.getMessage(), e);
+        }
     }
 
     public static PrestoConnection newConnectionWithSessionProperties(PrestoConnection connectionWithSessionProperties, Properties connectionProperties)
