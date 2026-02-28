@@ -23,7 +23,6 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ChildReplacer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -35,10 +34,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.PlannerUtils.containsSystemTableScan;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.gatheringExchange;
@@ -94,13 +91,12 @@ public class AddExchangesForSingleNodeExecution
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
-            PlanNode plan = pushPredicateIntoTableScan(node, new ConstantExpression(true, BOOLEAN), true, session, idAllocator, metadata);
             // Presto Java and Presto Native use different hash functions for partitioning
             // An additional exchange makes sure the data flows through a native worker in case it need to be partitioned for downstream processing
-            if (containsSystemTableScan(plan)) {
-                plan = gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, plan);
+            if (containsSystemTableScan(node)) {
+                return gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, node);
             }
-            return plan;
+            return node;
         }
 
         @Override
