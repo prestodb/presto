@@ -26,6 +26,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
@@ -68,7 +69,7 @@ public class LongBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -77,14 +78,14 @@ public class LongBatchStreamReader
         if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
             currentReader = directReader;
             if (dictionaryReader != null && resetAllReaders) {
-                dictionaryReader.startStripe(stripe);
+                dictionaryReader.startStripe(timezone, stripe);
                 System.setProperty("RESET_LONG_BATCH_READER", "RESET_LONG_BATCH_READER");
             }
         }
         else if (kind == DICTIONARY) {
             currentReader = dictionaryReader;
             if (directReader != null && resetAllReaders) {
-                directReader.startStripe(stripe);
+                directReader.startStripe(timezone, stripe);
                 System.setProperty("RESET_LONG_BATCH_READER", "RESET_LONG_BATCH_READER");
             }
         }
@@ -92,7 +93,7 @@ public class LongBatchStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timezone, stripe);
     }
 
     @Override

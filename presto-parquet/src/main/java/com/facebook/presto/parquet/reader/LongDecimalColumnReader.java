@@ -18,8 +18,10 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import org.apache.parquet.io.api.Binary;
+import org.joda.time.DateTimeZone;
 
 import java.math.BigInteger;
+import java.util.Optional;
 
 public class LongDecimalColumnReader
         extends AbstractColumnReader
@@ -30,7 +32,7 @@ public class LongDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type type)
+    protected void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary value = valuesReader.readBytes();

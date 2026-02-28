@@ -37,6 +37,7 @@ import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -601,7 +602,7 @@ public class SliceDictionarySelectiveReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
     {
         InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
         stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(context.getStreamDescriptor(), DICTIONARY_DATA, ByteArrayInputStream.class);

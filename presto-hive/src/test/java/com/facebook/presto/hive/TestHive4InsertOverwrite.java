@@ -11,20 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.hive;
 
-package com.facebook.presto.hive.functions.type;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 
-import org.apache.hadoop.hive.common.type.Date;
-
-import java.util.concurrent.TimeUnit;
-
-public final class DateTimeUtils
+public class TestHive4InsertOverwrite
+        extends BaseTestHiveInsertOverwrite
 {
-    private DateTimeUtils() {}
-
-    public static Date createDate(Object days)
+    public TestHive4InsertOverwrite()
     {
-        long millis = TimeUnit.DAYS.toMillis(((long) days));
-        return Date.ofEpochMilli(millis);
+        super(HIVE4_IMAGE);
     }
 }

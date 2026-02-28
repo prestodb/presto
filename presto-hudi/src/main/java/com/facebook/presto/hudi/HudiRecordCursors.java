@@ -91,7 +91,7 @@ class HudiRecordCursors
         return hdfsEnvironment.doAs(session.getUser(), () -> {
             RecordReader<?, ?> recordReader = createRecordReader(configuration, schema, split, dataColumns);
             @SuppressWarnings("unchecked") RecordReader<?, ? extends Writable> reader = (RecordReader<?, ? extends Writable>) recordReader;
-            return createRecordCursor(configuration, path, reader, baseFile.getLength(), schema, dataColumns, hiveStorageTimeZone, typeManager);
+            return createRecordCursor(session, configuration, path, reader, baseFile.getLength(), schema, dataColumns, hiveStorageTimeZone, typeManager);
         });
     }
 
