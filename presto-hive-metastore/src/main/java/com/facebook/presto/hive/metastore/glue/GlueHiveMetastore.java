@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
+import com.facebook.airlift.concurrent.MoreFutures;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
@@ -26,6 +28,7 @@ import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.MetastoreOperationResult;
@@ -52,6 +55,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
@@ -77,6 +81,9 @@ import software.amazon.awssdk.services.glue.model.BatchCreatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchCreatePartitionResponse;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionResponse;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequest;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequestEntry;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionResponse;
 import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
@@ -112,6 +119,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +138,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
@@ -138,6 +145,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStati
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isManagedTable;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartitionName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyCanDropColumn;
@@ -152,15 +160,21 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.immutableEntry;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 
 public class GlueHiveMetastore
         implements ExtendedHiveMetastore
 {
+    private static final Logger log = Logger.get(GlueHiveMetastore.class);
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String DEFAULT_METASTORE_USER = "presto";
     private static final String WILDCARD_EXPRESSION = "";
@@ -183,23 +197,28 @@ public class GlueHiveMetastore
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     // this is the total number of partitions allowed per batch that glue metastore can process to create partitions
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
+    private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Partition> PARTITION_COMPARATOR = comparing(Partition::getValues, lexicographical(String.CASE_INSENSITIVE_ORDER));
 
     private final GlueMetastoreStats stats = new GlueMetastoreStats();
+    private final GlueColumnStatisticsProvider columnStatisticsProvider;
+    private final boolean enableColumnStatistics;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final GlueAsyncClient glueClient;
     private final Optional<String> defaultDir;
     private final String catalogId;
     private final int partitionSegments;
-    private final Executor executor;
+    private final Executor partitionsReadExecutor;
 
     @Inject
     public GlueHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
-            @ForGlueHiveMetastore Executor executor)
+            @ForGlueHiveMetastore Executor partitionsReadExecutor,
+            @ForGlueColumnStatisticsRead Executor statisticsReadExecutor,
+            @ForGlueColumnStatisticsWrite Executor statisticsWriteExecutor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
@@ -207,7 +226,14 @@ public class GlueHiveMetastore
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
-        this.executor = requireNonNull(executor, "executor is null");
+        this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "partitionsReadExecutor is null");
+        this.enableColumnStatistics = glueConfig.isColumnStatisticsEnabled();
+        if (this.enableColumnStatistics) {
+            this.columnStatisticsProvider = new DefaultGlueColumnStatisticsProvider(glueClient, catalogId, statisticsReadExecutor, statisticsWriteExecutor, stats);
+        }
+        else {
+            this.columnStatisticsProvider = new DisabledGlueColumnStatisticsProvider();
+        }
     }
 
     private static GlueAsyncClient createAsyncGlueClient(GlueHiveMetastoreConfig config, MetricPublisher metricPublisher)
@@ -354,7 +380,7 @@ public class GlueHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
-        return ImmutableSet.of();
+        return columnStatisticsProvider.getSupportedColumnStatistics(type);
     }
 
     private Table getTableOrElseThrow(MetastoreContext metastoreContext, String databaseName, String tableName)
@@ -368,20 +394,40 @@ public class GlueHiveMetastore
     {
         Table table = getTable(metastoreContext, databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
-        return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), ImmutableMap.of());
+        return new PartitionStatistics(getHiveBasicStatistics(table.getParameters()), columnStatisticsProvider.getTableColumnStatistics(table));
     }
 
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
     {
-        ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionNamesWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
-            Partition partition = optionalPartition.orElseThrow(() ->
-                    new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
-            PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
-            result.put(partitionName, partitionStatistics);
-        });
-        return result.build();
+        Table table = getTable(metastoreContext, databaseName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+        return getPartitionStatistics(metastoreContext, getExistingPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionNamesWithEmptyVersion(partitionNames))))
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(
+                        entry -> makePartitionName(table, entry.getKey()),
+                        Entry::getValue));
+    }
+
+    private List<Partition> getExistingPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
+    {
+        Map<String, Partition> partitions = getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).entrySet().stream()
+                .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
+                        new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(entry.getKey())))))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        return (MetastoreUtil.getPartitionNames(partitionNames)).stream()
+                .map(partitions::get)
+                .collect(toImmutableList());
+    }
+
+    private Map<Partition, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, Collection<Partition> partitions)
+    {
+        return columnStatisticsProvider.getPartitionColumnStatistics(partitions).entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> new PartitionStatistics(getHiveBasicStatistics(entry.getKey().getParameters()), entry.getValue())));
     }
 
     @Override
@@ -389,9 +435,6 @@ public class GlueHiveMetastore
     {
         PartitionStatistics currentStatistics = getTableStatistics(metastoreContext, databaseName, tableName);
         PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
 
         Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
 
@@ -399,6 +442,7 @@ public class GlueHiveMetastore
             TableInput tableInput = GlueInputConverter.convertTable(table);
             final Map<String, String> statisticsParameters =
                     updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics());
+            table = Table.builder(table).setParameters(statisticsParameters).build();
 
             awsSyncRequest(
                     glueClient::updateTable,
@@ -408,6 +452,8 @@ public class GlueHiveMetastore
                             .tableInput(tableInput.toBuilder().parameters(statisticsParameters).build())
                             .build(),
                     stats.getUpdateTable());
+
+            columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -418,38 +464,69 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        PartitionStatistics currentStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
-        if (currentStatistics == null) {
-            throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
-        }
-        PartitionStatistics updatedStatistics = update.apply(currentStatistics);
-        if (!updatedStatistics.getColumnStatistics().isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore does not support column level statistics");
-        }
+        Iterables.partition(updates.entrySet(), BATCH_CREATE_PARTITION_MAX_PAGE_SIZE).forEach(partitionUpdates ->
+                updatePartitionStatisticsBatch(metastoreContext, databaseName, tableName, partitionUpdates.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
+    }
 
-        List<String> partitionValues = toPartitionValues(partitionName);
-        Partition partition = getPartition(metastoreContext, databaseName, tableName, partitionValues)
-                .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues));
-        try {
+    private void updatePartitionStatisticsBatch(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    {
+        ImmutableList.Builder<BatchUpdatePartitionRequestEntry> partitionUpdateRequests = ImmutableList.builder();
+        ImmutableSet.Builder<GlueColumnStatisticsProvider.PartitionStatisticsUpdate> columnStatisticsUpdates = ImmutableSet.builder();
+
+        Map<List<String>, String> partitionValuesToName = updates.keySet().stream()
+                .collect(toImmutableMap(MetastoreUtil::toPartitionValues, identity()));
+
+        List<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(updates.keySet()));
+        Map<Partition, Map<String, HiveColumnStatistics>> statisticsPerPartition = columnStatisticsProvider.getPartitionColumnStatistics(partitions);
+
+        statisticsPerPartition.forEach((partition, columnStatistics) -> {
+            Function<PartitionStatistics, PartitionStatistics> update = updates.get(partitionValuesToName.get(partition.getValues()));
+
+            PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), columnStatistics);
+            PartitionStatistics updatedStatistics = update.apply(currentStatistics);
+
+            Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
+
+            partition = Partition.builder(partition).setParameters(updatedStatisticsParameters).build();
+            Map<String, HiveColumnStatistics> updatedColumnStatistics = updatedStatistics.getColumnStatistics();
+
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
-            final Map<String, String> statisticsParameters =
-                    updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
+            partitionUpdateRequests.add(
+                    BatchUpdatePartitionRequestEntry.builder()
+                            .partitionValueList(partition.getValues())
+                            .partitionInput(partitionInput.toBuilder().parameters(partition.getParameters()).build())
+                            .build());
+            columnStatisticsUpdates.add(new GlueColumnStatisticsProvider.PartitionStatisticsUpdate(partition, updatedColumnStatistics));
+        });
 
-            awsSyncRequest(
-                    glueClient::updatePartition,
-                    UpdatePartitionRequest.builder()
+        List<List<BatchUpdatePartitionRequestEntry>> partitionUpdateRequestsPartitioned = Lists.partition(partitionUpdateRequests.build(), BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE);
+        List<CompletableFuture<BatchUpdatePartitionResponse>> partitionUpdateRequestsFutures = new ArrayList<>();
+
+        partitionUpdateRequestsPartitioned.forEach(partitionUpdateRequestsPartition -> {
+            GlueStatsAsyncHandler glueStatsAsyncHandler = new GlueStatsAsyncHandler(stats.getBatchUpdatePartitions());
+
+            partitionUpdateRequestsFutures.add(glueClient.batchUpdatePartition(
+                    BatchUpdatePartitionRequest.builder()
                             .catalogId(catalogId)
                             .databaseName(databaseName)
                             .tableName(tableName)
-                            .partitionValueList(partition.getValues())
-                            .partitionInput(partitionInput.toBuilder().parameters(statisticsParameters).build())
-                            .build(),
-                    stats.getUpdatePartition());
-        }
-        catch (EntityNotFoundException e) {
-            throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partitionValues);
+                            .entries(partitionUpdateRequestsPartition)
+                            .build())
+                    .whenCompleteAsync((response, exception) -> {
+                        if (response != null) {
+                            glueStatsAsyncHandler.onSuccess(response);
+                        }
+                        else if (exception != null) {
+                            glueStatsAsyncHandler.onError(exception);
+                        }
+                    }));
+        });
+
+        try {
+            columnStatisticsProvider.updatePartitionStatistics(columnStatisticsUpdates.build());
+            partitionUpdateRequestsFutures.forEach(MoreFutures::getFutureValue);
         }
         catch (AwsServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -852,7 +929,7 @@ public class GlueHiveMetastore
         }
 
         // Do parallel partition fetch.
-        CompletionService<List<Partition>> completionService = new ExecutorCompletionService<>(executor);
+        CompletionService<List<Partition>> completionService = new ExecutorCompletionService<>(partitionsReadExecutor);
         for (int i = 0; i < partitionSegments; i++) {
             Segment segment = Segment.builder().segmentNumber(i).totalSegments(partitionSegments).build();
             completionService.submit(() -> getPartitions(databaseName, tableName, expression, segment));
@@ -948,36 +1025,52 @@ public class GlueHiveMetastore
 
     private List<Partition> batchGetPartition(String databaseName, String tableName, List<String> partitionNames)
     {
+        List<CompletableFuture<BatchGetPartitionResponse>> batchGetPartitionFutures = new ArrayList<>();
         try {
-            List<CompletableFuture<BatchGetPartitionResponse>> batchGetPartitionFutures = new ArrayList<>();
+            List<PartitionValueList> pendingPartitions = partitionNames.stream()
+                    .map(partitionName -> PartitionValueList.builder().values(toPartitionValues(partitionName)).build())
+                    .collect(toCollection(ArrayList::new));
 
-            for (List<String> partitionNamesBatch : Lists.partition(partitionNames, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
-                List<PartitionValueList> partitionValuesBatch = mappedCopy(partitionNamesBatch, partitionName -> PartitionValueList.builder().values(toPartitionValues(partitionName)).build());
-
-                GlueStatsAsyncHandler asyncHandler = new GlueStatsAsyncHandler(stats.getBatchGetPartitions());
-
-                batchGetPartitionFutures.add(glueClient.batchGetPartition(BatchGetPartitionRequest.builder()
-                        .catalogId(catalogId)
-                        .databaseName(databaseName)
-                        .tableName(tableName)
-                        .partitionsToGet(partitionValuesBatch)
-                        .build())
-                        .whenCompleteAsync((response, exception) -> {
-                            if (response != null) {
-                                asyncHandler.onSuccess(response);
-                            }
-                            else if (exception != null) {
-                                asyncHandler.onError(exception);
-                            }
-                        }));
-            }
+            ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
 
             GluePartitionConverter converter = new GluePartitionConverter(databaseName, tableName);
-            ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
-            for (Future<BatchGetPartitionResponse> future : batchGetPartitionFutures) {
-                future.get().partitions().stream()
-                        .map(converter)
-                        .forEach(resultsBuilder::add);
+
+            while (!pendingPartitions.isEmpty()) {
+                for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
+                    GlueStatsAsyncHandler glueStatsAsyncHandler = new GlueStatsAsyncHandler(stats.getBatchGetPartitions());
+
+                    batchGetPartitionFutures.add(glueClient.batchGetPartition(BatchGetPartitionRequest.builder()
+                                    .catalogId(catalogId)
+                                    .databaseName(databaseName)
+                                    .tableName(tableName)
+                                    .partitionsToGet(partitions)
+                                    .build())
+                            .whenCompleteAsync((response, exception) -> {
+                                if (response != null) {
+                                    glueStatsAsyncHandler.onSuccess(response);
+                                }
+                                else if (exception != null) {
+                                    glueStatsAsyncHandler.onError(exception);
+                                }
+                            }));
+                }
+                pendingPartitions.clear();
+
+                for (Future<BatchGetPartitionResponse> futureResponse : batchGetPartitionFutures) {
+                    BatchGetPartitionResponse batchGetPartitionResponse = futureResponse.get();
+                    List<software.amazon.awssdk.services.glue.model.Partition> partitions = batchGetPartitionResponse.partitions();
+                    List<PartitionValueList> unprocessedKeys = batchGetPartitionResponse.unprocessedKeys();
+
+                    if (partitions.isEmpty() && unprocessedKeys.isEmpty()) {
+                        log.warn("Empty unprocessedKeys for non-empty BatchGetPartitionRequest and empty partitions result");
+                    }
+
+                    partitions.stream()
+                            .map(converter)
+                            .forEach(resultsBuilder::add);
+                    pendingPartitions.addAll(unprocessedKeys);
+                }
+                batchGetPartitionFutures.clear();
             }
 
             return resultsBuilder.build();
@@ -987,6 +1080,10 @@ public class GlueHiveMetastore
                 Thread.currentThread().interrupt();
             }
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        finally {
+            // Ensure any futures still running are canceled in case of failure
+            batchGetPartitionFutures.forEach(future -> future.cancel(true));
         }
     }
 
@@ -1002,11 +1099,11 @@ public class GlueHiveMetastore
                 GlueStatsAsyncHandler asyncHandler = new GlueStatsAsyncHandler(stats.getBatchCreatePartitions());
 
                 futures.add(glueClient.batchCreatePartition(BatchCreatePartitionRequest.builder()
-                        .catalogId(catalogId)
-                        .databaseName(databaseName)
-                        .tableName(tableName)
-                        .partitionInputList(partitionInputs)
-                        .build())
+                                .catalogId(catalogId)
+                                .databaseName(databaseName)
+                                .tableName(tableName)
+                                .partitionInputList(partitionInputs)
+                                .build())
                         .whenCompleteAsync((response, exception) -> {
                             if (response != null) {
                                 asyncHandler.onSuccess(response);
@@ -1021,6 +1118,13 @@ public class GlueHiveMetastore
                 BatchCreatePartitionResponse result = future.get();
                 propagatePartitionErrorToPrestoException(databaseName, tableName, result.errors());
             }
+
+            Set<GlueColumnStatisticsProvider.PartitionStatisticsUpdate> updates = partitions.stream()
+                    .map(partitionWithStatistics -> new GlueColumnStatisticsProvider.PartitionStatisticsUpdate(
+                            partitionWithStatistics.getPartition(),
+                            partitionWithStatistics.getStatistics().getColumnStatistics()))
+                    .collect(toImmutableSet());
+            columnStatisticsProvider.updatePartitionStatistics(updates);
 
             return EMPTY_RESULT;
         }
@@ -1093,6 +1197,8 @@ public class GlueHiveMetastore
                             .partitionValueList(partition.getPartition().getValues())
                             .build(),
                     stats.getUpdatePartition());
+
+            columnStatisticsProvider.updatePartitionStatistics(partition.getPartition(), partition.getStatistics().getColumnStatistics());
 
             return EMPTY_RESULT;
         }

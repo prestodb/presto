@@ -417,6 +417,11 @@ public class MetastoreUtil
         return getProtectMode(table.getParameters());
     }
 
+    public static String makePartitionName(Table table, Partition partition)
+    {
+        return makePartName(table.getPartitionColumns(), partition.getValues());
+    }
+
     public static String makePartName(List<Column> partitionColumns, List<String> values)
     {
         checkArgument(partitionColumns.size() == values.size(), "Partition value count does not match the partition column count");

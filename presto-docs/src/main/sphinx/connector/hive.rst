@@ -440,6 +440,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
+
+``hive.metastore.glue.column-statistics-enabled``    Enable use of column statistics on Glue Metastore
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistics reads from Glue
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistics writes to Glue
 ==================================================== ============================================================
 
 .. _s3selectpushdown:

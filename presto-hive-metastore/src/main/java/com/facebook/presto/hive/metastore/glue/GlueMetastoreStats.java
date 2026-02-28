@@ -33,10 +33,17 @@ public class GlueMetastoreStats
     private final GlueCatalogApiStats getTable = new GlueCatalogApiStats();
     private final GlueCatalogApiStats batchCreatePartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats batchGetPartitions = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats batchUpdatePartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats updatePartition = new GlueCatalogApiStats();
     private final GlueCatalogApiStats deletePartition = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartitions = new GlueCatalogApiStats();
     private final GlueCatalogApiStats getPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats getColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForTable = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats updateColumnStatisticsForPartition = new GlueCatalogApiStats();
+    private final GlueCatalogApiStats deleteColumnStatisticsForPartition = new GlueCatalogApiStats();
 
     private final AwsSdkClientStats awsSdkClientStats = new AwsSdkClientStats();
 
@@ -126,6 +133,13 @@ public class GlueMetastoreStats
 
     @Managed
     @Nested
+    public GlueCatalogApiStats getBatchUpdatePartitions()
+    {
+        return batchUpdatePartitions;
+    }
+
+    @Managed
+    @Nested
     public GlueCatalogApiStats getUpdatePartition()
     {
         return updatePartition;
@@ -150,6 +164,48 @@ public class GlueMetastoreStats
     public GlueCatalogApiStats getGetPartition()
     {
         return getPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getGetColumnStatisticsForTable()
+    {
+        return getColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getGetColumnStatisticsForPartition()
+    {
+        return getColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getUpdateColumnStatisticsForTable()
+    {
+        return updateColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getDeleteColumnStatisticsForTable()
+    {
+        return deleteColumnStatisticsForTable;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getUpdateColumnStatisticsForPartition()
+    {
+        return updateColumnStatisticsForPartition;
+    }
+
+    @Managed
+    @Nested
+    public GlueCatalogApiStats getDeleteColumnStatisticsForPartition()
+    {
+        return deleteColumnStatisticsForPartition;
     }
 
     @Managed
