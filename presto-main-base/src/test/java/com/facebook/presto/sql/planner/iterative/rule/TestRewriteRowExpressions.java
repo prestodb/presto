@@ -215,7 +215,7 @@ public class TestRewriteRowExpressions
                             p.values());
                 })
                 .matches(
-                        project(ImmutableMap.of("a", expression("BIGINT'3'")),
+                        project(ImmutableMap.of("a", expression("INTEGER'3'")),
                                 values()));
     }
 
