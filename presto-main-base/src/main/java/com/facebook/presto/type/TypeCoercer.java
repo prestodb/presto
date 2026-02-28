@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
@@ -148,6 +149,7 @@ public class TypeCoercer
                     case StandardTypes.TIME:
                     case StandardTypes.TIME_WITH_TIME_ZONE:
                     case StandardTypes.TIMESTAMP:
+                    case StandardTypes.TIMESTAMP_MICROSECONDS:
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                     case StandardTypes.HYPER_LOG_LOG:
                     case SetDigestType.NAME:
@@ -254,6 +256,8 @@ public class TypeCoercer
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP:
                         return Optional.of(TIMESTAMP);
+                    case StandardTypes.TIMESTAMP_MICROSECONDS:
+                        return Optional.of(TIMESTAMP_MICROSECONDS);
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                         return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
                     default:
@@ -269,6 +273,16 @@ public class TypeCoercer
                 }
             }
             case StandardTypes.TIMESTAMP: {
+                switch (resultTypeBase) {
+                    case StandardTypes.TIMESTAMP_MICROSECONDS:
+                        return Optional.of(TIMESTAMP_MICROSECONDS);
+                    case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
+                        return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
+                    default:
+                        return Optional.empty();
+                }
+            }
+            case StandardTypes.TIMESTAMP_MICROSECONDS: {
                 switch (resultTypeBase) {
                     case StandardTypes.TIMESTAMP_WITH_TIME_ZONE:
                         return Optional.of(TIMESTAMP_WITH_TIME_ZONE);
@@ -419,7 +433,7 @@ public class TypeCoercer
     {
         int targetScale = Math.max(firstType.getScale(), secondType.getScale());
         int targetPrecision = Math.max(firstType.getPrecision() - firstType.getScale(), secondType.getPrecision() - secondType.getScale()) + targetScale;
-        //we allow potential loss of precision here. Overflow checking is done in operators.
+        // we allow potential loss of precision here. Overflow checking is done in operators.
         targetPrecision = Math.min(38, targetPrecision);
         return createDecimalType(targetPrecision, targetScale);
     }
