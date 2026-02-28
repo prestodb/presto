@@ -22,7 +22,7 @@ connector-specific properties. To list all available properties, run the followi
 
 Currently, this statement is only supported by the
 :ref:`Hive connector <hive_analyze>` and
-:doc:`Iceberg connector <../connector/iceberg>`.
+:ref:`Iceberg connector <iceberg_analyze>`.
 
 Examples
 --------
