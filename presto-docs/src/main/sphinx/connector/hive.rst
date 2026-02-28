@@ -791,6 +791,156 @@ If your workload experiences the error *Timeout waiting for connection from
 pool*, increase the value of both ``hive.s3select-pushdown.max-connections`` and
 the maximum connections configuration for the file system you are using.
 
+Azure Configuration
+-------------------
+
+The Hive connector supports Azure Blob Storage (``wasbs://``) and Azure Data Lake Storage Gen2 (``abfss://``).
+Configure Azure storage access in your catalog properties file, such as in ``etc/catalog/hive.properties``.
+
+Azure Blob Storage
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.wasb-storage-account=mystorageaccount
+    hive.azure.wasb-access-key=<wasb-access-key>
+
+ADLS Gen2 - Access Key
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.abfs-storage-account=mydatalake
+    hive.azure.abfs-access-key=<abfs-access-key>
+
+ADLS Gen2 - OAuth 2.0
+^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: none
+
+    hive.azure.abfs-storage-account=mydatalake
+    hive.azure.abfs.oauth.endpoint=https://login.microsoftonline.com/<tenant-id>/oauth2/token
+    hive.azure.abfs.oauth.client-id=<oauth-client-id>
+    hive.azure.abfs.oauth.secret=<your_client_secret_here>
+
+Configuration Properties
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+================================================= ======================================================================
+Property Name                                     Description
+================================================= ======================================================================
+``hive.azure.wasb-storage-account``               Azure Blob Storage account name (without ``.blob.core.windows.net`` suffix)
+
+``hive.azure.wasb-access-key``                    Azure Blob Storage access key
+
+``hive.azure.abfs-storage-account``               ADLS Gen2 Storage account name (without ``.dfs.core.windows.net`` suffix)
+
+``hive.azure.abfs-access-key``                    Shared access key for ADLS Gen2
+
+``hive.azure.abfs.oauth.endpoint``                OAuth 2.0 token endpoint (includes tenant ID)
+                                                  ``https://login.microsoftonline.com/<tenant-id>/oauth2/token``
+
+``hive.azure.abfs.oauth.client-id``               OAuth 2.0 client/application ID
+
+``hive.azure.abfs.oauth.secret``                  OAuth 2.0 client secret
+================================================= ======================================================================
+
+Configuration Requirement
+#########################
+
+* WASB requires both ``wasb-storage-account`` and ``wasb-access-key`` to be set
+* ABFS with access key requires both ``abfs-storage-account`` and ``abfs-access-key`` to be set
+* ABFS with OAuth requires ``abfs-storage-account``, ``abfs.oauth.endpoint``, ``abfs.oauth.client-id``, and ``abfs.oauth.secret`` (all four properties) to be set
+* If both access key and OAuth2 are configured for ABFS, OAuth2 takes precedence with no fallback to access key if OAuth2 fails
+
+Avoid hardcoding credentials in configuration files. Use environment variables or secret management systems.
+
+URI Format
+^^^^^^^^^^
+
+Azure Blob Storage:
+
+.. code-block:: none
+
+    wasbs://<container>@<storage-account>.blob.core.windows.net/<path>
+
+ADLS Gen2:
+
+.. code-block:: none
+
+    abfss://<container>@<storage-account>.dfs.core.windows.net/<path>
+
+Usage Examples
+^^^^^^^^^^^^^^
+
+Create External Table
+#####################
+
+.. code-block:: none
+
+    CREATE TABLE hive.default.orders (
+        orderkey bigint,
+        custkey bigint,
+        orderstatus varchar(1),
+        totalprice double
+    ) WITH (
+        external_location = 'abfss://mycontainer@mydatalake.dfs.core.windows.net/orders/',
+        format = 'PARQUET'
+    );
+
+Create Schema
+#############
+
+.. code-block:: none
+
+    CREATE SCHEMA hive.azure_data
+    WITH (location = 'abfss://mycontainer@mydatalake.dfs.core.windows.net/schemas/');
+
+Query and Write
+###############
+
+.. code-block:: none
+
+    -- Query existing data
+    SELECT * FROM hive.default.orders;
+
+    -- Write new data
+    CREATE TABLE hive.azure_data.sales WITH (format = 'ORC')
+    AS SELECT * FROM hive.default.orders WHERE orderdate > DATE '2024-01-01';
+
+Troubleshooting
+^^^^^^^^^^^^^^^
+
+Authentication Errors
+#####################
+
+If you see ``403 Forbidden`` or ``401 Unauthorized``:
+
+* Verify storage account names are correct (without ``.blob.core.windows.net`` or ``.dfs.core.windows.net`` suffix)
+* Check if access keys or OAuth2 credentials are correct
+* For OAuth2, ensure the service principal has Storage Blob Data Contributor or Reader role in Azure
+
+Connection Errors
+#################
+
+If you see connection timeouts or ``UnknownHostException``:
+
+* Verify network connectivity between Presto nodes and Azure
+* Check if Azure storage firewall rules allow access from Presto nodes
+* Test endpoint reachability: ``*.blob.core.windows.net`` and ``*.dfs.core.windows.net``
+
+Path Errors
+###########
+
+If you see ``Path not found`` or ``Container does not exist``:
+
+* Verify URI format is correct (``wasbs://`` or ``abfss://``)
+* Confirm whether the container exists in the storage account
+* Check the storage account name in URI matches catalog configuration
+* For ADLS Gen2, ensure hierarchical namespace is enabled
+
+Check Presto logs for detailed error messages if issues occur.
+
 Alluxio Configuration
 ---------------------
 

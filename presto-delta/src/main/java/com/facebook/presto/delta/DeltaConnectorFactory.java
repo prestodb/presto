@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.cache.CachingModule;
 import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
+import com.facebook.presto.hive.azure.HiveAzureModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.s3.HiveS3Module;
@@ -60,6 +61,7 @@ public class DeltaConnectorFactory
                     new HiveS3Module(catalogName),
                     new CachingModule(),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(catalogName, Optional.empty()),
                     new HiveCommonModule(),
