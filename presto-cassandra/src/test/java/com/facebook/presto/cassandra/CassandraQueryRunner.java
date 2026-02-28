@@ -48,6 +48,9 @@ public final class CassandraQueryRunner
         connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());
         connectorProperties.putIfAbsent("cassandra.native-protocol-port", Integer.toString(server.getPort()));
         connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
+        // Driver 4.x requires datacenter configuration
+        connectorProperties.putIfAbsent("cassandra.load-policy.use-dc-aware", "true");
+        connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
@@ -55,11 +58,35 @@ public final class CassandraQueryRunner
         createKeyspace(server.getSession(), "tpch");
         List<TpchTable<?>> tables = TpchTable.getTables();
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+
+        // Refresh size estimates for each table
         for (TpchTable<?> table : tables) {
             server.refreshSizeEstimates("tpch", table.getTableName());
         }
 
+        // Force refresh of Cassandra driver's metadata cache
+        server.refreshMetadata();
+
+        // Invalidate the application-level metadata cache to ensure fresh schema is loaded
+        server.getSession().invalidateKeyspaceCache("tpch");
+
+        // Verify that all tables are visible before returning
+        verifyTablesExist(server.getSession(), "tpch", tables);
+
         return queryRunner;
+    }
+
+    private static void verifyTablesExist(CassandraSession session, String keyspace, List<TpchTable<?>> tables)
+    {
+        List<String> tableNames = session.getCaseSensitiveTableNames(keyspace);
+        for (TpchTable<?> table : tables) {
+            String tableName = table.getTableName();
+            if (!tableNames.contains(tableName)) {
+                throw new RuntimeException(String.format(
+                        "Table %s.%s was not found after loading TPCH data. Available tables: %s",
+                        keyspace, tableName, tableNames));
+            }
+        }
     }
 
     public static Session createCassandraSession(String schema)

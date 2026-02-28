@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
@@ -20,6 +21,8 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -37,6 +40,7 @@ public class TestCassandraIntergrationMixedCase
 {
     private CassandraServer server;
     private CassandraSession session;
+    private static Logger log = Logger.get(TestCassandraIntergrationMixedCase.class);
     private static final String KEYSPACE = "test_connector";
 
     @Override
@@ -63,9 +67,33 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE TEST_CREATE(name VARCHAR(50), rollNum int)");
+
+            // Add explicit flush to ensure table is persisted
+            try {
+                log.info("Flushing table %s.TEST_CREATE after CREATE TABLE", KEYSPACE);
+                server.flushTablePublic(KEYSPACE, "TEST_CREATE");
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to flush table after CREATE TABLE, continuing anyway");
+            }
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST_CREATE");
             assertTrue(getQueryRunner().tableExists(session, "TEST_CREATE"));
 
             getQueryRunner().execute(session, "CREATE TABLE  test_create(name VARCHAR(50), rollNum int)");
+
+            // Add explicit flush to ensure table is persisted
+            try {
+                log.info("Flushing table %s.test_create after CREATE TABLE", KEYSPACE);
+                server.flushTablePublic(KEYSPACE, "test_create");
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to flush table after CREATE TABLE, continuing anyway");
+            }
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test_create");
             assertTrue(getQueryRunner().tableExists(session, "test_create"));
 
             assertQueryFails(session, "CREATE TABLE TEST_CREATE (name VARCHAR(50), rollNum int)", "line 1:1: Table 'cassandra.test_connector.TEST_CREATE' already exists");
@@ -130,9 +158,33 @@ public class TestCassandraIntergrationMixedCase
                 .build();
         try {
             getQueryRunner().execute(session, "CREATE TABLE test (a integer, A integer)");
+
+            // Add explicit flush to ensure table is persisted
+            try {
+                log.info("Flushing table %s.test after CREATE TABLE", KEYSPACE);
+                server.flushTablePublic(KEYSPACE, "test");
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to flush table after CREATE TABLE, continuing anyway");
+            }
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "test");
             assertTrue(getQueryRunner().tableExists(session, "test"));
 
             getQueryRunner().execute(session, "CREATE TABLE TEST (a integer, A integer)");
+
+            // Add explicit flush to ensure table is persisted
+            try {
+                log.info("Flushing table %s.TEST after CREATE TABLE", KEYSPACE);
+                server.flushTablePublic(KEYSPACE, "TEST");
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to flush table after CREATE TABLE, continuing anyway");
+            }
+
+            // Driver 4.x: Wait for table to be visible after creation
+            waitForTableExists(session, "TEST");
             assertTrue(getQueryRunner().tableExists(session, "TEST"));
 
             assertQueryFails("CREATE TABLE Test (a integer, a integer)", "line 1:31: Column name 'a' specified more than once");
@@ -215,5 +267,87 @@ public class TestCassandraIntergrationMixedCase
         finally {
             session.execute("DROP KEYSPACE keyspace_1");
         }
+    }
+
+    /**
+     * Wait for table to become visible after CREATE TABLE operations.
+     * Driver 4.x has aggressive metadata caching and schema changes need time to propagate.
+     * Uses exponential backoff for more efficient waiting.
+     */
+    /**
+     * Wait for table to become visible after CREATE TABLE operations.
+     * Driver 4.x has aggressive metadata caching and schema changes need time to propagate.
+     * Uses exponential backoff for more efficient waiting.
+     */
+    private void waitForTableExists(Session session, String tableName)
+    {
+        // CRITICAL FIX: Reduce metadata refresh frequency to prevent connection exhaustion
+        // Previous implementation refreshed every 2 attempts, causing connection storm
+        boolean isCI = System.getenv("CI") != null || System.getenv("GITHUB_ACTIONS") != null;
+        int maxAttempts = isCI ? 60 : 45; // Reduced from 120/90 - rely on longer waits instead
+        int baseDelayMs = isCI ? 2000 : 1000; // Increased base delay to reduce polling frequency
+        int maxDelayMs = isCI ? 10000 : 8000; // Increased max delay
+
+        log.info("waitForTableExists: table=%s, maxAttempts=%d, isCI=%s", tableName, maxAttempts, isCI);
+
+        boolean foundInCassandraButNotPresto = false;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (getQueryRunner().tableExists(session, tableName)) {
+                if (attempt > 1) {
+                    log.info("Table '%s' became visible after %d attempts", tableName, attempt);
+                }
+                return;
+            }
+
+            // CRITICAL FIX: Refresh metadata much less frequently (every 10 attempts instead of 2)
+            // This prevents connection exhaustion that caused 6+ hour CI timeouts
+            if (attempt % 10 == 0) {
+                try {
+                    // Verify table exists directly through Cassandra session
+                    List<String> tableNames = this.session.getCaseSensitiveTableNames(KEYSPACE);
+                    boolean foundDirect = tableNames.stream().anyMatch(name -> name.equalsIgnoreCase(tableName));
+
+                    log.info("Direct Cassandra query shows table '%s' exists: %s (attempt %d/%d, available tables: %s)",
+                             tableName, foundDirect, attempt, maxAttempts, tableNames);
+
+                    if (foundDirect) {
+                        // Table exists in Cassandra but not visible through Presto yet
+                        log.info("Table '%s' found in Cassandra but not in driver metadata - forcing targeted metadata refresh (attempt %d)",
+                                 tableName, attempt);
+
+                        // Use targeted metadata refresh - simplified version reduces connection pressure
+                        server.refreshMetadata(KEYSPACE, tableName);
+                        this.session.invalidateKeyspaceCache(KEYSPACE);
+
+                        // Wait for metadata to propagate
+                        Thread.sleep(3000);
+                    }
+                }
+                catch (Exception e) {
+                    log.warn("Error during direct Cassandra verification: %s", e.getMessage());
+                }
+            }
+
+            if (attempt < maxAttempts) {
+                int delay = Math.min(baseDelayMs * (1 << Math.min(attempt / 10, 3)), maxDelayMs);
+
+                if (attempt % 10 == 0) {
+                    log.info("Still waiting for table '%s' visibility (attempt %d/%d, next delay %dms)",
+                             tableName, attempt, maxAttempts, delay);
+                }
+                try {
+                    Thread.sleep(delay);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while waiting for table visibility", e);
+                }
+            }
+        }
+
+        // If we get here, table is still not visible after all retries
+        log.error("ERROR: Table '%s' not visible after %d attempts (waited approximately %d seconds)",
+                 tableName, maxAttempts, maxAttempts * baseDelayMs / 1000);
     }
 }

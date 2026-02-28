@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.Metadata;
-import com.datastax.driver.core.TupleType;
-import com.datastax.driver.core.querybuilder.Insert;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.api.core.type.TupleType;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.UUID;
 
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
@@ -80,13 +81,13 @@ public class CassandraTestingUtils
     {
         for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("key", "key_" + rowNumber)
-                    .value("clust_one", "clust_one")
-                    .value("clust_two", "clust_two_" + rowNumber)
-                    .value("clust_three", "clust_three_" + rowNumber);
-            session.execute(insert);
+                    .value("key", literal("key_" + rowNumber))
+                    .value("clust_one", literal("clust_one"))
+                    .value("clust_two", literal("clust_two_" + rowNumber))
+                    .value("clust_three", literal("clust_three_" + rowNumber));
+            session.execute(insert.build());
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).one().getLong(0), rowsCount);
     }
 
     public static void createTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
@@ -108,14 +109,14 @@ public class CassandraTestingUtils
     {
         for (int rowNumber = 1; rowNumber < 10; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("partition_one", "partition_one_" + rowNumber)
-                    .value("partition_two", "partition_two_" + rowNumber)
-                    .value("clust_one", "clust_one")
-                    .value("clust_two", "clust_two_" + rowNumber)
-                    .value("clust_three", "clust_three_" + rowNumber);
-            session.execute(insert);
+                    .value("partition_one", literal("partition_one_" + rowNumber))
+                    .value("partition_two", literal("partition_two_" + rowNumber))
+                    .value("clust_one", literal("clust_one"))
+                    .value("clust_two", literal("clust_two_" + rowNumber))
+                    .value("clust_three", literal("clust_three_" + rowNumber));
+            session.execute(insert.build());
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).one().getLong(0), 9);
     }
 
     public static void createTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
@@ -136,13 +137,13 @@ public class CassandraTestingUtils
     {
         for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("key", "key_1")
-                    .value("clust_one", "clust_one")
-                    .value("clust_two", rowNumber)
-                    .value("clust_three", date.getTime() + rowNumber * 10);
-            session.execute(insert);
+                    .value("key", literal("key_1"))
+                    .value("clust_one", literal("clust_one"))
+                    .value("clust_two", literal(rowNumber))
+                    .value("clust_three", literal(date.getTime() + rowNumber * 10));
+            session.execute(insert.build());
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).one().getLong(0), rowsCount);
     }
 
     public static void createTableAllTypes(CassandraSession session, Metadata metadata, SchemaTableName table, Date date, int rowsCount)
@@ -228,32 +229,33 @@ public class CassandraTestingUtils
 
     private static void insertTestData(CassandraSession session, Metadata metadata, SchemaTableName table, Date date, int rowsCount)
     {
-        TupleType tupleType = metadata.newTupleType(DataType.bigint(), DataType.varchar());
+        // Driver 4.x: Create tuple type using DataTypes.tupleOf()
+        TupleType tupleType = DataTypes.tupleOf(DataTypes.BIGINT, DataTypes.TEXT);
 
         for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
-                    .value("key", "key " + rowNumber)
-                    .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
-                    .value("typeinteger", rowNumber)
-                    .value("typelong", rowNumber + 1000)
-                    .value("typebytes", ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer())
-                    .value("typetimestamp", date)
-                    .value("typeansi", "ansi " + rowNumber)
-                    .value("typeboolean", rowNumber % 2 == 0)
-                    .value("typedecimal", new BigDecimal(Math.pow(2, rowNumber)))
-                    .value("typedouble", Math.pow(4, rowNumber))
-                    .value("typefloat", (float) Math.pow(8, rowNumber))
-                    .value("typeinet", InetAddresses.forString("127.0.0.1"))
-                    .value("typevarchar", "varchar " + rowNumber)
-                    .value("typevarint", BigInteger.TEN.pow(rowNumber))
-                    .value("typetimeuuid", UUID.fromString(String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)))
-                    .value("typelist", ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber))
-                    .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
-                    .value("typeset", ImmutableSet.of(false, true))
-                    .value("typetuple", tupleType.newValue((long) rowNumber, "row=" + rowNumber));
+                    .value("key", literal("key " + rowNumber))
+                    .value("typeuuid", literal(UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber))))
+                    .value("typeinteger", literal(rowNumber))
+                    .value("typelong", literal(rowNumber + 1000))
+                    .value("typebytes", literal(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()))
+                    .value("typetimestamp", literal(date.getTime()))
+                    .value("typeansi", literal("ansi " + rowNumber))
+                    .value("typeboolean", literal(rowNumber % 2 == 0))
+                    .value("typedecimal", literal(new BigDecimal(Math.pow(2, rowNumber))))
+                    .value("typedouble", literal(Math.pow(4, rowNumber)))
+                    .value("typefloat", literal((float) Math.pow(8, rowNumber)))
+                    .value("typeinet", literal(InetAddresses.forString("127.0.0.1")))
+                    .value("typevarchar", literal("varchar " + rowNumber))
+                    .value("typevarint", literal(BigInteger.TEN.pow(rowNumber)))
+                    .value("typetimeuuid", literal(UUID.fromString(String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber))))
+                    .value("typelist", literal(ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber)))
+                    .value("typemap", literal(ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L)))
+                    .value("typeset", literal(ImmutableSet.of(false, true)))
+                    .value("typetuple", literal(tupleType.newValue((long) rowNumber, "row=" + rowNumber)));
 
-            session.execute(insert);
+            session.execute(insert.build());
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).one().getLong(0), rowsCount);
     }
 }

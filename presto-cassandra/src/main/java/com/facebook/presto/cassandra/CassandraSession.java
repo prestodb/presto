@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.RegularStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TokenRange;
-import com.datastax.driver.core.VersionNumber;
+import com.datastax.oss.driver.api.core.Version;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -32,15 +32,15 @@ public interface CassandraSession
 {
     String PRESTO_COMMENT_METADATA = "Presto Metadata:";
 
-    VersionNumber getCassandraVersion();
+    Version getCassandraVersion();
 
     String getPartitioner();
 
     Set<TokenRange> getTokenRanges();
 
-    Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange);
+    Set<Node> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange);
 
-    Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey);
+    Set<Node> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey);
 
     String getCaseSensitiveSchemaName(String caseInsensitiveSchemaName);
 
@@ -66,9 +66,17 @@ public interface CassandraSession
 
     ResultSet execute(String cql, Object... values);
 
+    ResultSet execute(BoundStatement statement);
+
     List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName);
 
-    PreparedStatement prepare(RegularStatement statement);
+    PreparedStatement prepare(SimpleStatement statement);
 
-    ResultSet execute(Statement statement);
+    ResultSet execute(SimpleStatement statement);
+
+    /**
+     * Invalidate the metadata cache for a specific keyspace.
+     * This should be called after schema changes to ensure fresh metadata is loaded.
+     */
+    void invalidateKeyspaceCache(String keyspaceName);
 }

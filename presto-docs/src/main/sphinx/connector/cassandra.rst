@@ -2,7 +2,7 @@
 Cassandra Connector
 ===================
 
-The Cassandra connector allows querying data stored in Cassandra or in ScyllaDB.
+The Cassandra connector allows querying data stored in Apache Cassandra® or in Cassandra-compatible clusters like Astra DB, ScyllaDB, or Instaclustr.
 
 Compatibility
 -------------
@@ -25,17 +25,12 @@ nodes used to discovery the cluster topology:
 You will also need to set ``cassandra.native-protocol-port`` if your
 Cassandra nodes are not using the default port (9042).
 
-For ScyllaDB you don't need to add any additional configuration.
-ScyllaDB uses the same port as Cassandra by default.
-Just point to ScyllaDB nodes in ``cassandra.contact-points`` config property.
-
-Multiple Cassandra or ScyllaDB Clusters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Multiple Cassandra or Cassandra-compatible service Clusters
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-Cassandra(ScyllaDB) clusters, simply add another properties file to ``etc/catalog``
-with a different name (making sure it ends in ``.properties``). For
-example, if you name the property file ``sales.properties``, Presto
+Cassandra or Cassandra-compatible service clusters, add another ``.properties`` file to ``etc/catalog``
+with a different name. For example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
 Configuration Properties
@@ -49,6 +44,12 @@ Property Name                                      Description
 ``cassandra.contact-points``                       Comma-separated list of hosts in a Cassandra cluster. The Cassandra
                                                    driver will use these contact points to discover cluster topology.
                                                    At least one Cassandra host is required.
+
+``cassandra.cloud.secure-connect-bundle``          Path to the secure connect bundle for connecting to managed services
+                                                   cloud. This is required when connecting to Astra DB in the cloud.
+                                                   ``cassandra.contact-points`` should be avoided when this property is set.
+                                                   More information about secure connect bundle can be found in the
+                                                   `Use Secure Connect Bundles`_. This property is optional.
 
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
@@ -85,7 +86,8 @@ Property Name                                      Description
         If authorization is enabled, ``cassandra.username`` must have enough permissions to perform ``SELECT`` queries on
         the ``system.size_estimates`` table.
 
-.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/2.2/cassandra/dml/dmlConfigConsistency.html
+.. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/dml/dmlConfigConsistency.html
+.. _Use Secure Connect Bundles: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
 
 The following advanced configuration properties are available:
 
@@ -164,8 +166,8 @@ Property Name                                                 Description
 ``cassandra.tls.truststore-password``                         Password for the trust store.
 ============================================================= ======================================================================
 
-Querying Cassandra or ScyllaDB Tables
--------------------------------------
+Querying Cassandra or Cassandra-compatible service Tables
+---------------------------------------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
