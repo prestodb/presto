@@ -94,4 +94,39 @@ public class TestIcebergHiveMetadataListing
                         .add(row("hive_view", "_double"))
                         .build());
     }
+
+    @Test(groups = {ICEBERG, STORAGE_FORMATS})
+    public void testIcebergV2FormatWithParquet()
+    {
+        try {
+            // Create Iceberg table with format-version 2 and Parquet format
+            onPresto().executeQuery("CREATE TABLE iceberg.default.t1_v2 (c1 INTEGER, c2 VARCHAR) " +
+                    "WITH (\"format-version\" = '4', format = 'PARQUET')");
+
+            // Insert test data
+            onPresto().executeQuery("INSERT INTO iceberg.default.t1_v2 VALUES (1, 'avvddf')");
+            onPresto().executeQuery("INSERT INTO iceberg.default.t1_v2 VALUES (2, 'hello')");
+            onPresto().executeQuery("INSERT INTO iceberg.default.t1_v2 VALUES (3, 'world')");
+            onPresto().executeQuery("INSERT INTO iceberg.default.t1_v2 VALUES (4, 'test_value')");
+
+            // Verify data with SELECT
+            assertThat(onPresto().executeQuery("SELECT * FROM iceberg.default.t1_v2 ORDER BY c1"))
+                    .containsExactly(
+                            row(1, "avvddf"),
+                            row(2, "hello"),
+                            row(3, "world"),
+                            row(4, "test_value"));
+
+            // Verify row count
+            assertThat(onPresto().executeQuery("SELECT COUNT(*) FROM iceberg.default.t1_v2"))
+                    .containsExactly(row(4L));
+
+            // Verify specific value lookup
+            assertThat(onPresto().executeQuery("SELECT c2 FROM iceberg.default.t1_v2 WHERE c1 = 1"))
+                    .containsExactly(row("avvddf"));
+        }
+        finally {
+            onPresto().executeQuery("DROP TABLE IF EXISTS iceberg.default.t1_v2");
+        }
+    }
 }
