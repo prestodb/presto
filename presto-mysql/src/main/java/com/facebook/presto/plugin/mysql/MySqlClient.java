@@ -30,8 +30,11 @@ import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
@@ -43,6 +46,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -162,6 +167,18 @@ public class MySqlClient
                 null,
                 escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
+    }
+
+    private ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName, String[] types)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
+        return metadata.getTables(
+                schemaName.orElse(null),
+                null,
+                escapeNamePattern(tableName, escape).orElse(null),
+                types);
     }
 
     @Override
@@ -294,5 +311,83 @@ public class MySqlClient
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
+
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, List<SchemaTableName> tableNames)
+    {
+        JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            for (SchemaTableName schemaTableName : tableNames) {
+                String schemaName = schemaTableName.getSchemaName();
+                String tableName = schemaTableName.getTableName();
+
+                String sql = format(
+                        "SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS " +
+                                "WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        schemaName, tableName);
+
+                try (Statement statement = connection.createStatement();
+                        ResultSet resultSet = statement.executeQuery(sql)) {
+                    if (resultSet.next()) {
+                        String viewDefinition = resultSet.getString(1);
+                        String owner = session.getUser();
+
+                        views.put(schemaTableName,
+                                new ConnectorViewDefinition(
+                                        schemaTableName,
+                                        Optional.ofNullable(owner),
+                                        viewDefinition));
+                    }
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        return views.build();
+    }
+
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            try (ResultSet resultSet = getTables(connection, schemaName, Optional.empty(), new String[] {"VIEW"})) {
+                ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+                while (resultSet.next()) {
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    String schema = schemaName.orElse(resultSet.getString("TABLE_SCHEM"));
+                    builder.add(new SchemaTableName(
+                            normalizeIdentifier(session, schema),
+                            normalizeIdentifier(session, tableName)));
+                }
+                return builder.build();
+            }
+            catch (SQLException e) {
+                throw new PrestoException(JDBC_ERROR, e);
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public List<SchemaTableName> listSchemasForViews(ConnectorSession session)
+    {
+        List<SchemaTableName> allTableNames = new ArrayList<>();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            Collection<String> schemaNames = listSchemas(connection);
+            for (String schema : schemaNames) {
+                List<SchemaTableName> tablesNames = listViews(session, Optional.ofNullable(schema));
+                allTableNames.addAll(tablesNames);
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return allTableNames;
     }
 }
