@@ -166,7 +166,6 @@ public class InlineProjections
                 .collect(toSet());
 
         Set<VariableReferenceExpression> singletons = dependencies.entrySet().stream()
-                .filter(entry -> entry.getValue() == 1) // reference appears just once across all expressions in parent project node
                 .filter(entry -> !tryArguments.contains(entry.getKey())) // they are not inputs to TRY. Otherwise, inlining might change semantics
                 .filter(entry -> !isIdentity(child.getAssignments(), entry.getKey())) // skip identities, otherwise, this rule will keep firing forever
                 .map(Map.Entry::getKey)
