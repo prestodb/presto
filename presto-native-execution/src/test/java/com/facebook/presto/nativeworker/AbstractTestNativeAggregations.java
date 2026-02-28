@@ -354,6 +354,27 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT orderkey, multimap_agg(linenumber % 3, discount) FROM lineitem GROUP BY 1");
     }
 
+    @Test
+    public void testNumericHistogram()
+    {
+        // numeric_histogram with 2 arguments.
+        assertQuery("SELECT numeric_histogram(2, v) FROM (VALUES (1.0), (2.0), (1000.0)) AS t(v)");
+        assertQuery("SELECT numeric_histogram(2, v) FROM (VALUES (1.0), (2.0), (1000.0), (1001.0)) AS t(v)");
+        assertQuery("SELECT numeric_histogram(5, v) FROM (VALUES (1.0), (2.0), (3.0)) AS t(v)");
+
+        // numeric_histogram with 3 arguments.
+        assertQuery("SELECT numeric_histogram(2, v, w) FROM (VALUES (0.0, 1.0), (10.0, 3.0), (10000.0, 1.0)) AS t(v, w)");
+        assertQuery("SELECT numeric_histogram(3, v, w) FROM (VALUES (1.0, 2.0), (2.0, 3.0), (3.0, 1.5)) AS t(v, w)");
+
+        assertQuery("SELECT numeric_histogram(3, v) FROM (VALUES (1.0), (null), (2.0), (null), (1000.0)) AS t(v)");
+
+        assertQuerySucceeds("SELECT numeric_histogram(5, quantity) FROM lineitem");
+        assertQuerySucceeds("SELECT numeric_histogram(10, extendedprice, quantity) FROM lineitem");
+
+        assertQuery("SELECT cardinality(numeric_histogram(3, quantity)) <= 3 FROM lineitem", "SELECT true");
+        assertQuery("SELECT reduce(map_values(numeric_histogram(3, v)), 0.0, (s, x) -> s + x, s -> s) FROM (VALUES (1.0), (2.0), (1000.0), (1001.0), (2000.0)) AS t(v)");
+    }
+
     @Test(dataProvider = "exchangeEncodingProvider")
     public void testMarkDistinct(String exchangeEncoding)
     {
