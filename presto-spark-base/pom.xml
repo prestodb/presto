@@ -467,6 +467,12 @@
                         <ignoredUnusedDeclaredDependency>javax.annotation:javax.annotation-api</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.apache.httpcomponents:httpcore</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
+                    <ignoredDependencies>
+                        <ignoredDependency>org.glassfish.hk2.external:jakarta.inject</ignoredDependency>
+                        <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                        <ignoredDependency>jakarta.annotation:jakarta.annotation-api</ignoredDependency>
+                        <ignoredDependency>jakarta.validation:jakarta.validation-api</ignoredDependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>
@@ -540,14 +546,6 @@
                     <name>!spark-version</name>
                 </property>
             </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark2</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
         </profile>
 
         <profile>
@@ -560,12 +558,11 @@
                 </property>
             </activation>
 
+            <properties>
+                <spark.version.main>3</spark.version.main>
+            </properties>
+
             <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark3</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
 
                 <dependency>
                     <groupId>com.facebook.presto.spark</groupId>
@@ -614,18 +611,6 @@
 
             <build>
                 <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-dependency-plugin</artifactId>
-                        <configuration>
-                            <ignoredDependencies>
-                                <ignoredDependency>org.glassfish.hk2.external:jakarta.inject</ignoredDependency>
-                                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
-                                <ignoredDependency>jakarta.annotation:jakarta.annotation-api</ignoredDependency>
-                                <ignoredDependency>jakarta.validation:jakarta.validation-api</ignoredDependency>
-                            </ignoredDependencies>
-                        </configuration>
-                    </plugin>
 
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
