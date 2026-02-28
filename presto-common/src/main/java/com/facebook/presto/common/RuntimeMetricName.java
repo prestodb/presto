@@ -122,10 +122,8 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV = "dynamicFilterPlanCreatedLowNdv";
     public static final String DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO = "dynamicFilterPlanCreatedFavorableRatio";
     public static final String DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY = "dynamicFilterPlanSkippedHighCardinality";
-    // Speculative split enumeration metrics (always emitted when DPP is active)
-    public static final String DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED = "dynamicFilterSplitsSpeculativelyBuffered";
-    public static final String DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED = "dynamicFilterSplitsRetroactivelyPruned";
-    public static final String DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW = "dynamicFilterSpeculativeBufferOverflow";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN = "dynamicFilterPlanSkippedBroadcastJoin";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE = "dynamicFilterPlanSkippedSmallProbe";
     // Column selectivity check metrics (extended metrics only)
     public static final String DYNAMIC_FILTER_COLUMNS_SKIPPED = "dynamicFilterColumnsSkipped";
     public static final String DYNAMIC_FILTER_COLUMNS_RELEVANT = "dynamicFilterColumnsRelevant";

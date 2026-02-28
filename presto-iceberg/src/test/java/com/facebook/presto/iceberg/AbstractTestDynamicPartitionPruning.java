@@ -45,11 +45,8 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_C
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_PROCESSED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_WAIT_TIME_NANOS;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
@@ -342,7 +339,6 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_distribution_type", "BROADCAST")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithDpp =
@@ -1600,111 +1596,6 @@ public abstract class AbstractTestDynamicPartitionPruning
                         runtimeStats.getMetrics().keySet()));
     }
 
-    // =====================================================================
-    // Speculative Split Enumeration Tests
-    // =====================================================================
-
-    @Test(invocationCount = 10)
-    public void testSpeculativeEnumerationCorrectness()
-    {
-        String query = "SELECT f.order_id, f.amount, c.customer_name " +
-                "FROM fact_orders f " +
-                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
-                "WHERE c.region = 'WEST' " +
-                "ORDER BY f.order_id";
-
-        ResultWithQueryId<MaterializedResult> resultDpp = execute(dppSpeculativeSession(), query);
-        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
-
-        assertEquals(resultDpp.getResult().getRowCount(), 30,
-                "Speculative: should return 30 WEST rows");
-        assertEquals(resultDpp.getResult().getMaterializedRows(),
-                resultNoDpp.getResult().getMaterializedRows(),
-                "Speculative: results must match no-DPP baseline");
-    }
-
-    @Test(invocationCount = 10)
-    public void testSpeculativeEnumerationMetrics()
-    {
-        String query = "SELECT f.order_id, f.amount, c.customer_name " +
-                "FROM fact_orders f " +
-                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
-                "WHERE c.region = 'WEST' " +
-                "ORDER BY f.order_id";
-
-        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
-        RuntimeStats runtimeStats = getRuntimeStats(result);
-
-        long buffered = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED);
-        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
-        long processed = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
-
-        assertTrue(buffered > 0,
-                format("Speculative: should have buffered tasks, got %d", buffered));
-        assertTrue(pruned > 0,
-                format("Speculative: should have retroactively pruned tasks, got %d", pruned));
-        assertEquals(buffered - pruned, processed,
-                format("Speculative: buffered (%d) - pruned (%d) should equal processed (%d)",
-                        buffered, pruned, processed));
-    }
-
-    @Test(invocationCount = 10)
-    public void testSpeculativeEnumerationRetroactiveFiltering()
-    {
-        String query = "SELECT f.order_id, f.amount, c.customer_name " +
-                "FROM fact_orders f " +
-                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
-                "WHERE c.region = 'WEST' " +
-                "ORDER BY f.order_id";
-
-        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
-        RuntimeStats runtimeStats = getRuntimeStats(result);
-
-        long processed = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
-        assertEquals(processed, factOrdersWestFiles,
-                format("Speculative: should process only WEST partition files (%d), got %d",
-                        factOrdersWestFiles, processed));
-
-        long buffered = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_SPECULATIVELY_BUFFERED);
-        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
-        if (buffered > 0) {
-            assertEquals(pruned, factOrdersTotalFiles - factOrdersWestFiles,
-                    format("Speculative: retroactively pruned should be totalFiles - westFiles = %d, got %d",
-                            factOrdersTotalFiles - factOrdersWestFiles, pruned));
-        }
-    }
-
-    @Test(invocationCount = 10)
-    public void testSpeculativeEnumerationWithTimeout()
-    {
-        String query = "SELECT f.order_id, f.amount, c.customer_name " +
-                "FROM fact_orders f " +
-                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
-                "WHERE c.region = 'WEST' " +
-                "ORDER BY f.order_id";
-
-        Session timeoutSession = Session.builder(getSession())
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "1ms")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .build();
-
-        ResultWithQueryId<MaterializedResult> result =
-                getDistributedQueryRunner().executeWithQueryId(timeoutSession, query);
-        RuntimeStats runtimeStats = getRuntimeStats(result);
-
-        assertEquals(result.getResult().getRowCount(), 30,
-                "Timeout speculative: should return all WEST rows (no incorrect pruning)");
-
-        long splitsBeforeFilter = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER);
-        assertEquals(splitsBeforeFilter, factOrdersTotalFiles,
-                "Timeout speculative: all splits should be 'before filter' when timed out");
-        long pruned = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_RETROACTIVELY_PRUNED);
-        assertEquals(pruned, 0,
-                "Timeout speculative: no retroactive pruning on timeout");
-    }
-
     @Test(invocationCount = 10)
     public void testSpeculativeEnumerationStarSchema()
     {
@@ -1739,7 +1630,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_spec_products p ON f.product_id = p.product_id " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> resultDpp = execute(dppSpeculativeSession(), query);
+            ResultWithQueryId<MaterializedResult> resultDpp = execute(dppBlockingSession(), query);
             ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
 
             assertEquals(resultDpp.getResult().getRowCount(), 4,
@@ -1791,7 +1682,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_status d ON f.status = d.status " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+            ResultWithQueryId<MaterializedResult> result = execute(dppBlockingSession(), query);
             RuntimeStats runtimeStats = getRuntimeStats(result);
 
             long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
@@ -1813,7 +1704,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+        ResultWithQueryId<MaterializedResult> result = execute(dppBlockingSession(), query);
         RuntimeStats runtimeStats = getRuntimeStats(result);
 
         long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
@@ -1859,7 +1750,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "JOIN dim_mixed_status s ON f.status = s.status " +
                     "ORDER BY f.order_id";
 
-            ResultWithQueryId<MaterializedResult> result = execute(dppSpeculativeSession(), query);
+            ResultWithQueryId<MaterializedResult> result = execute(dppBlockingSession(), query);
             RuntimeStats runtimeStats = getRuntimeStats(result);
 
             long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
@@ -1877,42 +1768,6 @@ public abstract class AbstractTestDynamicPartitionPruning
     }
 
     // =====================================================================
-    // Buffer Overflow Fallback Test
-    // =====================================================================
-
-    @Test(invocationCount = 10)
-    public void testSpeculativeEnumerationBufferOverflow()
-    {
-        String query = "SELECT f.order_id, f.amount, c.customer_name " +
-                "FROM fact_orders f " +
-                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
-                "WHERE c.region = 'WEST' " +
-                "ORDER BY f.order_id";
-
-        Session overflowSession = Session.builder(getSession())
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "2")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .build();
-
-        ResultWithQueryId<MaterializedResult> result =
-                getDistributedQueryRunner().executeWithQueryId(overflowSession, query);
-        RuntimeStats runtimeStats = getRuntimeStats(result);
-
-        assertEquals(result.getResult().getRowCount(), 30,
-                "Buffer overflow: should still return correct WEST rows");
-
-        long overflow = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPECULATIVE_BUFFER_OVERFLOW);
-        assertTrue(overflow > 0,
-                format("Buffer overflow: should have triggered overflow, got %d", overflow));
-
-        assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_PROCESSED), factOrdersWestFiles,
-                format("Buffer overflow: should still prune to WEST files (%d) after falling back",
-                        factOrdersWestFiles));
-    }
-
     protected long countFiles(String tableName)
     {
         return countFiles(tableName, "1=1");
@@ -1956,9 +1811,7 @@ public abstract class AbstractTestDynamicPartitionPruning
     }
 
     /**
-     * DPP enabled, blocking path (speculative enumeration off).
-     * Use for tests that verify Iceberg-level pruning metrics (e.g. skippedDataManifests)
-     * which require Iceberg's ManifestEvaluator to see the filter during planFiles().
+     * DPP enabled with ALWAYS strategy and extended metrics.
      */
     private Session dppBlockingSession()
     {
@@ -1967,26 +1820,13 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
                 .build();
     }
 
     /**
-     * DPP enabled, speculative path (default buffer size).
-     * Use for tests that verify speculative enumeration and column selectivity behavior.
-     */
-    private Session dppSpeculativeSession()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
-                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .build();
-    }
-
-    /**
-     * DPP cost-based strategy, blocking path.
+     * DPP cost-based strategy with extended metrics.
+     * Disables broadcast-skip and small-probe-skip thresholds so that cost-based
+     * NDV/ratio logic is exercised against the small test tables.
      */
     private Session dppCostBasedSession()
     {
@@ -1994,8 +1834,9 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setSystemProperty("join_max_broadcast_table_size", "0B")
+                .setSystemProperty("distributed_dynamic_filter_min_probe_size", "0B")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_max_speculative_splits", "0")
                 .build();
     }
 

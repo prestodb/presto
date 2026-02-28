@@ -74,7 +74,6 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
     public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
     private static final String DYNAMIC_FILTER_EXTENDED_METRICS = "dynamic_filter_extended_metrics";
-    private static final String DYNAMIC_FILTER_MAX_SPECULATIVE_SPLITS = "dynamic_filter_max_speculative_splits";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -249,11 +248,6 @@ public final class IcebergSessionProperties
                         DYNAMIC_FILTER_EXTENDED_METRICS,
                         "Emit extended metrics for dynamic filter diagnostics in Iceberg split sources",
                         icebergConfig.isDynamicFilterExtendedMetrics(),
-                        false))
-                .add(integerProperty(
-                        DYNAMIC_FILTER_MAX_SPECULATIVE_SPLITS,
-                        "Max splits to buffer speculatively before dynamic filter arrives. 0 disables speculative enumeration.",
-                        icebergConfig.getDynamicFilterMaxSpeculativeSplits(),
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -412,10 +406,5 @@ public final class IcebergSessionProperties
     public static boolean isDynamicFilterExtendedMetrics(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTER_EXTENDED_METRICS, Boolean.class);
-    }
-
-    public static int getDynamicFilterMaxSpeculativeSplits(ConnectorSession session)
-    {
-        return session.getProperty(DYNAMIC_FILTER_MAX_SPECULATIVE_SPLITS, Integer.class);
     }
 }

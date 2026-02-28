@@ -78,7 +78,6 @@ public class IcebergConfig
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
     private String materializedViewStoragePrefix = "__mv_storage__";
     private boolean dynamicFilterExtendedMetrics;
-    private int dynamicFilterMaxSpeculativeSplits = 10000;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -512,17 +511,4 @@ public class IcebergConfig
         return this;
     }
 
-    @Min(0)
-    public int getDynamicFilterMaxSpeculativeSplits()
-    {
-        return dynamicFilterMaxSpeculativeSplits;
-    }
-
-    @Config("iceberg.dynamic-filter-max-speculative-splits")
-    @ConfigDescription("Max splits to buffer speculatively before dynamic filter arrives. 0 disables speculative enumeration.")
-    public IcebergConfig setDynamicFilterMaxSpeculativeSplits(int dynamicFilterMaxSpeculativeSplits)
-    {
-        this.dynamicFilterMaxSpeculativeSplits = dynamicFilterMaxSpeculativeSplits;
-        return this;
-    }
 }
