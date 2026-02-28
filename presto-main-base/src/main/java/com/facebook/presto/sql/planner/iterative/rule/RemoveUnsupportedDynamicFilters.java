@@ -32,6 +32,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -43,8 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.DynamicFilters.getPlaceholder;
 import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
@@ -83,7 +84,7 @@ public class RemoveUnsupportedDynamicFilters
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter();
+        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter(session);
         PlanWithConsumedDynamicFilters result = plan.accept(rewriter, ImmutableSet.of());
         return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());
     }
@@ -91,7 +92,13 @@ public class RemoveUnsupportedDynamicFilters
     private class Rewriter
             extends InternalPlanVisitor<PlanWithConsumedDynamicFilters, Set<String>>
     {
+        private final Session session;
         boolean planChanged;
+
+        Rewriter(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         public boolean isPlanChanged()
         {
@@ -180,9 +187,42 @@ public class RemoveUnsupportedDynamicFilters
 
             PlanWithConsumedDynamicFilters leftResult = node.getProbe().accept(this, allowedDynamicFilterIdsProbeSide);
             Set<String> consumedProbeSide = leftResult.getConsumedDynamicFilterIds();
-            Map<String, VariableReferenceExpression> dynamicFilters = node.getDynamicFilters().entrySet().stream()
-                    .filter(entry -> consumedProbeSide.contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            Map<String, VariableReferenceExpression> dynamicFilters;
+            if (isDistributedDynamicFilterEnabled(session)) {
+                // TODO: Remove this entire DPP branch (including probeChainCrossesRemoteExchange
+                // and hasRemoteExchangeInProbeChain) once coordinator-to-worker broadcast of
+                // dynamic filter domains is implemented.
+                //
+                // Currently, distributed DPP does not place FilterNode expressions on the
+                // probe side — filters are applied at split level by the coordinator only.
+                // Because there is no probe-side consumer, we must bypass the standard
+                // consumption check and preserve all JoinNode.dynamicFilters. This bypass
+                // creates a cycle risk: when an intermediate JoinNode's probe chain crosses
+                // a remote ExchangeNode (fragment boundary), the target scan blocks waiting
+                // for the DPP filter, while the filter cannot resolve until the probe side
+                // feeds data into the join (the Q64 pattern — see Q64-INVESTIGATION.md).
+                //
+                // The probeChainCrossesRemoteExchange check detects and removes these cyclic
+                // filters at plan time.
+                //
+                // With coordinator-to-worker broadcast, DPP would also place FilterNode
+                // expressions on the probe side (like built-in DF and Trino do). The standard
+                // consumption check would then naturally remove cross-fragment filters (no
+                // FilterNode → TableScan in the same fragment), eliminating the cycle without
+                // needing explicit detection. The unified approach would also enable row-level
+                // filtering for DPP (currently DPP only prunes splits, not rows).
+                if (probeChainCrossesRemoteExchange(node.getProbe())) {
+                    dynamicFilters = ImmutableMap.of();
+                }
+                else {
+                    dynamicFilters = node.getDynamicFilters();
+                }
+            }
+            else {
+                dynamicFilters = node.getDynamicFilters().entrySet().stream()
+                        .filter(entry -> consumedProbeSide.contains(entry.getKey()))
+                        .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
 
             PlanWithConsumedDynamicFilters rightResult = node.getBuild().accept(this, allowedDynamicFilterIds);
             Set<String> consumed = new HashSet<>(rightResult.getConsumedDynamicFilterIds());
@@ -251,6 +291,69 @@ public class RemoveUnsupportedDynamicFilters
             }
             return logicalRowExpressions.combineConjuncts(extractResult.getStaticConjuncts());
         }
+    }
+
+    /**
+     * Returns true if the probe chain from this node, within the same future
+     * fragment, contains a JoinNode or SemiJoinNode whose own probe chain
+     * eventually crosses a remote ExchangeNode (fragment boundary).
+     *
+     * The cycle pattern (as seen in TPC-DS Q64): multiple JoinNodes share a
+     * fragment. An intermediate JoinNode's probe chain reaches a remote
+     * ExchangeNode leading to the target fact scan. The intermediate join's
+     * HashBuilderOperator blocks waiting for probe data that depends on that
+     * scan fragment, which in turn waits on the DPP filter — circular
+     * dependency.
+     *
+     * Traversal stops at remote ExchangeNodes because they mark fragment
+     * boundaries. Nodes beyond a remote exchange are in a separate fragment
+     * and do not participate in the same pipeline blocking.
+     */
+    private static boolean probeChainCrossesRemoteExchange(PlanNode node)
+    {
+        // Stop at fragment boundaries — only look within the same fragment
+        if (node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()) {
+            return false;
+        }
+        if (node instanceof JoinNode) {
+            // Found an intermediate JoinNode in the same fragment.
+            // Check if its own probe chain reaches a remote exchange
+            // (which would lead to a target scan in a different fragment).
+            return hasRemoteExchangeInProbeChain(((JoinNode) node).getLeft());
+        }
+        if (node instanceof SemiJoinNode) {
+            return hasRemoteExchangeInProbeChain(((SemiJoinNode) node).getSource());
+        }
+        for (PlanNode child : node.getSources()) {
+            if (probeChainCrossesRemoteExchange(child)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the probe chain from this node reaches a remote ExchangeNode.
+     * At JoinNodes, only the probe (left) child is followed.
+     * At SemiJoinNodes, only the source child is followed.
+     */
+    private static boolean hasRemoteExchangeInProbeChain(PlanNode node)
+    {
+        if (node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()) {
+            return true;
+        }
+        if (node instanceof JoinNode) {
+            return hasRemoteExchangeInProbeChain(((JoinNode) node).getLeft());
+        }
+        if (node instanceof SemiJoinNode) {
+            return hasRemoteExchangeInProbeChain(((SemiJoinNode) node).getSource());
+        }
+        for (PlanNode child : node.getSources()) {
+            if (hasRemoteExchangeInProbeChain(child)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class JoinDynamicFilterResult

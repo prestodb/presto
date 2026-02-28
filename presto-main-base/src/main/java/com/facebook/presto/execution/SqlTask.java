@@ -17,6 +17,8 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -37,21 +39,27 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -83,6 +91,13 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final long creationTimeInMillis = System.currentTimeMillis();
+
+    private final ConcurrentMap<String, TupleDomain<String>> dynamicFilters = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Long> dynamicFilterVersions = new ConcurrentHashMap<>();
+    private final AtomicLong dynamicFilterOutputsVersion = new AtomicLong(0);
+    private final AtomicReference<SettableFuture<Long>> dynamicFilterVersionFuture = new AtomicReference<>();
+    private final Set<String> registeredDynamicFilterIds = ConcurrentHashMap.newKeySet();
+    private final Set<String> flushedDynamicFilterIds = ConcurrentHashMap.newKeySet();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -176,6 +191,11 @@ public class SqlTask
                     if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
                         break;
                     }
+                }
+
+                SettableFuture<Long> pendingFilterFuture = dynamicFilterVersionFuture.getAndSet(null);
+                if (pendingFilterFuture != null) {
+                    pendingFilterFuture.set(dynamicFilterOutputsVersion.get());
                 }
 
                 // make sure buffers are cleaned up
@@ -427,6 +447,11 @@ public class SqlTask
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
                     checkState(tableWriteInfo.isPresent(), "tableWriteInfo must be present");
+
+                    Consumer<TupleDomain<String>> dynamicFilterConsumer = this::storeDynamicFilters;
+                    Consumer<Set<String>> dynamicFilterIdRegistration = this::registerDynamicFilterIds;
+                    Consumer<Set<String>> dynamicFilterIdFlushedCallback = this::markFilterIdsFlushed;
+
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
                             queryContext,
@@ -435,7 +460,10 @@ public class SqlTask
                             taskExchangeClientManager,
                             fragment.get(),
                             sources,
-                            tableWriteInfo.get());
+                            tableWriteInfo.get(),
+                            Optional.of(dynamicFilterConsumer),
+                            Optional.of(dynamicFilterIdRegistration),
+                            Optional.of(dynamicFilterIdFlushedCallback));
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
@@ -603,6 +631,128 @@ public class SqlTask
             return Optional.empty();
         }
         return Optional.of(taskExecution.getTaskContext());
+    }
+
+    /**
+     * Registers filter IDs so the coordinator can count this task even when its operator produces no data.
+     */
+    public void registerDynamicFilterIds(Set<String> filterIds)
+    {
+        registeredDynamicFilterIds.addAll(filterIds);
+    }
+
+    public void markFilterIdsFlushed(Set<String> filterIds)
+    {
+        flushedDynamicFilterIds.addAll(filterIds);
+        long newVersion = dynamicFilterOutputsVersion.incrementAndGet();
+        SettableFuture<Long> oldFuture = dynamicFilterVersionFuture.getAndSet(null);
+        if (oldFuture != null) {
+            oldFuture.set(newVersion);
+        }
+    }
+
+    public boolean isDynamicFilterOperatorCompleted()
+    {
+        return !registeredDynamicFilterIds.isEmpty()
+                && flushedDynamicFilterIds.containsAll(registeredDynamicFilterIds);
+    }
+
+    public Set<String> getRegisteredDynamicFilterIds()
+    {
+        return ImmutableSet.copyOf(registeredDynamicFilterIds);
+    }
+
+    /**
+     * Called even with none() (empty build side) so the coordinator can count this task's contribution.
+     */
+    private void storeDynamicFilters(TupleDomain<String> filters)
+    {
+        requireNonNull(filters, "filters is null");
+        long newVersion = dynamicFilterOutputsVersion.incrementAndGet();
+        if (filters.getDomains().isPresent()) {
+            // Multiple drivers may produce the same filterId; merge via union
+            for (Map.Entry<String, Domain> entry : filters.getDomains().get().entrySet()) {
+                String filterId = entry.getKey();
+                TupleDomain<String> newFilter = TupleDomain.withColumnDomains(
+                        ImmutableMap.of(filterId, entry.getValue()));
+                dynamicFilters.merge(filterId, newFilter, (existing, incoming) ->
+                        TupleDomain.columnWiseUnion(ImmutableList.of(existing, incoming)));
+                dynamicFilterVersions.put(filterId, newVersion);
+            }
+        }
+        // Notify waiters even for none() so coordinator detects completion
+        SettableFuture<Long> oldFuture = dynamicFilterVersionFuture.getAndSet(null);
+        if (oldFuture != null) {
+            oldFuture.set(newVersion);
+        }
+    }
+
+    public Map<String, TupleDomain<String>> getDynamicFiltersSince(long sinceVersion)
+    {
+        ImmutableMap.Builder<String, TupleDomain<String>> result = ImmutableMap.builder();
+        for (Map.Entry<String, Long> entry : dynamicFilterVersions.entrySet()) {
+            if (entry.getValue() > sinceVersion) {
+                TupleDomain<String> filter = dynamicFilters.get(entry.getKey());
+                if (filter != null) {
+                    result.put(entry.getKey(), filter);
+                }
+            }
+        }
+        return result.build();
+    }
+
+    public void removeDynamicFiltersThrough(long throughVersion)
+    {
+        dynamicFilterVersions.entrySet().removeIf(entry -> {
+            if (entry.getValue() <= throughVersion) {
+                dynamicFilters.remove(entry.getKey());
+                return true;
+            }
+            return false;
+        });
+    }
+
+    public ListenableFuture<DynamicFilterResult> getDynamicFilters(long sinceVersion)
+    {
+        long currentVersion = dynamicFilterOutputsVersion.get();
+
+        if (currentVersion > sinceVersion) {
+            return immediateFuture(snapshotDynamicFilterResult(sinceVersion, currentVersion));
+        }
+
+        if (taskStateMachine.getState().isDone()) {
+            return immediateFuture(snapshotDynamicFilterResult(sinceVersion, currentVersion));
+        }
+
+        SettableFuture<Long> future;
+        while (true) {
+            future = dynamicFilterVersionFuture.get();
+            if (future != null) {
+                break;
+            }
+            SettableFuture<Long> newFuture = SettableFuture.create();
+            if (dynamicFilterVersionFuture.compareAndSet(null, newFuture)) {
+                future = newFuture;
+                // TOCTOU: version/state may have changed before future was visible
+                long recheckedVersion = dynamicFilterOutputsVersion.get();
+                if (recheckedVersion > sinceVersion || taskStateMachine.getState().isDone()) {
+                    newFuture.set(recheckedVersion);
+                }
+                break;
+            }
+        }
+
+        return Futures.transform(future, newVersion ->
+                snapshotDynamicFilterResult(sinceVersion, newVersion), directExecutor());
+    }
+
+    // Reads filters before completion flag so completion is at least as fresh as filter data
+    private DynamicFilterResult snapshotDynamicFilterResult(long sinceVersion, long version)
+    {
+        Map<String, TupleDomain<String>> filters = getDynamicFiltersSince(sinceVersion);
+        boolean operatorCompleted = isDynamicFilterOperatorCompleted();
+        Set<String> completedFilterIds = ImmutableSet.copyOf(flushedDynamicFilterIds);
+        return new DynamicFilterResult(filters, version, operatorCompleted, completedFilterIds);
     }
 
     private static class TaskInstanceId

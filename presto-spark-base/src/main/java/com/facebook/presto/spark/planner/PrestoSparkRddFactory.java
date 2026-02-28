@@ -20,7 +20,9 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
@@ -103,6 +105,7 @@ public class PrestoSparkRddFactory
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
     private final FeaturesConfig featuresConfig;
+    private final Metadata metadata;
 
     @Inject
     public PrestoSparkRddFactory(
@@ -110,13 +113,57 @@ public class PrestoSparkRddFactory
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             Codec<TaskSource> taskSourceCodec,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            Metadata metadata)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
+    private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
+    {
+        return searchFrom(node)
+                .where(TableScanNode.class::isInstance)
+                .findAll().stream().map(t -> new PrestoSparkSource(t.getId(), t)).collect(Collectors.toList());
+    }
+
+    private static Map<String, Broadcast<?>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
+    {
+        return broadcastInputs.entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
+    }
+
+    private static void checkInputs(
+            List<RemoteSourceNode> remoteSources,
+            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
+            Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
+    {
+        Set<PlanFragmentId> expectedInputs = remoteSources.stream()
+                .map(RemoteSourceNode::getSourceFragmentIds)
+                .flatMap(List::stream)
+                .collect(toImmutableSet());
+
+        Set<PlanFragmentId> actualInputs = union(rddInputs.keySet(), broadcastInputs.keySet());
+
+        Set<PlanFragmentId> missingInputs = difference(expectedInputs, actualInputs);
+        Set<PlanFragmentId> extraInputs = difference(actualInputs, expectedInputs);
+        checkArgument(
+                missingInputs.isEmpty() && extraInputs.isEmpty(),
+                "rddInputs mismatch discovered. expected inputs: %s, actual rdd inputs: %s, actual broadcast inputs: %s, missing inputs: %s, extra inputs: %s",
+                expectedInputs,
+                rddInputs.keySet(),
+                broadcastInputs.keySet(),
+                missingInputs,
+                expectedInputs);
+    }
+
+    public static String getRDDName(int planFragmentId)
+    {
+        return "PlanFragment #" + planFragmentId;
     }
 
     public <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createSparkRdd(
@@ -225,7 +272,7 @@ public class PrestoSparkRddFactory
         List<PrestoSparkSource> sources = findTableScanNodes(fragment.getRoot());
         if (!sources.isEmpty()) {
             try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager)) {
-                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP);
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, new DynamicFilterService(), metadata);
                 Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
                         fragment.getId(),
@@ -360,48 +407,6 @@ public class PrestoSparkRddFactory
             result.put(partitionId, serializedTaskSource);
         }
         return result;
-    }
-
-    private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
-    {
-        return searchFrom(node)
-                .where(TableScanNode.class::isInstance)
-                .findAll().stream().map(t -> new PrestoSparkSource(t.getId(), t)).collect(Collectors.toList());
-    }
-
-    private static Map<String, Broadcast<?>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
-    {
-        return broadcastInputs.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
-    }
-
-    private static void checkInputs(
-            List<RemoteSourceNode> remoteSources,
-            Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<?>> broadcastInputs)
-    {
-        Set<PlanFragmentId> expectedInputs = remoteSources.stream()
-                .map(RemoteSourceNode::getSourceFragmentIds)
-                .flatMap(List::stream)
-                .collect(toImmutableSet());
-
-        Set<PlanFragmentId> actualInputs = union(rddInputs.keySet(), broadcastInputs.keySet());
-
-        Set<PlanFragmentId> missingInputs = difference(expectedInputs, actualInputs);
-        Set<PlanFragmentId> extraInputs = difference(actualInputs, expectedInputs);
-        checkArgument(
-                missingInputs.isEmpty() && extraInputs.isEmpty(),
-                "rddInputs mismatch discovered. expected inputs: %s, actual rdd inputs: %s, actual broadcast inputs: %s, missing inputs: %s, extra inputs: %s",
-                expectedInputs,
-                rddInputs.keySet(),
-                broadcastInputs.keySet(),
-                missingInputs,
-                expectedInputs);
-    }
-
-    public static String getRDDName(int planFragmentId)
-    {
-        return "PlanFragment #" + planFragmentId;
     }
 
     private static class PrestoSparkSource

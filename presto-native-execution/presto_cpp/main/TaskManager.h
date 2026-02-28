@@ -127,6 +127,15 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::TaskId& remoteSourceTaskId);
 
+  folly::SemiFuture<PrestoTask::DynamicFilterSnapshot> getDynamicFilters(
+      const protocol::TaskId& taskId,
+      int64_t sinceVersion,
+      std::optional<std::chrono::milliseconds> maxWait);
+
+  void removeDynamicFiltersThrough(
+      const protocol::TaskId& taskId,
+      int64_t throughVersion);
+
   std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {

@@ -77,6 +77,8 @@ import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkTopology;
@@ -157,6 +159,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.DecompressionFilter;
+import com.facebook.presto.server.remotetask.DynamicFilterResponse;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
@@ -602,6 +605,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
+        jsonCodecBinder(binder).bindJsonCodec(DynamicFilterResponse.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
@@ -709,6 +713,11 @@ public class ServerMainModule
 
         // split manager
         binder.bind(SplitManager.class).in(Scopes.SINGLETON);
+
+        // dynamic filter service and stats
+        binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
+        binder.bind(DynamicFilterStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DynamicFilterStats.class).withGeneratedName();
 
         // partitioning provider manager
         binder.bind(PartitioningProviderManager.class).in(Scopes.SINGLETON);

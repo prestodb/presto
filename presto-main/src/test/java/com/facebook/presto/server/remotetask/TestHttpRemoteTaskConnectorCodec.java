@@ -50,8 +50,11 @@ import com.facebook.presto.execution.TaskTestUtils;
 import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.index.IndexHandleJacksonModule;
 import com.facebook.presto.metadata.ColumnHandleJacksonModule;
 import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.DeleteTableHandleJacksonModule;
@@ -111,6 +114,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -143,6 +147,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.Lifespan.driverGroup;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -231,7 +236,7 @@ public class TestHttpRemoteTaskConnectorCodec
         TestConnectorOutputTableHandle outputHandle = new TestConnectorOutputTableHandle("output_table");
         TableWriteInfo outputTableWriteInfo = new TableWriteInfo(
                 Optional.of(new ExecutionWriterTarget.CreateHandle(
-                        new OutputTableHandle(connectorId, com.facebook.presto.testing.TestingTransactionHandle.create(), outputHandle),
+                        new OutputTableHandle(connectorId, TestingTransactionHandle.create(), outputHandle),
                         new SchemaTableName("test_schema", "output_table"))),
                 Optional.empty());
 
@@ -277,7 +282,7 @@ public class TestHttpRemoteTaskConnectorCodec
         TestConnectorInsertTableHandle insertHandle = new TestConnectorInsertTableHandle("insert_table");
         TableWriteInfo insertTableWriteInfo = new TableWriteInfo(
                 Optional.of(new ExecutionWriterTarget.InsertHandle(
-                        new InsertTableHandle(connectorId, com.facebook.presto.testing.TestingTransactionHandle.create(), insertHandle),
+                        new InsertTableHandle(connectorId, TestingTransactionHandle.create(), insertHandle),
                         new SchemaTableName("test_schema", "insert_table"))),
                 Optional.empty());
 
@@ -323,7 +328,7 @@ public class TestHttpRemoteTaskConnectorCodec
         TestConnectorDeleteTableHandle deleteHandle = new TestConnectorDeleteTableHandle("delete_table");
         TableWriteInfo deleteTableWriteInfo = new TableWriteInfo(
                 Optional.of(new ExecutionWriterTarget.DeleteHandle(
-                        new DeleteTableHandle(connectorId, com.facebook.presto.testing.TestingTransactionHandle.create(), deleteHandle),
+                        new DeleteTableHandle(connectorId, TestingTransactionHandle.create(), deleteHandle),
                         new SchemaTableName("test_schema", "delete_table"))),
                 Optional.empty());
 
@@ -568,7 +573,7 @@ public class TestHttpRemoteTaskConnectorCodec
         TestConnectorTableHandle tableHandle = new TestConnectorTableHandle("test_table");
         TestConnectorTableLayoutHandle layoutHandle = new TestConnectorTableLayoutHandle("test_layout");
         TestConnectorColumnHandle columnHandle = new TestConnectorColumnHandle("test_column", "VARCHAR");
-        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "test_column", com.facebook.presto.common.type.VarcharType.VARCHAR);
+        VariableReferenceExpression variable = new VariableReferenceExpression(Optional.empty(), "test_column", VARCHAR);
 
         return new PlanFragment(
                 new PlanFragmentId(0),
@@ -685,7 +690,7 @@ public class TestHttpRemoteTaskConnectorCodec
                         jsonBinder(binder).addModuleBinding().toInstance(new InsertTableHandleJacksonModule(handleResolver, featuresConfig, insertTableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new DeleteTableHandleJacksonModule(handleResolver, featuresConfig, deleteTableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new MergeTableHandleJacksonModule(handleResolver, featuresConfig, mergeTableHandleCodecExtractor));
-                        jsonBinder(binder).addModuleBinding().toInstance(new com.facebook.presto.index.IndexHandleJacksonModule(handleResolver, featuresConfig, noOpIndexCodec));
+                        jsonBinder(binder).addModuleBinding().toInstance(new IndexHandleJacksonModule(handleResolver, featuresConfig, noOpIndexCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new TransactionHandleJacksonModule(handleResolver, featuresConfig, noOpTransactionCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new PartitioningHandleJacksonModule(handleResolver, featuresConfig, noOpPartitioningCodec));
                         jsonBinder(binder).addModuleBinding().toInstance(new FunctionHandleJacksonModule(handleResolver));
@@ -775,7 +780,10 @@ public class TestHttpRemoteTaskConnectorCodec
                                 internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
-                                new HandleResolver());
+                                new HandleResolver(),
+                                new DynamicFilterService(),
+                                new DynamicFilterStats(),
+                                JsonCodec.jsonCodec(DynamicFilterResponse.class));
                     }
                 });
         Injector injector = app
@@ -783,7 +791,7 @@ public class TestHttpRemoteTaskConnectorCodec
                 .quiet()
                 .initialize();
         HandleResolver handleResolver = injector.getInstance(HandleResolver.class);
-        handleResolver.addConnectorName("test", new com.facebook.presto.testing.TestingHandleResolver());
+        handleResolver.addConnectorName("test", new TestingHandleResolver());
 
         ConnectorCodecManager codecManager = injector.getInstance(ConnectorCodecManager.class);
         codecManager.addConnectorCodecProvider(new ConnectorId(connectorWithCodec), new TestConnectorWithCodecProvider());

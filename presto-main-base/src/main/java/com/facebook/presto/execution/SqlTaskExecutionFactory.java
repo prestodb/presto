@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
@@ -31,7 +32,9 @@ import com.facebook.presto.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
@@ -87,6 +90,23 @@ public class SqlTaskExecutionFactory
             List<TaskSource> sources,
             TableWriteInfo tableWriteInfo)
     {
+        return create(session, queryContext, taskStateMachine, outputBuffer, taskExchangeClientManager,
+                fragment, sources, tableWriteInfo, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public SqlTaskExecution create(
+            Session session,
+            QueryContext queryContext,
+            TaskStateMachine taskStateMachine,
+            OutputBuffer outputBuffer,
+            TaskExchangeClientManager taskExchangeClientManager,
+            PlanFragment fragment,
+            List<TaskSource> sources,
+            TableWriteInfo tableWriteInfo,
+            Optional<Consumer<TupleDomain<String>>> dynamicFilterConsumer,
+            Optional<Consumer<Set<String>>> dynamicFilterIdRegistration,
+            Optional<Consumer<Set<String>>> dynamicFilterIdFlushedCallback)
+    {
         TaskContext taskContext = queryContext.addTaskContext(
                 taskStateMachine,
                 session,
@@ -97,6 +117,11 @@ public class SqlTaskExecutionFactory
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
                 legacyLifespanCompletionCondition);
+
+        // Must be set before planning so LocalExecutionPlanner can use them
+        dynamicFilterConsumer.ifPresent(taskContext::setDynamicFilterConsumer);
+        dynamicFilterIdRegistration.ifPresent(taskContext::setDynamicFilterIdRegistration);
+        dynamicFilterIdFlushedCallback.ifPresent(taskContext::setDynamicFilterIdFlushedCallback);
 
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {

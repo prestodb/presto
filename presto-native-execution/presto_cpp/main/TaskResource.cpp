@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <glog/logging.h>
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -153,6 +154,22 @@ void TaskResource::registerUris(http::HttpServer& server) {
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return deleteTask(message, pathMatch);
+      });
+
+  // Dynamic filter endpoints must be registered before the catch-all
+  // GET /v1/task/(.+).
+  server.registerGet(
+      R"(/v1/task/(.+)/dynamicFilters)",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return getDynamicFilters(message, pathMatch);
+      });
+
+  server.registerDelete(
+      R"(/v1/task/(.+)/dynamicFilters)",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return deleteDynamicFilters(message, pathMatch);
       });
 
   server.registerGet(
@@ -657,4 +674,110 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
     taskManager_.removeRemoteSource(taskId, remoteId);
   });
 }
+
+proxygen::RequestHandler* TaskResource::getDynamicFilters(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::string>& pathMatch) {
+  protocol::TaskId taskId = pathMatch[1];
+  int64_t sinceVersion = 0;
+  if (message->hasQueryParam("since")) {
+    sinceVersion = folly::to<int64_t>(message->getQueryParam("since"));
+  }
+  auto maxWait = getMaxWait(message);
+
+  return new http::CallbackRequestHandler(
+      [this, taskId, sinceVersion, maxWait](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_,
+            [this,
+             evb = folly::getKeepAliveToken(
+                 folly::EventBaseManager::get()->getEventBase()),
+             taskId,
+             sinceVersion,
+             maxWait,
+             downstream,
+             handlerState]() {
+              std::optional<std::chrono::milliseconds> maxWaitMs;
+              if (maxWait.has_value()) {
+                maxWaitMs = std::chrono::milliseconds(
+                    static_cast<int64_t>(
+                        maxWait->getValue(protocol::TimeUnit::MILLISECONDS)));
+              }
+
+              taskManager_.getDynamicFilters(taskId, sinceVersion, maxWaitMs)
+                  .via(evb)
+                  .thenValue([downstream, handlerState](
+                                 PrestoTask::DynamicFilterSnapshot snapshot) {
+                    if (!handlerState->requestExpired()) {
+                      json j;
+                      j["filters"] = json::object();
+                      for (const auto& [filterId, domain] : snapshot.filters) {
+                        j["filters"][filterId] = domain;
+                      }
+                      j["version"] = snapshot.version;
+                      j["operatorCompleted"] = snapshot.operatorCompleted;
+                      j["completedFilterIds"] = json::array();
+                      for (const auto& id : snapshot.completedFilterIds) {
+                        j["completedFilterIds"].push_back(id);
+                      }
+                      http::sendOkResponse(downstream, j);
+                    }
+                  })
+                  .thenError(
+                      folly::tag_t<std::exception>{},
+                      [downstream, handlerState](const std::exception& e) {
+                        if (!handlerState->requestExpired()) {
+                          http::sendErrorResponse(downstream, e.what());
+                        }
+                      });
+            })
+            .thenError(folly::tag_t<std::exception>{}, [downstream](auto&& e) {
+              http::sendErrorResponse(downstream, e.what());
+            });
+      });
+}
+
+proxygen::RequestHandler* TaskResource::deleteDynamicFilters(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::string>& pathMatch) {
+  protocol::TaskId taskId = pathMatch[1];
+  int64_t throughVersion = 0;
+  if (message->hasQueryParam("through")) {
+    throughVersion = folly::to<int64_t>(message->getQueryParam("through"));
+  }
+
+  return new http::CallbackRequestHandler(
+      [this, taskId, throughVersion](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_,
+            [this, taskId, throughVersion]() {
+              taskManager_.removeDynamicFiltersThrough(taskId, throughVersion);
+              return true;
+            })
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
+            .thenValue([downstream, handlerState](auto&& /* unused */) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream, http::kHttpNoContent);
+              }
+            })
+            .thenError(
+                folly::tag_t<std::exception>{},
+                [downstream, handlerState](auto&& e) {
+                  if (!handlerState->requestExpired()) {
+                    http::sendErrorResponse(downstream, e.what());
+                  }
+                });
+      });
+}
+
 } // namespace facebook::presto

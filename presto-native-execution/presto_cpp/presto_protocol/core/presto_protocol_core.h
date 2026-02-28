@@ -1529,25 +1529,26 @@ struct adl_serializer<facebook::presto::protocol::TupleDomain<T>> {
   static void to_json(
       json& j,
       const facebook::presto::protocol::TupleDomain<T>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<T>>
-        list;
     if (tup.domains != nullptr) {
+      facebook::presto::protocol::List<
+          facebook::presto::protocol::ColumnDomain<T>>
+          list;
       for (auto& el : *tup.domains) {
         facebook::presto::protocol::ColumnDomain<T> domain;
         domain.column = el.first;
         domain.domain = el.second;
         list.push_back(domain);
       }
+      j["columnDomains"] = list;
+    } else {
+      j["columnDomains"] = nullptr;
     }
-
-    j["columnDomains"] = list;
   }
 
   static void from_json(
       const json& j,
       facebook::presto::protocol::TupleDomain<T>& tup) {
-    if (j.count("columnDomains") != 0U) {
+    if (j.count("columnDomains") != 0U && !j.at("columnDomains").is_null()) {
       std::shared_ptr<facebook::presto::protocol::
                           Map<T, facebook::presto::protocol::Domain>>
           map = std::make_shared<
@@ -1570,25 +1571,26 @@ struct adl_serializer<
   static void to_json(
       json& j,
       const facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
-        list;
     if (tup.domains != nullptr) {
+      facebook::presto::protocol::List<
+          facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
+          list;
       for (auto& el : *tup.domains) {
         facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>> domain;
         domain.column = el.first;
         domain.domain = el.second;
         list.push_back(domain);
       }
+      j["columnDomains"] = list;
+    } else {
+      j["columnDomains"] = nullptr;
     }
-
-    j["columnDomains"] = list;
   }
 
   static void from_json(
       const json& j,
       facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    if (j.count("columnDomains") != 0U) {
+    if (j.count("columnDomains") != 0U && !j.at("columnDomains").is_null()) {
       auto map = std::make_shared<std::map<
           std::shared_ptr<T>,
           facebook::presto::protocol::Domain,

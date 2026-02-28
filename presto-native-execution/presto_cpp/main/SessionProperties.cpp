@@ -630,6 +630,17 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kAggregationCompactionUnusedMemoryRatio,
       std::to_string(c.aggregationCompactionUnusedMemoryRatio()));
+
+  // 1MB default. Use the property name as the velox config key so it is
+  // accessible via QueryConfig::get() in the operator translator.
+  addSessionProperty(
+      kDistributedDynamicFilterMaxSize,
+      "Maximum size in bytes of discrete values collected per channel in the "
+      "dynamic filter source operator before falling back to min/max range.",
+      BIGINT(),
+      false,
+      kDistributedDynamicFilterMaxSize,
+      std::to_string(1048576));
 }
 
 const std::string SessionProperties::toVeloxConfig(

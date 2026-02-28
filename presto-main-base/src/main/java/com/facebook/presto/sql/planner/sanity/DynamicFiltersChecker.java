@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
@@ -95,12 +96,14 @@ public class DynamicFiltersChecker
                 Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
                 Set<String> consumedProbeSide = node.getProbe().accept(this, context);
                 Set<String> unconsumedByProbeSide = difference(currentJoinDynamicFilters, consumedProbeSide);
-                verify(
-                        unconsumedByProbeSide.isEmpty(),
-                        "Dynamic filters %s present in join were not fully consumed by its probe side, currentJoinDynamicFilters is: %s, consumedProbeSide is: %s",
-                        unconsumedByProbeSide,
-                        currentJoinDynamicFilters,
-                        consumedProbeSide);
+                if (!isDistributedDynamicFilterEnabled(session)) {
+                    verify(
+                            unconsumedByProbeSide.isEmpty(),
+                            "Dynamic filters %s present in join were not fully consumed by its probe side, currentJoinDynamicFilters is: %s, consumedProbeSide is: %s",
+                            unconsumedByProbeSide,
+                            currentJoinDynamicFilters,
+                            consumedProbeSide);
+                }
 
                 Set<String> consumedBuildSide = node.getBuild().accept(this, context);
                 Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);

@@ -87,4 +87,44 @@ public class RuntimeMetricName
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
     public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
     public static final String FILES_READ_COUNT = "filesReadCount";
+
+    // Dynamic filter metrics
+    public static final String DYNAMIC_FILTER_SPLITS_PROCESSED = "dynamicFilterSplitsProcessed";
+    public static final String DYNAMIC_FILTER_WAIT_TIME_NANOS = "dynamicFilterWaitTimeNanos";
+    public static final String DYNAMIC_FILTER_COLLECTION_TIME_NANOS = "dynamicFilterCollectionTimeNanos";
+    public static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED = "dynamicFilterPartitionsReceived";
+    public static final String DYNAMIC_FILTER_PUSHED_INTO_SCAN = "dynamicFilterPushedIntoScan";
+    public static final String DYNAMIC_FILTER_SPLITS_BEFORE_FILTER = "dynamicFilterSplitsBeforeFilter";
+    public static final String DYNAMIC_FILTER_CONSTRAINT_COLUMNS = "dynamicFilterConstraintColumns";
+    // Dynamic filter diagnostic metrics
+    public static final String DYNAMIC_FILTER_EXPECTED_PARTITIONS = "dynamicFilterExpectedPartitions";
+    public static final String DYNAMIC_FILTER_FETCHERS_STARTED = "dynamicFilterFetchersStarted";
+    // Dynamic filter source operator metrics
+    public static final String DYNAMIC_FILTER_SOURCE_DISTINCT_VALUES = "dynamicFilterSourceDistinctValues";
+    public static final String DYNAMIC_FILTER_SOURCE_FALLBACK_TO_MIN_MAX = "dynamicFilterSourceFallbackToMinMax";
+    public static final String DYNAMIC_FILTER_SOURCE_COLLECTION_TIME_NANOS = "dynamicFilterSourceCollectionTimeNanos";
+    public static final String DYNAMIC_FILTER_TIMED_OUT = "dynamicFilterTimedOut";
+    public static final String DYNAMIC_FILTER_DOMAIN_RANGE_COUNT = "dynamicFilterDomainRangeCount";
+    public static final String DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE = "dynamicFilterCoordinatorFallbackToRange";
+    public static final String DYNAMIC_FILTER_SHORT_CIRCUITED = "dynamicFilterShortCircuited";
+    public static final String DYNAMIC_FILTER_SPLITS_WITHOUT_FILTER = "dynamicFilterSplitsWithoutFilter";
+    public static final String DYNAMIC_FILTER_FETCHER_POLLS = "dynamicFilterFetcherPolls";
+    public static final String DYNAMIC_FILTER_FETCHER_STOPPED_BY_CLEANUP = "dynamicFilterFetcherStoppedByCleanup";
+    public static final String DYNAMIC_FILTER_FETCHER_FINAL_FETCH_COMPLETED = "dynamicFilterFetcherFinalFetchCompleted";
+    public static final String DYNAMIC_FILTER_PARTITIONS_RECEIVED_FROM_TASK = "dynamicFilterPartitionsReceivedFromTask";
+    public static final String DYNAMIC_FILTER_OPERATOR_CALLBACK = "dynamicFilterOperatorCallback";
+    public static final String DYNAMIC_FILTER_FACTORY_CLOSED = "dynamicFilterFactoryClosed";
+    public static final String DYNAMIC_FILTER_FLUSH_FIRED = "dynamicFilterFlushFired";
+    public static final String DYNAMIC_FILTER_COMPLETED_ID_DELIVERED = "dynamicFilterCompletedIdDelivered";
+    public static final String DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK = "dynamicFilterPlanCreatedPartitionFallback";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN = "dynamicFilterPlanSkippedNotPartitionColumn";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE = "dynamicFilterPlanSkippedBuildCoversProbe";
+    public static final String DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV = "dynamicFilterPlanCreatedLowNdv";
+    public static final String DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO = "dynamicFilterPlanCreatedFavorableRatio";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY = "dynamicFilterPlanSkippedHighCardinality";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN = "dynamicFilterPlanSkippedBroadcastJoin";
+    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE = "dynamicFilterPlanSkippedSmallProbe";
+    // Column selectivity check metrics (extended metrics only)
+    public static final String DYNAMIC_FILTER_COLUMNS_SKIPPED = "dynamicFilterColumnsSkipped";
+    public static final String DYNAMIC_FILTER_COLUMNS_RELEVANT = "dynamicFilterColumnsRelevant";
 }

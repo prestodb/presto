@@ -77,6 +77,7 @@ public class IcebergConfig
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors();
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
     private String materializedViewStoragePrefix = "__mv_storage__";
+    private boolean dynamicFilterExtendedMetrics;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -496,4 +497,18 @@ public class IcebergConfig
         this.materializedViewStoragePrefix = materializedViewStoragePrefix;
         return this;
     }
+
+    public boolean isDynamicFilterExtendedMetrics()
+    {
+        return dynamicFilterExtendedMetrics;
+    }
+
+    @Config("iceberg.dynamic-filter-extended-metrics")
+    @ConfigDescription("Emit extended metrics for dynamic filter diagnostics in Iceberg split sources")
+    public IcebergConfig setDynamicFilterExtendedMetrics(boolean dynamicFilterExtendedMetrics)
+    {
+        this.dynamicFilterExtendedMetrics = dynamicFilterExtendedMetrics;
+        return this;
+    }
+
 }
