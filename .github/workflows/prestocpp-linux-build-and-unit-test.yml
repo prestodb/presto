@@ -353,7 +353,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java'`
+          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java' ! -path "./presto-native-tests/src/test/java/com/facebook/presto/nativetests/operator/*"`
           # Convert file paths to comma separated class names
           export TESTCLASSES=
           for test_file in $TESTFILES
@@ -370,6 +370,109 @@ jobs:
             -pl 'presto-native-tests' \
             -DstorageFormat=${{ matrix.storage-format }} \
             -DsidecarEnabled=${{ matrix.enable-sidecar }} \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
+
+  prestocpp-linux-presto-native-function-tests:
+    needs: [changes, prestocpp-linux-build-for-test]
+    runs-on: ubuntu-22.04
+    container:
+      image: prestodb/presto-native-dependency:0.297-202512180933-75d7d4ea
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
+    env:
+      MAVEN_OPTS: -Xmx4G -XX:+ExitOnOutOfMemoryError
+      MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true
+      MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
+
+      - name: Fix git permissions
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Free Disk Space
+        run: |
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          echo "Original available disk space: " $(getAvailableSpace)
+          rm -rf /host_usr/share/dotnet || true
+          rm -rf /host_usr/local/lib/android || true
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          echo "New available disk space: " $(getAvailableSpace)
+
+      - name: Download artifacts
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-native-build
+          path: presto-native-execution/_build/release
+
+      - name: Update velox
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Restore execute permissions and library path
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          ldconfig /usr/local/lib
+
+      - name: Install OpenJDK17
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17.0.15
+          cache: maven
+      - name: Download nodejs to maven cache
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: .github/bin/download_nodejs
+
+      - name: Maven install
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        env:
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+        run: |
+          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-tests' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+
+      - name: Run presto native function tests
+        if: |
+          github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          export TESTFILES=`find ./presto-native-tests/src/test/java/com/facebook/presto/nativetests/operator -type f -name 'Test*.java'`
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl 'presto-native-tests' \
             -Dtest="${TESTCLASSES}" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \

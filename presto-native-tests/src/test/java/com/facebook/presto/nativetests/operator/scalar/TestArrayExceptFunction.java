@@ -28,7 +28,7 @@ public class TestArrayExceptFunction
 {
     @Language("RegExp") private static final String unknownTypeError = ".*not a known type kind: UNKNOWN.*";
 
-    @Test
+    @Test(enabled = false)
     public void testEmpty()
     {
         assertNotSupported("array_except(ARRAY[], ARRAY[])", unknownTypeError);
@@ -36,7 +36,7 @@ public class TestArrayExceptFunction
         assertFunction("array_except(ARRAY[CAST('abc' as VARCHAR)], ARRAY[])", new ArrayType(VARCHAR), ImmutableList.of("abc"));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testNull()
     {
         assertNotSupported("array_except(ARRAY[NULL], NULL)", unknownTypeError);

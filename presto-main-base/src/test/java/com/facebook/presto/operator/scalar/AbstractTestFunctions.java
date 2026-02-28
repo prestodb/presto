@@ -163,15 +163,10 @@ public abstract class AbstractTestFunctions
                 expectedResult);
     }
 
-    protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
+    @Override
+    public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
         functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
-    }
-
-    @Override
-    public void assertInvalidFunction(String projection, String messagePattern)
-    {
-        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
     }
 
     protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
