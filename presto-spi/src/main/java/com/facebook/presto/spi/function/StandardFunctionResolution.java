@@ -62,6 +62,10 @@ public interface StandardFunctionResolution
 
     FunctionHandle lookupCast(String castType, Type fromType, Type toType);
 
+    boolean isTryFunction(FunctionHandle functionHandle);
+
+    boolean isFailFunction(FunctionHandle functionHandle);
+
     boolean isCountFunction(FunctionHandle functionHandle);
 
     boolean isCountIfFunction(FunctionHandle functionHandle);
