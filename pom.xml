@@ -2071,6 +2071,13 @@
                 </exclusions>
             </dependency>
 
+            <!-- CVE-2025-12183: Override vulnerable lz4-java from kafka-clients -->
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>1.10.2</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
