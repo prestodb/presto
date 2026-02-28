@@ -69,7 +69,7 @@ jobs:
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -183,7 +183,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
