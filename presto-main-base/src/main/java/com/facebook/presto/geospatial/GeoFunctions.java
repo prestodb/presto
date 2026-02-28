@@ -26,6 +26,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCLineString;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.KdbTreeType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -1089,11 +1090,16 @@ public final class GeoFunctions
     @Description("Returns TRUE if the given geometries represent the same geometry")
     @ScalarFunction("ST_Equals")
     @SqlType(BOOLEAN)
-    public static Boolean stEquals(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    public static Boolean stEquals(SqlFunctionProperties properties, @SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
     {
         OGCGeometry leftGeometry = EsriGeometrySerde.deserialize(left);
         OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
+        if (!properties.isLegacyStEquals()) {
+            if (leftGeometry.isEmpty() && rightGeometry.isEmpty()) {
+                return true;
+            }
+        }
         return leftGeometry.Equals(rightGeometry);
     }
 

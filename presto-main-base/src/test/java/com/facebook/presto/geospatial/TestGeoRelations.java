@@ -14,7 +14,11 @@
 
 package com.facebook.presto.geospatial;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Pair;
@@ -155,6 +159,44 @@ public class TestGeoRelations
         assertRelation("ST_Equals", "'MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))'", "'MULTILINESTRING ((3 4, 6 4), (5 0, 5 4))'", false);
         assertRelation("ST_Equals", "'POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))'", "'POLYGON ((3 3, 3 1, 1 1, 1 3, 3 3))'", true);
         assertRelation("ST_Equals", "'MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))'", "'POLYGON ((0 1, 3 1, 3 3, 0 3, 0 1))'", false);
+        assertRelation("ST_Equals", "'LINESTRING (0 0, 0 1)'", "'POINT EMPTY'", false);
+        assertRelation("ST_Equals", "'POINT EMPTY'", "'POINT EMPTY'", true);
+        assertRelation("ST_Equals", "'POINT EMPTY'", "'LINESTRING EMPTY'", true);
+    }
+
+    @Test
+    public void testSTEqualsLegacyBehavior()
+    {
+        Session legacySession = Session.builder(session)
+                .setSystemProperty("legacy_st_equals", "true")
+                .build();
+        FunctionAssertions legacyAssertions = new FunctionAssertions(
+                legacySession,
+                new FeaturesConfig(),
+                new FunctionsConfig(),
+                false);
+
+        try {
+            legacyAssertions.assertFunction(
+                    "ST_Equals(ST_GeometryFromText('LINESTRING (0 0, 2 2)'), ST_GeometryFromText('LINESTRING (0 0, 2 2)'))",
+                    BOOLEAN,
+                    true);
+            legacyAssertions.assertFunction(
+                    "ST_Equals(ST_GeometryFromText('LINESTRING (0 0, 0 1)'), ST_GeometryFromText('POINT EMPTY'))",
+                    BOOLEAN,
+                    false);
+            legacyAssertions.assertFunction(
+                    "ST_Equals(ST_GeometryFromText('POINT EMPTY'), ST_GeometryFromText('POINT EMPTY'))",
+                    BOOLEAN,
+                    false);
+            legacyAssertions.assertFunction(
+                    "ST_Equals(ST_GeometryFromText('POINT EMPTY'), ST_GeometryFromText('LINESTRING EMPTY'))",
+                    BOOLEAN,
+                    false);
+        }
+        finally {
+            legacyAssertions.close();
+        }
     }
 
     @Test
