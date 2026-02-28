@@ -118,6 +118,8 @@
         <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
         <dep.io.opentelemetry.version>1.58.0</dep.io.opentelemetry.version>
 
+        <dep.cassandra-java-driver.version>4.19.2</dep.cassandra-java-driver.version>
+
         <release.autoPublish>true</release.autoPublish>
     </properties>
 
@@ -2697,9 +2699,22 @@
             </dependency>
 
             <dependency>
-                <groupId>com.datastax.cassandra</groupId>
-                <artifactId>cassandra-driver-core</artifactId>
-                <version>3.11.5</version>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-core</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.cassandra</groupId>
+                <artifactId>java-driver-query-builder</artifactId>
+                <version>${dep.cassandra-java-driver.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>at.yawk.lz4</groupId>
+                <artifactId>lz4-java</artifactId>
+                <version>1.10.1</version>
+                <scope>runtime</scope>
             </dependency>
 
             <dependency>

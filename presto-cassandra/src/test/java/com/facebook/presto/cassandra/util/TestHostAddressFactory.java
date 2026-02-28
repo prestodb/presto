@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra.util;
 
-import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TestHost;
+import com.datastax.oss.driver.api.core.metadata.Node;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -32,14 +32,14 @@ public class TestHostAddressFactory
     public void testToHostAddressList()
             throws Exception
     {
-        Set<Host> hosts = ImmutableSet.of(
+        Set<Node> hosts = ImmutableSet.of(
                 new TestHost(
                         new InetSocketAddress(
                                 InetAddress.getByAddress(new byte[] {
                                         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
                                 }),
-                                3000)),
-                new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 3000)));
+                                3000)).toNode(),
+                new TestHost(new InetSocketAddress(InetAddress.getByAddress(new byte[] {1, 2, 3, 4}), 3000)).toNode());
 
         HostAddressFactory hostAddressFactory = new HostAddressFactory();
         List<HostAddress> list = hostAddressFactory.toHostAddressList(hosts);

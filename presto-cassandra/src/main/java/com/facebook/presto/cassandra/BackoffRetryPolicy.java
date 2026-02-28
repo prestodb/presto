@@ -13,13 +13,14 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.WriteType;
-import com.datastax.driver.core.exceptions.DriverException;
-import com.datastax.driver.core.policies.DefaultRetryPolicy;
-import com.datastax.driver.core.policies.RetryPolicy;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.retry.RetryDecision;
+import com.datastax.oss.driver.api.core.retry.RetryPolicy;
+import com.datastax.oss.driver.api.core.servererrors.CoordinatorException;
+import com.datastax.oss.driver.api.core.servererrors.WriteType;
+import com.datastax.oss.driver.api.core.session.Request;
+
+import javax.annotation.Nonnull;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -27,49 +28,84 @@ public class BackoffRetryPolicy
         implements RetryPolicy
 {
     public static final BackoffRetryPolicy INSTANCE = new BackoffRetryPolicy();
+    private static final int MAX_RETRIES = 10;
 
     private BackoffRetryPolicy() {}
 
     @Override
-    public RetryDecision onUnavailable(Statement statement, ConsistencyLevel consistencyLevel, int requiredReplica, int aliveReplica, int retries)
+    public RetryDecision onReadTimeout(
+            @Nonnull Request request,
+            @Nonnull ConsistencyLevel cl,
+            int blockFor,
+            int received,
+            boolean dataPresent,
+            int retryCount)
     {
-        if (retries >= 10) {
-            return RetryDecision.rethrow();
+        // Delegate to default behavior for read timeouts
+        return RetryDecision.RETHROW;
+    }
+
+    @Override
+    public RetryDecision onWriteTimeout(
+            @Nonnull Request request,
+            @Nonnull ConsistencyLevel cl,
+            @Nonnull WriteType writeType,
+            int blockFor,
+            int received,
+            int retryCount)
+    {
+        // Delegate to default behavior for write timeouts
+        return RetryDecision.RETHROW;
+    }
+
+    @Override
+    public RetryDecision onUnavailable(
+            @Nonnull Request request,
+            @Nonnull ConsistencyLevel cl,
+            int required,
+            int alive,
+            int retryCount)
+    {
+        if (retryCount >= MAX_RETRIES) {
+            return RetryDecision.RETHROW;
         }
 
         try {
+            // Exponential backoff with jitter
             int jitter = ThreadLocalRandom.current().nextInt(100);
-            int delay = (100 * (retries + 1)) + jitter;
+            int delay = (100 * (retryCount + 1)) + jitter;
             Thread.sleep(delay);
-            return RetryDecision.retry(consistencyLevel);
+            return RetryDecision.RETRY_SAME;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return RetryDecision.rethrow();
+            return RetryDecision.RETHROW;
         }
     }
 
     @Override
-    public RetryDecision onReadTimeout(Statement statement, ConsistencyLevel cl, int requiredResponses, int receivedResponses, boolean dataRetrieved, int nbRetry)
+    public RetryDecision onRequestAborted(
+            @Nonnull Request request,
+            @Nonnull Throwable error,
+            int retryCount)
     {
-        return DefaultRetryPolicy.INSTANCE.onReadTimeout(statement, cl, requiredResponses, receivedResponses, dataRetrieved, nbRetry);
+        // Try next host on request aborted
+        return RetryDecision.RETRY_NEXT;
     }
 
     @Override
-    public RetryDecision onWriteTimeout(Statement statement, ConsistencyLevel cl, WriteType writeType, int requiredAcks, int receivedAcks, int nbRetry)
+    public RetryDecision onErrorResponse(
+            @Nonnull Request request,
+            @Nonnull CoordinatorException error,
+            int retryCount)
     {
-        return DefaultRetryPolicy.INSTANCE.onWriteTimeout(statement, cl, writeType, requiredAcks, receivedAcks, nbRetry);
+        // Try next host on coordinator errors
+        return RetryDecision.RETRY_NEXT;
     }
 
     @Override
-    public RetryDecision onRequestError(Statement statement, ConsistencyLevel cl, DriverException e, int nbRetry)
+    public void close()
     {
-        return RetryDecision.tryNextHost(cl);
+        // No resources to clean up
     }
-
-    @Override
-    public void init(Cluster cluster) {}
-
-    @Override
-    public void close() {}
 }

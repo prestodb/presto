@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
+import static com.facebook.presto.cassandra.CassandraTokenSplitManager.extractTokenValue;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -105,5 +106,29 @@ public class TestCassandraTokenSplitManager
         finally {
             session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
         }
+    }
+
+    @Test
+    public void testExtractTokenValue()
+    {
+        // Test Murmur3Token format (Cassandra driver 4.x)
+        assertEquals(extractTokenValue("Murmur3Token(-9223372036854775808)"), "-9223372036854775808");
+        assertEquals(extractTokenValue("Murmur3Token(9223372036854775807)"), "9223372036854775807");
+        assertEquals(extractTokenValue("Murmur3Token(0)"), "0");
+        assertEquals(extractTokenValue("Murmur3Token(-1)"), "-1");
+        assertEquals(extractTokenValue("Murmur3Token(12345)"), "12345");
+
+        // Test RandomToken format
+        assertEquals(extractTokenValue("RandomToken(123456789012345678901234567890)"), "123456789012345678901234567890");
+
+        // Test backward compatibility - plain numeric values (driver 3.x format)
+        assertEquals(extractTokenValue("-9223372036854775808"), "-9223372036854775808");
+        assertEquals(extractTokenValue("9223372036854775807"), "9223372036854775807");
+        assertEquals(extractTokenValue("0"), "0");
+        assertEquals(extractTokenValue("12345"), "12345");
+
+        // Test edge cases
+        assertEquals(extractTokenValue("Token()"), "");
+        assertEquals(extractTokenValue("Token(value)"), "value");
     }
 }
