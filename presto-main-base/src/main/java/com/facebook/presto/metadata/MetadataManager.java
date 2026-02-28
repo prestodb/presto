@@ -23,6 +23,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -1799,6 +1800,23 @@ public class MetadataManager
         }
         session.getRuntimeStats().addMetricValue(GET_IDENTIFIER_NORMALIZATION_TIME_NANOS, NANO, System.nanoTime() - startTime);
         return normalizedString;
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> canonicalizeTableHandleForHbo(Session session, TableHandle tableHandle, PlanCanonicalizationStrategy strategy)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata connectorMetadata = getMetadata(session, connectorId);
+
+        return connectorMetadata.canonicalizeTableHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), strategy);
+    }
+
+    @Override
+    public boolean isPublishHboStatsEnabled(Session session, TableHandle tableHandle) {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata connectorMetadata = getMetadata(session, connectorId);
+
+        return connectorMetadata.isPublishHboStatsEnabled(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
     }
 
     private ColumnMetadata normalizedColumnMetadata(Session session, String catalogName, ColumnMetadata columnMetadata)

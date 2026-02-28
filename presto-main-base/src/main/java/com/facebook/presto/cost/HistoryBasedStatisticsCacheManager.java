@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +54,8 @@ public class HistoryBasedStatisticsCacheManager
     private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
     private final Map<QueryId, Map<PlanCanonicalizationStrategy, String>> canonicalPlan = new ConcurrentHashMap<>();
     private final Map<QueryId, PlanNode> statsEquivalentPlanRootNode = new ConcurrentHashMap<>();
+
+    private Set<QueryId> shouldUnPublishStatsCache = new HashSet<>();
 
     public HistoryBasedStatisticsCacheManager() {}
 
@@ -98,6 +101,16 @@ public class HistoryBasedStatisticsCacheManager
     public void setStatsEquivalentPlanRootNode(QueryId queryId, PlanNode plan)
     {
         statsEquivalentPlanRootNode.put(queryId, plan);
+    }
+
+    public void addShouldPublishStatsCache(QueryId queryId)
+    {
+        this.shouldUnPublishStatsCache.add(queryId);
+    }
+
+    public boolean shouldUnPublishStatsCache(QueryId queryId)
+    {
+        return this.shouldUnPublishStatsCache.contains(queryId);
     }
 
     public Optional<PlanNode> getStatsEquivalentPlanRootNode(QueryId queryId)
