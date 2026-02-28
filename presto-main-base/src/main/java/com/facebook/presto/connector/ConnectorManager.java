@@ -339,6 +339,7 @@ public class ConnectorManager
 
         metadataManager.getTablePropertyManager().addProperties(connectorId, connector.getTableProperties());
         metadataManager.getMaterializedViewPropertyManager().addProperties(connectorId, connector.getMaterializedViewProperties());
+        metadataManager.getTableDeprecatedPropertyManager().ifPresent(manager -> manager.addProperties(connectorId, connector.getDeprecatedTableProperties()));
         metadataManager.getColumnPropertyManager().addProperties(connectorId, connector.getColumnProperties());
         metadataManager.getSchemaPropertyManager().addProperties(connectorId, connector.getSchemaProperties());
         metadataManager.getAnalyzePropertyManager().addProperties(connectorId, connector.getAnalyzeProperties());
@@ -446,6 +447,7 @@ public class ConnectorManager
         private final List<PropertyMetadata<?>> sessionProperties;
         private final List<PropertyMetadata<?>> tableProperties;
         private final List<PropertyMetadata<?>> materializedViewProperties;
+        private final List<PropertyMetadata<?>> deprecatedTableProperties;
         private final List<PropertyMetadata<?>> schemaProperties;
         private final List<PropertyMetadata<?>> columnProperties;
         private final List<PropertyMetadata<?>> analyzeProperties;
@@ -562,6 +564,10 @@ public class ConnectorManager
             requireNonNull(materializedViewProperties, "Connector %s returned a null materialized view properties set");
             this.materializedViewProperties = ImmutableList.copyOf(materializedViewProperties);
 
+            List<PropertyMetadata<?>> deprecatedTableProperties = connector.getDeprecatedTableProperties();
+            requireNonNull(deprecatedTableProperties, "Connector %s returned a null deprecated table properties set");
+            this.deprecatedTableProperties = ImmutableList.copyOf(deprecatedTableProperties);
+
             List<PropertyMetadata<?>> schemaProperties = connector.getSchemaProperties();
             requireNonNull(schemaProperties, "Connector %s returned a null schema properties set");
             this.schemaProperties = ImmutableList.copyOf(schemaProperties);
@@ -659,6 +665,10 @@ public class ConnectorManager
         public List<PropertyMetadata<?>> getMaterializedViewProperties()
         {
             return materializedViewProperties;
+        }
+        public List<PropertyMetadata<?>> getDeprecatedTableProperties()
+        {
+            return deprecatedTableProperties;
         }
 
         public List<PropertyMetadata<?>> getColumnProperties()

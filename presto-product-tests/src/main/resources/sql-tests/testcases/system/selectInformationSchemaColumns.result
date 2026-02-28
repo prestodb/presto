@@ -54,6 +54,7 @@ system| metadata| analyze_properties| property_name| varchar| YES| null| null|
 system| metadata| analyze_properties| default_value| varchar| YES| null| null|
 system| metadata| analyze_properties| type| varchar| YES| null| null|
 system| metadata| analyze_properties| description| varchar| YES| null| null|
+system| metadata| analyze_properties| is_deprecated| boolean| YES| null| null|
 system| metadata| catalogs| catalog_name| varchar| YES| null| null|
 system| metadata| catalogs| connector_id| varchar| YES| null| null|
 system| metadata| catalogs| connector_name| varchar| YES| null| null|
@@ -62,16 +63,19 @@ system| metadata| column_properties| property_name| varchar| YES| null| null|
 system| metadata| column_properties| default_value| varchar| YES| null| null|
 system| metadata| column_properties| type| varchar| YES| null| null|
 system| metadata| column_properties| description| varchar| YES| null| null|
+system| metadata| column_properties| is_deprecated| boolean| YES| null| null|
 system| metadata| schema_properties| catalog_name| varchar| YES| null| null|
 system| metadata| schema_properties| property_name| varchar| YES| null| null|
 system| metadata| schema_properties| default_value| varchar| YES| null| null|
 system| metadata| schema_properties| type| varchar| YES| null| null|
 system| metadata| schema_properties| description| varchar| YES| null| null|
+system| metadata| schema_properties| is_deprecated| boolean| YES| null| null|
 system| metadata| table_properties| catalog_name| varchar| YES| null| null|
 system| metadata| table_properties| property_name| varchar| YES| null| null|
 system| metadata| table_properties| default_value| varchar| YES| null| null|
 system| metadata| table_properties| type| varchar| YES| null| null|
 system| metadata| table_properties| description| varchar| YES| null| null|
+system| metadata| table_properties| is_deprecated| boolean| YES| null| null|
 system| runtime| nodes| node_id| varchar| YES| null| null|
 system| runtime| nodes| http_uri| varchar| YES| null| null|
 system| runtime| nodes| node_version| varchar| YES| null| null|

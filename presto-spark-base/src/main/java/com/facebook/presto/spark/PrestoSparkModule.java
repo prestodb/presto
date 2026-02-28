@@ -71,6 +71,7 @@ import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.DeprecatedTablePropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -359,6 +360,7 @@ public class PrestoSparkModule
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(TablePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(MaterializedViewPropertyManager.class).in(Scopes.SINGLETON);
+        binder.bind(DeprecatedTablePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(ColumnPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);

@@ -121,7 +121,7 @@ public class Catalog
                 .toString();
     }
 
-    public class CatalogContext
+    public static class CatalogContext
     {
         private final String catalogName;
         private final String connectorName;
