@@ -89,6 +89,22 @@ public class TestIcebergSplitManager
         testGetSplitsByNonIdentityPartitionColumns("get_splits_by_nonidentity_without_filter_pushdown", false);
     }
 
+    @Test
+    public void testGetChangelogWithSingleSnapshot()
+    {
+        // Build an Iceberg table, produce an initial snapshot with parent_id=NULL
+        assertUpdate("CREATE TABLE get_changelog_with_single_snapshot (a integer)");
+        assertUpdate("INSERT INTO get_changelog_with_single_snapshot VALUES 1", 1);
+
+        // Verify there is only one snapshot and that the changelog returns empty
+        assertQuery("SELECT COUNT(*) FROM \"get_changelog_with_single_snapshot$snapshots\" GROUP BY snapshot_id", "VALUES 1");
+        assertQuery("SELECT COUNT(*) FROM" +
+                "(SELECT * FROM \"get_changelog_with_single_snapshot$changelog\")" +
+                "as subquery;", "VALUES 0");
+
+        assertQuerySucceeds("DROP TABLE get_changelog_with_single_snapshot");
+    }
+
     private void testGetSplitsByPartitionMixNormalColumns(String tableName, boolean filterPushdown)
     {
         assertUpdate("CREATE TABLE " + tableName + " (a varchar, b integer, r row(c int, d varchar)) WITH(partitioning = ARRAY['a'])");

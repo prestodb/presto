@@ -95,6 +95,9 @@ public class IcebergSplitManager
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
+            if (fromSnapshot == toSnapshot) { // if only one snapshot exists
+                return new FixedSplitSource(ImmutableList.of());
+            }
             return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
