@@ -1027,6 +1027,22 @@ public abstract class AbstractTestNativeGeneralQueries
         finally {
             dropTableIfExists(tmpTableName);
         }
+
+        // bit_length
+        assertQuery("SELECT bit_length(comment) FROM orders");
+        assertQuery("SELECT bit_length(name) FROM nation");
+        assertQuery("SELECT bit_length(shipmode) FROM lineitem");
+
+        // longest_common_prefix
+        assertQuery("SELECT longest_common_prefix(name, 'UNITED') FROM nation WHERE name LIKE 'UNITED%' ORDER BY name");
+        assertQuery("SELECT longest_common_prefix(comment, comment) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT longest_common_prefix('', ''), longest_common_prefix('hello', 'hello world') FROM (VALUES 1)", "SELECT '', 'hello'");
+
+        // replace_first
+        assertQuery("SELECT replace_first(comment, 'the', 'THE') FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT replace_first(name, 'A', 'X') FROM nation ORDER BY nationkey LIMIT 10");
+        assertQuery("SELECT replace_first('aaa', 'a', 'b') FROM (VALUES 1)", "SELECT 'baa'");
+        assertQuery("SELECT replace_first(comment, ' ', '') FROM orders ORDER BY orderkey LIMIT 10");
     }
 
     @Test
