@@ -63,6 +63,7 @@ jobs:
           - :presto-mongodb -P ci-full-tests
           - :presto-redis -P ci-full-tests
           - :presto-elasticsearch
+          - :presto-oracle -P ci
           - :presto-orc
           - :presto-thrift-connector
           - :presto-spark-base -P presto-spark-tests-smoke

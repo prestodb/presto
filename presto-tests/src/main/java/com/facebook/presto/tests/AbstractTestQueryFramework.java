@@ -465,6 +465,14 @@ public abstract class AbstractTestQueryFramework
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
+    protected void assertCreateTableAsSelect(Session session, String table, @Language("SQL") String query, @Language("SQL") String rowCountQuery)
+    {
+        assertUpdate(session, "CREATE TABLE " + table + " AS " + query, rowCountQuery);
+        assertUpdate(session, "DROP TABLE " + table);
+
+        assertFalse(getQueryRunner().tableExists(session, table));
+    }
+
     private static void assertErrorMessage(String sql, AssertionError error, @Language("RegExp") String regex)
     {
         if (!nullToEmpty(error.getMessage()).matches(regex)) {
@@ -475,6 +483,11 @@ public abstract class AbstractTestQueryFramework
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return expectedQueryRunner.execute(getSession(), sql, resultTypes);
+    }
+
+    protected MaterializedResult computeExpected(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
+    {
+        return expectedQueryRunner.execute(session, sql, resultTypes);
     }
 
     protected void executeExclusively(Runnable executionBlock)

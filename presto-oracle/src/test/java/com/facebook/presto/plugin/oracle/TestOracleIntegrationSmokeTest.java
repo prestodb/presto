@@ -17,26 +17,24 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
 
-// Disabled for 7.5 TestNG Upgrade, the constructor takes in parameter
-// TestNG 6 silently ignored, TestNG 7.5 fails (correctly), disabling for now
-public class DisabledTestOracleIntegrationSmokeTest
+public class TestOracleIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private final OracleServerTester oracleServer;
     private QueryRunner queryRunner;
 
-    protected DisabledTestOracleIntegrationSmokeTest(OracleServerTester oracleServer)
+    protected TestOracleIntegrationSmokeTest()
             throws Exception
     {
-        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
         this.oracleServer = new OracleServerTester();
+        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
     }
 
     @Override
@@ -52,20 +50,25 @@ public class DisabledTestOracleIntegrationSmokeTest
         oracleServer.close();
     }
 
-    @Test
+    @Override
+    protected boolean isLegacyTimestampEnabled()
+    {
+        return false;
+    }
+
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar(1)", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "timestamp", "", "")
-                .row("orderpriority", "varchar(15)", "", "")
-                .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("comment", "varchar(79)", "", "")
+        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
+                .row("orderkey", "bigint", "", "", 19L, null, null)
+                .row("custkey", "bigint", "", "", 19L, null, null)
+                .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
+                .row("totalprice", "double", "", "", 53L, null, null)
+                .row("orderdate", "timestamp", "", "", null, null, null)
+                .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
+                .row("clerk", "varchar(15)", "", "", null, null, 15L)
+                .row("shippriority", "bigint", "", "", 19L, null, null)
+                .row("comment", "varchar(79)", "", "", null, null, 79L)
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);

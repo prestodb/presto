@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -33,6 +35,19 @@ public abstract class AbstractTestIntegrationSmokeTest
     protected boolean isParameterizedVarcharSupported()
     {
         return true;
+    }
+    protected boolean isLegacyTimestampEnabled()
+    {
+        return true;
+    }
+
+    protected Session sessionWithLegacyTimestamp()
+    {
+        Session.SessionBuilder builder = Session.builder(getSession());
+        if (!isLegacyTimestampEnabled()) {
+            builder.setSystemProperty(LEGACY_TIMESTAMP, "false");
+        }
+        return builder.build();
     }
 
     @Test
@@ -82,19 +97,22 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testMultipleRangesPredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
+        Session session = sessionWithLegacyTimestamp();
+        assertQuery(session, "SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
     }
 
     @Test
     public void testRangePredicate()
     {
-        assertQuery("SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
+        Session session = sessionWithLegacyTimestamp();
+        assertQuery(session, "SELECT * FROM orders WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
     public void testSelectAll()
     {
-        assertQuery("SELECT * FROM orders");
+        Session session = sessionWithLegacyTimestamp();
+        assertQuery(session, "SELECT * FROM orders");
     }
 
     @Test
