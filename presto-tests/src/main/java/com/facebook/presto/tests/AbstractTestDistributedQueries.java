@@ -317,6 +317,57 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testNonAutoCommitTransactionWithFailAndCommit()
+    {
+        assertUpdate("create table test_non_autocommit_table_v2(a int, b varchar)");
+        Session session = getQueryRunner().getDefaultSession();
+        String defaultCatalog = session.getCatalog().get();
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(Session.builder(session)
+                                .setIdentity(new Identity("admin",
+                                        Optional.empty(),
+                                        ImmutableMap.of(defaultCatalog, new SelectedRole(ROLE, Optional.of("admin"))),
+                                        ImmutableMap.of(),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        Optional.empty()))
+                                .build(),
+                        txnSession -> {
+                            // simulate failure of SQL statement execution
+                            assertQueryFails(txnSession, "SELECT fail('forced failure')", "forced failure");
+
+                            // cannot execute any SQLs except `rollback` in current session
+                            assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table_v2", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "insert into test_non_autocommit_table_v2 values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "create table test_table(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+
+                            // `commit` statement fail, but abort the transaction successfully
+                            assertQueryFails(txnSession, "commit", "Current transaction has already been aborted");
+
+                            // Currently, test framework cannot clean up the transaction ID of current session after the transaction is aborted.
+                            // If a session carries a transaction ID that has already been aborted on the server side, then execution a statement
+                            // will get a failed message: `Unknown transaction ID...`.
+                            // This failure message confirms that the transaction has been aborted by the server.
+                            txnSession.getTransactionId().ifPresent(transactionId -> {
+                                assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table_v2", format("Unknown transaction ID: %s\\. Possibly expired\\? .*", transactionId));
+                                assertQueryFails(txnSession, "rollback", format("Unknown transaction ID: %s\\. Possibly expired\\? .*", transactionId));
+                            });
+
+                            // After the `commit` statement fails, the transaction will be aborted and a `clearTransactionId` flag
+                            // will be returned to the client for cleaning up the transaction ID in current session.
+                            // Use the original session to simulate the session after the transaction ID is cleared.
+                            assertQuery(session, "select count(*) from test_non_autocommit_table_v2", "values(0)");
+
+                            // After a transaction is successfully closed, executing a rollback has the same behavior as rolling back when
+                            // no transaction was started.
+                            assertQueryFails(session, "rollback", "No transaction in progress");
+                        });
+
+        assertUpdate("drop table if exists test_non_autocommit_table_v2");
+    }
+
+    @Test
     public void testCreateTableAsSelect()
     {
         assertUpdate("CREATE TABLE IF NOT EXISTS test_ctas AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
