@@ -1035,6 +1035,11 @@ public abstract class AbstractTestNativeGeneralQueries
         // crc32.
         assertQuery("SELECT crc32(cast(comment as varbinary)) FROM orders");
 
+        // length.
+        assertQuery("SELECT length(cast('' as varbinary))");
+        assertQuery("SELECT length(cast('hello' as varbinary))");
+        assertQuery("SELECT length(cast(comment as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+
         // from_base64, to_base64.
         assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
 
@@ -1080,7 +1085,9 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_hex, to_hex.
         assertQuery("SELECT from_hex(to_hex(cast(comment as varbinary))) FROM orders");
 
-        // hmac_sha1, hmac_sha256, hmac_sha512.
+        // hmac_md5, hmac_sha1, hmac_sha256, hmac_sha512.
+        assertQuery("SELECT hmac_md5(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT hmac_md5(cast('data' as varbinary), cast('key' as varbinary))");
         assertQuery("SELECT hmac_sha1(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
         assertQuery("SELECT hmac_sha256(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
         assertQuery("SELECT hmac_sha512(cast(comment as varbinary), cast(clerk as varbinary)) FROM orders");
@@ -1099,6 +1106,22 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // xxhash64.
         assertQuery("SELECT xxhash64(cast(comment as varbinary)) FROM orders");
+        assertQuery("SELECT xxhash64(cast('hello' as varbinary), BIGINT '0')");
+        assertQuery("SELECT xxhash64(cast('hello' as varbinary), BIGINT '42')");
+        assertQuery("SELECT xxhash64(cast(comment as varbinary), orderkey) FROM orders ORDER BY orderkey LIMIT 10");
+
+        // lpad, rpad.
+        assertQuery("SELECT lpad(cast('hello' as varbinary), 10, cast('ab' as varbinary))");
+        assertQuery("SELECT lpad(cast('hello' as varbinary), 3, cast('ab' as varbinary))");
+        assertQuery("SELECT lpad(cast(comment as varbinary), 50, cast('x' as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT rpad(cast('hello' as varbinary), 10, cast('ab' as varbinary))");
+        assertQuery("SELECT rpad(cast('hello' as varbinary), 3, cast('ab' as varbinary))");
+        assertQuery("SELECT rpad(cast(comment as varbinary), 50, cast('x' as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+
+        // murmur3_x64_128.
+        assertQuery("SELECT murmur3_x64_128(cast('' as varbinary))", "SELECT from_hex('00000000000000000000000000000000')");
+        assertQuery("SELECT murmur3_x64_128(cast('hashme' as varbinary))", "SELECT from_hex('93192FE805BE23041C8318F67EC4F2BC')");
+        assertQuery("SELECT murmur3_x64_128(cast(comment as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
 
         // from_base64url, to_base64url
         assertQuery("SELECT from_base64url(to_base64url(cast(comment as varbinary))) FROM orders");
