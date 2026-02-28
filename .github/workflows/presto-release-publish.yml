@@ -468,6 +468,14 @@ jobs:
             docker push $ORG_NAME/${{ env.IMAGE_NAME }}:latest
           fi
 
+  native-image-tests:
+    needs: publish-native-image
+    if: (!failure() && !cancelled())
+    name: Run Docker Image Tests
+    uses: prestodb/presto-release-tools/.github/workflows/docker-image-tests.yml@master
+    with:
+      image_tag: ${{ inputs.RELEASE_VERSION }}
+
   publish-docs:
     needs: publish-maven-artifacts
     if: (!failure() && !cancelled()) && github.event.inputs.publish_docs == 'true'
