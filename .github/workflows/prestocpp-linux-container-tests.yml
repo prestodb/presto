@@ -167,8 +167,8 @@ jobs:
 
       - name: Load Docker images
         run: |
-          docker load -i "presto-coordinator:latest/presto-coordinator.tar"
-#          docker load -i "presto-worker:latest/presto-worker.tar"
+          docker load -i "presto-coordinator/presto-coordinator.tar"
+#          docker load -i "presto-worker/presto-worker.tar"
 
       - uses: actions/setup-java@v4
         with:
