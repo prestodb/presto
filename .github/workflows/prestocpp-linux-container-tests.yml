@@ -143,7 +143,7 @@ jobs:
   # -----------------------------
   run-container-tests:
     runs-on: ubuntu-latest
-#    needs: build-coordinator-image
+    needs: build-coordinator-image
     steps:
       - uses: actions/checkout@v4
         with:
