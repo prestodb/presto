@@ -36,12 +36,6 @@ jobs:
           docker system prune -af
           df -h
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-          cache: maven
-
       - name: Update velox
         run: |
           cd presto-native-execution
@@ -163,6 +157,11 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: maven
+
+      - name: Build Java artifacts only
+        run: |
+          ./mvnw clean install ${MAVEN_FAST_INSTALL} \
+            -pl '!:presto-product-tests,!:presto-router,!:presto-docs,!:presto-verifier,!:presto-test-coverage,!:presto-native-tests'
 
       - name: Run presto-native container tests
         run: |
