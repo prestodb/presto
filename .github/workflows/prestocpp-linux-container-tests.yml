@@ -86,7 +86,7 @@ jobs:
   # -----------------------------
   build-coordinator-image:
     runs-on: ubuntu-latest
-    needs: build-worker-image
+#    needs: build-worker-image
     steps:
       - uses: actions/checkout@v4
         with:
