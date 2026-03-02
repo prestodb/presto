@@ -758,10 +758,22 @@ public class IcebergPageSourceProvider
         Map<Integer, HivePartitionKey> partitionKeys = split.getPartitionKeys();
 
         // The update row id and merge target table row id aren't valid columns that can be read from storage.
-        // Filter it out from columns passed to the storage page source.
+        // _row_id (row lineage) is computed from firstRowId + _pos at read time, so it is also excluded.
+        // _last_updated_sequence_number is kept in columnsToReadFromStorage so that
+        // IcebergPartitionInsertingPageSource can inject it as a constant via isMetadataColumnId.
         Set<IcebergColumnHandle> columnsToReadFromStorage = icebergColumns.stream()
-                .filter(not(column -> column.isUpdateRowIdColumn() || column.isMergeTargetTableRowIdColumn()))
+                .filter(not(column -> column.isUpdateRowIdColumn() || column.isMergeTargetTableRowIdColumn()
+                        || column.isRowIdColumn()))
                 .collect(Collectors.toSet());
+
+        // If _row_id is requested and the file has a valid first_row_id, we need ROW_POSITION to
+        // compute _row_id = firstRowId + _pos. Add it if not already present.
+        boolean rowIdRequested = icebergColumns.stream().anyMatch(IcebergColumnHandle::isRowIdColumn);
+        long firstRowId = split.getFirstRowId();
+        if (rowIdRequested && firstRowId >= 0) {
+            IcebergColumnHandle rowPositionHandle = IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR);
+            columnsToReadFromStorage.add(rowPositionHandle);
+        }
 
         // add any additional columns which may need to be read from storage
         // by delete filters
@@ -833,6 +845,13 @@ public class IcebergPageSourceProvider
             }
             else if (icebergColumn.isDataSequenceNumberColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
+            }
+            else if (icebergColumn.isLastUpdatedSequenceNumberColumn()) {
+                // _last_updated_sequence_number is the sequence number of the commit that wrote the row.
+                // For V2/V1 tables (firstRowId < 0) it is null. For V3 tables it equals the data sequence number.
+                if (firstRowId >= 0) {
+                    metadataValues.put(icebergColumn.getColumnIdentity().getId(), split.getDataSequenceNumber());
+                }
             }
             else if (icebergColumn.isMergeTargetTableRowIdColumn()) {
                 for (ColumnIdentity subColumn : icebergColumn.getColumnIdentity().getChildren()) {
@@ -926,7 +945,8 @@ public class IcebergPageSourceProvider
                 deleteFilters,
                 updatedRowPageSinkSupplier,
                 table.getUpdatedColumns(),
-                rowIdColumnHandle);
+                rowIdColumnHandle,
+                firstRowId);
 
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);

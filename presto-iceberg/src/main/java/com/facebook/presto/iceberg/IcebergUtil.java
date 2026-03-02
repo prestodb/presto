@@ -848,6 +848,14 @@ public final class IcebergUtil
         return file.fileSequenceNumber();
     }
 
+    public static long getFirstRowId(DataFile file)
+    {
+        if (file.firstRowId() != null) {
+            return file.firstRowId();
+        }
+        return -1L;
+    }
+
     /**
      * Provides the delete files that need to be applied to the given table snapshot.
      *

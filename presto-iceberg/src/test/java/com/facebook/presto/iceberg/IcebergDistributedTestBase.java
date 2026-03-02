@@ -2631,6 +2631,57 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testRowLineageHiddenColumns()
+    {
+        assertUpdate("DROP TABLE IF EXISTS test_row_lineage_hidden");
+        assertUpdate("CREATE TABLE test_row_lineage_hidden AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO test_row_lineage_hidden SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        // For non-V3 tables (format-version = 2, the default), _row_id and _last_updated_sequence_number return null
+        assertEquals(computeActual("SELECT \"_row_id\", * FROM test_row_lineage_hidden").getRowCount(), 2);
+        assertQuery("SELECT \"_row_id\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+        assertQuery("SELECT \"_last_updated_sequence_number\" FROM test_row_lineage_hidden", "VALUES NULL, NULL");
+
+        assertUpdate("DROP TABLE IF EXISTS test_row_lineage_hidden");
+
+        // For V3 tables, _row_id and _last_updated_sequence_number must have actual values
+        String v3Table = "test_row_lineage_v3";
+        assertUpdate("DROP TABLE IF EXISTS " + v3Table);
+        // Each insert creates 1 row, so row IDs are deterministic: 0 (first commit), 1 (second commit)
+        assertUpdate("CREATE TABLE " + v3Table + " WITH (\"format-version\" = '3') AS SELECT * FROM tpch.tiny.region WHERE regionkey=0", 1);
+        assertUpdate("INSERT INTO " + v3Table + " SELECT * FROM tpch.tiny.region WHERE regionkey=1", 1);
+
+        // Both rows must have non-null row lineage values
+        assertEquals(computeActual("SELECT \"_row_id\", * FROM " + v3Table).getRowCount(), 2);
+        assertEquals(computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE \"_row_id\" IS NULL").getRowCount(), 0);
+        assertEquals(computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE \"_last_updated_sequence_number\" IS NULL").getRowCount(), 0);
+
+        // _row_id must be unique across all rows in the table
+        long distinctRowIds = (Long) computeActual("SELECT count(DISTINCT \"_row_id\") FROM " + v3Table).getOnlyValue();
+        assertEquals(distinctRowIds, 2L);
+
+        // _last_updated_sequence_number must differ between the two commits
+        long distinctSeqNums = (Long) computeActual("SELECT count(DISTINCT \"_last_updated_sequence_number\") FROM " + v3Table).getOnlyValue();
+        assertEquals(distinctSeqNums, 2L);
+
+        // Rows from the first commit have a smaller sequence number than rows from the second commit
+        Long seqForFirst = (Long) computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE regionkey=0").getOnlyValue();
+        Long seqForSecond = (Long) computeActual("SELECT \"_last_updated_sequence_number\" FROM " + v3Table + " WHERE regionkey=1").getOnlyValue();
+        assertNotNull(seqForFirst);
+        assertNotNull(seqForSecond);
+        assertTrue(seqForFirst < seqForSecond, "_last_updated_sequence_number should be smaller for earlier commits");
+
+        // Row IDs must differ between the two rows (they are unique)
+        Long rowIdForFirst = (Long) computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE regionkey=0").getOnlyValue();
+        Long rowIdForSecond = (Long) computeActual("SELECT \"_row_id\" FROM " + v3Table + " WHERE regionkey=1").getOnlyValue();
+        assertNotNull(rowIdForFirst);
+        assertNotNull(rowIdForSecond);
+        assertTrue(!rowIdForFirst.equals(rowIdForSecond), "_row_id should be unique per row");
+
+        assertUpdate("DROP TABLE IF EXISTS " + v3Table);
+    }
+
+    @Test
     public void testDeleteWithSpecialCharacterColumnName()
     {
         assertUpdate("CREATE TABLE test_special_character_column_name (\"<age>\" int, name varchar)");

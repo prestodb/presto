@@ -32,9 +32,15 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergColumnHandle
 {
@@ -59,6 +65,31 @@ public class TestIcebergColumnHandle
                 Optional.empty(),
                 REGULAR);
         testRoundTrip(nestedColumn);
+    }
+
+    @Test
+    public void testRowLineageColumnHandles()
+    {
+        // Verify ROW_ID column handle
+        assertEquals(ROW_ID_COLUMN_HANDLE.getName(), ROW_ID.name());
+        assertEquals(ROW_ID_COLUMN_HANDLE.getId(), ROW_ID.fieldId());
+        assertEquals(ROW_ID_COLUMN_HANDLE.getType(), BIGINT);
+        assertTrue(ROW_ID_COLUMN_HANDLE.isRowIdColumn());
+        assertFalse(ROW_ID_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
+
+        // Verify LAST_UPDATED_SEQUENCE_NUMBER column handle
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getName(), LAST_UPDATED_SEQUENCE_NUMBER.name());
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId(), LAST_UPDATED_SEQUENCE_NUMBER.fieldId());
+        assertEquals(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getType(), BIGINT);
+        assertTrue(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
+        assertFalse(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isRowIdColumn());
+
+        // Verify that _row_id IS treated as a metadata column ID so it is excluded from
+        // predicate pushdown to the Iceberg scan (the library can't handle it as a partition column)
+        assertTrue(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
+        // Verify that _last_updated_sequence_number IS treated as a metadata column ID so that
+        // IcebergPartitionInsertingPageSource can inject it as a per-file constant
+        assertTrue(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)

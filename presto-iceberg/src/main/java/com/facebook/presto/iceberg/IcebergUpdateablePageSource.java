@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -97,6 +98,12 @@ public class IcebergUpdateablePageSource
     private final int[] outputColumnToDelegateMapping;
     private final int isDeletedColumnId;
     private final int deleteFilePathColumnId;
+    // The output index of the _row_id column, or -1 if not requested
+    private final int rowLineageRowIdOutputIndex;
+    // The delegate index of the ROW_POSITION column for computing _row_id, or -1 if not needed
+    private final int rowPositionDelegateIndex;
+    // The first_row_id of the data file (from the manifest), or -1 if not a V3 table
+    private final long firstRowId;
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -113,7 +120,8 @@ public class IcebergUpdateablePageSource
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
             // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
-            Optional<IcebergColumnHandle> rowIdColumn)
+            Optional<IcebergColumnHandle> rowIdColumn,
+            long firstRowId)
     {
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
@@ -132,6 +140,7 @@ public class IcebergUpdateablePageSource
         this.updateRowIdChildColumnIndexes = rowIdColumn
                 .map(column -> new int[column.getColumnIdentity().getChildren().size()])
                 .orElse(new int[0]);
+        this.firstRowId = firstRowId;
         Map<ColumnIdentity, Integer> columnToIndex = IntStream.range(0, delegateColumns.size())
                 .boxed()
                 .collect(toImmutableMap(index -> delegateColumns.get(index).getColumnIdentity(), identity()));
@@ -150,9 +159,19 @@ public class IcebergUpdateablePageSource
                 columnIdentityToUpdatedColumnIndex.put(updatedColumn.getColumnIdentity(), columnIndex);
             }
         }
-        for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
+
+        // Find the output index of _row_id (lineage) and the delegate index for ROW_POSITION
+        int rowLineageIdx = -1;
+        int rowPosIdx = -1;
+        for (int i = 0; i < outputColumns.size(); i++) {
             IcebergColumnHandle outputColumn = outputColumns.get(i);
             if (outputColumn.isUpdateRowIdColumn() || outputColumn.isMergeTargetTableRowIdColumn()) {
+                continue;
+            }
+
+            if (outputColumn.isRowIdColumn()) {
+                // Skip adding to outputColumnToDelegateMapping; handled in setRowIdBlock
+                rowLineageIdx = i;
                 continue;
             }
 
@@ -163,6 +182,21 @@ public class IcebergUpdateablePageSource
                 outputColumnToDelegateMapping[i] = columnToIndex.get(outputColumn.getColumnIdentity());
             }
         }
+        this.rowLineageRowIdOutputIndex = rowLineageIdx;
+
+        // Find the delegate index for ROW_POSITION (needed to compute _row_id = firstRowId + _pos)
+        if (rowLineageIdx >= 0 && firstRowId >= 0) {
+            int posIdx = -1;
+            for (int i = 0; i < delegateColumns.size(); i++) {
+                if (delegateColumns.get(i).isRowPositionColumn()) {
+                    posIdx = i;
+                    break;
+                }
+            }
+            rowPosIdx = posIdx;
+        }
+        this.rowPositionDelegateIndex = rowPosIdx;
+
         this.isDeletedColumnId = getDelegateColumnId(IcebergColumnHandle::isDeletedColumn);
         this.deleteFilePathColumnId = getDelegateColumnId(IcebergColumnHandle::isDeleteFilePathColumn);
     }
@@ -321,6 +355,7 @@ public class IcebergUpdateablePageSource
     /**
      * The $row_id column used for updates and merge is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
+     * Additionally, _row_id (row lineage) is computed as firstRowId + _pos if the file has a valid first_row_id.
      *
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
@@ -333,7 +368,14 @@ public class IcebergUpdateablePageSource
         boolean isMergeTargetTable = columns.stream().anyMatch(IcebergColumnHandle::isMergeTargetTableRowIdColumn);
 
         if ((updateRowIdColumnIndex == -1 || updatedColumns.isEmpty()) && !isMergeTargetTable) {
-            loopFunc = (channel) -> fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
+            loopFunc = (channel) -> {
+                if (channel == rowLineageRowIdOutputIndex) {
+                    fullPage[channel] = computeRowIdBlock(page);
+                }
+                else {
+                    fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
+                }
+            };
         }
         else {
             rowIdFields = new Block[updateRowIdChildColumnIndexes.length];
@@ -343,6 +385,9 @@ public class IcebergUpdateablePageSource
             loopFunc = (channel) -> {
                 if (channel == updateRowIdColumnIndex) {
                     fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
+                }
+                else if (channel == rowLineageRowIdOutputIndex) {
+                    fullPage[channel] = computeRowIdBlock(page);
                 }
                 else {
                     fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
@@ -355,6 +400,20 @@ public class IcebergUpdateablePageSource
         }
 
         return new Page(page.getPositionCount(), fullPage);
+    }
+
+    private Block computeRowIdBlock(Page page)
+    {
+        if (rowPositionDelegateIndex < 0 || firstRowId < 0) {
+            // V1/V2 table or no first_row_id assigned: return null
+            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        }
+        Block rowPositionBlock = page.getBlock(rowPositionDelegateIndex);
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+        for (int i = 0; i < page.getPositionCount(); i++) {
+            BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
+        }
+        return builder.build();
     }
 
     private int getDelegateColumnId(Predicate<IcebergColumnHandle> columnPredicate)
