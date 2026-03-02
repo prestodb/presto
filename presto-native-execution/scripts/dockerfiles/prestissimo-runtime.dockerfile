@@ -50,11 +50,11 @@ ENV BUILD_DIR=""
 COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
 COPY --from=prestissimo-image /cuda_version /tmp/
 
-# Install CUDA runtime packages and RDMA libraries
+# Install CUDA runtime packages, RDMA libraries and numactl
 RUN CUDA_VERSION=$(cat /tmp/cuda_version) && \
     source /tmp/scripts/setup-centos-adapters.sh && \
     install_cuda_runtime "${CUDA_VERSION}" && \
-    dnf install -y librdmacm libibverbs && \
+    dnf install -y librdmacm libibverbs numactl && \
     dnf clean all && \
     rm -rf /var/cache/dnf /tmp/scripts /tmp/cuda_version
 
