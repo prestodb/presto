@@ -44,6 +44,7 @@ import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -123,7 +124,7 @@ public class TestDriver
                     Optional.empty()),
             new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
             testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build(),
-            new ObjectMapper()).get();
+            new ObjectMapper().registerModule(new Jdk8Module())).get();
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
