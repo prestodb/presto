@@ -19,7 +19,6 @@
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
-
 namespace facebook::presto {
 
 namespace {
@@ -243,12 +242,24 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   auto type = stringToType(icebergColumn->type, typeParser);
 
+  std::optional<std::string> initialDefaultValue;
+  if (icebergColumn->initialDefaultValue) {
+    initialDefaultValue = *icebergColumn->initialDefaultValue;
+    std::cout << "####### ragraw1 initialDefaultValue present: "
+              << initialDefaultValue.value()
+              << std::endl;
+  } else {
+    std::cout << "####### ragraw1 initialDefaultValue is null/empty"
+              << std::endl;
+  }
+
   return std::make_unique<velox::connector::hive::iceberg::IcebergColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
       type,
       toParquetField(icebergColumn->columnIdentity),
-      toRequiredSubfields(icebergColumn->requiredSubfields));
+      toRequiredSubfields(icebergColumn->requiredSubfields),
+      initialDefaultValue);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>

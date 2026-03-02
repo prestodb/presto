@@ -225,11 +225,16 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
+        Optional<String> initialDefaultValue = Optional.empty();
+        if (column.initialDefault() != null) {
+            initialDefaultValue = Optional.of(column.initialDefault().toString());
+        }
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
                 Optional.ofNullable(column.doc()),
-                columnType);
+                columnType,
+                initialDefaultValue);
     }
 
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
