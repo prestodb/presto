@@ -37,7 +37,6 @@ import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicF
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMinProbeSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
-import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
@@ -140,10 +139,8 @@ public class AddDynamicFilterToSemiJoinRule
             return create;
         }
 
-        // Skip DPP for joins likely to be broadcast — Velox handles same-fragment filtering
-        double buildSizeBytes = buildStats.getOutputSizeInBytes(node.getFilteringSource());
-        DataSize broadcastThreshold = getJoinMaxBroadcastTableSize(session);
-        if (isFinite(buildSizeBytes) && buildSizeBytes <= broadcastThreshold.toBytes()) {
+        // Skip DPP for broadcast semi-joins — Velox handles same-fragment filtering
+        if (node.getDistributionType().equals(Optional.of(SemiJoinNode.DistributionType.REPLICATED))) {
             if (extendedMetrics) {
                 emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN, columnName);
             }

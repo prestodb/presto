@@ -28,6 +28,7 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -137,7 +138,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -164,7 +164,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -195,7 +194,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -226,7 +224,6 @@ public class TestAddDynamicFilterRule
     {
         PlanNode result = tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey1 = p.variable("probeKey1", BIGINT);
@@ -264,7 +261,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -288,7 +284,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD, "0.9")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_DISCRETE_VALUES_LIMIT, "10")
@@ -321,7 +316,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -351,7 +345,6 @@ public class TestAddDynamicFilterRule
     {
         tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -397,6 +390,76 @@ public class TestAddDynamicFilterRule
     }
 
     @Test
+    public void testCostBasedSkipsReplicatedJoin()
+    {
+        // REPLICATED (broadcast) joins are skipped — Velox handles same-fragment filtering
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            ImmutableList.of(new EquiJoinClause(probeKey, buildKey)),
+                            ImmutableList.of(probeKey, buildKey),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of(JoinDistributionType.REPLICATED),
+                            ImmutableMap.of());
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100_000, 0, 8, 100_000)))
+                        .build())
+                .doesNotFire();
+    }
+
+    @Test
+    public void testCostBasedCreatesFilterForPartitionedJoin()
+    {
+        // PARTITIONED (hash) joins should have DPP filters created
+        tester.assertThat(new AddDynamicFilterRule(tester.getMetadata(), taskCountEstimator))
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
+                .on(p -> {
+                    VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
+                    VariableReferenceExpression buildKey = p.variable("buildKey", BIGINT);
+                    return p.join(JoinType.INNER,
+                            p.values(probeKey),
+                            p.values(buildKey),
+                            ImmutableList.of(new EquiJoinClause(probeKey, buildKey)),
+                            ImmutableList.of(probeKey, buildKey),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of(JoinDistributionType.PARTITIONED),
+                            ImmutableMap.of());
+                })
+                .overrideStats("0", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(1_000_000)
+                        .build())
+                .overrideStats("1", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addVariableStatistics(ImmutableMap.of(
+                                new VariableReferenceExpression(Optional.empty(), "buildKey", BIGINT),
+                                new VariableStatsEstimate(0, 100_000, 0, 8, 100_000)))
+                        .build())
+                .matches(join(JoinType.INNER,
+                        ImmutableList.of(equiJoinClause("probeKey", "buildKey")),
+                        Optional.empty(),
+                        values("probeKey"),
+                        values("buildKey")));
+    }
+
+    @Test
     public void testCostBasedCreatesFilterForPartitionColumn()
     {
         TpchColumnHandle partitionColumn = new TpchColumnHandle("nationkey", BIGINT);
@@ -405,7 +468,6 @@ public class TestAddDynamicFilterRule
 
         tester.assertThat(new AddDynamicFilterRule(metadataWithDiscretePredicates, taskCountEstimator))
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .on(p -> {
                     VariableReferenceExpression probeKey = p.variable("probeKey", BIGINT);
@@ -433,7 +495,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -474,7 +535,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -516,7 +576,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -558,7 +617,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -600,7 +658,6 @@ public class TestAddDynamicFilterRule
 
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -639,7 +696,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setRuntimeStats(new RuntimeStats())
@@ -674,7 +730,6 @@ public class TestAddDynamicFilterRule
     {
         Session session = Session.builder(tester.getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
-                .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MIN_PROBE_SIZE, "0B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "false")
                 .setRuntimeStats(new RuntimeStats())

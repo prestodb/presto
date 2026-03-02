@@ -875,16 +875,6 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new ReorderJoins(costComparator, metadata))));
 
-        // Populate JoinNode.dynamicFilters for distributed dynamic partition pruning
-        builder.add(new IterativeOptimizer(
-                metadata,
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                ImmutableSet.of(
-                        new AddDynamicFilterRule(metadata, taskCountEstimator),
-                        new AddDynamicFilterToSemiJoinRule(metadata, taskCountEstimator))));
-
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
@@ -942,6 +932,15 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
+
+            builder.add(new IterativeOptimizer(
+                    metadata,
+                    ruleStats,
+                    statsCalculator,
+                    estimatedExchangesCostCalculator,
+                    ImmutableSet.of(
+                            new AddDynamicFilterRule(metadata, taskCountEstimator),
+                            new AddDynamicFilterToSemiJoinRule(metadata, taskCountEstimator))));
 
             builder.add(
                     new IterativeOptimizer(

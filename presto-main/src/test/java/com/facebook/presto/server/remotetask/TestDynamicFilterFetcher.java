@@ -262,9 +262,11 @@ public class TestDynamicFilterFetcher
         joinFilter.setExpectedPartitions(1);
         dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
 
-        // Empty filters map + filterId in completedFilterIds = operator sent TupleDomain.all()
+        // Operator sent all() (predicate too large); flush converts to per-filter Domain.all()
+        TupleDomain<String> allDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(filterId, Domain.all(BIGINT)));
         DynamicFilterResponse response = DynamicFilterResponse.completed(
-                ImmutableMap.of(),
+                ImmutableMap.of(filterId, allDomain),
                 1L,
                 ImmutableSet.of(filterId));
 

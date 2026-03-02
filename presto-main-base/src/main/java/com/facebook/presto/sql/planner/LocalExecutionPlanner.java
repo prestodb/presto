@@ -24,6 +24,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -2687,9 +2688,19 @@ public class LocalExecutionPlanner
                                     .addMetricValue(format("%s[%s]", DYNAMIC_FILTER_FLUSH_FIRED, fid), NONE, 1);
                         }
                     }
-                    downstream.accept(partitions.isEmpty()
+                    TupleDomain<String> union = partitions.isEmpty()
                             ? TupleDomain.none()
-                            : TupleDomain.columnWiseUnion(new ArrayList<>(partitions)));
+                            : TupleDomain.columnWiseUnion(new ArrayList<>(partitions));
+                    // all() has no column domains, so storeDynamicFilters would drop it.
+                    // Convert to per-filter Domain.all() entries so they get stored.
+                    if (union.isAll()) {
+                        ImmutableMap.Builder<String, Domain> perFilterAll = ImmutableMap.builder();
+                        for (DynamicFilterSourceOperator.Channel channel : filterBuildChannels) {
+                            perFilterAll.put(channel.getFilterId(), Domain.all(channel.getType()));
+                        }
+                        union = TupleDomain.withColumnDomains(perFilterAll.build());
+                    }
+                    downstream.accept(union);
                     // Mark after downstream.accept() so filter data is stored before
                     // the fetcher sees the flushed IDs (avoids premature none() delivery)
                     context.getTaskContext().markFilterIdsFlushed(filterIds);

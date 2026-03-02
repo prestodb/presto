@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -43,7 +44,6 @@ import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicF
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMinProbeSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
-import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
@@ -55,6 +55,7 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_S
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static java.lang.Double.isFinite;
@@ -153,10 +154,8 @@ public class AddDynamicFilterRule
             return create;
         }
 
-        // Skip DPP for joins likely to be broadcast — Velox handles same-fragment filtering
-        double buildSizeBytes = buildStats.getOutputSizeInBytes(node.getRight());
-        DataSize broadcastThreshold = getJoinMaxBroadcastTableSize(session);
-        if (isFinite(buildSizeBytes) && buildSizeBytes <= broadcastThreshold.toBytes()) {
+        // Skip DPP for broadcast joins — Velox handles same-fragment filtering
+        if (node.getDistributionType().equals(Optional.of(REPLICATED))) {
             if (extendedMetrics) {
                 emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN, columnName);
             }

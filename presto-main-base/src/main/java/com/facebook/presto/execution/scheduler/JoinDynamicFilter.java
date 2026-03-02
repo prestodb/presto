@@ -349,6 +349,9 @@ public class JoinDynamicFilter
         Map<String, Domain> domains = filterIdDomain.getDomains().get();
         verify(domains.size() == 1, "Expected single-column filter but got %s entries", domains.size());
         Domain domain = domains.values().iterator().next();
+        if (domain.isAll()) {
+            return TupleDomain.all();
+        }
         return TupleDomain.withColumnDomains(ImmutableMap.of(columnName, domain));
     }
 
