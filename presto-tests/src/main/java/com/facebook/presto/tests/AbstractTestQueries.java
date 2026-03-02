@@ -8221,6 +8221,97 @@ public abstract class AbstractTestQueries
                 .collect(toList());
     }
 
+    @Test
+    public void testSimplifyAggregationsOverConstant()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("simplify_aggregations_over_constant", "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("simplify_aggregations_over_constant", "false")
+                .build();
+
+        // MIN/MAX over constant projection from a real table
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x), MAX(x) FROM (SELECT 7 AS x FROM orders)",
+                disabled);
+
+        // ARBITRARY over constant projection
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT ARBITRARY(x) FROM (SELECT 42 AS x FROM orders)",
+                disabled);
+
+        // APPROX_DISTINCT over constant projection
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT APPROX_DISTINCT(x) FROM (SELECT 42 AS x FROM orders)",
+                disabled);
+
+        // APPROX_DISTINCT(NULL) over constant projection
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT APPROX_DISTINCT(x) FROM (SELECT CAST(NULL AS BIGINT) AS x FROM orders)",
+                disabled);
+
+        // MIN/MAX(NULL) over constant projection
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x), MAX(x) FROM (SELECT CAST(NULL AS BIGINT) AS x FROM orders)",
+                disabled);
+
+        // MIN/MAX over constant in scalar subquery
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x), MAX(x) FROM (SELECT 7 AS x)",
+                disabled);
+
+        // Mixed foldable (MIN) and unfoldable (SUM) over constant
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x), SUM(x) FROM (SELECT 5 AS x FROM orders)",
+                disabled);
+
+        // GROUP BY with MIN/MAX over constant
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, MIN(x), MAX(x) FROM (SELECT orderstatus, 5 AS x FROM orders) GROUP BY orderstatus",
+                disabled);
+
+        // Double type constant
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x), MAX(x) FROM (SELECT CAST(3.14 AS DOUBLE) AS x FROM orders)",
+                disabled);
+
+        // Aggregation with FILTER clause should not fold but still produce correct results
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x) FILTER (WHERE x > 0) FROM (SELECT 5 AS x FROM orders)",
+                disabled);
+
+        // Non-constant columns should not be affected
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(custkey), MAX(custkey) FROM orders",
+                disabled);
+
+        // Constant via WHERE equality (after constant propagation)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(orderkey) FROM orders WHERE orderkey = 7",
+                disabled);
+
+        // Constant via WHERE equality with multiple aggregations
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(orderkey), MAX(orderkey), SUM(orderkey) FROM orders WHERE orderkey = 7",
+                disabled);
+
+        // Constant via CAST expression in projection
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(x) FROM (SELECT CAST(7 AS BIGINT) AS x FROM orders)",
+                disabled);
+
+        // WHERE clause that eliminates all rows — result should be NULL
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT MIN(orderkey) FROM orders WHERE orderkey = -1",
+                disabled);
+
+        // GROUP BY with constant via WHERE
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, MIN(orderkey) FROM orders WHERE orderkey = 7 GROUP BY orderstatus",
+                disabled);
+    }
+
     /**
      * Returns a date expression, casting to DATE if storageFormat is DWRF.
      */
