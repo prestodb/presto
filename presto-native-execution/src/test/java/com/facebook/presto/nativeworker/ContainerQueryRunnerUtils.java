@@ -509,7 +509,11 @@ public class ContainerQueryRunnerUtils
             return RowType.from(rowFields);
         }
 
-        switch (typeName.toUpperCase()) {
+        // remove parameters like VARCHAR(7), DECIMAL(10,2)
+        int paramStart = upperTypeName.indexOf('(');
+        String baseType = paramStart > 0 ? upperTypeName.substring(0, paramStart) : upperTypeName;
+
+        switch (baseType) {
             case "INT":
             case "INTEGER":
             case "INT4":

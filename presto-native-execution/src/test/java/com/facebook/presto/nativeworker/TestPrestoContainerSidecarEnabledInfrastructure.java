@@ -30,7 +30,7 @@ public class TestPrestoContainerSidecarEnabledInfrastructure
     protected ContainerQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        return new ContainerQueryRunner(8080, "tpch", "tiny", 4, false, true, 0, false);
+        return new ContainerQueryRunner(8080, "tpch", "tiny", 4, false, false, 0, false);
     }
 
     @Test
@@ -41,8 +41,7 @@ public class TestPrestoContainerSidecarEnabledInfrastructure
         assertQueryFails("SELECT fail('forced failure')", "(?s).*Top-level Expression: native\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         assertQuerySucceeds("SHOW SESSION");
         assertQuerySucceeds("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
-//        Remove comment once now() function is merged in velox : https://github.com/facebookincubator/velox/pull/14139
-//        assertQuerySucceeds("SELECT now()");
+        assertQuerySucceeds("SELECT now()");
     }
 
     @Test

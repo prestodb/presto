@@ -69,8 +69,8 @@ public class ContainerQueryRunner
     protected static final Network networkExpected = Network.newNetwork();
     protected static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     protected static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
-    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
-    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
+    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120000");
+    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
     protected static final int DEFAULT_BASE_WORKER_PORT = 7777;

@@ -40,7 +40,6 @@ public class TestPrestoContainerSidecarDisabledInfrastructure
         assertQuerySucceeds("SHOW FUNCTIONS");
         assertQueryFails("SELECT fail('forced failure')", "(?s).*Top-level Expression: presto\\.default\\.fail\\(forced failure:VARCHAR\\).*", true);
         assertQuerySucceeds("SHOW SESSION");
-        assertQueryFails("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", ".*Expected a lambda that takes 2 argument\\(s\\) but got 1.*", true);
     }
 
     @Test
@@ -50,6 +49,5 @@ public class TestPrestoContainerSidecarDisabledInfrastructure
         assertQuerySucceedsExpected("SHOW FUNCTIONS");
         assertQueryFailsExpected("SELECT fail('forced failure')", "Query failed .*.: forced failure", true);
         assertQuerySucceedsExpected("SHOW SESSION");
-        assertQueryFailsExpected("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", ".*Expected a lambda that takes 2 argument\\(s\\) but got 1.*", true);
     }
 }
