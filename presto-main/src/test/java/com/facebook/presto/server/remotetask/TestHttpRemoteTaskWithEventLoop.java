@@ -470,7 +470,8 @@ public class TestHttpRemoteTaskWithEventLoop
                                 new HandleResolver(),
                                 new DynamicFilterService(),
                                 new DynamicFilterStats(),
-                                JsonCodec.jsonCodec(DynamicFilterResponse.class));
+                                JsonCodec.jsonCodec(DynamicFilterResponse.class),
+                                JsonCodec.jsonCodec(DynamicFilterPushRequest.class));
                     }
                 });
         Injector injector = app

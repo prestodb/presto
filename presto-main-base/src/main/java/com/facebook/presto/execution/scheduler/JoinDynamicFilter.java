@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
@@ -353,6 +354,20 @@ public class JoinDynamicFilter
             return TupleDomain.all();
         }
         return TupleDomain.withColumnDomains(ImmutableMap.of(columnName, domain));
+    }
+
+    /**
+     * Registers a callback that fires when this filter is fully resolved
+     * (all expected partitions received, NOT on timeout).
+     * The callback receives (filterId, constraintByColumnName).
+     */
+    public void onFullyResolved(BiConsumer<String, TupleDomain<String>> callback)
+    {
+        constraintByFilterIdFuture.whenComplete((domain, throwable) -> {
+            if (fullyResolved && throwable == null) {
+                callback.accept(filterId, getCurrentConstraintByColumnName());
+            }
+        });
     }
 
     public synchronized boolean hasData()

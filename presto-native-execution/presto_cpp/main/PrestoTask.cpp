@@ -18,8 +18,12 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
+#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/TypeParser.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/time/Timer.h"
+#include "velox/core/PlanNode.h"
 
 using namespace facebook::velox;
 
@@ -783,6 +787,16 @@ void PrestoTask::updateTimeInfoLocked(
       {"taskCreationTime",
        fromNanos(
            (createFinishTimeMs - firstTimeReceiveTaskUpdateMs) * 1'000'000)});
+
+  const auto externalFilters = externalDynamicFiltersReceived_.load();
+  if (externalFilters > 0) {
+    taskRuntimeStats["externalDynamicFiltersReceived"].addValue(
+        externalFilters);
+  }
+  const auto queuedFilters = externalDynamicFiltersQueued_.load();
+  if (queuedFilters > 0) {
+    taskRuntimeStats["externalDynamicFiltersQueued"].addValue(queuedFilters);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -1096,6 +1110,93 @@ void PrestoTask::removeDynamicFiltersThrough(int64_t throughVersion) {
     } else {
       ++it;
     }
+  }
+}
+
+namespace {
+
+// Recursively searches the plan tree for a TableScanNode with the given ID.
+std::shared_ptr<const velox::core::TableScanNode> findTableScanNode(
+    const velox::core::PlanNodePtr& node,
+    const std::string& planNodeId) {
+  if (node->id() == planNodeId) {
+    return std::dynamic_pointer_cast<const velox::core::TableScanNode>(node);
+  }
+  for (const auto& child : node->sources()) {
+    auto result = findTableScanNode(child, planNodeId);
+    if (result) {
+      return result;
+    }
+  }
+  return nullptr;
+}
+
+} // namespace
+
+void PrestoTask::addExternalDynamicFilter(
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  {
+    std::lock_guard<std::mutex> l(mutex);
+    if (!task) {
+      VLOG(1) << "addExternalDynamicFilter: task not created yet, queueing "
+              << filterId;
+      pendingExternalFilters_.push_back(
+          {filterId, scanPlanNodeId, tupleDomain});
+      externalDynamicFiltersQueued_++;
+      return;
+    }
+  }
+
+  if (task->state() != exec::TaskState::kRunning) {
+    VLOG(1) << "addExternalDynamicFilter: task not running, ignoring "
+            << filterId;
+    return;
+  }
+
+  // Find the TableScanNode in the plan to resolve column names to indices.
+  auto scanNode = findTableScanNode(
+      task->planFragment().planNode, scanPlanNodeId);
+  if (!scanNode) {
+    VLOG(1) << "addExternalDynamicFilter: scanNode " << scanPlanNodeId
+            << " not found, ignoring " << filterId;
+    return;
+  }
+
+  if (!tupleDomain.domains) {
+    return;
+  }
+
+  auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
+  TypeParser typeParser;
+  VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
+
+  for (const auto& [columnName, domain] : *tupleDomain.domains) {
+    auto columnIdx = scanNode->outputType()->getChildIdxIfExists(columnName);
+    if (!columnIdx.has_value()) {
+      VLOG(1) << "addExternalDynamicFilter: column " << columnName
+              << " not found in scan output type, skipping";
+      continue;
+    }
+
+    auto filter = toFilter(domain, exprConverter, typeParser);
+    if (filter) {
+      task->addExternalDynamicFilter(
+          scanPlanNodeId, *columnIdx, std::move(filter));
+      ++externalDynamicFiltersReceived_;
+    }
+  }
+}
+
+void PrestoTask::applyPendingExternalFilters() {
+  std::vector<PendingExternalFilter> pending;
+  {
+    std::lock_guard<std::mutex> l(mutex);
+    pending.swap(pendingExternalFilters_);
+  }
+  for (auto& pf : pending) {
+    addExternalDynamicFilter(pf.filterId, pf.scanPlanNodeId, pf.tupleDomain);
   }
 }
 

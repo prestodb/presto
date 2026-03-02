@@ -126,8 +126,15 @@ void TaskResource::registerUris(http::HttpServer& server) {
         return acknowledgeResults(message, pathMatch);
       });
 
-  // task/(.+)/batch must come before the /v1/task/(.+) as it's more specific
+  // More specific POST routes must come before the catch-all /v1/task/(.+)
   // otherwise all requests will be matched with /v1/task/(.+)
+  server.registerPost(
+      R"(/v1/task/(.+)/dynamicFilter/(.+))",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return addExternalDynamicFilter(message, pathMatch);
+      });
+
   server.registerPost(
       R"(/v1/task/(.+)/batch)",
       [&](proxygen::HTTPMessage* message,
@@ -673,6 +680,50 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
   return executeAndRespond(httpSrvCpuExecutor_, [this, taskId, remoteId]() {
     taskManager_.removeRemoteSource(taskId, remoteId);
   });
+}
+
+proxygen::RequestHandler* TaskResource::addExternalDynamicFilter(
+    proxygen::HTTPMessage* /*message*/,
+    const std::vector<std::string>& pathMatch) {
+  protocol::TaskId taskId = pathMatch[1];
+  std::string filterId = pathMatch[2];
+
+  return new http::CallbackRequestHandler(
+      [this, taskId, filterId](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream,
+          std::shared_ptr<http::CallbackRequestHandlerState> handlerState) {
+        folly::via(
+            httpSrvCpuExecutor_,
+            [this,
+             requestBody = util::extractMessageBody(body),
+             taskId,
+             filterId]() {
+              json j = json::parse(requestBody);
+              std::string scanPlanNodeId = j["scanPlanNodeId"];
+              protocol::TupleDomain<std::string> tupleDomain =
+                  j["tupleDomain"];
+              taskManager_.addExternalDynamicFilter(
+                  taskId, filterId, scanPlanNodeId, tupleDomain);
+              return true;
+            })
+            .via(
+                folly::getKeepAliveToken(
+                    folly::EventBaseManager::get()->getEventBase()))
+            .thenValue([downstream, handlerState](auto&& /* unused */) {
+              if (!handlerState->requestExpired()) {
+                http::sendOkResponse(downstream);
+              }
+            })
+            .thenError(
+                folly::tag_t<std::exception>{},
+                [downstream, handlerState](auto&& e) {
+                  if (!handlerState->requestExpired()) {
+                    http::sendErrorResponse(downstream, e.what());
+                  }
+                });
+      });
 }
 
 proxygen::RequestHandler* TaskResource::getDynamicFilters(

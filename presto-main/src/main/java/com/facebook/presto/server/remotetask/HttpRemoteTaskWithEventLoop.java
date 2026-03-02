@@ -30,6 +30,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
@@ -163,6 +164,7 @@ public final class HttpRemoteTaskWithEventLoop
     private static final Logger log = Logger.get(HttpRemoteTaskWithEventLoop.class);
     private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
+    private final JsonCodec<DynamicFilterPushRequest> pushRequestCodec;
 
     private final TaskId taskId;
     private final URI taskLocation;
@@ -284,6 +286,7 @@ public final class HttpRemoteTaskWithEventLoop
             SafeEventLoopGroup.SafeEventLoop taskEventLoop,
             DynamicFilterService dynamicFilterService,
             JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
             DynamicFilterStats dynamicFilterStats)
     {
         HttpRemoteTaskWithEventLoop task = new HttpRemoteTaskWithEventLoop(session,
@@ -325,6 +328,7 @@ public final class HttpRemoteTaskWithEventLoop
                 taskEventLoop,
                 dynamicFilterService,
                 dynamicFilterResponseCodec,
+                dynamicFilterPushRequestCodec,
                 dynamicFilterStats);
         task.initialize();
         return task;
@@ -369,6 +373,7 @@ public final class HttpRemoteTaskWithEventLoop
             SafeEventLoopGroup.SafeEventLoop taskEventLoop,
             DynamicFilterService dynamicFilterService,
             JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
             DynamicFilterStats dynamicFilterStats)
     {
         requireNonNull(session, "session is null");
@@ -397,7 +402,9 @@ public final class HttpRemoteTaskWithEventLoop
         requireNonNull(taskEventLoop, "taskEventLoop is null");
         requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         requireNonNull(dynamicFilterResponseCodec, "dynamicFilterResponseCodec is null");
+        requireNonNull(dynamicFilterPushRequestCodec, "dynamicFilterPushRequestCodec is null");
 
+        this.pushRequestCodec = dynamicFilterPushRequestCodec;
         this.taskEventLoop = taskEventLoop;
         this.taskId = taskId;
         this.taskLocation = location;
@@ -1489,6 +1496,26 @@ public final class HttpRemoteTaskWithEventLoop
             verify(taskEventLoop.inEventLoop());
             onFailureTaskInfo(throwable, this.action, this.request, this.cleanupBackoff);
         }
+    }
+
+    @Override
+    public void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint)
+    {
+        DynamicFilterPushRequest pushRequest = new DynamicFilterPushRequest(true, scanNodeId.toString(), constraint);
+        byte[] body = pushRequestCodec.toJsonBytes(pushRequest);
+
+        URI uri = uriBuilderFrom(taskLocation)
+                .appendPath("dynamicFilter")
+                .appendPath(filterId)
+                .build();
+
+        Request request = preparePost()
+                .setUri(uri)
+                .setHeader("Content-Type", "application/json")
+                .setBodyGenerator(createStaticBodyGenerator(body))
+                .build();
+
+        httpClient.executeAsync(request, createStatusResponseHandler());
     }
 
     private void safeExecuteOnEventLoop(Runnable r, String methodName)

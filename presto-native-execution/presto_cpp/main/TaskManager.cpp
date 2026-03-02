@@ -725,6 +725,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     ret = std::make_unique<TaskInfo>(info);
   }
 
+  if (startTask) {
+    // Apply any external dynamic filters that arrived before the Velox task
+    // was created. Must be called outside of prestoTask->mutex.
+    prestoTask->applyPendingExternalFilters();
+  }
+
   if (startNextQueuedTask) {
     maybeStartNextQueuedTask();
   }
@@ -1542,6 +1548,18 @@ void TaskManager::removeDynamicFiltersThrough(
   auto it = taskMap->find(taskId);
   if (it != taskMap->end()) {
     it->second->removeDynamicFiltersThrough(throughVersion);
+  }
+}
+
+void TaskManager::addExternalDynamicFilter(
+    const TaskId& taskId,
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it != taskMap->end()) {
+    it->second->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
   }
 }
 

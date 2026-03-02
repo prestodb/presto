@@ -159,6 +159,7 @@ import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.resourcemanager.ResourceManagerInconsistentException;
 import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.DecompressionFilter;
+import com.facebook.presto.server.remotetask.DynamicFilterPushRequest;
 import com.facebook.presto.server.remotetask.DynamicFilterResponse;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.remotetask.ReactorNettyHttpClientConfig;
@@ -606,6 +607,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
         jsonCodecBinder(binder).bindJsonCodec(DynamicFilterResponse.class);
+        jsonCodecBinder(binder).bindJsonCodec(DynamicFilterPushRequest.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);

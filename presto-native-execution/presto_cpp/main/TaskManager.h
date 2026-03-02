@@ -136,6 +136,12 @@ class TaskManager {
       const protocol::TaskId& taskId,
       int64_t throughVersion);
 
+  void addExternalDynamicFilter(
+      const protocol::TaskId& taskId,
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
   std::string toString() const;
 
   QueryContextManager* getQueryContextManager() {
