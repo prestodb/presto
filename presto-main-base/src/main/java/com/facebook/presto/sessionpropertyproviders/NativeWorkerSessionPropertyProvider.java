@@ -44,6 +44,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
     public static final String NATIVE_WRITER_FLUSH_THRESHOLD_BYTES = "native_writer_flush_threshold_bytes";
     public static final String NATIVE_ROW_NUMBER_SPILL_ENABLED = "native_row_number_spill_enabled";
+    public static final String NATIVE_MARK_DISTINCT_SPILL_ENABLED = "native_mark_distinct_spill_enabled";
     public static final String NATIVE_TOPN_ROW_NUMBER_SPILL_ENABLED = "native_topn_row_number_spill_enabled";
     public static final String NATIVE_SPILLER_NUM_PARTITION_BITS = "native_spiller_num_partition_bits";
     public static final String NATIVE_DEBUG_VALIDATE_OUTPUT_FROM_OPERATORS = "native_debug_validate_output_from_operators";
@@ -170,6 +171,11 @@ public class NativeWorkerSessionPropertyProvider
                 booleanProperty(
                         NATIVE_ROW_NUMBER_SPILL_ENABLED,
                         "Native Execution only. Enable row number spilling on native engine",
+                        false,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_MARK_DISTINCT_SPILL_ENABLED,
+                        "Native Execution only. Enable mark distinct spilling on native engine",
                         false,
                         !nativeExecution),
                 booleanProperty(

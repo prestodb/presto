@@ -114,6 +114,10 @@ class SessionProperties {
   static constexpr const char* kRowNumberSpillEnabled =
       "native_row_number_spill_enabled";
 
+  /// Enable mark distinct spilling on native engine.
+  static constexpr const char* kMarkDistinctSpillEnabled =
+      "native_mark_distinct_spill_enabled";
+
   /// The compression algorithm type to compress the spilled data.
   static constexpr const char* kSpillCompressionCodec =
       "native_spill_compression_codec";
