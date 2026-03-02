@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -131,7 +132,7 @@ public class IcebergSplitSource
         if (dynamicFilterActive && !dynamicFilter.isComplete()) {
             Set<ColumnHandle> relevant = computeRelevantFilterColumns(
                     dynamicFilter.getPendingFilterColumns(), tableScan);
-            this.relevantFilterColumns = relevant.isEmpty() ? Optional.empty() : Optional.of(relevant);
+            this.relevantFilterColumns = Optional.of(relevant);
         }
         else {
             this.relevantFilterColumns = Optional.empty();
@@ -155,9 +156,10 @@ public class IcebergSplitSource
 
     private CompletableFuture<ConnectorSplitBatch> handleBlockingBatch(int maxSize)
     {
-        if (dynamicFilter.isComplete(relevantFilterColumns)) {
+        if (dynamicFilter.isComplete(relevantFilterColumns)
+                || hasExceededFilterWaitTime()) {
             recordFilterWaitTime();
-            dynamicFilterApplied = true;
+            dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
             initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
             scanning = true;
             return completedFuture(enumerateSplitBatch(maxSize));
@@ -177,6 +179,12 @@ public class IcebergSplitSource
         scanning = true;
 
         return completedFuture(enumerateSplitBatch(maxSize));
+    }
+
+    private boolean hasExceededFilterWaitTime()
+    {
+        return filterWaitStartNanos > 0
+                && Duration.nanosSince(filterWaitStartNanos).compareTo(dynamicFilter.getWaitTimeout()) >= 0;
     }
 
     private void startFilterWaitTimer()

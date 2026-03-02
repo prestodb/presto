@@ -899,7 +899,6 @@ public abstract class AbstractTestDynamicPartitionPruning
     @Test(invocationCount = 10)
     public void testNonPartitionedProbeTable()
     {
-        // Iceberg may still prune via file-level min/max, so assertions use soft bounds
         executeTableDdl("CREATE TABLE fact_orders_unpartitioned (" +
                 "order_id BIGINT, " +
                 "customer_id BIGINT, " +
@@ -929,27 +928,18 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "Non-partitioned probe: results must be identical with DPP enabled vs disabled");
 
             RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
-            RuntimeStats noDppStats = getRuntimeStats(resultWithoutDpp);
 
-            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
-                    "Non-partitioned probe: DF should be pushed into Iceberg scan");
+            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 0,
+                    "Non-partitioned probe: no discriminating columns, filter not waited for");
             long dppSplitsProcessed = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
-            assertTrue(dppSplitsProcessed <= unpartitionedTotalFiles,
-                    format("Non-partitioned probe: DPP should process no more than total files: %d (DPP) vs %d (total)",
+            assertEquals(dppSplitsProcessed, unpartitionedTotalFiles,
+                    format("Non-partitioned probe: should process all files without filter: %d (DPP) vs %d (total)",
                             dppSplitsProcessed, unpartitionedTotalFiles));
             assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER), 0,
-                    "Non-partitioned probe: filter resolved in time");
+                    "Non-partitioned probe: dynamicFilterApplied is true (empty relevant set completes immediately)");
 
-            DynamicFilterInfo filterInfo = resolveDynamicFilter(resultWithDpp, "customer_id");
-            assertNotNull(filterInfo, "Non-partitioned probe: should resolve a dynamic filter from the plan");
-
-            assertFilterResolvesWithinTimeout(dppStats, "Non-partitioned probe");
-            assertCollectionTimeBoundedByBuildSide(dppStats, resultWithDpp, filterInfo, "Non-partitioned probe");
-
-            long dppSkippedManifests = getIcebergScanMetric(dppStats, "fact_orders_unpartitioned", "skippedDataManifests");
-            long noDppSkippedManifests = getIcebergScanMetric(noDppStats, "fact_orders_unpartitioned", "skippedDataManifests");
-            assertEquals(dppSkippedManifests, noDppSkippedManifests,
-                    "Non-partitioned probe: no additional manifests should be skipped");
+            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_WAIT_TIME_NANOS), 0,
+                    "Non-partitioned probe: wait time should be 0 (no relevant filters)");
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_orders_unpartitioned");
@@ -1537,8 +1527,8 @@ public abstract class AbstractTestDynamicPartitionPruning
             assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
                     "Unpartitioned no-SC: short-circuit should NOT fire (no partition-level domain)");
 
-            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
-                    "Unpartitioned no-SC: filter should still be pushed into scan");
+            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 0,
+                    "Unpartitioned no-SC: no discriminating columns, filter not waited for");
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_unpart_sc");
@@ -1683,11 +1673,28 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "ORDER BY f.order_id";
 
             ResultWithQueryId<MaterializedResult> result = execute(dppBlockingSession(), query);
+            ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
             RuntimeStats runtimeStats = getRuntimeStats(result);
+
+            assertEquals(result.getResult().getMaterializedRows(),
+                    resultWithoutDpp.getResult().getMaterializedRows(),
+                    "Non-discriminating column: DPP results must match no-DPP results");
 
             long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
             assertTrue(skipped >= 1,
                     format("Column selectivity: status column should be skipped, got skipped=%d", skipped));
+
+            long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
+            assertEquals(relevant, 0,
+                    format("Column selectivity: no columns should be relevant when join is on non-partition column, got relevant=%d", relevant));
+
+            long waitTimeNanos = getMetricValue(runtimeStats, DYNAMIC_FILTER_WAIT_TIME_NANOS);
+            assertEquals(waitTimeNanos, 0,
+                    format("Non-discriminating column: wait time should be 0 (no relevant filters to wait for), got %d ns", waitTimeNanos));
+
+            long splitsBeforeFilter = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER);
+            assertEquals(splitsBeforeFilter, 0,
+                    format("Non-discriminating column: splitsBeforeFilter should be 0, got %d", splitsBeforeFilter));
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_enriched");

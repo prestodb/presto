@@ -506,6 +506,29 @@ public class TestTableScanDynamicFilter
     }
 
     @Test
+    public void testEmptyRelevantColumnsCompletesImmediately()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        filter1.setExpectedPartitions(2); // deliberately not resolved
+
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", new TestColumnHandle("customer_id"));
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1), columnNameToHandle);
+
+        Optional<Set<ColumnHandle>> emptyRelevant = Optional.of(ImmutableSet.of());
+
+        assertTrue(composite.isComplete(emptyRelevant),
+                "Empty relevant column set should be immediately complete");
+
+        CompletableFuture<?> blocked = composite.isBlocked(emptyRelevant);
+        assertTrue(blocked.isDone(),
+                "Empty relevant column set should not block");
+
+        assertFalse(composite.isComplete(),
+                "Global isComplete should still be false (filter unresolved)");
+    }
+
+    @Test
     public void testIsBlockedRelevantColumnsStartsAllTimeouts()
     {
         JoinDynamicFilter filter1 = createFilter("549", "customer_id", new Duration(100, TimeUnit.MILLISECONDS));
