@@ -1065,7 +1065,6 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<protocol::TaskInfo>>();
   auto prestoTask = findOrCreateTask(taskId);
-  prestoTask->applyPendingExternalFilters();
 
   if (!currentState || !maxWait) {
     // Return current TaskInfo without waiting.
@@ -1241,7 +1240,6 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
       folly::makePromiseContract<std::unique_ptr<protocol::TaskStatus>>();
 
   auto prestoTask = findOrCreateTask(taskId);
-  prestoTask->applyPendingExternalFilters();
 
   if (!currentState || !maxWait) {
     // Return task's status immediately without waiting.

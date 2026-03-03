@@ -1508,10 +1508,6 @@ public final class HttpRemoteTaskWithEventLoop
     @Override
     public void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint)
     {
-        // TODO: Temporarily disabled to isolate ingress timeout root cause
-        if (true) {
-            return;
-        }
         DynamicFilterPushRequest pushRequest = new DynamicFilterPushRequest(true, scanNodeId.toString(), constraint);
         byte[] body = pushRequestCodec.toJsonBytes(pushRequest);
 

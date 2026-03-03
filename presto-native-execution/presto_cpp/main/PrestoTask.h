@@ -292,6 +292,13 @@ struct PrestoTask {
   std::mutex dfMutex_;
   std::shared_ptr<folly::SharedPromise<int64_t>> dfPromise_;
 
+  /// Applies a single external dynamic filter to the Velox task. Acquires the
+  /// Velox Task::mutex_. Caller must NOT hold PrestoTask::mutex.
+  void applyFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
   void wakeDynamicFilterWaiters(int64_t version);
 
   void recordProcessCpuTime();

@@ -1145,15 +1145,26 @@ void PrestoTask::addExternalDynamicFilter(
     const std::string& filterId,
     const std::string& scanPlanNodeId,
     const protocol::TupleDomain<std::string>& tupleDomain) {
-  std::lock_guard<std::mutex> l(mutex);
-  pendingExternalFilters_.push_back(
-      {filterId, scanPlanNodeId, tupleDomain});
   externalDynamicFiltersQueued_++;
+
+  // Check if the Velox task exists and is running. If so, apply the filter
+  // immediately rather than queuing it for later application on the
+  // getTaskStatus/getTaskInfo HTTP path (which would block HTTP threads on
+  // the Velox Task::mutex_).
+  {
+    std::lock_guard<std::mutex> l(mutex);
+    if (!task || task->state() != exec::TaskState::kRunning) {
+      pendingExternalFilters_.push_back(
+          {filterId, scanPlanNodeId, tupleDomain});
+      return;
+    }
+  }
+
+  // Apply immediately outside of PrestoTask::mutex.
+  applyFilter(filterId, scanPlanNodeId, tupleDomain);
 }
 
 void PrestoTask::applyPendingExternalFilters() {
-  auto applyStart = std::chrono::steady_clock::now();
-
   std::vector<PendingExternalFilter> pending;
   {
     std::lock_guard<std::mutex> l(mutex);
@@ -1167,36 +1178,44 @@ void PrestoTask::applyPendingExternalFilters() {
     if (task->state() != exec::TaskState::kRunning) {
       return;
     }
+    applyFilter(pf.filterId, pf.scanPlanNodeId, pf.tupleDomain);
+  }
+}
 
-    auto scanNode = findTableScanNode(
-        task->planFragment().planNode, pf.scanPlanNodeId);
-    if (!scanNode || !pf.tupleDomain.domains) {
+void PrestoTask::applyFilter(
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  auto applyStart = std::chrono::steady_clock::now();
+
+  auto scanNode = findTableScanNode(
+      task->planFragment().planNode, scanPlanNodeId);
+  if (!scanNode || !tupleDomain.domains) {
+    return;
+  }
+
+  auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
+  TypeParser typeParser;
+  VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
+
+  for (const auto& [columnName, domain] : *tupleDomain.domains) {
+    auto columnIdx =
+        scanNode->outputType()->getChildIdxIfExists(columnName);
+    if (!columnIdx.has_value()) {
       continue;
     }
 
-    auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
-    TypeParser typeParser;
-    VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
-
-    for (const auto& [columnName, domain] : *pf.tupleDomain.domains) {
-      auto columnIdx =
-          scanNode->outputType()->getChildIdxIfExists(columnName);
-      if (!columnIdx.has_value()) {
-        continue;
-      }
-
-      auto filter = toFilter(domain, exprConverter, typeParser);
-      if (filter) {
-        auto mutexStart = std::chrono::steady_clock::now();
-        task->addExternalDynamicFilter(
-            pf.scanPlanNodeId, *columnIdx, std::move(filter));
-        auto mutexEnd = std::chrono::steady_clock::now();
-        externalDynamicFilterMutexWaitMs_ +=
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                mutexEnd - mutexStart)
-                .count();
-        ++externalDynamicFiltersReceived_;
-      }
+    auto filter = toFilter(domain, exprConverter, typeParser);
+    if (filter) {
+      auto mutexStart = std::chrono::steady_clock::now();
+      task->addExternalDynamicFilter(
+          scanPlanNodeId, *columnIdx, std::move(filter));
+      auto mutexEnd = std::chrono::steady_clock::now();
+      externalDynamicFilterMutexWaitMs_ +=
+          std::chrono::duration_cast<std::chrono::milliseconds>(
+              mutexEnd - mutexStart)
+              .count();
+      ++externalDynamicFiltersReceived_;
     }
   }
 
