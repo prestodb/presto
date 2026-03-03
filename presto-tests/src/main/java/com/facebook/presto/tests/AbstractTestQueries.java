@@ -90,6 +90,7 @@ import static com.facebook.presto.SystemSessionProperties.REWRITE_CROSS_JOIN_OR_
 import static com.facebook.presto.SystemSessionProperties.REWRITE_EXPRESSION_WITH_CONSTANT_EXPRESSION;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_LEFT_JOIN_NULL_FILTER_TO_SEMI_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_MIN_MAX_BY_TO_TOP_N;
+import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_COALESCE_OVER_JOIN_KEYS;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -8228,5 +8229,51 @@ public abstract class AbstractTestQueries
     {
         // DWRF does not support date type.
         return storageFormat.equals("DWRF") ? "cast(" + columnExpression + " as DATE)" : columnExpression;
+    }
+
+    @Test
+    public void testSimplifyCoalesceOverJoinKeys()
+    {
+        Session enabledSession = Session.builder(getSession())
+                .setSystemProperty(SIMPLIFY_COALESCE_OVER_JOIN_KEYS, "true")
+                .build();
+        Session disabledSession = Session.builder(getSession())
+                .setSystemProperty(SIMPLIFY_COALESCE_OVER_JOIN_KEYS, "false")
+                .build();
+
+        // LEFT JOIN: COALESCE(l.x, r.y) should be simplified to l.x
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(n.nationkey, r.regionkey) FROM nation n LEFT JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // LEFT JOIN: COALESCE(r.y, l.x) should also simplify to l.x
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(r.regionkey, n.nationkey) FROM nation n LEFT JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // RIGHT JOIN: COALESCE(l.x, r.y) should simplify to r.y
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(n.nationkey, r.regionkey) FROM nation n RIGHT JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // INNER JOIN: COALESCE(l.x, r.y) should simplify to l.x (first arg)
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(n.nationkey, r.regionkey) FROM nation n INNER JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // FULL JOIN: COALESCE should NOT be simplified — verify results still match
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(n.nationkey, r.regionkey) FROM nation n FULL JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // Multiple columns with COALESCE on join key plus other columns
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT COALESCE(n.nationkey, r.regionkey), n.name FROM nation n LEFT JOIN region r ON n.nationkey = r.regionkey",
+                disabledSession);
+
+        // JOIN USING produces COALESCE automatically
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT regionkey FROM nation LEFT JOIN region USING (regionkey)",
+                disabledSession);
     }
 }
