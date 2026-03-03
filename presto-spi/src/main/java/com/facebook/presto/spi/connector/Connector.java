@@ -188,6 +188,11 @@ public interface Connector
         return emptyList();
     }
 
+    default List<PropertyMetadata<?>> getDeprecatedTableProperties()
+    {
+        return emptyList();
+    }
+
     /**
      * @return the column properties for this connector
      */
