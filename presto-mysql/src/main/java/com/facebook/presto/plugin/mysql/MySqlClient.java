@@ -445,5 +445,4 @@ public class MySqlClient
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
-
 }
