@@ -28,10 +28,11 @@
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 using namespace facebook::presto;
 using namespace facebook::presto::operators;
 
@@ -189,7 +190,7 @@ class BroadcastTest : public exec::test::OperatorTestBase,
     exec::Operator::registerOperator(
         std::make_unique<BroadcastWriteTranslator>());
 
-    auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+    auto tempDirectoryPath = TempDirectoryPath::create();
     auto [serdeRowType, broadcastFilePaths] =
         executeBroadcastWrite(data, tempDirectoryPath->getPath(), serdeLayout);
 
@@ -264,7 +265,7 @@ TEST_P(BroadcastTest, endToEndSerdeLayout) {
 TEST_P(BroadcastTest, endToEndWithNoRows) {
   std::vector<RowVectorPtr> data = {makeRowVector(
       {makeFlatVector<double>({}), makeArrayVector<int32_t>({})})};
-  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto tempDirectoryPath = TempDirectoryPath::create();
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
@@ -291,7 +292,7 @@ TEST_P(BroadcastTest, endToEndWithMultipleWriteNodes) {
           makeFlatVector<int32_t>({11, 21, 31, 41, 51, 61}),
           makeFlatVector<int64_t>({102, 203, 304, 405, 506, 607}),
       })};
-  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto tempDirectoryPath = TempDirectoryPath::create();
   std::vector<std::string> broadcastFilePaths;
 
   // Execute write.
@@ -380,7 +381,7 @@ TEST_P(BroadcastTest, malformedBroadcastInfoJson) {
 }
 
 TEST_P(BroadcastTest, broadcastFileWriter) {
-  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto tempDirectoryPath = TempDirectoryPath::create();
   auto fileSystem =
       velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
   fileSystem->mkdir(tempDirectoryPath->getPath());
@@ -585,7 +586,7 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
   };
 
   for (size_t i = 0; i < kPageSizes.size(); ++i) {
-    auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+    auto tempDirectoryPath = TempDirectoryPath::create();
 
     // Create a modified factory that uses custom buffer size
     auto fileSystem = velox::filesystems::getFileSystem(
@@ -652,7 +653,7 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
 }
 
 TEST_P(BroadcastTest, exceedBroadcastFileWriterLimit) {
-  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto tempDirectoryPath = TempDirectoryPath::create();
   auto fileSystem =
       velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
   fileSystem->mkdir(tempDirectoryPath->getPath());
@@ -693,7 +694,7 @@ TEST_P(BroadcastTest, exceedBroadcastFileWriterLimit) {
 }
 
 TEST_P(BroadcastTest, broadcastJoinExceedLimit) {
-  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto tempDirectoryPath = TempDirectoryPath::create();
 
   // Create build side data (data to broadcast)
   auto buildData = makeRowVector({
