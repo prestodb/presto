@@ -1922,6 +1922,33 @@ Iceberg tables do not support running multiple :doc:`../sql/merge` statements on
     Failed to commit Iceberg update to table: <table name>
     Found conflicting files that can contain records matching true
 
+Transaction support
+-------------------
+
+The Iceberg connector supports explicit multi-statement write transactions on
+a single table. To run transaction statements, use :doc:`/sql/start-transaction`
+with :doc:`/sql/commit` or :doc:`/sql/rollback`.
+
+For snapshot semantics, use ``REPEATABLE READ`` isolation::
+
+    START TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    INSERT INTO iceberg.default.test_table (id, status) VALUES (1, 'pending');
+    UPDATE iceberg.default.test_table SET status = 'committed' WHERE id = 1;
+    COMMIT;
+
+Current limitations:
+
+* Writes in the same transaction can target only one Iceberg table. Attempts
+  to write to another table fail with ``Not allowed to open write transactions on multiple tables``.
+* ``SERIALIZABLE`` isolation is not supported by the Iceberg connector.
+* ``MERGE INTO`` is only supported in autocommit mode.
+* Some statements are only supported in autocommit mode, including:
+  ``CREATE/DROP/RENAME TABLE``, ``CREATE/DROP/RENAME SCHEMA``,
+  ``CREATE/DROP/RENAME VIEW``, ``CREATE/DROP/REFRESH MATERIALIZED VIEW``,
+  ``TRUNCATE TABLE``, and ``ANALYZE``.
+* If concurrent transactions change table metadata, commit may fail and require
+  retrying the transaction (for example, ``Table metadata refresh is required``).
+
 Schema Evolution
 ----------------
 
