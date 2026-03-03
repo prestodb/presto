@@ -52,7 +52,7 @@ public class MySqlMetadata
         else {
             isInformationSchemaQuery = true;
             if (prefix.getSchemaName() != null) {
-                tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+                tableNames = mySqlClient.listViews(session, Optional.of(prefix.getSchemaName()));
             }
             else {
                 tableNames = mySqlClient.listSchemasForViews(session);
