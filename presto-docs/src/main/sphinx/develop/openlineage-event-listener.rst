@@ -1,6 +1,6 @@
-==============================
+==========================
 OpenLineage Event Listener
-==============================
+==========================
 
 The OpenLineage event listener plugin emits query events in the
 `OpenLineage <https://openlineage.io/>`_ format, enabling integration with
@@ -49,7 +49,7 @@ development.
 
 **HTTP Transport**
 
-Sends OpenLineage events to an HTTP endpoint (e.g., Marquez API).
+Sends OpenLineage events to an HTTP endpoint such as the Marquez API.
 
 .. code-block:: none
 
@@ -123,7 +123,7 @@ These properties apply when ``openlineage-event-listener.transport.type`` is set
    * - ``openlineage-event-listener.transport.timeout``
      - No
      - ``5s``
-     - HTTP request timeout. Accepts duration strings (e.g., ``5s``, ``30s``, ``1m``).
+     - HTTP request timeout. Accepts duration strings. For example: ``5s``, ``30s``, ``1m``.
    * - ``openlineage-event-listener.transport.headers``
      - No
      -
