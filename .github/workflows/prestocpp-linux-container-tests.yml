@@ -154,11 +154,11 @@ jobs:
 
       - name: Pull docker images
         run: |
-          docker pull your-repo/presto-worker:latest
-          docker pull your-repo/presto-coordinator:latest
+          docker pull anandamide/presto-worker:latest
+          docker pull anandamide/presto-coordinator:latest
           
-          docker tag your-repo/presto-worker:latest presto-worker:latest
-          docker tag your-repo/presto-coordinator:latest presto-coordinator:latest
+          docker tag anandamide/presto-worker:latest presto-worker:latest
+          docker tag anandamide/presto-coordinator:latest presto-coordinator:latest
 
       - uses: actions/setup-java@v4
         with:
