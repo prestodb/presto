@@ -146,4 +146,8 @@ const std::vector<std::string> getFunctionNameParts(
       fmt::format("Prefix missing for function {}", registeredFunction));
   return parts;
 }
+
+std::string boolToString(bool value) {
+  return value ? "true" : "false";
+}
 } // namespace facebook::presto::util

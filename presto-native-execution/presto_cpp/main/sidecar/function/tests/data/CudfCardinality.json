@@ -1,0 +1,21 @@
+{
+  "cardinality": [
+    {
+      "docString": "cudf.cardinality",
+      "functionKind": "SCALAR",
+      "longVariableConstraints": [],
+      "outputType": "integer",
+      "paramTypes": [
+        "array(any)"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "cudf",
+      "typeVariableConstraints": [],
+      "variableArity": false
+    }
+  ]
+}

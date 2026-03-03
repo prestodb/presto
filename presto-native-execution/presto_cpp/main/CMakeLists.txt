@@ -17,10 +17,7 @@ add_subdirectory(thrift)
 add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
-
-add_library(presto_session_properties SessionProperties.cpp)
-
-target_link_libraries(presto_session_properties ${FOLLY_WITH_DEPENDENCIES})
+add_subdirectory(sidecar)
 
 add_library(
   presto_server_lib
@@ -113,7 +110,12 @@ target_link_libraries(
 )
 
 if(PRESTO_ENABLE_CUDF)
-  target_link_libraries(presto_server_lib velox_cudf_exec)
+  target_link_libraries(
+    presto_server_lib
+    presto_cudf_function_metadata
+    presto_cudf_session_properties
+    velox_cudf_exec
+  )
 endif()
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is

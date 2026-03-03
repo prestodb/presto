@@ -15,63 +15,17 @@
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "presto_cpp/main/sidecar/properties/SessionPropertiesProvider.h"
 #include "velox/type/Type.h"
 
 using json = nlohmann::json;
 
 namespace facebook::presto {
 
-/// This is the interface of the session property.
-/// Note: This interface should align with java coordinator.
-class SessionProperty {
- public:
-  SessionProperty(
-      const std::string& name,
-      const std::string& description,
-      const std::string& typeSignature,
-      bool hidden,
-      const std::optional<std::string> veloxConfig,
-      const std::string& defaultValue)
-      : metadata_({name, description, typeSignature, defaultValue, hidden}),
-        veloxConfig_(veloxConfig),
-        value_(defaultValue) {}
-
-  const protocol::SessionPropertyMetadata getMetadata() {
-    return metadata_;
-  }
-
-  const std::optional<std::string> getVeloxConfig() {
-    return veloxConfig_;
-  }
-
-  const std::string getValue() {
-    return value_;
-  }
-
-  void updateValue(const std::string& value) {
-    value_ = value;
-  }
-
-  bool operator==(const SessionProperty& other) const {
-    const auto otherMetadata = other.metadata_;
-    return metadata_.name == otherMetadata.name &&
-        metadata_.description == otherMetadata.description &&
-        metadata_.typeSignature == otherMetadata.typeSignature &&
-        metadata_.hidden == otherMetadata.hidden &&
-        metadata_.defaultValue == otherMetadata.defaultValue &&
-        veloxConfig_ == other.veloxConfig_;
-  }
-
- private:
-  const protocol::SessionPropertyMetadata metadata_;
-  const std::optional<std::string> veloxConfig_;
-  std::string value_;
-};
-
 /// Defines all system session properties supported by native worker to ensure
 /// that they are the source of truth and to differentiate them from Java based
 /// session properties. Also maps the native session properties to velox.
-class SessionProperties {
+class SessionProperties : public SessionPropertiesProvider {
  public:
   /// Enable simplified path in expression evaluation.
   static constexpr const char* kExprEvalSimplified =
@@ -431,25 +385,7 @@ class SessionProperties {
 
   SessionProperties();
 
-  /// Utility function to translate a config name in Presto to its equivalent in
-  /// Velox. Returns 'name' as is if there is no mapping.
-  const std::string toVeloxConfig(const std::string& name) const;
-
-  json serialize() const;
-
   bool useVeloxGeospatialJoin() const;
-
- private:
-  void addSessionProperty(
-      const std::string& name,
-      const std::string& description,
-      const velox::TypePtr& type,
-      bool isHidden,
-      const std::optional<std::string> veloxConfig,
-      const std::string& defaultValue);
-
-  std::unordered_map<std::string, std::shared_ptr<SessionProperty>>
-      sessionProperties_;
 };
 
 } // namespace facebook::presto

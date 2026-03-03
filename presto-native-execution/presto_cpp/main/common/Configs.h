@@ -339,6 +339,10 @@ class SystemConfig : public ConfigBase {
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
 
+  /// Execution mode: "cpu" for Velox/CPU execution or "cudf" for CUDF GPU
+  /// execution. Default is "cpu".
+  static constexpr std::string_view kExecutionMode{"execution-mode"};
+
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
@@ -1226,6 +1230,9 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+
+  /// Returns the execution mode ("cpu" or "cudf"). Defaults to "cpu".
+  std::string executionMode() const;
 
   std::string prestoDefaultNamespacePrefix() const;
 

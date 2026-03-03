@@ -66,4 +66,7 @@ inline std::string addDefaultNamespacePrefix(
 /// three parts, {catalog, schema, function_name}, from the registered function.
 const std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction);
+
+/// Convert boolean to lowercase string representation.
+std::string boolToString(bool value);
 } // namespace facebook::presto::util

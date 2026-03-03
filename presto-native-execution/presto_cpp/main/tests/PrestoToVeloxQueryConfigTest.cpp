@@ -14,8 +14,8 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/sidecar/properties/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryConfig.h"
 

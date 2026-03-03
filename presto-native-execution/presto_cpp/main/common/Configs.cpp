@@ -624,6 +624,10 @@ bool SystemConfig::prestoNativeSidecar() const {
   return optionalProperty<bool>(kNativeSidecar).value();
 }
 
+std::string SystemConfig::executionMode() const {
+  return optionalProperty<std::string>(kExecutionMode).value_or("cpu");
+}
+
 uint32_t SystemConfig::systemMemLimitGb() const {
   return optionalProperty<uint32_t>(kSystemMemLimitGb).value();
 }

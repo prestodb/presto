@@ -135,6 +135,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
         private boolean implicitCastCharNToVarchar;
+        private boolean enableCudf;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -235,6 +236,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setEnableCudf(boolean enableCudf)
+        {
+            this.enableCudf = enableCudf;
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
         {
             this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
@@ -294,7 +301,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
+                    pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar, enableCudf);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -431,7 +438,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -554,7 +561,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -660,7 +667,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean isBuiltInWorkerFunctionsEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache,
-            boolean implicitCastCharNToVarchar)
+            boolean implicitCastCharNToVarchar,
+            boolean enableCudf)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -700,6 +708,10 @@ public class PrestoNativeQueryRunnerUtils
                                     "async-cache-ssd-path=%s/%n", configProperties, ssdCacheDir);
                         }
 
+                        if (isBuiltInWorkerFunctionsEnabled) {
+                            configProperties = format("%s%nbuilt-in-sidecar-functions-enabled=true%n", configProperties);
+                        }
+
                         if (remoteFunctionServerUds.isPresent()) {
                             String jsonSignaturesPath = Resources.getResource(REMOTE_FUNCTION_JSON_SIGNATURES).getFile();
                             configProperties = format("%s%n" +
@@ -719,6 +731,12 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (implicitCastCharNToVarchar) {
                             configProperties = format("%s%n" + "char-n-to-varchar-implicit-cast=true%n", configProperties);
+                        }
+
+                        if (enableCudf) {
+                            configProperties = format("%s%n" + "cudf.enabled=true%n", configProperties);
+                            configProperties = format("%s%n" + "cudf.debug_enabled=true%n", configProperties);
+                            configProperties = format("%s%n" + "cudf.allow_cpu_fallback=false%n", configProperties);
                         }
 
                         Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
@@ -755,7 +773,7 @@ public class PrestoNativeQueryRunnerUtils
                                 format("connector.name=tpcds%n").getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
-                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")
+                        return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=2", "--velox_ssd_odirect=false")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
                                 .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("worker." + workerIndex + ".out").toFile()))
