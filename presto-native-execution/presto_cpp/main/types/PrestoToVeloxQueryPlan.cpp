@@ -1580,6 +1580,59 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
 std::shared_ptr<const core::TableWriteNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::CallDistributedProcedureNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto executeProcedureHandle =
+      std::dynamic_pointer_cast<protocol::ExecuteProcedureHandle>(
+          tableWriteInfo->writerTarget);
+
+  if (!executeProcedureHandle) {
+    VELOX_UNSUPPORTED(
+        "Unsupported execute procedure handle: {}",
+        toJsonString(tableWriteInfo->writerTarget));
+  }
+
+  std::string connectorId = executeProcedureHandle->handle.connectorId;
+  auto& connector = getPrestoToVeloxConnector(
+      executeProcedureHandle->handle.connectorHandle->_type);
+  auto veloxHandle = connector.toVeloxInsertTableHandle(
+      executeProcedureHandle.get(), typeParser_);
+  auto connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
+
+  if (!connectorInsertHandle) {
+    VELOX_UNSUPPORTED(
+        "Unsupported execute procedure handle: {}",
+        toJsonString(tableWriteInfo->writerTarget));
+  }
+
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, connectorInsertHandle);
+
+  const auto outputType = toRowType(
+      generateOutputVariables(
+          {node->rowCountVariable,
+           node->fragmentVariable,
+           node->tableCommitContextVariable},
+          nullptr),
+      typeParser_);
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  return std::make_shared<core::TableWriteNode>(
+      node->id,
+      toRowType(node->columns, typeParser_),
+      node->columnNames,
+      std::nullopt,
+      std::move(insertTableHandle),
+      node->partitioningScheme != nullptr,
+      outputType,
+      getCommitStrategy(),
+      sourceVeloxPlan);
+}
+
+std::shared_ptr<const core::TableWriteNode>
+VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::DeleteNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -1981,6 +2034,10 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   if (auto tableWriter =
           std::dynamic_pointer_cast<const protocol::TableWriterNode>(node)) {
     return toVeloxQueryPlan(tableWriter, tableWriteInfo, taskId);
+  }
+  if (auto callDistributedProcedure = std::dynamic_pointer_cast<
+          const protocol::CallDistributedProcedureNode>(node)) {
+    return toVeloxQueryPlan(callDistributedProcedure, tableWriteInfo, taskId);
   }
   if (auto deleteNode =
           std::dynamic_pointer_cast<const protocol::DeleteNode>(node)) {
