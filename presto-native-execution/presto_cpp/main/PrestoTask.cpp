@@ -797,6 +797,14 @@ void PrestoTask::updateTimeInfoLocked(
   if (queuedFilters > 0) {
     taskRuntimeStats["externalDynamicFiltersQueued"].addValue(queuedFilters);
   }
+  const auto applyTimeMs = externalDynamicFilterApplyTimeMs_.load();
+  if (applyTimeMs > 0) {
+    taskRuntimeStats["externalDynamicFilterApplyTimeMs"].addValue(applyTimeMs);
+  }
+  const auto mutexWaitMs = externalDynamicFilterMutexWaitMs_.load();
+  if (mutexWaitMs > 0) {
+    taskRuntimeStats["externalDynamicFilterMutexWaitMs"].addValue(mutexWaitMs);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -1144,6 +1152,8 @@ void PrestoTask::addExternalDynamicFilter(
 }
 
 void PrestoTask::applyPendingExternalFilters() {
+  auto applyStart = std::chrono::steady_clock::now();
+
   std::vector<PendingExternalFilter> pending;
   {
     std::lock_guard<std::mutex> l(mutex);
@@ -1177,12 +1187,24 @@ void PrestoTask::applyPendingExternalFilters() {
 
       auto filter = toFilter(domain, exprConverter, typeParser);
       if (filter) {
+        auto mutexStart = std::chrono::steady_clock::now();
         task->addExternalDynamicFilter(
             pf.scanPlanNodeId, *columnIdx, std::move(filter));
+        auto mutexEnd = std::chrono::steady_clock::now();
+        externalDynamicFilterMutexWaitMs_ +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                mutexEnd - mutexStart)
+                .count();
         ++externalDynamicFiltersReceived_;
       }
     }
   }
+
+  auto applyEnd = std::chrono::steady_clock::now();
+  externalDynamicFilterApplyTimeMs_ +=
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          applyEnd - applyStart)
+          .count();
 }
 
 bool isFinalState(protocol::TaskState state) {

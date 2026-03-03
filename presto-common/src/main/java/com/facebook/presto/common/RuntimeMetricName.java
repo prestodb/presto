@@ -127,6 +127,9 @@ public class RuntimeMetricName
     // Push-to-worker metrics (extended metrics only)
     public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_COUNT = "dynamicFilterPushToWorkerCount";
     public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_COUNT = "dynamicFilterPushToWorkerTaskCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT = "dynamicFilterPushToWorkerSuccessCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT = "dynamicFilterPushToWorkerFailureCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS = "dynamicFilterPushToWorkerLatencyMs";
     // Column selectivity check metrics (extended metrics only)
     public static final String DYNAMIC_FILTER_COLUMNS_SKIPPED = "dynamicFilterColumnsSkipped";
     public static final String DYNAMIC_FILTER_COLUMNS_RELEVANT = "dynamicFilterColumnsRelevant";

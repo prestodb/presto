@@ -30,6 +30,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
@@ -110,6 +111,10 @@ import static com.facebook.airlift.http.client.StatusResponseHandler.createStatu
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -1515,19 +1520,26 @@ public final class HttpRemoteTaskWithEventLoop
                 .setBodyGenerator(createStaticBodyGenerator(body))
                 .build();
 
-        // Must add a callback to ensure the HTTP response is fully consumed
+        long startMs = System.currentTimeMillis();
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+
         addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
         {
             @Override
             public void onSuccess(StatusResponse result)
             {
-                // Fire-and-forget: nothing to do on success
+                long latencyMs = System.currentTimeMillis() - startMs;
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS, NONE, latencyMs);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT, NONE, 1);
             }
 
             @Override
             public void onFailure(Throwable throwable)
             {
-                log.debug(throwable, "Failed to push dynamic filter %s to task %s", filterId, taskId);
+                long latencyMs = System.currentTimeMillis() - startMs;
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS, NONE, latencyMs);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT, NONE, 1);
+                log.warn("Failed to push dynamic filter %s to task %s (latency %dms): %s", filterId, taskId, latencyMs, throwable.getMessage());
             }
         }, taskEventLoop);
     }

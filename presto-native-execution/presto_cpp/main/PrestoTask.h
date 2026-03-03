@@ -273,6 +273,12 @@ struct PrestoTask {
   // Count of external dynamic filters queued before Velox task creation.
   std::atomic<int64_t> externalDynamicFiltersQueued_{0};
 
+  // Time (ms) spent in applyPendingExternalFilters (total across all calls).
+  std::atomic<int64_t> externalDynamicFilterApplyTimeMs_{0};
+
+  // Time (ms) spent waiting for Velox Task::mutex_ in addExternalDynamicFilter.
+  std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
+
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.
   struct PendingExternalFilter {
