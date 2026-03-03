@@ -84,12 +84,11 @@ public class TestIcebergColumnHandle
         assertTrue(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isLastUpdatedSequenceNumberColumn());
         assertFalse(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.isRowIdColumn());
 
-        // Verify that _row_id IS treated as a metadata column ID so it is excluded from
-        // predicate pushdown to the Iceberg scan (the library can't handle it as a partition column)
-        assertTrue(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
-        // Verify that _last_updated_sequence_number IS treated as a metadata column ID so that
-        // IcebergPartitionInsertingPageSource can inject it as a per-file constant
-        assertTrue(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
+        // Verify that _row_id and _last_updated_sequence_number are NOT treated as metadata column IDs
+        // so that IcebergPartitionInsertingPageSource passes them through to the Parquet reader.
+        // Predicate pushdown exclusion is handled separately in getNonMetadataColumnConstraints().
+        assertFalse(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
+        assertFalse(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)

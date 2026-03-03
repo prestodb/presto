@@ -100,10 +100,14 @@ public class IcebergUpdateablePageSource
     private final int deleteFilePathColumnId;
     // The output index of the _row_id column, or -1 if not requested
     private final int rowLineageRowIdOutputIndex;
-    // The delegate index of the ROW_POSITION column for computing _row_id, or -1 if not needed
+    // The delegate index of the ROW_POSITION column for computing _row_id fallback, or -1 if not needed
     private final int rowPositionDelegateIndex;
     // The first_row_id of the data file (from the manifest), or -1 if not a V3 table
     private final long firstRowId;
+    // The output index of _last_updated_sequence_number, or -1 if not requested
+    private final int lastUpdatedSeqOutputIndex;
+    // The data sequence number of the file for _last_updated_sequence_number fallback
+    private final long dataSequenceNumber;
 
     public IcebergUpdateablePageSource(
             Schema tableSchema,
@@ -121,7 +125,8 @@ public class IcebergUpdateablePageSource
             // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
             Optional<IcebergColumnHandle> rowIdColumn,
-            long firstRowId)
+            long firstRowId,
+            long dataSequenceNumber)
     {
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
@@ -141,6 +146,7 @@ public class IcebergUpdateablePageSource
                 .map(column -> new int[column.getColumnIdentity().getChildren().size()])
                 .orElse(new int[0]);
         this.firstRowId = firstRowId;
+        this.dataSequenceNumber = dataSequenceNumber;
         Map<ColumnIdentity, Integer> columnToIndex = IntStream.range(0, delegateColumns.size())
                 .boxed()
                 .collect(toImmutableMap(index -> delegateColumns.get(index).getColumnIdentity(), identity()));
@@ -160,8 +166,9 @@ public class IcebergUpdateablePageSource
             }
         }
 
-        // Find the output index of _row_id (lineage) and the delegate index for ROW_POSITION
+        // Find the output index of _row_id (lineage), _last_updated_sequence_number, and the delegate index for ROW_POSITION
         int rowLineageIdx = -1;
+        int lastUpdatedSeqIdx = -1;
         int rowPosIdx = -1;
         for (int i = 0; i < outputColumns.size(); i++) {
             IcebergColumnHandle outputColumn = outputColumns.get(i);
@@ -170,9 +177,12 @@ public class IcebergUpdateablePageSource
             }
 
             if (outputColumn.isRowIdColumn()) {
-                // Skip adding to outputColumnToDelegateMapping; handled in setRowIdBlock
+                // Map to delegate index for reading file values, but also track output index for fallback
                 rowLineageIdx = i;
-                continue;
+            }
+
+            if (outputColumn.isLastUpdatedSequenceNumberColumn()) {
+                lastUpdatedSeqIdx = i;
             }
 
             if (!columnToIndex.containsKey(outputColumn.getColumnIdentity())) {
@@ -183,8 +193,9 @@ public class IcebergUpdateablePageSource
             }
         }
         this.rowLineageRowIdOutputIndex = rowLineageIdx;
+        this.lastUpdatedSeqOutputIndex = lastUpdatedSeqIdx;
 
-        // Find the delegate index for ROW_POSITION (needed to compute _row_id = firstRowId + _pos)
+        // Find the delegate index for ROW_POSITION (needed for _row_id = firstRowId + _pos fallback)
         if (rowLineageIdx >= 0 && firstRowId >= 0) {
             int posIdx = -1;
             for (int i = 0; i < delegateColumns.size(); i++) {
@@ -355,7 +366,8 @@ public class IcebergUpdateablePageSource
     /**
      * The $row_id column used for updates and merge is a composite column of at least one other column in the Page.
      * The indexes of the columns needed for the $row_id are in the updateRowIdChildColumnIndexes array.
-     * Additionally, _row_id (row lineage) is computed as firstRowId + _pos if the file has a valid first_row_id.
+     * Additionally, _row_id (row lineage) is computed with fallback from file values or firstRowId + _pos.
+     * _last_updated_sequence_number is computed with fallback from file values or dataSequenceNumber.
      *
      * @param page The raw Page from the Parquet/ORC reader.
      * @return A Page where the $row_id channel has been populated.
@@ -371,6 +383,9 @@ public class IcebergUpdateablePageSource
             loopFunc = (channel) -> {
                 if (channel == rowLineageRowIdOutputIndex) {
                     fullPage[channel] = computeRowIdBlock(page);
+                }
+                else if (channel == lastUpdatedSeqOutputIndex) {
+                    fullPage[channel] = computeLastUpdatedSeqBlock(page);
                 }
                 else {
                     fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
@@ -389,6 +404,9 @@ public class IcebergUpdateablePageSource
                 else if (channel == rowLineageRowIdOutputIndex) {
                     fullPage[channel] = computeRowIdBlock(page);
                 }
+                else if (channel == lastUpdatedSeqOutputIndex) {
+                    fullPage[channel] = computeLastUpdatedSeqBlock(page);
+                }
                 else {
                     fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
                 }
@@ -402,8 +420,22 @@ public class IcebergUpdateablePageSource
         return new Page(page.getPositionCount(), fullPage);
     }
 
+    /**
+     * Computes the _row_id block. If the data file contains physical _row_id values,
+	 * those are used. Otherwise, _row_id is computed as firstRowId + _pos.
+     * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
+     */
     private Block computeRowIdBlock(Page page)
     {
+        // Get the file-read block for _row_id
+        Block fileRowIdBlock = page.getBlock(outputColumnToDelegateMapping[rowLineageRowIdOutputIndex]);
+
+        // Check if the file provided non-null values (COW-rewritten files store _row_id physically)
+        if (!isAllNull(fileRowIdBlock)) {
+            return fileRowIdBlock;
+        }
+
+        // Fallback: compute _row_id = firstRowId + _pos
         if (rowPositionDelegateIndex < 0 || firstRowId < 0) {
             // V1/V2 table or no first_row_id assigned: return null
             return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
@@ -414,6 +446,71 @@ public class IcebergUpdateablePageSource
             BIGINT.writeLong(builder, firstRowId + BIGINT.getLong(rowPositionBlock, i));
         }
         return builder.build();
+    }
+
+    /**
+     * Computes the _last_updated_sequence_number block. If the data file contains physical values
+     * those are used. Null values within the block are replaced with the file's dataSequenceNumber
+	 * (per the Iceberg spec, null means "set by the commit").
+     * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
+     */
+    private Block computeLastUpdatedSeqBlock(Page page)
+    {
+        // V1/V2 table: return null for all rows
+        if (firstRowId < 0) {
+            return RunLengthEncodedBlock.create(BIGINT, null, page.getPositionCount());
+        }
+
+        Block fileSeqBlock = page.getBlock(outputColumnToDelegateMapping[lastUpdatedSeqOutputIndex]);
+
+        // If the file provided all non-null values, use them directly
+        if (!hasAnyNull(fileSeqBlock)) {
+            return fileSeqBlock;
+        }
+
+        // If the file provided all nulls, use the file's data sequence number for all rows
+        if (isAllNull(fileSeqBlock)) {
+            return RunLengthEncodedBlock.create(BIGINT, dataSequenceNumber, page.getPositionCount());
+        }
+
+        // Mixed case: COW file with some preserved values and some nulls (updated rows).
+        // Replace nulls with the file's dataSequenceNumber per the Iceberg spec.
+        BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
+        for (int i = 0; i < page.getPositionCount(); i++) {
+            if (fileSeqBlock.isNull(i)) {
+                BIGINT.writeLong(builder, dataSequenceNumber);
+            }
+            else {
+                BIGINT.writeLong(builder, BIGINT.getLong(fileSeqBlock, i));
+            }
+        }
+        return builder.build();
+    }
+
+    private static boolean hasAnyNull(Block block)
+    {
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0);
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (block.isNull(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isAllNull(Block block)
+    {
+        if (block instanceof RunLengthEncodedBlock) {
+            return block.isNull(0);
+        }
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            if (!block.isNull(i)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int getDelegateColumnId(Predicate<IcebergColumnHandle> columnPredicate)
