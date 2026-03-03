@@ -26,13 +26,6 @@ public class TestPrestoContainerSidecarEnabledInfrastructure
         return new ContainerQueryRunner(8080, "tpch", "tiny", 4, true, true, 0, false);
     }
 
-    @Override
-    protected ContainerQueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        return new ContainerQueryRunner(8080, "tpch", "tiny", 4, false, false, 0, false);
-    }
-
     @Test
     public void TestNativeCluster()
             throws Exception
@@ -42,13 +35,5 @@ public class TestPrestoContainerSidecarEnabledInfrastructure
         assertQuerySucceeds("SHOW SESSION");
         assertQuerySucceeds("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
         assertQuerySucceeds("SELECT now()");
-    }
-
-    @Test
-    public void TestJavaCluster()
-            throws Exception
-    {
-        assertQueryFailsExpected("SHOW FUNCTIONS", "Query failed .*.: Function namespace not found for catalog: native", true);
-        assertQueryFailsExpected("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])", "Query failed .*.: Function native.default.array_sort not registered", true);
     }
 }

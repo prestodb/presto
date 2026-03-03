@@ -50,7 +50,6 @@ public class NativeQueryRunnerUtils
                 // To achieve that, we set inline-sql-functions to false.
                 .put("inline-sql-functions", "false")
                 .put("use-alternative-function-signatures", "true")
-                .put("plugin.dir", "/opt/presto-server/native-plugin/")
                 .build();
     }
 
@@ -62,6 +61,7 @@ public class NativeQueryRunnerUtils
                 .put("presto.default-namespace", "native.default")
                 // inline-sql-functions is overridden to be true in sidecar enabled native clusters.
                 .put("inline-sql-functions", "true")
+                .put("plugin.dir", "/opt/presto-server/native-plugin/")
                 .build();
     }
 

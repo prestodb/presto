@@ -69,8 +69,8 @@ public class ContainerQueryRunner
     protected static final Network networkExpected = Network.newNetwork();
     protected static final String PRESTO_COORDINATOR_IMAGE = System.getProperty("coordinatorImage", "presto-coordinator:latest");
     protected static final String PRESTO_WORKER_IMAGE = System.getProperty("workerImage", "presto-worker:latest");
-    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120000");
-    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10000");
+    protected static final String CONTAINER_TIMEOUT = System.getProperty("containerTimeout", "120");
+    protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
     protected static final int DEFAULT_BASE_WORKER_PORT = 7777;
@@ -141,22 +141,20 @@ public class ContainerQueryRunner
             logger.info("Presto function server is deployed at http://" + functionServer.getHost() + ":" + functionServer.getMappedPort(functionServerPort));
         }
 
+        if (isSidecarEnabled) {
+            GenericContainer<?> sidecarContainer = createSidecar(DEFAULT_BASE_WORKER_PORT, "sidecar", isNativeCluster);
+            sidecarContainer.start();
+            this.sidecar = Optional.of(sidecarContainer);
+        }
+        else {
+            this.sidecar = Optional.empty();
+        }
+
         this.coordinator = createCoordinator(isNativeCluster, isSidecarEnabled);
         coordinator.start();
         startWorkers(numberOfWorkers, isNativeCluster, isSidecarEnabled);
 
         TimeUnit.SECONDS.sleep(5);
-
-        if (isSidecarEnabled) {
-            GenericContainer<?> sidecarContainer = createSidecar(DEFAULT_BASE_WORKER_PORT + numberOfWorkers, "sidecar", isNativeCluster);
-            sidecarContainer.start();
-            this.sidecar = Optional.of(sidecarContainer);
-            // First, wait for coordinator to become ACTIVE
-            waitForCoordinatorActive(coordinator.getHost(), coordinator.getMappedPort(coordinatorPort), 60, 5);
-        }
-        else {
-            this.sidecar = Optional.empty();
-        }
 
         startCoordinatorAndLogUI();
         initializeConnection();
@@ -169,7 +167,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
 
         if (isNativeCluster) {
-            for (int i = 0; i < numberOfWorkers; i++) {
+            for (int i = 1; i <= numberOfWorkers; i++) {
                 workers.add(createNativeWorker(DEFAULT_BASE_WORKER_PORT + i, "native-worker-" + i, true, isSidecarEnabled, false));
             }
         }
@@ -214,7 +212,7 @@ public class ContainerQueryRunner
                 mappedPort,
                 catalog,
                 schema,
-                enableFunctionServer ? "timeZoneId=UTC&sessionProperties=remote_functions_enabled:true" : "timeZoneId=UTC");
+                enableFunctionServer ? "timeZoneId=America/Bahia_Banderas&sessionProperties=remote_functions_enabled:true" : "timeZoneId=America/Bahia_Banderas");
 
         try {
             this.connection = DriverManager.getConnection(url, "test", null);
@@ -344,7 +342,7 @@ public class ContainerQueryRunner
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
-                .waitingFor(Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
+                .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1));
     }
 
     protected GenericContainer<?> createFunctionServer()
