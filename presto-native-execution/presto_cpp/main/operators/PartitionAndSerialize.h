@@ -112,7 +112,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     Builder& sortingKeys(
         std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>>
             sortingKeys) {
-      sortingKeys_ = sortingKeys;
+      sortingKeys_ = std::move(sortingKeys);
       return *this;
     }
 
