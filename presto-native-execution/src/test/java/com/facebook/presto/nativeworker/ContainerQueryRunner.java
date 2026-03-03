@@ -73,7 +73,8 @@ public class ContainerQueryRunner
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
-    protected static final int DEFAULT_BASE_WORKER_PORT = 7777;
+    protected static final int DEFAULT_BASE_WORKER_PORT = 7778;
+    protected static final int DEFAULT_SIDECAR_PORT = 7777;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
@@ -142,7 +143,7 @@ public class ContainerQueryRunner
         }
 
         if (isSidecarEnabled) {
-            GenericContainer<?> sidecarContainer = createSidecar(DEFAULT_BASE_WORKER_PORT, "sidecar", isNativeCluster);
+            GenericContainer<?> sidecarContainer = createSidecar(DEFAULT_SIDECAR_PORT, "sidecar", isNativeCluster);
             sidecarContainer.start();
             this.sidecar = Optional.of(sidecarContainer);
         }
@@ -167,7 +168,7 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.deleteDirectory(BASE_DIR + "/testcontainers/coordinator");
 
         if (isNativeCluster) {
-            for (int i = 1; i <= numberOfWorkers; i++) {
+            for (int i = 0; i < numberOfWorkers; i++) {
                 workers.add(createNativeWorker(DEFAULT_BASE_WORKER_PORT + i, "native-worker-" + i, true, isSidecarEnabled, false));
             }
         }
@@ -330,7 +331,7 @@ public class ContainerQueryRunner
     private GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarNode)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, functionServerPort, nodeId, isSidecarEnabled, isSidecarNode);
+        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, port, functionServerPort, nodeId, isSidecarEnabled, isSidecarNode);
         if (!isSidecarEnabled) {
             ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         }

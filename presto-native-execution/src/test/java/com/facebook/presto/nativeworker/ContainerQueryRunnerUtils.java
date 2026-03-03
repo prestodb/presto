@@ -87,6 +87,7 @@ public class ContainerQueryRunnerUtils
 
     public static void createNativeWorkerConfigProperties(
             int coordinatorPort,
+            int workerPort,
             int functionServerPort,
             String nodeId,
             boolean isSidecarEnabled,
@@ -95,7 +96,7 @@ public class ContainerQueryRunnerUtils
     {
         Properties properties = new Properties();
         properties.setProperty("presto.version", "testversion");
-        properties.setProperty("http-server.http.port", "7777");
+        properties.setProperty("http-server.http.port", Integer.toString(workerPort));
         properties.setProperty("discovery.uri", "http://presto-coordinator:" + coordinatorPort);
         properties.setProperty("system-memory-gb", "2");
 
