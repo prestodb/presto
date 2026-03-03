@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractNestedBatchReader
         implements ColumnReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractNestedBatchReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractNestedBatchReader.class).instanceSize();
 
     protected final RichColumnDescriptor columnDescriptor;
 
