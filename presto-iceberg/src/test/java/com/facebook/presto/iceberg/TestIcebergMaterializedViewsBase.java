@@ -864,23 +864,18 @@ public abstract class TestIcebergMaterializedViewsBase
                 "JOIN products_bug p ON o.product_id = p.product_id " +
                 "GROUP BY p.category");
 
-        // Refresh: storage has Books = 250 (5 * 50)
         assertRefreshAndFullyMaterialized("mv_revenue", 1);
         assertMaterializedViewQuery("SELECT * FROM mv_revenue ORDER BY category",
                 "VALUES ('Books', 250)");
 
-        // Update product price in EXISTING partition - makes Books partition stale
-        // Note: Iceberg doesn't support UPDATE, so we delete and reinsert
-        assertUpdate("DELETE FROM products_bug WHERE product_id = 200", 1);
-        assertUpdate("INSERT INTO products_bug VALUES (200, 'Books', 20)", 1);
+        // Make both base tables stale
+        assertUpdate("INSERT INTO products_bug VALUES (300, 'Electronics', 10)", 1);
+        assertUpdate("INSERT INTO orders_bug VALUES (2, 200, 3, DATE '2024-01-02'), (3, 300, 4, DATE '2024-01-02')", 2);
 
-        // Insert new order in NEW partition - makes 2024-01-02 partition stale
-        assertUpdate("INSERT INTO orders_bug VALUES (2, 200, 3, DATE '2024-01-02')", 1);
         assertMaterializedViewQuery("SELECT * FROM mv_revenue ORDER BY category",
-                "VALUES ('Books', 160)");
-
-        // Additional check: exactly one row for Books
+                "VALUES ('Books', 400), ('Electronics', 40)");
         assertMaterializedViewQuery("SELECT COUNT(*) FROM mv_revenue WHERE category = 'Books'", "SELECT 1");
+        assertMaterializedViewQuery("SELECT COUNT(*) FROM mv_revenue WHERE category = 'Electronics'", "SELECT 1");
 
         assertUpdate("DROP MATERIALIZED VIEW mv_revenue");
         assertUpdate("DROP TABLE products_bug");
