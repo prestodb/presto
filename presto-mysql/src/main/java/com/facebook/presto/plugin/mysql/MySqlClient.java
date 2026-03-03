@@ -396,4 +396,54 @@ public class MySqlClient
         }
         return allTableNames;
     }
+
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "%s VIEW %s AS %s",
+                    replace ? "CREATE OR REPLACE" : "CREATE",
+                    quoted(viewName.getSchemaName(), null, viewName.getTableName()),
+                    viewData);
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "RENAME TABLE %s TO %s",
+                    quoted(viewName.getSchemaName(), null, viewName.getTableName()),
+                    quoted(newViewName.getSchemaName(), null, newViewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "DROP VIEW %s",
+                    quoted(viewName.getSchemaName(), null, viewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
 }

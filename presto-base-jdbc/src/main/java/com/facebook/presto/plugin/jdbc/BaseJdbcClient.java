@@ -774,6 +774,7 @@ public class BaseJdbcClient
             statement.execute(query);
         }
     }
+
     protected String toSqlType(Type type)
     {
         if (isVarcharType(type)) {
@@ -815,7 +816,7 @@ public class BaseJdbcClient
         return identifierQuote + name + identifierQuote;
     }
 
-    protected String quoted(String catalog, String schema, String table)
+    public String quoted(String catalog, String schema, String table)
     {
         StringBuilder sb = new StringBuilder();
         if (!isNullOrEmpty(catalog)) {

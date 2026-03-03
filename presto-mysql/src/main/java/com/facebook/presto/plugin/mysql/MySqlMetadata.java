@@ -17,6 +17,7 @@ import com.facebook.presto.plugin.jdbc.JdbcMetadata;
 import com.facebook.presto.plugin.jdbc.JdbcMetadataCache;
 import com.facebook.presto.plugin.jdbc.TableLocationProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -37,6 +38,30 @@ public class MySqlMetadata
     {
         super(jdbcMetadataCache, client, allowDropTable, tableLocationProvider);
         mySqlClient = requireNonNull(client, "client is null");
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        mySqlClient.createView(session, viewMetadata, viewData, replace);
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        mySqlClient.renameView(session, viewName, newViewName);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        mySqlClient.dropView(session, viewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return mySqlClient.listViews(session, schemaName);
     }
 
     @Override
