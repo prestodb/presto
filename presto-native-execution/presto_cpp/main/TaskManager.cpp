@@ -1556,11 +1556,16 @@ void TaskManager::addExternalDynamicFilter(
     const std::string& filterId,
     const std::string& scanPlanNodeId,
     const protocol::TupleDomain<std::string>& tupleDomain) {
-  auto taskMap = taskMap_.rlock();
-  auto it = taskMap->find(taskId);
-  if (it != taskMap->end()) {
-    it->second->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+  std::shared_ptr<PrestoTask> prestoTask;
+  {
+    auto taskMap = taskMap_.rlock();
+    auto it = taskMap->find(taskId);
+    if (it == taskMap->end()) {
+      return;
+    }
+    prestoTask = it->second;
   }
+  prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
 }
 
 } // namespace facebook::presto
