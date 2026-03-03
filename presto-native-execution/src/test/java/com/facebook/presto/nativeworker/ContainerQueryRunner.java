@@ -14,10 +14,6 @@
 
 package com.facebook.presto.nativeworker;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpClientConfig;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
@@ -42,7 +38,6 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -57,9 +52,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class ContainerQueryRunner
@@ -96,33 +88,6 @@ public class ContainerQueryRunner
             throws InterruptedException, IOException
     {
         this(DEFAULT_COORDINATOR_PORT, TPCH_CATALOG, TINY_SCHEMA, DEFAULT_NUMBER_OF_WORKERS, true, false, DEFAULT_FUNCTION_SERVER_PORT, false);
-    }
-
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, int functionServerPort, boolean enableFunctionServer)
-            throws InterruptedException, IOException
-    {
-        this.coordinatorPort = coordinatorPort;
-        this.catalog = catalog;
-        this.schema = schema;
-        this.functionServerPort = functionServerPort;
-        this.enableFunctionServer = enableFunctionServer;
-        this.numberOfWorkers = numberOfWorkers;
-        this.sidecar = Optional.empty();
-
-        // Start function server first if enabled
-        if (enableFunctionServer) {
-            this.functionServer = createFunctionServer();
-            this.functionServer.start();
-            logger.info("Presto function server is deployed at http://" + functionServer.getHost() + ":" + functionServer.getMappedPort(functionServerPort));
-        }
-
-        this.coordinator = createCoordinator();
-        coordinator.start();
-        startWorkers(numberOfWorkers, false, false);
-
-        startCoordinatorAndLogUI();
-        initializeConnection();
-        cleanupDirectories(numberOfWorkers, true, false, enableFunctionServer);
     }
 
     public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
@@ -223,58 +188,6 @@ public class ContainerQueryRunner
         }
     }
 
-    public void waitForCoordinatorActive(String host, int port, int maxRetries, int retryDelaySeconds)
-    {
-        String endpoint = String.format("http://%s:%d/v1/info/state", host, port);
-
-        HttpClientConfig config = new HttpClientConfig()
-                .setConnectTimeout(new com.facebook.airlift.units.Duration(2, TimeUnit.SECONDS))
-                .setRequestTimeout(new com.facebook.airlift.units.Duration(2, TimeUnit.SECONDS));
-
-        HttpClient httpClient = new JettyHttpClient(config);
-
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                Request request = prepareGet().setUri(URI.create(endpoint)).build();
-
-                StringResponse response =
-                        httpClient.execute(request, createStringResponseHandler());
-
-                if (response.getStatusCode() == 200) {
-                    String body = response.getBody().trim().replaceAll("^\"|\"$", "");
-                    logger.info(String.format("Attempt %d: State = %s", attempt, body));
-
-                    if ("ACTIVE".equalsIgnoreCase(body)) {
-                        logger.info("Coordinator is ACTIVE.");
-                        return;
-                    }
-                }
-                else {
-                    logger.warning(String.format("Attempt %d: Non-200 response: %d%n", attempt, response.getStatusCode()));
-                }
-            }
-            catch (Exception e) {
-                logger.severe(String.format("Attempt %d: Error contacting coordinator: %s%n", attempt, e.getMessage()));
-            }
-
-            try {
-                Thread.sleep(retryDelaySeconds * 1000L);
-            }
-            catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for coordinator to become ACTIVE");
-            }
-        }
-
-        throw new RuntimeException("Coordinator did not become ACTIVE in time.");
-    }
-
-    protected GenericContainer<?> createCoordinator()
-            throws IOException
-    {
-        return createCoordinator(true, false);
-    }
-
     protected GenericContainer<?> createCoordinator(boolean isNativeCluster, boolean isSidecarEnabled)
             throws IOException
     {
@@ -320,12 +233,6 @@ public class ContainerQueryRunner
             throws IOException
     {
         return createNativeWorker(port, nodeId, isNativeCluster, true, true);
-    }
-
-    private GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isSidecarEnabled, boolean isSidecarNode)
-            throws IOException
-    {
-        return createNativeWorker(port, nodeId, true, isSidecarEnabled, isSidecarNode);
     }
 
     private GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarNode)
