@@ -2256,10 +2256,10 @@ Query Iceberg table by specifying the tag name:
 Mutating Iceberg Branches
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Iceberg supports performing INSERT, UPDATE, and DELETE operations directly on branches,
+Iceberg supports performing INSERT, UPDATE, DELETE, and MERGE operations directly on branches,
 allowing you to make changes to a branch without affecting the main table or other branches.
 
-To perform mutations on a branch, use the quoted identifier syntax ``"table.branch_<branch_name>"`` (for example, ``"orders.branch_audit_branch"``).
+To perform mutations on a branch, use the quoted identifier syntax ``"<table>.branch_<branch_name>"`` (for example, ``"orders.branch_audit_branch"``).
 The quotes are required to prevent the SQL parser from interpreting the dot as a schema.table separator.
 
 **Insert into a branch:**
@@ -2281,8 +2281,8 @@ The quotes are required to prevent the SQL parser from interpreting the dot as a
     UPDATE "orders.branch_audit_branch" SET price = 120.00 WHERE id = 1;
     
     -- Update with complex expressions
-    UPDATE "orders.branch_audit_branch" 
-    SET price = price * 1.1 
+    UPDATE "orders.branch_audit_branch"
+    SET price = price * 1.1
     WHERE category = 'electronics';
 
 **Delete from a branch:**
@@ -2293,8 +2293,19 @@ The quotes are required to prevent the SQL parser from interpreting the dot as a
     DELETE FROM "orders.branch_audit_branch" WHERE id = 2;
     
     -- Delete with complex predicates
-    DELETE FROM "orders.branch_audit_branch" 
+    DELETE FROM "orders.branch_audit_branch"
     WHERE created_date < DATE '2024-01-01';
+
+**Merge into a branch:**
+
+.. code-block:: sql
+
+    -- Merge data from source table into branch
+    MERGE INTO "orders.branch_audit_branch" t
+    USING source_table s
+    ON t.id = s.id
+    WHEN MATCHED THEN UPDATE SET price = s.price
+    WHEN NOT MATCHED THEN INSERT (id, product, price) VALUES (s.id, s.product, s.price);
 
 **Verify branch isolation:**
 
@@ -2308,12 +2319,31 @@ After performing mutations on a branch, you can verify that the main table remai
     -- Query the main table (unchanged)
     SELECT * FROM orders;
 
+**Supported operations:**
+
+The following DML operations are supported with branch-specific table names:
+
+* ``INSERT`` - Add new rows to a branch
+* ``UPDATE`` - Modify existing rows in a branch
+* ``DELETE`` - Remove rows from a branch (including metadata delete optimization)
+* ``MERGE`` - Conditionally insert, update, or delete rows in a branch
+* ``TRUNCATE TABLE`` - Remove all rows from a branch
+* ``SELECT`` - Query branch data using ``FOR SYSTEM_VERSION AS OF 'branch_name'``
+
+**Unsupported operations:**
+
+The following operations are **not supported** with branch-specific table names and will result in an error:
+
+* ``ALTER TABLE`` DDL operations (``ADD COLUMN``, ``DROP COLUMN``, ``RENAME COLUMN``, ``SET PROPERTIES``) - Schema changes must be applied to the main table
+* ``CREATE VIEW`` / ``CREATE MATERIALIZED VIEW`` - Views cannot be created from branch-specific tables
+
 **Important notes:**
 
 * Branch mutations require quoted identifiers (double quotes) around the table name with branch suffix
 * The branch must exist before performing mutations (create it with ``ALTER TABLE ... CREATE BRANCH``)
 * Changes are isolated to the specified branch and do not affect the main table or other branches
-* All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others.
+* All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
+* For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
 
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^

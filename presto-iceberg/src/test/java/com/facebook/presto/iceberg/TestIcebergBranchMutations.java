@@ -100,11 +100,16 @@ public class TestIcebergBranchMutations
         createTable(tableName);
         try {
             assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'update_branch'");
-            // Update data in branch
+            // Scenario 1: Update inherited data (data that exists on both main and branch)
             assertUpdate(session, "UPDATE \"" + tableName + ".branch_update_branch\" SET value = 999 WHERE id = 1", 1);
-            // Verify update in branch
             assertQuery(session, "SELECT value FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'update_branch' WHERE id = 1", "VALUES 999");
             assertQuery(session, "SELECT value FROM " + tableName + " WHERE id = 1", "VALUES 100");
+            // Scenario 2: Insert branch-specific data, then update it (data that only exists on branch)
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_update_branch\" VALUES (3, 'Charlie', 300)", 1);
+            assertUpdate(session, "UPDATE \"" + tableName + ".branch_update_branch\" SET value = 350 WHERE id = 3", 1);
+            assertQuery(session, "SELECT value FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'update_branch' WHERE id = 3", "VALUES 350");
+            // Verify branch-specific data doesn't exist on main
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE id = 3", "VALUES 0");
             assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'update_branch'");
         }
         finally {
@@ -119,12 +124,18 @@ public class TestIcebergBranchMutations
         createTable(tableName);
         try {
             assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'delete_branch'");
-            // Delete from branch
+            // Scenario 1: Delete inherited data (data that exists on both main and branch)
             assertUpdate(session, "DELETE FROM \"" + tableName + ".branch_delete_branch\" WHERE id = 2", 1);
-            // Verify deletion in branch
             assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'delete_branch'", "VALUES 1");
             assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 2");
             assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'delete_branch' WHERE id = 2", "VALUES 0");
+            // Scenario 2: Insert branch-specific data, then delete it (data that only exists on branch)
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_delete_branch\" VALUES (4, 'David', 400)", 1);
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'delete_branch' WHERE id = 4", "VALUES 1");
+            assertUpdate(session, "DELETE FROM \"" + tableName + ".branch_delete_branch\" WHERE id = 4", 1);
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'delete_branch' WHERE id = 4", "VALUES 0");
+            // Verify branch-specific data never existed on main
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE id = 4", "VALUES 0");
             assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'delete_branch'");
         }
         finally {
@@ -206,6 +217,30 @@ public class TestIcebergBranchMutations
             dropTable(tableName);
         }
     }
+    @Test
+    public void testMetadataDeleteFromBranch()
+    {
+        String tableName = "test_metadata_delete_branch";
+        assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + tableName + " (id BIGINT, name VARCHAR, value INTEGER, partition_key VARCHAR) " +
+                "WITH (format = 'PARQUET', partitioning = ARRAY['partition_key'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'Alice', 100, 'p1'), (2, 'Bob', 200, 'p1'), (3, 'Charlie', 300, 'p2')", 3);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'metadata_delete_branch'");
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_metadata_delete_branch\" VALUES (4, 'David', 400, 'p2')", 1);
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'metadata_delete_branch'", "VALUES 4");
+            // Delete entire partition from branch (should trigger metadata delete)
+            assertUpdate(session, "DELETE FROM \"" + tableName + ".branch_metadata_delete_branch\" WHERE partition_key = 'p2'", 2);
+            // Verify branch has only p1 partition data
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'metadata_delete_branch'", "VALUES 2");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'metadata_delete_branch' WHERE partition_key = 'p2'", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 3");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE partition_key = 'p2'", "VALUES 1");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'metadata_delete_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 
     @Test
     public void testBranchIsolation()
@@ -250,6 +285,116 @@ public class TestIcebergBranchMutations
         finally {
             dropTable(tableName);
             dropTable(sourceTable);
+        }
+    }
+
+    @Test
+    public void testMergeIntoBranch()
+    {
+        String targetTable = "test_merge_target_branch";
+        String sourceTable = "test_merge_source_branch";
+
+        assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + targetTable + " (id BIGINT, name VARCHAR, value INTEGER) " +
+                "WITH (format = 'PARQUET', \"format-version\" = '2', \"write.update.mode\" = 'merge-on-read')");
+        assertUpdate(session, "INSERT INTO " + targetTable + " VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
+
+        assertUpdate(session, "CREATE TABLE IF NOT EXISTS " + sourceTable + " (id BIGINT, name VARCHAR, value INTEGER) WITH (format = 'PARQUET')");
+        assertUpdate(session, "INSERT INTO " + sourceTable + " VALUES (2, 'Bob_Updated', 250), (3, 'Charlie', 300)", 2);
+        try {
+            assertUpdate(session, "ALTER TABLE " + targetTable + " CREATE BRANCH 'merge_branch'");
+            assertUpdate(session, "MERGE INTO \"" + targetTable + ".branch_merge_branch\" t USING " + sourceTable + " s ON t.id = s.id " +
+                    "WHEN MATCHED THEN UPDATE SET name = s.name, value = s.value WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)", 2);
+            assertQuery(session, "SELECT count(*) FROM " + targetTable + " FOR SYSTEM_VERSION AS OF 'merge_branch'", "VALUES 3");
+            assertQuery(session, "SELECT id, name, value FROM " + targetTable + " FOR SYSTEM_VERSION AS OF 'merge_branch' WHERE id = 2", "VALUES (2, 'Bob_Updated', 250)");
+            assertQuery(session, "SELECT id, name, value FROM " + targetTable + " FOR SYSTEM_VERSION AS OF 'merge_branch' WHERE id = 3", "VALUES (3, 'Charlie', 300)");
+            // Verify main table is unchanged
+            assertQuery(session, "SELECT count(*) FROM " + targetTable, "VALUES 2");
+            assertQuery(session, "SELECT value FROM " + targetTable + " WHERE id = 2", "VALUES 200");
+            assertQuery(session, "SELECT count(*) FROM " + targetTable + " WHERE id = 3", "VALUES 0");
+            assertUpdate(session, "ALTER TABLE " + targetTable + " DROP BRANCH 'merge_branch'");
+        }
+        finally {
+            dropTable(targetTable);
+            dropTable(sourceTable);
+        }
+    }
+
+    @Test
+    public void testTruncateTableWithBranch()
+    {
+        String tableName = "test_truncate_branch";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_test_branch\" VALUES (3, 'Charlie', 300)", 1);
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES 3");
+            assertUpdate(session, "TRUNCATE TABLE \"" + tableName + ".branch_test_branch\"");
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'test_branch'", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 2");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testAddColumnWithBranch()
+    {
+        String tableName = "test_add_column_branch_fail";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" ADD COLUMN new_col VARCHAR", ".*ADD COLUMN is not supported on branch-specific tables.*");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testDropColumnWithBranch()
+    {
+        String tableName = "test_drop_column_branch_fail";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" DROP COLUMN value", ".*DROP COLUMN is not supported on branch-specific tables.*");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRenameColumnWithBranch()
+    {
+        String tableName = "test_rename_column_branch_fail";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" RENAME COLUMN value TO new_value", ".*RENAME COLUMN is not supported on branch-specific tables.*");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetTablePropertiesWithBranch()
+    {
+        String tableName = "test_set_properties_branch_fail";
+        createTable(tableName);
+        try {
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
+            assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" SET PROPERTIES (\"commit.retry.num-retries\" = 6)", ".*SET TABLE PROPERTIES is not supported on branch-specific tables.*");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
         }
     }
 }

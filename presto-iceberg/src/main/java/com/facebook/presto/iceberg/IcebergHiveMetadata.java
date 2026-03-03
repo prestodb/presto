@@ -134,6 +134,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.validateViewDefinitionForBranches;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -477,6 +478,7 @@ public class IcebergHiveMetadata
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         shouldRunInAutoCommitTransaction("CREATE VIEW");
+        validateViewDefinitionForBranches(viewData, "CREATE VIEW");
         MetastoreContext metastoreContext = getMetastoreContext(session);
         SchemaTableName viewName = viewMetadata.getTable();
         Table table = createTableObjectForViewCreation(

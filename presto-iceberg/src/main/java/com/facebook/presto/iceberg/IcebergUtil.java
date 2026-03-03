@@ -68,6 +68,7 @@ import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
@@ -149,6 +150,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnab
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -330,10 +332,11 @@ public final class IcebergUtil
 
         if (name.getBranchName().isPresent()) {
             String branchName = name.getBranchName().get();
-            org.apache.iceberg.SnapshotRef branchRef = table.refs().get(branchName);
+            SnapshotRef branchRef = table.refs().get(branchName);
             if (branchRef != null && branchRef.isBranch()) {
                 return Optional.of(branchRef.snapshotId());
             }
+            throw new PrestoException(NOT_FOUND, format("Branch '%s' does not exist in table %S", branchName, table));
         }
 
         if (name.getTableType() == IcebergTableType.CHANGELOG) {
@@ -1305,6 +1308,47 @@ public final class IcebergUtil
             }
         }
         return dataLocation;
+    }
+
+    public static void validateNoBranchSpecified(IcebergTableHandle tableHandle, String operation)
+    {
+        if (tableHandle.getIcebergTableName().getBranchName().isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not supported on branch-specific tables. Branch '%s' was specified in table name '%s'",
+                            operation,
+                            tableHandle.getIcebergTableName().getBranchName().get(),
+                            tableHandle.getIcebergTableName().getTableNameWithType()));
+        }
+    }
+
+    public static void validateViewDefinitionForBranches(String viewData, String operation)
+    {
+        if (viewData != null && viewData.contains(".branch_")) {
+            throw new PrestoException(NOT_SUPPORTED, format("%s is not supported with branch-specific table references in the view definition. " +
+                                    "The view SQL appears to reference a branch using '.branch_' syntax. " +
+                                    "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation));
+        }
+    }
+
+    public static void validateNoBranchInBaseTables(List<SchemaTableName> baseTables, String operation)
+    {
+        for (SchemaTableName baseTable : baseTables) {
+            if (baseTable.getTableName().contains(".branch_")) {
+                throw new PrestoException(NOT_SUPPORTED, format("%s is not supported with branch-specific table references. Table '%s' appears to reference a branch. " +
+                                        "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation, baseTable));
+            }
+        }
+    }
+
+    public static void validateBranchExists(IcebergTableHandle tableHandle, Table icebergTable)
+    {
+        Optional<String> branchName = tableHandle.getIcebergTableName().getBranchName();
+        if (branchName.isPresent()) {
+            String branch = branchName.get();
+            SnapshotRef branchRef = icebergTable.refs().get(branch);
+            if (branchRef == null || !branchRef.isBranch()) {
+                throw new PrestoException(NOT_FOUND, format("Branch '%s' does not exist in table %s.%s", branch, tableHandle.getSchemaName(), tableHandle.getIcebergTableName().getTableName()));
+            }
+        }
     }
 
     public static Long getSplitSize(Table table)
