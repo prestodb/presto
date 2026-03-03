@@ -112,8 +112,10 @@ import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSp
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_HTTP_STATUS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_NOT_FOUND_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
@@ -1529,8 +1531,20 @@ public final class HttpRemoteTaskWithEventLoop
             public void onSuccess(StatusResponse result)
             {
                 long latencyMs = System.currentTimeMillis() - startMs;
+                int statusCode = result.getStatusCode();
                 runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS, NONE, latencyMs);
-                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT, NONE, 1);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_HTTP_STATUS, NONE, statusCode);
+                if (statusCode == 200) {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT, NONE, 1);
+                }
+                else if (statusCode == 404) {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_NOT_FOUND_COUNT, NONE, 1);
+                    log.warn("Dynamic filter push: task %s not found on worker (filter %s, latency %dms)", taskId, filterId, latencyMs);
+                }
+                else {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT, NONE, 1);
+                    log.warn("Dynamic filter push to task %s returned HTTP %d (filter %s, latency %dms)", taskId, statusCode, filterId, latencyMs);
+                }
             }
 
             @Override

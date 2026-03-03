@@ -1554,7 +1554,7 @@ void TaskManager::removeDynamicFiltersThrough(
   }
 }
 
-void TaskManager::addExternalDynamicFilter(
+bool TaskManager::addExternalDynamicFilter(
     const TaskId& taskId,
     const std::string& filterId,
     const std::string& scanPlanNodeId,
@@ -1564,11 +1564,12 @@ void TaskManager::addExternalDynamicFilter(
     auto taskMap = taskMap_.rlock();
     auto it = taskMap->find(taskId);
     if (it == taskMap->end()) {
-      return;
+      return false;
     }
     prestoTask = it->second;
   }
   prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+  return true;
 }
 
 } // namespace facebook::presto

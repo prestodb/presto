@@ -704,16 +704,22 @@ proxygen::RequestHandler* TaskResource::addExternalDynamicFilter(
               std::string scanPlanNodeId = j["scanPlanNodeId"];
               protocol::TupleDomain<std::string> tupleDomain =
                   j["tupleDomain"];
-              taskManager_.addExternalDynamicFilter(
+              return taskManager_.addExternalDynamicFilter(
                   taskId, filterId, scanPlanNodeId, tupleDomain);
-              return true;
             })
             .via(
                 folly::getKeepAliveToken(
                     folly::EventBaseManager::get()->getEventBase()))
-            .thenValue([downstream, handlerState](auto&& /* unused */) {
+            .thenValue([downstream, handlerState](bool taskFound) {
               if (!handlerState->requestExpired()) {
-                http::sendOkResponse(downstream, json::object());
+                if (taskFound) {
+                  http::sendOkResponse(downstream, json::object());
+                } else {
+                  http::sendErrorResponse(
+                      downstream,
+                      "Task not found for dynamic filter push",
+                      http::kHttpNotFound);
+                }
               }
             })
             .thenError(

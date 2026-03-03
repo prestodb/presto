@@ -136,7 +136,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       int64_t throughVersion);
 
-  void addExternalDynamicFilter(
+  bool addExternalDynamicFilter(
       const protocol::TaskId& taskId,
       const std::string& filterId,
       const std::string& scanPlanNodeId,
