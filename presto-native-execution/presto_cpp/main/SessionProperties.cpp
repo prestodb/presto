@@ -592,11 +592,12 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRowSizeTrackingMode,
-      "Enable (reader) row size tracker as a fallback to file level row size estimates.",
+      "A fallback for average row size estimate when not supported for certain readers. Turned on by default. "
+      "Mapping to the enum values: DISABLED = 0, EXCLUDE_DELTA_SPLITS = 1, ENABLED_FOR_ALL = 2",
       INTEGER(),
-      true,
+      2,
       QueryConfig::kRowSizeTrackingMode,
-      std::to_string(static_cast<int32_t>(c.rowSizeTrackingMode())));
+      std::to_string(static_cast<int>(c.rowSizeTrackingMode())));
 
   addSessionProperty(
       kUseVeloxGeospatialJoin,
