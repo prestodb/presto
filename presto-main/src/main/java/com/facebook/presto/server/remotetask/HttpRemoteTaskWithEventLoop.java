@@ -1515,7 +1515,21 @@ public final class HttpRemoteTaskWithEventLoop
                 .setBodyGenerator(createStaticBodyGenerator(body))
                 .build();
 
-        httpClient.executeAsync(request, createStatusResponseHandler());
+        // Must add a callback to ensure the HTTP response is fully consumed
+        addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+        {
+            @Override
+            public void onSuccess(StatusResponse result)
+            {
+                // Fire-and-forget: nothing to do on success
+            }
+
+            @Override
+            public void onFailure(Throwable throwable)
+            {
+                log.debug(throwable, "Failed to push dynamic filter %s to task %s", filterId, taskId);
+            }
+        }, taskEventLoop);
     }
 
     private void safeExecuteOnEventLoop(Runnable r, String methodName)

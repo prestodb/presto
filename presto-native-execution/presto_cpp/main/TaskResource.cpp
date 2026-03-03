@@ -713,7 +713,7 @@ proxygen::RequestHandler* TaskResource::addExternalDynamicFilter(
                     folly::EventBaseManager::get()->getEventBase()))
             .thenValue([downstream, handlerState](auto&& /* unused */) {
               if (!handlerState->requestExpired()) {
-                http::sendOkResponse(downstream);
+                http::sendOkResponse(downstream, json::object());
               }
             })
             .thenError(
