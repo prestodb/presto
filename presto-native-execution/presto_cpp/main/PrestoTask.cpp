@@ -1137,66 +1137,51 @@ void PrestoTask::addExternalDynamicFilter(
     const std::string& filterId,
     const std::string& scanPlanNodeId,
     const protocol::TupleDomain<std::string>& tupleDomain) {
-  {
-    std::lock_guard<std::mutex> l(mutex);
-    if (!task) {
-      VLOG(1) << "addExternalDynamicFilter: task not created yet, queueing "
-              << filterId;
-      pendingExternalFilters_.push_back(
-          {filterId, scanPlanNodeId, tupleDomain});
-      externalDynamicFiltersQueued_++;
-      return;
-    }
-  }
-
-  if (task->state() != exec::TaskState::kRunning) {
-    VLOG(1) << "addExternalDynamicFilter: task not running, ignoring "
-            << filterId;
-    return;
-  }
-
-  // Find the TableScanNode in the plan to resolve column names to indices.
-  auto scanNode = findTableScanNode(
-      task->planFragment().planNode, scanPlanNodeId);
-  if (!scanNode) {
-    VLOG(1) << "addExternalDynamicFilter: scanNode " << scanPlanNodeId
-            << " not found, ignoring " << filterId;
-    return;
-  }
-
-  if (!tupleDomain.domains) {
-    return;
-  }
-
-  auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
-  TypeParser typeParser;
-  VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
-
-  for (const auto& [columnName, domain] : *tupleDomain.domains) {
-    auto columnIdx = scanNode->outputType()->getChildIdxIfExists(columnName);
-    if (!columnIdx.has_value()) {
-      VLOG(1) << "addExternalDynamicFilter: column " << columnName
-              << " not found in scan output type, skipping";
-      continue;
-    }
-
-    auto filter = toFilter(domain, exprConverter, typeParser);
-    if (filter) {
-      task->addExternalDynamicFilter(
-          scanPlanNodeId, *columnIdx, std::move(filter));
-      ++externalDynamicFiltersReceived_;
-    }
-  }
+  std::lock_guard<std::mutex> l(mutex);
+  pendingExternalFilters_.push_back(
+      {filterId, scanPlanNodeId, tupleDomain});
+  externalDynamicFiltersQueued_++;
 }
 
 void PrestoTask::applyPendingExternalFilters() {
   std::vector<PendingExternalFilter> pending;
   {
     std::lock_guard<std::mutex> l(mutex);
+    if (!task || pendingExternalFilters_.empty()) {
+      return;
+    }
     pending.swap(pendingExternalFilters_);
   }
+
   for (auto& pf : pending) {
-    addExternalDynamicFilter(pf.filterId, pf.scanPlanNodeId, pf.tupleDomain);
+    if (task->state() != exec::TaskState::kRunning) {
+      return;
+    }
+
+    auto scanNode = findTableScanNode(
+        task->planFragment().planNode, pf.scanPlanNodeId);
+    if (!scanNode || !pf.tupleDomain.domains) {
+      continue;
+    }
+
+    auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
+    TypeParser typeParser;
+    VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
+
+    for (const auto& [columnName, domain] : *pf.tupleDomain.domains) {
+      auto columnIdx =
+          scanNode->outputType()->getChildIdxIfExists(columnName);
+      if (!columnIdx.has_value()) {
+        continue;
+      }
+
+      auto filter = toFilter(domain, exprConverter, typeParser);
+      if (filter) {
+        task->addExternalDynamicFilter(
+            pf.scanPlanNodeId, *columnIdx, std::move(filter));
+        ++externalDynamicFiltersReceived_;
+      }
+    }
   }
 }
 
