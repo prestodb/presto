@@ -365,6 +365,7 @@ TaskManager::TaskManager(
               driverExecutor,
               spillerExecutor)),
       bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
+      driverExecutor_(driverExecutor),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
@@ -1567,6 +1568,12 @@ bool TaskManager::addExternalDynamicFilter(
     prestoTask = it->second;
   }
   prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+
+  // Schedule filter application on the driver executor to avoid blocking
+  // HTTP threads on the Velox Task::mutex_ (which can take 200-400ms).
+  folly::via(driverExecutor_, [prestoTask]() {
+    prestoTask->applyPendingExternalFilters();
+  });
   return true;
 }
 

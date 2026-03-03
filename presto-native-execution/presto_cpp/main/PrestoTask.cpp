@@ -1145,23 +1145,10 @@ void PrestoTask::addExternalDynamicFilter(
     const std::string& filterId,
     const std::string& scanPlanNodeId,
     const protocol::TupleDomain<std::string>& tupleDomain) {
+  std::lock_guard<std::mutex> l(mutex);
+  pendingExternalFilters_.push_back(
+      {filterId, scanPlanNodeId, tupleDomain});
   externalDynamicFiltersQueued_++;
-
-  // Check if the Velox task exists and is running. If so, apply the filter
-  // immediately rather than queuing it for later application on the
-  // getTaskStatus/getTaskInfo HTTP path (which would block HTTP threads on
-  // the Velox Task::mutex_).
-  {
-    std::lock_guard<std::mutex> l(mutex);
-    if (!task || task->state() != exec::TaskState::kRunning) {
-      pendingExternalFilters_.push_back(
-          {filterId, scanPlanNodeId, tupleDomain});
-      return;
-    }
-  }
-
-  // Apply immediately outside of PrestoTask::mutex.
-  applyFilter(filterId, scanPlanNodeId, tupleDomain);
 }
 
 void PrestoTask::applyPendingExternalFilters() {

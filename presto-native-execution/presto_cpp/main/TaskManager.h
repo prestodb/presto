@@ -255,6 +255,7 @@ class TaskManager {
   std::shared_ptr<velox::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   folly::Synchronized<TaskQueue> taskQueue_;
+  folly::Executor* driverExecutor_;
   folly::Executor* httpSrvCpuExecutor_;
   std::atomic_bool serverOverloaded_{false};
   std::atomic_uint64_t lastNotOverloadedTimeInSecs_;
