@@ -629,8 +629,8 @@ void toThrift(
   toThrift(proto.createTimeInMillis, *thrift.createTimeInMillis_ref());
   toThrift(proto.startTimeInMillis, *thrift.startTimeInMillis_ref());
   toThrift(proto.endTimeInMillis, *thrift.endTimeInMillis_ref());
-  toThrift(proto.queuedTime, *thrift.queuedTime_ref());
-  toThrift(proto.elapsedTime, *thrift.elapsedTime_ref());
+  toThrift(proto.queuedTimeInNanos, *thrift.queuedTimeInNanos_ref());
+  toThrift(proto.elapsedTimeInNanos, *thrift.elapsedTimeInNanos_ref());
   toThrift(
       proto.userMemoryReservationInBytes,
       *thrift.userMemoryReservationInBytes_ref());
@@ -640,15 +640,18 @@ void toThrift(
   toThrift(
       proto.systemMemoryReservationInBytes,
       *thrift.systemMemoryReservationInBytes_ref());
-  toThrift(proto.totalScheduledTime, *thrift.totalScheduledTime_ref());
-  toThrift(proto.totalCpuTime, *thrift.totalCpuTime_ref());
-  toThrift(proto.totalBlockedTime, *thrift.totalBlockedTime_ref());
+  toThrift(
+      proto.totalScheduledTimeInNanos, *thrift.totalScheduledTimeInNanos_ref());
+  toThrift(proto.totalCpuTimeInNanos, *thrift.totalCpuTimeInNanos_ref());
+  toThrift(
+      proto.totalBlockedTimeInNanos, *thrift.totalBlockedTimeInNanos_ref());
   toThrift(proto.fullyBlocked, *thrift.fullyBlocked_ref());
   toThrift(proto.blockedReasons, *thrift.blockedReasons_ref());
   toThrift(proto.totalAllocationInBytes, *thrift.totalAllocationInBytes_ref());
   toThrift(
       proto.rawInputDataSizeInBytes, *thrift.rawInputDataSizeInBytes_ref());
-  toThrift(proto.rawInputReadTime, *thrift.rawInputReadTime_ref());
+  toThrift(
+      proto.rawInputReadTimeInNanos, *thrift.rawInputReadTimeInNanos_ref());
   toThrift(proto.rawInputPositions, *thrift.rawInputPositions_ref());
   toThrift(
       proto.processedInputDataSizeInBytes,
@@ -669,8 +672,8 @@ void fromThrift(
   fromThrift(*thrift.createTimeInMillis_ref(), proto.createTimeInMillis);
   fromThrift(*thrift.startTimeInMillis_ref(), proto.startTimeInMillis);
   fromThrift(*thrift.endTimeInMillis_ref(), proto.endTimeInMillis);
-  fromThrift(*thrift.queuedTime_ref(), proto.queuedTime);
-  fromThrift(*thrift.elapsedTime_ref(), proto.elapsedTime);
+  fromThrift(*thrift.queuedTimeInNanos_ref(), proto.queuedTimeInNanos);
+  fromThrift(*thrift.elapsedTimeInNanos_ref(), proto.elapsedTimeInNanos);
   fromThrift(
       *thrift.userMemoryReservationInBytes_ref(),
       proto.userMemoryReservationInBytes);
@@ -680,16 +683,19 @@ void fromThrift(
   fromThrift(
       *thrift.systemMemoryReservationInBytes_ref(),
       proto.systemMemoryReservationInBytes);
-  fromThrift(*thrift.totalScheduledTime_ref(), proto.totalScheduledTime);
-  fromThrift(*thrift.totalCpuTime_ref(), proto.totalCpuTime);
-  fromThrift(*thrift.totalBlockedTime_ref(), proto.totalBlockedTime);
+  fromThrift(
+      *thrift.totalScheduledTimeInNanos_ref(), proto.totalScheduledTimeInNanos);
+  fromThrift(*thrift.totalCpuTimeInNanos_ref(), proto.totalCpuTimeInNanos);
+  fromThrift(
+      *thrift.totalBlockedTimeInNanos_ref(), proto.totalBlockedTimeInNanos);
   fromThrift(*thrift.fullyBlocked_ref(), proto.fullyBlocked);
   fromThrift(*thrift.blockedReasons_ref(), proto.blockedReasons);
   fromThrift(
       *thrift.totalAllocationInBytes_ref(), proto.totalAllocationInBytes);
   fromThrift(
       *thrift.rawInputDataSizeInBytes_ref(), proto.rawInputDataSizeInBytes);
-  fromThrift(*thrift.rawInputReadTime_ref(), proto.rawInputReadTime);
+  fromThrift(
+      *thrift.rawInputReadTimeInNanos_ref(), proto.rawInputReadTimeInNanos);
   fromThrift(*thrift.rawInputPositions_ref(), proto.rawInputPositions);
   fromThrift(
       *thrift.processedInputDataSizeInBytes_ref(),
@@ -1877,8 +1883,8 @@ void toThrift(
   toThrift(proto.operatorType, *thrift.operatorType_ref());
   toThrift(proto.totalDrivers, *thrift.totalDrivers_ref());
   toThrift(proto.addInputCalls, *thrift.addInputCalls_ref());
-  toThrift(proto.addInputWall, *thrift.addInputWall_ref());
-  toThrift(proto.addInputCpu, *thrift.addInputCpu_ref());
+  toThrift(proto.addInputWallInNanos, *thrift.addInputWallInNanos_ref());
+  toThrift(proto.addInputCpuInNanos, *thrift.addInputCpuInNanos_ref());
   toThrift(
       proto.addInputAllocationInBytes, *thrift.addInputAllocationInBytes_ref());
   toThrift(
@@ -1889,8 +1895,8 @@ void toThrift(
   toThrift(
       proto.sumSquaredInputPositions, *thrift.sumSquaredInputPositions_ref());
   toThrift(proto.getOutputCalls, *thrift.getOutputCalls_ref());
-  toThrift(proto.getOutputWall, *thrift.getOutputWall_ref());
-  toThrift(proto.getOutputCpu, *thrift.getOutputCpu_ref());
+  toThrift(proto.getOutputWallInNanos, *thrift.getOutputWallInNanos_ref());
+  toThrift(proto.getOutputCpuInNanos, *thrift.getOutputCpuInNanos_ref());
   toThrift(
       proto.getOutputAllocationInBytes,
       *thrift.getOutputAllocationInBytes_ref());
@@ -1899,11 +1905,11 @@ void toThrift(
   toThrift(
       proto.physicalWrittenDataSizeInBytes,
       *thrift.physicalWrittenDataSizeInBytes_ref());
-  toThrift(proto.additionalCpu, *thrift.additionalCpu_ref());
-  toThrift(proto.blockedWall, *thrift.blockedWall_ref());
+  toThrift(proto.additionalCpuInNanos, *thrift.additionalCpuInNanos_ref());
+  toThrift(proto.blockedWallInNanos, *thrift.blockedWallInNanos_ref());
   toThrift(proto.finishCalls, *thrift.finishCalls_ref());
-  toThrift(proto.finishWall, *thrift.finishWall_ref());
-  toThrift(proto.finishCpu, *thrift.finishCpu_ref());
+  toThrift(proto.finishWallInNanos, *thrift.finishWallInNanos_ref());
+  toThrift(proto.finishCpuInNanos, *thrift.finishCpuInNanos_ref());
   toThrift(
       proto.finishAllocationInBytes, *thrift.finishAllocationInBytes_ref());
   toThrift(
@@ -1934,8 +1940,8 @@ void toThrift(
   toThrift(proto.joinProbeKeyCount, *thrift.joinProbeKeyCount_ref());
   toThrift(proto.dynamicFilterStats, *thrift.dynamicFilterStats_ref());
   toThrift(proto.isBlockedCalls, *thrift.isBlockedCalls_ref());
-  toThrift(proto.isBlockedWall, *thrift.isBlockedWall_ref());
-  toThrift(proto.isBlockedCpu, *thrift.isBlockedCpu_ref());
+  toThrift(proto.isBlockedWallInNanos, *thrift.isBlockedWallInNanos_ref());
+  toThrift(proto.isBlockedCpuInNanos, *thrift.isBlockedCpuInNanos_ref());
   toThrift(
       proto.isBlockedAllocationInBytes,
       *thrift.isBlockedAllocationInBytes_ref());
@@ -1951,8 +1957,8 @@ void fromThrift(
   fromThrift(*thrift.operatorType_ref(), proto.operatorType);
   fromThrift(*thrift.totalDrivers_ref(), proto.totalDrivers);
   fromThrift(*thrift.addInputCalls_ref(), proto.addInputCalls);
-  fromThrift(*thrift.addInputWall_ref(), proto.addInputWall);
-  fromThrift(*thrift.addInputCpu_ref(), proto.addInputCpu);
+  fromThrift(*thrift.addInputWallInNanos_ref(), proto.addInputWallInNanos);
+  fromThrift(*thrift.addInputCpuInNanos_ref(), proto.addInputCpuInNanos);
   fromThrift(
       *thrift.addInputAllocationInBytes_ref(), proto.addInputAllocationInBytes);
   fromThrift(
@@ -1963,8 +1969,8 @@ void fromThrift(
   fromThrift(
       *thrift.sumSquaredInputPositions_ref(), proto.sumSquaredInputPositions);
   fromThrift(*thrift.getOutputCalls_ref(), proto.getOutputCalls);
-  fromThrift(*thrift.getOutputWall_ref(), proto.getOutputWall);
-  fromThrift(*thrift.getOutputCpu_ref(), proto.getOutputCpu);
+  fromThrift(*thrift.getOutputWallInNanos_ref(), proto.getOutputWallInNanos);
+  fromThrift(*thrift.getOutputCpuInNanos_ref(), proto.getOutputCpuInNanos);
   fromThrift(
       *thrift.getOutputAllocationInBytes_ref(),
       proto.getOutputAllocationInBytes);
@@ -1973,11 +1979,11 @@ void fromThrift(
   fromThrift(
       *thrift.physicalWrittenDataSizeInBytes_ref(),
       proto.physicalWrittenDataSizeInBytes);
-  fromThrift(*thrift.additionalCpu_ref(), proto.additionalCpu);
-  fromThrift(*thrift.blockedWall_ref(), proto.blockedWall);
+  fromThrift(*thrift.additionalCpuInNanos_ref(), proto.additionalCpuInNanos);
+  fromThrift(*thrift.blockedWallInNanos_ref(), proto.blockedWallInNanos);
   fromThrift(*thrift.finishCalls_ref(), proto.finishCalls);
-  fromThrift(*thrift.finishWall_ref(), proto.finishWall);
-  fromThrift(*thrift.finishCpu_ref(), proto.finishCpu);
+  fromThrift(*thrift.finishWallInNanos_ref(), proto.finishWallInNanos);
+  fromThrift(*thrift.finishCpuInNanos_ref(), proto.finishCpuInNanos);
   fromThrift(
       *thrift.finishAllocationInBytes_ref(), proto.finishAllocationInBytes);
   fromThrift(
@@ -2009,8 +2015,8 @@ void fromThrift(
   fromThrift(*thrift.joinProbeKeyCount_ref(), proto.joinProbeKeyCount);
   fromThrift(*thrift.dynamicFilterStats_ref(), proto.dynamicFilterStats);
   fromThrift(*thrift.isBlockedCalls_ref(), proto.isBlockedCalls);
-  fromThrift(*thrift.isBlockedWall_ref(), proto.isBlockedWall);
-  fromThrift(*thrift.isBlockedCpu_ref(), proto.isBlockedCpu);
+  fromThrift(*thrift.isBlockedWallInNanos_ref(), proto.isBlockedWallInNanos);
+  fromThrift(*thrift.isBlockedCpuInNanos_ref(), proto.isBlockedCpuInNanos);
   fromThrift(
       *thrift.isBlockedAllocationInBytes_ref(),
       proto.isBlockedAllocationInBytes);
