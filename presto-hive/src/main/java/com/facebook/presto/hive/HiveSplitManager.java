@@ -95,6 +95,8 @@ import static com.facebook.presto.hive.HiveSessionProperties.getLeaseDuration;
 import static com.facebook.presto.hive.HiveSessionProperties.isDynamicSplitSizesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartitionStatisticsBasedOptimizationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseOrcColumnNames;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveStorageFormat.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveType.getPrimitiveType;
@@ -632,7 +634,8 @@ public class HiveSplitManager
      */
     private TableToPartitionMapping getTableToPartitionMapping(ConnectorSession session, Optional<HiveStorageFormat> storageFormat, SchemaTableName tableName, String partName, List<Column> tableColumns, List<Column> partitionColumns)
     {
-        if (storageFormat.isPresent() && storageFormat.get().equals(PARQUET) && isUseParquetColumnNames(session)) {
+        if (storageFormat.isPresent() && ((storageFormat.get().equals(PARQUET) && isUseParquetColumnNames(session)) ||
+                (storageFormat.get().equals(ORC) && isUseOrcColumnNames(session)))) {
             return getTableToPartitionMappingByColumnNames(tableName, partName, tableColumns, partitionColumns);
         }
         ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
