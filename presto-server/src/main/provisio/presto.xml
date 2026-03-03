@@ -41,6 +41,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/openlineage-event-listener">
+        <artifact id="${project.groupId}:presto-openlineage-event-listener:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/file-session-property-manager">
         <artifact id="${project.groupId}:presto-file-session-property-manager:zip:${project.version}">
             <unpack />
