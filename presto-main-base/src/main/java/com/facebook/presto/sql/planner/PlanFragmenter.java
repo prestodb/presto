@@ -89,6 +89,9 @@ public class PlanFragmenter
         if (noExchange || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
+        // Mark as root BEFORE the rewrite so that createRemoteStreamingExchange
+        // can see isRootFragment()=true when processing the root fragment's exchanges.
+        properties.setRootFragment(true);
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
