@@ -58,7 +58,7 @@ jobs:
             -t presto-worker:latest \
             --build-arg BUILD_TYPE=Release \
             --build-arg DEPENDENCY_IMAGE=presto-native-dependency:latest \
-            --build-arg EXTRA_CMAKE_FLAGS="-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON" -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON\
+            --build-arg EXTRA_CMAKE_FLAGS="-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON" \
             --build-arg NUM_THREADS=2 \
             -f scripts/dockerfiles/prestissimo-runtime.dockerfile \
             --progress=plain \
