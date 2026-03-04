@@ -414,7 +414,8 @@ public class UnaliasSymbolReferences
                     node.isEnsureSourceOrdering(),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType(),
-                    node.getEncoding());
+                    node.getEncoding(),
+                    node.getTransportType());
         }
 
         @Override
