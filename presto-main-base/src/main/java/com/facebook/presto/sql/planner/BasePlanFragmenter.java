@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
@@ -53,6 +54,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -68,6 +70,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
+import static com.facebook.presto.spi.ConnectorId.isInternalSystemConnector;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
@@ -99,6 +102,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class BasePlanFragmenter
         extends SimplePlanRewriter<FragmentProperties>
 {
+    private static final Logger log = Logger.get(BasePlanFragmenter.class);
+
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
@@ -167,6 +172,7 @@ public abstract class BasePlanFragmenter
                 properties.getOutputOrderingScheme(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
+                properties.getOutputTransportType(),
                 Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
@@ -342,10 +348,33 @@ public abstract class BasePlanFragmenter
 
         setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
+        // Determine transport type: UCX for worker-to-worker exchanges.
+        // Must verify that the child fragment won't run on the coordinator
+        // (e.g., information_schema scans, system table scans, ExplainAnalyze).
+        //
+        // Note: the root fragment (stage 0) also runs on a worker, not on the
+        // coordinator.  Its RemoteSourceNode (MergeExchange / Exchange) pulls
+        // data from other worker stages, so it should use UCX.  Only the root
+        // fragment's own PartitionedOutput sends to the coordinator via HTTP,
+        // and that is controlled by the fragment's outputTransportType (which
+        // defaults to HTTP and is never overridden here for the root).
+        TransportType transportType = TransportType.HTTP;
+        boolean anyChildOnCoordinator = exchange.getSources().stream()
+                .anyMatch(BasePlanFragmenter::childMayRunOnCoordinator);
+        if (!anyChildOnCoordinator) {
+            transportType = TransportType.UCX;
+        }
+        log.debug("[UCX_EXCHANGE] exchange=%s isRoot=%s transport=%s partitioning=%s",
+                exchange.getId(),
+                context.get().isRootFragment(),
+                transportType,
+                context.get().getPartitioningHandle());
+
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
             PartitioningScheme childPartitioningScheme = translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex));
             FragmentProperties childProperties = new FragmentProperties(childPartitioningScheme);
+            childProperties.setOutputTransportType(transportType);
 
             // If the exchange has ordering requirements, translate them for the child fragment
             Optional<OrderingScheme> childOutputOrderingScheme = Optional.empty();
@@ -375,7 +404,38 @@ public abstract class BasePlanFragmenter
                 exchange.isEnsureSourceOrdering(),
                 exchange.getOrderingScheme(),
                 exchange.getType(),
-                exchange.getPartitioningScheme().getEncoding());
+                exchange.getPartitioningScheme().getEncoding(),
+                transportType);
+    }
+
+    /**
+     * Checks whether a child plan subtree may run on the coordinator.
+     * Walks the tree stopping at remote exchange boundaries (which become
+     * separate fragments). Returns true if any node indicates coordinator
+     * execution: system connector table scans (information_schema, $system)
+     * or coordinator-only plan nodes (ExplainAnalyze, TableFinish, etc.).
+     */
+    // Visible for testing
+    static boolean childMayRunOnCoordinator(PlanNode node)
+    {
+        if (node instanceof ExchangeNode && ((ExchangeNode) node).getScope() != ExchangeNode.Scope.LOCAL) {
+            return false;
+        }
+        if (node instanceof TableScanNode) {
+            ConnectorId connectorId = ((TableScanNode) node).getTable().getConnectorId();
+            if (isInternalSystemConnector(connectorId)) {
+                return true;
+            }
+        }
+        if (isCoordinatorOnlyDistribution(node)) {
+            return true;
+        }
+        for (PlanNode source : node.getSources()) {
+            if (childMayRunOnCoordinator(source)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected void setDistributionForExchange(ExchangeNode.Type exchangeType, PartitioningScheme partitioningScheme, RewriteContext<FragmentProperties> context)
@@ -492,9 +552,32 @@ public abstract class BasePlanFragmenter
         // Output ordering scheme for the fragment - this gets transferred to the PlanFragment
         private Optional<OrderingScheme> outputOrderingScheme = Optional.empty();
 
+        private boolean rootFragment;
+        private TransportType outputTransportType = TransportType.HTTP;
+
         public FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
+        }
+
+        public void setRootFragment(boolean rootFragment)
+        {
+            this.rootFragment = rootFragment;
+        }
+
+        public boolean isRootFragment()
+        {
+            return rootFragment;
+        }
+
+        public void setOutputTransportType(TransportType outputTransportType)
+        {
+            this.outputTransportType = requireNonNull(outputTransportType, "outputTransportType is null");
+        }
+
+        public TransportType getOutputTransportType()
+        {
+            return outputTransportType;
         }
 
         public void setOutputOrderingScheme(Optional<OrderingScheme> outputOrderingScheme)
