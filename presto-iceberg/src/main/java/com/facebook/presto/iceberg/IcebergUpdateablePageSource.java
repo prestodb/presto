@@ -422,7 +422,7 @@ public class IcebergUpdateablePageSource
 
     /**
      * Computes the _row_id block. If the data file contains physical _row_id values,
-	 * those are used. Otherwise, _row_id is computed as firstRowId + _pos.
+     * those are used. Otherwise, _row_id is computed as firstRowId + _pos.
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeRowIdBlock(Page page)
@@ -451,7 +451,7 @@ public class IcebergUpdateablePageSource
     /**
      * Computes the _last_updated_sequence_number block. If the data file contains physical values
      * those are used. Null values within the block are replaced with the file's dataSequenceNumber
-	 * (per the Iceberg spec, null means "set by the commit").
+     * (per the Iceberg spec, null means "set by the commit").
      * For V1/V2 tables (firstRowId &lt; 0), returns null for all rows.
      */
     private Block computeLastUpdatedSeqBlock(Page page)
