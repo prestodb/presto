@@ -22,6 +22,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/time/Timer.h"
 #include "velox/core/PlanNode.h"
 
@@ -1176,13 +1177,25 @@ void PrestoTask::applyFilter(
   try {
     auto applyStart = std::chrono::steady_clock::now();
 
+    if (!task || task->state() != exec::TaskState::kRunning) {
+      return;
+    }
+
     auto scanNode = findTableScanNode(
         task->planFragment().planNode, scanPlanNodeId);
     if (!scanNode || !tupleDomain.domains) {
       return;
     }
 
-    auto leafPool = task->pool()->addLeafChild("externalDynamicFilter");
+    // Use a standalone root pool for filter conversion, NOT a child of the
+    // task's pool. This avoids interactions with the task's memory tracking,
+    // arbitration, and lifecycle.
+    static auto filterRootPool =
+        velox::memory::MemoryManager::getInstance()->addRootPool(
+            "externalDynamicFilterConversion",
+            64 * 1024 * 1024); // 64MB — scratch only
+    auto leafPool = filterRootPool->addLeafChild(
+        fmt::format("filter_{}_{}", id.toString(), filterId));
     TypeParser typeParser;
     VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
 
