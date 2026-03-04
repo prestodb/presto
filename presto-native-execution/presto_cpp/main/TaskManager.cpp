@@ -366,8 +366,6 @@ TaskManager::TaskManager(
               spillerExecutor)),
       bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
-      dynamicFilterExecutor_(
-          std::make_unique<folly::CPUThreadPoolExecutor>(1)),
       lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
@@ -729,10 +727,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
 
   if (startTask) {
     // Apply any external dynamic filters that arrived before the Velox task
-    // was created. Schedule on dedicated executor to avoid blocking HTTP thread.
-    dynamicFilterExecutor_->add([prestoTask]() {
-      prestoTask->applyPendingExternalFilters();
-    });
+    // was created.
+    prestoTask->applyPendingExternalFilters();
   }
 
   if (startNextQueuedTask) {
@@ -1571,13 +1567,10 @@ bool TaskManager::addExternalDynamicFilter(
     prestoTask = it->second;
   }
   prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
-
-  // Schedule filter application on a dedicated single-thread executor to avoid
-  // blocking HTTP threads (causes ingress timeouts) or driver threads (starves
-  // query execution) on the Velox Task::mutex_ (which can take 200-400ms).
-  dynamicFilterExecutor_->add([prestoTask]() {
-    prestoTask->applyPendingExternalFilters();
-  });
+  // Safe to apply inline now that the Velox deadlock is fixed (Task::mutex_
+  // is released before pipelineFilters wlock). try_lock_for(500ms) ensures
+  // we don't block the HTTP thread indefinitely.
+  prestoTask->applyPendingExternalFilters();
   return true;
 }
 

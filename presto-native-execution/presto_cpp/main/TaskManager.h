@@ -14,7 +14,6 @@
 #pragma once
 
 #include <folly/Synchronized.h>
-#include <folly/executors/CPUThreadPoolExecutor.h>
 #include <deque>
 #include <memory>
 #include "presto_cpp/main/PrestoTask.h"
@@ -257,7 +256,6 @@ class TaskManager {
   folly::Synchronized<TaskMap> taskMap_;
   folly::Synchronized<TaskQueue> taskQueue_;
   folly::Executor* httpSrvCpuExecutor_;
-  std::unique_ptr<folly::CPUThreadPoolExecutor> dynamicFilterExecutor_;
   std::atomic_bool serverOverloaded_{false};
   std::atomic_uint64_t lastNotOverloadedTimeInSecs_;
   std::atomic_uint32_t numQueuedDrivers_{0};
