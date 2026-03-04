@@ -2,11 +2,6 @@
 Router Schedulers
 =================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Presto router provides multiple scheduling algorithms for load balancing across
 multiple clusters.
 

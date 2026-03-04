@@ -2,11 +2,6 @@
 Spill to Disk
 =============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
