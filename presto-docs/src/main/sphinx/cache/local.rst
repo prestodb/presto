@@ -2,11 +2,6 @@
 Alluxio SDK Cache
 =================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
