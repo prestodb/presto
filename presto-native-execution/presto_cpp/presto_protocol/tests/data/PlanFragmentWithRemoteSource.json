@@ -1,0 +1,58 @@
+{
+  "id": "0",
+  "root": {
+    "@type": ".OutputNode",
+    "id": "8",
+    "source": {
+      "@type": "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
+      "id": "153",
+      "sourceFragmentIds": ["1"],
+      "outputVariables": [
+        {"@type": "variable", "name": "col", "type": "bigint"}
+      ],
+      "ensureSourceOrdering": false,
+      "exchangeType": "GATHER",
+      "encoding": "COLUMNAR"
+    },
+    "columnNames": ["col"],
+    "outputVariables": [
+      {"@type": "variable", "name": "col", "type": "bigint"}
+    ]
+  },
+  "variables": [
+    {"@type": "variable", "name": "col", "type": "bigint"}
+  ],
+  "partitioning": {
+    "connectorHandle": {
+      "@type": "$remote",
+      "partitioning": "SINGLE",
+      "function": "SINGLE"
+    }
+  },
+  "tableScanSchedulingOrder": [],
+  "partitioningScheme": {
+    "partitioning": {
+      "handle": {
+        "connectorHandle": {
+          "@type": "$remote",
+          "partitioning": "SINGLE",
+          "function": "SINGLE"
+        }
+      },
+      "arguments": []
+    },
+    "outputLayout": [
+      {"@type": "variable", "name": "col", "type": "bigint"}
+    ],
+    "replicateNullsAndAny": false,
+    "scaleWriters": false,
+    "encoding": "COLUMNAR",
+    "bucketToPartition": [0]
+  },
+  "stageExecutionDescriptor": {
+    "stageExecutionStrategy": "UNGROUPED_EXECUTION",
+    "groupedExecutionScanNodes": [],
+    "totalLifespans": 1
+  },
+  "outputTableWriterFragment": false
+}

@@ -18,6 +18,7 @@ EnumMap:
     Type: ExchangeNodeType
     Scope: ExchangeNodeScope
     Encoding: ExchangeEncoding
+    TransportType: ExchangeNodeTransportType
 
   LimitNode:
     Step: LimitNodeStep

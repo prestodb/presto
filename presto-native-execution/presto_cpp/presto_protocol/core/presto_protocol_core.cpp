@@ -5260,6 +5260,47 @@ namespace facebook::presto::protocol {
 // Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<ExchangeNodeTransportType, json>
+    ExchangeNodeTransportType_enum_table[] = {
+        // NOLINT: cert-err58-cpp
+        {ExchangeNodeTransportType::HTTP, "HTTP"},
+        {ExchangeNodeTransportType::UCX, "UCX"},
+};
+void to_json(json& j, const ExchangeNodeTransportType& e) {
+  static_assert(
+      std::is_enum<ExchangeNodeTransportType>::value,
+      "ExchangeNodeTransportType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeNodeTransportType_enum_table),
+      std::end(ExchangeNodeTransportType_enum_table),
+      [e](const std::pair<ExchangeNodeTransportType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ExchangeNodeTransportType_enum_table))
+           ? it
+           : std::begin(ExchangeNodeTransportType_enum_table))
+          ->second;
+}
+void from_json(const json& j, ExchangeNodeTransportType& e) {
+  static_assert(
+      std::is_enum<ExchangeNodeTransportType>::value,
+      "ExchangeNodeTransportType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ExchangeNodeTransportType_enum_table),
+      std::end(ExchangeNodeTransportType_enum_table),
+      [&j](const std::pair<ExchangeNodeTransportType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ExchangeNodeTransportType_enum_table))
+           ? it
+           : std::begin(ExchangeNodeTransportType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<ExchangeNodeScope, json> ExchangeNodeScope_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {ExchangeNodeScope::LOCAL, "LOCAL"},
@@ -9171,6 +9212,13 @@ void to_json(json& j, const PlanFragment& p) {
       "outputTableWriterFragment");
   to_json_key(
       j,
+      "outputTransportType",
+      p.outputTransportType,
+      "PlanFragment",
+      "ExchangeNodeTransportType",
+      "outputTransportType");
+  to_json_key(
+      j,
       "jsonRepresentation",
       p.jsonRepresentation,
       "PlanFragment",
@@ -9230,6 +9278,15 @@ void from_json(const json& j, PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
+  if (j.count("outputTransportType")) {
+    from_json_key(
+        j,
+        "outputTransportType",
+        p.outputTransportType,
+        "PlanFragment",
+        "ExchangeNodeTransportType",
+        "outputTransportType");
+  }
   from_json_key(
       j,
       "jsonRepresentation",
@@ -9409,6 +9466,13 @@ void to_json(json& j, const RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeEncoding",
       "encoding");
+  to_json_key(
+      j,
+      "transportType",
+      p.transportType,
+      "RemoteSourceNode",
+      "ExchangeNodeTransportType",
+      "transportType");
 }
 
 void from_json(const json& j, RemoteSourceNode& p) {
@@ -9456,6 +9520,15 @@ void from_json(const json& j, RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeEncoding",
       "encoding");
+  if (j.count("transportType")) {
+    from_json_key(
+        j,
+        "transportType",
+        p.transportType,
+        "RemoteSourceNode",
+        "ExchangeNodeTransportType",
+        "transportType");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
