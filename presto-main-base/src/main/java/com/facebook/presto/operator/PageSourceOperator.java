@@ -31,6 +31,7 @@ public class PageSourceOperator
     private final ConnectorPageSource pageSource;
     private final OperatorContext operatorContext;
     private long completedBytes;
+    private long decompressedBytes;
     private long readTimeNanos;
 
     public PageSourceOperator(ConnectorPageSource pageSource, OperatorContext operatorContext)
@@ -89,12 +90,16 @@ public class PageSourceOperator
             return null;
         }
 
-        // update operator stats
+        // update operator stats with three-tier metrics
         long endCompletedBytes = pageSource.getCompletedBytes();
+        long endDecompressedBytes = pageSource.getDecompressedBytes();
         long endReadTimeNanos = pageSource.getReadTimeNanos();
+        // Raw input: compressed bytes from storage
         operatorContext.recordRawInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
-        operatorContext.recordProcessedInput(page.getSizeInBytes(), page.getPositionCount());
+        // Processed input: decompressed bytes (middle tier - after decompression, before filtering)
+        operatorContext.recordProcessedInput(endDecompressedBytes - decompressedBytes, page.getPositionCount());
         completedBytes = endCompletedBytes;
+        decompressedBytes = endDecompressedBytes;
         readTimeNanos = endReadTimeNanos;
 
         // assure the page is in memory before handing to another operator
