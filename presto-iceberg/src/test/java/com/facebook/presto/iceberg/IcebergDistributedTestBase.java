@@ -2779,6 +2779,7 @@ public abstract class IcebergDistributedTestBase
             UUID uuid = UUID.fromString("11111111-2222-3333-4444-555555555555");
             assertUpdate(format("INSERT INTO uuid_roundtrip VALUES CAST('%s' as uuid)", uuid), 1);
             assertQuery(session, "SELECT CAST(u as varchar) FROM uuid_roundtrip", format("VALUES '%s'", uuid));
+            assertQuerySucceeds(session, "SELECT u FROM uuid_roundtrip");
         }
         finally {
             assertQuerySucceeds("DROP TABLE uuid_roundtrip");
