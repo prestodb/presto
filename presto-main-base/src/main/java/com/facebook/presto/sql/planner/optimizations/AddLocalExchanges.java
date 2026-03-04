@@ -50,6 +50,7 @@ import com.facebook.presto.spi.plan.StatisticAggregations;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -68,7 +69,6 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
