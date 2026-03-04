@@ -728,9 +728,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   }
 
   if (startTask) {
-    // Apply any external dynamic filters that arrived before the Velox task
-    // was created. Must be called outside of prestoTask->mutex.
-    prestoTask->applyPendingExternalFilters();
+    // DIAGNOSTIC: Skip apply for now.
+    // prestoTask->applyPendingExternalFilters();
   }
 
   if (startNextQueuedTask) {
@@ -1570,9 +1569,12 @@ bool TaskManager::addExternalDynamicFilter(
   }
   prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
 
-  dynamicFilterExecutor_->add([prestoTask]() {
-    prestoTask->applyPendingExternalFilters();
-  });
+  // DIAGNOSTIC: Queue only, skip apply to isolate crash location.
+  // If worker survives with this, the crash is in applyFilter().
+  // If worker still dies, the crash is in receive/queue path.
+  // dynamicFilterExecutor_->add([prestoTask]() {
+  //   prestoTask->applyPendingExternalFilters();
+  // });
   return true;
 }
 
