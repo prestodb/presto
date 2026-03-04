@@ -83,7 +83,7 @@ class BroadcastTest : public exec::test::OperatorTestBase,
         exec::test::PlanBuilder()
             .values(data, true)
             .addNode(addBroadcastWriteNode(
-                basePath, std::numeric_limits<uint64_t>::max(), serdeLayout))
+                basePath, std::numeric_limits<uint64_t>::max(), std::numeric_limits<uint64_t>::max(), serdeLayout))
             .planNode();
 
     auto serdeRowType =
@@ -401,6 +401,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_success",
         std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -435,6 +436,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_before_no_more_data",
         std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -451,6 +453,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_write_after_no_more",
         std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -466,6 +469,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_multiple_no_more",
+        std::numeric_limits<uint64_t>::max(),
         std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
@@ -485,6 +489,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
   {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_multiple_stats",
+        std::numeric_limits<uint64_t>::max(),
         std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
@@ -528,6 +533,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_no_data",
         std::numeric_limits<uint64_t>::max(),
+        std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
         pool());
@@ -545,6 +551,7 @@ TEST_P(BroadcastTest, broadcastFileWriter) {
 
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath + "_empty_data",
+        std::numeric_limits<uint64_t>::max(),
         std::numeric_limits<uint64_t>::max(),
         1024,
         getVectorSerdeOptions(GetParam().compressionKind),
@@ -598,6 +605,7 @@ TEST_P(BroadcastTest, endToEndWithDifferentWriterPageSizes) {
     // Create writer with specific buffer size directly
     auto writer = std::make_unique<BroadcastFileWriter>(
         filePath,
+        std::numeric_limits<uint64_t>::max(),
         std::numeric_limits<uint64_t>::max(),
         kPageSizes[i],
         getVectorSerdeOptions(GetParam().compressionKind),
@@ -673,6 +681,7 @@ TEST_P(BroadcastTest, exceedBroadcastFileWriterLimit) {
   auto writer = std::make_unique<BroadcastFileWriter>(
       filePath,
       100,
+      std::numeric_limits<uint64_t>::max(),
       1024,
       getVectorSerdeOptions(GetParam().compressionKind),
       pool());
@@ -713,7 +722,7 @@ TEST_P(BroadcastTest, broadcastJoinExceedLimit) {
       exec::test::PlanBuilder()
           .values({buildData})
           .addNode(addBroadcastWriteNode(
-              tempDirectoryPath->getPath(), smallLimit, std::nullopt))
+              tempDirectoryPath->getPath(), smallLimit, std::numeric_limits<uint64_t>::max(), std::nullopt))
           .planNode();
 
   exec::CursorParameters params;
@@ -738,6 +747,183 @@ TEST_P(BroadcastTest, broadcastJoinExceedLimit) {
             "Storage broadcast join exceeded per task broadcast limit") !=
         std::string::npos);
   }
+}
+
+TEST_P(BroadcastTest, broadcastFileWriterMultiFile) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto filePath =
+      fmt::format("{}/broadcast_multi_file_test", tempDirectoryPath->getPath());
+
+  // Use a small batch written multiple times to produce multiple flushes.
+  // File rotation happens at flush boundaries when the file size exceeds
+  // targetFileSize, so multiple write+flush cycles are needed.
+  auto batch = makeRowVector({
+      makeFlatVector<int32_t>(100, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(100, [](auto row) { return row * 10; }),
+      makeFlatVector<std::string>(
+          100, [](auto row) { return fmt::format("test_string_{}", row); }),
+  });
+
+  // writeBufferSize=1 forces a flush on every write() call, giving the
+  // rotation logic a chance to check file size between batches.
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      filePath,
+      std::numeric_limits<uint64_t>::max(),
+      1024,
+      1,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+
+  for (int i = 0; i < 10; ++i) {
+    writer->write(batch);
+  }
+  writer->noMoreData();
+
+  auto fileStats = writer->fileStats();
+  ASSERT_NE(fileStats, nullptr);
+
+  auto numFiles = fileStats->size();
+  ASSERT_GT(numFiles, 1) << "Expected multiple files with small targetFileSize";
+
+  for (auto i = 0; i < numFiles; ++i) {
+    auto createdFilePath =
+        fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(i).str();
+    ASSERT_TRUE(fileSystem->exists(createdFilePath))
+        << "File " << i << " should exist: " << createdFilePath;
+
+    auto maxSerializedSize =
+        fileStats->childAt(1)->as<SimpleVector<int64_t>>()->valueAt(i);
+    ASSERT_GT(maxSerializedSize, 0)
+        << "File " << i << " should have non-zero size";
+  }
+
+  // Verify each file can be individually read with BroadcastFileReader
+  // and has a valid footer.
+  for (auto i = 0; i < numFiles; ++i) {
+    auto createdFilePath =
+        fileStats->childAt(0)->as<SimpleVector<StringView>>()->valueAt(i).str();
+
+    auto broadcastFileInfo = std::make_unique<BroadcastFileInfo>();
+    broadcastFileInfo->filePath_ = createdFilePath;
+    auto reader = std::make_shared<BroadcastFileReader>(
+        broadcastFileInfo, fileSystem, pool());
+
+    auto remainingPages = reader->remainingPageSizes();
+    ASSERT_GT(remainingPages.size(), 0)
+        << "File " << i << " should have at least one page";
+
+    while (reader->hasNext()) {
+      auto pageBuffer = reader->next();
+      ASSERT_NE(pageBuffer, nullptr);
+      ASSERT_GT(pageBuffer->size(), 0);
+    }
+  }
+}
+
+TEST_P(BroadcastTest, endToEndMultiFile) {
+  // Verify the full operator pipeline works with targetFileSize configured.
+  // The broadcastFileWriterMultiFile test covers multi-file rotation directly;
+  // this test validates the operator plumbing and read-back roundtrip.
+  constexpr int kRowsPerBatch = 10000;
+  constexpr int kNumBatches = 3;
+
+  std::vector<RowVectorPtr> batches;
+  batches.reserve(kNumBatches);
+  for (int b = 0; b < kNumBatches; ++b) {
+    batches.push_back(makeRowVector({
+        makeFlatVector<int32_t>(
+            kRowsPerBatch,
+            [&](auto row) { return b * kRowsPerBatch + row; }),
+        makeFlatVector<std::string>(kRowsPerBatch, [&](auto row) {
+          std::string s(900, ' ');
+          auto seed = b * kRowsPerBatch + row;
+          for (size_t i = 0; i < s.size(); ++i) {
+            s[i] = 'A' + ((seed + i * 7) % 58);
+          }
+          return s;
+        }),
+    }));
+  }
+
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+
+  // targetFileSize = 4MB to produce multiple files from ~30MB of data.
+  auto writerPlan =
+      exec::test::PlanBuilder()
+          .values(batches)
+          .addNode(addBroadcastWriteNode(
+              tempDirectoryPath->getPath(),
+              std::numeric_limits<uint64_t>::max(),
+              4 << 20,
+              std::nullopt))
+          .planNode();
+
+  auto serdeRowType =
+      std::dynamic_pointer_cast<const BroadcastWriteNode>(writerPlan)
+          ->serdeRowType();
+
+  exec::CursorParameters params;
+  params.planNode = writerPlan;
+
+  std::unordered_map<std::string, std::string> configs;
+  configs[core::QueryConfig::kShuffleCompressionKind] =
+      common::compressionKindToString(GetParam().compressionKind);
+  params.queryCtx = core::QueryCtx::create(
+      executor_.get(), core::QueryConfig(std::move(configs)));
+
+  auto [taskCursor, results] = exec::test::readCursor(params);
+
+  // Collect all file paths from all result batches.
+  std::vector<std::string> broadcastFilePaths;
+  for (const auto& result : results) {
+    for (auto i = 0; i < result->size(); ++i) {
+      broadcastFilePaths.emplace_back(
+          result->childAt(0)->as<SimpleVector<StringView>>()->valueAt(i).str());
+    }
+  }
+
+  ASSERT_GT(broadcastFilePaths.size(), 0);
+
+  // Read back all files and verify data integrity.
+  auto [broadcastReadCursor, broadcastReadResults] = executeBroadcastRead(
+      serdeRowType, tempDirectoryPath->getPath(), broadcastFilePaths);
+
+  velox::exec::test::assertEqualResults(batches, broadcastReadResults);
+}
+
+TEST_P(BroadcastTest, multiFileSingleFileBackwardCompatibility) {
+  auto tempDirectoryPath = exec::test::TempDirectoryPath::create();
+  auto fileSystem =
+      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+  fileSystem->mkdir(tempDirectoryPath->getPath());
+
+  auto filePath =
+      fmt::format("{}/broadcast_compat_test", tempDirectoryPath->getPath());
+
+  auto testData = makeRowVector({
+      makeFlatVector<int32_t>(100, [](auto row) { return row; }),
+      makeFlatVector<int64_t>(100, [](auto row) { return row * 10; }),
+  });
+
+  auto writer = std::make_unique<BroadcastFileWriter>(
+      filePath,
+      std::numeric_limits<uint64_t>::max(),
+      std::numeric_limits<uint64_t>::max(),
+      1024,
+      getVectorSerdeOptions(GetParam().compressionKind),
+      pool());
+
+  writer->write(testData);
+  writer->noMoreData();
+
+  auto fileStats = writer->fileStats();
+  ASSERT_NE(fileStats, nullptr);
+  ASSERT_EQ(fileStats->size(), 1)
+      << "Default targetFileSize should produce single file";
 }
 
 INSTANTIATE_TEST_SUITE_P(
