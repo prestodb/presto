@@ -15,7 +15,9 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -121,6 +123,16 @@ TEST_F(ServerOperationTest, buildServerOp) {
   op = buildServerOpFromHttpMsgPath("/v1/operation/systemConfig/setProperty");
   EXPECT_EQ(ServerOperation::Target::kSystemConfig, op.target);
   EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
+
+  op = buildServerOpFromHttpMsgPath(
+      "/v1/operation/veloxQueryConfig/setProperty");
+  EXPECT_EQ(ServerOperation::Target::kVeloxQueryConfig, op.target);
+  EXPECT_EQ(ServerOperation::Action::kSetProperty, op.action);
+
+  op = buildServerOpFromHttpMsgPath(
+      "/v1/operation/veloxQueryConfig/getProperty");
+  EXPECT_EQ(ServerOperation::Target::kVeloxQueryConfig, op.target);
+  EXPECT_EQ(ServerOperation::Action::kGetProperty, op.action);
 
   op = buildServerOpFromHttpMsgPath("/v1/operation/task/getDetail");
   EXPECT_EQ(ServerOperation::Target::kTask, op.target);
@@ -235,6 +247,68 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
   EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+}
+
+TEST_F(ServerOperationTest, veloxQueryConfigEndpoint) {
+  filesystems::registerLocalFileSystem();
+  test::setupMutableSystemConfig();
+
+  PrestoServerOperations serverOperation(nullptr, nullptr);
+  proxygen::HTTPMessage httpMessage;
+
+  // Getting an unknown property returns "<default>" (not an error).
+  httpMessage.setQueryParam("name", "nonexistent.property");
+  auto getPropertyResponse = serverOperation.veloxQueryConfigOperation(
+      {.target = ServerOperation::Target::kVeloxQueryConfig,
+       .action = ServerOperation::Action::kGetProperty},
+      &httpMessage);
+  EXPECT_EQ(getPropertyResponse, "<default>\n");
+
+  // Getting a known system config property returns its value.
+  httpMessage.setQueryParam("name", "task.max-drivers-per-task");
+  getPropertyResponse = serverOperation.veloxQueryConfigOperation(
+      {.target = ServerOperation::Target::kVeloxQueryConfig,
+       .action = ServerOperation::Action::kGetProperty},
+      &httpMessage);
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+
+  // Setting a registered property returns a message with "velox query config"
+  // wording (verifying the copy-paste bug fix from systemConfigOperation).
+  httpMessage.setQueryParam("name", "shutdown-onset-sec");
+  httpMessage.setQueryParam("value", "42");
+  auto setPropertyResponse = serverOperation.veloxQueryConfigOperation(
+      {.target = ServerOperation::Target::kVeloxQueryConfig,
+       .action = ServerOperation::Action::kSetProperty},
+      &httpMessage);
+  EXPECT_NE(setPropertyResponse.find("velox query config"), std::string::npos);
+  EXPECT_NE(setPropertyResponse.find("shutdown-onset-sec"), std::string::npos);
+  EXPECT_NE(setPropertyResponse.find("42"), std::string::npos);
+
+  // Verify the property was set by reading it back.
+  httpMessage.setQueryParam("name", "shutdown-onset-sec");
+  getPropertyResponse = serverOperation.veloxQueryConfigOperation(
+      {.target = ServerOperation::Target::kVeloxQueryConfig,
+       .action = ServerOperation::Action::kGetProperty},
+      &httpMessage);
+  EXPECT_EQ(getPropertyResponse, "42\n");
+
+  // Missing 'name' parameter should throw.
+  proxygen::HTTPMessage emptyMessage;
+  VELOX_ASSERT_THROW(
+      serverOperation.veloxQueryConfigOperation(
+          {.target = ServerOperation::Target::kVeloxQueryConfig,
+           .action = ServerOperation::Action::kGetProperty},
+          &emptyMessage),
+      "Missing 'name' parameter");
+
+  // Missing 'value' parameter for set should throw.
+  emptyMessage.setQueryParam("name", "some.prop");
+  VELOX_ASSERT_THROW(
+      serverOperation.veloxQueryConfigOperation(
+          {.target = ServerOperation::Target::kVeloxQueryConfig,
+           .action = ServerOperation::Action::kSetProperty},
+          &emptyMessage),
+      "Missing 'name' or 'value' parameter");
 }
 
 } // namespace facebook::presto

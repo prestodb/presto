@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -36,12 +35,15 @@ import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -51,9 +53,10 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.SubqueryExpression;
+import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.Column;
-import com.facebook.presto.verifier.framework.JsonParseSafetyWrapper;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
@@ -111,8 +114,6 @@ import static java.util.UUID.randomUUID;
 
 public class QueryRewriter
 {
-    private static final com.facebook.airlift.log.Logger log = com.facebook.airlift.log.Logger.get(QueryRewriter.class);
-
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -121,6 +122,7 @@ public class QueryRewriter
     private final Map<ClusterType, List<Property>> tableProperties;
     private final Map<ClusterType, Boolean> reuseTables;
     private final Optional<FunctionCallRewriter> functionCallRewriter;
+    private final boolean jsonParseSafetyWrapperEnabled;
 
     public QueryRewriter(
             SqlParser sqlParser,
@@ -131,7 +133,7 @@ public class QueryRewriter
             Map<ClusterType, List<Property>> tableProperties,
             Map<ClusterType, Boolean> reuseTables)
     {
-        this(sqlParser, typeManager, blockEncodingSerde, prestoAction, tablePrefixes, tableProperties, reuseTables, ImmutableMultimap.of());
+        this(sqlParser, typeManager, blockEncodingSerde, prestoAction, tablePrefixes, tableProperties, reuseTables, ImmutableMultimap.of(), false);
     }
 
     public QueryRewriter(
@@ -144,6 +146,20 @@ public class QueryRewriter
             Map<ClusterType, Boolean> reuseTables,
             Multimap<String, FunctionCallSubstitute> functionSubstitutes)
     {
+        this(sqlParser, typeManager, blockEncodingSerde, prestoAction, tablePrefixes, tableProperties, reuseTables, functionSubstitutes, false);
+    }
+
+    public QueryRewriter(
+            SqlParser sqlParser,
+            TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
+            PrestoAction prestoAction,
+            Map<ClusterType, QualifiedName> tablePrefixes,
+            Map<ClusterType, List<Property>> tableProperties,
+            Map<ClusterType, Boolean> reuseTables,
+            Multimap<String, FunctionCallSubstitute> functionSubstitutes,
+            boolean jsonParseSafetyWrapperEnabled)
+    {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerge");
@@ -152,26 +168,64 @@ public class QueryRewriter
         this.tableProperties = ImmutableMap.copyOf(tableProperties);
         this.reuseTables = ImmutableMap.copyOf(reuseTables);
         this.functionCallRewriter = FunctionCallRewriter.getInstance(functionSubstitutes, typeManager);
+        this.jsonParseSafetyWrapperEnabled = jsonParseSafetyWrapperEnabled;
     }
 
     /**
-     * Helper method to apply json_parse safety wrapper to a query.
-     * Wraps json_parse() calls with TRY() to handle malformed JSON gracefully.
-     * If re-parsing fails, returns the original query unchanged.
+     * Wraps bare json_parse() calls with TRY() using AST rewriting.
+     * Operates directly on the AST to avoid fragile SQL format/re-parse round-trips
+     * that silently fail on complex queries with lambdas or internal function patterns.
      */
-    private Query applyJsonParseSafetyWrapper(Query query)
+    private static Query applyJsonParseSafetyWrapper(Query query)
     {
-        try {
-            String sql = SqlFormatter.formatSql(query, Optional.empty());
-            String fixedSql = JsonParseSafetyWrapper.wrapUnsafeJsonParse(sql);
-            if (!sql.equals(fixedSql)) {
-                return (Query) sqlParser.createStatement(fixedSql, PARSING_OPTIONS);
-            }
+        return (Query) new JsonParseTryWrapper().process(query, null);
+    }
+
+    /**
+     * AST-level rewriter that wraps json_parse() FunctionCall nodes in TryExpression.
+     * Uses the same DefaultTreeRewriter + ExpressionTreeRewriter pattern as FunctionCallRewriter.
+     */
+    private static class JsonParseTryWrapper
+            extends DefaultTreeRewriter<Void>
+    {
+        @Override
+        protected Node visitExpression(Expression node, Void context)
+        {
+            JsonParseTryWrapper statementRewriter = this;
+
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Boolean>()
+            {
+                @Override
+                public Expression rewriteFunctionCall(FunctionCall original, Boolean insideTry, ExpressionTreeRewriter<Boolean> treeRewriter)
+                {
+                    FunctionCall defaultRewrite = treeRewriter.defaultRewrite(original, false);
+                    if (defaultRewrite.getName().getSuffix().equalsIgnoreCase("json_parse") && !Boolean.TRUE.equals(insideTry)) {
+                        return new TryExpression(defaultRewrite);
+                    }
+                    return defaultRewrite;
+                }
+
+                @Override
+                public Expression rewriteTryExpression(TryExpression original, Boolean insideTry, ExpressionTreeRewriter<Boolean> treeRewriter)
+                {
+                    Expression inner = treeRewriter.rewrite(original.getInnerExpression(), true);
+                    if (inner != original.getInnerExpression()) {
+                        return new TryExpression(inner);
+                    }
+                    return original;
+                }
+
+                @Override
+                public Expression rewriteSubqueryExpression(SubqueryExpression expression, Boolean insideTry, ExpressionTreeRewriter<Boolean> treeRewriter)
+                {
+                    Node rewritten = statementRewriter.process(expression.getQuery(), null);
+                    if (expression.getQuery() == rewritten) {
+                        return expression;
+                    }
+                    return new SubqueryExpression((Query) rewritten);
+                }
+            }, node, false);
         }
-        catch (Exception e) {
-            log.warn(e, "Failed to apply json_parse safety wrapper, using original query");
-        }
-        return query;
     }
 
     public QueryObjectBundle rewriteQuery(@Language("SQL") String query, QueryConfiguration queryConfiguration, ClusterType clusterType)
@@ -197,8 +251,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(createQuery);
                 createQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
-
-                // Apply safety wrapper for json_parse() calls to prevent failures on malformed JSON
+            }
+            // Apply safety wrapper for json_parse() calls to prevent failures on malformed JSON
+            if (jsonParseSafetyWrapperEnabled) {
                 createQuery = applyJsonParseSafetyWrapper(createQuery);
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
@@ -244,8 +299,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(insertQuery);
                 insertQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
-
-                // Apply safety wrapper for json_parse() calls
+            }
+            // Apply safety wrapper for json_parse() calls
+            if (jsonParseSafetyWrapperEnabled) {
                 insertQuery = applyJsonParseSafetyWrapper(insertQuery);
             }
             if (shouldReuseTable && !functionSubstitutions.isPresent()) {
@@ -291,8 +347,9 @@ public class QueryRewriter
                 FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(queryBody);
                 queryBody = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
-
-                // Apply safety wrapper for json_parse() calls
+            }
+            // Apply safety wrapper for json_parse() calls
+            if (jsonParseSafetyWrapperEnabled) {
                 queryBody = applyJsonParseSafetyWrapper(queryBody);
             }
 

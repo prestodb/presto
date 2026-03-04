@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [17.0.15]
+        java: ['17']
         modules:
           - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
 
@@ -69,7 +69,7 @@ jobs:
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -183,7 +183,7 @@ jobs:
     needs: prestocpp-linux-build-for-test
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.297-202601311423-22d722a9
+      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
       volumes:
         - /usr:/host_usr
         - /opt:/host_opt
@@ -250,7 +250,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17.0.15
+          java-version: '17'
           cache: maven
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs

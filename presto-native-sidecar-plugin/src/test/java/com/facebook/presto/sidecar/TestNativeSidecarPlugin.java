@@ -77,7 +77,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 7;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 6;
 
     @Override
     protected void createTables()
@@ -566,6 +566,7 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT any_values_match(MAP(ARRAY[orderkey], ARRAY[totalprice]), k -> abs(k) > 20) from orders");
         assertQuery("SELECT no_values_match(MAP(ARRAY[orderkey], ARRAY[comment]), k -> length(k) > 2) from orders");
         assertQuery("SELECT no_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> ends_with(k, 'a')) from orders");
+        assertQuery("select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
     }
 
     @Test
@@ -624,10 +625,6 @@ public class TestNativeSidecarPlugin
                 "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_keys not registered with arguments.*",
                 true);
-
-        assertQueryFails(session,
-                "select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey",
-                ".*Scalar function name not registered: native.default.key_sampling_percent.*");
     }
 
     @Test

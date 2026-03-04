@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
@@ -215,6 +216,8 @@ public final class IcebergUtil
 {
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
+    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
+    public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
     public static final long DOUBLE_POSITIVE_INFINITE = 0x7ff0000000000000L;
@@ -283,6 +286,19 @@ public final class IcebergUtil
     {
         IcebergTableName icebergTableName = IcebergTableName.from(table.getTableName());
         return new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
+    }
+
+    public static TableOperations opsFromTable(Table table)
+    {
+        if (table instanceof BaseTransaction.TransactionTable) {
+            return ((BaseTransaction.TransactionTable) table).operations();
+        }
+        else if (table instanceof BaseTable) {
+            return ((BaseTable) table).operations();
+        }
+        else {
+            throw new PrestoException(NOT_SUPPORTED, "Unsupported Table type: " + table.getClass().getName());
+        }
     }
 
     public static List<IcebergColumnHandle> getPartitionKeyColumnHandles(IcebergTableHandle tableHandle, Table table, TypeManager typeManager)
@@ -1174,7 +1190,11 @@ public final class IcebergUtil
     public static int parseFormatVersion(String formatVersion)
     {
         try {
-            return parseInt(formatVersion);
+            int version = parseInt(formatVersion);
+            if (version > MAX_SUPPORTED_FORMAT_VERSION) {
+                throw new PrestoException(NOT_SUPPORTED, format("Iceberg table format version %d is not supported", version));
+            }
+            return version;
         }
         catch (NumberFormatException | IndexOutOfBoundsException e) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION, "Unable to parse user provided format version");
