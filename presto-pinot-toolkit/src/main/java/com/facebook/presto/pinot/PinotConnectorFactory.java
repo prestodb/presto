@@ -16,6 +16,7 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.pinot.auth.PinotTlsAuthenticationModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
