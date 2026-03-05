@@ -36,6 +36,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
@@ -652,13 +653,11 @@ public class MongoSession
     private boolean isView(String schema, String table)
     {
         MongoDatabase database = client.getDatabase(schema);
-        for (Document doc : database.listCollections()) {
-            String name = doc.getString("name");
-            String type = doc.getString("type");
-            if (table.equals(name) && "view".equals(type)) {
-                return true;
-            }
-        }
-        return false;
+        Document doc = database.listCollections().filter(
+                new Document(new Document(ImmutableMap.of(
+                        "name", table,
+                        "type", "view")))).first();
+
+        return doc != null;
     }
 }
