@@ -22,6 +22,7 @@ import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 
@@ -72,7 +73,7 @@ public class InternalAuthenticationManager
     private String generateJwt()
     {
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
+                .signWith(Keys.hmacShaKeyFor(hmac), SignatureAlgorithm.HS256)
                 .setSubject(nodeId)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
@@ -81,9 +82,10 @@ public class InternalAuthenticationManager
     private String parseJwt(String jwt)
     {
         return Jwts.parser()
-                .setSigningKey(hmac)
-                .parseClaimsJws(jwt)
-                .getBody()
+                .verifyWith(Keys.hmacShaKeyFor(hmac))
+                .build()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 
