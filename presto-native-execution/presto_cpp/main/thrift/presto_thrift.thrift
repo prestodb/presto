@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+include "thrift/annotation/thrift.thrift"
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {
@@ -232,6 +234,7 @@ struct TableWriterMergeInfo {
   2: double statisticsCpuTime;
 }
 struct DynamicFilterStats {
+  @thrift.AllowUnsafeNonSealedKeyType
   1: set<PlanNodeId> producerNodeIds;
 }
 struct DriverStats {
@@ -303,7 +306,9 @@ struct LongVariableConstraint {
 }
 struct TaskSource {
   1: PlanNodeId planNodeId;
+  @thrift.AllowUnsafeNonSealedKeyType
   2: set<ScheduledSplit> splits;
+  @thrift.AllowUnsafeNonSealedKeyType
   3: set<Lifespan> noMoreSplitsForLifespan;
   4: bool noMoreSplits;
 }
@@ -353,6 +358,7 @@ struct TaskStatus {
   3: i64 version;
   4: TaskState state;
   5: string selfUri;
+  @thrift.AllowUnsafeNonSealedKeyType
   6: set<Lifespan> completedDriverGroups;
   7: list<ExecutionFailureInfo> failures;
   8: i32 queuedPartitionedDrivers;
@@ -519,10 +525,12 @@ struct SessionRepresentation {
   16: ResourceEstimates resourceEstimates;
   17: i64 startTime;
   18: map<string, string> systemProperties;
+  @thrift.AllowUnsafeNonSealedKeyType
   19: map<ConnectorId, map<string, string>> catalogProperties;
   20: map<string, map<string, string>> unprocessedCatalogProperties;
   21: map<string, SelectedRole> roles;
   22: map<string, string> preparedStatements;
+  @thrift.AllowUnsafeNonSealedKeyType
   23: map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 }
 struct SelectedRole {
@@ -558,6 +566,7 @@ struct OutputBuffers {
   1: BufferType type;
   2: i64 version;
   3: bool noMoreBufferIds;
+  @thrift.AllowUnsafeNonSealedKeyType
   4: map<OutputBufferId, i32> buffers;
 }
 struct CreateHandle {
@@ -633,6 +642,7 @@ struct TaskInfo {
   2: TaskStatus taskStatus;
   3: i64 lastHeartbeatInMillis;
   4: OutputBufferInfo outputBuffers;
+  @thrift.AllowUnsafeNonSealedKeyType
   5: set<PlanNodeId> noMoreSplits;
   6: TaskStats stats;
   7: bool needsPlan;
