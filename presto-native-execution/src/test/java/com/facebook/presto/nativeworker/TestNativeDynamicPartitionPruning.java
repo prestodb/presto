@@ -28,6 +28,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS;
 import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME;
@@ -141,6 +147,26 @@ public class TestNativeDynamicPartitionPruning
         assertTrue(sumMetric(runtimeStats, DYNAMIC_FILTER_PUSH_TO_WORKER_COUNT) > 0);
         assertTrue(sumMetric(runtimeStats, DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_COUNT) > 0);
         assertTrue(sumMetric(runtimeStats, "externalDynamicFiltersReceived") > 0);
+
+        // Verify dynamic filters actually pruned input rows
+        long rawInputRows = sumMetric(runtimeStats, "rawInputRows");
+        assertTrue(rawInputRows < 10000,
+                "Dynamic filter should have pruned some input rows, but read " + rawInputRows);
+    }
+
+    @Test
+    public void testDynamicFilterPushConcurrent()
+            throws Exception
+    {
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            futures.add(executor.submit(() -> testDynamicFilterPushToWorker()));
+        }
+        for (Future<?> f : futures) {
+            f.get(60, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
     }
 
     private static long sumMetric(RuntimeStats runtimeStats, String metricName)

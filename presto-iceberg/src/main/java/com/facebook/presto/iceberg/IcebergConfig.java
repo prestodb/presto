@@ -78,6 +78,7 @@ public class IcebergConfig
     private DataSize maxStatisticsFileCacheSize = succinctDataSize(256, MEGABYTE);
     private String materializedViewStoragePrefix = "__mv_storage__";
     private boolean dynamicFilterExtendedMetrics;
+    private boolean dynamicFilterEagerDispatchEnabled = true;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -511,4 +512,17 @@ public class IcebergConfig
         return this;
     }
 
+    public boolean isDynamicFilterEagerDispatchEnabled()
+    {
+        return dynamicFilterEagerDispatchEnabled;
+    }
+
+    @Config("iceberg.dynamic-filter-eager-dispatch-enabled")
+    @ConfigDescription("When enabled, dispatch splits immediately without waiting for the dynamic filter to resolve. " +
+            "Remaining files are filtered in-line once the filter resolves.")
+    public IcebergConfig setDynamicFilterEagerDispatchEnabled(boolean dynamicFilterEagerDispatchEnabled)
+    {
+        this.dynamicFilterEagerDispatchEnabled = dynamicFilterEagerDispatchEnabled;
+        return this;
+    }
 }

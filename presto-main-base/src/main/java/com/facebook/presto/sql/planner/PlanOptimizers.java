@@ -939,8 +939,8 @@ public class PlanOptimizers
                     statsCalculator,
                     estimatedExchangesCostCalculator,
                     ImmutableSet.of(
-                            new AddDynamicFilterRule(metadata, taskCountEstimator),
-                            new AddDynamicFilterToSemiJoinRule(metadata, taskCountEstimator))));
+                            new AddDynamicFilterRule(),
+                            new AddDynamicFilterToSemiJoinRule())));
 
             builder.add(
                     new IterativeOptimizer(

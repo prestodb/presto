@@ -13,67 +13,39 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
-import com.facebook.presto.cost.TaskCountEstimator;
-import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.TableLayout;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterCardinalityRatioThreshold;
-import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterDiscreteValuesLimit;
-import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMinProbeSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterExtendedMetrics;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
-import static com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterRule.resolveProbeColumnMapping;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static java.lang.Double.isFinite;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Populates SemiJoinNode.dynamicFilters for distributed dynamic partition pruning.
- * When strategy is COST_BASED, evaluates the clause against the same criteria
- * as {@link AddDynamicFilterRule}.
+ * When strategy is COST_BASED, evaluates the clause against the same cardinality
+ * ratio criteria as {@link AddDynamicFilterRule}.
  */
 public class AddDynamicFilterToSemiJoinRule
         implements Rule<SemiJoinNode>
 {
     private static final Pattern<SemiJoinNode> PATTERN = semiJoin()
             .matching(node -> node.getDynamicFilters().isEmpty());
-
-    private final Metadata metadata;
-    private final TaskCountEstimator taskCountEstimator;
-
-    public AddDynamicFilterToSemiJoinRule(Metadata metadata, TaskCountEstimator taskCountEstimator)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
-    }
 
     @Override
     public Pattern<SemiJoinNode> getPattern()
@@ -120,74 +92,19 @@ public class AddDynamicFilterToSemiJoinRule
         Session session = context.getSession();
         boolean extendedMetrics = isDistributedDynamicFilterExtendedMetrics(session);
         String columnName = node.getSourceJoinVariable().getName();
-        double cardinalityRatioThreshold = getDistributedDynamicFilterCardinalityRatioThreshold(session);
-        long discreteValuesLimit = getDistributedDynamicFilterDiscreteValuesLimit(session);
 
         PlanNodeStatsEstimate buildStats = context.getStatsProvider().getStats(node.getFilteringSource());
         PlanNodeStatsEstimate probeStats = context.getStatsProvider().getStats(node.getSource());
-
         double buildRowCount = buildStats.getOutputRowCount();
         double probeRowCount = probeStats.getOutputRowCount();
 
+        // If stats are unavailable, create the filter — the connector decides usefulness
         if (!isFinite(buildRowCount) || !isFinite(probeRowCount)) {
-            boolean create = isSplitFilteringColumn(node.getSourceJoinVariable(), node.getSource(), context);
-            if (extendedMetrics) {
-                emitPlanDecisionMetric(session, create
-                        ? DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK
-                        : DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN, columnName);
-            }
-            return create;
-        }
-
-        // Skip DPP for broadcast semi-joins — Velox handles same-fragment filtering
-        if (node.getDistributionType().equals(Optional.of(SemiJoinNode.DistributionType.REPLICATED))) {
-            if (extendedMetrics) {
-                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN, columnName);
-            }
-            return false;
-        }
-
-        // Skip DPP for small probe-side scans — overhead exceeds possible savings
-        // Threshold is per-node: divide total probe size by cluster size
-        double probeSizeBytes = probeStats.getOutputSizeInBytes(node.getSource());
-        DataSize minProbeSize = getDistributedDynamicFilterMinProbeSize(session);
-        int taskCount = Math.max(1, taskCountEstimator.estimateSourceDistributedTaskCount());
-        double perNodeProbeSizeBytes = probeSizeBytes / taskCount;
-        if (isFinite(perNodeProbeSizeBytes) && perNodeProbeSizeBytes <= minProbeSize.toBytes()) {
-            if (extendedMetrics) {
-                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE, columnName);
-            }
-            return false;
-        }
-
-        VariableStatsEstimate buildVarStats = buildStats.getVariableStatistics(node.getFilteringSourceJoinVariable());
-        double buildNdv = buildVarStats.getDistinctValuesCount();
-
-        // If the build-side domain fully covers the probe-side domain,
-        // the filter cannot prune anything
-        VariableStatsEstimate probeVarStats = probeStats.getVariableStatistics(node.getSourceJoinVariable());
-        double buildLow = buildVarStats.getLowValue();
-        double buildHigh = buildVarStats.getHighValue();
-        double probeLow = probeVarStats.getLowValue();
-        double probeHigh = probeVarStats.getHighValue();
-        double probeNdv = probeVarStats.getDistinctValuesCount();
-        if (isFinite(buildLow) && isFinite(buildHigh) && isFinite(buildNdv)
-                && isFinite(probeLow) && isFinite(probeHigh) && isFinite(probeNdv)
-                && buildLow <= probeLow && buildHigh >= probeHigh && buildNdv >= probeNdv) {
-            if (extendedMetrics) {
-                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE, columnName);
-            }
-            return false;
-        }
-
-        if (isFinite(buildNdv) && buildNdv <= discreteValuesLimit) {
-            if (extendedMetrics) {
-                emitPlanDecisionMetric(session, DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV, columnName);
-            }
             return true;
         }
 
-        boolean create = probeRowCount > 0 && (buildRowCount / probeRowCount) < cardinalityRatioThreshold;
+        double threshold = getDistributedDynamicFilterCardinalityRatioThreshold(session);
+        boolean create = probeRowCount > 0 && (buildRowCount / probeRowCount) < threshold;
         if (extendedMetrics) {
             emitPlanDecisionMetric(session, create
                     ? DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO
@@ -199,25 +116,5 @@ public class AddDynamicFilterToSemiJoinRule
     private static void emitPlanDecisionMetric(Session session, String metricName, String columnName)
     {
         session.getRuntimeStats().addMetricValue(format("%s[%s]", metricName, columnName), NONE, 1);
-    }
-
-    private boolean isSplitFilteringColumn(VariableReferenceExpression variable, PlanNode probeNode, Context context)
-    {
-        Optional<AddDynamicFilterRule.ProbeColumnMapping> mapping = resolveProbeColumnMapping(variable, probeNode, context.getLookup());
-        if (!mapping.isPresent()) {
-            return false;
-        }
-
-        TableScanNode tableScan = mapping.get().getTableScanNode();
-        ColumnHandle columnHandle = mapping.get().getColumnHandle();
-
-        if (!tableScan.getTable().getLayout().isPresent()) {
-            return false;
-        }
-
-        TableLayout layout = metadata.getLayout(context.getSession(), tableScan.getTable());
-        return layout.getDiscretePredicates()
-                .map(dp -> dp.getColumns().contains(columnHandle))
-                .orElse(false);
     }
 }

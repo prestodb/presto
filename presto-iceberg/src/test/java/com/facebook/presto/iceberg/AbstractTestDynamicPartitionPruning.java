@@ -41,8 +41,6 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDI
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV;
-import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SPLITS_BEFORE_FILTER;
@@ -339,6 +337,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_distribution_type", "BROADCAST")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithDpp =
@@ -1157,6 +1156,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "2s")
                 .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
                 .build();
 
         Session noDppSession = Session.builder(getSession())
@@ -1320,6 +1320,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, "1B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
                 .build();
 
         ResultWithQueryId<MaterializedResult> tinyResult =
@@ -1550,31 +1551,13 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         RuntimeStats runtimeStats = getRuntimeStats(resultCostBased);
 
-        boolean hasLowNdv = runtimeStats.getMetrics().keySet().stream()
-                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV + "[")
-                        && k.contains("customer_id"));
-        boolean hasFavorableRatio = runtimeStats.getMetrics().keySet().stream()
-                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[")
-                        && k.contains("customer_id"));
-        boolean hasPartitionFallback = runtimeStats.getMetrics().keySet().stream()
-                .anyMatch(k -> k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")
-                        && k.contains("customer_id"));
-        assertTrue(hasLowNdv || hasFavorableRatio || hasPartitionFallback,
-                format("Cost-based extended metrics should emit a PLAN_CREATED metric for customer_id " +
-                                "(lowNdv=%s, favorableRatio=%s, partitionFallback=%s). All metric keys: %s",
-                        hasLowNdv, hasFavorableRatio, hasPartitionFallback,
+        String metricKey = DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[customer_id]";
+        boolean hasFavorableRatio = runtimeStats.getMetrics().containsKey(metricKey);
+        assertTrue(hasFavorableRatio,
+                format("Cost-based extended metrics should emit PLAN_CREATED_FAVORABLE_RATIO for customer_id. All metric keys: %s",
                         runtimeStats.getMetrics().keySet()));
-
-        String matchedKey = runtimeStats.getMetrics().keySet().stream()
-                .filter(k -> k.contains("customer_id") && (
-                        k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV + "[") ||
-                                k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO + "[") ||
-                                k.startsWith(DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK + "[")))
-                .findFirst()
-                .orElse(null);
-        assertNotNull(matchedKey, "Should find a PLAN_CREATED metric for customer_id");
-        assertEquals(runtimeStats.getMetrics().get(matchedKey).getSum(), 1,
-                format("Plan decision metric %s should have value 1", matchedKey));
+        assertEquals(runtimeStats.getMetrics().get(metricKey).getSum(), 1,
+                format("Plan decision metric %s should have value 1", metricKey));
 
         assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
                 "Selective filter should NOT trigger short-circuit");
@@ -1818,7 +1801,8 @@ public abstract class AbstractTestDynamicPartitionPruning
     }
 
     /**
-     * DPP enabled with ALWAYS strategy and extended metrics.
+     * DPP enabled with ALWAYS strategy, extended metrics, and eager dispatch disabled
+     * so the split source blocks until the filter resolves (deterministic metrics).
      */
     private Session dppBlockingSession()
     {
@@ -1827,13 +1811,14 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
                 .build();
     }
 
     /**
      * DPP cost-based strategy with extended metrics.
-     * Disables broadcast-skip and small-probe-skip thresholds so that cost-based
-     * NDV/ratio logic is exercised against the small test tables.
+     * Uses partitioned join to ensure cost-based ratio logic is exercised
+     * against the small test tables.
      */
     private Session dppCostBasedSession()
     {
@@ -1842,8 +1827,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_max_broadcast_table_size", "0B")
-                .setSystemProperty("distributed_dynamic_filter_min_probe_size", "0B")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
                 .build();
     }
 

@@ -116,14 +116,8 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_FACTORY_CLOSED = "dynamicFilterFactoryClosed";
     public static final String DYNAMIC_FILTER_FLUSH_FIRED = "dynamicFilterFlushFired";
     public static final String DYNAMIC_FILTER_COMPLETED_ID_DELIVERED = "dynamicFilterCompletedIdDelivered";
-    public static final String DYNAMIC_FILTER_PLAN_CREATED_PARTITION_FALLBACK = "dynamicFilterPlanCreatedPartitionFallback";
-    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_NOT_PARTITION_COLUMN = "dynamicFilterPlanSkippedNotPartitionColumn";
-    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_BUILD_COVERS_PROBE = "dynamicFilterPlanSkippedBuildCoversProbe";
-    public static final String DYNAMIC_FILTER_PLAN_CREATED_LOW_NDV = "dynamicFilterPlanCreatedLowNdv";
     public static final String DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO = "dynamicFilterPlanCreatedFavorableRatio";
     public static final String DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY = "dynamicFilterPlanSkippedHighCardinality";
-    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_BROADCAST_JOIN = "dynamicFilterPlanSkippedBroadcastJoin";
-    public static final String DYNAMIC_FILTER_PLAN_SKIPPED_SMALL_PROBE = "dynamicFilterPlanSkippedSmallProbe";
     // Push-to-worker metrics (extended metrics only)
     public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_COUNT = "dynamicFilterPushToWorkerCount";
     public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_COUNT = "dynamicFilterPushToWorkerTaskCount";
