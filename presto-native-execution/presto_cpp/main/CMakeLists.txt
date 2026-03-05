@@ -63,7 +63,6 @@ target_link_libraries(
   presto_connectors
   presto_http
   presto_operators
-  presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
@@ -108,6 +107,10 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread
 )
+
+# presto_cudf_session_properties is always linked: velox_cudf_config is plain
+# C++ (no CUDA), enabling the sidecar to expose cuDF session properties.
+target_link_libraries(presto_server_lib presto_cudf_session_properties)
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)

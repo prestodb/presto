@@ -76,8 +76,11 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/serializers/UnsafeRowSerializer.h"
 
+// CudfSessionProperties and CudfConfig are plain C++ (no CUDA required).
+// Always include them so the sidecar session endpoint exposes cuDF properties.
+#include "presto_cpp/main/properties/session/CudfSessionProperties.h"
+#include "velox/experimental/cudf/common/CudfConfig.h"
 #ifdef PRESTO_ENABLE_CUDF
-#include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #endif
 
@@ -172,16 +175,15 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
-  // Disable by default.
-  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
   auto systemConfig = SystemConfig::instance();
-  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
-      systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
-          velox::cudf_velox::CudfConfig::kCudfEnabled)) {
-    velox::cudf_velox::CudfConfig::getInstance().initialize(
+          velox::cudf_velox::CudfSystemConfig::kCudfEnabledEntry.name)) {
+    velox::cudf_velox::CudfSystemConfig::getInstance().updateConfigs(
         systemConfig->values());
-    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    /// TODO(ps): Deprecate cudf.enabled from query config.
+    if (velox::cudf_velox::CudfSystemConfig::getInstance().cudfEnabled() ||
+        velox::cudf_velox::CudfQueryConfig::getInstance().get<bool>(
+            velox::cudf_velox::CudfQueryConfig::kCudfEnabledEntry)) {
       velox::cudf_velox::registerCudf();
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
@@ -193,8 +195,9 @@ void unregisterVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
   auto systemConfig = SystemConfig::instance();
   if (systemConfig->values().contains(
-          velox::cudf_velox::CudfConfig::kCudfEnabled) &&
-      velox::cudf_velox::CudfConfig::getInstance().enabled) {
+          velox::cudf_velox::CudfSystemConfig::kCudfEnabledEntry.name) &&
+      velox::cudf_velox::CudfSystemConfig::getInstance().get<bool>(
+          velox::cudf_velox::CudfSystemConfig::kCudfEnabledEntry)) {
     velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
   }
@@ -419,6 +422,15 @@ void PrestoServer::initializeConfigs() {
     nodeLocation_ = nodeConfig->nodeLocation();
     nodePoolType_ = systemConfig->poolType();
     prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
+
+#ifdef PRESTO_ENABLE_CUDF
+    // Set default values for cuDF in system config
+    velox::cudf_velox::CudfSystemConfig::getInstance().set(
+        velox::cudf_velox::CudfSystemConfig::kCudfEnabledEntry.name, "false");
+    velox::cudf_velox::CudfSystemConfig::getInstance().set(
+        velox::cudf_velox::CudfSystemConfig::kCudfFunctionNamePrefixEntry.name,
+        prestoBuiltinFunctionPrefix_);
+#endif
   } catch (const velox::VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -1830,9 +1842,11 @@ void PrestoServer::registerSidecarEndpoints() {
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
           proxygen::ResponseHandler* downstream) {
-        const auto* sessionProperties = SessionProperties::instance();
+        const auto* sessionProperties =
+            facebook::presto::cudf::CudfSessionProperties::instance();
         http::sendOkResponse(downstream, sessionProperties->serialize());
       });
+
   httpServer_->registerGet(
       "/v1/functions",
       [](proxygen::HTTPMessage* /*message*/,

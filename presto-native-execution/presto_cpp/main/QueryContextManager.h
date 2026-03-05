@@ -23,6 +23,10 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryCtx.h"
 
+namespace facebook::velox::cudf_velox {
+class CudfQueryConfig;
+}
+
 namespace facebook::presto {
 class QueryContextCache {
  public:
@@ -112,6 +116,7 @@ class QueryContextManager {
   virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtxLocked(
       const protocol::QueryId& queryId,
       velox::core::QueryConfig&& queryConfig,
+      velox::cudf_velox::CudfQueryConfig&& cudfConfigs,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
@@ -120,6 +125,7 @@ class QueryContextManager {
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtxLocked(
       const protocol::TaskId& taskId,
       velox::core::QueryConfig&& queryConfig,
+      velox::cudf_velox::CudfQueryConfig&& cudfConfigs,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);

@@ -23,6 +23,17 @@ add_library(presto_session_properties SessionProperties.cpp)
 
 target_link_libraries(presto_session_properties presto_session_properties_provider)
 
+# presto_cudf_session_properties is always built (velox_cudf_config is plain
+# C++ with no CUDA requirement) so the sidecar can expose cuDF session props.
+add_library(presto_cudf_session_properties CudfSessionProperties.cpp)
+
+target_link_libraries(
+  presto_cudf_session_properties
+  presto_session_properties_provider
+  velox_cudf_config
+  ${FOLLY_WITH_DEPENDENCIES}
+)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
