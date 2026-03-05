@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <vector>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/plan/VeloxPlanChecker.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
@@ -39,7 +40,8 @@ class VeloxQueryPlanConverterBase {
   virtual velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-      const protocol::TaskId& taskId);
+      const protocol::TaskId& taskId,
+      bool validatePlan = false);
 
   // visible for testing
   velox::core::PlanNodePtr toVeloxQueryPlan(
@@ -232,10 +234,19 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
+  template <typename T>
+  std::shared_ptr<T> validateNode(std::shared_ptr<T>&& node) const;
+
   velox::memory::MemoryPool* const pool_;
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
   TypeParser typeParser_;
+  // Enable plan validation during conversion. Validation is only enabled for
+  // sidecar plan checks and interactive query execution where we want to fail
+  // fast on unsupported plans. Batch task execution disables this to avoid
+  // unnecessary validation overhead on the task execution path.
+  bool validatePlan_ = false;
+  VeloxPlanChecker veloxPlanChecker_;
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
@@ -274,7 +285,8 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
-      const protocol::TaskId& taskId) override;
+      const protocol::TaskId& taskId,
+      bool validatePlan = false) override;
 
  protected:
   velox::core::PlanNodePtr toVeloxQueryPlan(

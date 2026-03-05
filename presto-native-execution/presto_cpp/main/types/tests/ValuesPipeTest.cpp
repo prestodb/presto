@@ -15,7 +15,7 @@
 #include <ios>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/exec/Operator.h"
 #include "velox/type/Type.h"

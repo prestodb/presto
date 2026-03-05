@@ -11,19 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "presto_cpp/main/plan/VeloxPlanChecker.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
+#include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
 
 using namespace facebook::velox;
 
 namespace facebook::presto {
 
-protocol::PlanConversionResponse prestoToVeloxPlanConversion(
+VeloxPlanChecker::VeloxPlanChecker()
+    : failOnNestedLoopJoin_(
+          SystemConfig::instance()
+              ->optionalProperty<bool>(
+                  SystemConfig::kPlanValidatorFailOnNestedLoopJoin)
+              .value_or(false)) {}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::NestedLoopJoinNode* /*node*/) const {
+  return !failOnNestedLoopJoin_;
+}
+
+protocol::PlanConversionResponse VeloxPlanChecker::checkPlanFragment(
     const std::string& planFragmentJson,
-    memory::MemoryPool* pool,
-    VeloxPlanValidator* planValidator) {
+    velox::memory::MemoryPool* pool) {
   protocol::PlanConversionResponse response;
 
   try {
@@ -36,10 +49,7 @@ protocol::PlanConversionResponse prestoToVeloxPlanConversion(
     protocol::TaskId taskId = "velox-plan-conversion.0.0.0.0";
     auto tableWriteInfo = std::make_shared<protocol::TableWriteInfo>();
 
-    // Attempt to convert the plan fragment to a Velox plan.
-    auto veloxPlan =
-        converter.toVeloxQueryPlan(planFragment, tableWriteInfo, taskId);
-    planValidator->validatePlanFragment(veloxPlan);
+    converter.toVeloxQueryPlan(planFragment, tableWriteInfo, taskId, true);
   } catch (const VeloxException& e) {
     response.failures.emplace_back(
         toNativeSidecarFailureInfo(translateToPrestoException(e)));

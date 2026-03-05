@@ -15,10 +15,10 @@
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanConsistencyChecker.h"
 
 namespace facebook::presto {
@@ -337,7 +337,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             queryCtx.get(),
             pool_);
         auto planFragment = converter.toVeloxQueryPlan(
-            prestoPlan, updateRequest.tableWriteInfo, taskId);
+            prestoPlan, updateRequest.tableWriteInfo, taskId, false);
         if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
           velox::core::PlanConsistencyChecker::check(planFragment.planNode);
         }
@@ -386,11 +386,10 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
 
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
-              prestoPlan, updateRequest.tableWriteInfo, taskId);
+              prestoPlan, updateRequest.tableWriteInfo, taskId, true);
           if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
-          planValidator_->validatePlanFragment(planFragment);
         }
 
         return taskManager_.createOrUpdateTask(

@@ -13,20 +13,32 @@
  */
 #pragma once
 
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/memory/MemoryPool.h"
+#include "velox/core/PlanFragment.h"
+#include "velox/core/PlanNode.h"
 
 namespace facebook::presto {
 
-/// Convert a Presto plan fragment to a Velox Plan. If the conversion fails,
-/// the failure info will be included in the response.
-/// @param planFragmentJson string that will parse as protocol::PlanFragment.
-/// @param pool MemoryPool used during conversion.
-/// @param planValidator VeloxPlanValidator to validate the converted plan.
-protocol::PlanConversionResponse prestoToVeloxPlanConversion(
-    const std::string& planFragmentJson,
-    velox::memory::MemoryPool* pool,
-    VeloxPlanValidator* planValidator);
+class VeloxPlanChecker {
+ public:
+  VeloxPlanChecker();
+
+  static protocol::PlanConversionResponse checkPlanFragment(
+      const std::string& planFragmentJson,
+      velox::memory::MemoryPool* pool);
+
+  /// Add overloads of this method for different plan node types as needed.
+  /// By default, all plan nodes are considered valid.
+  template <typename T>
+  bool isValidPlanNode(const T* /*node*/) const {
+    return true;
+  }
+
+  bool isValidPlanNode(const velox::core::NestedLoopJoinNode* node) const;
+
+ private:
+  bool failOnNestedLoopJoin_;
+};
 
 } // namespace facebook::presto
