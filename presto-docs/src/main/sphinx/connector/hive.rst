@@ -41,7 +41,7 @@ The following file types are supported for the Hive connector:
 Hive Metastore
 --------------
 
-The Hive Metastore is a central metadata repository that the Hive connector uses to access table definitions, partition information, 
+The Hive Metastore is a central metadata repository that the Hive connector uses to access table definitions, partition information,
 and other structural details about your Hive tables.
 
 The Hive Metastore:
@@ -56,7 +56,7 @@ See the `Metastore <https://hive.apache.org/development/desingdocs/design/#metas
 Additional Resources for Metastore Configuration
 ------------------------------------------------
 
-* `Metastore Configuration Properties`_ 
+* `Metastore Configuration Properties`_
 * `How to invalidate metastore cache?`_
 * :ref:`installation/deployment:File-Based Metastore`
 * :doc:`/connector/hive-security`
@@ -140,8 +140,8 @@ see :doc:`/connector/hive-security`.
 File-Based Metastore
 ^^^^^^^^^^^^^^^^^^^^
 
-For testing or development purposes, this connector can be configured to use a local 
-filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+For testing or development purposes, this connector can be configured to use a local
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.
 
 Hive Configuration Properties
 -----------------------------
@@ -172,7 +172,7 @@ Property Name                                            Description            
 ``hive.compression-codec``                               The compression codec to use when writing files. The         ``GZIP``
                                                          available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                          ``LZ4``, and ``ZSTD``.
-                                                         
+
                                                          Note: ``LZ4`` is only available when
                                                          ``hive.storage-format=ORC``. ``ZSTD`` is available
                                                          for both ``ORC`` and ``PARQUET`` formats.
@@ -237,9 +237,9 @@ Property Name                                            Description            
                                                          CopyOnFirstWriteConfiguration, it can result in silent
                                                          failures where critical configuration properties are not
                                                          correctly propagated.
-                                                         
+
  ``hive.orc.use-column-names``                           Enable accessing ORC columns by name in the ORC file         ``false``
-                                                         metadata, instead of their ordinal position. Also toggleable 
+                                                         metadata, instead of their ordinal position. Also toggleable
                                                          through the ``hive.orc_use_column_names`` session property.
 ======================================================== ============================================================ ============
 
@@ -251,6 +251,17 @@ Hive Session Properties
 ======================================================== ============================================================ ============
 Property Name                                            Description                                                  Default
 ======================================================== ============================================================ ============
+``file_metadata_cache_enabled``                          Whether to cache file metadata (footer, stripes, index) in   ``false``
+                                                         the process-wide AsyncDataCache for zero-IO warm path.
+                                                         When enabled, the first reader performs a speculative tail
+                                                         read and populates the cache; subsequent readers on the
+                                                         same file serve metadata from cache with zero file IO.
+                                                         Currently only supported by Nimble format.
+``nimble_footer_speculative_io_size``                    Speculative tail-read size when opening Nimble files.        ``8MB``
+                                                         Controls how many bytes are read from the end of the file
+                                                         to load the footer and nearby metadata in a single IO
+                                                         operation. Set to 0 for adaptive mode that reads postscript
+                                                         first, then exact footer size.
 ``native_max_target_file_size``                          Native Execution only. Maximum target file size. When a      ``0B``
                                                          file exceeds this size during writing, the writer will
                                                          close the current file and start writing to a new file.
@@ -1300,19 +1311,19 @@ SQL DELETE
 CSV Format Type Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When creating tables with CSV format, all columns must be defined as ``VARCHAR`` due to 
-the underlying OpenCSVSerde limitations. `OpenCSVSerde <https://github.com/apache/hive/blob/master/serde/src/java/org/apache/hadoop/hive/serde2/OpenCSVSerde.java>`_ deserializes all CSV columns 
+When creating tables with CSV format, all columns must be defined as ``VARCHAR`` due to
+the underlying OpenCSVSerde limitations. `OpenCSVSerde <https://github.com/apache/hive/blob/master/serde/src/java/org/apache/hadoop/hive/serde2/OpenCSVSerde.java>`_ deserializes all CSV columns
 as strings only. Using any other data type will result in an error similar to the following::
 
-  CREATE TABLE hive.csv.csv_fail ( 
-    id BIGINT, 
-    value INT, 
+  CREATE TABLE hive.csv.csv_fail (
+    id BIGINT,
+    value INT,
     date_col DATE
   ) with ( format = 'CSV' ) ;
 
 .. code-block:: none
 
-    Query failed: Hive CSV storage format only supports VARCHAR (unbounded). 
+    Query failed: Hive CSV storage format only supports VARCHAR (unbounded).
     Unsupported columns: id integer, value integer, date_col date
 
 To work with other data types when using CSV format:
@@ -1332,7 +1343,7 @@ Example::
 
     -- Then create a view with the proper data types
     CREATE VIEW hive.csv.csv_data_view AS
-    SELECT 
+    SELECT
         CAST(id AS BIGINT) AS id,
         CAST(value AS INT) AS value,
         CAST(date_col AS DATE) AS date_col
@@ -1340,7 +1351,7 @@ Example::
 
     -- OR another table with the proper data types
     CREATE TABLE hive.csv.csv_data_cast AS
-    SELECT 
+    SELECT
         CAST(id AS BIGINT) AS id,
         CAST(value AS INT) AS value,
         CAST(date_col AS DATE) AS date_col
