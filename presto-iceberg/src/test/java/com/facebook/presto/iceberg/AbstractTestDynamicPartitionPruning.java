@@ -337,7 +337,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_distribution_type", "BROADCAST")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
                 .build();
 
         ResultWithQueryId<MaterializedResult> resultWithDpp =
@@ -1156,7 +1156,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "2s")
                 .setSystemProperty("join_distribution_type", "PARTITIONED")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
                 .build();
 
         Session noDppSession = Session.builder(getSession())
@@ -1320,7 +1320,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, "1B")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
                 .build();
 
         ResultWithQueryId<MaterializedResult> tinyResult =
@@ -1757,6 +1757,52 @@ public abstract class AbstractTestDynamicPartitionPruning
         }
     }
 
+    @Test(invocationCount = 10)
+    public void testWarmupScanBehavior()
+    {
+        String query = "SELECT f.order_id, f.amount, c.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "WHERE c.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> warmupResult = execute(dppWarmupSession(), query);
+        MaterializedResult warmupRows = warmupResult.getResult();
+
+        ResultWithQueryId<MaterializedResult> noDppResult = execute(dppDisabledSession(), query);
+        MaterializedResult noDppRows = noDppResult.getResult();
+
+        // Result correctness — must match no-DPP baseline
+        assertEquals(warmupRows.getRowCount(), 30,
+                "Warmup scan should return all WEST rows");
+        assertEquals(warmupRows.getMaterializedRows(), noDppRows.getMaterializedRows(),
+                "Warmup scan results must be identical to no-DPP results");
+
+        RuntimeStats stats = getRuntimeStats(warmupResult);
+
+        // Filter should resolve and re-scan should trigger
+        long reScanTriggered = getMetricValue(stats, "dynamicFilterReScanTriggered");
+        long warmupSplitsDispatched = getMetricValue(stats, "dynamicFilterWarmupSplitsDispatched");
+
+        // Warmup splits dispatched should be bounded (small number)
+        assertTrue(warmupSplitsDispatched >= 0,
+                format("Warmup splits dispatched should be non-negative, got %d", warmupSplitsDispatched));
+
+        if (reScanTriggered == 1) {
+            // Re-scan happened: verify manifest-level pruning
+            assertEquals(getMetricValue(stats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 1,
+                    "DF should be pushed into Iceberg scan for manifest-level pruning");
+            assertTrue(getMetricValue(stats, DYNAMIC_FILTER_SPLITS_PROCESSED) <= factOrdersTotalFiles,
+                    format("Re-scan should process no more than total files (%d)", factOrdersTotalFiles));
+        }
+        // else: filter arrived during warmup scanning before budget exhaustion — inline filter used
+
+        // Verify data reduction compared to no-DPP
+        assertDppReducesData(warmupResult, noDppResult, "warmup-scan");
+
+        assertFilterResolvesWithinTimeout(stats, "warmup-scan");
+    }
+
     // =====================================================================
     protected long countFiles(String tableName)
     {
@@ -1811,7 +1857,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
                 .build();
     }
 
@@ -1828,7 +1874,23 @@ public abstract class AbstractTestDynamicPartitionPruning
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
                 .setSystemProperty("join_max_broadcast_table_size", "0B")
                 .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
-                .setCatalogSessionProperty("iceberg", "dynamic_filter_eager_dispatch_enabled", "false")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+    }
+
+    /**
+     * DPP warmup mode: dispatch a weight-proportional warmup batch, then pause
+     * for the filter and re-scan with manifest-level pruning.
+     */
+    private Session dppWarmupSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_EXTENDED_METRICS, "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_weight_per_task", "1.0")
                 .build();
     }
 

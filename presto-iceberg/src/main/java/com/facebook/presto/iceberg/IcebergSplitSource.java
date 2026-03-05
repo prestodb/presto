@@ -51,9 +51,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -71,9 +73,10 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getDynamicFilterWarmupWeightPerTask;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.isDynamicFilterEagerDispatchEnabled;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isDynamicFilterExtendedMetrics;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isDynamicFilterWarmupEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
@@ -95,8 +98,44 @@ public class IcebergSplitSource
     private enum State
     {
         WAITING_FOR_FILTER,
+        WARMUP_SCANNING,
+        WARMUP_PAUSED,
         SCANNING_UNFILTERED,
         SCANNING_FILTERED
+    }
+
+    /**
+     * Key for deduplicating warmup splits during filtered re-scan.
+     */
+    private static final class SplitKey
+    {
+        private final String path;
+        private final long start;
+
+        SplitKey(String path, long start)
+        {
+            this.path = requireNonNull(path, "path is null");
+            this.start = start;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SplitKey splitKey = (SplitKey) o;
+            return start == splitKey.start && path.equals(splitKey.path);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(path, start);
+        }
     }
 
     private CloseableIterator<FileScanTask> fileScanTaskIterator;
@@ -112,7 +151,7 @@ public class IcebergSplitSource
     private final DynamicFilter dynamicFilter;
     private final TableScan tableScan;
     private final Schema tableSchema;
-    private final boolean eagerDispatchEnabled;
+    private final boolean warmupEnabled;
     private State state;
 
     private final RuntimeStats runtimeStats;
@@ -131,9 +170,20 @@ public class IcebergSplitSource
     private Map<Integer, Evaluator> partitionEvaluatorCache;
     private boolean inlineFilterActive;
 
+    // Warmup state
+    private final long warmupMaxWeight;
+    private final double warmupWeightPerTask;
+    private Set<SplitKey> dispatchedSplitKeys;
+    private long warmupWeightDispatched;
+    private long warmupPauseStartNanos;
+
     // Metrics
     private long splitsBeforeFilter;
     private long splitsFilteredInline;
+    private long warmupSplitsDispatched;
+    private long reScanDedupSkipped;
+    private long reScanSplitsProduced;
+    private boolean reScanTriggered;
 
     public IcebergSplitSource(
             ConnectorSession session,
@@ -154,7 +204,8 @@ public class IcebergSplitSource
         this.runtimeStats = session.getRuntimeStats();
         this.dynamicFilterActive = dynamicFilter.getWaitTimeout().toMillis() > 0;
         this.extendedMetrics = isDynamicFilterExtendedMetrics(session);
-        this.eagerDispatchEnabled = isDynamicFilterEagerDispatchEnabled(session);
+        this.warmupEnabled = isDynamicFilterWarmupEnabled(session);
+        this.warmupWeightPerTask = getDynamicFilterWarmupWeightPerTask(session);
 
         if (dynamicFilterActive && !dynamicFilter.isComplete()) {
             Set<ColumnHandle> relevant = computeRelevantFilterColumns(
@@ -163,6 +214,16 @@ public class IcebergSplitSource
         }
         else {
             this.relevantFilterColumns = Optional.empty();
+        }
+
+        // Compute warmup budget: weightPerTask * taskCount * UNIT_VALUE
+        // e.g., weightPerTask=1.0, taskCount=4 → budget = 400 raw units = 4 standard splits
+        int taskCountHint = dynamicFilter.getTaskCountHint();
+        if (warmupEnabled && warmupWeightPerTask > 0 && taskCountHint > 0) {
+            this.warmupMaxWeight = Math.round(warmupWeightPerTask * SplitWeight.rawValueForStandardSplitCount(taskCountHint));
+        }
+        else {
+            this.warmupMaxWeight = 0;
         }
 
         if (dynamicFilter.isComplete()) {
@@ -176,12 +237,19 @@ public class IcebergSplitSource
             initializeScan();
             state = State.SCANNING_FILTERED;
         }
-        else if (eagerDispatchEnabled) {
-            // Start scanning immediately without filter — eager dispatch
+        else if (warmupEnabled && warmupMaxWeight > 0) {
+            // Warmup mode: dispatch limited initial batch, then pause for filter
+            initializeScan();
+            this.dispatchedSplitKeys = new HashSet<>();
+            filterWaitStartNanos = System.nanoTime();
+            dynamicFilter.isBlocked(relevantFilterColumns);
+            state = State.WARMUP_SCANNING;
+        }
+        else if (warmupEnabled) {
+            // warmupEnabled but no budget (warmupWeightPerTask=0 or taskCountHint=0)
+            // Fall back to full eager dispatch (existing SCANNING_UNFILTERED behavior)
             initializeScan();
             filterWaitStartNanos = System.nanoTime();
-            // Trigger startTimeout() on the underlying JoinDynamicFilter so
-            // timeout-based metrics (DYNAMIC_FILTER_TIMED_OUT) are emitted
             dynamicFilter.isBlocked(relevantFilterColumns);
             state = State.SCANNING_UNFILTERED;
         }
@@ -216,11 +284,47 @@ public class IcebergSplitSource
                 transitionFromBlocking();
             }
         }
+        else if (state == State.WARMUP_SCANNING) {
+            if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+                transitionToFilteredReScan();
+            }
+            else if (warmupWeightDispatched >= warmupMaxWeight) {
+                // Budget exhausted — pause and wait for filter
+                warmupPauseStartNanos = System.nanoTime();
+                state = State.WARMUP_PAUSED;
+                return handleWarmupPaused(maxSize);
+            }
+            // else: still within warmup budget, dispatch more splits
+        }
+        else if (state == State.WARMUP_PAUSED) {
+            return handleWarmupPaused(maxSize);
+        }
         else if (state == State.SCANNING_UNFILTERED) {
             if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
                 transitionToFilteredScanning();
             }
         }
+        return completedFuture(enumerateSplitBatch(maxSize));
+    }
+
+    private CompletableFuture<ConnectorSplitBatch> handleWarmupPaused(int maxSize)
+    {
+        if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+            transitionToFilteredReScan();
+            return completedFuture(enumerateSplitBatch(maxSize));
+        }
+
+        CompletableFuture<?> blocked = dynamicFilter.isBlocked(relevantFilterColumns);
+        if (!blocked.isDone()) {
+            return blocked.thenApply(ignored -> {
+                if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+                    transitionToFilteredReScan();
+                }
+                return state == State.SCANNING_FILTERED ? enumerateSplitBatch(maxSize) : EMPTY_BATCH_NOT_FINISHED;
+            });
+        }
+        // isBlocked() already done
+        transitionToFilteredReScan();
         return completedFuture(enumerateSplitBatch(maxSize));
     }
 
@@ -247,6 +351,28 @@ public class IcebergSplitSource
         state = State.SCANNING_FILTERED;
 
         if (dynamicFilterApplied) {
+            activateInlineFilter(dynamicFilter.getCurrentPredicate());
+        }
+    }
+
+    private void transitionToFilteredReScan()
+    {
+        recordFilterWaitTime();
+        if (warmupPauseStartNanos > 0 && extendedMetrics) {
+            long pauseNanos = System.nanoTime() - warmupPauseStartNanos;
+            runtimeStats.addMetricValue("dynamicFilterWarmupPauseNanos", NANO, pauseNanos);
+        }
+        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
+        state = State.SCANNING_FILTERED;
+
+        if (dynamicFilterApplied) {
+            reScanTriggered = true;
+            // Close current iterator, re-scan with manifest pruning
+            closeCurrentIterator();
+            initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
+        }
+        else {
+            // Timeout — resume current iterator with inline filter
             activateInlineFilter(dynamicFilter.getCurrentPredicate());
         }
     }
@@ -366,6 +492,18 @@ public class IcebergSplitSource
                         .iterator());
     }
 
+    private void closeCurrentIterator()
+    {
+        if (fileScanTaskIterator != null) {
+            try {
+                fileScanTaskIterator.close();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
     /**
      * Determines which pending dynamic filter columns are discriminating for this table.
      * A column is discriminating if it is a partition column (any transform) or a sort column
@@ -474,13 +612,39 @@ public class IcebergSplitSource
                 continue;
             }
 
+            IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
+
+            // Dedup: skip warmup splits during filtered re-scan
+            if (dispatchedSplitKeys != null && state == State.SCANNING_FILTERED) {
+                SplitKey key = new SplitKey(icebergSplit.getPath(), icebergSplit.getStart());
+                if (dispatchedSplitKeys.remove(key)) {
+                    reScanDedupSkipped++;
+                    continue;
+                }
+                reScanSplitsProduced++;
+                if (dispatchedSplitKeys.isEmpty()) {
+                    dispatchedSplitKeys = null;
+                }
+            }
+
             if (state == State.SCANNING_UNFILTERED) {
                 splitsBeforeFilter++;
             }
 
-            IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
+            if (state == State.WARMUP_SCANNING) {
+                warmupSplitsDispatched++;
+                warmupWeightDispatched += icebergSplit.getSplitWeight().getRawValue();
+                dispatchedSplitKeys.add(new SplitKey(icebergSplit.getPath(), icebergSplit.getStart()));
+                splitsBeforeFilter++;
+            }
+
             if (metadataColumnsMatchPredicates(metadataColumnConstraints, icebergSplit.getPath(), icebergSplit.getDataSequenceNumber())) {
                 splits.add(icebergSplit);
+            }
+
+            // Check warmup budget after adding the split (don't break mid-batch for partial weight)
+            if (state == State.WARMUP_SCANNING && warmupWeightDispatched >= warmupMaxWeight) {
+                break;
             }
         }
         return new ConnectorSplitBatch(splits, isFinished());
@@ -501,8 +665,9 @@ public class IcebergSplitSource
         closed = true;
 
         if (dynamicFilterActive) {
-            // SPLITS_PROCESSED: files dispatched as splits (excluding inline-filtered)
-            runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_PROCESSED, NONE, splitsExamined - splitsFilteredInline);
+            // SPLITS_PROCESSED: files dispatched as splits (excluding inline-filtered and dedup-skipped)
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_PROCESSED, NONE,
+                    splitsExamined - splitsFilteredInline - reScanDedupSkipped);
 
             // SPLITS_BEFORE_FILTER: files dispatched without the benefit of dynamic filter
             long effectiveSplitsBeforeFilter;
@@ -515,13 +680,18 @@ public class IcebergSplitSource
                 effectiveSplitsBeforeFilter = splitsExamined;
             }
             else {
-                // Filter was applied mid-stream — count eagerly dispatched splits
+                // Filter was applied — count warmup or eagerly dispatched splits
                 effectiveSplitsBeforeFilter = splitsBeforeFilter;
             }
             runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_BEFORE_FILTER, NONE, effectiveSplitsBeforeFilter);
 
             if (extendedMetrics) {
                 runtimeStats.addMetricValue("dynamicFilterSplitsFilteredInline", NONE, splitsFilteredInline);
+                runtimeStats.addMetricValue("dynamicFilterWarmupSplitsDispatched", NONE, warmupSplitsDispatched);
+                runtimeStats.addMetricValue("dynamicFilterWarmupWeightDispatched", NONE, warmupWeightDispatched);
+                runtimeStats.addMetricValue("dynamicFilterReScanTriggered", NONE, reScanTriggered ? 1 : 0);
+                runtimeStats.addMetricValue("dynamicFilterReScanDedupSkipped", NONE, reScanDedupSkipped);
+                runtimeStats.addMetricValue("dynamicFilterReScanSplitsProduced", NONE, reScanSplitsProduced);
             }
         }
 

@@ -50,6 +50,7 @@ public class TableScanDynamicFilter
     private final List<JoinDynamicFilter> filters;
     private final Map<String, ColumnHandle> columnNameToHandle;
     private final Duration waitTimeout;
+    private volatile int taskCountHint;
 
     public TableScanDynamicFilter(List<JoinDynamicFilter> filters, Map<String, ColumnHandle> columnNameToHandle)
     {
@@ -76,6 +77,17 @@ public class TableScanDynamicFilter
     public List<JoinDynamicFilter> getFilters()
     {
         return filters;
+    }
+
+    public void setTaskCountHint(int taskCountHint)
+    {
+        this.taskCountHint = taskCountHint;
+    }
+
+    @Override
+    public int getTaskCountHint()
+    {
+        return taskCountHint;
     }
 
     @Override

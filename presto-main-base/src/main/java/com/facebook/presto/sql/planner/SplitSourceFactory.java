@@ -111,6 +111,7 @@ public class SplitSourceFactory
     private final WarningCollector warningCollector;
     private final DynamicFilterService dynamicFilterService;
     private final Metadata metadata;
+    private final List<TableScanDynamicFilter> createdDynamicFilters = new ArrayList<>();
 
     public SplitSourceFactory(
             SplitSourceProvider splitSourceProvider,
@@ -318,6 +319,17 @@ public class SplitSourceFactory
         }
     }
 
+    /**
+     * Sets the task count hint on all TableScanDynamicFilter instances created by
+     * {@link #createSplitSources}. Call this once the scheduler determines the node count.
+     */
+    public void setTaskCountHint(int taskCountHint)
+    {
+        for (TableScanDynamicFilter filter : createdDynamicFilters) {
+            filter.setTaskCountHint(taskCountHint);
+        }
+    }
+
     private static void closeSplitSource(SplitSource source)
     {
         try {
@@ -400,7 +412,9 @@ public class SplitSourceFactory
                                 }
                             }
                         }
-                        dynamicFilter = new TableScanDynamicFilter(matchingFilters, columnNameToHandle);
+                        TableScanDynamicFilter tableScanFilter = new TableScanDynamicFilter(matchingFilters, columnNameToHandle);
+                        createdDynamicFilters.add(tableScanFilter);
+                        dynamicFilter = tableScanFilter;
                     }
                 }
             }

@@ -74,7 +74,8 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
     public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
     private static final String DYNAMIC_FILTER_EXTENDED_METRICS = "dynamic_filter_extended_metrics";
-    private static final String DYNAMIC_FILTER_EAGER_DISPATCH_ENABLED = "dynamic_filter_eager_dispatch_enabled";
+    private static final String DYNAMIC_FILTER_WARMUP_ENABLED = "dynamic_filter_warmup_enabled";
+    private static final String DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK = "dynamic_filter_warmup_weight_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -251,9 +252,15 @@ public final class IcebergSessionProperties
                         icebergConfig.isDynamicFilterExtendedMetrics(),
                         false))
                 .add(booleanProperty(
-                        DYNAMIC_FILTER_EAGER_DISPATCH_ENABLED,
-                        "When enabled, dispatch splits immediately without waiting for the dynamic filter to resolve",
-                        icebergConfig.isDynamicFilterEagerDispatchEnabled(),
+                        DYNAMIC_FILTER_WARMUP_ENABLED,
+                        "When enabled, dispatch a warmup batch of splits before pausing for the dynamic filter",
+                        icebergConfig.isDynamicFilterWarmupEnabled(),
+                        false))
+                .add(doubleProperty(
+                        DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK,
+                        "Split weight per task to dispatch during warmup before pausing for the dynamic filter. " +
+                                "Multiplied by task count to compute total warmup budget. 0 disables warmup budget (full eager dispatch).",
+                        icebergConfig.getDynamicFilterWarmupWeightPerTask(),
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -414,8 +421,13 @@ public final class IcebergSessionProperties
         return session.getProperty(DYNAMIC_FILTER_EXTENDED_METRICS, Boolean.class);
     }
 
-    public static boolean isDynamicFilterEagerDispatchEnabled(ConnectorSession session)
+    public static boolean isDynamicFilterWarmupEnabled(ConnectorSession session)
     {
-        return session.getProperty(DYNAMIC_FILTER_EAGER_DISPATCH_ENABLED, Boolean.class);
+        return session.getProperty(DYNAMIC_FILTER_WARMUP_ENABLED, Boolean.class);
+    }
+
+    public static double getDynamicFilterWarmupWeightPerTask(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTER_WARMUP_WEIGHT_PER_TASK, Double.class);
     }
 }

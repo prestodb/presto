@@ -335,6 +335,8 @@ public class SectionExecutionFactory
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
+            splitSourceFactory.setTaskCountHint(nodeSelector.getActiveNodes().size());
+
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
             boolean hasDpp = isDistributedDynamicFilterEnabled(session)
                     && !dynamicFilterService.getAllFiltersForQuery(session.getQueryId()).isEmpty();
@@ -376,6 +378,8 @@ public class SectionExecutionFactory
             if (!splitSources.isEmpty() && (plan.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION))) {
                 NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null, nodePredicate);
                 List<InternalNode> nodes = nodeSelector.selectRandomNodes(1);
+
+                splitSourceFactory.setTaskCountHint(nodes.size());
 
                 if (isDistributedDynamicFilterEnabled(session)) {
                     setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), nodes.size());
@@ -440,6 +444,8 @@ public class SectionExecutionFactory
                     stageNodeList = nodePartitionMap.getPartitionToNode();
                     bucketNodeMap = nodePartitionMap.asBucketNodeMap();
                 }
+
+                splitSourceFactory.setTaskCountHint(stageNodeList.size());
 
                 if (isDistributedDynamicFilterEnabled(session)) {
                     setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), stageNodeList.size());

@@ -71,6 +71,30 @@ public interface DynamicFilter
         }
 
         @Override
+        public int getTaskCountHint()
+        {
+            return 0;
+        }
+
+        @Override
+        public Set<ColumnHandle> getPendingFilterColumns()
+        {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public CompletableFuture<?> isBlocked(Optional<Set<ColumnHandle>> relevantColumns)
+        {
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns)
+        {
+            return true;
+        }
+
+        @Override
         public String toString()
         {
             return "DynamicFilter.EMPTY";
@@ -91,31 +115,29 @@ public interface DynamicFilter
     CompletableFuture<?> isBlocked();
 
     /**
+     * Returns a hint for the number of tasks that will consume splits from this scan.
+     * Connectors can use this to compute weight-based warmup budgets (e.g., warmup splits
+     * per task). Returns 0 if the task count is unknown.
+     */
+    int getTaskCountHint();
+
+    /**
      * Returns column handles targeted by pending (not yet resolved) dynamic filters.
      * Allows connectors to pre-evaluate column discriminating power before values arrive.
      */
-    default Set<ColumnHandle> getPendingFilterColumns()
-    {
-        return Collections.emptySet();
-    }
+    Set<ColumnHandle> getPendingFilterColumns();
 
     /**
      * Returns a future that completes when any filter on a relevant column resolves.
      * Filters on columns NOT in relevantColumns are not waited on.
      * {@code Optional.empty()} means all columns are relevant and delegates to {@link #isBlocked()}.
      */
-    default CompletableFuture<?> isBlocked(Optional<Set<ColumnHandle>> relevantColumns)
-    {
-        return isBlocked();
-    }
+    CompletableFuture<?> isBlocked(Optional<Set<ColumnHandle>> relevantColumns);
 
     /**
      * Returns true if all filters on relevant columns are complete.
      * Filters on irrelevant columns are treated as already complete.
      * {@code Optional.empty()} means all columns are relevant and delegates to {@link #isComplete()}.
      */
-    default boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns)
-    {
-        return isComplete();
-    }
+    boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns);
 }
