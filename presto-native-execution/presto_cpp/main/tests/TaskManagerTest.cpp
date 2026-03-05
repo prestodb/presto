@@ -245,12 +245,8 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     taskManager_ = std::make_unique<TaskManager>(
         driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
 
-    auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
-        pool_.get(),
-        httpSrvCpuExecutor_.get(),
-        validator.get(),
-        *taskManager_.get());
+        pool_.get(), httpSrvCpuExecutor_.get(), *taskManager_.get());
 
     auto httpServer = std::make_unique<http::HttpServer>(
         httpSrvIOExecutor_,

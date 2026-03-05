@@ -20,7 +20,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(presto_velox_expr_conversion presto_to_velox_remote_functions)
 endif()
 
-add_library(presto_types PrestoToVeloxQueryPlan.cpp VeloxPlanValidator.cpp PrestoToVeloxSplit.cpp)
+add_library(presto_types PrestoToVeloxSplit.cpp)
 target_link_libraries(
   presto_types
   presto_velox_expr_conversion
@@ -33,9 +33,6 @@ target_link_libraries(
 )
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
-
-add_library(presto_velox_plan_conversion OBJECT VeloxPlanConversion.cpp)
-target_link_libraries(presto_velox_plan_conversion velox_type)
 
 add_library(presto_velox_to_presto_expr VeloxToPrestoExpr.cpp)
 
