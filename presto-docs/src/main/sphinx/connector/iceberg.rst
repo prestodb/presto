@@ -2224,11 +2224,26 @@ Querying branches and tags
 
 Iceberg supports branches and tags which are named references to snapshots.
 
-Query Iceberg table by specifying the branch name:
+Query Iceberg table by specifying the branch name using ``FOR SYSTEM_VERSION AS OF``:
 
 .. code-block:: sql
 
     SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testBranch';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
+
+Alternatively, you can query a branch using the dot notation syntax with quoted identifiers:
+
+.. code-block:: sql
+
+    SELECT * FROM "nation.branch_testBranch";
 
 .. code-block:: text
 
@@ -2252,6 +2267,8 @@ Query Iceberg table by specifying the tag name:
             10 | united states |         1 | comment
             20 | canada        |         2 | comment
     (3 rows)
+
+**Note:** The dot notation syntax ``"<table>.branch_<branch_name>"`` requires double quotes to prevent the SQL parser from interpreting the dot as a schema.table separator. This syntax works for both querying (SELECT) and mutating (INSERT, UPDATE, DELETE, MERGE) branch data.
 
 Mutating Iceberg Branches
 ^^^^^^^^^^^^^^^^^^^^^^^^^
