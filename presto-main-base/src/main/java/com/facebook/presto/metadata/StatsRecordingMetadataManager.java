@@ -29,6 +29,7 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.MergeHandle;
 import com.facebook.presto.spi.NewTableLayout;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
@@ -193,6 +194,18 @@ public class StatsRecordingMetadataManager
         finally {
             stats.recordFinishCreateTableCall(System.nanoTime() - startTime);
         }
+    }
+
+    @Override
+    public OutputTableHandle beginCreateVectorIndex(Session session, String catalogName, ConnectorTableMetadata indexMetadata, Optional<NewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        return delegate.beginCreateVectorIndex(session, catalogName, indexMetadata, layout, sourceTableName);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return delegate.finishCreateVectorIndex(session, tableHandle, fragments, computedStatistics);
     }
 
     @Override
