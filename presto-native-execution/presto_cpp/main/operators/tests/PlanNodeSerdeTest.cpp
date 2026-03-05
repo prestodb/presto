@@ -14,7 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"

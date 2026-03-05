@@ -22,6 +22,7 @@ target_link_libraries(
   GTest::gtest_main
   presto_connectors
   presto_operators
+  presto_velox_plan
   presto_protocol
   velox_dwio_common
   velox_dwio_orc_reader
@@ -58,6 +59,7 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   presto_connectors
+  presto_velox_plan
   presto_protocol
   presto_type_converter
   presto_types
@@ -90,6 +92,7 @@ add_test(
 target_link_libraries(
   presto_to_velox_connector_test
   presto_connectors
+  presto_velox_plan
   presto_protocol
   presto_operators
   presto_type_converter
@@ -118,6 +121,7 @@ add_test(
 target_link_libraries(
   presto_to_velox_query_plan_test
   presto_connectors
+  presto_velox_plan
   presto_operators
   presto_protocol
   presto_type_converter
@@ -146,6 +150,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(
     presto_to_rest_function_test
     presto_velox_expr_conversion
+    presto_velox_plan
     presto_protocol
     presto_types
     GTest::gtest
