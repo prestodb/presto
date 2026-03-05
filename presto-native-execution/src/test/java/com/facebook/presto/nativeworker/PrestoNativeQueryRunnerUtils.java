@@ -135,6 +135,7 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean failOnNestedLoopJoin;
         private boolean implicitCastCharNToVarchar;
+        private boolean cudfEnabled;
         // External worker launcher is applicable only for the native hive query runner, since it depends on other
         // properties it should be created once all the other query runner configs are set. This variable indicates
         // whether the query runner returned by builder should use an external worker launcher, it will be true only
@@ -187,6 +188,12 @@ public class PrestoNativeQueryRunnerUtils
         public HiveQueryRunnerBuilder setFailOnNestedLoopJoin(boolean failOnNestedLoopJoin)
         {
             this.failOnNestedLoopJoin = failOnNestedLoopJoin;
+            return this;
+        }
+
+        public HiveQueryRunnerBuilder setCudfEnabled(boolean cudfEnabled)
+        {
+            this.cudfEnabled = cudfEnabled;
             return this;
         }
 
@@ -294,7 +301,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
+                        pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar, cudfEnabled);
             }
             return HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
@@ -431,7 +438,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -554,7 +561,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("delta", "delta", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, false);
             }
             DeltaQueryRunner.Builder builder = DeltaQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -660,7 +667,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean isBuiltInWorkerFunctionsEnabled,
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache,
-            boolean implicitCastCharNToVarchar)
+            boolean implicitCastCharNToVarchar,
+            boolean cudfEnabled)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
@@ -719,6 +727,10 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (implicitCastCharNToVarchar) {
                             configProperties = format("%s%n" + "char-n-to-varchar-implicit-cast=true%n", configProperties);
+                        }
+
+                        if (cudfEnabled) {
+                            configProperties = format("%s%n" + "cudf.enabled=true%n", configProperties);
                         }
 
                         Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());

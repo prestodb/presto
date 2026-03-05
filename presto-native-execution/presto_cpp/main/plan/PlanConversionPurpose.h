@@ -12,12 +12,10 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/core/PlanFragment.h"
 
 namespace facebook::presto {
-class VeloxPlanValidator {
- public:
-  virtual void validatePlanFragment(const velox::core::PlanFragment& fragment);
-  virtual ~VeloxPlanValidator() = default;
-};
+
+/// Specifies the purpose of plan conversion.
+enum class PlanConversionPurpose { kExecution, kValidation };
+
 } // namespace facebook::presto
