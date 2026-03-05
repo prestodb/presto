@@ -2544,4 +2544,27 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate("DROP TABLE test_tstz_io");
         }
     }
+
+    @Test
+    public void testPushdownSubfieldsWithDml()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = Session.builder(getSession())
+                .setSystemProperty("pushdown_subfields_enabled", "true")
+                .build();
+        try {
+            queryRunner.execute("CREATE TABLE test_pushdown_subfields_dml(a INTEGER, b VARCHAR, c VARCHAR)");
+            queryRunner.execute("INSERT INTO test_pushdown_subfields_dml VALUES (1, 'x', 'p'), (2, 'y', 'q'), (3, 'z', 'r')");
+
+            assertUpdate(session, "UPDATE test_pushdown_subfields_dml SET a = 10 WHERE c = 'q'", 1);
+            assertQuery("SELECT a, b, c FROM test_pushdown_subfields_dml WHERE c = 'q'", "VALUES (10, 'y', 'q')");
+
+            assertUpdate(session, "UPDATE test_pushdown_subfields_dml SET a = 20 WHERE c = 'nonexistent'", 0);
+            assertUpdate("DELETE FROM test_pushdown_subfields_dml WHERE c = 'r'", 1);
+            assertQuery("SELECT a, b, c FROM test_pushdown_subfields_dml ORDER BY a", "VALUES (1, 'x', 'p'), (10, 'y', 'q')");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_pushdown_subfields_dml");
+        }
+    }
 }
