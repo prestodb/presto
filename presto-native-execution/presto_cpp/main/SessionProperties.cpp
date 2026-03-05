@@ -630,6 +630,17 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kAggregationCompactionUnusedMemoryRatio,
       std::to_string(c.aggregationCompactionUnusedMemoryRatio()));
+
+  addSessionProperty(
+      kAggregationMemoryCompactionReclaimEnabled,
+      "If true, enables lightweight memory compaction before spilling during "
+      "memory reclaim in aggregation. When enabled, the aggregation operator "
+      "will try to compact aggregate function state (for example, free dead strings) "
+      "before resorting to spilling. Disabled by default.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kAggregationMemoryCompactionReclaimEnabled,
+      boolToString(c.aggregationMemoryCompactionReclaimEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

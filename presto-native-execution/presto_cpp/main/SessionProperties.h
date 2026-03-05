@@ -409,6 +409,13 @@ class SessionProperties {
   static constexpr const char* kAggregationCompactionUnusedMemoryRatio =
       "native_aggregation_compaction_unused_memory_ratio";
 
+  /// If true, enables lightweight memory compaction before spilling during
+  /// memory reclaim in aggregation. When enabled, the aggregation operator
+  /// will try to compact aggregate function state (e.g., free dead strings)
+  /// before resorting to spilling. Disabled by default.
+  static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
+      "native_aggregation_memory_compaction_reclaim_enabled";
+
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
     if (sessionProperty == sessionProperties_.end()) {

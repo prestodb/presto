@@ -91,6 +91,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_USE_VELOX_GEOSPATIAL_JOIN = "native_use_velox_geospatial_join";
     public static final String NATIVE_AGGREGATION_COMPACTION_BYTES_THRESHOLD = "native_aggregation_compaction_bytes_threshold";
     public static final String NATIVE_AGGREGATION_COMPACTION_UNUSED_MEMORY_RATIO = "native_aggregation_compaction_unused_memory_ratio";
+    public static final String NATIVE_AGGREGATION_MEMORY_COMPACTION_RECLAIM_ENABLED = "native_aggregation_memory_compaction_reclaim_enabled";
     public static final String NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE = "native_merge_join_output_batch_start_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -457,6 +458,13 @@ public class NativeWorkerSessionPropertyProvider
                                 "The value is in the range of [0, 1). NOTE: Currently only applies to approx_most_frequent " +
                                 "aggregate with StringView type during global aggregation.",
                         0.25,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_AGGREGATION_MEMORY_COMPACTION_RECLAIM_ENABLED,
+                        "If true, enables lightweight memory compaction before spilling during " +
+                                "memory reclaim in aggregation. When enabled, the aggregation operator " +
+                                "will try to compact aggregate function state before resorting to spilling.",
+                        false,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MERGE_JOIN_OUTPUT_BATCH_START_SIZE,
