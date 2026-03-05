@@ -1506,7 +1506,7 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
 #endif
 
-functions::aggregate::kll_sketch::registerAllKllSketchFunctions(
+functions::kll_sketch::registerAllKllSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 }
 
