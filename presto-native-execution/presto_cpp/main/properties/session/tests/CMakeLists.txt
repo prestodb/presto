@@ -10,14 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(session_properties_test SessionPropertiesTest.cpp)
+add_executable(presto_session_properties_test SessionPropertiesTest.cpp)
 
-add_test(NAME session_properties_test COMMAND session_properties_test)
+add_test(NAME presto_session_properties_test COMMAND presto_session_properties_test)
 
 target_link_libraries(
-  session_properties_test
+  presto_session_properties_test
   presto_session_properties
-  presto_protocol
+  $<TARGET_OBJECTS:presto_protocol>
   velox_core
   velox_exec
   velox_functions_prestosql
@@ -25,4 +25,31 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   ${FOLLY_WITH_DEPENDENCIES}
+  velox_dwio_common
+  velox_dwio_common_exception
 )
+
+if(PRESTO_ENABLE_CUDF)
+  add_executable(presto_cudf_session_properties_test CudfSessionPropertiesTest.cpp)
+
+  add_test(
+    NAME presto_cudf_session_properties_test
+    COMMAND presto_cudf_session_properties_test
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+
+  target_link_libraries(
+    presto_cudf_session_properties_test
+    presto_cudf_session_properties
+    $<TARGET_OBJECTS:presto_protocol>
+    velox_core
+    velox_cudf_exec
+    GTest::gmock
+    GTest::gtest
+    GTest::gtest_main
+    ${FOLLY_WITH_DEPENDENCIES}
+    velox_dwio_common
+    velox_dwio_common_exception
+    velox_hive_connector
+  )
+endif()
