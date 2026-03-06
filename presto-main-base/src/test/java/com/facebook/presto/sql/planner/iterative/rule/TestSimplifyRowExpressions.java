@@ -142,6 +142,40 @@ public class TestSimplifyRowExpressions
     }
 
     @Test
+    public void testSimplifyNestedIf()
+    {
+        // Basic: IF(X, IF(Y, V, null), null) → IF(X AND Y, V, null)
+        assertSimplifies(
+                "IF(X, IF(Y, V, CAST(null AS boolean)), CAST(null AS boolean))",
+                "IF(X AND Y, V)");
+
+        // Omitted ELSE (defaults to null): IF(X, IF(Y, V))
+        assertSimplifies(
+                "IF(X, IF(Y, V))",
+                "IF(X AND Y, V)");
+
+        // Triple nesting flattened in a single pass (bottom-up)
+        assertSimplifies(
+                "IF(X, IF(Y, IF(Z, V, CAST(null AS boolean)), CAST(null AS boolean)), CAST(null AS boolean))",
+                "IF((X AND Y) AND Z, V)");
+
+        // Matching non-null else branches: IF(X, IF(Y, V, Z), Z) → IF(X AND Y, V, Z)
+        assertSimplifies(
+                "IF(X, IF(Y, V, Z), Z)",
+                "IF(X AND Y, V, Z)");
+
+        // No simplification: else branches differ
+        assertSimplifies(
+                "IF(X, IF(Y, V, Z), A)",
+                "IF(X, IF(Y, V, Z), A)");
+
+        // No simplification: true branch is not an IF
+        assertSimplifies(
+                "IF(X, V, CAST(null AS boolean))",
+                "IF(X, V)");
+    }
+
+    @Test
     public void testCastBigintToBoundedVarchar()
     {
         // the varchar type length is enough to contain the number's representation
