@@ -47,7 +47,6 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
 std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
-    bool isPushdownFilterEnabled,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
@@ -100,7 +99,6 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
   return std::make_unique<velox::connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
-      isPushdownFilterEnabled,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
@@ -312,7 +310,6 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
   return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
-      icebergLayout->pushdownFilterEnabled,
       tableName,
       icebergLayout->dataColumns,
       tableHandle,

@@ -746,7 +746,6 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
 std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
-    bool isPushdownFilterEnabled,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
@@ -799,7 +798,6 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
   return std::make_unique<connector::hive::HiveTableHandle>(
       tableHandle.connectorId,
       tableName,
-      isPushdownFilterEnabled,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
