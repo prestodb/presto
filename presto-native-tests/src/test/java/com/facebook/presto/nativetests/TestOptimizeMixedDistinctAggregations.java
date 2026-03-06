@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestOptimizeMixedDistinctAggregations
@@ -54,9 +53,6 @@ public class TestOptimizeMixedDistinctAggregations
                 .setExtraCoordinatorProperties(
                         ImmutableMap.of("optimizer.optimize-mixed-distinct-aggregations", "true"))
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 

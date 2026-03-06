@@ -18,7 +18,6 @@ import com.facebook.presto.testing.QueryRunner;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
 public class NativeTestsUtils
 {
@@ -33,9 +32,6 @@ public class NativeTestsUtils
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 

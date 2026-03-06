@@ -95,23 +95,10 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        return (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
-        return queryRunner;
-    }
-
-    @Override
-    protected QueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setAddStorageFormatToPath(true)
-                .build();
-        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
-        return queryRunner;
     }
 
     public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
@@ -131,6 +118,17 @@ public class TestNativeSidecarPlugin
         queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
         queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
         queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
+    }
+
+    @Override
+    protected QueryRunner createExpectedQueryRunner()
+            throws Exception
+    {
+        QueryRunner queryRunner = PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
+                .setAddStorageFormatToPath(true)
+                .build();
+        queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+        return queryRunner;
     }
 
     @Test

@@ -49,7 +49,6 @@ public class TestNativeSidecarHiveCatalog
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
         queryRunner.loadFunctionNamespaceManager(
                 NativeFunctionNamespaceManagerFactory.NAME,
                 "hive",

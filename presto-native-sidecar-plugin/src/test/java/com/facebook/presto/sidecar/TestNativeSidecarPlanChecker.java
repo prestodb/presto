@@ -28,7 +28,6 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLine
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.String.format;
 
 @Test(singleThreaded = true)
@@ -53,7 +52,6 @@ public class TestNativeSidecarPlanChecker
                 .setCoordinatorSidecarEnabled(true)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8089"))
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
         queryRunner.getCoordinator().createCatalog("hive2", "hive");
         return queryRunner;
     }
