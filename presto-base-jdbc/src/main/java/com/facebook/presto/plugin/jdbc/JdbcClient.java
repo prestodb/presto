@@ -60,6 +60,9 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcIdentity identity, JdbcSplit split)
             throws SQLException;
 
+    Connection getConnection(JdbcIdentity identity)
+            throws SQLException;
+
     default void abortReadConnection(Connection connection)
             throws SQLException
     {
