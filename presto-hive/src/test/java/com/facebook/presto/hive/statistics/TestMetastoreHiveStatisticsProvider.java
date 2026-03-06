@@ -16,11 +16,13 @@ package com.facebook.presto.hive.statistics;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.HivePartitionManager;
 import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.OrcFileWriterConfig;
@@ -65,7 +67,6 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
-import static com.facebook.presto.hive.HivePartitionManager.parsePartition;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
@@ -109,6 +110,8 @@ public class TestMetastoreHiveStatisticsProvider
     private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty(), Optional.empty());
 
     private static final QuickStatsProvider quickStatsProvider = new QuickStatsProvider(new TestingExtendedHiveMetastore(), HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of());
+
+    private final HivePartitionManager hivePartitionManager = new HivePartitionManager(new TestingTypeManager(), new HiveClientConfig());
 
     @Test
     public void testGetPartitionsSample()
@@ -825,9 +828,9 @@ public class TestMetastoreHiveStatisticsProvider
         return format("Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s", TABLE, PARTITION, COLUMN, message);
     }
 
-    private static HivePartition partition(String name)
+    private HivePartition partition(String name)
     {
-        return parsePartition(TABLE, new PartitionNameWithVersion(name, Optional.empty()), ImmutableList.of(PARTITION_COLUMN_1, PARTITION_COLUMN_2), ImmutableList.of(VARCHAR, BIGINT), DateTimeZone.getDefault());
+        return hivePartitionManager.parsePartition(TABLE, new PartitionNameWithVersion(name, Optional.empty()), ImmutableList.of(PARTITION_COLUMN_1, PARTITION_COLUMN_2), ImmutableList.of(VARCHAR, BIGINT));
     }
 
     private static PartitionStatistics rowsCount(long rowsCount)
