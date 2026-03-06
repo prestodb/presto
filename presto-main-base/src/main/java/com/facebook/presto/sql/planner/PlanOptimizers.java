@@ -30,8 +30,7 @@ import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.AddDistinctForSemiJoinBuild;
-import com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterRule;
-import com.facebook.presto.sql.planner.iterative.rule.AddDynamicFilterToSemiJoinRule;
+import com.facebook.presto.sql.planner.optimizations.AddDynamicFilters;
 import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
@@ -933,14 +932,7 @@ public class PlanOptimizers
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
 
-            builder.add(new IterativeOptimizer(
-                    metadata,
-                    ruleStats,
-                    statsCalculator,
-                    estimatedExchangesCostCalculator,
-                    ImmutableSet.of(
-                            new AddDynamicFilterRule(),
-                            new AddDynamicFilterToSemiJoinRule())));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddDynamicFilters(statsCalculator)));
 
             builder.add(
                     new IterativeOptimizer(

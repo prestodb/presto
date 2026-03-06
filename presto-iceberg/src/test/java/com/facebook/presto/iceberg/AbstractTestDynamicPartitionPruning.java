@@ -711,7 +711,7 @@ public abstract class AbstractTestDynamicPartitionPruning
     @Test(invocationCount = 10)
     public void testRightJoinDynamicPartitionPruning()
     {
-        // Optimizer may convert to INNER, but validates AddDynamicFilterRule accepts RIGHT joins
+        // Optimizer may convert to INNER, but validates AddDynamicFilters accepts RIGHT joins
         String query = "SELECT f.order_id, f.amount, c.customer_name " +
                 "FROM fact_orders f " +
                 "RIGHT JOIN dim_customers c ON f.customer_id = c.customer_id " +
