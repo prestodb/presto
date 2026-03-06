@@ -148,6 +148,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioning
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
+import com.facebook.presto.sql.planner.iterative.rule.SimplifyCoalesceOverJoinKeys;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifySortWithConstantInput;
@@ -582,7 +583,8 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new RemoveCrossJoinWithConstantInput(metadata.getFunctionAndTypeManager()))));
+                ImmutableSet.of(new RemoveCrossJoinWithConstantInput(metadata.getFunctionAndTypeManager()),
+                        new SimplifyCoalesceOverJoinKeys())));
 
         builder.add(new IterativeOptimizer(
                 metadata,

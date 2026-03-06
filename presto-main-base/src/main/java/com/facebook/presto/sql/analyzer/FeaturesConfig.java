@@ -156,6 +156,7 @@ public class FeaturesConfig
     private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
     private boolean pushSemiJoinThroughUnion;
+    private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -1688,6 +1689,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushSemiJoinThroughUnion(boolean pushSemiJoinThroughUnion)
     {
         this.pushSemiJoinThroughUnion = pushSemiJoinThroughUnion;
+        return this;
+    }
+
+    public boolean isSimplifyCoalesceOverJoinKeys()
+    {
+        return simplifyCoalesceOverJoinKeys;
+    }
+
+    @Config("optimizer.simplify-coalesce-over-join-keys")
+    @ConfigDescription("Simplify redundant COALESCE expressions over equi-join keys based on join type")
+    public FeaturesConfig setSimplifyCoalesceOverJoinKeys(boolean simplifyCoalesceOverJoinKeys)
+    {
+        this.simplifyCoalesceOverJoinKeys = simplifyCoalesceOverJoinKeys;
         return this;
     }
 
