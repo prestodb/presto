@@ -123,6 +123,7 @@ public class EqualityDeletesSplitSource
                 getNodeSelectionStrategy(session),
                 SplitWeight.standard(),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty(),
                 IcebergUtil.getDataSequenceNumber(deleteFile),
                 affinitySchedulingSectionSize);

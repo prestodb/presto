@@ -25,7 +25,8 @@ public enum FileContent
 {
     DATA(0),
     POSITION_DELETES(1),
-    EQUALITY_DELETES(2);
+    EQUALITY_DELETES(2),
+    POSITION_UPDATES(3);
 
     private final int id;
 
