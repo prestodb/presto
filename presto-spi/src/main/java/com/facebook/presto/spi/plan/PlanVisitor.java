@@ -174,4 +174,9 @@ public abstract class PlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitMVRewriteCandidates(MVRewriteCandidatesNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

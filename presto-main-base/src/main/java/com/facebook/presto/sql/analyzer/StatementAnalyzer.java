@@ -169,6 +169,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
@@ -2988,6 +2989,22 @@ class StatementAnalyzer
             }
 
             return outputScope;
+        }
+
+        @Override
+        protected Scope visitQueryWithMVRewriteCandidates(QueryWithMVRewriteCandidates node, Optional<Scope> scope)
+        {
+            // Analyze the original query to get the output scope
+            Scope originalScope = process(node.getOriginalQuery(), scope);
+
+            // Analyze each MV candidate's rewritten query so they have valid scopes for planning
+            for (QueryWithMVRewriteCandidates.MVRewriteCandidate candidate : node.getCandidates()) {
+                process(candidate.getRewrittenQuery(), scope);
+            }
+
+            // Return the original query's scope as the output scope.
+            // The actual MV selection will happen during logical planning based on cost.
+            return createAndAssignScope(node, scope, originalScope.getRelationType());
         }
 
         @Override

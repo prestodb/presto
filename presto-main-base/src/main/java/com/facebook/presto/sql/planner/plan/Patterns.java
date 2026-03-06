@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -138,6 +139,11 @@ public class Patterns
     public static Pattern<MaterializedViewScanNode> materializedViewScan()
     {
         return typeOf(MaterializedViewScanNode.class);
+    }
+
+    public static Pattern<MVRewriteCandidatesNode> mvRewriteCandidates()
+    {
+        return typeOf(MVRewriteCandidatesNode.class);
     }
 
     public static Pattern<OutputNode> output()

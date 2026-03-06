@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -86,6 +87,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewQueryRewriteCostBasedSelectionEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -156,8 +158,6 @@ public class MaterializedViewQueryOptimizer
         if (!node.getFrom().isPresent()) {
             return node;
         }
-        // If a query specification has a Table as a source, it can potentially be rewritten,
-        // so hand control over to QuerySpecificationRewriter via rewriteQuerySpecificationIfCompatible
         Relation from = node.getFrom().get();
         if (from instanceof Table) {
             return rewriteQuerySpecificationIfCompatible(node, (Table) from);
@@ -335,7 +335,7 @@ public class MaterializedViewQueryOptimizer
         return (T) process(node);
     }
 
-    private QuerySpecification rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
+    private Node rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
     {
         Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
 
@@ -348,9 +348,11 @@ public class MaterializedViewQueryOptimizer
                 session,
                 createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata));
 
-        // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
-        // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
+        if (isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
+            return rewriteWithAllCandidates(querySpecification, referencedMaterializedViews);
+        }
 
+        // Default path: return the first compatible MV
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
             QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, querySpecification);
             if (rewrittenQuerySpecification != querySpecification) {
@@ -358,6 +360,31 @@ public class MaterializedViewQueryOptimizer
             }
         }
         return querySpecification;
+    }
+
+    private QueryBody rewriteWithAllCandidates(
+            QuerySpecification originalQuery,
+            List<QualifiedObjectName> referencedMaterializedViews)
+    {
+        ImmutableList.Builder<QueryWithMVRewriteCandidates.MVRewriteCandidate> candidates = ImmutableList.builder();
+
+        for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, originalQuery);
+            if (rewrittenQuerySpecification != originalQuery) {
+                candidates.add(new QueryWithMVRewriteCandidates.MVRewriteCandidate(
+                        rewrittenQuerySpecification,
+                        materializedViewName.getCatalogName(),
+                        materializedViewName.getSchemaName(),
+                        materializedViewName.getObjectName()));
+            }
+        }
+
+        List<QueryWithMVRewriteCandidates.MVRewriteCandidate> candidateList = candidates.build();
+        if (candidateList.isEmpty()) {
+            return originalQuery;
+        }
+
+        return new QueryWithMVRewriteCandidates(originalQuery, candidateList);
     }
 
     private QuerySpecification getRewrittenQuerySpecification(QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
@@ -405,7 +432,7 @@ public class MaterializedViewQueryOptimizer
                     return querySpecification;
                 }
 
-                if (!isMaterializedViewDataConsistencyEnabled(session)) {
+                if (!isMaterializedViewDataConsistencyEnabled(session) || isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
                     return rewrittenQuerySpecification;
                 }
@@ -540,9 +567,6 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitSingleColumn(SingleColumn node, Void context)
         {
-            // For a single table, without sub-queries, the column prefix is unnecessary. Here It is removed so that it can be mapped to the view column properly.
-            // For relations other than single table, it needs to be reserved to differentiate columns from different tables.
-            // One way to do so is to process the prefix within `visitDereferenceExpression()` since the prefix information is saved as `base` in `DereferenceExpression` node.
             node = removeSingleColumnPrefix(node, removablePrefix);
             Expression expression = node.getExpression();
             Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
@@ -556,7 +580,6 @@ public class MaterializedViewQueryOptimizer
             Expression processedColumn = (Expression) process(expression, context);
             Optional<Identifier> alias = node.getAlias();
 
-            // If a column name was rewritten, make sure we re-alias to same name as base query
             if (!alias.isPresent() && processedColumn instanceof Identifier && !processedColumn.equals(node.getExpression())) {
                 alias = Optional.of((Identifier) node.getExpression());
             }
@@ -713,8 +736,6 @@ public class MaterializedViewQueryOptimizer
                     && (ASSOCIATIVE_REWRITE_FUNCTIONS.contains(((FunctionCall) expression).getName())
                     || MaterializedViewUtils.validateNonAssociativeFunctionRewrite((FunctionCall) expression, materializedViewInfo.getBaseToViewColumnMap()));
 
-            // If a selected column is not present in GROUP BY node of the query.
-            // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
             return groupByOfMaterializedView.contains(expression) || !(materializedViewInfo.getBaseToViewColumnMap().containsKey(expression) || canRewrite);
         }
 
@@ -753,7 +774,6 @@ public class MaterializedViewQueryOptimizer
         {
             ExpressionAnalysis originalExpressionAnalysis = getExpressionAnalysis(expression, scope);
 
-            // DomainTranslator#fromPredicate needs type information, so do any necessary coercions here
             Expression coercedMaybe = rewriteExpressionWithCoercions(expression, originalExpressionAnalysis);
 
             ExpressionAnalysis coercedExpressionAnalysis = getExpressionAnalysis(coercedMaybe, scope);
