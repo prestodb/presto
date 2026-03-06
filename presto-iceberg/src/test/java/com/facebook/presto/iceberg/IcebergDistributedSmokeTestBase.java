@@ -1758,12 +1758,10 @@ public abstract class IcebergDistributedSmokeTestBase
                 "(time '07:31:55.425', 7)";
         assertUpdate(session, insertSql, 7);
 
-        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform_on_time$partitions\"", "SELECT 4");
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform_on_time$partitions\"", "SELECT 2");
 
-        assertQuery(session, select + " WHERE a_bucket = 0", "VALUES(0, 2, time '00:00:00.000', time '12:13:14.345', 3, 6)");
-        assertQuery(session, select + " WHERE a_bucket = 1", "VALUES(1, 1, time '23:23:59.999', time '23:23:59.999', 5, 5)");
-        assertQuery(session, select + " WHERE a_bucket = 2", "VALUES(2, 1, time '21:22:50.002', time '21:22:50.002', 2, 2)");
-        assertQuery(session, select + " WHERE a_bucket = 3", "VALUES(3, 3, time '00:00:01.001', time '07:31:55.425', 1, 7)");
+        assertQuery(session, select + " WHERE a_bucket = 0", "VALUES(0, 3, time '00:00:00.000', time '12:13:14.345', 3, 6)");
+        assertQuery(session, select + " WHERE a_bucket = 2", "VALUES(2, 4, time '01:02:03.123', time '23:23:59.999', 1, 7)");
 
         assertQuery(session, "select * from test_bucket_transform_on_time where a = time '01:02:03.123'",
                 "VALUES(time '01:02:03.123', 1)");

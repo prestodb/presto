@@ -372,7 +372,7 @@ SessionProperties::SessionProperties() {
       QueryConfig::kAdjustTimestampToTimezone,
       // Overrides velox default value. legacy_timestamp default value is true
       // in the coordinator.
-      "true");
+      "false");
 
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.

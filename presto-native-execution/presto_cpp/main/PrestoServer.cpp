@@ -223,7 +223,7 @@ json::array_t getOptimizedExpressions(
   const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
   std::unordered_map<std::string, std::string> config(
       {{velox::core::QueryConfig::kSessionTimezone, timezone},
-       {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
+       {velox::core::QueryConfig::kAdjustTimestampToTimezone, "false"}});
   auto queryConfig = velox::core::QueryConfig{std::move(config)};
   auto queryCtx =
       velox::core::QueryCtx::create(executor, std::move(queryConfig));
