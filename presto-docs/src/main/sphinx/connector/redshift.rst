@@ -62,6 +62,38 @@ Property Name                                      Description                  
                                                    case-insensitively using lowercase normalization.
 ================================================== ==================================================================== ===========
 
+
+Procedures
+----------
+
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+
+Execute Procedure
+^^^^^^^^^^^^^^^^^
+
+Underlying datasources may support some operation or SQL syntax which is not supported by Presto, either at the parser level or at the connector level.
+Trying to run such SQL statements in Presto can result in errors during parsing or analysing. For example, Redshift supports creating auto generated
+primary keys which is not supported in Presto. Running this procedure enables users to do a SQL passthrough to the underlying database, and Presto just acts
+as a middle man for passing the statement.
+
+The following arguments are available:
+
+============= ========== =============== =======================================================================
+Argument Name Required   Type            Description
+============= ========== =============== =======================================================================
+``QUERY``     Yes        string          SQL statement to run
+============= ========== =============== =======================================================================
+
+Examples:
+
+* Create a table with auto generated primary key::
+
+    CALL redshift.system.execute('create table schema1.table1 (id INT IDENTITY(1, 1), a int)')
+
+    CALL redshift.system.execute(QUERY => 'create table schema1.table1 (id INT IDENTITY(1, 1), a int)')
+
+
+
 Querying Redshift
 -----------------
 
