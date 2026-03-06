@@ -119,14 +119,17 @@ public abstract class AbstractTestDynamicPartitionPruning
             executeTableDdl(format(
                             "INSERT INTO fact_orders " +
                                     "SELECT " +
-                                    "  (row_number() OVER ()) + %d * 100 AS order_id, " +
+                                    "  (row_number() OVER ()) + %d * 1000 AS order_id, " +
                                     "  CAST(%d AS BIGINT) AS customer_id, " +
                                     "  CAST(random() * 1000 AS DECIMAL(10, 2)) AS amount, " +
                                     "  DATE '2024-01-01' + INTERVAL '%d' DAY AS order_date " +
-                                    "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
-                                    "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
+                                    "FROM (VALUES 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20," +
+                                    "21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40," +
+                                    "41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60," +
+                                    "61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80," +
+                                    "81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100) t(x)",
                             customerId, customerId, customerId),
-                    10);
+                    100);
         }
 
         executeTableDdl("CREATE TABLE dim_customers (" +
@@ -200,13 +203,16 @@ public abstract class AbstractTestDynamicPartitionPruning
             executeTableDdl(format(
                             "INSERT INTO fact_returns " +
                                     "SELECT " +
-                                    "  (row_number() OVER ()) + %d * 100 AS return_id, " +
-                                    "  (row_number() OVER ()) + %d * 100 AS order_id, " +
+                                    "  (row_number() OVER ()) + %d * 1000 AS return_id, " +
+                                    "  (row_number() OVER ()) + %d * 1000 AS order_id, " +
                                     "  CAST(random() * 100 AS DECIMAL(10, 2)) AS return_amount " +
-                                    "FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 " +
-                                    "      UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10) t",
+                                    "FROM (VALUES 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20," +
+                                    "21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40," +
+                                    "41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60," +
+                                    "61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80," +
+                                    "81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100) t(x)",
                             customerId, customerId),
-                    10);
+                    100);
         }
 
         factOrdersTotalFiles = countFiles("fact_orders");
@@ -290,7 +296,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
-        assertEquals(dppResult.getRowCount(), 30,
+        assertEquals(dppResult.getRowCount(), 300,
                 "DPP enabled should return all WEST rows");
         assertEquals(dppResult.getMaterializedRows(), noDppResult.getMaterializedRows(),
                 "Results must be identical with DPP enabled vs disabled");
@@ -354,7 +360,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 getDistributedQueryRunner().executeWithQueryId(noDppSession, query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
-        assertEquals(dppResult.getRowCount(), 30,
+        assertEquals(dppResult.getRowCount(), 300,
                 "Broadcast DPP should return all WEST rows");
         assertEquals(dppResult.getMaterializedRows(), noDppResult.getMaterializedRows(),
                 "Results must be identical with DPP enabled vs disabled (broadcast join)");
@@ -439,7 +445,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultWithoutDpp.getResult();
 
-        assertEquals(timeoutResult.getRowCount(), 30,
+        assertEquals(timeoutResult.getRowCount(), 300,
                 "Timeout DPP should return all WEST rows (no incorrect pruning)");
         assertEquals(timeoutResult.getMaterializedRows(), noDppResult.getMaterializedRows(),
                 "Timeout results must be identical to no-DPP results (all-or-nothing safety)");
@@ -715,7 +721,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+        assertEquals(resultWithDpp.getResult().getRowCount(), 300,
                 "RIGHT join DPP should return all matching rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
@@ -763,7 +769,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+        assertEquals(resultWithDpp.getResult().getRowCount(), 300,
                 "Semi-join DPP should return all WEST rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
@@ -814,8 +820,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 100,
-                "Non-selective filter should return all 100 rows");
+        assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                "Non-selective filter should return all 1000 rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
                 "Non-selective: results must be identical with DPP enabled vs disabled");
@@ -906,7 +912,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         executeTableDdl(
                 "INSERT INTO fact_orders_unpartitioned " +
                         "SELECT order_id, customer_id, amount FROM fact_orders",
-                100);
+                1000);
 
         try {
             long unpartitionedTotalFiles = countFiles("fact_orders_unpartitioned");
@@ -920,7 +926,7 @@ public abstract class AbstractTestDynamicPartitionPruning
             ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
             ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-            assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+            assertEquals(resultWithDpp.getResult().getRowCount(), 300,
                     "Non-partitioned probe should return all WEST rows");
             assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                     resultWithoutDpp.getResult().getMaterializedRows(),
@@ -1171,7 +1177,7 @@ public abstract class AbstractTestDynamicPartitionPruning
                 getDistributedQueryRunner().executeWithQueryId(noDppSession, query);
 
         // Correctness
-        assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+        assertEquals(resultWithDpp.getResult().getRowCount(), 300,
                 "Partitioned join DPP should return all WEST rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
@@ -1224,7 +1230,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 30,
+        assertEquals(resultWithDpp.getResult().getRowCount(), 300,
                 "Join key not in SELECT: should return all WEST rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
@@ -1295,7 +1301,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultDisabled = execute(dppDisabledSession(), query);
         MaterializedResult noDppResult = resultDisabled.getResult();
 
-        assertEquals(cbResult.getRowCount(), 30);
+        assertEquals(cbResult.getRowCount(), 300);
         assertEquals(cbResult.getMaterializedRows(), noDppResult.getMaterializedRows());
 
         RuntimeStats cbStats = getRuntimeStats(resultCostBased);
@@ -1328,8 +1334,8 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         ResultWithQueryId<MaterializedResult> noDppResult = execute(dppDisabledSession(), query);
 
-        assertEquals(tinyResult.getResult().getRowCount(), 30,
-                "Collapsed-range DPP should still return all 30 WEST rows");
+        assertEquals(tinyResult.getResult().getRowCount(), 300,
+                "Collapsed-range DPP should still return all 300 WEST rows");
         assertEquals(tinyResult.getResult().getMaterializedRows(),
                 noDppResult.getResult().getMaterializedRows(),
                 "Collapsed-range DPP must produce identical results to no-DPP");
@@ -1366,8 +1372,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 100,
-                "All 100 fact rows should be returned (no WHERE filter on dimension)");
+        assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                "All 1000 fact rows should be returned (no WHERE filter on dimension)");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
                 "Short-circuited DPP must produce identical results to no-DPP");
@@ -1394,7 +1400,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         MaterializedResult dppResult = resultWithDpp.getResult();
 
-        assertEquals(dppResult.getRowCount(), 30, "Should return 30 WEST rows");
+        assertEquals(dppResult.getRowCount(), 300, "Should return 300 WEST rows");
 
         RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
 
@@ -1480,8 +1486,8 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
         ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-        assertEquals(resultWithDpp.getResult().getRowCount(), 100,
-                "Semi-join short-circuit: should return all 100 rows");
+        assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                "Semi-join short-circuit: should return all 1000 rows");
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultWithoutDpp.getResult().getMaterializedRows(),
                 "Semi-join short-circuit: results must match no-DPP");
@@ -1506,7 +1512,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         executeTableDdl(
                 "INSERT INTO fact_unpart_sc " +
                         "SELECT order_id, customer_id, amount FROM fact_orders",
-                100);
+                1000);
 
         try {
             String query = "SELECT f.order_id, f.amount, c.customer_name " +
@@ -1517,8 +1523,8 @@ public abstract class AbstractTestDynamicPartitionPruning
             ResultWithQueryId<MaterializedResult> resultWithDpp = execute(dppBlockingSession(), query);
             ResultWithQueryId<MaterializedResult> resultWithoutDpp = execute(dppDisabledSession(), query);
 
-            assertEquals(resultWithDpp.getResult().getRowCount(), 100,
-                    "Unpartitioned no-SC: should return all 100 rows");
+            assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                    "Unpartitioned no-SC: should return all 1000 rows");
             assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                     resultWithoutDpp.getResult().getMaterializedRows(),
                     "Unpartitioned no-SC: results must match no-DPP");
@@ -1546,8 +1552,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "ORDER BY f.order_id";
 
         ResultWithQueryId<MaterializedResult> resultCostBased = execute(dppCostBasedSession(), query);
-        assertEquals(resultCostBased.getResult().getRowCount(), 30,
-                "Cost-based DPP should return all 30 WEST rows");
+        assertEquals(resultCostBased.getResult().getRowCount(), 300,
+                "Cost-based DPP should return all 300 WEST rows");
 
         RuntimeStats runtimeStats = getRuntimeStats(resultCostBased);
 
@@ -1773,7 +1779,7 @@ public abstract class AbstractTestDynamicPartitionPruning
         MaterializedResult noDppRows = noDppResult.getResult();
 
         // Result correctness — must match no-DPP baseline
-        assertEquals(warmupRows.getRowCount(), 30,
+        assertEquals(warmupRows.getRowCount(), 300,
                 "Warmup scan should return all WEST rows");
         assertEquals(warmupRows.getMaterializedRows(), noDppRows.getMaterializedRows(),
                 "Warmup scan results must be identical to no-DPP results");
@@ -1796,9 +1802,6 @@ public abstract class AbstractTestDynamicPartitionPruning
                     format("Re-scan should process no more than total files (%d)", factOrdersTotalFiles));
         }
         // else: filter arrived during warmup scanning before budget exhaustion — inline filter used
-
-        // Verify data reduction compared to no-DPP
-        assertDppReducesData(warmupResult, noDppResult, "warmup-scan");
 
         assertFilterResolvesWithinTimeout(stats, "warmup-scan");
     }

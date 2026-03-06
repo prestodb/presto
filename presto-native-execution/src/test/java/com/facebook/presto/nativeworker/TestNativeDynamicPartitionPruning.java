@@ -114,7 +114,8 @@ public class TestNativeDynamicPartitionPruning
                 "  (row_number() OVER () - 1) % 10 + 1 AS customer_id, " +
                 "  CAST(random() * 1000 AS DECIMAL(10, 2)) AS amount, " +
                 "  DATE '2024-01-01' + INTERVAL '1' DAY * ((row_number() OVER () - 1) % 365) AS order_date " +
-                "FROM (SELECT 1 FROM fact_orders CROSS JOIN fact_orders) t");
+                "FROM (SELECT 1 FROM fact_orders CROSS JOIN " +
+                "  (VALUES 1,2,3,4,5,6,7,8,9,10) v(x)) t");
     }
 
     @Test
