@@ -39,13 +39,17 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.base.Functions;
@@ -55,6 +59,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.iceberg.TableProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Ignore;
@@ -80,6 +85,7 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DecimalType.DEFAULT_PRECISION;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -95,11 +101,14 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILT
 import static com.facebook.presto.iceberg.IcebergSessionProperties.ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.callDistributedProcedure;
@@ -107,6 +116,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filterWithDecimal;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
@@ -125,6 +135,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.NaN;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -211,6 +222,648 @@ public class TestIcebergLogicalPlanner
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS metadata_optimize");
+        }
+    }
+
+    @Test
+    public void testAggregationPushDownOptimizer()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            queryRunner.execute(format("create table %s(v1 int, v2 varchar, a int, b varchar)" +
+                    " with(partitioning = ARRAY['a', 'b'])", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (1, '1001', 5, '1001')," +
+                    " (2, '1002', 2, '1001')," +
+                    " (3, '1003', 9, '1002')," +
+                    " (4, '1004', 6, '1002')", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (5, '1005', 19, '1001')," +
+                    " (9, '1006', 21, '1001')," +
+                    " (13, '1007', 33, '1002')," +
+                    " (17, '1008', 37, '1002')", tableName));
+
+            assertQuery(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName, "values(1, 17, 8, 2, 37)");
+            assertPlan(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "min(v1)", expression("1"),
+                                    "max(v1)", expression("17"),
+                                    "count(v2)", expression("8"),
+                                    "min(a)", expression("2"),
+                                    "max(a)", expression("37")),
+                            anyTree(values()))));
+
+            // Push down aggregations for query with filter which can be thoroughly pushed down
+            assertQuery(session, format("select min(v1), max(v1), count(v2), min(a), max(a) from %s where b > '1001'", tableName),
+                    "values(3, 17, 4, 6, 37)");
+            assertPlan(session, format("select min(v1), max(v1), count(v2), min(a), max(a) from %s where b > '1001'", tableName),
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "min(v1)", expression("3"),
+                                    "max(v1)", expression("17"),
+                                    "count(v2)", expression("4"),
+                                    "min(a)", expression("6"),
+                                    "max(a)", expression("37")),
+                            anyTree(values()))));
+
+            // Couldn't push down aggregations for query with filter which cannot be thoroughly pushed down
+            assertQuery(session, format("select min(v1), count(v2), max(a) from %s where v2 > '1004'", tableName),
+                    "values(5, 4, 37)");
+            assertPlan(session, format("select min(v1), count(v2), max(a) from %s where v2 > '1004'", tableName),
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_min", functionCall("min", ImmutableList.of("partial_min")),
+                                            "final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_min", functionCall("min", ImmutableList.of("v1")),
+                                                                    "partial_count", functionCall("count", ImmutableList.of("v2")),
+                                                                    "partial_max", functionCall("max", ImmutableList.of("a"))),
+                                                            PARTIAL,
+                                                            anyTree(strictTableScan(tableName, identityMap("v1", "v2", "a")))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregationPushDownOptimizerWithDeletion()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            queryRunner.execute(format("create table %s(v1 int, v2 varchar, a int, b varchar)" +
+                    " with(partitioning = ARRAY['a', 'b'])", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (1, '1001', 5, '1001')," +
+                    " (2, '1002', 2, '1001')," +
+                    " (3, '1003', 9, '1002')," +
+                    " (4, '1004', 6, '1002')", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (5, '1005', 19, '1001')," +
+                    " (9, '1006', 21, '1001')," +
+                    " (13, '1007', 33, '1002')," +
+                    " (17, '1008', 37, '1002')", tableName));
+
+            // Push down aggregations for query on Iceberg table with metadata deletions
+            assertUpdate(format("delete from %s where b = '1001'", tableName), 4);
+            assertQuery(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName, "values(3, 17, 4, 6, 37)");
+            assertPlan(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "min(v1)", expression("3"),
+                                    "max(v1)", expression("17"),
+                                    "count(v2)", expression("4"),
+                                    "min(a)", expression("6"),
+                                    "max(a)", expression("37")),
+                            anyTree(values()))));
+
+            // Couldn't push down aggregations for query on Iceberg table with delete files
+            assertUpdate(format("delete from %s where v1 < 4", tableName), 1);
+            assertPlan(session, "select min(v1), count(v2), max(a) from " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_min", functionCall("min", ImmutableList.of("partial_min")),
+                                            "final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_min", functionCall("min", ImmutableList.of("v1")),
+                                                                    "partial_count", functionCall("count", ImmutableList.of("v2")),
+                                                                    "partial_max", functionCall("max", ImmutableList.of("a"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("v1", "v2", "a"))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDifferentDataTypesAggregatePushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            String createTable =
+                    "CREATE TABLE %s (id BIGINT, int_data INTEGER, boolean_data BOOLEAN, float_data REAL, double_data DOUBLE, "
+                            + "decimal_data DECIMAL(14, 2), binary_data varbinary) WITH (partitioning = ARRAY['id'])";
+            queryRunner.execute(format(createTable, tableName));
+            assertUpdate(format("INSERT INTO %s VALUES "
+                    + "(1, null, false, null, null, 11.11, X'1111'),"
+                    + " (1, null, true, 2.222, 2.222222, 22.22, X'2222'),"
+                    + " (2, 33, false, 3.333, 3.333333, 33.33, X'3333'),"
+                    + " (2, 44, true, null, 4.444444, 44.44, X'4444'),"
+                    + " (3, 55, false, 5.555, 5.555555, 55.55, X'5555'),"
+                    + " (3, null, true, null, 6.666666, 66.66, null) ", tableName), 6);
+
+            @Language("SQL") String select =
+                    "SELECT count(*), max(id), min(id), count(id), "
+                            + "max(int_data), min(int_data), count(int_data), "
+                            + "max(boolean_data), min(boolean_data), count(boolean_data), "
+                            + "max(float_data), min(float_data), count(float_data), "
+                            + "max(double_data), min(double_data), count(double_data), "
+                            + "max(decimal_data), min(decimal_data), count(decimal_data), "
+                            + "max(binary_data), min(binary_data), count(binary_data)"
+                            + " FROM " + tableName;
+
+            ImmutableMap.Builder<String, ExpressionMatcher> assignmentsBuilder = ImmutableMap.<String, ExpressionMatcher>builder()
+                    .put("count", expression("6"))
+                    .put("max(id)", expression("3"))
+                    .put("min(id)", expression("1"))
+                    .put("max(int_data)", expression("55"))
+                    .put("min(int_data)", expression("33"))
+                    .put("count_2", expression("3"))
+                    .put("max(boolean_data)", expression("true"))
+                    .put("min(boolean_data)", expression("false"))
+                    .put("max(float_data)", expression("REAL '5.555'"))
+                    .put("min(float_data)", expression("REAL '2.222'"))
+                    .put("max(double_data)", expression("DOUBLE '6.666666'"))
+                    .put("min(double_data)", expression("DOUBLE '2.222222'"))
+                    .put("max(decimal_data)", expression("DECIMAL '66.66'"))
+                    .put("min(decimal_data)", expression("DECIMAL '11.11'"))
+                    .put("max(binary_data)", expression("X'55 55'"))
+                    .put("min(binary_data)", expression("X'11 11'"))
+                    .put("count_3", expression("5"));
+            assertPlan(session, select,
+                    anyNot(AggregationNode.class, strictProject(
+                            assignmentsBuilder.build(),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testDateAndTimestampWithPartition()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "false")
+                .build();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data varchar, d date, ts timestamp) with(partitioning = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, '1', date '2021-11-10', null),"
+                            + "(1, '2', date '2021-11-11', timestamp '2021-11-11 22:22:22'), "
+                            + "(2, '3', date '2021-11-12', timestamp '2021-11-12 22:22:22'), "
+                            + "(2, '4', date '2021-11-13', timestamp '2021-11-13 22:22:22'), "
+                            + "(3, '5', null, timestamp '2021-11-14 22:22:22'), "
+                            + "(3, '6', date '2021-11-14', null)",
+                    tableName), 6);
+            assertQuery(session, "select max(ts), max(data) from " + tableName, "values(timestamp '2021-11-14 22:22:22', '6')");
+            assertQuery(session, "select max(ts) from " + tableName, "values(timestamp '2021-11-14 22:22:22')");
+
+            @Language("SQL") String select = "SELECT max(d), min(d), count(d), max(ts), min(ts), count(ts) FROM " + tableName;
+            ImmutableMap.Builder<String, ExpressionMatcher> assignmentsBuilder = ImmutableMap.<String, ExpressionMatcher>builder()
+                    .put("count", expression("5"))
+                    .put("max(d)", expression("DATE '2021-11-14'"))
+                    .put("min(d)", expression("DATE '2021-11-10'"))
+                    .put("max(ts)", expression("TIMESTAMP '2021-11-14 22:22:22.000'"))
+                    .put("min(ts)", expression("TIMESTAMP '2021-11-11 22:22:22.000'"))
+                    .put("count_2", expression("4"));
+            assertPlan(session, select,
+                    anyNot(AggregationNode.class, strictProject(
+                            assignmentsBuilder.build(),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregateNotPushDownIfOneCantPushDown()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data double)", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, 1111), (1, 2222), (2, 3333), (2, 4444), (3, 5555), (3, 6666) ", tableName), 6);
+            assertPlan(session, "SELECT COUNT(data), SUM(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("data")),
+                                                                    "partial_sum", functionCall("sum", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregateNotPushDownForCountDistinct()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data double)", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, 1111), (1, 2222), (2, 3333), (2, 4444), (3, 5555), (3, 6666) ", tableName), 6);
+            assertPlan(session, "SELECT COUNT(distinct id) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("id"))),
+                                                            PARTIAL,
+                                                            anyTree(strictTableScan(tableName, identityMap("id")))))))));
+            assertQuery(session, "SELECT COUNT(distinct id) FROM " + tableName, "VALUES(3)");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregatePushDownWithMetricsMode()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String schemaName = session.getSchema().get();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data double)", tableName));
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "none"));
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX + "id", "counts"));
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX + "data", "none"));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, 1111), (1, 2222), (2, 3333), (2, 4444), (3, 5555), (3, 6666) ", tableName), 6);
+            assertPlan(session, "SELECT COUNT(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+
+            assertPlan(session, "SELECT COUNT(id) FROM " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6")),
+                            anyTree(values()))));
+
+            assertPlan(session, "SELECT COUNT(id), MAX(id) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("id")),
+                                                                    "partial_max", functionCall("max", ImmutableList.of("id"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("id"))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregateNotPushDownForVarcharType()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String schemaName = session.getSchema().get();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data varchar)", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, '1111'), (1, '2222'), (2, '3333'), (2, '4444'), (3, '5555'), (3, '6666') ",
+                    tableName), 6);
+            assertPlan(session, "SELECT MAX(id), MAX(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_max_id", functionCall("max", ImmutableList.of("partial_max_id")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_max_id", functionCall("max", ImmutableList.of("id")),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("id", "data"))))))));
+
+            assertPlan(session, "SELECT COUNT(data) FROM " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6")),
+                            anyTree(values()))));
+
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "full"));
+            assertPlan(session, "SELECT COUNT(data), MAX(data) FROM " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6"),
+                                    "max", expression("6666")),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregatePushDownWithDataFilter()
+    {
+        testAggregatePushDownWithFilter(false);
+    }
+
+    @Test
+    public void testAggregatePushDownWithPartitionFilter()
+    {
+        testAggregatePushDownWithFilter(true);
+    }
+
+    private void testAggregatePushDownWithFilter(boolean partitionFilerOnly)
+    {
+        String createTable;
+        if (!partitionFilerOnly) {
+            createTable = "CREATE TABLE %s (id BIGINT, data INTEGER)";
+        }
+        else {
+            createTable = "CREATE TABLE %s (id BIGINT, data INTEGER) WITH (PARTITIONING = ARRAY['id'])";
+        }
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format(createTable, tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES"
+                            + " (1, 11), (1, 22), (2, 33),"
+                            + " (2, 44), (3, 55), (3, 66) ",
+                    tableName), 6);
+
+            @Language("SQL") String select = format("SELECT MIN(data) FROM %s WHERE id > 1", tableName);
+
+            if (!partitionFilerOnly) {
+                assertPlan(session, select,
+                        anyTree(
+                                aggregation(ImmutableMap.of("final_min", functionCall("min", ImmutableList.of("partial_min"))),
+                                        FINAL,
+                                        exchange(LOCAL, GATHER,
+                                                exchange(REMOTE_STREAMING, GATHER,
+                                                        aggregation(
+                                                                ImmutableMap.of("partial_min", functionCall("min", ImmutableList.of("data"))),
+                                                                PARTIAL,
+                                                                anyTree(strictTableScan(tableName, identityMap("id", "data")))))))));
+            }
+            else {
+                assertPlan(session, select,
+                        anyNot(AggregationNode.class, strictProject(
+                                ImmutableMap.of("min", expression("33")),
+                                anyTree(values()))));
+            }
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregateWithComplexType()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id INTEGER, complex ROW(c1 INTEGER, c2 VARCHAR))", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES(1, ROW(3, 'v1')), (2, ROW(2, 'v2'))", tableName), 2);
+
+            // count not pushed down for complex types
+            assertPlan(session, "SELECT count(complex), count(id) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count_complex", functionCall("count", ImmutableList.of("partial_count_complex")),
+                                            "final_count_id", functionCall("count", ImmutableList.of("partial_count_id"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count_complex", functionCall("count", ImmutableList.of("complex")),
+                                                                    "partial_count_id", functionCall("count", ImmutableList.of("id"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("id", "complex"))))))));
+
+            // max not pushed down for complex types
+            assertPlan(session, "SELECT max(complex) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_max", functionCall("max", ImmutableList.of("complex"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("complex"))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregatePushDownForTimeTravel()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id BIGINT, data INTEGER)", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, 1111), (1, 2222), (2, 3333), (2, 4444), (3, 5555), (3, 6666) ",
+                    tableName), 6);
+            long snapshotId = (long) queryRunner.execute(session, format("SELECT snapshot_id FROM \"%s$snapshots\" order by committed_at desc limit 1", tableName))
+                    .getOnlyValue();
+
+            assertUpdate(session, format("INSERT INTO %s VALUES (4, 7777), (5, 8888)", tableName), 2);
+
+            // count pushed down
+            assertPlan(session, format("SELECT count(id) FROM %s FOR VERSION AS OF %s", tableName, snapshotId),
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6")),
+                            anyTree(values()))));
+
+            // count pushed down
+            assertPlan(session, format("SELECT count(id) FROM %s", tableName),
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("8")),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAllNull()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id BIGINT, data INTEGER) WITH(PARTITIONING = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES "
+                            + "(1, null), (1, null), (2, null), "
+                            + "(2, null), (3, null), (3, null)",
+                    tableName), 6);
+
+            assertPlan(session, format("SELECT count(*), max(data), min(data), count(data) FROM %s", tableName),
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "count_1", expression("6"),
+                                    "min_max", expression(new NullLiteral()),
+                                    "count_2", expression("0")),
+                            anyTree(values()))));
+            MaterializedResult result = queryRunner.execute(session, format("SELECT count(*), max(data), min(data), count(data) FROM %s", tableName));
+            assertEquals(result.getMaterializedRows().size(), 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION, 6L, null, null, 0L));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAllNaN()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id INTEGER, data REAL) WITH(PARTITIONING = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES "
+                            + "(1, cast(nan() as real)), (1, cast(nan() as real)), (2, cast(nan() as real)), "
+                            + "(2, cast(nan() as real)), (3, cast(nan() as real)), (3, cast(nan() as real))",
+                    tableName), 6);
+
+            assertPlan(session, "SELECT count(*), max(data), min(data), count(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data")),
+                                            "final_min_data", functionCall("min", ImmutableList.of("partial_min_data")),
+                                            "final_count_data", functionCall("count", ImmutableList.of("partial_count_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of()),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data")),
+                                                                    "partial_min_data", functionCall("min", ImmutableList.of("data")),
+                                                                    "partial_count_data", functionCall("count", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+            MaterializedResult result = queryRunner.execute(session, "SELECT count(*), max(data), min(data), count(data) FROM " + tableName);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION, 6L, NaN, NaN, 6L));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testNaN()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id INTEGER, data REAL) WITH(PARTITIONING = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES "
+                            + "(1, cast(nan() as real)), (1, cast(nan() as real)), (2, 2), "
+                            + "(2, cast(nan() as real)), (3, cast(nan() as real)), (3, 1)",
+                    tableName), 6);
+
+            assertPlan(session, "SELECT count(*), max(data), min(data), count(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data")),
+                                            "final_min_data", functionCall("min", ImmutableList.of("partial_min_data")),
+                                            "final_count_data", functionCall("count", ImmutableList.of("partial_count_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of()),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data")),
+                                                                    "partial_min_data", functionCall("min", ImmutableList.of("data")),
+                                                                    "partial_count_data", functionCall("count", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+            MaterializedResult result = queryRunner.execute(session, "SELECT count(*), max(data), min(data), count(data) FROM " + tableName);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            assertEquals(result.getMaterializedRows().get(0), new MaterializedRow(DEFAULT_PRECISION, 6L, NaN, 1.0F, 6L));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testInfinity()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id integer, data1 real, data2 double, data3 double) WITH(PARTITIONING = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, cast(-infinity() as real), infinity(), 1.23), "
+                            + "(1, cast(-infinity() as real), infinity(), -1.23), "
+                            + "(1, cast(-infinity() as real), infinity(), infinity()), "
+                            + "(1, cast(-infinity() as real), infinity(), 2.23), "
+                            + "(1, cast(-infinity() as real), infinity(), -infinity()), "
+                            + "(1, cast(-infinity() as real), infinity(), -2.23)",
+                    tableName), 6);
+            @Language("SQL") String select = "SELECT count(*), max(data1), min(data1), count(data1), max(data2), min(data2), " +
+                    "count(data2), max(data3), min(data3), count(data3) FROM " + tableName;
+            assertPlan(session, select,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "count", expression("6"),
+                                    "min_max_real", expression("real '-Infinity'"),
+                                    "max_double", expression("double 'Infinity'"),
+                                    "min_double", expression("double '-Infinity'")),
+                            anyTree(values()))));
+
+            MaterializedResult result = queryRunner.execute(session, select);
+            assertEquals(result.getMaterializedRows().size(), 1);
+            List<Object> fields = result.getMaterializedRows().get(0).getFields();
+            assertEquals(fields.get(0), 6L);
+            assertTrue(Float.isInfinite((Float) fields.get(1)));
+            assertTrue(Float.isInfinite((Float) fields.get(1)));
+            assertEquals(fields.get(3), 6L);
+            assertTrue(Double.isInfinite((Double) fields.get(4)));
+            assertTrue(Double.isInfinite((Double) fields.get(5)));
+            assertEquals(fields.get(6), 6L);
+            assertTrue(Double.isInfinite((Double) fields.get(4)));
+            assertTrue(Double.isInfinite((Double) fields.get(5)));
+            assertEquals(fields.get(9), 6L);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
