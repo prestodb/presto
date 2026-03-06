@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.http.client.testing.TestingResponse.mockResponse;
-import static com.facebook.presto.sidecar.nativechecker.NativePlanChecker.PLAN_CONVERSION_ENDPOINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -109,7 +108,7 @@ public class TestPlanCheckerProvider
                         PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(response)));
 
         return new NativePlanChecker(
-                new TestingNodeManager(URI.create("http://localhost" + PLAN_CONVERSION_ENDPOINT)),
+                new TestingNodeManager(URI.create("http://localhost")),
                 PLAN_FRAGMENT_JSON_CODEC,
                 client);
     }

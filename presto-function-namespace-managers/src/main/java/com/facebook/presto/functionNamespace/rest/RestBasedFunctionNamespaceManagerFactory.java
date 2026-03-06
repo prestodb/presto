@@ -61,6 +61,7 @@ public class RestBasedFunctionNamespaceManagerFactory
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
+                    .noStrictConfig()
                     .initialize();
             return injector.getInstance(RestBasedFunctionNamespaceManager.class);
         }

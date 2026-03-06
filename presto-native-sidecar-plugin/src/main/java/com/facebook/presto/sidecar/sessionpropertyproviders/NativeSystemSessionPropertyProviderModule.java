@@ -15,6 +15,8 @@ package com.facebook.presto.sidecar.sessionpropertyproviders;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.node.NodeConfig;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.session.SessionPropertyMetadata;
@@ -26,6 +28,7 @@ import com.google.inject.TypeLiteral;
 
 import java.util.List;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class NativeSystemSessionPropertyProviderModule
@@ -47,6 +50,9 @@ public class NativeSystemSessionPropertyProviderModule
                 .toInstance(new JsonCodecFactory().listJsonCodec(SessionPropertyMetadata.class));
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);
+        configBinder(binder).bindConfig(NodeConfig.class);
+        binder.bind(NodeInfo.class).in(Scopes.SINGLETON);
+
         binder.bind(NativeSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
         binder.bind(WorkerSessionPropertyProvider.class).to(NativeSystemSessionPropertyProvider.class).in(Scopes.SINGLETON);
     }
