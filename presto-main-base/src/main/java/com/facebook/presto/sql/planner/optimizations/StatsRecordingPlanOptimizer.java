@@ -22,6 +22,9 @@ import com.facebook.presto.sql.planner.OptimizerStatsRecorder;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.annotations.VisibleForTesting;
 
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class StatsRecordingPlanOptimizer
@@ -63,6 +66,10 @@ public final class StatsRecordingPlanOptimizer
             throw e;
         }
         stats.record(delegate, duration);
+        if (isVerboseRuntimeStatsEnabled(session)) {
+            session.getRuntimeStats().addMetricValue(
+                    format("optimizer%sTimeNanos", delegate.getClass().getSimpleName()), NANO, duration);
+        }
         return result;
     }
 }
