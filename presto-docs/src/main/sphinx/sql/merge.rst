@@ -26,7 +26,7 @@ In the ``MATCHED`` case, the ``UPDATE`` column value expressions can depend on a
 In the ``NOT MATCHED`` case, the ``INSERT`` expressions can depend on any field of the source.
 
 The ``MERGE`` command requires each target row to match at most one source row. An exception is raised when a single target table row matches more than one source row.
-If a source row is not matched by the ``WHEN`` clause and there is no ``WHEN NOT MATCHED`` clause, the source row is ignored.
+If a source row is not matched by the ``WHEN MATCHED`` clause and there is no ``WHEN NOT MATCHED`` clause, the source row is ignored.
 
 The ``MERGE`` statement is commonly used to integrate data from two tables with different contents but similar structures.
 For example, the source table could be part of a production transactional system, while the target table might be located in a data warehouse for analytics.
