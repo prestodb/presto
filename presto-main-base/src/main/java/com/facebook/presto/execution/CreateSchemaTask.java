@@ -61,7 +61,7 @@ public class CreateSchemaTask
 
         if (metadata.getMetadataResolver(session).schemaExists(schema)) {
             if (!statement.isNotExists()) {
-                throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
+                throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema.getSchemaName());
             }
             return immediateFuture(null);
         }
