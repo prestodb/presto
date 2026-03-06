@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
 import java.sql.Connection;
@@ -55,10 +56,14 @@ public final class JdbcQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             Map<String, String> properties = TestingH2JdbcModule.createProperties();
+            Map<String, String> catalogProperties = ImmutableMap.<String, String>builder()
+                    .putAll(properties)
+                    .put("allow-drop-table", "true")
+                    .build();
             createSchema(properties, "tpch");
 
             queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
-            queryRunner.createCatalog("jdbc", "base-jdbc", properties);
+            queryRunner.createCatalog("jdbc", "base-jdbc", catalogProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
