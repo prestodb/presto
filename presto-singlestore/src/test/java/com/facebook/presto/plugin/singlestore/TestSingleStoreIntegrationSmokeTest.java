@@ -33,6 +33,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -213,6 +214,65 @@ public class TestSingleStoreIntegrationSmokeTest
                 "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
+    }
+
+    @Test
+    public void testExecuteProcedure()
+    {
+        String tableName = "test_execute";
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+        try {
+            assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(id BIGINT AUTO_INCREMENT PRIMARY KEY, a int)')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
+
+            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 2), (2, 21)");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "test_execute_named";
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+        try {
+            assertUpdate("CALL system.execute(QUERY => 'CREATE TABLE " + schemaTableName + "(id BIGINT AUTO_INCREMENT PRIMARY KEY, a int)')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
+
+            assertUpdate("CALL system.execute(QUERY => 'UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 2), (2, 21)");
+
+            assertUpdate("CALL system.execute(QUERY => 'DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute(QUERY => 'DROP TABLE " + schemaTableName + "')");
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
     }
 
     private void execute(String sql)
