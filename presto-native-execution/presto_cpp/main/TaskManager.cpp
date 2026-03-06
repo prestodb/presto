@@ -23,6 +23,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/operators/DynamicFilterSource.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -591,6 +592,22 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->info.needsPlan = false;
       startTask = true;
       prestoTask->createFinishTimeMs = getCurrentTimeMs();
+
+      // Register dynamic filter callbacks so operators can deliver filters.
+      auto weakTask = std::weak_ptr<PrestoTask>(prestoTask);
+      operators::DynamicFilterCallbackRegistry::instance().registerCallbacks(
+          taskId,
+          [weakTask](const auto& filters, const auto& flushedIds) {
+            if (auto task = weakTask.lock()) {
+              task->storeDynamicFilters(filters);
+              task->markFilterIdsFlushed(flushedIds);
+            }
+          },
+          [weakTask](const auto& filterIds) {
+            if (auto task = weakTask.lock()) {
+              task->registerDynamicFilterIds(filterIds);
+            }
+          });
     }
     execTask = prestoTask->task;
   }
@@ -706,6 +723,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           std::make_unique<protocol::TaskStatus>(info.taskStatus));
     }
     ret = std::make_unique<TaskInfo>(info);
+  }
+
+  if (startTask) {
+    // Apply any external dynamic filters that arrived before the Velox task
+    // was created.
+    prestoTask->applyPendingExternalFilters();
   }
 
   if (startNextQueuedTask) {
@@ -890,6 +913,9 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     prestoTask = findOrCreateTask(taskId, 0);
   }
 
+  // Remove dynamic filter callback on task deletion.
+  operators::DynamicFilterCallbackRegistry::instance().removeCallback(taskId);
+
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
   prestoTask->updateCoordinatorHeartbeatLocked();
@@ -1039,6 +1065,7 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<protocol::TaskInfo>>();
   auto prestoTask = findOrCreateTask(taskId);
+
   if (!currentState || !maxWait) {
     // Return current TaskInfo without waiting.
     promise.setValue(
@@ -1499,6 +1526,52 @@ void TaskManager::shutdown() {
       }
     }
   });
+}
+
+folly::SemiFuture<PrestoTask::DynamicFilterSnapshot>
+TaskManager::getDynamicFilters(
+    const TaskId& taskId,
+    int64_t sinceVersion,
+    std::optional<std::chrono::milliseconds> maxWait) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it == taskMap->end()) {
+    PrestoTask::DynamicFilterSnapshot empty;
+    return folly::makeSemiFuture(std::move(empty));
+  }
+  return it->second->getDynamicFilters(sinceVersion, maxWait);
+}
+
+void TaskManager::removeDynamicFiltersThrough(
+    const TaskId& taskId,
+    int64_t throughVersion) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it != taskMap->end()) {
+    it->second->removeDynamicFiltersThrough(throughVersion);
+  }
+}
+
+bool TaskManager::addExternalDynamicFilter(
+    const TaskId& taskId,
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  std::shared_ptr<PrestoTask> prestoTask;
+  {
+    auto taskMap = taskMap_.rlock();
+    auto it = taskMap->find(taskId);
+    if (it == taskMap->end()) {
+      return false;
+    }
+    prestoTask = it->second;
+  }
+  prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+  // Safe to apply inline now that the Velox deadlock is fixed (Task::mutex_
+  // is released before pipelineFilters wlock). try_lock_for(500ms) ensures
+  // we don't block the HTTP thread indefinitely.
+  prestoTask->applyPendingExternalFilters();
+  return true;
 }
 
 } // namespace facebook::presto

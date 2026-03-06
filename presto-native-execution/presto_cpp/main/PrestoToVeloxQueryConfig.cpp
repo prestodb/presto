@@ -41,6 +41,14 @@ void updateVeloxConfigsWithSpecialCases(
     configStrings.emplace(
         velox::core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
   }
+
+  // When DPP is enabled, disable Velox's built-in dynamic filter
+  it = configStrings.find("distributed_dynamic_filter_strategy");
+  if (it != configStrings.end() && it->second != "DISABLED") {
+    configStrings.emplace(
+        velox::core::QueryConfig::kHashProbeDynamicFilterPushdownEnabled,
+        "false");
+  }
 }
 
 void updateFromSessionConfigs(

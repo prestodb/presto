@@ -13,12 +13,18 @@
  */
 
 #include "presto_cpp/main/PrestoTask.h"
+#include <glog/logging.h>
 #include <sys/resource.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
+#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/TypeParser.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/time/Timer.h"
+#include "velox/core/PlanNode.h"
 
 using namespace facebook::velox;
 
@@ -782,6 +788,24 @@ void PrestoTask::updateTimeInfoLocked(
       {"taskCreationTime",
        fromNanos(
            (createFinishTimeMs - firstTimeReceiveTaskUpdateMs) * 1'000'000)});
+
+  const auto externalFilters = externalDynamicFiltersReceived_.load();
+  if (externalFilters > 0) {
+    taskRuntimeStats["externalDynamicFiltersReceived"].addValue(
+        externalFilters);
+  }
+  const auto queuedFilters = externalDynamicFiltersQueued_.load();
+  if (queuedFilters > 0) {
+    taskRuntimeStats["externalDynamicFiltersQueued"].addValue(queuedFilters);
+  }
+  const auto applyTimeMs = externalDynamicFilterApplyTimeMs_.load();
+  if (applyTimeMs > 0) {
+    taskRuntimeStats["externalDynamicFilterApplyTimeMs"].addValue(applyTimeMs);
+  }
+  const auto mutexWaitMs = externalDynamicFilterMutexWaitMs_.load();
+  if (mutexWaitMs > 0) {
+    taskRuntimeStats["externalDynamicFilterMutexWaitMs"].addValue(mutexWaitMs);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -977,6 +1001,235 @@ protocol::RuntimeMetric toRuntimeMetric(
       metric.count,
       metric.max,
       metric.min};
+}
+
+// --- Dynamic filter methods ---
+
+void PrestoTask::storeDynamicFilters(
+    const std::map<std::string, protocol::TupleDomain<std::string>>& filters) {
+  VLOG(1) << "storeDynamicFilters: filterCount=" << filters.size();
+  auto version = dynamicFilterVersion_.fetch_add(1) + 1;
+  {
+    auto locked = dynamicFilters_.wlock();
+    for (const auto& [filterId, domain] : filters) {
+      (*locked)[filterId] = VersionedFilter{domain, version};
+    }
+  }
+  wakeDynamicFilterWaiters(version);
+}
+
+void PrestoTask::registerDynamicFilterIds(
+    const std::unordered_set<std::string>& filterIds) {
+  registeredFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
+}
+
+void PrestoTask::markFilterIdsFlushed(
+    const std::unordered_set<std::string>& filterIds) {
+  flushedFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
+  auto version = dynamicFilterVersion_.fetch_add(1) + 1;
+  wakeDynamicFilterWaiters(version);
+}
+
+void PrestoTask::wakeDynamicFilterWaiters(int64_t version) {
+  std::shared_ptr<folly::SharedPromise<int64_t>> promise;
+  {
+    std::lock_guard<std::mutex> l(dfMutex_);
+    promise = std::move(dfPromise_);
+  }
+  if (promise) {
+    promise->setValue(version);
+  }
+}
+
+PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
+    int64_t sinceVersion) {
+  DynamicFilterSnapshot snapshot;
+  // Read filters BEFORE completion flag (matches Java ordering).
+  {
+    auto locked = dynamicFilters_.rlock();
+    for (const auto& [filterId, vf] : *locked) {
+      if (vf.version > sinceVersion) {
+        snapshot.filters[filterId] = vf.domain;
+      }
+    }
+  }
+  snapshot.version = dynamicFilterVersion_.load();
+  snapshot.completedFilterIds = *flushedFilterIds_.rlock();
+  // operatorCompleted is true only when ALL registered filter IDs have been
+  // flushed, matching the Java SqlTask.isDynamicFilterOperatorCompleted()
+  // semantics: flushedFilterIds.containsAll(registeredDynamicFilterIds).
+  {
+    auto registered = registeredFilterIds_.rlock();
+    if (registered->empty()) {
+      snapshot.operatorCompleted = false;
+    } else {
+      snapshot.operatorCompleted = true;
+      for (const auto& id : *registered) {
+        if (snapshot.completedFilterIds.find(id) ==
+            snapshot.completedFilterIds.end()) {
+          snapshot.operatorCompleted = false;
+          break;
+        }
+      }
+    }
+  }
+  return snapshot;
+}
+
+folly::SemiFuture<PrestoTask::DynamicFilterSnapshot>
+PrestoTask::getDynamicFilters(
+    int64_t sinceVersion,
+    std::optional<std::chrono::milliseconds> maxWait) {
+  auto snapshot = snapshotDynamicFilters(sinceVersion);
+  if (!snapshot.filters.empty() || snapshot.operatorCompleted) {
+    return folly::makeSemiFuture(std::move(snapshot));
+  }
+
+  if (!maxWait.has_value() || maxWait->count() == 0) {
+    return folly::makeSemiFuture(std::move(snapshot));
+  }
+
+  // Create long-poll promise.
+  std::shared_ptr<folly::SharedPromise<int64_t>> promise;
+  {
+    std::lock_guard<std::mutex> l(dfMutex_);
+    if (!dfPromise_) {
+      dfPromise_ = std::make_shared<folly::SharedPromise<int64_t>>();
+    }
+    promise = dfPromise_;
+  }
+
+  // Return a future that resolves to a snapshot when data arrives or timeout.
+  return promise->getSemiFuture()
+      .within(*maxWait)
+      .deferValue([this, sinceVersion](int64_t /*version*/) {
+        return snapshotDynamicFilters(sinceVersion);
+      })
+      .deferError(
+          folly::tag_t<folly::FutureTimeout>{}, [this, sinceVersion](auto&&) {
+            return snapshotDynamicFilters(sinceVersion);
+          });
+}
+
+void PrestoTask::removeDynamicFiltersThrough(int64_t throughVersion) {
+  auto locked = dynamicFilters_.wlock();
+  for (auto it = locked->begin(); it != locked->end();) {
+    if (it->second.version <= throughVersion) {
+      it = locked->erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+namespace {
+
+// Recursively searches the plan tree for a TableScanNode with the given ID.
+std::shared_ptr<const velox::core::TableScanNode> findTableScanNode(
+    const velox::core::PlanNodePtr& node,
+    const std::string& planNodeId) {
+  if (node->id() == planNodeId) {
+    return std::dynamic_pointer_cast<const velox::core::TableScanNode>(node);
+  }
+  for (const auto& child : node->sources()) {
+    auto result = findTableScanNode(child, planNodeId);
+    if (result) {
+      return result;
+    }
+  }
+  return nullptr;
+}
+
+} // namespace
+
+void PrestoTask::addExternalDynamicFilter(
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  std::lock_guard<std::mutex> l(mutex);
+  pendingExternalFilters_.push_back(
+      {filterId, scanPlanNodeId, tupleDomain});
+  externalDynamicFiltersQueued_++;
+}
+
+void PrestoTask::applyPendingExternalFilters() {
+  std::vector<PendingExternalFilter> pending;
+  {
+    std::lock_guard<std::mutex> l(mutex);
+    if (!task || pendingExternalFilters_.empty()) {
+      return;
+    }
+    pending.swap(pendingExternalFilters_);
+  }
+
+  for (auto& pf : pending) {
+    if (task->state() != exec::TaskState::kRunning) {
+      return;
+    }
+    applyFilter(pf.filterId, pf.scanPlanNodeId, pf.tupleDomain);
+  }
+}
+
+void PrestoTask::applyFilter(
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  try {
+    auto applyStart = std::chrono::steady_clock::now();
+
+    if (!task || task->state() != exec::TaskState::kRunning) {
+      return;
+    }
+
+    auto scanNode = findTableScanNode(
+        task->planFragment().planNode, scanPlanNodeId);
+    if (!scanNode || !tupleDomain.domains) {
+      return;
+    }
+
+    // Use a standalone root pool for filter conversion, NOT a child of the
+    // task's pool. This avoids interactions with the task's memory tracking,
+    // arbitration, and lifecycle.
+    static auto filterRootPool =
+        velox::memory::MemoryManager::getInstance()->addRootPool(
+            "externalDynamicFilterConversion",
+            64 * 1024 * 1024); // 64MB — scratch only
+    auto leafPool = filterRootPool->addLeafChild(
+        fmt::format("filter_{}_{}", id.toString(), filterId));
+    TypeParser typeParser;
+    VeloxExprConverter exprConverter(leafPool.get(), &typeParser);
+
+    for (const auto& [columnName, domain] : *tupleDomain.domains) {
+      auto columnIdx =
+          scanNode->outputType()->getChildIdxIfExists(columnName);
+      if (!columnIdx.has_value()) {
+        continue;
+      }
+
+      auto filter = toFilter(domain, exprConverter, typeParser);
+      if (filter) {
+        auto mutexStart = std::chrono::steady_clock::now();
+        task->addExternalDynamicFilter(
+            scanPlanNodeId, *columnIdx, std::move(filter));
+        auto mutexEnd = std::chrono::steady_clock::now();
+        externalDynamicFilterMutexWaitMs_ +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                mutexEnd - mutexStart)
+                .count();
+        ++externalDynamicFiltersReceived_;
+      }
+    }
+
+    auto applyEnd = std::chrono::steady_clock::now();
+    externalDynamicFilterApplyTimeMs_ +=
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            applyEnd - applyStart)
+            .count();
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "Failed to apply external dynamic filter '" << filterId
+                 << "' for scan node " << scanPlanNodeId << " on task "
+                 << id.toString() << ": " << e.what();
+  }
 }
 
 bool isFinalState(protocol::TaskState state) {

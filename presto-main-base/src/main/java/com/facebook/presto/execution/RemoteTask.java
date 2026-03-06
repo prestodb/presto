@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.metadata.Split;
@@ -78,4 +79,10 @@ public interface RemoteTask
     int getUnacknowledgedPartitionedSplitCount();
 
     PlanFragment getPlanFragment();
+
+    /**
+     * Pushes a coordinator-collected dynamic filter to this task for worker-side
+     * row-group and row-level filtering. Fire-and-forget: failures are silently ignored.
+     */
+    default void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint) {}
 }

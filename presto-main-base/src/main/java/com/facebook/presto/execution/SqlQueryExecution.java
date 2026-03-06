@@ -25,6 +25,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -130,6 +131,7 @@ public class SqlQueryExecution
     private final ScheduledExecutorService timeoutThreadExecutor;
     private final SectionExecutionFactory sectionExecutionFactory;
     private final InternalNodeManager internalNodeManager;
+    private final DynamicFilterService dynamicFilterService;
 
     private final AtomicReference<SqlQuerySchedulerInterface> queryScheduler = new AtomicReference<>();
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
@@ -169,6 +171,7 @@ public class SqlQueryExecution
             SectionExecutionFactory sectionExecutionFactory,
             ExecutorService eagerPlanValidationExecutor,
             InternalNodeManager internalNodeManager,
+            DynamicFilterService dynamicFilterService,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
@@ -194,6 +197,7 @@ public class SqlQueryExecution
             this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
@@ -228,6 +232,8 @@ public class SqlQueryExecution
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;
+            DynamicFilterService dynamicFilterServiceRef = this.dynamicFilterService;
+            QueryId queryId = stateMachine.getQueryId();
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
                     return;
@@ -238,6 +244,9 @@ public class SqlQueryExecution
                 if (scheduler != null) {
                     scheduler.abort();
                 }
+
+                // clean up dynamic filter state to prevent memory leaks
+                dynamicFilterServiceRef.removeFiltersForQuery(queryId);
             });
 
             this.remoteTaskFactory = new TrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
@@ -679,7 +688,7 @@ public class SqlQueryExecution
                     .withNoMoreBufferIds();
         }
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector(), dynamicFilterService, metadata);
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = SqlQueryScheduler.createSqlQueryScheduler(
                 locationFactory,
@@ -927,6 +936,7 @@ public class SqlQueryExecution
         private final PlanChecker planChecker;
         private final PartialResultQueryManager partialResultQueryManager;
         private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
+        private final DynamicFilterService dynamicFilterService;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -943,6 +953,7 @@ public class SqlQueryExecution
                 SectionExecutionFactory sectionExecutionFactory,
                 @ForEagerPlanValidation ExecutorService eagerPlanValidationExecutor,
                 InternalNodeManager internalNodeManager,
+                DynamicFilterService dynamicFilterService,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
@@ -965,6 +976,7 @@ public class SqlQueryExecution
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
             this.eagerPlanValidationExecutor = requireNonNull(eagerPlanValidationExecutor, "eagerPlanValidationExecutor is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.planOptimizers = planOptimizers.getPlanningTimeOptimizers();
             this.runtimePlanOptimizers = planOptimizers.getRuntimeOptimizers();
@@ -1010,6 +1022,7 @@ public class SqlQueryExecution
                     sectionExecutionFactory,
                     eagerPlanValidationExecutor,
                     internalNodeManager,
+                    dynamicFilterService,
                     executionPolicy,
                     schedulerStats,
                     statsCalculator,

@@ -38,6 +38,8 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
@@ -107,6 +109,10 @@ public class HttpRemoteTaskFactory
     private final DecayCounter taskUpdateRequestSize;
     private final boolean taskUpdateSizeTrackingEnabled;
     private final Optional<SafeEventLoopGroup> eventLoopGroup;
+    private final DynamicFilterService dynamicFilterService;
+    private final DynamicFilterStats dynamicFilterStats;
+    private final JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec;
+    private final JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -129,7 +135,11 @@ public class HttpRemoteTaskFactory
             InternalCommunicationConfig communicationConfig,
             MetadataManager metadataManager,
             QueryManager queryManager,
-            HandleResolver handleResolver)
+            HandleResolver handleResolver,
+            DynamicFilterService dynamicFilterService,
+            DynamicFilterStats dynamicFilterStats,
+            JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -138,6 +148,10 @@ public class HttpRemoteTaskFactory
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         this.handleResolver = handleResolver;
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        this.dynamicFilterStats = requireNonNull(dynamicFilterStats, "dynamicFilterStats is null");
+        this.dynamicFilterResponseCodec = requireNonNull(dynamicFilterResponseCodec, "dynamicFilterResponseCodec is null");
+        this.dynamicFilterPushRequestCodec = requireNonNull(dynamicFilterPushRequestCodec, "dynamicFilterPushRequestCodec is null");
 
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
@@ -288,6 +302,10 @@ public class HttpRemoteTaskFactory
                 taskUpdateSizeTrackingEnabled,
                 handleResolver,
                 schedulerStatsTracker,
-                (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next());
+                (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next(),
+                dynamicFilterService,
+                dynamicFilterResponseCodec,
+                dynamicFilterPushRequestCodec,
+                dynamicFilterStats);
     }
 }

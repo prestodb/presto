@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include <folly/Synchronized.h>
+#include <folly/futures/SharedPromise.h>
 #include <memory>
 #include <unordered_set>
 #include "presto_cpp/main/http/HttpServer.h"
@@ -205,7 +207,100 @@ struct PrestoTask {
 
   folly::dynamic toJson() const;
 
+  // --- Dynamic filter support ---
+
+  /// Snapshot of dynamic filter state for HTTP responses.
+  struct DynamicFilterSnapshot {
+    std::map<std::string, protocol::TupleDomain<std::string>> filters;
+    int64_t version{0};
+    bool operatorCompleted{false};
+    std::unordered_set<std::string> completedFilterIds;
+  };
+
+  /// Stores dynamic filter data produced by DynamicFilterSourceOperator.
+  void storeDynamicFilters(
+      const std::map<std::string, protocol::TupleDomain<std::string>>& filters);
+
+  /// Registers filter IDs that this task's DynamicFilterSource operators will
+  /// produce. Must be called before operators start so that operatorCompleted
+  /// can check flushed ⊇ registered.
+  void registerDynamicFilterIds(
+      const std::unordered_set<std::string>& filterIds);
+
+  /// Marks the given filter IDs as flushed (all operators for those filters
+  /// have completed).
+  void markFilterIdsFlushed(const std::unordered_set<std::string>& filterIds);
+
+  /// Takes a snapshot of dynamic filters with version > sinceVersion.
+  DynamicFilterSnapshot snapshotDynamicFilters(int64_t sinceVersion);
+
+  /// Returns a future that completes when new dynamic filter data is available
+  /// or maxWait expires.
+  folly::SemiFuture<DynamicFilterSnapshot> getDynamicFilters(
+      int64_t sinceVersion,
+      std::optional<std::chrono::milliseconds> maxWait);
+
+  /// Removes dynamic filter versions <= throughVersion.
+  void removeDynamicFiltersThrough(int64_t throughVersion);
+
+  /// Injects a coordinator-collected dynamic filter into the Velox task for
+  /// worker-side row-group and row-level filtering. If the Velox task has not
+  /// been created yet, the filter is queued and applied when the task starts.
+  void addExternalDynamicFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
+  /// Applies any pending external dynamic filters that were queued before the
+  /// Velox task was created. Must be called after task is assigned and started.
+  /// Caller must NOT hold PrestoTask::mutex.
+  void applyPendingExternalFilters();
+
  private:
+  // Dynamic filter storage.
+  struct VersionedFilter {
+    protocol::TupleDomain<std::string> domain;
+    int64_t version;
+  };
+  folly::Synchronized<std::map<std::string, VersionedFilter>> dynamicFilters_;
+  std::atomic<int64_t> dynamicFilterVersion_{0};
+  folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
+  folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
+
+  // Count of external dynamic filters received from the coordinator.
+  std::atomic<int64_t> externalDynamicFiltersReceived_{0};
+
+  // Count of external dynamic filters queued before Velox task creation.
+  std::atomic<int64_t> externalDynamicFiltersQueued_{0};
+
+  // Time (ms) spent in applyPendingExternalFilters (total across all calls).
+  std::atomic<int64_t> externalDynamicFilterApplyTimeMs_{0};
+
+  // Time (ms) spent waiting for Velox Task::mutex_ in addExternalDynamicFilter.
+  std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
+
+  // Pending external dynamic filters that arrived before the Velox Task was
+  // created. Applied when the task starts. Protected by PrestoTask::mutex.
+  struct PendingExternalFilter {
+    std::string filterId;
+    std::string scanPlanNodeId;
+    protocol::TupleDomain<std::string> tupleDomain;
+  };
+  std::vector<PendingExternalFilter> pendingExternalFilters_;
+
+  // Long-poll support for dynamic filters.
+  std::mutex dfMutex_;
+  std::shared_ptr<folly::SharedPromise<int64_t>> dfPromise_;
+
+  /// Applies a single external dynamic filter to the Velox task. Acquires the
+  /// Velox Task::mutex_. Caller must NOT hold PrestoTask::mutex.
+  void applyFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
+  void wakeDynamicFilterWaiters(int64_t version);
+
   void recordProcessCpuTime();
 
   void updateOutputBufferInfoLocked(
