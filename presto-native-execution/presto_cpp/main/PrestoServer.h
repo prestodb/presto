@@ -232,7 +232,7 @@ class PrestoServer {
 
   /// Shuts down all server components in the correct order after the HTTP
   /// server stops.
-  void shutdownServer();
+  void shutdownServer(std::shared_ptr<std::thread> communicatorThread);
 
   /// Logs thread pool sizes for all executors.
   void logExecutorInfo();
