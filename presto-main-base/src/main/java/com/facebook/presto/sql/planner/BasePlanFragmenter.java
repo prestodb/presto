@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
@@ -67,6 +68,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
@@ -139,12 +141,19 @@ public abstract class BasePlanFragmenter
 
     private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
     {
-        List<PlanNodeId> schedulingOrder = scheduleOrder(root);
+        Set<PlanNodeId> partitionedSourcesSet = properties.getPartitionedSources();
+        // Filter the scheduling order to only include partitioned sources.
+        // The visitor always includes all source nodes (e.g. IndexSourceNode),
+        // but not all of them need coordinator-scheduled splits (e.g. non-bucketed
+        // index tables like SequenceStorage, or index sources in Java execution).
+        List<PlanNodeId> schedulingOrder = scheduleOrder(root).stream()
+                .filter(partitionedSourcesSet::contains)
+                .collect(toImmutableList());
         Preconditions.checkArgument(
-                properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder)),
+                partitionedSourcesSet.equals(ImmutableSet.copyOf(schedulingOrder)),
                 "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)",
                 schedulingOrder,
-                properties.getPartitionedSources());
+                partitionedSourcesSet);
 
         Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
         Set<PlanNodeId> tableWriterNodeIds = PlanFragmenterUtils.getTableWriterNodeIds(root);
@@ -258,6 +267,29 @@ public abstract class BasePlanFragmenter
                 .map(TableLayout.TablePartitioning::getPartitioningHandle)
                 .orElse(SOURCE_DISTRIBUTION);
         context.get().addSourceDistribution(node.getId(), partitioning, metadata, session);
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitIndexSource(IndexSourceNode node, RewriteContext<FragmentProperties> context)
+    {
+        // Only include the index source in the scheduling path when:
+        // 1. Native execution is enabled (Java execution uses the Index SPI at
+        //    runtime and doesn't need coordinator-scheduled splits), AND
+        // 2. The table layout has partitioning info (i.e., the table is bucketed).
+        //    Bucketed index tables (Hive/Prism) need splits delivered via the
+        //    scheduler. Non-bucketed index tables (e.g., SequenceStorage) handle
+        //    data fetching internally and don't need coordinator-scheduled splits.
+        if (isNativeExecutionEnabled(session)) {
+            boolean hasPartitioning = metadata.getLayout(session, node.getTableHandle())
+                    .getTablePartitioning()
+                    .isPresent();
+            if (hasPartitioning) {
+                // Use addPartitionedSource (not addSourceDistribution) to avoid
+                // overriding the probe's bucketed distribution.
+                context.get().addPartitionedSource(node.getId());
+            }
+        }
         return context.defaultRewrite(node, context.get());
     }
 
@@ -590,6 +622,13 @@ public abstract class BasePlanFragmenter
 
             partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
 
+            return this;
+        }
+
+        public FragmentProperties addPartitionedSource(PlanNodeId source)
+        {
+            requireNonNull(source, "source is null");
+            partitionedSources.add(source);
             return this;
         }
 

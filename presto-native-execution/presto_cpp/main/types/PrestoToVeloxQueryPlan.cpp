@@ -127,6 +127,18 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   return connector.toVeloxTableHandle(tableHandle, exprConverter, typeParser);
 }
 
+std::shared_ptr<connector::ConnectorTableHandle>
+toConnectorTableHandleForIndexSource(
+    const protocol::TableHandle& tableHandle,
+    const protocol::IndexHandle& indexHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  const auto& connector =
+      getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
+  return connector.toVeloxTableHandleForIndexSource(
+      tableHandle, indexHandle, exprConverter, typeParser);
+}
+
 std::vector<core::TypedExprPtr> getProjections(
     const VeloxExprConverter& exprConverter,
     const protocol::Assignments& assignments) {
@@ -1408,14 +1420,30 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::IndexSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  auto rowType = toRowType(node->outputVariables, typeParser_);
   connector::ColumnHandleMap assignments;
+  std::vector<std::string> outputNames;
+  std::vector<TypePtr> outputTypes;
+
+  // Get the connector to check if columns are partition keys.
+  // Partition key columns must be excluded because HiveIndexSource only
+  // handles regular columns.
+  const auto& connector =
+      getPrestoToVeloxConnector(node->tableHandle.connectorHandle->_type);
+
   for (const auto& [variable, columnHandle] : node->assignments) {
+    if (connector.isPartitionKeyColumn(columnHandle.get())) {
+      continue;
+    }
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
+    outputNames.push_back(variable.name);
+    outputTypes.push_back(stringToType(variable.type, typeParser_));
   }
-  auto connectorTableHandle =
-      toConnectorTableHandle(node->tableHandle, exprConverter_, typeParser_);
+
+  auto rowType = ROW(std::move(outputNames), std::move(outputTypes));
+  auto connectorTableHandle = toConnectorTableHandleForIndexSource(
+      node->tableHandle, node->indexHandle, exprConverter_, typeParser_);
+
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
