@@ -368,7 +368,7 @@ void PrestoServer::run() {
   // down.
   startServer(catalogNames);
 
-  shutdownServer();
+  shutdownServer(communicatorThread);
 }
 
 void PrestoServer::initializeConfigs() {
