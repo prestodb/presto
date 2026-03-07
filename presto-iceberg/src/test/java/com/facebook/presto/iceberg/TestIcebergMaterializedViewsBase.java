@@ -1692,4 +1692,60 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate("DROP MATERIALIZED VIEW test_staleness_window_mv");
         assertUpdate("DROP TABLE test_staleness_window_base");
     }
+
+    @Test
+    public void testInsertAndCtasFromMaterializedView()
+    {
+        assertUpdate("CREATE TABLE test_mv_insert_base (id BIGINT, name VARCHAR, value BIGINT)");
+        assertUpdate("INSERT INTO test_mv_insert_base VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_mv_insert_mv AS SELECT id, name, value FROM test_mv_insert_base");
+
+        try {
+            // CTAS from MV should succeed (no longer blanket-blocked)
+            assertQuerySucceeds("CREATE TABLE test_mv_insert_ctas AS SELECT * FROM test_mv_insert_mv");
+
+            // INSERT from MV into a non-base-table should succeed
+            assertUpdate("CREATE TABLE test_mv_insert_target (id BIGINT, name VARCHAR, value BIGINT)");
+            assertQuerySucceeds("INSERT INTO test_mv_insert_target SELECT * FROM test_mv_insert_mv");
+
+            // INSERT from MV into its base table should fail (circular dependency)
+            assertQueryFails("INSERT INTO test_mv_insert_base SELECT * FROM test_mv_insert_mv",
+                    ".*INSERT into table .* by selecting from materialized view .* is not supported because .* is a base table of the materialized view.*");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_mv_insert_ctas");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_mv_insert_target");
+            getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS test_mv_insert_mv");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_mv_insert_base");
+        }
+    }
+
+    @Test
+    public void testInsertFromMaterializedViewTransitiveBaseTables()
+    {
+        // Create base table -> view -> materialized view chain to test transitive base table resolution
+        assertUpdate("CREATE TABLE test_mv_transitive_base (id BIGINT, category VARCHAR, amount BIGINT)");
+        assertUpdate("INSERT INTO test_mv_transitive_base VALUES (1, 'A', 100), (2, 'B', 200), (3, 'A', 300)", 3);
+
+        assertUpdate("CREATE VIEW test_mv_transitive_view AS SELECT id, category, amount FROM test_mv_transitive_base");
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_mv_transitive_mv AS SELECT id, category, amount FROM test_mv_transitive_view");
+
+        try {
+            // INSERT from MV into a non-base-table should succeed
+            assertUpdate("CREATE TABLE test_mv_transitive_target (id BIGINT, category VARCHAR, amount BIGINT)");
+            assertQuerySucceeds("INSERT INTO test_mv_transitive_target SELECT * FROM test_mv_transitive_mv");
+
+            // INSERT from MV into the transitive base table (underlying table of the view) should fail
+            assertQueryFails("INSERT INTO test_mv_transitive_base SELECT * FROM test_mv_transitive_mv",
+                    ".*INSERT into table .* by selecting from materialized view .* is not supported because .* is a base table of the materialized view.*");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_mv_transitive_target");
+            getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS test_mv_transitive_mv");
+            getQueryRunner().execute("DROP VIEW IF EXISTS test_mv_transitive_view");
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_mv_transitive_base");
+        }
+    }
 }
