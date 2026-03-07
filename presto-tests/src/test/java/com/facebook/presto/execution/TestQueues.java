@@ -74,6 +74,7 @@ import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
 import static jakarta.ws.rs.core.Response.Status.fromStatusCode;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -392,7 +393,7 @@ public class TestQueues
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.installCoordinatorPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
         PlanCheckerProviderManager planCheckerProviderManager = queryRunner.getCoordinator().getInstance(Key.get(PlanCheckerProviderManager.class));
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager(), emptyMap());
         queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
 
         Session.SessionBuilder builder = testSessionBuilder()

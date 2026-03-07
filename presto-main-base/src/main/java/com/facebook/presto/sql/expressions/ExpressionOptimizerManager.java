@@ -79,12 +79,12 @@ public class ExpressionOptimizerManager
         expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, new RowExpressionOptimizer(functionAndTypeManager));
     }
 
-    public void loadExpressionOptimizerFactories()
+    public void loadExpressionOptimizerFactories(Map<String, String> allCoordinatorProperties)
     {
         try {
             for (File file : listFiles(configurationDirectory)) {
                 if (file.isFile() && file.getName().endsWith(".properties")) {
-                    loadExpressionOptimizerFactory(file);
+                    loadExpressionOptimizerFactory(file, allCoordinatorProperties);
                 }
             }
         }
@@ -93,7 +93,7 @@ public class ExpressionOptimizerManager
         }
     }
 
-    public void loadExpressionOptimizerFactory(File configurationFile)
+    public void loadExpressionOptimizerFactory(File configurationFile, Map<String, String> allCoordinatorProperties)
             throws IOException
     {
         String optimizerName = getNameWithoutExtension(configurationFile.getName());
@@ -101,6 +101,7 @@ public class ExpressionOptimizerManager
         checkArgument(!optimizerName.equals(DEFAULT_EXPRESSION_OPTIMIZER_NAME), "Cannot name an expression optimizer instance %s", DEFAULT_EXPRESSION_OPTIMIZER_NAME);
 
         Map<String, String> properties = new HashMap<>(loadProperties(configurationFile));
+        properties.putAll(allCoordinatorProperties);
         String factoryName = properties.remove(EXPRESSION_MANAGER_FACTORY_NAME);
         checkArgument(!isNullOrEmpty(factoryName), "%s does not contain %s", configurationFile, EXPRESSION_MANAGER_FACTORY_NAME);
 

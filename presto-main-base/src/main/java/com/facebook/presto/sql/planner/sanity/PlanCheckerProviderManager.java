@@ -63,7 +63,7 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProviders(NodeManager nodeManager)
+    public void loadPlanCheckerProviders(NodeManager nodeManager, Map<String, String> allCoordinatorConfigs)
             throws IOException
     {
         for (File file : listFiles(configDirectory)) {
@@ -77,6 +77,8 @@ public class PlanCheckerProviderManager
                         "Plan checker configuration %s does not contain %s",
                         file.getAbsoluteFile(),
                         PLAN_CHECKER_PROVIDER_NAME);
+                // add all coordinator configs
+                properties.putAll(allCoordinatorConfigs);
                 loadPlanCheckerProvider(planCheckerProviderName, properties, nodeManager);
             }
         }
