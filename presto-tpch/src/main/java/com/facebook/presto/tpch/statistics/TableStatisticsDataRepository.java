@@ -78,7 +78,8 @@ public class TableStatisticsDataRepository
             return Optional.empty();
         }
         try {
-            return Optional.of(objectMapper.readValue(resource, TableStatisticsData.class));
+            // Read as InputStream to avoid Jackson 2.21.0 ZIP validation issues with JAR resources
+            return Optional.of(objectMapper.readValue(resource.openStream(), TableStatisticsData.class));
         }
         catch (Exception e) {
             throw new RuntimeException(format("Failed to parse stats from resource [%s]", resourcePath), e);
