@@ -152,6 +152,7 @@ public class ChangelogSplitSource
                 nodeSelectionStrategy,
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / targetSplitSize, minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),
                         changeTask.commitSnapshotId(),

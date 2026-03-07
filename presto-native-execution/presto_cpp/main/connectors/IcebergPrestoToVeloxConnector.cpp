@@ -30,6 +30,8 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     return velox::connector::hive::iceberg::FileContent::kData;
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+  } else if (content == protocol::iceberg::FileContent::POSITION_UPDATES) {
+    return velox::connector::hive::iceberg::FileContent::kPositionalUpdates;
   }
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
@@ -210,6 +212,28 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     deletes.emplace_back(icebergDeleteFile);
   }
 
+  std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> updates;
+  updates.reserve(icebergSplit->updates.size());
+  for (const auto& updateFile : icebergSplit->updates) {
+    std::unordered_map<int32_t, std::string> lowerBounds(
+        updateFile.lowerBounds.begin(), updateFile.lowerBounds.end());
+
+    std::unordered_map<int32_t, std::string> upperBounds(
+        updateFile.upperBounds.begin(), updateFile.upperBounds.end());
+
+    velox::connector::hive::iceberg::IcebergDeleteFile icebergUpdateFile(
+        toVeloxFileContent(updateFile.content),
+        updateFile.path,
+        toVeloxFileFormat(updateFile.format),
+        updateFile.recordCount,
+        updateFile.fileSizeInBytes,
+        std::vector(updateFile.equalityFieldIds),
+        lowerBounds,
+        upperBounds);
+
+    updates.emplace_back(icebergUpdateFile);
+  }
+
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
        std::to_string(icebergSplit->dataSequenceNumber)},
@@ -227,7 +251,9 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       nullptr,
       splitContext->cacheable,
       deletes,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      updates);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
