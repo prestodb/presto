@@ -235,6 +235,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_PAYLOAD_JOINS = "optimize_payload_joins";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
     public static final String PUSHDOWN_DEREFERENCE_ENABLED = "pushdown_dereference_enabled";
+    public static final String PUSH_DOWN_WIDEN_CAST_ENABLED = "push_down_widen_cast_enabled";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
@@ -1210,6 +1211,11 @@ public final class SystemSessionProperties
                         PUSHDOWN_DEREFERENCE_ENABLED,
                         "Experimental: enable dereference pushdown",
                         featuresConfig.isPushdownDereferenceEnabled(),
+                        false),
+                booleanProperty(
+                        PUSH_DOWN_WIDEN_CAST_ENABLED,
+                        "Enable push-down of widening integer upcasts and compatible type casts (e.g., INTEGER->BIGINT, DATE->TIMESTAMP) to TableScan",
+                        featuresConfig.isPushDownWidenCastEnabled(),
                         false),
                 new PropertyMetadata<>(
                         INDEX_LOADER_TIMEOUT,
@@ -3105,6 +3111,11 @@ public final class SystemSessionProperties
     public static boolean isPushdownDereferenceEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPushDownWidenCastEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSH_DOWN_WIDEN_CAST_ENABLED, Boolean.class);
     }
 
     public static Duration getIndexLoaderTimeout(Session session)

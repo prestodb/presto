@@ -206,6 +206,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PrefilterForLimitingAggregation;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
+import com.facebook.presto.sql.planner.optimizations.PushDownWidenCast;
 import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin;
 import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggregation;
@@ -928,7 +929,22 @@ public class PlanOptimizers
                                 new PruneRedundantProjectionAssignments(),
                                 // Re-run RemoveRedundantTableFunctionProcessor after SimplifyPlanWithEmptyInput to optimize empty input tables to empty ValueNode
                                 new RemoveRedundantTableFunctionProcessor())),
-                new PushdownSubfields(metadata, expressionOptimizerManager));
+                new PushdownSubfields(metadata, expressionOptimizerManager),
+                // Push widening casts (e.g., INTEGER->BIGINT, DATE->TIMESTAMP) down to TableScan nodes.
+                // This allows scan operators to apply the type coercion inline during column reading.
+                // Run after PushdownSubfields so subfield pruning has already been applied, and
+                // before predicatePushDown so widened-type predicates can be pushed to scans.
+                new PushDownWidenCast(metadata));
+
+        // After pushing casts to TableScan, clean up identity assignments introduced by PushDownWidenCast
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(
+                        new InlineProjections(metadata.getFunctionAndTypeManager()),
+                        new RemoveRedundantIdentityProjections())));
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
