@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
@@ -44,6 +45,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
+import static org.apache.iceberg.MetadataColumns.ROW_ID;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 
 public class IcebergColumnHandle
@@ -57,6 +60,20 @@ public class IcebergColumnHandle
     public static final ColumnMetadata IS_DELETED_COLUMN_METADATA = getColumnMetadata(IS_DELETED);
     public static final IcebergColumnHandle DELETE_FILE_PATH_COLUMN_HANDLE = getIcebergColumnHandle(DELETE_FILE_PATH);
     public static final ColumnMetadata DELETE_FILE_PATH_COLUMN_METADATA = getColumnMetadata(DELETE_FILE_PATH);
+    public static final IcebergColumnHandle ROW_ID_COLUMN_HANDLE = primitiveIcebergColumnHandle(
+            ROW_ID.fieldId(), ROW_ID.name(), BIGINT, Optional.ofNullable(ROW_ID.doc()));
+    public static final ColumnMetadata ROW_ID_COLUMN_METADATA = ColumnMetadata.builder()
+            .setName(ROW_ID.name())
+            .setType(BIGINT)
+            .setHidden(true)
+            .build();
+    public static final IcebergColumnHandle LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE = primitiveIcebergColumnHandle(
+            LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), LAST_UPDATED_SEQUENCE_NUMBER.name(), BIGINT, Optional.ofNullable(LAST_UPDATED_SEQUENCE_NUMBER.doc()));
+    public static final ColumnMetadata LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_METADATA = ColumnMetadata.builder()
+            .setName(LAST_UPDATED_SEQUENCE_NUMBER.name())
+            .setType(BIGINT)
+            .setHidden(true)
+            .build();
 
     private final ColumnIdentity columnIdentity;
     private final Type type;
@@ -201,6 +218,16 @@ public class IcebergColumnHandle
     public boolean isDeleteFilePathColumn()
     {
         return getColumnIdentity().getId() == DELETE_FILE_PATH.getId();
+    }
+
+    public boolean isRowIdColumn()
+    {
+        return getColumnIdentity().getId() == ROW_ID.fieldId();
+    }
+
+    public boolean isLastUpdatedSequenceNumberColumn()
+    {
+        return getColumnIdentity().getId() == LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
     }
 
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)

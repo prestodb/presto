@@ -46,7 +46,8 @@ public enum IcebergMetadataColumn
 
     private static final Set<Integer> COLUMN_IDS = Stream.concat(
             Stream.of(values()).map(IcebergMetadataColumn::getId),
-            Stream.of(MetadataColumns.SPEC_ID.fieldId())).collect(toImmutableSet());
+            Stream.of(
+                    MetadataColumns.SPEC_ID.fieldId())).collect(toImmutableSet());
     private final int id;
     private final String columnName;
     private final Type type;
