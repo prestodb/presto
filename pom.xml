@@ -62,7 +62,7 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.iceberg.version>1.10.0</dep.iceberg.version>
-        <dep.asm.version>9.7.1</dep.asm.version>
+        <dep.asm.version>9.9.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>2.0.16</dep.slf4j.version>
