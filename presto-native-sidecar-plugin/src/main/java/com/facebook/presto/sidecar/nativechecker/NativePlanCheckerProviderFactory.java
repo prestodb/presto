@@ -14,22 +14,15 @@
 package com.facebook.presto.sidecar.nativechecker;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
-import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
-import com.facebook.presto.spi.plan.SimplePlanFragment;
-import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
 import com.google.inject.Injector;
-import com.google.inject.Scopes;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
 
 public class NativePlanCheckerProviderFactory
@@ -49,19 +42,12 @@ public class NativePlanCheckerProviderFactory
     }
 
     @Override
-    public PlanCheckerProvider create(Map<String, String> properties, PlanCheckerProviderContext planCheckerProviderContext)
+    public PlanCheckerProvider create(Map<String, String> properties, PlanCheckerProviderContext context)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    binder -> {
-                        configBinder(binder).bindConfig(NativePlanCheckerConfig.class, NativePlanCheckerConfig.CONFIG_PREFIX);
-                        binder.install(new JsonModule());
-                        binder.bind(NodeManager.class).toInstance(planCheckerProviderContext.getNodeManager());
-                        binder.bind(SimplePlanFragmentSerde.class).toInstance(planCheckerProviderContext.getSimplePlanFragmentSerde());
-                        jsonBinder(binder).addSerializerBinding(SimplePlanFragment.class).to(SimplePlanFragmentSerializer.class).in(Scopes.SINGLETON);
-                        jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
-                        binder.bind(PlanCheckerProvider.class).to(NativePlanCheckerProvider.class).in(Scopes.SINGLETON);
-                    });
+                    new NativePlanCheckerModule(context.getNodeManager(), context.getSimplePlanFragmentSerde()),
+                    new NativeSidecarCommunicationModule());
 
             Injector injector = app
                     .noStrictConfig()

@@ -2234,11 +2234,26 @@ Querying branches and tags
 
 Iceberg supports branches and tags which are named references to snapshots.
 
-Query Iceberg table by specifying the branch name:
+Query Iceberg table by specifying the branch name using ``FOR SYSTEM_VERSION AS OF``:
 
 .. code-block:: sql
 
     SELECT * FROM nation FOR SYSTEM_VERSION AS OF 'testBranch';
+
+.. code-block:: text
+
+     nationkey |      name     | regionkey | comment
+    -----------+---------------+-----------+---------
+            10 | united states |         1 | comment
+            20 | canada        |         2 | comment
+            30 | mexico        |         3 | comment
+    (3 rows)
+
+Alternatively, you can query a branch using the dot notation syntax with quoted identifiers:
+
+.. code-block:: sql
+
+    SELECT * FROM "nation.branch_testBranch";
 
 .. code-block:: text
 
@@ -2262,6 +2277,100 @@ Query Iceberg table by specifying the tag name:
             10 | united states |         1 | comment
             20 | canada        |         2 | comment
     (3 rows)
+
+**Note:** The dot notation syntax ``"<table>.branch_<branch_name>"`` requires double quotes to prevent the SQL parser from interpreting the dot as a schema.table separator. This syntax works for both querying (SELECT) and mutating (INSERT, UPDATE, DELETE, MERGE) branch data.
+
+Mutating Iceberg Branches
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg supports performing INSERT, UPDATE, DELETE, and MERGE operations directly on branches,
+allowing you to make changes to a branch without affecting the main table or other branches.
+
+To perform mutations on a branch, use the quoted identifier syntax ``"<table>.branch_<branch_name>"`` (for example, ``"orders.branch_audit_branch"``).
+The quotes are required to prevent the SQL parser from interpreting the dot as a schema.table separator.
+
+**Insert into a branch:**
+
+.. code-block:: sql
+
+    -- Create a branch first
+    ALTER TABLE orders CREATE BRANCH 'audit_branch';
+    
+    -- Insert data into the branch
+    INSERT INTO "orders.branch_audit_branch" VALUES (1, 'Product A', 100.00);
+    INSERT INTO "orders.branch_audit_branch" VALUES (2, 'Product B', 200.00);
+
+**Update data in a branch:**
+
+.. code-block:: sql
+
+    -- Update specific rows in the branch
+    UPDATE "orders.branch_audit_branch" SET price = 120.00 WHERE id = 1;
+    
+    -- Update with complex expressions
+    UPDATE "orders.branch_audit_branch"
+    SET price = price * 1.1
+    WHERE category = 'electronics';
+
+**Delete from a branch:**
+
+.. code-block:: sql
+
+    -- Delete specific rows from the branch
+    DELETE FROM "orders.branch_audit_branch" WHERE id = 2;
+    
+    -- Delete with complex predicates
+    DELETE FROM "orders.branch_audit_branch"
+    WHERE created_date < DATE '2024-01-01';
+
+**Merge into a branch:**
+
+.. code-block:: sql
+
+    -- Merge data from source table into branch
+    MERGE INTO "orders.branch_audit_branch" t
+    USING source_table s
+    ON t.id = s.id
+    WHEN MATCHED THEN UPDATE SET price = s.price
+    WHEN NOT MATCHED THEN INSERT (id, product, price) VALUES (s.id, s.product, s.price);
+
+**Verify branch isolation:**
+
+After performing mutations on a branch, you can verify that the main table remains unchanged:
+
+.. code-block:: sql
+
+    -- Query the branch to see changes
+    SELECT * FROM orders FOR SYSTEM_VERSION AS OF 'audit_branch';
+    
+    -- Query the main table (unchanged)
+    SELECT * FROM orders;
+
+**Supported operations:**
+
+The following DML operations are supported with branch-specific table names:
+
+* ``INSERT`` - Add new rows to a branch
+* ``UPDATE`` - Modify existing rows in a branch
+* ``DELETE`` - Remove rows from a branch (including metadata delete optimization)
+* ``MERGE`` - Conditionally insert, update, or delete rows in a branch
+* ``TRUNCATE TABLE`` - Remove all rows from a branch
+* ``SELECT`` - Query branch data using ``FOR SYSTEM_VERSION AS OF 'branch_name'``
+
+**Unsupported operations:**
+
+The following operations are **not supported** with branch-specific table names and will result in an error:
+
+* ``ALTER TABLE`` DDL operations (``ADD COLUMN``, ``DROP COLUMN``, ``RENAME COLUMN``, ``SET PROPERTIES``) - Schema changes must be applied to the main table
+* ``CREATE VIEW`` / ``CREATE MATERIALIZED VIEW`` - Views cannot be created from branch-specific tables
+
+**Important notes:**
+
+* Branch mutations require quoted identifiers (double quotes) around the table name with branch suffix
+* The branch must exist before performing mutations (create it with ``ALTER TABLE ... CREATE BRANCH``)
+* Changes are isolated to the specified branch and do not affect the main table or other branches
+* All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
+* For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
 
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^

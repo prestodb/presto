@@ -50,7 +50,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.netty.channel.EventLoop;
 import io.netty.util.concurrent.AbstractEventExecutorGroup;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
@@ -205,14 +204,7 @@ public class HttpRemoteTaskFactory
         this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
 
         this.eventLoopGroup = Optional.of(new SafeEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
-                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build(), taskConfig.getSlowMethodThresholdOnEventLoop())
-        {
-            @Override
-            protected EventLoop newChild(Executor executor, Object... args)
-            {
-                return new SafeEventLoop(this, executor);
-            }
-        });
+                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build(), taskConfig.getSlowMethodThresholdOnEventLoop()));
     }
 
     @Managed

@@ -29,9 +29,13 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
 
+import java.util.List;
+
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +51,7 @@ public class SimplifyRowExpressions
     private static class Rewriter
             implements PlanRowExpressionRewriter
     {
+        private final NestedIfSimplifier nestedIfSimplifier;
         private final ExpressionOptimizerManager expressionOptimizerManager;
         private final LogicalExpressionRewriter logicalExpressionRewriter;
 
@@ -56,6 +61,7 @@ public class SimplifyRowExpressions
             requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
             this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
             this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getFunctionAndTypeManager());
+            this.nestedIfSimplifier = new NestedIfSimplifier(new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()));
         }
 
         @Override
@@ -69,6 +75,7 @@ public class SimplifyRowExpressions
             // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
+            rewritten = RowExpressionTreeRewriter.rewriteWith(nestedIfSimplifier, rewritten);
             return expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession()).optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
         }
     }
@@ -77,6 +84,63 @@ public class SimplifyRowExpressions
     public static RowExpression rewrite(RowExpression expression, Metadata metadata, Session session, ExpressionOptimizerManager expressionOptimizerManager)
     {
         return new Rewriter(metadata, expressionOptimizerManager).rewrite(expression, session);
+    }
+
+    /**
+     * Simplifies nested IF expressions where the outer and inner false
+     * branches are identical:
+     * <pre>
+     *   IF(x, IF(y, v, E), E) &rarr; IF(x AND y, v, E)
+     * </pre>
+     * This covers the common case where E is null (explicit or omitted ELSE),
+     * as well as any other matching expression.
+     * <p>
+     * The rewrite only applies when the inner condition {@code y} is
+     * deterministic, because the original form does not evaluate {@code y}
+     * when {@code x} is NULL or FALSE, whereas {@code x AND y} may evaluate
+     * {@code y} in those cases.
+     * <p>
+     * Uses bottom-up rewriting so that deeply nested IFs are fully
+     * flattened in a single pass.
+     */
+    private static class NestedIfSimplifier
+            extends RowExpressionRewriter<Void>
+    {
+        private final RowExpressionDeterminismEvaluator determinismEvaluator;
+
+        NestedIfSimplifier(RowExpressionDeterminismEvaluator determinismEvaluator)
+        {
+            this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
+        }
+
+        @Override
+        public RowExpression rewriteSpecialForm(SpecialFormExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (node.getForm() != IF) {
+                return null;
+            }
+
+            // Recursively simplify children first (bottom-up)
+            SpecialFormExpression rewritten = treeRewriter.defaultRewrite(node, context);
+
+            List<RowExpression> args = rewritten.getArguments();
+            RowExpression condition = args.get(0);
+            RowExpression trueValue = args.get(1);
+            RowExpression falseValue = args.get(2);
+
+            if (trueValue instanceof SpecialFormExpression
+                    && ((SpecialFormExpression) trueValue).getForm() == IF) {
+                SpecialFormExpression innerIf = (SpecialFormExpression) trueValue;
+                List<RowExpression> innerArgs = innerIf.getArguments();
+                RowExpression innerCondition = innerArgs.get(0);
+                if (falseValue.equals(innerArgs.get(2)) && determinismEvaluator.isDeterministic(innerCondition)) {
+                    RowExpression combinedCondition = new SpecialFormExpression(AND, BOOLEAN, condition, innerCondition);
+                    return new SpecialFormExpression(rewritten.getSourceLocation(), IF, rewritten.getType(), combinedCondition, innerArgs.get(1), falseValue);
+                }
+            }
+
+            return rewritten == node ? null : rewritten;
+        }
     }
 
     private static class LogicalExpressionRewriter
