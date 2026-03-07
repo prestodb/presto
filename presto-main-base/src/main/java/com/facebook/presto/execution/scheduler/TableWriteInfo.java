@@ -22,6 +22,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.ExecuteProc
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MergeHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
@@ -36,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -121,6 +123,11 @@ public class TableWriteInfo
                 Optional<MergeHandle> mergeHandle = mergeTarget.getMergeHandle();
                 return Optional.of(new ExecutionWriterTarget.MergeHandle(mergeHandle.orElseThrow(
                         () -> new VerifyException("mergeHandle is absent: " + target.getClass().getSimpleName()))));
+            }
+            if (target instanceof TableWriterNode.CreateVectorIndexReference) {
+                throw new PrestoException(NOT_SUPPORTED,
+                        "This connector does not support creating vector indexes. " +
+                        "The connector must provide a ConnectorPlanOptimizer to handle CREATE VECTOR INDEX.");
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
