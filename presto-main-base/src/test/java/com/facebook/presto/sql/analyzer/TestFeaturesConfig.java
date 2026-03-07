@@ -136,6 +136,7 @@ public class TestFeaturesConfig
                 .setExchangeChecksumEnabled(false)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughJoin(true)
+                .setPushPartialAggregationThroughJoin(false)
                 .setPushSemiJoinThroughUnion(false)
                 .setSimplifyCoalesceOverJoinKeys(false)
                 .setPushdownThroughUnnest(false)
@@ -359,6 +360,7 @@ public class TestFeaturesConfig
                 .put("optimizer.retry-query-with-history-based-optimization", "true")
                 .put("optimizer.treat-low-confidence-zero-estimation-as-unknown", "true")
                 .put("optimizer.push-aggregation-through-join", "false")
+                .put("optimizer.push-partial-aggregation-through-join", "true")
                 .put("optimizer.push-semi-join-through-union", "true")
                 .put("optimizer.simplify-coalesce-over-join-keys", "true")
                 .put("optimizer.pushdown-through-unnest", "true")
@@ -768,6 +770,7 @@ public class TestFeaturesConfig
                 .setSkipPushdownThroughExchangeForRemoteProjection(true)
                 .setUseConnectorProvidedSerializationCodecs(true)
                 .setRemoteFunctionNamesForFixedParallelism("remote_.*")
+                .setPushPartialAggregationThroughJoin(true)
                 .setRemoteFunctionFixedParallelismTaskCount(100);
         assertFullMapping(properties, expected);
     }
