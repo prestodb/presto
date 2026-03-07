@@ -61,11 +61,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
             <version>${project.version}</version>
@@ -82,6 +77,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-analyzer</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -261,19 +262,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>mockwebserver</artifactId>
-            <scope>test</scope>
-            <!-- required due to duplicate classes -->
-            <exclusions>
-                <exclusion>
-                    <groupId>org.hamcrest</groupId>
-                    <artifactId>hamcrest-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-built-in-worker-function-tools</artifactId>
             <version>${project.version}</version>
@@ -306,6 +294,7 @@
                             <excludes>
                                 <exclude>**/TestNativeSidecar*.java</exclude>
                                 <exclude>**/TestNativeExpressionInterpreter.java</exclude>
+                                <exclude>**/TestNativeExpressionOptimizer.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -343,12 +332,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
-                    <ignoredUnusedDeclaredDependencies>
-                        <!--  OkHttp pulls in kotlin-stdlib in compile scope, but it is only used in tests here.
-                         Changing its scope causes Maven to flag it as unused, leading to build failures.
-                         We add it here to keep it in compile scope while only using it directly in tests.-->
-                        <ignoredUnusedDeclaredDependency>org.jetbrains:annotations</ignoredUnusedDeclaredDependency>
-                    </ignoredUnusedDeclaredDependencies>
                     <ignoredUsedUndeclaredDependencies>
                         <ignoredUsedUndeclaredDependency>com.facebook.airlift.drift:drift-codec:jar</ignoredUsedUndeclaredDependency>
                     </ignoredUsedUndeclaredDependencies>

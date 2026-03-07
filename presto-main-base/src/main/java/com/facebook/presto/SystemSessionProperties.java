@@ -174,6 +174,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
+    public static final String SIMPLIFY_COALESCE_OVER_JOIN_KEYS = "simplify_coalesce_over_join_keys";
     public static final String PUSHDOWN_THROUGH_UNNEST = "pushdown_through_unnest";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
@@ -930,6 +931,11 @@ public final class SystemSessionProperties
                         PUSH_SEMI_JOIN_THROUGH_UNION,
                         "Allow pushing semi joins through union",
                         featuresConfig.isPushSemiJoinThroughUnion(),
+                        false),
+                booleanProperty(
+                        SIMPLIFY_COALESCE_OVER_JOIN_KEYS,
+                        "Simplify redundant COALESCE expressions over equi-join keys",
+                        featuresConfig.isSimplifyCoalesceOverJoinKeys(),
                         false),
                 booleanProperty(
                         PUSHDOWN_THROUGH_UNNEST,
@@ -2613,6 +2619,11 @@ public final class SystemSessionProperties
     public static boolean isPushSemiJoinThroughUnion(Session session)
     {
         return session.getSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, Boolean.class);
+    }
+
+    public static boolean isSimplifyCoalesceOverJoinKeys(Session session)
+    {
+        return session.getSystemProperty(SIMPLIFY_COALESCE_OVER_JOIN_KEYS, Boolean.class);
     }
 
     public static boolean isPushdownThroughUnnest(Session session)

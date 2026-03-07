@@ -308,6 +308,11 @@
                             <artifactSet>
                                 <excludes>
                                     <exclude>com.facebook.presto:presto-ui</exclude>
+                                    <!-- Netty is not used by the JDBC driver (it uses OkHttp).
+                                         Exclude to avoid: (1) duplicate native .so conflict with
+                                         hadoop-apache shaded jar, (2) Java 11+ bytecode from Netty 4.2
+                                         multi-release classes violating Java 8 bytecode enforcement -->
+                                    <exclude>io.netty:*</exclude>
                                 </excludes>
                             </artifactSet>
                             <createSourcesJar>true</createSourcesJar>

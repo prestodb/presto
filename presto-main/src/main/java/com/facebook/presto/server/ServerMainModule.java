@@ -265,6 +265,7 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
+import io.netty.buffer.PooledByteBufAllocator;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Singleton;
 import jakarta.servlet.Filter;
@@ -628,7 +629,7 @@ public class ServerMainModule
                     config.setMaxContentLength(new DataSize(32, MEGABYTE));
                 });
 
-        binder.install(new DriftNettyClientModule());
+        binder.install(new DriftNettyClientModule(PooledByteBufAllocator.DEFAULT));
         driftClientBinder(binder).bindDriftClient(ThriftTaskClient.class, ForExchange.class)
                 .withAddressSelector(((addressSelectorBinder, annotation, prefix) ->
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(FixedAddressSelector.class)));
