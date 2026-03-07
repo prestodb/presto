@@ -698,4 +698,67 @@ public final class TableWriterNode
             return procedureName.toString();
         }
     }
+
+    public static class CreateVectorIndexReference
+            extends WriterTarget
+    {
+        private final ConnectorId connectorId;
+        private final ConnectorTableMetadata tableMetadata;
+        private final Optional<NewTableLayout> layout;
+        private final Optional<List<OutputColumnMetadata>> columns;
+        private final SchemaTableName sourceTableName;
+
+        public CreateVectorIndexReference(
+                ConnectorId connectorId,
+                ConnectorTableMetadata tableMetadata,
+                Optional<NewTableLayout> layout,
+                Optional<List<OutputColumnMetadata>> columns,
+                SchemaTableName sourceTableName)
+        {
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
+            this.layout = requireNonNull(layout, "layout is null");
+            this.columns = requireNonNull(columns, "columns is null");
+            this.sourceTableName = requireNonNull(sourceTableName, "sourceTableName is null");
+        }
+
+        @Override
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        public ConnectorTableMetadata getTableMetadata()
+        {
+            return tableMetadata;
+        }
+
+        public Optional<NewTableLayout> getLayout()
+        {
+            return layout;
+        }
+
+        @Override
+        public SchemaTableName getSchemaTableName()
+        {
+            return tableMetadata.getTable();
+        }
+
+        @Override
+        public String toString()
+        {
+            return connectorId + "." + tableMetadata.getTable();
+        }
+
+        @Override
+        public Optional<List<OutputColumnMetadata>> getOutputColumns()
+        {
+            return columns;
+        }
+
+        public SchemaTableName getSourceTableName()
+        {
+            return sourceTableName;
+        }
+    }
 }
