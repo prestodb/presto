@@ -54,11 +54,34 @@ class PrestoToVeloxConnector {
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const = 0;
 
+  /// Checks if a ColumnHandle represents a partition key column.
+  /// Default returns false. Connectors should override this to identify
+  /// partition key columns that should be excluded from index source
+  /// conversion.
+  [[nodiscard]] virtual bool isPartitionKeyColumn(
+      const protocol::ColumnHandle* column) const {
+    return false;
+  }
+
   [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
   toVeloxTableHandle(
       const protocol::TableHandle& tableHandle,
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser) const = 0;
+
+  /// Creates a Velox ConnectorTableHandle for an IndexSourceNode.
+  /// This method is called when converting IndexSourceNode and passes
+  /// the indexHandle to enable index lookup support.
+  /// Default implementation delegates to toVeloxTableHandle (ignoring
+  /// indexHandle). Connectors supporting index lookup should override this.
+  [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
+  toVeloxTableHandleForIndexSource(
+      const protocol::TableHandle& tableHandle,
+      const protocol::IndexHandle& indexHandle,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser) const {
+    return toVeloxTableHandle(tableHandle, exprConverter, typeParser);
+  }
 
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
