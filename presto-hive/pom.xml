@@ -96,6 +96,12 @@
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-presto-bundle</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-storage-api</artifactId>
+            <version>2.8.1</version>
+        </dependency>
+
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -551,6 +557,9 @@
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                         <ignoredDependency>org.apache.httpcomponents:httpclient</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>io.airlift:aircompressor</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-core</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>software.amazon.awssdk:glue</ignoredNonTestScopedDependency>
