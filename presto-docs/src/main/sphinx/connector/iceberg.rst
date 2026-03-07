@@ -1922,6 +1922,16 @@ Iceberg tables do not support running multiple :doc:`../sql/merge` statements on
     Failed to commit Iceberg update to table: <table name>
     Found conflicting files that can contain records matching true
 
+.. _iceberg_analyze:
+
+Collecting table and column statistics
+--------------------------------------
+
+The Iceberg connector supports collection of table and column statistics
+with the :doc:`/sql/analyze` statement::
+
+    ANALYZE iceberg.tpch.orders;
+
 Schema Evolution
 ----------------
 
