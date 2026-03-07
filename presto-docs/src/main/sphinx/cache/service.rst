@@ -2,11 +2,6 @@
 Alluxio Cache Service
 =====================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
