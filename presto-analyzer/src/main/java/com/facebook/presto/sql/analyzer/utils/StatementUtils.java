@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateType;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
@@ -107,6 +108,7 @@ public final class StatementUtils
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);
         builder.put(RefreshMaterializedView.class, QueryType.INSERT);
+        builder.put(CreateVectorIndex.class, QueryType.INSERT);
 
         builder.put(Delete.class, QueryType.DELETE);
         builder.put(Update.class, QueryType.UPDATE);

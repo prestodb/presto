@@ -451,6 +451,22 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public ConnectorOutputTableHandle beginCreateVectorIndex(ConnectorSession session, ConnectorTableMetadata indexMetadata, Optional<ConnectorNewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCreateVectorIndex(session, indexMetadata, layout, sourceTableName);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishCreateVectorIndex(session, tableHandle, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public void beginQuery(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
