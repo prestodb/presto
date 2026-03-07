@@ -53,6 +53,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kWriterFlushThresholdBytes},
       {SessionProperties::kRowNumberSpillEnabled,
        core::QueryConfig::kRowNumberSpillEnabled},
+      {SessionProperties::kMarkDistinctSpillEnabled,
+       core::QueryConfig::kMarkDistinctSpillEnabled},
       {SessionProperties::kSpillerNumPartitionBits,
        core::QueryConfig::kSpillNumPartitionBits},
       {SessionProperties::kTopNRowNumberSpillEnabled,

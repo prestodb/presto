@@ -186,6 +186,14 @@ SessionProperties::SessionProperties() {
       boolToString(c.rowNumberSpillEnabled()));
 
   addSessionProperty(
+      kMarkDistinctSpillEnabled,
+      "Native Execution only. Enable mark distinct spilling on native engine",
+      BOOLEAN(),
+      false,
+      QueryConfig::kMarkDistinctSpillEnabled,
+      boolToString(c.markDistinctSpillEnabled()));
+
+  addSessionProperty(
       kSpillerNumPartitionBits,
       "The number of bits (N) used to calculate the spilling "
       "partition number for hash join and RowNumber: 2 ^ N",
