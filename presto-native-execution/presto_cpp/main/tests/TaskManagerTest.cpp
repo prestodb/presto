@@ -112,7 +112,7 @@ class Cursor {
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
       const RowTypePtr& rowType,
-      velox::VectorSerde::Kind serdeKind,
+      const std::string& serdeKind,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
@@ -178,7 +178,7 @@ class Cursor {
   TaskManager* const taskManager_;
   const protocol::TaskId taskId_;
   const RowTypePtr rowType_;
-  const velox::VectorSerde::Kind serdeKind_;
+  const std::string serdeKind_;
   bool atEnd_{false};
   uint64_t sequence_{0};
 };
@@ -190,14 +190,10 @@ void setAggregationSpillConfig(
 }
 
 class TaskManagerTest : public exec::test::OperatorTestBase,
-                        public testing::WithParamInterface<VectorSerde::Kind> {
+                        public testing::WithParamInterface<std::string> {
  public:
-  static std::vector<VectorSerde::Kind> getTestParams() {
-    const std::vector<VectorSerde::Kind> kinds(
-        {VectorSerde::Kind::kPresto,
-         VectorSerde::Kind::kCompactRow,
-         VectorSerde::Kind::kUnsafeRow});
-    return kinds;
+  static std::vector<std::string> getTestParams() {
+    return {"Presto", "CompactRow", "UnsafeRow"};
   }
 
   static void SetUpTestCase() {
