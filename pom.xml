@@ -238,6 +238,7 @@
         <module>presto-plan-checker-router-plugin</module>
         <module>presto-sql-helpers/presto-sql-invoked-functions-plugin</module>
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
+        <module>presto-lance</module>
     </modules>
 
     <dependencyManagement>
