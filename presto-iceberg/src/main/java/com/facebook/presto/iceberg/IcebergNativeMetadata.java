@@ -78,6 +78,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.validateViewDefinitionForBranches;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -266,6 +267,7 @@ public class IcebergNativeMetadata
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         shouldRunInAutoCommitTransaction("CREATE VIEW");
+        validateViewDefinitionForBranches(viewData, "CREATE VIEW");
         Catalog catalog = catalogFactory.getCatalog(session);
         if (!(catalog instanceof ViewCatalog)) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
@@ -474,7 +476,7 @@ public class IcebergNativeMetadata
 
         return new IcebergOutputTableHandle(
                 schemaName,
-                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
+                new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty(), Optional.empty()),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),

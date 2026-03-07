@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.airlift.http.client.HttpStatus;
+import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
@@ -38,17 +40,17 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
+import com.google.common.net.MediaType;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.http.client.testing.TestingResponse.mockResponse;
+import static com.facebook.presto.sidecar.nativechecker.NativePlanChecker.PLAN_CONVERSION_ENDPOINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -63,7 +65,11 @@ public class TestPlanCheckerProvider
     {
         NativePlanCheckerConfig config = new NativePlanCheckerConfig();
         assertTrue(config.isPlanValidationEnabled());
-        NativePlanCheckerProvider provider = new NativePlanCheckerProvider(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, config);
+        TestingHttpClient client = new TestingHttpClient(
+                request ->
+                        mockResponse(HttpStatus.OK, MediaType.JSON_UTF_8, ""));
+        NativePlanChecker planChecker = new NativePlanChecker(new TestingNodeManager(URI.create("localhost")), PLAN_FRAGMENT_JSON_CODEC, client);
+        NativePlanCheckerProvider provider = new NativePlanCheckerProvider(config, planChecker);
         assertTrue(provider.getIntermediatePlanCheckers().isEmpty());
         assertTrue(provider.getFinalPlanCheckers().isEmpty());
         assertEquals(provider.getFragmentPlanCheckers().size(), 1);
@@ -71,7 +77,6 @@ public class TestPlanCheckerProvider
 
     @Test
     public void testNativePlanMockValidate()
-            throws IOException
     {
         TestingPlanNode root = new TestingPlanNode();
         ConnectorPartitioningHandle connectorPartitioningHandle = new TestingConnectorPartitioningHandle();
@@ -79,26 +84,34 @@ public class TestPlanCheckerProvider
         PartitioningScheme partitioningScheme = new PartitioningScheme(new Partitioning(handle, ImmutableList.of()), ImmutableList.of());
         SimplePlanFragment fragment = new SimplePlanFragment(new PlanFragmentId(1), root, ImmutableSet.of(), handle, ImmutableList.of(), partitioningScheme, StageExecutionDescriptor.ungroupedExecution(), false);
 
-        try (MockWebServer server = new MockWebServer()) {
-            server.start();
-            TestingNodeManager nodeManager = new TestingNodeManager(server.url(NativePlanChecker.PLAN_CONVERSION_ENDPOINT).uri());
-            NativePlanChecker checker = new NativePlanChecker(nodeManager, PLAN_FRAGMENT_JSON_CODEC);
+        // set ok response
+        PlanConversionResponse responseOk = new PlanConversionResponse(ImmutableList.of());
+        NativePlanChecker okPlanchecker = createChecker(responseOk, HttpStatus.OK);
+        okPlanchecker.validateFragment(fragment, null, null);
 
-            PlanConversionResponse responseOk = new PlanConversionResponse(ImmutableList.of());
-            String responseOkString = PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(responseOk);
-            server.enqueue(new MockResponse().setBody(responseOkString));
-            checker.validateFragment(fragment, null, null);
+        // set error response
+        String errorMessage = "native conversion error";
+        ErrorCode errorCode = StandardErrorCode.NOT_SUPPORTED.toErrorCode();
+        PlanConversionResponse responseError = new PlanConversionResponse(ImmutableList.of(new NativeSidecarFailureInfo("MockError", errorMessage, null, ImmutableList.of(), ImmutableList.of(), errorCode)));
+        NativePlanChecker errorPlanChecker = createChecker(responseError, HttpStatus.BAD_REQUEST);
+        PrestoException error = expectThrows(PrestoException.class,
+                () -> errorPlanChecker.validateFragment(fragment, null, null));
+        assertEquals(error.getErrorCode(), errorCode);
+        assertTrue(error.getMessage().contains(errorMessage));
+    }
 
-            String errorMessage = "native conversion error";
-            ErrorCode errorCode = StandardErrorCode.NOT_SUPPORTED.toErrorCode();
-            PlanConversionResponse responseError = new PlanConversionResponse(ImmutableList.of(new NativeSidecarFailureInfo("MockError", errorMessage, null, ImmutableList.of(), ImmutableList.of(), errorCode)));
-            String responseErrorString = PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(responseError);
-            server.enqueue(new MockResponse().setResponseCode(500).setBody(responseErrorString));
-            PrestoException error = expectThrows(PrestoException.class,
-                    () -> checker.validateFragment(fragment, null, null));
-            assertEquals(error.getErrorCode(), errorCode);
-            assertTrue(error.getMessage().contains(errorMessage));
-        }
+    private NativePlanChecker createChecker(PlanConversionResponse response, HttpStatus status)
+    {
+        TestingHttpClient client = new TestingHttpClient(
+                request -> mockResponse(
+                        status,
+                        MediaType.JSON_UTF_8,
+                        PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(response)));
+
+        return new NativePlanChecker(
+                new TestingNodeManager(URI.create("http://localhost" + PLAN_CONVERSION_ENDPOINT)),
+                PLAN_FRAGMENT_JSON_CODEC,
+                client);
     }
 
     public static class TestingConnectorPartitioningHandle

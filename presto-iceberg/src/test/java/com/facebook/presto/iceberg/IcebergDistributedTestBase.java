@@ -2433,6 +2433,30 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testQueryBranch()
+    {
+        assertUpdate("CREATE TABLE test_branch_dot_notation (id BIGINT, name VARCHAR, value BIGINT)");
+        assertUpdate("INSERT INTO test_branch_dot_notation VALUES (1, 'Alice', 100), (2, 'Bob', 200)", 2);
+        Table icebergTable = loadTable("test_branch_dot_notation");
+        icebergTable.manageSnapshots().createBranch("audit_branch").commit();
+        assertUpdate("INSERT INTO test_branch_dot_notation VALUES (3, 'Charlie', 300), (4, 'David', 400)", 2);
+        // Test querying branch using FOR SYSTEM_VERSION AS OF syntax
+        assertQuery("SELECT count(*) FROM test_branch_dot_notation FOR SYSTEM_VERSION AS OF 'audit_branch'", "VALUES 2");
+        assertQuery("SELECT count(*) FROM test_branch_dot_notation FOR SYSTEM_VERSION AS OF 'main'", "VALUES 4");
+        // Test querying branch using dot notation syntax
+        assertQuery("SELECT count(*) FROM \"test_branch_dot_notation.branch_audit_branch\"", "VALUES 2");
+        assertQuery("SELECT id, name, value FROM \"test_branch_dot_notation.branch_audit_branch\" ORDER BY id",
+                "VALUES (1, 'Alice', 100), (2, 'Bob', 200)");
+        // Verify both syntaxes return the same results by comparing actual results
+        MaterializedResult resultWithForSyntax = computeActual("SELECT id FROM test_branch_dot_notation FOR SYSTEM_VERSION AS OF 'audit_branch' ORDER BY id");
+        MaterializedResult resultWithDotNotation = computeActual("SELECT id FROM \"test_branch_dot_notation.branch_audit_branch\" ORDER BY id");
+        assertEquals(resultWithForSyntax, resultWithDotNotation);
+        // Test that main table has all records
+        assertQuery("SELECT count(*) FROM test_branch_dot_notation", "VALUES 4");
+        assertQuerySucceeds("DROP TABLE test_branch_dot_notation");
+    }
+
+    @Test
     public void testMetadataLogTable()
     {
         try {

@@ -209,6 +209,9 @@ import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
+import static com.facebook.presto.iceberg.IcebergUtil.validateBranchExists;
+import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchInBaseTables;
+import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchSpecified;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
 import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
@@ -651,6 +654,7 @@ public abstract class IcebergAbstractMetadata
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
     {
+        validateBranchExists(table, icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -709,6 +713,8 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName schemaTableName = new SchemaTableName(writableTableHandle.getSchemaName(), writableTableHandle.getTableName().getTableName());
         Table icebergTable = getIcebergTable(session, schemaTableName);
         AppendFiles appendFiles = icebergTable.newAppend();
+        Optional<String> branchName = writableTableHandle.getTableName().getBranchName();
+        branchName.ifPresent(appendFiles::toBranch);
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         commitTasks.forEach(task -> handleInsertTask(task, icebergTable, appendFiles, writtenFiles));
@@ -741,6 +747,10 @@ public abstract class IcebergAbstractMetadata
 
         RowDelta rowDelta = icebergTable.newRowDelta();
         writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
+        Optional<String> branchName = writableTableHandle.getTableName().getBranchName();
+        if (branchName.isPresent()) {
+            rowDelta.toBranch(branchName.get());
+        }
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
@@ -871,6 +881,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have data merged");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        validateBranchExists(icebergTableHandle, icebergTable);
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
 
         if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
@@ -1207,6 +1218,7 @@ public abstract class IcebergAbstractMetadata
 
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
+        validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         icebergTable.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
@@ -1226,6 +1238,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
+        validateNoBranchSpecified(icebergTableHandle, "DROP COLUMN");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
 
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
@@ -1246,6 +1259,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns renamed");
+        validateNoBranchSpecified(icebergTableHandle, "RENAME COLUMN");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
@@ -1326,7 +1340,7 @@ public abstract class IcebergAbstractMetadata
 
                 return new IcebergTableHandle(
                         storageTableName.getSchemaName(),
-                        new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty()),
+                        new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty(), Optional.empty()),
                         name.getSnapshotId().isPresent(),
                         tryGetLocation(storageTable),
                         tryGetProperties(storageTable),
@@ -1365,7 +1379,7 @@ public abstract class IcebergAbstractMetadata
 
         return new IcebergTableHandle(
                 tableNameToLoad.getSchemaName(),
-                new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
+                new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getBranchName(), name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
@@ -1404,7 +1418,7 @@ public abstract class IcebergAbstractMetadata
         shouldRunInAutoCommitTransaction("TRUNCATE TABLE");
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        removeScanFiles(handle.getSchemaTableName(), icebergTable, TupleDomain.all());
+        removeScanFiles(handle, icebergTable, TupleDomain.all());
     }
 
     @Override
@@ -1454,6 +1468,7 @@ public abstract class IcebergAbstractMetadata
         if (handle.isSnapshotSpecified()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector do not allow delete data at specified snapshot");
         }
+        validateBranchExists(handle, icebergTable);
 
         int formatVersion = opsFromTable(icebergTable).current().formatVersion();
         if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
@@ -1479,6 +1494,10 @@ public abstract class IcebergAbstractMetadata
 
         RowDelta rowDelta = icebergTable.newRowDelta();
 
+        Optional<String> branchName = handle.getIcebergTableName().getBranchName();
+        if (branchName.isPresent()) {
+            rowDelta.toBranch(branchName.get());
+        }
         List<CommitTaskData> commitTasks = fragments.stream()
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
@@ -1582,13 +1601,14 @@ public abstract class IcebergAbstractMetadata
         }
 
         TupleDomain<IcebergColumnHandle> domainPredicate = layoutHandle.getValidPredicate();
-        return removeScanFiles(handle.getSchemaTableName(), icebergTable, domainPredicate);
+        return removeScanFiles(handle, icebergTable, domainPredicate);
     }
 
     @Override
     public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        validateNoBranchSpecified(handle, "SET TABLE PROPERTIES");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         UpdateProperties updateProperties = icebergTable.updateProperties();
@@ -1627,9 +1647,14 @@ public abstract class IcebergAbstractMetadata
      *
      * @return the number of rows deleted from all files
      */
-    private OptionalLong removeScanFiles(SchemaTableName tableName, Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
+    private OptionalLong removeScanFiles(IcebergTableHandle tableHandle, Table icebergTable, TupleDomain<IcebergColumnHandle> predicate)
     {
-        DeleteFiles deleteFiles = icebergTable.newDelete().deleteFromRowFilter(toIcebergExpression(predicate));
+        DeleteFiles deleteFiles = icebergTable.newDelete();
+        Optional<String> branchName = tableHandle.getIcebergTableName().getBranchName();
+        if (branchName.isPresent()) {
+            deleteFiles = deleteFiles.toBranch(branchName.get());
+        }
+        deleteFiles.deleteFromRowFilter(toIcebergExpression(predicate));
         deleteFiles.commit();
 
         Map<String, String> summary = deleteFiles.apply().summary();
@@ -1711,6 +1736,7 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        validateBranchExists(handle, icebergTable);
         int formatVersion = opsFromTable(icebergTable).current().formatVersion();
 
         if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
@@ -1776,6 +1802,7 @@ public abstract class IcebergAbstractMetadata
             boolean ignoreExisting)
     {
         shouldRunInAutoCommitTransaction("CREATE MATERIALIZED VIEW");
+        validateNoBranchInBaseTables(viewDefinition.getBaseTables(), "CREATE MATERIALIZED VIEW");
         try {
             SchemaTableName viewName = viewMetadata.getTable();
             Map<String, Object> materializedViewProperties = viewMetadata.getProperties();

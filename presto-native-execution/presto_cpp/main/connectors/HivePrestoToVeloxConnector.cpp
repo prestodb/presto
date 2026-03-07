@@ -380,7 +380,6 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
   return toHiveTableHandle(
       hiveLayout->domainPredicate,
       hiveLayout->remainingPredicate,
-      hiveLayout->pushdownFilterEnabled,
       tableName,
       hiveLayout->dataColumns,
       tableHandle,
