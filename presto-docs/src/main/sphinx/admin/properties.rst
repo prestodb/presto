@@ -726,7 +726,7 @@ can improve throughput if worker CPU utilization is low and all the threads are 
 but will cause increased heap space usage. Setting the value too high may cause a drop
 in performance due to a context switching. The number of active threads is available
 via the ``RunningSplits`` property of the
-``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 The number of threads can be configured using either an absolute value (for example, ``10``)
 or a value relative to the number of available CPU cores (for example, ``1.5C``). When
