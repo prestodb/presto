@@ -150,6 +150,7 @@ public class IcebergSplitSource
                 nodeSelectionStrategy,
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / targetSplitSize, minimumAssignedSplitWeight), 1.0)),
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
+                ImmutableList.of(),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()),
                 affinitySchedulingFileSectionSize);
