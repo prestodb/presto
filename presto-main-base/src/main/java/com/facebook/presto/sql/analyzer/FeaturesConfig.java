@@ -220,6 +220,7 @@ public class FeaturesConfig
     private boolean retryQueryWithHistoryBasedOptimizationEnabled;
     private boolean treatLowConfidenceZeroEstimationAsUnknownEnabled;
     private boolean pushdownDereferenceEnabled;
+    private boolean pushDownWidenCastEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly = true;
     private boolean checkAccessControlWithSubfields;
@@ -2026,6 +2027,19 @@ public class FeaturesConfig
     public boolean isPushdownDereferenceEnabled()
     {
         return pushdownDereferenceEnabled;
+    }
+
+    @Config("optimizer.push-down-widen-cast-enabled")
+    @ConfigDescription("Enable push-down of widening integer upcasts and compatible type casts (e.g., INTEGER->BIGINT, DATE->TIMESTAMP) to TableScan")
+    public FeaturesConfig setPushDownWidenCastEnabled(boolean pushDownWidenCastEnabled)
+    {
+        this.pushDownWidenCastEnabled = pushDownWidenCastEnabled;
+        return this;
+    }
+
+    public boolean isPushDownWidenCastEnabled()
+    {
+        return pushDownWidenCastEnabled;
     }
 
     @Config("index-loader-timeout")

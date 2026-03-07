@@ -301,6 +301,37 @@ public class PlanFragment
                 jsonRepresentation);
     }
 
+    /**
+     * Returns a copy of this fragment with {@code newRoot} replacing the existing root.
+     * Caller must guarantee that {@code newRoot.getOutputVariables()} contains all
+     * variables of {@code partitioningScheme.getOutputLayout()}; the constructor's
+     * argument check will fire otherwise. The new fragment's {@code variables} set is
+     * the union of the old variables and any new variables introduced under
+     * {@code newRoot} (the rewrite may have introduced widened replacements without
+     * yet pruning the originals — keeping the superset is metadata-safe).
+     */
+    public PlanFragment withRoot(PlanNode newRoot, Set<VariableReferenceExpression> newRootVariables)
+    {
+        requireNonNull(newRoot, "newRoot is null");
+        requireNonNull(newRootVariables, "newRootVariables is null");
+        return new PlanFragment(
+                id,
+                newRoot,
+                ImmutableSet.<VariableReferenceExpression>builder()
+                        .addAll(variables)
+                        .addAll(newRootVariables)
+                        .build(),
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                outputOrderingScheme,
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                outputTransportType,
+                statsAndCosts,
+                Optional.empty());
+    }
+
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
         return withFixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, ImmutableList.of());

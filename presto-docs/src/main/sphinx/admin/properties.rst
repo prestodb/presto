@@ -1040,6 +1040,38 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding session property is :ref:`admin/properties-session:\`\`push_partial_aggregation_through_join\`\``.
 
+``optimizer.push-down-widen-cast-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes widening type casts (such as ``INTEGER`` → ``BIGINT``, ``REAL`` → ``DOUBLE``,
+or ``DATE`` → ``TIMESTAMP``) down to each fragment's source operator — either the leaf
+``TableScanNode`` or a non-leaf ``RemoteSourceNode``. The cast is applied inline as the source
+emits pages, eliminating a separate per-row CAST evaluation in a downstream ProjectNode.
+
+The supported widening pairs are:
+
+* ``TINYINT`` → ``SMALLINT`` / ``INTEGER`` / ``BIGINT``
+* ``SMALLINT`` → ``INTEGER`` / ``BIGINT``
+* ``INTEGER`` → ``BIGINT``
+* ``REAL`` → ``DOUBLE``
+* ``DATE`` → ``TIMESTAMP``
+
+Narrowing casts and non-widening type changes are never pushed.
+
+The rewrite runs per-fragment (post-fragmentation). At a leaf fragment the native (Velox)
+scan applies the widening as it reads columns from storage; at a non-leaf fragment the
+consumer-side Exchange operator emits wide values from narrow-typed bytes received over the
+wire — the producer fragment's wire format remains the narrow type.
+
+This optimization is intended for the native (Velox) execution path: it requires
+``native-execution-enabled = true`` to take effect. On the Java path the optimization is a
+no-op because the Java scan and Exchange operators do not perform inline widening.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`push_down_widen_cast_enabled\`\``.
+
 ``optimizer.push-semi-join-through-union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

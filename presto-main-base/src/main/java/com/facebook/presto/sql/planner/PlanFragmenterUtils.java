@@ -25,7 +25,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
@@ -35,9 +37,14 @@ import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
+import com.facebook.presto.sql.planner.optimizations.PushDownWidenCast;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -116,6 +123,15 @@ public class PlanFragmenterUtils
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager, isPrestoOnSpark);
         }
 
+        // Per-fragment cast pushdown: each SubPlan's root is rewritten in isolation so the
+        // widening lands on that fragment's source operator and does NOT propagate the wider
+        // type past the fragment boundary. For a leaf fragment the source is a TableScanNode;
+        // for a non-leaf fragment the source is a RemoteSourceNode whose declared outputs are
+        // swapped to the wide variable. The producer fragment's outputLayout (the wire format)
+        // stays on the narrow type either way — the Exchange operator on the consumer side
+        // does the narrow→wide coercion as it emits pages.
+        subPlan = applyPushDownWidenCastPerFragment(subPlan, session, metadata, warningCollector);
+
         checkState(subPlan.getFragment().getId().getId() != ROOT_FRAGMENT_ID || !isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
@@ -127,6 +143,88 @@ public class PlanFragmenterUtils
                 config.getStageCountWarningThreshold());
 
         return subPlan;
+    }
+
+    /**
+     * Applies {@link PushDownWidenCast} to every {@link SubPlan}'s fragment in isolation.
+     * Running per-fragment after fragmentation is essential — the rewriter swaps narrowVar
+     * for wideVar everywhere on its descent down to the fragment's source operator. Bounded
+     * to a fragment, the descent terminates at that fragment's own source — either a
+     * TableScanNode (leaf fragment, native DWIO does the coercion) or a RemoteSourceNode
+     * (non-leaf, the consumer-side Exchange operator emits the wider type from
+     * narrow-typed bytes received over the wire). The producer fragment's outputLayout —
+     * the wire format — stays on the narrow type either way; only the receiving
+     * fragment's source-operator output is widened. This is the regression-safe split: no
+     * fragment's outputLayout is ever bumped by this rewrite, so Exchange and downstream
+     * Hash Join build sides keep operating on the narrow type on the wire.
+     */
+    private static SubPlan applyPushDownWidenCastPerFragment(
+            SubPlan subPlan,
+            Session session,
+            Metadata metadata,
+            WarningCollector warningCollector)
+    {
+        PushDownWidenCast optimizer = new PushDownWidenCast(metadata);
+        if (!optimizer.isEnabled(session)) {
+            return subPlan;
+        }
+        return rewriteSubPlanWithCastPushdown(subPlan, session, optimizer, warningCollector);
+    }
+
+    private static SubPlan rewriteSubPlanWithCastPushdown(
+            SubPlan subPlan,
+            Session session,
+            PushDownWidenCast optimizer,
+            WarningCollector warningCollector)
+    {
+        PlanFragment fragment = subPlan.getFragment();
+        PlanNode oldRoot = fragment.getRoot();
+
+        // Each fragment gets its own id allocator, seeded with max(existing-fragment-ids) + 1 so
+        // synthetic Project nodes injected near the scan don't collide with ids already in the
+        // fragment (the default-constructed allocator starts at 0, which collides with the first
+        // TableScan minted by the query-wide allocator during initial planning).
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator(nextIdForFragment(oldRoot));
+        VariableAllocator variableAllocator = new VariableAllocator(fragment.getVariables());
+
+        TypeProvider types = TypeProvider.fromVariables(fragment.getVariables());
+        PlanOptimizerResult result =
+                optimizer.optimize(oldRoot, session, types, variableAllocator, idAllocator, warningCollector);
+
+        PlanFragment newFragment = result.isOptimizerTriggered()
+                ? fragment.withRoot(result.getPlanNode(), variableAllocatorVariables(variableAllocator))
+                : fragment;
+
+        ImmutableList.Builder<SubPlan> newChildren = ImmutableList.builder();
+        for (SubPlan child : subPlan.getChildren()) {
+            newChildren.add(rewriteSubPlanWithCastPushdown(child, session, optimizer, warningCollector));
+        }
+        return new SubPlan(newFragment, newChildren.build());
+    }
+
+    private static int nextIdForFragment(PlanNode root)
+    {
+        int max = -1;
+        for (PlanNode node : PlanNodeSearcher.searchFrom(root).findAll()) {
+            try {
+                int id = Integer.parseInt(node.getId().toString());
+                if (id > max) {
+                    max = id;
+                }
+            }
+            catch (NumberFormatException ignored) {
+                // PlanNodeId is a string; non-numeric ids (if any) can't collide with the
+                // numeric ids the allocator hands out, so they're safe to skip.
+            }
+        }
+        return max + 1;
+    }
+
+    private static Set<VariableReferenceExpression> variableAllocatorVariables(VariableAllocator variableAllocator)
+    {
+        return variableAllocator.getVariables().entrySet().stream()
+                .map(entry -> new VariableReferenceExpression(Optional.<SourceLocation>empty(), entry.getKey(), entry.getValue()))
+                .collect(toImmutableSet());
     }
 
     private static void sanityCheckFragmentedPlan(

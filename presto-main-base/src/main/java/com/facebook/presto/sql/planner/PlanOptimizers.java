@@ -951,6 +951,10 @@ public class PlanOptimizers
                                 // Re-run RemoveRedundantTableFunctionProcessor after SimplifyPlanWithEmptyInput to optimize empty input tables to empty ValueNode
                                 new RemoveRedundantTableFunctionProcessor())),
                 new PushdownSubfields(metadata, expressionOptimizerManager));
+        // PushDownWidenCast intentionally NOT registered here. It runs per-fragment inside
+        // PlanFragmenterUtils.finalizeSubPlan(): if it ran on the whole logical plan, the
+        // narrow→wide variable substitution would walk past ExchangeNodes and widen the
+        // wire-format types between fragments, regressing Exchange and downstream Hash Join.
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
