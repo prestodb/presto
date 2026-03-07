@@ -353,7 +353,7 @@ jobs:
           github.event_name == 'schedule' || needs.changes.outputs.codechange == 'true'
         run: |
           export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
-          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java'`
+          export TESTFILES=`find ./presto-native-tests/src/test -type f -name 'Test*.java' ! -path "*/presto-native-tests/src/test/java/com/facebook/presto/nativetests/cudf/*"`
           # Convert file paths to comma separated class names
           export TESTCLASSES=
           for test_file in $TESTFILES

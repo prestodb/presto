@@ -23,11 +23,19 @@ namespace facebook::velox::core {
 class QueryConfig;
 }
 
+namespace facebook::velox::cudf_velox {
+class CudfQueryConfig;
+}
+
 namespace facebook::presto {
 
 /// Translates Presto configs to Velox 'QueryConfig' config map. Presto query
 /// session properties take precedence over Presto system config properties.
 std::unordered_map<std::string, std::string> toVeloxConfigs(
+    const protocol::SessionRepresentation& session);
+
+/// Translates Presto session properties to Velox query level cuDF configs.
+velox::cudf_velox::CudfQueryConfig toCudfConfigs(
     const protocol::SessionRepresentation& session);
 
 /// Translates Presto configs to Velox 'QueryConfig' config map. It is the
