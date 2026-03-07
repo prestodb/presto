@@ -120,6 +120,13 @@ public class PrestoServer
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
+        // Netty 4.2 enables SSL endpoint verification by default. The Drift Netty transport
+        // does not pass hostnames to the SSL engine, causing SSLHandshakeException. Disable
+        // the default endpoint verification until Drift is updated to support it.
+        if (System.getProperty("io.netty.handler.ssl.defaultEndpointVerificationAlgorithm") == null) {
+            System.setProperty("io.netty.handler.ssl.defaultEndpointVerificationAlgorithm", "NONE");
+        }
+
         Logger log = Logger.get(PrestoServer.class);
 
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
