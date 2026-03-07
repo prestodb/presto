@@ -55,6 +55,7 @@ public class BlackHoleConnector
     private final BlackHoleNodePartitioningProvider partitioningProvider;
     private final TypeManager typeManager;
     private final ExecutorService executorService;
+    private final boolean caseSensitiveNameMatching;
 
     public BlackHoleConnector(
             BlackHoleMetadata metadata,
@@ -63,7 +64,8 @@ public class BlackHoleConnector
             BlackHolePageSinkProvider pageSinkProvider,
             BlackHoleNodePartitioningProvider partitioningProvider,
             TypeManager typeManager,
-            ExecutorService executorService)
+            ExecutorService executorService,
+            BlackHoleClientConfig config)
     {
         this.metadata = metadata;
         this.splitManager = splitManager;
@@ -72,6 +74,12 @@ public class BlackHoleConnector
         this.partitioningProvider = partitioningProvider;
         this.typeManager = typeManager;
         this.executorService = executorService;
+        this.caseSensitiveNameMatching = config.isCaseSensitiveNameMatching();
+    }
+
+    private String normalizeColumnName(String name)
+    {
+        return caseSensitiveNameMatching ? name : name.toLowerCase(ENGLISH);
     }
 
     @Override
@@ -143,7 +151,7 @@ public class BlackHoleConnector
                         ImmutableList.of(),
                         false,
                         value -> ImmutableList.copyOf(((List<String>) value).stream()
-                                .map(name -> name.toLowerCase(ENGLISH))
+                                .map(this::normalizeColumnName)
                                 .collect(toList())),
                         List.class::cast),
                 new PropertyMetadata<>(
