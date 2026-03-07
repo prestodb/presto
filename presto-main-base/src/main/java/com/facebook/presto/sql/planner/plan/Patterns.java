@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.CteConsumerNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
 import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DeleteNode;
+import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -228,6 +229,11 @@ public class Patterns
     public static Pattern<IntersectNode> intersect()
     {
         return typeOf(IntersectNode.class);
+    }
+
+    public static Pattern<ExceptNode> except()
+    {
+        return typeOf(ExceptNode.class);
     }
 
     public static Pattern<ValuesNode> values()
