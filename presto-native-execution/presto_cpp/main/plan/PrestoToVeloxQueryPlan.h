@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <vector>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/plan/PlanConversionPurpose.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
@@ -31,8 +32,12 @@ class VeloxQueryPlanConverterBase {
  public:
   VeloxQueryPlanConverterBase(
       velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
+      velox::memory::MemoryPool* pool,
+      PlanConversionPurpose purpose = PlanConversionPurpose::kExecution)
+      : pool_(pool),
+        queryCtx_{queryCtx},
+        exprConverter_(pool, &typeParser_),
+        purpose_(purpose) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
@@ -236,6 +241,7 @@ class VeloxQueryPlanConverterBase {
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
   TypeParser typeParser_;
+  const PlanConversionPurpose purpose_;
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
@@ -244,8 +250,9 @@ class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
 
   explicit VeloxInteractiveQueryPlanConverter(
       velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(queryCtx, pool) {}
+      velox::memory::MemoryPool* pool,
+      PlanConversionPurpose purpose)
+      : VeloxQueryPlanConverterBase(queryCtx, pool, purpose) {}
 
  protected:
   velox::core::PlanNodePtr toVeloxQueryPlan(

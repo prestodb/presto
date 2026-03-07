@@ -27,6 +27,7 @@ add_test(presto_operators_test presto_operators_test)
 target_link_libraries(
   presto_operators_test
   presto_connectors
+  presto_plan
   presto_operators_plan_builder
   presto_operators
   presto_protocol
