@@ -42,4 +42,4 @@ RUN mkdir build && \
                          apt install -y rpm && \
                  ../velox/scripts/setup-ubuntu.sh install_adapters && \
                  ../scripts/setup-adapters.sh ) && \
-    rm -rf build
+    rm -rf build \

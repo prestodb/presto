@@ -17,6 +17,11 @@
         <air.checkstyle.config-file>src/checkstyle/presto-checks.xml</air.checkstyle.config-file>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <enable.docker.build.coordinator>false</enable.docker.build.coordinator>
+        <enable.docker.build.worker>false</enable.docker.build.worker>
+        <docker.base.image>ubuntu:22.04</docker.base.image>
+        <docker.os.name>ubuntu</docker.os.name>
+        <docker.dependency.file>ubuntu-22.04-dependency.dockerfile</docker.dependency.file>
     </properties>
 
     <dependencyManagement>
@@ -402,6 +407,18 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+        <groupId>com.facebook.airlift</groupId>
+        <artifactId>units</artifactId>
+        <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -483,6 +500,14 @@
     </build>
     <profiles>
         <profile>
+                <id>centos</id>
+                <properties>
+                    <docker.base.image>quay.io/centos/centos:stream9</docker.base.image>
+                    <docker.os.name>centos</docker.os.name>
+                    <docker.dependency.file>centos-dependency.dockerfile</docker.dependency.file>
+                </properties>
+        </profile>
+        <profile>
             <id>presto-native-execution-remote-functions</id>
             <build>
                 <plugins>
@@ -532,16 +557,30 @@
         </profile>
         <profile>
             <id>docker-build</id>
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-server</artifactId>
-                    <version>${project.version}</version>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-presto-server</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>com.facebook.presto</groupId>
+                                            <artifactId>presto-server</artifactId>
+                                            <version>${project.version}</version>
+                                        </artifactItem>
+                                    </artifactItems>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-resources-plugin</artifactId>
@@ -591,6 +630,7 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${enable.docker.build.worker}</skip>
                                     <images>
                                         <image>
                                             <name>presto-coordinator:latest</name>
@@ -616,7 +656,7 @@
                                         <image>
                                             <name>presto-native-dependency:latest</name>
                                             <build>
-                                                <dockerFile>${project.basedir}/scripts/dockerfiles/ubuntu-22.04-dependency.dockerfile</dockerFile>
+                                                <dockerFile>${project.basedir}/scripts/dockerfiles/${docker.dependency.file}</dockerFile>
                                                 <contextDir>${project.basedir}</contextDir>
                                             </build>
                                         </image>
@@ -630,6 +670,7 @@
                                     <goal>build</goal>
                                 </goals>
                                 <configuration>
+                                    <skip>${enable.docker.build.coordinator}</skip>
                                     <images>
                                         <image>
                                             <name>presto-worker:latest</name>
@@ -641,8 +682,8 @@
                                                     <DEPENDENCY_IMAGE>presto-native-dependency:latest</DEPENDENCY_IMAGE>
                                                     <EXTRA_CMAKE_FLAGS>"-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON"</EXTRA_CMAKE_FLAGS>
                                                     <NUM_THREADS>2</NUM_THREADS>
-                                                    <BASE_IMAGE>ubuntu:22.04</BASE_IMAGE>
-                                                    <OSNAME>ubuntu</OSNAME>
+                                                    <BASE_IMAGE>${docker.base.image}</BASE_IMAGE>
+                                                    <OSNAME>${docker.os.name}</OSNAME>
                                                 </args>
                                                 <imagePullPolicy>IfNotPresent</imagePullPolicy>
                                             </build>
