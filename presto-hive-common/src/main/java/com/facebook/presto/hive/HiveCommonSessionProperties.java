@@ -61,6 +61,7 @@ public class HiveCommonSessionProperties
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
+    private static final String ORC_USE_COLUMN_NAMES = "orc_use_column_names";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -181,6 +182,11 @@ public class HiveCommonSessionProperties
                         hiveCommonClientConfig.isUseParquetColumnNames(),
                         false),
                 booleanProperty(
+                        ORC_USE_COLUMN_NAMES,
+                        "Experimental: ORC: Access ORC columns using names from the file",
+                        hiveCommonClientConfig.isUseOrcColumnNames(),
+                        false),
+                booleanProperty(
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveCommonClientConfig.getReadNullMaskedParquetEncryptedValue(),
@@ -292,6 +298,11 @@ public class HiveCommonSessionProperties
     public static boolean isUseParquetColumnNames(ConnectorSession session)
     {
         return session.getProperty(PARQUET_USE_COLUMN_NAMES, Boolean.class);
+    }
+    
+    public static boolean isUseOrcColumnNames(ConnectorSession session)
+    {
+        return session.getProperty(ORC_USE_COLUMN_NAMES, Boolean.class);
     }
 
     public static boolean isRangeFiltersOnSubscriptsEnabled(ConnectorSession session)
