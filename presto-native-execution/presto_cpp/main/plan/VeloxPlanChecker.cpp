@@ -11,35 +11,66 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/VeloxPlanConversion.h"
+#include "presto_cpp/main/plan/VeloxPlanChecker.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "velox/core/QueryCtx.h"
 
 using namespace facebook::velox;
 
 namespace facebook::presto {
 
-protocol::PlanConversionResponse prestoToVeloxPlanConversion(
-    const std::string& planFragmentJson,
-    memory::MemoryPool* pool,
-    VeloxPlanValidator* planValidator) {
+bool VeloxPlanChecker::planHasNestedJoinLoop(
+    const velox::core::PlanNodePtr& planNode) {
+  if (std::dynamic_pointer_cast<const velox::core::NestedLoopJoinNode>(
+          planNode)) {
+    return true;
+  }
+
+  for (const auto& source : planNode->sources()) {
+    if (planHasNestedJoinLoop(source)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void VeloxPlanChecker::validatePlanFragment(
+    const velox::core::PlanFragment& fragment) {
+  const auto failOnNestedLoopJoin =
+      SystemConfig::instance()
+          ->optionalProperty<bool>(
+              SystemConfig::kPlanValidatorFailOnNestedLoopJoin)
+          .value_or(false);
+  if (failOnNestedLoopJoin) {
+    VELOX_CHECK(
+        !planHasNestedJoinLoop(fragment.planNode),
+        "Velox plan uses nested join loop which isn't supported.");
+  }
+}
+
+protocol::PlanConversionResponse VeloxPlanChecker::checkPlanFragment(
+    const std::string& planFragmentJson) const {
   protocol::PlanConversionResponse response;
 
   try {
     protocol::PlanFragment planFragment = json::parse(planFragmentJson);
 
     auto queryCtx = core::QueryCtx::create();
-    VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
+    // Attempt to convert the plan fragment to a Velox plan with Velox plan
+    // node validation.
+    VeloxInteractiveQueryPlanConverter converter(
+        queryCtx.get(), pool_, PlanConversionPurpose::kValidation);
 
     // Create a taskId and empty TableWriteInfo needed for plan conversion.
     protocol::TaskId taskId = "velox-plan-conversion.0.0.0.0";
     auto tableWriteInfo = std::make_shared<protocol::TableWriteInfo>();
 
-    // Attempt to convert the plan fragment to a Velox plan.
     auto veloxPlan =
         converter.toVeloxQueryPlan(planFragment, tableWriteInfo, taskId);
-    planValidator->validatePlanFragment(veloxPlan);
+    validatePlanFragment(veloxPlan);
   } catch (const VeloxException& e) {
     response.failures.emplace_back(
         toNativeSidecarFailureInfo(translateToPrestoException(e)));

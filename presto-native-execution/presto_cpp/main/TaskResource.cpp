@@ -15,10 +15,10 @@
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanConsistencyChecker.h"
 
 namespace facebook::presto {
@@ -390,7 +390,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
-          planValidator_->validatePlanFragment(planFragment);
+          planChecker_->validatePlanFragment(planFragment);
         }
 
         return taskManager_.createOrUpdateTask(

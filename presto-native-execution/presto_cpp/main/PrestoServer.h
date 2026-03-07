@@ -25,7 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
+#include "presto_cpp/main/plan/VeloxPlanChecker.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -185,11 +185,6 @@ class PrestoServer {
   /// Invoked to enable stats reporting and register counters.
   virtual void enableWorkerStatsReporting();
 
-  /// Invoked to initialize Presto to Velox plan validator.
-  virtual void initVeloxPlanValidator();
-
-  VeloxPlanValidator* getVeloxPlanValidator();
-
   void registerDynamicFunctions();
 
   /// Invoked to get the list of filters passed to the http server.
@@ -316,7 +311,7 @@ class PrestoServer {
   // 'spillerExecutor_'.
   folly::CPUThreadPoolExecutor* spillerCpuExecutor_;
 
-  std::unique_ptr<VeloxPlanValidator> planValidator_;
+  std::unique_ptr<VeloxPlanChecker> planChecker_;
 
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
