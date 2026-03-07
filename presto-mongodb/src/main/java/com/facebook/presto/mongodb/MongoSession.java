@@ -36,6 +36,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
@@ -228,6 +229,9 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        if (isView(tableName.getSchemaName(), tableName.getTableName())) {
+            return ImmutableList.of();
+        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -470,6 +474,7 @@ public class MongoSession
 
         MongoDatabase db = client.getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
+
         if (doc == null) {
             // no records at the collection
             return ImmutableList.of();
@@ -643,5 +648,16 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    private boolean isView(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+        Document doc = database.listCollections().filter(
+                new Document(new Document(ImmutableMap.of(
+                        "name", table,
+                        "type", "view")))).first();
+
+        return doc != null;
     }
 }
