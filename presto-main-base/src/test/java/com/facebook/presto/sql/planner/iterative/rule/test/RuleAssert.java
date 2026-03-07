@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -189,7 +190,7 @@ public class RuleAssert
         });
     }
 
-    public void matches(LogicalProperties expectedLogicalProperties)
+    public void assertLogicalProperties(Consumer<LogicalProperties> matcher)
     {
         RuleApplication ruleApplication = applyRule();
         TypeProvider types = ruleApplication.types;
@@ -201,16 +202,23 @@ public class RuleAssert
                     formatPlan(plan, types)));
         }
 
-        // ensure that the logical properties of the root group are equivalent to the expected logical properties
         LogicalProperties rootNodeLogicalProperties = ruleApplication.getMemo().getLogicalProperties(ruleApplication.getMemo().getRootGroup()).get();
-        if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
-            fail(String.format(
-                    "Logical properties of root node doesn't match expected logical properties\n" +
-                            "\texpected: %s\n" +
-                            "\tactual:   %s",
-                    expectedLogicalProperties,
-                    rootNodeLogicalProperties));
-        }
+        matcher.accept(rootNodeLogicalProperties);
+    }
+
+    public void matches(LogicalProperties expectedLogicalProperties)
+    {
+        // Ensure that the logical properties of the root group are equivalent to the expected logical properties
+        assertLogicalProperties(rootNodeLogicalProperties -> {
+            if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
+                fail(String.format(
+                        "Logical properties of root node doesn't match expected logical properties\n" +
+                                "\texpected: %s\n" +
+                                "\tactual:   %s",
+                        expectedLogicalProperties,
+                        rootNodeLogicalProperties));
+            }
+        });
     }
 
     private RuleApplication applyRule()
