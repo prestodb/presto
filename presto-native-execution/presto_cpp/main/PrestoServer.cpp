@@ -1538,15 +1538,15 @@ void PrestoServer::registerVectorSerdes() {
   if (!velox::isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
-  if (!velox::isRegisteredNamedVectorSerde(velox::VectorSerde::Kind::kPresto)) {
+  if (!velox::isRegisteredNamedVectorSerde("Presto")) {
     velox::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
   }
   if (!velox::isRegisteredNamedVectorSerde(
-          velox::VectorSerde::Kind::kCompactRow)) {
+          "CompactRow")) {
     velox::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
   }
   if (!velox::isRegisteredNamedVectorSerde(
-          velox::VectorSerde::Kind::kUnsafeRow)) {
+          "UnsafeRow")) {
     velox::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
 }
