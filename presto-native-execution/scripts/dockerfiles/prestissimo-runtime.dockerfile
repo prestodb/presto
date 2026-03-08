@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
     if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]]; then unset CC; unset CXX; source /opt/rh/gcc-toolset-14/enable; fi && \
     COMPILER_LAUNCHER_FLAGS="" && \
     if [ -n "${SCCACHE_BUCKET}" ] && command -v sccache &>/dev/null; then \
-        export SCCACHE_BUCKET="${SCCACHE_BUCKET}" SCCACHE_CACHE_SIZE=2G; \
+        export SCCACHE_BUCKET="${SCCACHE_BUCKET}" SCCACHE_CACHE_SIZE=10G; \
         [ -n "${SCCACHE_REGION}" ] && export SCCACHE_REGION="${SCCACHE_REGION}"; \
         [ -n "${SCCACHE_S3_KEY_PREFIX}" ] && export SCCACHE_S3_KEY_PREFIX="${SCCACHE_S3_KEY_PREFIX}"; \
         sccache --start-server && \
@@ -88,6 +88,7 @@ COPY --chmod=0775 ./entrypoint.sh /opt/entrypoint.sh
 RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && \
     echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf && \
     echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf && \
+    echo "/usr/local/cuda/compat" >> /etc/ld.so.conf.d/cuda.conf && \
     ldconfig
 
 RUN rpm --import https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub && \
