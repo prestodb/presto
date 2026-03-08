@@ -348,6 +348,24 @@ to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
+``pre_aggregate_before_grouping_sets``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, inserts a partial aggregation below the ``GroupId`` node in grouping sets
+queries to reduce the number of rows that ``GroupId`` multiplies across grouping sets.
+The partial aggregation groups by the union of all grouping set columns (the finest
+granularity needed), which can drastically reduce the input to ``GroupId``. This is
+most effective when the data has high cardinality on the grouping columns, as the
+pre-aggregation can significantly reduce the row count before multiplication.
+
+Only applies to decomposable aggregation functions such as ``SUM``, ``COUNT``, ``MIN``,
+or ``MAX`` that support partial/intermediate/final splitting.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.pre-aggregate-before-grouping-sets\`\``.
+
 ``push_aggregation_through_join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

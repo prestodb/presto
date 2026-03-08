@@ -922,6 +922,18 @@ create them).
 The single distinct optimization will try to replace multiple ``DISTINCT`` clauses
 with a single ``GROUP BY`` clause, which can be substantially faster to execute.
 
+``optimizer.pre-aggregate-before-grouping-sets``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, inserts a partial aggregation below the ``GroupId`` node in grouping sets
+queries to reduce the number of rows that ``GroupId`` multiplies across grouping sets.
+Only applies to decomposable aggregation functions.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`pre_aggregate_before_grouping_sets\`\``.
+
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -160,6 +160,7 @@ public class FeaturesConfig
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
+    private boolean preAggregateBeforeGroupingSets;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
@@ -1741,6 +1742,18 @@ public class FeaturesConfig
     public FeaturesConfig setSimplifyAggregationsOverConstant(boolean simplifyAggregationsOverConstant)
     {
         this.simplifyAggregationsOverConstant = simplifyAggregationsOverConstant;
+        return this;
+    }
+
+    public boolean isPreAggregateBeforeGroupingSets()
+    {
+        return preAggregateBeforeGroupingSets;
+    }
+
+    @Config("optimizer.pre-aggregate-before-grouping-sets")
+    public FeaturesConfig setPreAggregateBeforeGroupingSets(boolean preAggregateBeforeGroupingSets)
+    {
+        this.preAggregateBeforeGroupingSets = preAggregateBeforeGroupingSets;
         return this;
     }
 
