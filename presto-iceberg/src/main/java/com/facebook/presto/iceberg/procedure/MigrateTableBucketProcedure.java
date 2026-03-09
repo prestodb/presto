@@ -21,6 +21,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure.Argument;
@@ -29,9 +30,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
-import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.Snapshot;
@@ -50,6 +51,7 @@ import javax.inject.Provider;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -63,6 +65,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
 import static java.lang.String.format;
@@ -71,6 +74,8 @@ import static java.util.Objects.requireNonNull;
 public class MigrateTableBucketProcedure
         implements Provider<DistributedProcedure>
 {
+    private static final String FRAGMENT_DELIMITER = "\u0000";
+
     private final TypeManager typeManager;
 
     @Inject
@@ -118,9 +123,31 @@ public class MigrateTableBucketProcedure
         IcebergProcedureContext icebergContext = (IcebergProcedureContext) procedureContext;
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) tableLayoutHandle;
         String newBasePath = (String) arguments[2];
-        Map<String, String> relevantData = ImmutableMap.of("new_base_path", newBasePath);
         IcebergTableHandle tableHandle = layoutHandle.getTable();
         Table icebergTable = icebergContext.getTable();
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (currentSnapshot != null) {
+            TableScan deleteScan = icebergTable.newScan().useSnapshot(currentSnapshot.snapshotId());
+            try (CloseableIterable<FileScanTask> tasks = deleteScan.planFiles()) {
+                for (FileScanTask task : tasks) {
+                    if (!task.deletes().isEmpty()) {
+                        throw new PrestoException(
+                                NOT_SUPPORTED,
+                                "migrate_table_bucket does not support tables with delete files. " +
+                                        "Please compact or merge delete files before migrating.");
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        String normalizedNewBasePath = stripTrailingSlash(newBasePath);
+
+        Map<String, String> relevantData = ImmutableMap.of(
+                "new_base_path", normalizedNewBasePath,
+                "table_location", stripTrailingSlash(icebergTable.location()));
 
         return new IcebergDistributedProcedureHandle(
                 tableHandle.getSchemaName(),
@@ -134,7 +161,46 @@ public class MigrateTableBucketProcedure
                 icebergTable.properties(),
                 layoutHandle,
                 ImmutableList.of(),
-                relevantData); }
+                relevantData);
+    }
+
+    public static Slice copyFileAndBuildFragment(
+            FileIO fileIO,
+            String tableLocation,
+            String normalizedNewBasePath,
+            DataFile dataFile)
+    {
+        String oldPath = dataFile.path().toString();
+        String normalizedTableLocation = stripTrailingSlash(tableLocation);
+        String relativePath = oldPath.startsWith(normalizedTableLocation)
+                ? oldPath.substring(normalizedTableLocation.length() + 1)
+                : oldPath.substring(oldPath.lastIndexOf('/') + 1);
+        String newPath = normalizedNewBasePath + "/" + relativePath;
+
+        if (newPath.equals(oldPath)) {
+            String payload = oldPath + FRAGMENT_DELIMITER + oldPath;
+            return Slices.wrappedBuffer(payload.getBytes(StandardCharsets.UTF_8));
+        }
+
+        InputFile inputFile = fileIO.newInputFile(oldPath);
+        OutputFile outputFile = fileIO.newOutputFile(newPath);
+
+        try (SeekableInputStream in = inputFile.newStream();
+                PositionOutputStream out = outputFile.create()) {
+            byte[] buffer = new byte[64 * 1024];
+            int bytesRead;
+            while ((bytesRead = in.read(buffer)) > 0) {
+                out.write(buffer, 0, bytesRead);
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(
+                    new IOException(format("Failed to copy file from %s to %s", oldPath, newPath), e));
+        }
+
+        String payload = oldPath + FRAGMENT_DELIMITER + newPath;
+        return Slices.wrappedBuffer(payload.getBytes(StandardCharsets.UTF_8));
+    }
 
     private void finishCallDistributedProcedure(
             ConnectorSession session,
@@ -145,74 +211,71 @@ public class MigrateTableBucketProcedure
         IcebergProcedureContext icebergContext = (IcebergProcedureContext) procedureContext;
         IcebergDistributedProcedureHandle icebergHandle = (IcebergDistributedProcedureHandle) handle;
         Table icebergTable = icebergContext.getTransaction().table();
-        String newBasePath = icebergHandle.getRelevantData().get("new_base_path");
+        Map<String, String> pathRemapping = decodeFragments(fragments);
         Set<DataFile> existingDataFiles = new HashSet<>();
-        TableScan tableScan = icebergTable.newScan().useSnapshot(icebergTable.currentSnapshot().snapshotId());
+        Set<DataFile> newDataFiles = new HashSet<>();
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            return;
+        }
+        long validationSnapshotId = currentSnapshot.snapshotId();
+
+        TableScan tableScan = icebergTable.newScan().useSnapshot(currentSnapshot.snapshotId());
 
         try (CloseableIterable<FileScanTask> tasks = tableScan.planFiles()) {
             for (FileScanTask task : tasks) {
-                existingDataFiles.add(task.file());
+                DataFile oldFile = task.file();
+                String oldPath = oldFile.path().toString();
+                String newPath = pathRemapping.get(oldPath);
+
+                if (newPath == null) {
+                    throw new IllegalStateException(
+                            format("No fragment received for data file: %s. " +
+                                    "The distributed copy may be incomplete.", oldPath));
+                }
+
+                existingDataFiles.add(oldFile);
+
+                DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
+                        .copy(oldFile)
+                        .withPath(newPath);
+
+                if (oldFile.partition() != null) {
+                    builder.withPartition(oldFile.partition());
+                }
+
+                newDataFiles.add(builder.build());
             }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-
-        Set<DeleteFile> deleteFiles = new HashSet<>();
-        TableScan deleteScan = icebergTable.newScan().useSnapshot(icebergTable.currentSnapshot().snapshotId());
-
-        try (CloseableIterable<FileScanTask> tasks = deleteScan.planFiles()) {
-            for (FileScanTask task : tasks) {
-                if (!task.deletes().isEmpty()) {
-                    deleteFiles.addAll(task.deletes());
-                }
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-
-        Set<DataFile> newDataFiles = new HashSet<>();
-
-        FileIO fileIO = icebergTable.io();
-
-        for (DataFile oldFile : existingDataFiles) {
-            String oldPath = oldFile.path().toString();
-            String fileName = oldPath.substring(oldPath.lastIndexOf('/') + 1);
-            String newPath = newBasePath + "/" + fileName;
-
-            InputFile inputFile = fileIO.newInputFile(oldPath);
-            OutputFile outputFile = fileIO.newOutputFile(newPath);
-
-            try (SeekableInputStream in = inputFile.newStream();
-                    PositionOutputStream out = outputFile.create()) {
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = in.read(buffer)) > 0) {
-                    out.write(buffer, 0, bytesRead);
-                }
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-
-            DataFiles.Builder builder = DataFiles.builder(icebergTable.spec()).copy(oldFile).withPath(newPath);
-
-            if (oldFile.partition() != null) {
-                builder.withPartition(oldFile.partition());
-            }
-
-            DataFile newFile = builder.build();
-
-            newDataFiles.add(newFile);
-        }
-        RewriteFiles rewrite = icebergContext.getTransaction().newRewrite().rewriteFiles(existingDataFiles, deleteFiles, newDataFiles, ImmutableSet.of());
-
+        RewriteFiles rewrite = icebergContext.getTransaction().newRewrite().rewriteFiles(existingDataFiles, ImmutableSet.of(), newDataFiles, ImmutableSet.of());
+        rewrite.validateFromSnapshot(currentSnapshot.snapshotId());
         Snapshot snapshot = icebergTable.currentSnapshot();
-        if (snapshot != null) {
-            rewrite.validateFromSnapshot(snapshot.snapshotId());
-        }
-
         rewrite.commit();
+    }
+
+    private static Map<String, String> decodeFragments(Collection<Slice> fragments)
+    {
+        ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
+        for (Slice fragment : fragments) {
+            String payload = new String(fragment.getBytes(), StandardCharsets.UTF_8);
+            int delimIndex = payload.indexOf(FRAGMENT_DELIMITER);
+            if (delimIndex < 0) {
+                throw new IllegalArgumentException(
+                        format("Malformed fragment (missing delimiter): %s", payload));
+            }
+            String oldPath = payload.substring(0, delimIndex);
+            String newPath = payload.substring(delimIndex + 1);
+            map.put(oldPath, newPath);
+        }
+        return map.build();
+    }
+
+    private static String stripTrailingSlash(String path)
+    {
+        requireNonNull(path, "path is null");
+        return path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
     }
 }
