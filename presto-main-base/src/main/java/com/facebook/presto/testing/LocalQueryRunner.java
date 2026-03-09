@@ -80,6 +80,7 @@ import com.facebook.presto.execution.RollbackTask;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SetPropertiesTask;
 import com.facebook.presto.execution.SetSessionTask;
+import com.facebook.presto.execution.SetTimeZoneTask;
 import com.facebook.presto.execution.StartTransactionTask;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -230,6 +231,7 @@ import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SetTimeZone;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
@@ -617,6 +619,7 @@ public class LocalQueryRunner
                 .put(RenameView.class, new RenameViewTask())
                 .put(ResetSession.class, new ResetSessionTask())
                 .put(SetSession.class, new SetSessionTask())
+                .put(SetTimeZone.class, new SetTimeZoneTask())
                 .put(Prepare.class, new PrepareTask(sqlParser))
                 .put(Deallocate.class, new DeallocateTask())
                 .put(StartTransaction.class, new StartTransactionTask())

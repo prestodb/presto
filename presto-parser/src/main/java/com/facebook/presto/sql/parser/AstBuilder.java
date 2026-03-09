@@ -158,6 +158,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SetTimeZone;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
@@ -1359,6 +1360,16 @@ class AstBuilder
     public Node visitResetSession(SqlBaseParser.ResetSessionContext context)
     {
         return new ResetSession(getLocation(context), getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
+    public Node visitSetTimeZone(SqlBaseParser.SetTimeZoneContext context)
+    {
+        Optional<Expression> timeZone = Optional.empty();
+        if (context.LOCAL() == null) {
+            timeZone = Optional.of((Expression) visit(context.expression()));
+        }
+        return new SetTimeZone(getLocation(context), timeZone);
     }
 
     @Override
