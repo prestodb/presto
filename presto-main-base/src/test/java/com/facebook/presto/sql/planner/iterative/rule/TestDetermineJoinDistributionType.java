@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
@@ -21,6 +23,7 @@ import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -33,6 +36,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -43,11 +47,16 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.TREAT_LOW_CONFIDENCE_ZERO_ESTIMATION_AS_UNKNOWN_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.USE_BROADCAST_WHEN_BUILDSIZE_SMALL_PROBESIDE_UNKNOWN;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_RUNTIME_STATS_ENABLED;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -70,7 +79,11 @@ import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistri
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.getFirstKnownOutputSizeInBytes;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static java.lang.Double.NaN;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestDetermineJoinDistributionType
@@ -2005,6 +2018,329 @@ public class TestDetermineJoinDistributionType
                             return PlanNodeStatsEstimate.unknown();
                         }),
                 NaN);
+    }
+
+    // Dynamic filter tests
+
+    @Test
+    public void testDynamicFilterAlwaysCreatesFilter()
+    {
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), 10_000, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), 100, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+        assertTrue(result.getDynamicFilters().values().iterator().next().getName().equals("B1"));
+    }
+
+    @Test
+    public void testDynamicFilterAlwaysCreatesTwoClauses()
+    {
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(p.variable("A1", BIGINT), p.variable("A2", BIGINT)),
+                                p.values(p.variable("B1", BIGINT), p.variable("B2", BIGINT)),
+                                ImmutableList.of(
+                                        new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                        new EquiJoinClause(p.variable("A2", BIGINT), p.variable("B2", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("A2", BIGINT), p.variable("B1", BIGINT), p.variable("B2", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 2);
+    }
+
+    @Test
+    public void testDynamicFilterDisabledDoesNotModify()
+    {
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), 10_000, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), 100, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "JoinNode already has dynamic filters")
+    public void testDynamicFilterRejectsExistingDynamicFilters()
+    {
+        assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), 10_000, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), 100, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableMap.of("existing", p.variable("B1", BIGINT))))
+                .get();
+    }
+
+    @Test
+    public void testDynamicFilterSkipsLeftJoin()
+    {
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .on(p ->
+                        p.join(
+                                LEFT,
+                                p.values(new PlanNodeId("valuesA"), 10_000, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), 100, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedSkipsHighRatio()
+    {
+        int aRows = 1_000_000;
+        int bRows = 1_000_000;
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedCreatesForGoodRatio()
+    {
+        int aRows = 1_000_000;
+        int bRows = 100;
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedCreatesForUnknownStats()
+    {
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.unknown())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.unknown())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedRespectsCustomThreshold()
+    {
+        int aRows = 1_000_000;
+        int bRows = 800_000;
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_CARDINALITY_RATIO_THRESHOLD, "0.9")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+    }
+
+    @Test
+    public void testDynamicFilterExtendedMetricsCreated()
+    {
+        int aRows = 1_000_000;
+        int bRows = 100;
+        RuntimeStats runtimeStats = new RuntimeStats();
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, "true")
+                .setRuntimeStats(runtimeStats)
+                .build();
+        assertDetermineJoinDistributionType()
+                .withSession(session)
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO, "A1");
+        assertNotNull(runtimeStats.getMetrics().get(metricKey));
+        assertEquals(runtimeStats.getMetrics().get(metricKey).getSum(), 1);
+    }
+
+    @Test
+    public void testDynamicFilterExtendedMetricsSkipped()
+    {
+        int aRows = 1_000_000;
+        int bRows = 1_000_000;
+        RuntimeStats runtimeStats = new RuntimeStats();
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, "true")
+                .setRuntimeStats(runtimeStats)
+                .build();
+        assertDetermineJoinDistributionType()
+                .withSession(session)
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        String metricKey = format("%s[%s]", DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY, "A1");
+        assertNotNull(runtimeStats.getMetrics().get(metricKey));
+    }
+
+    @Test
+    public void testDynamicFilterExtendedMetricsNotEmittedWhenDisabled()
+    {
+        int aRows = 1_000_000;
+        int bRows = 100;
+        RuntimeStats runtimeStats = new RuntimeStats();
+        Session session = Session.builder(tester.getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .setSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, "false")
+                .setRuntimeStats(runtimeStats)
+                .build();
+        assertDetermineJoinDistributionType()
+                .withSession(session)
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertNull(runtimeStats.getMetrics().get(format("%s[%s]", DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO, "A1")));
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedMixedClauses()
+    {
+        int aRows = 1_000_000;
+        int bRows = 100;
+        JoinNode result = (JoinNode) assertDetermineJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT), p.variable("A2", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT), p.variable("B2", BIGINT)),
+                                ImmutableList.of(
+                                        new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                        new EquiJoinClause(p.variable("A2", BIGINT), p.variable("B2", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("A2", BIGINT), p.variable("B1", BIGINT), p.variable("B2", BIGINT)),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 2);
     }
 
     private RuleAssert assertDetermineJoinDistributionType()

@@ -24,8 +24,6 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
-import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType;
-import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.google.errorprone.annotations.ThreadSafe;

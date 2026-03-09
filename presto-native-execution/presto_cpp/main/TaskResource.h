@@ -100,6 +100,14 @@ class TaskResource {
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);
 
+  proxygen::RequestHandler* getDynamicFilters(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::string>& pathMatch);
+
+  proxygen::RequestHandler* deleteDynamicFilters(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::string>& pathMatch);
+
   folly::Executor* const httpSrvCpuExecutor_;
   velox::memory::MemoryPool* const pool_;
   VeloxPlanValidator* const planValidator_;

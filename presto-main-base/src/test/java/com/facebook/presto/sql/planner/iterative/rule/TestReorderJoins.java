@@ -19,6 +19,7 @@ import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -42,6 +43,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SystemSessionProperties.CONFIDENCE_BASED_BROADCAST_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
@@ -69,6 +71,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableS
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.variable;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestReorderJoins
         extends BasePlanTest
@@ -938,6 +942,116 @@ public class TestReorderJoins
                                                         tableScan("orders", ImmutableMap.of("O_CUSTKEY", "custkey", "O_ORDERKEY", "orderkey"))),
                                                 anyTree(
                                                         tableScan("customer", ImmutableMap.of("C_CUSTKEY", "custkey"))))))));
+    }
+
+    // Dynamic filter tests
+
+    @Test
+    public void testDynamicFilterCreatedWhenDppEnabled()
+    {
+        int aRows = 10_000;
+        int bRows = 100;
+        JoinNode result = (JoinNode) assertReorderJoins()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+        assertTrue(result.getDynamicFilters().values().iterator().next().getName().equals("B1"));
+    }
+
+    @Test
+    public void testDynamicFilterNotCreatedWhenDppDisabled()
+    {
+        int aRows = 10_000;
+        int bRows = 100;
+        JoinNode result = (JoinNode) assertReorderJoins()
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedSkipsHighRatio()
+    {
+        int aRows = 10_000;
+        int bRows = 10_000;
+        JoinNode result = (JoinNode) assertReorderJoins()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test
+    public void testDynamicFilterCostBasedCreatesForGoodRatio()
+    {
+        int aRows = 10_000;
+        int bRows = 100;
+        JoinNode result = (JoinNode) assertReorderJoins()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .on(p ->
+                        p.join(
+                                INNER,
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                ImmutableList.of(new EquiJoinClause(p.variable("A1", BIGINT), p.variable("B1", BIGINT))),
+                                ImmutableList.of(p.variable("A1", BIGINT), p.variable("B1", BIGINT)),
+                                Optional.empty()))
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("A1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(variable("B1", BIGINT), new VariableStatsEstimate(0, 100, 0, 640000, 100)))
+                        .build())
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
     }
 
     private RuleAssert assertReorderJoins()

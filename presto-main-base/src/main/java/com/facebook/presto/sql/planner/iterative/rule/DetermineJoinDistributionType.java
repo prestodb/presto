@@ -54,6 +54,7 @@ import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.LOW;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
+import static com.facebook.presto.sql.planner.iterative.rule.DynamicFilterUtils.addApplicableDynamicFilters;
 import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.treatLowConfidenceZeroEstimationsAsUnknown;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isBelowBroadcastLimit;
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isSmallerThanThreshold;
@@ -103,12 +104,16 @@ public class DetermineJoinDistributionType
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
+        JoinNode resultNode;
         if (joinDistributionType == AUTOMATIC) {
-            PlanNode resultNode = getCostBasedJoin(joinNode, context);
+            resultNode = (JoinNode) getCostBasedJoin(joinNode, context);
             statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
-            return Result.ofPlanNode(resultNode);
         }
-        return Result.ofPlanNode(getSyntacticOrderJoin(joinNode, context, joinDistributionType));
+        else {
+            resultNode = getSyntacticOrderJoin(joinNode, context, joinDistributionType);
+        }
+        resultNode = addApplicableDynamicFilters(context.getSession(), resultNode, context.getStatsProvider(), context.getIdAllocator());
+        return Result.ofPlanNode(resultNode);
     }
 
     public static boolean isBelowMaxBroadcastSize(JoinNode joinNode, Context context)
@@ -318,4 +323,5 @@ public class DetermineJoinDistributionType
         PlanNodeStatsEstimate statsEstimate = context.getStatsProvider().getStats(planNode);
         return statsEstimate.confidenceLevel() == LOW && statsEstimate.getOutputRowCount() == 0;
     }
+
 }
