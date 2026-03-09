@@ -83,6 +83,7 @@ import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.iterative.ConfidenceBasedBroadcastUtil.confidenceBasedBroadcast;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.mustPartition;
+import static com.facebook.presto.sql.planner.iterative.rule.DynamicFilterUtils.addApplicableDynamicFilters;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.toRowExpression;
@@ -591,6 +592,10 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
         {
+            if (planNode instanceof JoinNode) {
+                planNode = addApplicableDynamicFilters(
+                        context.getSession(), (JoinNode) planNode, context.getStatsProvider(), context.getIdAllocator());
+            }
             return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCost(planNode));
         }
     }

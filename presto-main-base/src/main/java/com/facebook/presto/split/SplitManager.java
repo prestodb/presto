@@ -30,6 +30,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import jakarta.inject.Inject;
 
 import java.util.Optional;
@@ -70,7 +71,16 @@ public class SplitManager
 
     public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector)
     {
-        long startTime = System.nanoTime();
+        return getSplits(session, table, splitSchedulingStrategy, warningCollector, DynamicFilter.EMPTY);
+    }
+
+    public SplitSource getSplits(
+            Session session,
+            TableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            WarningCollector warningCollector,
+            DynamicFilter dynamicFilter)
+    {
         ConnectorId connectorId = table.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
@@ -90,7 +100,8 @@ public class SplitManager
                 table.getTransaction(),
                 connectorSession,
                 layout,
-                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector));
+                new SplitSchedulingContext(splitSchedulingStrategy, preferSplitHostAddresses, warningCollector),
+                dynamicFilter);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {

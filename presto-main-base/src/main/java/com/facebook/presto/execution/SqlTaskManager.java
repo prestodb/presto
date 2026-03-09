@@ -23,6 +23,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -68,6 +69,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -557,6 +559,43 @@ public class SqlTaskManager
     {
         requireNonNull(taskId, "taskId is null");
         tasks.getUnchecked(taskId).addStateChangeListener(stateChangeListener);
+    }
+
+    @Override
+    public Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion)
+    {
+        requireNonNull(taskId, "taskId is null");
+        return tasks.getUnchecked(taskId).getDynamicFiltersSince(sinceVersion);
+    }
+
+    @Override
+    public ListenableFuture<DynamicFilterResult> getDynamicFiltersWait(TaskId taskId, long sinceVersion)
+    {
+        requireNonNull(taskId, "taskId is null");
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        sqlTask.recordHeartbeat();
+        return sqlTask.getDynamicFilters(sinceVersion);
+    }
+
+    @Override
+    public void removeDynamicFiltersThrough(TaskId taskId, long throughVersion)
+    {
+        requireNonNull(taskId, "taskId is null");
+        tasks.getUnchecked(taskId).removeDynamicFiltersThrough(throughVersion);
+    }
+
+    @Override
+    public boolean isDynamicFilterOperatorCompleted(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        return tasks.getUnchecked(taskId).isDynamicFilterOperatorCompleted();
+    }
+
+    @Override
+    public Set<String> getRegisteredDynamicFilterIds(TaskId taskId)
+    {
+        requireNonNull(taskId, "taskId is null");
+        return tasks.getUnchecked(taskId).getRegisteredDynamicFilterIds();
     }
 
     public QueryContext getQueryContext(QueryId queryId)

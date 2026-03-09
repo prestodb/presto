@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include <folly/Synchronized.h>
+#include <folly/futures/SharedPromise.h>
 #include <memory>
 #include <unordered_set>
 #include "presto_cpp/main/http/HttpServer.h"
@@ -205,7 +207,59 @@ struct PrestoTask {
 
   folly::dynamic toJson() const;
 
+  // --- Dynamic filter support ---
+
+  /// Snapshot of dynamic filter state for HTTP responses.
+  struct DynamicFilterSnapshot {
+    std::map<std::string, protocol::TupleDomain<std::string>> filters;
+    int64_t version{0};
+    bool operatorCompleted{false};
+    std::unordered_set<std::string> completedFilterIds;
+  };
+
+  /// Stores dynamic filter data produced by DynamicFilterSourceOperator.
+  void storeDynamicFilters(
+      const std::map<std::string, protocol::TupleDomain<std::string>>& filters);
+
+  /// Registers filter IDs that this task's DynamicFilterSource operators will
+  /// produce. Must be called before operators start so that operatorCompleted
+  /// can check flushed ⊇ registered.
+  void registerDynamicFilterIds(
+      const std::unordered_set<std::string>& filterIds);
+
+  /// Marks the given filter IDs as flushed (all operators for those filters
+  /// have completed).
+  void markFilterIdsFlushed(const std::unordered_set<std::string>& filterIds);
+
+  /// Takes a snapshot of dynamic filters with version > sinceVersion.
+  DynamicFilterSnapshot snapshotDynamicFilters(int64_t sinceVersion);
+
+  /// Returns a future that completes when new dynamic filter data is available
+  /// or maxWait expires.
+  folly::SemiFuture<DynamicFilterSnapshot> getDynamicFilters(
+      int64_t sinceVersion,
+      std::optional<std::chrono::milliseconds> maxWait);
+
+  /// Removes dynamic filter versions <= throughVersion.
+  void removeDynamicFiltersThrough(int64_t throughVersion);
+
  private:
+  // Dynamic filter storage.
+  struct VersionedFilter {
+    protocol::TupleDomain<std::string> domain;
+    int64_t version;
+  };
+  folly::Synchronized<std::map<std::string, VersionedFilter>> dynamicFilters_;
+  std::atomic<int64_t> dynamicFilterVersion_{0};
+  folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
+  folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
+
+  // Long-poll support for dynamic filters.
+  std::mutex dfMutex_;
+  std::shared_ptr<folly::SharedPromise<int64_t>> dfPromise_;
+
+  void wakeDynamicFilterWaiters(int64_t version);
+
   void recordProcessCpuTime();
 
   void updateOutputBufferInfoLocked(

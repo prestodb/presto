@@ -343,6 +343,7 @@ public class PrestoNativeQueryRunnerUtils
         // for the native query runner and should NOT be explicitly configured by users.
         private boolean useExternalWorkerLauncher;
         private boolean addJmxPlugin;
+        private Map<String, String> additionalCatalogs = ImmutableMap.of();
 
         private IcebergQueryRunnerBuilder(QueryRunnerType queryRunnerType)
         {
@@ -379,6 +380,12 @@ public class PrestoNativeQueryRunnerUtils
         public IcebergQueryRunnerBuilder setAddStorageFormatToPath(boolean addStorageFormatToPath)
         {
             this.addStorageFormatToPath = addStorageFormatToPath;
+            return this;
+        }
+
+        public IcebergQueryRunnerBuilder setAdditionalCatalogs(Map<String, String> additionalCatalogs)
+        {
+            this.additionalCatalogs = ImmutableMap.copyOf(additionalCatalogs);
             return this;
         }
 
@@ -431,7 +438,7 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false);
+                        Optional.empty(), false, false, false, false, false, false, additionalCatalogs);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)
@@ -662,6 +669,27 @@ public class PrestoNativeQueryRunnerUtils
             boolean enableSsdCache,
             boolean implicitCastCharNToVarchar)
     {
+        return getExternalWorkerLauncher(catalogName, connectorName, prestoServerPath, cacheMaxSize,
+                remoteFunctionServerUds, pluginDirectory, failOnNestedLoopJoin, isCoordinatorSidecarEnabled,
+                isBuiltInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache,
+                implicitCastCharNToVarchar, ImmutableMap.of());
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(
+            String catalogName,
+            String connectorName,
+            String prestoServerPath,
+            int cacheMaxSize,
+            Optional<String> remoteFunctionServerUds,
+            Optional<String> pluginDirectory,
+            Boolean failOnNestedLoopJoin,
+            boolean isCoordinatorSidecarEnabled,
+            boolean isBuiltInWorkerFunctionsEnabled,
+            boolean enableRuntimeMetricsCollection,
+            boolean enableSsdCache,
+            boolean implicitCastCharNToVarchar,
+            Map<String, String> additionalCatalogs)
+    {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
@@ -753,6 +781,12 @@ public class PrestoNativeQueryRunnerUtils
                         // Add a tpcds catalog.
                         Files.write(catalogDirectoryPath.resolve("tpcds.properties"),
                                 format("connector.name=tpcds%n").getBytes());
+
+                        // Write additional catalog files.
+                        for (Map.Entry<String, String> entry : additionalCatalogs.entrySet()) {
+                            Files.write(catalogDirectoryPath.resolve(format("%s.properties", entry.getKey())),
+                                    format("connector.name=%s", entry.getValue()).getBytes());
+                        }
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1", "--velox_ssd_odirect=false")

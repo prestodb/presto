@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
@@ -25,7 +26,9 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public interface TaskManager
 {
@@ -150,4 +153,17 @@ public interface TaskManager
      * from {@code remoteSourceTaskId} will be ignored.
      */
     void removeRemoteSource(TaskId taskId, TaskId remoteSourceTaskId);
+
+    Map<String, TupleDomain<String>> getDynamicFiltersSince(TaskId taskId, long sinceVersion);
+
+    ListenableFuture<DynamicFilterResult> getDynamicFiltersWait(TaskId taskId, long sinceVersion);
+
+    void removeDynamicFiltersThrough(TaskId taskId, long throughVersion);
+
+    boolean isDynamicFilterOperatorCompleted(TaskId taskId);
+
+    /**
+     * Returns empty set if the task has no DynamicFilterSourceOperator.
+     */
+    Set<String> getRegisteredDynamicFilterIds(TaskId taskId);
 }

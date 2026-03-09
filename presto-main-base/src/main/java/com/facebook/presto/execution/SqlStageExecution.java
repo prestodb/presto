@@ -556,6 +556,7 @@ public final class SqlStageExecution
             // stage finished while we were scheduling this task
             task.abort();
         }
+
         return task;
     }
 

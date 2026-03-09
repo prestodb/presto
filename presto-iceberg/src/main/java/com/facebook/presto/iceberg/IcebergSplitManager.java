@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.iceberg.DeleteFile;
@@ -74,6 +75,17 @@ public class IcebergSplitManager
             ConnectorTableLayoutHandle layout,
             SplitSchedulingContext splitSchedulingContext)
     {
+        return getSplits(transaction, session, layout, splitSchedulingContext, DynamicFilter.EMPTY);
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layout,
+            SplitSchedulingContext splitSchedulingContext,
+            DynamicFilter dynamicFilter)
+    {
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
         IcebergTableHandle table = layoutHandle.getTable();
 
@@ -83,6 +95,15 @@ public class IcebergSplitManager
 
         TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
                 .getValidPredicate());
+
+        // Apply completed dynamic filters eagerly; incomplete filters are applied
+        // asynchronously in IcebergSplitSource.getNextBatch().
+        TupleDomain<IcebergColumnHandle> combinedPredicate = predicate;
+        if (dynamicFilter.isComplete()) {
+            TupleDomain<IcebergColumnHandle> dynamicConstraint = dynamicFilter.getCurrentPredicate()
+                    .transform(columnHandle -> (IcebergColumnHandle) columnHandle);
+            combinedPredicate = predicate.intersect(dynamicConstraint);
+        }
 
         Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
 
@@ -110,17 +131,17 @@ public class IcebergSplitManager
         else {
             TableScan tableScan = icebergTable.newScan()
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                    .filter(toIcebergExpression(predicate))
+                    .filter(toIcebergExpression(combinedPredicate))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
             //      propagate it at split level so the parquet pushdown can leverage it.
-            IcebergSplitSource splitSource = new IcebergSplitSource(
+            return new IcebergSplitSource(
                     session,
                     tableScan,
-                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
-            return splitSource;
+                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()),
+                    dynamicFilter);
         }
     }
 

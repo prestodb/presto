@@ -642,6 +642,17 @@ SessionProperties::SessionProperties() {
       QueryConfig::kAggregationMemoryCompactionReclaimEnabled,
       boolToString(c.aggregationMemoryCompactionReclaimEnabled()));
 
+  // 1MB default. Use the property name as the velox config key so it is
+  // accessible via QueryConfig::get() in the operator translator.
+  addSessionProperty(
+      kDistributedDynamicFilterMaxSize,
+      "Maximum size in bytes of discrete values collected per channel in the "
+      "dynamic filter source operator before falling back to min/max range.",
+      BIGINT(),
+      false,
+      kDistributedDynamicFilterMaxSize,
+      std::to_string(1048576));
+
   addSessionProperty(
       kNativeDynamicFilterPushdownEnabled,
       "Enable Velox built-in hash probe dynamic filter pushdown to upstream "

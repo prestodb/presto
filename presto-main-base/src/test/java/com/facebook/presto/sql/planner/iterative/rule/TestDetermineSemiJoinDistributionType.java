@@ -33,6 +33,7 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
@@ -45,6 +46,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -56,6 +58,8 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestDetermineSemiJoinDistributionType
@@ -366,6 +370,96 @@ public class TestDetermineSemiJoinDistributionType
                         Optional.of(REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
                         filter("true", values(ImmutableMap.of("B1", 0)))));
+    }
+
+    // Dynamic filter tests
+
+    @Test
+    public void testDynamicFilterSemiJoinAlways()
+    {
+        int aRows = 10_000;
+        int bRows = 100;
+        SemiJoinNode result = (SemiJoinNode) assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.semiJoin(
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                p.variable("A1"),
+                                p.variable("B1"),
+                                p.variable("output"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
+        assertTrue(result.getDynamicFilters().values().iterator().next().getName().equals("B1"));
+    }
+
+    @Test
+    public void testDynamicFilterSemiJoinCostBasedSkipsHighRatio()
+    {
+        int aRows = 1_000_000;
+        int bRows = 1_000_000;
+        SemiJoinNode result = (SemiJoinNode) assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.semiJoin(
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                p.variable("A1"),
+                                p.variable("B1"),
+                                p.variable("output"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                .get();
+        assertTrue(result.getDynamicFilters().isEmpty());
+    }
+
+    @Test
+    public void testDynamicFilterSemiJoinCostBasedCreatesForGoodRatio()
+    {
+        int aRows = 1_000_000;
+        int bRows = 100;
+        SemiJoinNode result = (SemiJoinNode) assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "COST_BASED")
+                .overrideStats("valuesA", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(aRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "A1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .overrideStats("valuesB", PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(bRows)
+                        .addVariableStatistics(ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "B1", BIGINT), VariableStatsEstimate.unknown()))
+                        .build())
+                .on(p ->
+                        p.semiJoin(
+                                p.values(new PlanNodeId("valuesA"), aRows, p.variable("A1", BIGINT)),
+                                p.values(new PlanNodeId("valuesB"), bRows, p.variable("B1", BIGINT)),
+                                p.variable("A1"),
+                                p.variable("B1"),
+                                p.variable("output"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                .get();
+        assertEquals(result.getDynamicFilters().size(), 1);
     }
 
     private RuleAssert assertDetermineSemiJoinDistributionType()

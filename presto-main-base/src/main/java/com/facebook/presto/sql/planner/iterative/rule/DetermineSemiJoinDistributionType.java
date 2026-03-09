@@ -11,20 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.airlift.units.DataSize;
@@ -38,25 +24,33 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterCardinalityRatioThreshold;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterStrategy;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled;
 import static com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy.COST_BASED;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.Double.isFinite;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -103,18 +97,23 @@ public class DetermineSemiJoinDistributionType
     public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
+        SemiJoinNode resultNode;
         switch (joinDistributionType) {
             case AUTOMATIC:
-                PlanNode resultNode = getCostBasedDistributionType(semiJoinNode, context);
+                resultNode = (SemiJoinNode) getCostBasedDistributionType(semiJoinNode, context);
                 statsSource = context.getStatsProvider().getStats(semiJoinNode).getSourceInfo().getSourceInfoName();
-                return Result.ofPlanNode(resultNode);
+                break;
             case PARTITIONED:
-                return Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
+                resultNode = semiJoinNode.withDistributionType(PARTITIONED);
+                break;
             case BROADCAST:
-                return Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
+                resultNode = semiJoinNode.withDistributionType(REPLICATED);
+                break;
             default:
                 throw new IllegalArgumentException("Unknown join_distribution_type: " + joinDistributionType);
         }
+        resultNode = maybeAddDynamicFilters(resultNode, context);
+        return Result.ofPlanNode(resultNode);
     }
 
     private PlanNode getCostBasedDistributionType(SemiJoinNode node, Context context)
@@ -200,5 +199,48 @@ public class DetermineSemiJoinDistributionType
                 replicated,
                 estimatedSourceDistributedTaskCount);
         return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
+    }
+
+    private static SemiJoinNode maybeAddDynamicFilters(SemiJoinNode node, Context context)
+    {
+        Session session = context.getSession();
+        if (!isDistributedDynamicFilterEnabled(session)) {
+            return node;
+        }
+        if (!node.getDynamicFilters().isEmpty()) {
+            return node;
+        }
+
+        boolean costBased = getDistributedDynamicFilterStrategy(session) == COST_BASED;
+        if (costBased) {
+            PlanNodeStatsEstimate buildStats = context.getStatsProvider().getStats(node.getFilteringSource());
+            PlanNodeStatsEstimate probeStats = context.getStatsProvider().getStats(node.getSource());
+            double buildRowCount = buildStats.getOutputRowCount();
+            double probeRowCount = probeStats.getOutputRowCount();
+            if (isFinite(buildRowCount) && isFinite(probeRowCount)) {
+                double threshold = getDistributedDynamicFilterCardinalityRatioThreshold(session);
+                if (probeRowCount <= 0 || (buildRowCount / probeRowCount) >= threshold) {
+                    return node;
+                }
+            }
+        }
+
+        String filterId = context.getIdAllocator().getNextId().toString();
+        Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of(
+                filterId, node.getFilteringSourceJoinVariable());
+
+        return new SemiJoinNode(
+                node.getSourceLocation(),
+                node.getId(),
+                node.getStatsEquivalentPlanNode(),
+                node.getSource(),
+                node.getFilteringSource(),
+                node.getSourceJoinVariable(),
+                node.getFilteringSourceJoinVariable(),
+                node.getSemiJoinOutput(),
+                node.getSourceHashVariable(),
+                node.getFilteringSourceHashVariable(),
+                node.getDistributionType(),
+                dynamicFilters);
     }
 }

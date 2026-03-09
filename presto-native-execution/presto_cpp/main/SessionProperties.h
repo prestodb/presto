@@ -401,6 +401,21 @@ class SessionProperties {
   static constexpr const char* kAggregationCompactionBytesThreshold =
       "native_aggregation_compaction_bytes_threshold";
 
+  /// Maximum size in bytes of discrete values collected per channel in the
+  /// dynamic filter source operator before falling back to min/max range.
+  /// Default is 1MB (1048576).
+  static constexpr const char* kDistributedDynamicFilterMaxSize =
+      "distributed_dynamic_filter_max_size";
+
+  /// Whether Velox's built-in hash probe dynamic filter pushdown is enabled.
+  /// When true (default), Velox pushes dynamic filters from hash probe down
+  /// to upstream table scan operators. Can be set to false independently for
+  /// debugging/benchmarking. Note: when distributed DPP is active, this is
+  /// auto-disabled via emplace in PrestoToVeloxQueryConfig, but an explicit
+  /// session setting takes precedence.
+  static constexpr const char* kNativeDynamicFilterPushdownEnabled =
+      "native_dynamic_filter_pushdown_enabled";
+
   /// Ratio of unused (evicted) bytes to total bytes that triggers compaction.
   /// The value is in the range of [0, 1). Default is 0.25.
   ///
@@ -415,14 +430,6 @@ class SessionProperties {
   /// before resorting to spilling. Disabled by default.
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
-
-  /// Whether Velox's built-in hash probe dynamic filter pushdown is enabled.
-  /// When true (default), Velox pushes dynamic filters from hash probe down
-  /// to upstream table scan operators. When distributed DPP is active, this
-  /// is auto-disabled via emplace in PrestoToVeloxQueryConfig, but an explicit
-  /// session setting takes precedence.
-  static constexpr const char* kNativeDynamicFilterPushdownEnabled =
-      "native_dynamic_filter_pushdown_enabled";
 
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);

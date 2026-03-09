@@ -50,6 +50,8 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -84,6 +86,7 @@ import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
@@ -104,6 +107,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -463,7 +467,10 @@ public class TestHttpRemoteTaskWithEventLoop
                                 internalCommunicationConfig,
                                 createTestMetadataManager(),
                                 new TestQueryManager(),
-                                new HandleResolver());
+                                new HandleResolver(),
+                                new DynamicFilterService(),
+                                new DynamicFilterStats(),
+                                JsonCodec.jsonCodec(DynamicFilterResponse.class));
                     }
                 });
         Injector injector = app
@@ -616,6 +623,28 @@ public class TestHttpRemoteTaskWithEventLoop
 
             taskState = abort ? TaskState.ABORTED : TaskState.CANCELED;
             return buildTaskInfo();
+        }
+
+        @GET
+        @Path("{taskId}/dynamicFilters")
+        @Produces(MediaType.APPLICATION_JSON)
+        public DynamicFilterResponse getDynamicFilters(
+                @PathParam("taskId") TaskId taskId,
+                @QueryParam("since") @DefaultValue("0") long sinceVersion,
+                @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait)
+        {
+            lastActivityNanos.set(System.nanoTime());
+            return DynamicFilterResponse.incomplete(ImmutableMap.of(), 0L);
+        }
+
+        @DELETE
+        @Path("{taskId}/dynamicFilters")
+        public Response deleteDynamicFilters(
+                @PathParam("taskId") TaskId taskId,
+                @QueryParam("through") @DefaultValue("0") long throughVersion)
+        {
+            lastActivityNanos.set(System.nanoTime());
+            return Response.noContent().build();
         }
 
         public void setInitialTaskInfo(TaskInfo initialTaskInfo)

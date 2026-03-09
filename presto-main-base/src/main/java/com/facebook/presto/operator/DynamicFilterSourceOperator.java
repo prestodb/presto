@@ -31,6 +31,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SOURCE_COLLECTION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SOURCE_DISTINCT_VALUES;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SOURCE_FALLBACK_TO_MIN_MAX;
+import static com.facebook.presto.common.RuntimeUnit.NANO;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -38,6 +43,7 @@ import static com.facebook.presto.common.type.TypeUtils.isFloatingPointNaN;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -92,6 +98,8 @@ public class DynamicFilterSourceOperator
         private final DataSize maxFilterSize;
         private final int minMaxCollectionLimit;
         private final boolean useNewNanDefinition;
+        private final Runnable onClose;
+        private final Runnable onCreateOperator;
 
         private boolean closed;
 
@@ -104,6 +112,23 @@ public class DynamicFilterSourceOperator
                 DataSize maxFilterSize,
                 int minMaxCollectionLimit,
                 boolean useNewNanDefinition)
+        {
+            this(operatorId, planNodeId, dynamicPredicateConsumer, channels,
+                    maxFilterPositionsCount, maxFilterSize, minMaxCollectionLimit,
+                    useNewNanDefinition, () -> {}, () -> {});
+        }
+
+        public DynamicFilterSourceOperatorFactory(
+                int operatorId,
+                PlanNodeId planNodeId,
+                Consumer<TupleDomain<String>> dynamicPredicateConsumer,
+                List<Channel> channels,
+                int maxFilterPositionsCount,
+                DataSize maxFilterSize,
+                int minMaxCollectionLimit,
+                boolean useNewNanDefinition,
+                Runnable onClose,
+                Runnable onCreateOperator)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -119,12 +144,15 @@ public class DynamicFilterSourceOperator
             this.maxFilterSize = maxFilterSize;
             this.minMaxCollectionLimit = minMaxCollectionLimit;
             this.useNewNanDefinition = useNewNanDefinition;
+            this.onClose = requireNonNull(onClose, "onClose is null");
+            this.onCreateOperator = requireNonNull(onCreateOperator, "onCreateOperator is null");
         }
 
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
+            onCreateOperator.run();
             return new DynamicFilterSourceOperator(
                     driverContext.addOperatorContext(operatorId, planNodeId, DynamicFilterSourceOperator.class.getSimpleName()),
                     dynamicPredicateConsumer,
@@ -141,6 +169,7 @@ public class DynamicFilterSourceOperator
         {
             checkState(!closed, "Factory is already closed");
             closed = true;
+            onClose.run();
         }
 
         @Override
@@ -160,6 +189,10 @@ public class DynamicFilterSourceOperator
 
     private boolean finished;
     private Page current;
+
+    private long collectionStartNanos;
+    private boolean collectionStarted;
+    private boolean fellBackToMinMax;
 
     // May be dropped if the predicate becomes too large.
     @Nullable
@@ -234,6 +267,10 @@ public class DynamicFilterSourceOperator
     {
         verify(!finished, "DynamicFilterSourceOperator: addInput() shouldn't not be called after finish()");
         current = page;
+        if (!collectionStarted) {
+            collectionStartNanos = System.nanoTime();
+            collectionStarted = true;
+        }
         if (valueSets == null) {
             // the exact predicate became too large.
             if (minValues == null) {
@@ -274,6 +311,7 @@ public class DynamicFilterSourceOperator
 
     private void handleTooLargePredicate()
     {
+        fellBackToMinMax = true;
         // The resulting predicate is too large
         if (minMaxChannels.isEmpty()) {
             // allow all probe-side values to be read.
@@ -372,6 +410,7 @@ public class DynamicFilterSourceOperator
                 // there were too many rows to collect min/max range
                 // dynamicPredicateConsumer was notified with 'all' in handleTooLargePredicate if there are no orderable types,
                 // else it was notified with 'all' in handleMinMaxCollectionLimitExceeded
+                recordMetrics(0);
                 return;
             }
             // valueSets became too large, create TupleDomain from min/max values
@@ -391,19 +430,40 @@ public class DynamicFilterSourceOperator
             }
             minValues = null;
             maxValues = null;
+            recordMetrics(0);
             dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.build()));
             return;
         }
 
         verify(blockBuilders != null, "blockBuilders is null when finish is called in DynamicFilterSourceOperator");
+        long distinctValues = 0;
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = blockBuilders[channelIndex].build();
             Type type = channels.get(channelIndex).getType();
             domainsBuilder.put(channels.get(channelIndex).getFilterId(), convertToDomain(type, block));
+            long channelDistinct = block.getPositionCount();
+            distinctValues += channelDistinct;
+
+            String channelFilterId = channels.get(channelIndex).getFilterId();
+            if (!channelFilterId.isEmpty()) {
+                context.getRuntimeStats().addMetricValue(
+                        format("%s[%s]", DYNAMIC_FILTER_SOURCE_DISTINCT_VALUES, channelFilterId), NONE, channelDistinct);
+            }
         }
         valueSets = null;
         blockBuilders = null;
+        recordMetrics(distinctValues);
         dynamicPredicateConsumer.accept(TupleDomain.withColumnDomains(domainsBuilder.build()));
+    }
+
+    private void recordMetrics(long distinctValues)
+    {
+        context.getRuntimeStats().addMetricValue(DYNAMIC_FILTER_SOURCE_DISTINCT_VALUES, NONE, distinctValues);
+        context.getRuntimeStats().addMetricValue(DYNAMIC_FILTER_SOURCE_FALLBACK_TO_MIN_MAX, NONE, fellBackToMinMax ? 1 : 0);
+        if (collectionStarted) {
+            long collectionTimeNanos = System.nanoTime() - collectionStartNanos;
+            context.getRuntimeStats().addMetricValue(DYNAMIC_FILTER_SOURCE_COLLECTION_TIME_NANOS, NANO, collectionTimeNanos);
+        }
     }
 
     private Domain convertToDomain(Type type, Block block)
