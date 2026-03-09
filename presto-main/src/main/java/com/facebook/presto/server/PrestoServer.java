@@ -71,12 +71,15 @@ import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderMana
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManagerModule;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManagerModule;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.util.Modules;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.LinkedHashMap;
@@ -118,6 +121,16 @@ public class PrestoServer
     @Override
     public void run()
     {
+        // Allow JSON property names longer than Jackson 2.18's default 50,000-char limit.
+        // Without this, JsonCodec<PlanFragment> fails on workers when Assignments map keys
+        // (VariableReferenceExpression names) exceed maxNameLength for complex projection chains
+        // over deeply nested struct schemas. Must be set before any JsonFactory is constructed
+        // (including the static one inside JsonCodec).
+        StreamReadConstraints.overrideDefaultStreamReadConstraints(
+                StreamReadConstraints.builder()
+                        .maxNameLength(Integer.MAX_VALUE)
+                        .build());
+
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
@@ -136,7 +149,8 @@ public class PrestoServer
                 new DiscoveryModule(),
                 new HttpServerModule(),
                 new ClientRequestFilterModule(),
-                new JsonModule(),
+                Modules.override(new JsonModule()).with(
+                        binder -> binder.bind(ObjectMapper.class).toProvider(PrestoObjectMapperProvider.class)),
                 installModuleIf(
                         FeaturesConfig.class,
                         FeaturesConfig::isJsonSerdeCodeGenerationEnabled,

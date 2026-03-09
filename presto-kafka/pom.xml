@@ -23,7 +23,7 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.datatype</groupId>
                 <artifactId>jackson-datatype-jdk8</artifactId>
-                <version>2.16.2</version>
+                <version>${dep.jackson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

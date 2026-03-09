@@ -20,7 +20,6 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.JmxGcMonitor;
 import com.facebook.airlift.stats.PauseMeter;
@@ -257,7 +256,6 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -739,7 +737,6 @@ public class ServerMainModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
-        binder.bind(ObjectMapper.class).toProvider(JsonObjectMapperProvider.class);
 
         binder.install(new MetadataStatsModule());
 

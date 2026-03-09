@@ -16,6 +16,7 @@ package com.facebook.presto.sql;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.block.BlockJsonSerde;
@@ -49,12 +50,18 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeDeserializer;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.util.Modules;
 import io.airlift.slice.Slice;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -244,7 +251,7 @@ public class TestRowExpressionSerde
     private JsonCodec<RowExpression> getJsonCodec()
             throws Exception
     {
-        Module module = binder -> {
+        Module baseModule = binder -> {
             binder.install(new JsonModule());
             binder.install(new ThriftCodecModule());
             binder.install(new HandleJsonModule());
@@ -262,12 +269,41 @@ public class TestRowExpressionSerde
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
             jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
         };
+        // Override the ObjectMapper binding from JsonModule with one backed by a JsonFactory
+        // configured with relaxed Jackson 2.18+ stream constraints, mirroring PrestoObjectMapperProvider.
+        // Without this, serializing deeply nested RowExpression trees (e.g. 600-term additive
+        // chains) hits the default StreamWriteConstraints nesting cap of 1,000.
+        Module overrideModule = binder -> binder.bind(ObjectMapper.class).toProvider(PrestoRelaxedObjectMapperProvider.class);
+        Module module = Modules.override(baseModule).with(overrideModule);
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
         return injector.getInstance(new Key<JsonCodec<RowExpression>>() {});
+    }
+
+    /**
+     * ObjectMapper provider with relaxed Jackson 2.18+ stream constraints, used in tests
+     * that exercise serialization of deeply nested structures. Mirrors the production
+     * PrestoObjectMapperProvider in presto-main.
+     */
+    private static class PrestoRelaxedObjectMapperProvider
+            extends ObjectMapperProvider
+    {
+        @Inject
+        public PrestoRelaxedObjectMapperProvider()
+        {
+            super(JsonFactory.builder()
+                    .disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+                    .streamReadConstraints(StreamReadConstraints.builder()
+                            .maxNameLength(Integer.MAX_VALUE)
+                            .build())
+                    .streamWriteConstraints(StreamWriteConstraints.builder()
+                            .maxNestingDepth(Integer.MAX_VALUE)
+                            .build())
+                    .build());
+        }
     }
 
     private RowExpression translate(Expression expression, boolean optimize)
