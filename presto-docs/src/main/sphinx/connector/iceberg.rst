@@ -1637,6 +1637,10 @@ Alter table operations are supported in the Iceberg connector::
 
      ALTER TABLE iceberg.default.mytable CREATE OR REPLACE TAG 'audit-tag-time' FOR SYSTEM_TIME AS OF TIMESTAMP '2026-01-02 17:30:35.247 Asia/Kolkata';
 
+**Presto C++ Support**
+
+Creating and dropping tags and branches with ``ALTER TABLE`` statements is fully supported in Presto C++.
+
 To add a new column as a partition column, identify the transform functions for the column.
 The table is partitioned by the transformed value of the column::
 
@@ -2270,6 +2274,10 @@ Query Iceberg table by specifying the tag name:
 
 **Note:** The dot notation syntax ``"<table>.branch_<branch_name>"`` requires double quotes to prevent the SQL parser from interpreting the dot as a schema.table separator. This syntax works for both querying (SELECT) and mutating (INSERT, UPDATE, DELETE, MERGE) branch data.
 
+**Presto C++ Support**
+
+Querying tags and branches is fully supported in Presto C++.
+
 Mutating Iceberg Branches
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2361,6 +2369,12 @@ The following operations are **not supported** with branch-specific table names 
 * Changes are isolated to the specified branch and do not affect the main table or other branches
 * All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
 * For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
+
+**Presto C++ Support**
+
+Branch mutations are partially supported in Presto C++.
+
+* **Supported:** ``INSERT``, ``TRUNCATE TABLE``
 
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
