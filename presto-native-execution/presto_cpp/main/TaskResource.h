@@ -104,6 +104,10 @@ class TaskResource {
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);
 
+  proxygen::RequestHandler* addExternalDynamicFilter(
+      proxygen::HTTPMessage* message,
+      const std::vector<std::string>& pathMatch);
+
   proxygen::RequestHandler* deleteDynamicFilters(
       proxygen::HTTPMessage* message,
       const std::vector<std::string>& pathMatch);

@@ -117,6 +117,14 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_COMPLETED_ID_DELIVERED = "dynamicFilterCompletedIdDelivered";
     public static final String DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO = "dynamicFilterPlanCreatedFavorableRatio";
     public static final String DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY = "dynamicFilterPlanSkippedHighCardinality";
+    // Push-to-worker metrics (extended metrics only)
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_COUNT = "dynamicFilterPushToWorkerCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_COUNT = "dynamicFilterPushToWorkerTaskCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT = "dynamicFilterPushToWorkerSuccessCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT = "dynamicFilterPushToWorkerFailureCount";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS = "dynamicFilterPushToWorkerLatencyMs";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_HTTP_STATUS = "dynamicFilterPushToWorkerHttpStatus";
+    public static final String DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_NOT_FOUND_COUNT = "dynamicFilterPushToWorkerTaskNotFoundCount";
     // Column selectivity check metrics (extended metrics only)
     public static final String DYNAMIC_FILTER_COLUMNS_SKIPPED = "dynamicFilterColumnsSkipped";
     public static final String DYNAMIC_FILTER_COLUMNS_RELEVANT = "dynamicFilterColumnsRelevant";

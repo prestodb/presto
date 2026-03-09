@@ -725,6 +725,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     ret = std::make_unique<TaskInfo>(info);
   }
 
+  if (startTask) {
+    // Apply any external dynamic filters that arrived before the Velox task
+    // was created.
+    prestoTask->applyPendingExternalFilters();
+  }
+
   if (startNextQueuedTask) {
     maybeStartNextQueuedTask();
   }
@@ -1544,6 +1550,28 @@ void TaskManager::removeDynamicFiltersThrough(
   if (it != taskMap->end()) {
     it->second->removeDynamicFiltersThrough(throughVersion);
   }
+}
+
+bool TaskManager::addExternalDynamicFilter(
+    const TaskId& taskId,
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  std::shared_ptr<PrestoTask> prestoTask;
+  {
+    auto taskMap = taskMap_.rlock();
+    auto it = taskMap->find(taskId);
+    if (it == taskMap->end()) {
+      return false;
+    }
+    prestoTask = it->second;
+  }
+  prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+  // Safe to apply inline now that the Velox deadlock is fixed (Task::mutex_
+  // is released before pipelineFilters wlock). try_lock_for(500ms) ensures
+  // we don't block the HTTP thread indefinitely.
+  prestoTask->applyPendingExternalFilters();
+  return true;
 }
 
 } // namespace facebook::presto
