@@ -1810,6 +1810,28 @@ public abstract class TestIcebergMaterializedViewsBase
     }
 
     @Test
+    public void testMaterializedViewStitchingForTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_ts_stitch_base (a INTEGER, b TIMESTAMP) WITH (partitioning = ARRAY['b'])");
+        assertUpdate("INSERT INTO test_ts_stitch_base VALUES (1, TIMESTAMP '1984-12-08 00:00:10')", 1);
+        assertUpdate("INSERT INTO test_ts_stitch_base VALUES (2, TIMESTAMP '2001-09-10 00:10:00')", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_ts_stitch_mv AS SELECT * FROM test_ts_stitch_base");
+        assertUpdate("REFRESH MATERIALIZED VIEW test_ts_stitch_mv", 2);
+        assertRefreshAndFullyMaterialized("test_ts_stitch_mv", 2);
+
+        assertUpdate("INSERT INTO test_ts_stitch_base VALUES (3, TIMESTAMP '1984-12-08 00:00:10')", 1);
+
+        assertMaterializedViewQuery("SELECT * FROM test_ts_stitch_mv ORDER BY a",
+                "VALUES (1, TIMESTAMP '1984-12-08 00:00:10'), " +
+                        "(2, TIMESTAMP '2001-09-10 00:10:00'), " +
+                        "(3, TIMESTAMP '1984-12-08 00:00:10')");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_ts_stitch_mv");
+        assertUpdate("DROP TABLE test_ts_stitch_base");
+    }
+
+    @Test
     public void testMultipleAggregatesWithSingleStaleTable()
     {
         assertUpdate("CREATE TABLE test_agg_single_stale (" +
@@ -4789,7 +4811,6 @@ public abstract class TestIcebergMaterializedViewsBase
             MaterializedResult withStorageResult = computeActual(withStorageSession, query);
             MaterializedResult skipStorageResult = computeActual(skipStorageSession, query);
             assertEqualsIgnoreOrder(skipStorageResult.getMaterializedRows(), withStorageResult.getMaterializedRows());
-
         }
     }
 

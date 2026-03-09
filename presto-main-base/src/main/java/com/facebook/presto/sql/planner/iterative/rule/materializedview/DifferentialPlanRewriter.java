@@ -554,7 +554,7 @@ public class DifferentialPlanRewriter
         @Override
         public PlanVariants visitIntersect(IntersectNode node, Void context)
         {
-            // ∆(R ∩ S) = (∆R ∩ S'[R's stale]) ∪ (R[S's stale] ∩ ∆S)
+            // ∆(R ∩ S) = (∆R ∩ S') ∪ (R ∩ ∆S)
             // The delta formula assumes binary INTERSECT; n-ary INTERSECT should be
             // decomposed into a binary tree before reaching this code.
             List<PlanNode> sources = node.getSources();

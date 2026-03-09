@@ -89,7 +89,6 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -299,9 +298,6 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE = "presto.materialized_view.refresh_type";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
-
-    private static final Splitter BASE_TABLES_SPLITTER = Splitter.on(',').trimResults();
-    private static final Splitter SCHEMA_TABLE_SPLITTER = Splitter.on('.');
 
     protected final TypeManager typeManager;
     protected final ProcedureRegistry procedureRegistry;
