@@ -2921,6 +2921,7 @@ public class TestHiveMaterializedViewLogicalPlanner
         String table1 = "orders_partitioned_source";
         String table2 = "orders_partitioned_target";
         String table3 = "orders_from_mv";
+        String table4 = "orders_from_refreshed_mv";
         String view = "test_orders_view";
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
@@ -2935,18 +2936,31 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE 1=0", table2, table1), 0);
             assertTrue(getQueryRunner().tableExists(getSession(), table2));
 
-            assertQueryFails(format("CREATE TABLE %s AS SELECT * FROM %s", table3, view),
-                    ".*CreateTableAsSelect by selecting from a materialized view \\w+ is not supported.*");
+            // CTAS from a materialized view should succeed (MV is not yet refreshed so storage is empty)
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE ds = '2020-01-01'", table3, view), 0);
+            assertTrue(getQueryRunner().tableExists(getSession(), table3));
+
+            // Refresh the MV so it has data, then CTAS should read from the refreshed MV
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2020-01-01'", view), 255);
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE ds = '2020-01-01'", table4, view), 255);
+            assertTrue(getQueryRunner().tableExists(getSession(), table4));
 
             assertUpdate(format("INSERT INTO %s VALUES(99999, '1-URGENT', '2019-01-02')", table2), 1);
             assertUpdate(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table2, table1), 255);
-            assertQueryFails(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table2, view),
-                    ".*Insert by selecting from a materialized view \\w+ is not supported.*");
+
+            // INSERT from MV into a non-base-table should succeed
+            assertUpdate(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table2, view), 255);
+
+            // INSERT from MV into one of its base tables should fail (circular dependency)
+            assertQueryFails(format("INSERT INTO %s SELECT * FROM %s WHERE ds = '2020-01-01'", table1, view),
+                    ".*INSERT into table .* by selecting from materialized view .* is not supported because .* is a base table of the materialized view.*");
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
             queryRunner.execute("DROP TABLE IF EXISTS " + table1);
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table3);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table4);
         }
     }
 

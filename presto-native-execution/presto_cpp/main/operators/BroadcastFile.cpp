@@ -118,7 +118,7 @@ BroadcastFileWriter::BroadcastFileWriter(
           writeBufferSize,
           "",
           std::move(serdeOptions),
-          getNamedVectorSerde(VectorSerde::Kind::kPresto),
+          getNamedVectorSerde("Presto"),
           pool),
       maxBroadcastBytes_(maxBroadcastBytes) {}
 
