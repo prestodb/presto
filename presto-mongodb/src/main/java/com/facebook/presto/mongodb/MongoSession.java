@@ -194,7 +194,10 @@ public class MongoSession
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(tableName);
-        return new MongoTable(tableHandle, columnHandles.build(), getIndexes(tableName));
+        return new MongoTable(
+                tableHandle,
+                columnHandles.build(),
+                "view".equals(tableMeta.get("type")) ? ImmutableList.of() : getIndexes(tableName));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -229,9 +232,6 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
-        if (isView(tableName.getSchemaName(), tableName.getTableName())) {
-            return ImmutableList.of();
-        }
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -394,6 +394,7 @@ public class MongoSession
             else {
                 Document metadata = new Document(TABLE_NAME_KEY, tableName);
                 metadata.append(FIELDS_KEY, guessTableFields(schemaTableName));
+                metadata.append("type", isView(schemaName, tableName) ? "view" : "collection");
 
                 schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
                 schema.insertOne(metadata);
@@ -403,6 +404,17 @@ public class MongoSession
         }
 
         return doc;
+    }
+
+    private boolean isView(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+        Document doc = database.listCollections().filter(
+                new Document(new Document(ImmutableMap.of(
+                        "name", table,
+                        "type", "view")))).first();
+
+        return doc != null;
     }
 
     public boolean collectionExists(MongoDatabase db, String collectionName)
@@ -648,16 +660,5 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
-    }
-
-    private boolean isView(String schema, String table)
-    {
-        MongoDatabase database = client.getDatabase(schema);
-        Document doc = database.listCollections().filter(
-                new Document(new Document(ImmutableMap.of(
-                        "name", table,
-                        "type", "view")))).first();
-
-        return doc != null;
     }
 }
