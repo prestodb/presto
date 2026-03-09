@@ -176,6 +176,7 @@ public final class SystemSessionProperties
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
     public static final String SIMPLIFY_COALESCE_OVER_JOIN_KEYS = "simplify_coalesce_over_join_keys";
     public static final String PUSHDOWN_THROUGH_UNNEST = "pushdown_through_unnest";
+    public static final String SIMPLIFY_AGGREGATIONS_OVER_CONSTANT = "simplify_aggregations_over_constant";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
@@ -941,6 +942,11 @@ public final class SystemSessionProperties
                         PUSHDOWN_THROUGH_UNNEST,
                         "Allow pushing projections and filters below unnest",
                         featuresConfig.isPushdownThroughUnnest(),
+                        false),
+                booleanProperty(
+                        SIMPLIFY_AGGREGATIONS_OVER_CONSTANT,
+                        "Fold aggregation functions over constant arguments to constants",
+                        featuresConfig.isSimplifyAggregationsOverConstant(),
                         false),
                 booleanProperty(
                         PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN,
@@ -2649,6 +2655,11 @@ public final class SystemSessionProperties
     public static boolean isPushAggregationThroughJoin(Session session)
     {
         return session.getSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, Boolean.class);
+    }
+
+    public static boolean isSimplifyAggregationsOverConstant(Session session)
+    {
+        return session.getSystemProperty(SIMPLIFY_AGGREGATIONS_OVER_CONSTANT, Boolean.class);
     }
 
     public static boolean isParseDecimalLiteralsAsDouble(Session session)

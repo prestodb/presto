@@ -62,7 +62,7 @@ class BroadcastWriteOperator : public Operator {
         getVectorSerdeOptions(
             common::stringToCompressionKind(
                 ctx->queryConfig().shuffleCompressionKind()),
-            VectorSerde::Kind::kPresto),
+            "Presto"),
         operatorCtx_->pool());
   }
 
