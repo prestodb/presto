@@ -754,3 +754,66 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   }
   std::cout << "Total: " << veloxConfigs.size() << std::endl;
 }
+
+TEST_F(PrestoToVeloxQueryConfigTest, dynamicFilterPushdownSessionProperty) {
+  auto session = createBasicSession();
+  const auto& dfKey =
+      QueryConfig::kHashProbeDynamicFilterPushdownEnabled;
+
+  // Scenario 1: Default — no explicit setting.
+  // Velox default is true, so the key may be absent or "true".
+  session.systemProperties.clear();
+  {
+    auto configs = toVeloxConfigs(session);
+    auto it = configs.find(dfKey);
+    if (it != configs.end()) {
+      EXPECT_EQ("true", it->second);
+    }
+  }
+
+  // Scenario 2: Explicit false.
+  session.systemProperties.clear();
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "false";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("false", configs.at(dfKey));
+  }
+
+  // Scenario 3: Explicit true.
+  session.systemProperties.clear();
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "true";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("true", configs.at(dfKey));
+  }
+
+  // Scenario 4: Explicit false with DPP active — no auto-disable,
+  // only the session property controls this.
+  session.systemProperties.clear();
+  session.systemProperties["distributed_dynamic_filter_strategy"] =
+      "PARTITIONED";
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "false";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("false", configs.at(dfKey));
+  }
+
+  // Scenario 5: DPP active but no explicit setting — Velox pushdown
+  // stays at default (true) since there is no auto-disable.
+  session.systemProperties.clear();
+  session.systemProperties["distributed_dynamic_filter_strategy"] =
+      "PARTITIONED";
+  {
+    auto configs = toVeloxConfigs(session);
+    auto it = configs.find(dfKey);
+    if (it != configs.end()) {
+      EXPECT_EQ("true", it->second);
+    }
+  }
+}

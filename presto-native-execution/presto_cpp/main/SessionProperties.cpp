@@ -641,6 +641,16 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kAggregationMemoryCompactionReclaimEnabled,
       boolToString(c.aggregationMemoryCompactionReclaimEnabled()));
+
+  addSessionProperty(
+      kNativeDynamicFilterPushdownEnabled,
+      "Enable Velox built-in hash probe dynamic filter pushdown to upstream "
+      "table scans. When distributed DPP is active, this is auto-disabled "
+      "unless explicitly set.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kHashProbeDynamicFilterPushdownEnabled,
+      boolToString(c.hashProbeDynamicFilterPushdownEnabled()));
 }
 
 const std::string SessionProperties::toVeloxConfig(

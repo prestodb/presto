@@ -41,6 +41,7 @@ void updateVeloxConfigsWithSpecialCases(
     configStrings.emplace(
         velox::core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
   }
+
 }
 
 void updateFromSessionConfigs(

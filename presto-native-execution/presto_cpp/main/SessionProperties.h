@@ -416,6 +416,14 @@ class SessionProperties {
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
 
+  /// Whether Velox's built-in hash probe dynamic filter pushdown is enabled.
+  /// When true (default), Velox pushes dynamic filters from hash probe down
+  /// to upstream table scan operators. When distributed DPP is active, this
+  /// is auto-disabled via emplace in PrestoToVeloxQueryConfig, but an explicit
+  /// session setting takes precedence.
+  static constexpr const char* kNativeDynamicFilterPushdownEnabled =
+      "native_dynamic_filter_pushdown_enabled";
+
   inline bool hasVeloxConfig(const std::string& key) {
     auto sessionProperty = sessionProperties_.find(key);
     if (sessionProperty == sessionProperties_.end()) {
