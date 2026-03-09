@@ -207,7 +207,7 @@ public class HivePartitionManager
     {
         if (isOptimizeParsingOfPartitionValues(session) && partitionNames.size() >= getOptimizeParsingOfPartitionValuesThreshold(session)) {
             List<HivePartition> partitionList = partitionNames.stream()
-                    .map(partitionNameWithVersion -> parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionTypes, timeZone))
+                    .map(partitionNameWithVersion -> parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionTypes))
                     .collect(toImmutableList());
 
             Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
@@ -425,6 +425,7 @@ public class HivePartitionManager
         Table table = getTable(session, metastore, hiveTableHandle, isOfflineDataDebugModeEnabled(session));
 
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
+
         List<Type> partitionColumnTypes = partitionColumns.stream()
                 .map(column -> typeManager.getType(column.getTypeSignature()))
                 .collect(toImmutableList());
@@ -455,7 +456,7 @@ public class HivePartitionManager
             List<Type> partitionColumnTypes,
             Constraint<ColumnHandle> constraint)
     {
-        HivePartition partition = parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionColumnTypes, timeZone);
+        HivePartition partition = parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionColumnTypes);
 
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
         for (HiveColumnHandle column : partitionColumns) {
@@ -512,12 +513,11 @@ public class HivePartitionManager
                 .orElseThrow(() -> new TableNotFoundException(hiveTableHandle.getSchemaTableName()));
     }
 
-    public static HivePartition parsePartition(
+    public HivePartition parsePartition(
             SchemaTableName tableName,
             PartitionNameWithVersion partitionNameWithVersion,
             List<HiveColumnHandle> partitionColumns,
-            List<Type> partitionColumnTypes,
-            DateTimeZone timeZone)
+            List<Type> partitionColumnTypes)
     {
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(HiveColumnHandle::getName)
