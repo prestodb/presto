@@ -19,6 +19,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jdk8</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.esri.geometry</groupId>
             <artifactId>esri-geometry-api</artifactId>
         </dependency>
