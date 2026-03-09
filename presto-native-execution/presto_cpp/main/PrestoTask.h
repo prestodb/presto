@@ -243,6 +243,19 @@ struct PrestoTask {
   /// Removes dynamic filter versions <= throughVersion.
   void removeDynamicFiltersThrough(int64_t throughVersion);
 
+  /// Injects a coordinator-collected dynamic filter into the Velox task for
+  /// worker-side row-group and row-level filtering. If the Velox task has not
+  /// been created yet, the filter is queued and applied when the task starts.
+  void addExternalDynamicFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
+  /// Applies any pending external dynamic filters that were queued before the
+  /// Velox task was created. Must be called after task is assigned and started.
+  /// Caller must NOT hold PrestoTask::mutex.
+  void applyPendingExternalFilters();
+
  private:
   // Dynamic filter storage.
   struct VersionedFilter {
@@ -254,9 +267,37 @@ struct PrestoTask {
   folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
   folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
 
+  // Count of external dynamic filters received from the coordinator.
+  std::atomic<int64_t> externalDynamicFiltersReceived_{0};
+
+  // Count of external dynamic filters queued before Velox task creation.
+  std::atomic<int64_t> externalDynamicFiltersQueued_{0};
+
+  // Time (ms) spent in applyPendingExternalFilters (total across all calls).
+  std::atomic<int64_t> externalDynamicFilterApplyTimeMs_{0};
+
+  // Time (ms) spent waiting for Velox Task::mutex_ in addExternalDynamicFilter.
+  std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
+
+  // Pending external dynamic filters that arrived before the Velox Task was
+  // created. Applied when the task starts. Protected by PrestoTask::mutex.
+  struct PendingExternalFilter {
+    std::string filterId;
+    std::string scanPlanNodeId;
+    protocol::TupleDomain<std::string> tupleDomain;
+  };
+  std::vector<PendingExternalFilter> pendingExternalFilters_;
+
   // Long-poll support for dynamic filters.
   std::mutex dfMutex_;
   std::shared_ptr<folly::SharedPromise<int64_t>> dfPromise_;
+
+  /// Applies a single external dynamic filter to the Velox task. Acquires the
+  /// Velox Task::mutex_. Caller must NOT hold PrestoTask::mutex.
+  void applyFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
 
   void wakeDynamicFilterWaiters(int64_t version);
 

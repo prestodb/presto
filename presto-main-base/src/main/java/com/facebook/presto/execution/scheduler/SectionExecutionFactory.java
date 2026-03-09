@@ -75,6 +75,7 @@ import static com.facebook.presto.SystemSessionProperties.getMaxTasksPerStage;
 import static com.facebook.presto.SystemSessionProperties.getWriterMinSize;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedScaleWriterProducerBuffer;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.execution.SqlStageExecution.createSqlStageExecution;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -201,6 +202,24 @@ public class SectionExecutionFactory
                 splitSourceFactory,
                 attemptId,
                 cteMaterializationTracker);
+        // Wire dynamic filter push to probe-side workers
+        if (isDistributedDynamicFilterEnabled(session)) {
+            QueryId queryId = session.getQueryId();
+            DynamicFilterPusher pusher = new DynamicFilterPusher(
+                    session.getRuntimeStats(),
+                    isVerboseRuntimeStatsEnabled(session));
+            for (StageExecutionAndScheduler stageAndScheduler : sectionStages) {
+                SqlStageExecution stageExecution = stageAndScheduler.getStageExecution();
+                for (PlanNodeId scanNodeId : stageExecution.getFragment().getTableScanSchedulingOrder()) {
+                    Set<String> filterIds = dynamicFilterService.getFilterIdsForScan(queryId, scanNodeId);
+                    for (String filterId : filterIds) {
+                        dynamicFilterService.getFilter(queryId, filterId)
+                                .ifPresent(joinFilter -> pusher.startPushing(filterId, scanNodeId, joinFilter, stageExecution));
+                    }
+                }
+            }
+        }
+
         StageExecutionAndScheduler rootStage = getLast(sectionStages);
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);

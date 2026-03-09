@@ -112,6 +112,7 @@ public class HttpRemoteTaskFactory
     private final DynamicFilterService dynamicFilterService;
     private final DynamicFilterStats dynamicFilterStats;
     private final JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec;
+    private final JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -137,7 +138,8 @@ public class HttpRemoteTaskFactory
             HandleResolver handleResolver,
             DynamicFilterService dynamicFilterService,
             DynamicFilterStats dynamicFilterStats,
-            JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec)
+            JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -149,6 +151,8 @@ public class HttpRemoteTaskFactory
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.dynamicFilterStats = requireNonNull(dynamicFilterStats, "dynamicFilterStats is null");
         this.dynamicFilterResponseCodec = requireNonNull(dynamicFilterResponseCodec, "dynamicFilterResponseCodec is null");
+        this.dynamicFilterPushRequestCodec = requireNonNull(dynamicFilterPushRequestCodec, "dynamicFilterPushRequestCodec is null");
+
         this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
@@ -301,6 +305,7 @@ public class HttpRemoteTaskFactory
                 (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.get().next(),
                 dynamicFilterService,
                 dynamicFilterResponseCodec,
+                dynamicFilterPushRequestCodec,
                 dynamicFilterStats);
     }
 }
