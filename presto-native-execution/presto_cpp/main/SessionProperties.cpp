@@ -144,6 +144,26 @@ SessionProperties::SessionProperties() {
       c.spillFileCreateConfig());
 
   addSessionProperty(
+      kAggregationSpillFileCreateConfig,
+      "Native Execution only. Config used to create aggregation spill files. "
+      "This config is provided to underlying file system and the config is "
+      "free form. The form should be defined by the underlying file system.",
+      VARCHAR(),
+      false,
+      QueryConfig::kAggregationSpillFileCreateConfig,
+      c.aggregationSpillFileCreateConfig());
+
+  addSessionProperty(
+      kHashJoinSpillFileCreateConfig,
+      "Native Execution only. Config used to create hash join spill files. "
+      "This config is provided to underlying file system and the config is "
+      "free form. The form should be defined by the underlying file system.",
+      VARCHAR(),
+      false,
+      QueryConfig::kHashJoinSpillFileCreateConfig,
+      c.hashJoinSpillFileCreateConfig());
+
+  addSessionProperty(
       kJoinSpillEnabled,
       "Native Execution only. Enable join spilling on native engine",
       BOOLEAN(),

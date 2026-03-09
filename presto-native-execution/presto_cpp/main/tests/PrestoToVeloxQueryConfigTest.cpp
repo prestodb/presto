@@ -94,6 +94,33 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
              EXPECT_EQ(expectedValue, config.spillFileCreateConfig());
            }},
 
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillFileCreateConfig,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kAggregationSpillFileCreateConfig),
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerAggregationFileCreateConfig),
+       .sessionValue = "test_agg_config_1",
+       .differentSessionValue = "test_agg_config_2",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue, config.aggregationSpillFileCreateConfig());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kHashJoinSpillFileCreateConfig,
+       .sessionPropertyKey = std::make_optional<std::string>(
+           SessionProperties::kHashJoinSpillFileCreateConfig),
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerHashJoinFileCreateConfig),
+       .sessionValue = "test_join_config_1",
+       .differentSessionValue = "test_join_config_2",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(expectedValue, config.hashJoinSpillFileCreateConfig());
+           }},
+
       {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
        .sessionPropertyKey =
            std::make_optional<std::string>(core::QueryConfig::kSpillEnabled),
@@ -294,7 +321,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
   // CRITICAL: This count MUST match the exact number of entries in
   // veloxToPrestoConfigMapping If this assertion fails, it means a new
   // mapping was added and this test needs to be updated
-  const size_t kExpectedMappingCount = 15;
+  const size_t kExpectedMappingCount = 17;
   EXPECT_EQ(kExpectedMappingCount, testCases.size());
 
   // Test each mapping to ensure session properties override system configs
@@ -665,6 +692,12 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
        .systemConfigKey = std::string(SystemConfig::kQueryMaxMemoryPerNode)},
       {.veloxConfigKey = core::QueryConfig::kSpillFileCreateConfig,
        .systemConfigKey = std::string(SystemConfig::kSpillerFileCreateConfig)},
+      {.veloxConfigKey = core::QueryConfig::kAggregationSpillFileCreateConfig,
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerAggregationFileCreateConfig)},
+      {.veloxConfigKey = core::QueryConfig::kHashJoinSpillFileCreateConfig,
+       .systemConfigKey =
+           std::string(SystemConfig::kSpillerHashJoinFileCreateConfig)},
       {.veloxConfigKey = core::QueryConfig::kSpillEnabled,
        .systemConfigKey = std::string(SystemConfig::kSpillEnabled)},
       {.veloxConfigKey = core::QueryConfig::kJoinSpillEnabled,
@@ -716,7 +749,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            std::string(SystemConfig::kExchangeLazyFetchingEnabled)},
   };
 
-  const size_t kExpectedSystemConfigMappingCount = 21;
+  const size_t kExpectedSystemConfigMappingCount = 23;
   EXPECT_EQ(kExpectedSystemConfigMappingCount, expectedMappings.size())
       << "Update expectedMappings to match veloxToPrestoConfigMapping";
 

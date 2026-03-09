@@ -323,6 +323,18 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSpillerFileCreateConfig{
       "spiller.file-create-config"};
 
+  /// Config used to create aggregation spill files. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kSpillerAggregationFileCreateConfig{
+      "spiller.aggregation-file-create-config"};
+
+  /// Config used to create hash join spill files. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kSpillerHashJoinFileCreateConfig{
+      "spiller.hash-join-file-create-config"};
+
   /// Config used to create spill directories. This config is provided to
   /// underlying file system and the config is free form. The form should be
   /// defined by the underlying file system.
@@ -1028,6 +1040,10 @@ class SystemConfig : public ConfigBase {
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
+
+  std::string spillerAggregationFileCreateConfig() const;
+
+  std::string spillerHashJoinFileCreateConfig() const;
 
   std::string spillerDirectoryCreateConfig() const;
 
