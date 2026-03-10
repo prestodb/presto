@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -35,12 +36,14 @@ public class LancePageSourceProvider
 {
     private final LanceNamespaceHolder namespaceHolder;
     private final LanceConfig config;
+    private final ArrowBlockBuilder arrowBlockBuilder;
 
     @Inject
-    public LancePageSourceProvider(LanceNamespaceHolder namespaceHolder, LanceConfig config)
+    public LancePageSourceProvider(LanceNamespaceHolder namespaceHolder, LanceConfig config, ArrowBlockBuilder arrowBlockBuilder)
     {
         this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
         this.config = requireNonNull(config, "config is null");
+        this.arrowBlockBuilder = requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
     }
 
     @Override
@@ -69,6 +72,7 @@ public class LancePageSourceProvider
                 lanceColumns,
                 lanceSplit.getFragments(),
                 tablePath,
-                config.getReadBatchSize());
+                config.getReadBatchSize(),
+                arrowBlockBuilder);
     }
 }

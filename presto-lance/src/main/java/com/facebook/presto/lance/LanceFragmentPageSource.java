@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.lance.Dataset;
@@ -33,9 +34,10 @@ public class LanceFragmentPageSource
             List<LanceColumnHandle> columns,
             List<Integer> fragments,
             String tablePath,
-            int readBatchSize)
+            int readBatchSize,
+            ArrowBlockBuilder arrowBlockBuilder)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize));
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize), arrowBlockBuilder);
     }
 
     private static class FragmentScannerFactory

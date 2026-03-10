@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.ColumnHandle;
@@ -29,6 +30,7 @@ import java.util.Map;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -42,6 +44,7 @@ public class TestLanceFragmentPageSource
     private LanceTableHandle tableHandle;
     private String tablePath;
     private List<Fragment> fragments;
+    private ArrowBlockBuilder arrowBlockBuilder;
 
     @BeforeMethod
     public void setUp()
@@ -54,6 +57,7 @@ public class TestLanceFragmentPageSource
                 .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
         namespaceHolder = new LanceNamespaceHolder(config);
+        arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
         tableHandle = new LanceTableHandle("default", "test_table1");
         tablePath = namespaceHolder.getTablePath("default", "test_table1");
         fragments = namespaceHolder.getFragments("default", "test_table1");
@@ -70,7 +74,8 @@ public class TestLanceFragmentPageSource
                 columns,
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
-                8192)) {
+                8192,
+                arrowBlockBuilder)) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 4);
@@ -100,7 +105,8 @@ public class TestLanceFragmentPageSource
                 projectedColumns,
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
-                8192)) {
+                8192,
+                arrowBlockBuilder)) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);
@@ -130,7 +136,8 @@ public class TestLanceFragmentPageSource
                 projectedColumns,
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
-                8192)) {
+                8192,
+                arrowBlockBuilder)) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);

@@ -13,15 +13,14 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.spi.ConnectorPageSource;
 import org.apache.arrow.memory.BufferAllocator;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public abstract class LanceBasePageSource
@@ -30,18 +29,19 @@ public abstract class LanceBasePageSource
     protected final LanceTableHandle tableHandle;
     protected final LanceArrowToPageScanner arrowToPageScanner;
     protected final BufferAllocator bufferAllocator;
-    protected final PageBuilder pageBuilder;
     protected long readBytes;
     protected boolean finished;
 
     public LanceBasePageSource(
             LanceTableHandle tableHandle,
             List<LanceColumnHandle> columns,
-            ScannerFactory scannerFactory)
+            ScannerFactory scannerFactory,
+            ArrowBlockBuilder arrowBlockBuilder)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(scannerFactory, "scannerFactory is null");
+        requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
 
         this.bufferAllocator = LanceNamespaceHolder.getAllocator()
                 .newChildAllocator(tableHandle.getTableName(), 0, Long.MAX_VALUE);
@@ -50,17 +50,14 @@ public abstract class LanceBasePageSource
             this.arrowToPageScanner = new LanceArrowToPageScanner(
                     bufferAllocator,
                     columns,
-                    scannerFactory);
+                    scannerFactory,
+                    arrowBlockBuilder);
         }
         catch (RuntimeException e) {
             bufferAllocator.close();
             throw e;
         }
 
-        this.pageBuilder = new PageBuilder(
-                columns.stream()
-                        .map(LanceColumnHandle::getColumnType)
-                        .collect(toImmutableList()));
         this.finished = false;
     }
 
@@ -99,10 +96,7 @@ public abstract class LanceBasePageSource
             return null;
         }
         readBytes += arrowToPageScanner.getLastBatchBytes();
-        arrowToPageScanner.convert(pageBuilder);
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-        return page;
+        return arrowToPageScanner.convert();
     }
 
     @Override
