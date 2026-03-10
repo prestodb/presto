@@ -190,13 +190,7 @@ public class LogicalPropertiesImpl
         if (maxCardProperty.isAtMostOne()) {
             return true;
         }
-        Optional<Key> normalizedKeyRequirement = getNormalizedKey(keyRequirement, equivalenceClassProperty);
-        if (normalizedKeyRequirement.isPresent()) {
-            return keyProperty.satisfiesKeyRequirement(keyRequirement);
-        }
-        else {
-            return false;
-        }
+        return getNormalizedKey(keyRequirement, equivalenceClassProperty).filter(keyProperty::satisfiesKeyRequirement).isPresent();
     }
 
     @Override
