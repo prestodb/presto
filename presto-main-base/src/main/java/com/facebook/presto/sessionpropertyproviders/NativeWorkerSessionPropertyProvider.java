@@ -39,6 +39,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
     public static final String NATIVE_SPILL_WRITE_BUFFER_SIZE = "native_spill_write_buffer_size";
     public static final String NATIVE_SPILL_FILE_CREATE_CONFIG = "native_spill_file_create_config";
+    public static final String NATIVE_AGGREGATION_SPILL_FILE_CREATE_CONFIG = "native_aggregation_spill_file_create_config";
+    public static final String NATIVE_HASH_JOIN_SPILL_FILE_CREATE_CONFIG = "native_hash_join_spill_file_create_config";
     public static final String NATIVE_JOIN_SPILL_ENABLED = "native_join_spill_enabled";
     public static final String NATIVE_WINDOW_SPILL_ENABLED = "native_window_spill_enabled";
     public static final String NATIVE_WRITER_SPILL_ENABLED = "native_writer_spill_enabled";
@@ -143,6 +145,20 @@ public class NativeWorkerSessionPropertyProvider
                 stringProperty(
                         NATIVE_SPILL_FILE_CREATE_CONFIG,
                         "Native Execution only. Config used to create spill files. This config is \n" +
+                                "provided to underlying file system and the config is free form. The form should be\n" +
+                                "defined by the underlying file system.",
+                        "",
+                        !nativeExecution),
+                stringProperty(
+                        NATIVE_AGGREGATION_SPILL_FILE_CREATE_CONFIG,
+                        "Native Execution only. Config used to create aggregation spill files. This config is \n" +
+                                "provided to underlying file system and the config is free form. The form should be\n" +
+                                "defined by the underlying file system.",
+                        "",
+                        !nativeExecution),
+                stringProperty(
+                        NATIVE_HASH_JOIN_SPILL_FILE_CREATE_CONFIG,
+                        "Native Execution only. Config used to create hash join spill files. This config is \n" +
                                 "provided to underlying file system and the config is free form. The form should be\n" +
                                 "defined by the underlying file system.",
                         "",
