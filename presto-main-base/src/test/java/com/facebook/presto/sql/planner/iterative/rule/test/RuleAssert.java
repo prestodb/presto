@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -58,6 +59,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanAssert.assertPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
@@ -131,7 +133,7 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
@@ -145,7 +147,7 @@ public class RuleAssert
         RuleApplication ruleApplication = applyRule();
 
         if (ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
                     inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 2))));
@@ -158,7 +160,7 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
@@ -167,14 +169,14 @@ public class RuleAssert
         PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-            fail(String.format(
+            fail(format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputVariables()).equals(ImmutableSet.copyOf(actual.getOutputVariables()))) {
-            fail(String.format(
+            fail(format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
@@ -189,28 +191,35 @@ public class RuleAssert
         });
     }
 
-    public void matches(LogicalProperties expectedLogicalProperties)
+    public void assertLogicalProperties(Consumer<LogicalProperties> matcher)
     {
         RuleApplication ruleApplication = applyRule();
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
         }
 
-        // ensure that the logical properties of the root group are equivalent to the expected logical properties
         LogicalProperties rootNodeLogicalProperties = ruleApplication.getMemo().getLogicalProperties(ruleApplication.getMemo().getRootGroup()).get();
-        if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
-            fail(String.format(
-                    "Logical properties of root node doesn't match expected logical properties\n" +
-                            "\texpected: %s\n" +
-                            "\tactual:   %s",
-                    expectedLogicalProperties,
-                    rootNodeLogicalProperties));
-        }
+        matcher.accept(rootNodeLogicalProperties);
+    }
+
+    public void matches(LogicalProperties expectedLogicalProperties)
+    {
+        // Ensure that the logical properties of the root group are equivalent to the expected logical properties
+        assertLogicalProperties(rootNodeLogicalProperties -> {
+            if (!((LogicalPropertiesImpl) rootNodeLogicalProperties).equals((LogicalPropertiesImpl) expectedLogicalProperties)) {
+                fail(format(
+                        "Logical properties of root node doesn't match expected logical properties\n" +
+                                "\texpected: %s\n" +
+                                "\tactual:   %s",
+                        expectedLogicalProperties,
+                        rootNodeLogicalProperties));
+            }
+        });
     }
 
     private RuleApplication applyRule()
