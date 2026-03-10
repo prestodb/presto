@@ -229,6 +229,7 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
+        <module>presto-base-arrow</module>
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
@@ -1009,6 +1010,12 @@
                 <artifactId>spark-core</artifactId>
                 <version>${dep.spark.version}</version>
                 <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-base-arrow</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
