@@ -22,6 +22,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -71,6 +72,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertTrue;
 
 public class TestLogicalPropertyPropagation
         extends BaseRuleTest
@@ -198,6 +200,58 @@ public class TestLogicalPropertyPropagation
                                 ImmutableList.of(constant(2L, BIGINT)),
                                 ImmutableList.of(constant(3L, BIGINT)))))
                 .matches(expectedLogicalProperties);
+    }
+
+    @Test
+    public void testKeyNormalization()
+    {
+        tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
+                .on(p -> {
+                    TableScanNode customerTableScan = p.tableScan(
+                            customerTableHandle,
+                            ImmutableList.of(customerCustKeyVariable),
+                            ImmutableMap.of(customerCustKeyVariable, customerCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(customerTableHandle));
+
+                    TableScanNode ordersTableScan = p.tableScan(
+                            ordersTableHandle,
+                            ImmutableList.of(ordersCustKeyVariable),
+                            ImmutableMap.of(ordersCustKeyVariable, ordersCustKeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(ordersTableHandle));
+
+                    TableScanNode lineitemTableScan = p.tableScan(
+                            lineitemTableHandle,
+                            ImmutableList.of(lineitemOrderkeyVariable),
+                            ImmutableMap.of(lineitemOrderkeyVariable, lineitemOrderkeyColumn),
+                            TupleDomain.none(),
+                            TupleDomain.none(),
+                            tester().getTableConstraints(lineitemTableHandle));
+
+                    JoinNode ordersCustomerJoin = p.join(JoinType.INNER,
+                            ordersTableScan,
+                            customerTableScan,
+                            new EquiJoinClause(ordersCustKeyVariable, customerCustKeyVariable));
+
+                    AggregationNode aggregation = p.aggregation(builder -> builder
+                            .singleGroupingSet(ordersCustKeyVariable)
+                            .source(p.join(JoinType.INNER,
+                                    ordersCustomerJoin,
+                                    lineitemTableScan,
+                                    new EquiJoinClause(customerCustKeyVariable, lineitemOrderkeyVariable))));
+                    return aggregation;
+                }).assertLogicalProperties(groupProperties -> {
+                    // SINGLE aggregation on ordersCustKeyVariable => this is a key
+                    assertTrue(groupProperties.isDistinct(ImmutableSet.of(ordersCustKeyVariable)));
+                    // Since ordersCustKeyVariable == customerCustKeyVariable, customerCustKeyVariable is a key as well
+                    // This is derived through the equivalence classes
+                    assertTrue(groupProperties.isDistinct(ImmutableSet.of(customerCustKeyVariable)));
+                    // Same holds true for lineitemOrderkeyVariable
+                    assertTrue(groupProperties.isDistinct(ImmutableSet.of(lineitemOrderkeyVariable)));
+                });
     }
 
     @Test
