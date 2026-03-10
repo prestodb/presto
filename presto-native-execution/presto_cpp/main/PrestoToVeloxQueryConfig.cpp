@@ -124,6 +124,20 @@ void updateFromSystemConfigs(
           .veloxConfig = velox::core::QueryConfig::kSpillFileCreateConfig,
       },
 
+      {
+          .prestoSystemConfig =
+              std::string(SystemConfig::kSpillerAggregationFileCreateConfig),
+          .veloxConfig =
+              velox::core::QueryConfig::kAggregationSpillFileCreateConfig,
+      },
+
+      {
+          .prestoSystemConfig =
+              std::string(SystemConfig::kSpillerHashJoinFileCreateConfig),
+          .veloxConfig =
+              velox::core::QueryConfig::kHashJoinSpillFileCreateConfig,
+      },
+
       {.prestoSystemConfig = std::string(SystemConfig::kSpillEnabled),
        .veloxConfig = velox::core::QueryConfig::kSpillEnabled},
 

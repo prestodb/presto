@@ -155,6 +155,7 @@ public class FeaturesConfig
     private double defaultJoinSelectivityCoefficient;
     private double defaultWriterReplicationCoefficient = 3;
     private boolean pushAggregationThroughJoin = true;
+    private boolean pushPartialAggregationThroughJoin;
     private boolean pushSemiJoinThroughUnion;
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
@@ -1677,6 +1678,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationThroughJoin(boolean value)
     {
         this.pushAggregationThroughJoin = value;
+        return this;
+    }
+
+    public boolean isPushPartialAggregationThroughJoin()
+    {
+        return pushPartialAggregationThroughJoin;
+    }
+
+    @Config("optimizer.push-partial-aggregation-through-join")
+    @ConfigDescription("Push partial aggregations below joins")
+    public FeaturesConfig setPushPartialAggregationThroughJoin(boolean pushPartialAggregationThroughJoin)
+    {
+        this.pushPartialAggregationThroughJoin = pushPartialAggregationThroughJoin;
         return this;
     }
 

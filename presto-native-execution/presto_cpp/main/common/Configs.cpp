@@ -183,6 +183,8 @@ SystemConfig::SystemConfig() {
               std::round(0.5 * hardwareConcurrency())),
           NUM_PROP(kSpillerNumCpuThreadsHwMultiplier, 1.0),
           STR_PROP(kSpillerFileCreateConfig, ""),
+          STR_PROP(kSpillerAggregationFileCreateConfig, ""),
+          STR_PROP(kSpillerHashJoinFileCreateConfig, ""),
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
@@ -602,6 +604,16 @@ double SystemConfig::spillerNumCpuThreadsHwMultiplier() const {
 
 std::string SystemConfig::spillerFileCreateConfig() const {
   return optionalProperty<std::string>(kSpillerFileCreateConfig).value();
+}
+
+std::string SystemConfig::spillerAggregationFileCreateConfig() const {
+  return optionalProperty<std::string>(kSpillerAggregationFileCreateConfig)
+      .value();
+}
+
+std::string SystemConfig::spillerHashJoinFileCreateConfig() const {
+  return optionalProperty<std::string>(kSpillerHashJoinFileCreateConfig)
+      .value();
 }
 
 std::string SystemConfig::spillerDirectoryCreateConfig() const {

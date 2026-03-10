@@ -128,6 +128,16 @@ class SessionProperties {
   static constexpr const char* kSpillFileCreateConfig =
       "native_spill_file_create_config";
 
+  /// Config used to create aggregation spill files. This config is provided to
+  /// underlying file system and the config is free form.
+  static constexpr const char* kAggregationSpillFileCreateConfig =
+      "native_aggregation_spill_file_create_config";
+
+  /// Config used to create hash join spill files. This config is provided to
+  /// underlying file system and the config is free form.
+  static constexpr const char* kHashJoinSpillFileCreateConfig =
+      "native_hash_join_spill_file_create_config";
+
   /// Enable window spilling on native engine.
   static constexpr const char* kWindowSpillEnabled =
       "native_window_spill_enabled";
