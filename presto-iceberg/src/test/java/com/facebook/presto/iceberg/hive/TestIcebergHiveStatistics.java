@@ -577,7 +577,12 @@ public class TestIcebergHiveStatistics
     private static Map<String, ColumnHandle> getColumnHandles(QueryRunner queryRunner, String tableName, Session session)
     {
         return queryRunner.getMetadata().getColumnHandles(session, getTableHandle(queryRunner, tableName, session)).entrySet().stream()
-                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .filter(entry -> {
+                    IcebergColumnHandle handle = (IcebergColumnHandle) entry.getValue();
+                    return !IcebergMetadataColumn.isMetadataColumnId(handle.getId()) &&
+                            !handle.isRowIdColumn() &&
+                            !handle.isLastUpdatedSequenceNumberColumn();
+                })
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
