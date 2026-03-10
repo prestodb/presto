@@ -370,6 +370,19 @@ queries that have very selective joins.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-join\`\``.
 
+``push_partial_aggregation_through_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When a partial aggregation is above an inner join and all aggregation inputs come from
+only one side of the join, the partial aggregation is pushed below the join to that side.
+This reduces the amount of data flowing into the join operator, which can improve
+performance by allowing the aggregation to pre-reduce data before the join is performed.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
+
 ``push_table_write_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
