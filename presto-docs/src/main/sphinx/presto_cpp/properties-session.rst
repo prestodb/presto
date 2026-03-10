@@ -257,6 +257,24 @@ If set to ``0``, buffering is disabled.
 
 Native Execution only. Enable topN row number spilling on native engine.
 
+``native_local_merge_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. Enable local merge spilling on native engine.
+
+``native_local_merge_max_num_merge_sources``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``2147483647``
+
+Native Execution only. Specifies the maximum number of local sources to merge at a time.
+Use this property to limit memory usage during local merge operations.
+If not set, there is no limit on the number of merge sources.
+
 ``native_window_spill_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
