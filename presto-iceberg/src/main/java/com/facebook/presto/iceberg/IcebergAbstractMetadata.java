@@ -171,8 +171,12 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_C
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_METADATA;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
@@ -604,6 +608,8 @@ public abstract class IcebergAbstractMetadata
                 columns.add(DATA_SEQUENCE_NUMBER_COLUMN_METADATA);
                 columns.add(IS_DELETED_COLUMN_METADATA);
                 columns.add(DELETE_FILE_PATH_COLUMN_METADATA);
+                columns.add(ROW_ID_COLUMN_METADATA);
+                columns.add(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_METADATA);
             }
             return new ConnectorTableMetadata(table, columns.build(), createMetadataProperties(icebergTable, session), getTableComment(icebergTable));
         }
@@ -1318,6 +1324,8 @@ public abstract class IcebergAbstractMetadata
             columnHandles.put(DATA_SEQUENCE_NUMBER.getColumnName(), DATA_SEQUENCE_NUMBER_COLUMN_HANDLE);
             columnHandles.put(IS_DELETED.getColumnName(), IS_DELETED_COLUMN_HANDLE);
             columnHandles.put(DELETE_FILE_PATH.getColumnName(), DELETE_FILE_PATH_COLUMN_HANDLE);
+            columnHandles.put(ROW_ID_COLUMN_HANDLE.getName(), ROW_ID_COLUMN_HANDLE);
+            columnHandles.put(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getName(), LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE);
         }
         return columnHandles.build();
     }

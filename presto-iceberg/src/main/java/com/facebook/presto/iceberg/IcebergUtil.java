@@ -632,9 +632,17 @@ public final class IcebergUtil
     }
 
     // Strip the constraints on metadata columns like "$path", "$data_sequence_number" from the list.
+    // Also strips row lineage columns (_row_id, _last_updated_sequence_number) which cannot be
+    // pushed to Iceberg's manifest filter because they are not part of the physical table schema.
     public static <U> TupleDomain<IcebergColumnHandle> getNonMetadataColumnConstraints(TupleDomain<U> allConstraints)
     {
-        return allConstraints.transform(c -> isMetadataColumnId(((IcebergColumnHandle) c).getId()) ? null : (IcebergColumnHandle) c);
+        return allConstraints.transform(c -> {
+            IcebergColumnHandle handle = (IcebergColumnHandle) c;
+            if (isMetadataColumnId(handle.getId()) || handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
+                return null;
+            }
+            return handle;
+        });
     }
 
     public static <U> TupleDomain<IcebergColumnHandle> getMetadataColumnConstraints(TupleDomain<U> allConstraints)
@@ -890,6 +898,14 @@ public final class IcebergUtil
             return file.dataSequenceNumber();
         }
         return file.fileSequenceNumber();
+    }
+
+    public static long getFirstRowId(DataFile file)
+    {
+        if (file.firstRowId() != null) {
+            return file.firstRowId();
+        }
+        return -1L;
     }
 
     /**

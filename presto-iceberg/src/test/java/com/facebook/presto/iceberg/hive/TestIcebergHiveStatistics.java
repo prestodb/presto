@@ -456,8 +456,12 @@ public class TestIcebergHiveStatistics
             assertTrue(partialMiss.getCount() > 0);
 
             statistics.getColumnStatistics().forEach((handle, stats) -> {
+                IcebergColumnHandle icebergHandle = (IcebergColumnHandle) handle;
+                if (icebergHandle.isRowIdColumn() || icebergHandle.isLastUpdatedSequenceNumberColumn()) {
+                    return;
+                }
                 assertFalse(stats.getDistinctValuesCount().isUnknown());
-                if (isKllHistogramSupportedType(((IcebergColumnHandle) handle).getType())) {
+                if (isKllHistogramSupportedType(icebergHandle.getType())) {
                     assertTrue(stats.getHistogram().isPresent());
                 }
             });
@@ -576,7 +580,12 @@ public class TestIcebergHiveStatistics
     private static Map<String, ColumnHandle> getColumnHandles(QueryRunner queryRunner, String tableName, Session session)
     {
         return queryRunner.getMetadata().getColumnHandles(session, getTableHandle(queryRunner, tableName, session)).entrySet().stream()
-                .filter(entry -> !IcebergMetadataColumn.isMetadataColumnId(((IcebergColumnHandle) (entry.getValue())).getId()))
+                .filter(entry -> {
+                    IcebergColumnHandle handle = (IcebergColumnHandle) entry.getValue();
+                    return !IcebergMetadataColumn.isMetadataColumnId(handle.getId()) &&
+                            !handle.isRowIdColumn() &&
+                            !handle.isLastUpdatedSequenceNumberColumn();
+                })
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
@@ -681,6 +690,10 @@ public class TestIcebergHiveStatistics
     static void assertNDVsPresent(TableStatistics stats)
     {
         for (Map.Entry<ColumnHandle, ColumnStatistics> entry : stats.getColumnStatistics().entrySet()) {
+            IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
+            if (handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
+                continue;
+            }
             assertFalse(entry.getValue().getDistinctValuesCount().isUnknown(), entry.getKey() + " NDVs are unknown");
         }
     }
