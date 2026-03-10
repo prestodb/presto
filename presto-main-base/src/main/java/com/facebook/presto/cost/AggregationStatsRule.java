@@ -87,9 +87,7 @@ public class AggregationStatsRule
             result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
         }
 
-        for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addVariableStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
-        }
+        aggregations.forEach((key, value) -> result.addVariableStatistics(key, estimateAggregationStats(value, sourceStats)));
 
         return result.build();
     }
@@ -113,9 +111,7 @@ public class AggregationStatsRule
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
         result.setOutputRowCount(sourceStats.getOutputRowCount());
         result.addVariableStatistics(getGroupByVariablesStatistics(sourceStats, groupByVariables));
-        for (Map.Entry<VariableReferenceExpression, Aggregation> aggregationEntry : aggregations.entrySet()) {
-            result.addVariableStatistics(aggregationEntry.getKey(), estimateAggregationStats(aggregationEntry.getValue(), sourceStats));
-        }
+        aggregations.forEach((key, value) -> result.addVariableStatistics(key, estimateAggregationStats(value, sourceStats)));
 
         return result.build();
     }
