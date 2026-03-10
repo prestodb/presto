@@ -36,6 +36,11 @@ class VeloxPlanChecker {
   }
 
   bool isValidPlanNode(const velox::core::NestedLoopJoinNode* node) const;
+  bool isValidPlanNode(const velox::core::ProjectNode* node) const;
+  bool isValidPlanNode(const velox::core::FilterNode* node) const;
+  bool isValidPlanNode(const velox::core::HashJoinNode* node) const;
+  bool isValidPlanNode(const velox::core::AggregationNode* node) const;
+  bool isValidPlanNode(const velox::core::TableScanNode* node) const;
 
  private:
   bool failOnNestedLoopJoin_;

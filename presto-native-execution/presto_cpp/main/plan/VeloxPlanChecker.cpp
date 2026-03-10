@@ -17,6 +17,9 @@
 #include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/plan/CudfPlanNodeChecker.h"
+#endif
 
 using namespace facebook::velox;
 
@@ -32,6 +35,51 @@ VeloxPlanChecker::VeloxPlanChecker()
 bool VeloxPlanChecker::isValidPlanNode(
     const velox::core::NestedLoopJoinNode* /*node*/) const {
   return !failOnNestedLoopJoin_;
+}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::ProjectNode* node) const {
+#ifdef PRESTO_ENABLE_CUDF
+  return facebook::velox::cudf_velox::isProjectNodeSupported(node);
+#else
+  return true;
+#endif
+}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::FilterNode* node) const {
+#ifdef PRESTO_ENABLE_CUDF
+  return facebook::velox::cudf_velox::isFilterNodeSupported(node);
+#else
+  return true;
+#endif
+}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::HashJoinNode* node) const {
+#ifdef PRESTO_ENABLE_CUDF
+  return facebook::velox::cudf_velox::isHashJoinNodeSupported(node);
+#else
+  return true;
+#endif
+}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::AggregationNode* node) const {
+#ifdef PRESTO_ENABLE_CUDF
+  return facebook::velox::cudf_velox::isAggregationNodeSupported(node);
+#else
+  return true;
+#endif
+}
+
+bool VeloxPlanChecker::isValidPlanNode(
+    const velox::core::TableScanNode* node) const {
+#ifdef PRESTO_ENABLE_CUDF
+  return facebook::velox::cudf_velox::isTableScanNodeSupported(node);
+#else
+  return true;
+#endif
 }
 
 protocol::PlanConversionResponse VeloxPlanChecker::checkPlanFragment(
