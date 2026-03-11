@@ -5,7 +5,7 @@ Presto C++ Runtime Metrics
 .. contents::
     :local:
     :backlinks: none
-    :depth: 2
+    :depth: 1
 
 Overview
 ========
