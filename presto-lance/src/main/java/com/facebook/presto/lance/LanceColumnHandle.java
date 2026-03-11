@@ -92,8 +92,18 @@ public class LanceColumnHandle
                 .build();
     }
 
-    public static Type toPrestoType(ArrowType type)
+    public static Type toPrestoType(Field field)
     {
+        ArrowType type = field.getType();
+
+        if (type instanceof ArrowType.FixedSizeList || type instanceof ArrowType.List) {
+            Type elementType = RealType.REAL;
+            if (field.getChildren() != null && !field.getChildren().isEmpty()) {
+                elementType = toPrestoType(field.getChildren().get(0));
+            }
+            return new ArrayType(elementType);
+        }
+
         if (type instanceof ArrowType.Bool) {
             return BooleanType.BOOLEAN;
         }
@@ -129,25 +139,7 @@ public class LanceColumnHandle
         else if (type instanceof ArrowType.Timestamp) {
             return TimestampType.TIMESTAMP;
         }
-        else if (type instanceof ArrowType.List || type instanceof ArrowType.FixedSizeList) {
-            return new ArrayType(RealType.REAL);
-        }
         throw new UnsupportedOperationException("Unsupported Arrow type: " + type);
-    }
-
-    public static Type toPrestoType(Field field)
-    {
-        ArrowType type = field.getType();
-
-        if (type instanceof ArrowType.FixedSizeList || type instanceof ArrowType.List) {
-            Type elementType = RealType.REAL;
-            if (field.getChildren() != null && !field.getChildren().isEmpty()) {
-                elementType = toPrestoType(field.getChildren().get(0));
-            }
-            return new ArrayType(elementType);
-        }
-
-        return toPrestoType(type);
     }
 
     public static ArrowType toArrowType(Type prestoType)

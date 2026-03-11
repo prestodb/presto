@@ -35,9 +35,10 @@ public class LanceFragmentPageSource
             List<Integer> fragments,
             String tablePath,
             int readBatchSize,
-            ArrowBlockBuilder arrowBlockBuilder)
+            ArrowBlockBuilder arrowBlockBuilder,
+            BufferAllocator parentAllocator)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize), arrowBlockBuilder);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize), arrowBlockBuilder, parentAllocator);
     }
 
     private static class FragmentScannerFactory

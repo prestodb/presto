@@ -22,7 +22,11 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -51,12 +55,12 @@ public class TestLanceColumnHandle
     @Test
     public void testArrowToPrestoType()
     {
-        assertEquals(LanceColumnHandle.toPrestoType(ArrowType.Bool.INSTANCE), BOOLEAN);
-        assertEquals(LanceColumnHandle.toPrestoType(new ArrowType.Int(32, true)), INTEGER);
-        assertEquals(LanceColumnHandle.toPrestoType(new ArrowType.Int(64, true)), BIGINT);
-        assertEquals(LanceColumnHandle.toPrestoType(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), REAL);
-        assertEquals(LanceColumnHandle.toPrestoType(new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)), DOUBLE);
-        assertEquals(LanceColumnHandle.toPrestoType(ArrowType.Utf8.INSTANCE), VARCHAR);
+        assertEquals(LanceColumnHandle.toPrestoType(field("a", ArrowType.Bool.INSTANCE)), BOOLEAN);
+        assertEquals(LanceColumnHandle.toPrestoType(field("b", new ArrowType.Int(32, true))), INTEGER);
+        assertEquals(LanceColumnHandle.toPrestoType(field("c", new ArrowType.Int(64, true))), BIGINT);
+        assertEquals(LanceColumnHandle.toPrestoType(field("d", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE))), REAL);
+        assertEquals(LanceColumnHandle.toPrestoType(field("e", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))), DOUBLE);
+        assertEquals(LanceColumnHandle.toPrestoType(field("f", ArrowType.Utf8.INSTANCE)), VARCHAR);
     }
 
     @Test
@@ -68,6 +72,11 @@ public class TestLanceColumnHandle
         assertEquals(LanceColumnHandle.toArrowType(REAL), new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE));
         assertEquals(LanceColumnHandle.toArrowType(DOUBLE), new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE));
         assertEquals(LanceColumnHandle.toArrowType(VARCHAR), ArrowType.Utf8.INSTANCE);
+    }
+
+    private static Field field(String name, ArrowType type)
+    {
+        return new Field(name, new FieldType(true, type, null), Collections.emptyList());
     }
 
     private JsonCodec<LanceColumnHandle> getJsonCodec()

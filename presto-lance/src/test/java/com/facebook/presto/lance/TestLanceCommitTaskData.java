@@ -14,7 +14,6 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -26,13 +25,13 @@ public class TestLanceCommitTaskData
     public void testJsonRoundTrip()
     {
         LanceCommitTaskData data = new LanceCommitTaskData(
-                ImmutableList.of("frag1", "frag2"),
+                "[{\"id\":1}]",
                 1024L,
                 100L);
         JsonCodec<LanceCommitTaskData> codec = jsonCodec(LanceCommitTaskData.class);
         String json = codec.toJson(data);
         LanceCommitTaskData copy = codec.fromJson(json);
-        assertEquals(copy.getFragmentsJson(), ImmutableList.of("frag1", "frag2"));
+        assertEquals(copy.getFragmentsJson(), "[{\"id\":1}]");
         assertEquals(copy.getWrittenBytes(), 1024L);
         assertEquals(copy.getRowCount(), 100L);
     }

@@ -52,7 +52,6 @@ public class LanceSplitManager
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
         List<Fragment> fragments = namespaceHolder.getFragments(
-                tableHandle.getSchemaName(),
                 tableHandle.getTableName());
 
         List<ConnectorSplit> splits = fragments.stream()

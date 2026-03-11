@@ -229,7 +229,7 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
-        <module>presto-base-arrow</module>
+        <module>presto-common-arrow</module>
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
@@ -1014,7 +1014,7 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-base-arrow</artifactId>
+                <artifactId>presto-common-arrow</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

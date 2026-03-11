@@ -14,6 +14,8 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -26,7 +28,6 @@ import org.lance.WriteParams;
 
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -41,7 +42,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Holds the Lance namespace configuration and provides table management operations.
- * For the initial "dir" implementation, directly manages a directory-based table store.
+ * For the "dir" implementation, directly manages a directory-based table store.
+ * All tables live under a single "default" schema mapped to the root directory.
  */
 public class LanceNamespaceHolder
 {
@@ -49,8 +51,7 @@ public class LanceNamespaceHolder
     public static final String DEFAULT_SCHEMA = "default";
     public static final String TABLE_PATH_SUFFIX = ".lance";
 
-    private static final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-
+    private final BufferAllocator allocator;
     private final String root;
     private final boolean singleLevelNs;
 
@@ -59,10 +60,21 @@ public class LanceNamespaceHolder
     {
         this.root = requireNonNull(config.getRootUrl(), "root is null");
         this.singleLevelNs = config.isSingleLevelNs();
+        this.allocator = new RootAllocator(Long.MAX_VALUE);
         log.debug("LanceNamespaceHolder initialized: root=%s, singleLevelNs=%s", root, singleLevelNs);
     }
 
-    public static BufferAllocator getAllocator()
+    public void shutdown()
+    {
+        try {
+            allocator.close();
+        }
+        catch (Exception e) {
+            log.warn(e, "Error closing Arrow allocator");
+        }
+    }
+
+    public BufferAllocator getAllocator()
     {
         return allocator;
     }
@@ -80,7 +92,7 @@ public class LanceNamespaceHolder
     /**
      * Get the filesystem path for a table.
      */
-    public String getTablePath(String schemaName, String tableName)
+    public String getTablePath(String tableName)
     {
         return Paths.get(root, tableName + TABLE_PATH_SUFFIX).toUri().toString();
     }
@@ -88,11 +100,11 @@ public class LanceNamespaceHolder
     /**
      * Check if a table exists on the filesystem.
      */
-    public boolean tableExists(String schemaName, String tableName)
+    public boolean tableExists(String tableName)
     {
         try {
             Path path = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
-            return Files.exists(path) && Files.isDirectory(path);
+            return Files.isDirectory(path);
         }
         catch (Exception e) {
             return false;
@@ -102,9 +114,9 @@ public class LanceNamespaceHolder
     /**
      * Get the Arrow schema for a table.
      */
-    public Schema describeTable(String schemaName, String tableName)
+    public Schema describeTable(String tableName)
     {
-        String tablePath = getTablePath(schemaName, tableName);
+        String tablePath = getTablePath(tableName);
         try (Dataset dataset = Dataset.open(tablePath, new ReadOptions.Builder().build())) {
             return dataset.getSchema();
         }
@@ -113,10 +125,10 @@ public class LanceNamespaceHolder
     /**
      * List all tables in a schema.
      */
-    public List<String> listTables(String schemaName)
+    public List<String> listTables()
     {
         Path rootPath = Paths.get(root);
-        if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+        if (!Files.isDirectory(rootPath)) {
             return Collections.emptyList();
         }
         List<String> tables = new ArrayList<>();
@@ -137,9 +149,9 @@ public class LanceNamespaceHolder
     /**
      * Create an empty table with the given schema.
      */
-    public void createTable(String schemaName, String tableName, Schema arrowSchema)
+    public void createTable(String tableName, Schema arrowSchema)
     {
-        String tablePath = getTablePath(schemaName, tableName);
+        String tablePath = getTablePath(tableName);
         WriteParams params = new WriteParams.Builder().build();
         Dataset.create(allocator, tablePath, arrowSchema, params).close();
     }
@@ -147,54 +159,25 @@ public class LanceNamespaceHolder
     /**
      * Drop a table.
      */
-    public void dropTable(String schemaName, String tableName)
+    public void dropTable(String tableName)
     {
         Path tablePath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
         if (Files.exists(tablePath)) {
-            deleteRecursively(tablePath.toFile());
-        }
-    }
-
-    private static void deleteRecursively(File file)
-    {
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    deleteRecursively(child);
-                }
+            try {
+                MoreFiles.deleteRecursively(tablePath, RecursiveDeleteOption.ALLOW_INSECURE);
             }
-        }
-        if (!file.delete()) {
-            log.warn("Failed to delete %s", file);
-        }
-    }
-
-    /**
-     * Open a dataset for reading.
-     */
-    public Dataset openDataset(String schemaName, String tableName)
-    {
-        String tablePath = getTablePath(schemaName, tableName);
-        return Dataset.open(tablePath, new ReadOptions.Builder().build());
-    }
-
-    /**
-     * Get the version of a table.
-     */
-    public long getTableVersion(String schemaName, String tableName)
-    {
-        try (Dataset dataset = openDataset(schemaName, tableName)) {
-            return dataset.version();
+            catch (IOException e) {
+                throw new RuntimeException("Failed to delete table " + tableName, e);
+            }
         }
     }
 
     /**
      * Commit fragments to a table (append operation).
      */
-    public void commitAppend(String schemaName, String tableName, List<FragmentMetadata> fragments)
+    public void commitAppend(String tableName, List<FragmentMetadata> fragments)
     {
-        String tablePath = getTablePath(schemaName, tableName);
+        String tablePath = getTablePath(tableName);
         try (Dataset dataset = Dataset.open(tablePath, new ReadOptions.Builder().build())) {
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragments);
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
@@ -204,9 +187,10 @@ public class LanceNamespaceHolder
     /**
      * Get fragments for a table.
      */
-    public List<Fragment> getFragments(String schemaName, String tableName)
+    public List<Fragment> getFragments(String tableName)
     {
-        try (Dataset dataset = openDataset(schemaName, tableName)) {
+        String tablePath = getTablePath(tableName);
+        try (Dataset dataset = Dataset.open(tablePath, new ReadOptions.Builder().build())) {
             return dataset.getFragments();
         }
     }

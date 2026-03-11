@@ -28,13 +28,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.lance.Fragment;
 import org.lance.FragmentMetadata;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -63,7 +57,8 @@ public class LancePageSink
             String datasetUri,
             Schema arrowSchema,
             List<LanceColumnHandle> columns,
-            JsonCodec<LanceCommitTaskData> jsonCodec)
+            JsonCodec<LanceCommitTaskData> jsonCodec,
+            BufferAllocator parentAllocator)
     {
         this.datasetUri = requireNonNull(datasetUri, "datasetUri is null");
         this.arrowSchema = requireNonNull(arrowSchema, "arrowSchema is null");
@@ -71,7 +66,7 @@ public class LancePageSink
                 .map(LanceColumnHandle::getColumnType)
                 .collect(toImmutableList());
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
-        this.allocator = LanceNamespaceHolder.getAllocator()
+        this.allocator = requireNonNull(parentAllocator, "parentAllocator is null")
                 .newChildAllocator("page-sink", 0, Long.MAX_VALUE);
     }
 
@@ -93,9 +88,9 @@ public class LancePageSink
         finished = true;
 
         try {
-            List<String> fragmentsJson;
+            String fragmentsJson;
             if (bufferedPages.isEmpty()) {
-                fragmentsJson = ImmutableList.of();
+                fragmentsJson = "[]";
             }
             else {
                 fragmentsJson = writeFragments();
@@ -119,7 +114,7 @@ public class LancePageSink
         }
     }
 
-    private List<String> writeFragments()
+    private String writeFragments()
     {
         try (VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, allocator)) {
             long totalRowsLong = bufferedPages.stream()
@@ -152,7 +147,7 @@ public class LancePageSink
                     datasetUri, allocator, root,
                     new org.lance.WriteParams.Builder().build());
 
-            return serializeFragments(fragments);
+            return LanceFragmentData.serializeFragments(fragments);
         }
     }
 
@@ -170,51 +165,6 @@ public class LancePageSink
         }
         catch (Exception e) {
             log.warn(e, "Failed to close allocator");
-        }
-    }
-
-    public static List<String> serializeFragments(List<FragmentMetadata> fragments)
-    {
-        List<String> result = new ArrayList<>();
-        for (FragmentMetadata fragment : fragments) {
-            result.add(serializeFragment(fragment));
-        }
-        return result;
-    }
-
-    public static String serializeFragment(FragmentMetadata fragment)
-    {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ObjectOutputStream oos = new ObjectOutputStream(baos);
-            oos.writeObject(fragment);
-            oos.close();
-            return Base64.getEncoder().encodeToString(baos.toByteArray());
-        }
-        catch (IOException e) {
-            throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to serialize FragmentMetadata", e);
-        }
-    }
-
-    public static List<FragmentMetadata> deserializeFragments(List<String> serialized)
-    {
-        List<FragmentMetadata> result = new ArrayList<>();
-        for (String s : serialized) {
-            result.add(deserializeFragment(s));
-        }
-        return result;
-    }
-
-    public static FragmentMetadata deserializeFragment(String serialized)
-    {
-        try {
-            byte[] bytes = Base64.getDecoder().decode(serialized);
-            ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-            ObjectInputStream ois = new ObjectInputStream(bais);
-            return (FragmentMetadata) ois.readObject();
-        }
-        catch (IOException | ClassNotFoundException e) {
-            throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to deserialize FragmentMetadata", e);
         }
     }
 }

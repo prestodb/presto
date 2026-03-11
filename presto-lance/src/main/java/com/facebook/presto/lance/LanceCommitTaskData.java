@@ -16,19 +16,17 @@ package com.facebook.presto.lance;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
-
 import static java.util.Objects.requireNonNull;
 
 public class LanceCommitTaskData
 {
-    private final List<String> fragmentsJson;
+    private final String fragmentsJson;
     private final long writtenBytes;
     private final long rowCount;
 
     @JsonCreator
     public LanceCommitTaskData(
-            @JsonProperty("fragmentsJson") List<String> fragmentsJson,
+            @JsonProperty("fragmentsJson") String fragmentsJson,
             @JsonProperty("writtenBytes") long writtenBytes,
             @JsonProperty("rowCount") long rowCount)
     {
@@ -38,7 +36,7 @@ public class LanceCommitTaskData
     }
 
     @JsonProperty
-    public List<String> getFragmentsJson()
+    public String getFragmentsJson()
     {
         return fragmentsJson;
     }

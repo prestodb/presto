@@ -64,8 +64,7 @@ public class LancePageSourceProvider
                 .map(LanceColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        String tablePath = namespaceHolder.getTablePath(
-                tableHandle.getSchemaName(), tableHandle.getTableName());
+        String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
 
         return new LanceFragmentPageSource(
                 tableHandle,
@@ -73,6 +72,7 @@ public class LancePageSourceProvider
                 lanceSplit.getFragments(),
                 tablePath,
                 config.getReadBatchSize(),
-                arrowBlockBuilder);
+                arrowBlockBuilder,
+                namespaceHolder.getAllocator());
     }
 }

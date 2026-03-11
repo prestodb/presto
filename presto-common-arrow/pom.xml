@@ -8,9 +8,9 @@
         <version>0.297-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-base-arrow</artifactId>
-    <name>presto-base-arrow</name>
-    <description>Presto - Base Arrow Common Utilities</description>
+    <artifactId>presto-common-arrow</artifactId>
+    <name>presto-common-arrow</name>
+    <description>Presto - Common Arrow Utilities</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

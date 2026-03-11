@@ -36,14 +36,16 @@ public abstract class LanceBasePageSource
             LanceTableHandle tableHandle,
             List<LanceColumnHandle> columns,
             ScannerFactory scannerFactory,
-            ArrowBlockBuilder arrowBlockBuilder)
+            ArrowBlockBuilder arrowBlockBuilder,
+            BufferAllocator parentAllocator)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(columns, "columns is null");
         requireNonNull(scannerFactory, "scannerFactory is null");
         requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
+        requireNonNull(parentAllocator, "parentAllocator is null");
 
-        this.bufferAllocator = LanceNamespaceHolder.getAllocator()
+        this.bufferAllocator = parentAllocator
                 .newChildAllocator(tableHandle.getTableName(), 0, Long.MAX_VALUE);
 
         try {

@@ -31,7 +31,7 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-base-arrow</artifactId>
+            <artifactId>presto-common-arrow</artifactId>
         </dependency>
 
         <dependency>

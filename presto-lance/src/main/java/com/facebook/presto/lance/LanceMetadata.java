@@ -84,7 +84,7 @@ public class LanceMetadata
         if (!schemaExists(session, tableName.getSchemaName())) {
             return null;
         }
-        if (!namespaceHolder.tableExists(tableName.getSchemaName(), tableName.getTableName())) {
+        if (!namespaceHolder.tableExists(tableName.getTableName())) {
             return null;
         }
         return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName());
@@ -100,10 +100,10 @@ public class LanceMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) table;
-        if (!namespaceHolder.tableExists(lanceTable.getSchemaName(), lanceTable.getTableName())) {
+        if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return null;
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getSchemaName(), lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
         SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
@@ -122,7 +122,7 @@ public class LanceMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         String schema = schemaName.orElse(LANCE_DEFAULT_SCHEMA);
-        return namespaceHolder.listTables(schema).stream()
+        return namespaceHolder.listTables().stream()
                 .map(tableName -> new SchemaTableName(schema, tableName))
                 .collect(toImmutableList());
     }
@@ -131,10 +131,10 @@ public class LanceMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        if (!namespaceHolder.tableExists(lanceTable.getSchemaName(), lanceTable.getTableName())) {
+        if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return ImmutableMap.of();
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getSchemaName(), lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (Field field : arrowSchema.getFields()) {
@@ -195,7 +195,6 @@ public class LanceMetadata
         Schema arrowSchema = LancePageToArrowConverter.toArrowSchema(tableMetadata.getColumns());
 
         namespaceHolder.createTable(
-                tableMetadata.getTable().getSchemaName(),
                 tableMetadata.getTable().getTableName(),
                 arrowSchema);
 
@@ -221,7 +220,7 @@ public class LanceMetadata
 
         if (!fragments.isEmpty()) {
             List<org.lance.FragmentMetadata> allFragments = collectFragments(fragments);
-            namespaceHolder.commitAppend(handle.getSchemaName(), handle.getTableName(), allFragments);
+            namespaceHolder.commitAppend(handle.getTableName(), allFragments);
         }
         return Optional.empty();
     }
@@ -230,7 +229,7 @@ public class LanceMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getSchemaName(), lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
 
         List<LanceColumnHandle> columns = arrowSchema.getFields().stream()
                 .map(field -> new LanceColumnHandle(
@@ -257,7 +256,7 @@ public class LanceMetadata
 
         if (!fragments.isEmpty()) {
             List<org.lance.FragmentMetadata> allFragments = collectFragments(fragments);
-            namespaceHolder.commitAppend(handle.getSchemaName(), handle.getTableName(), allFragments);
+            namespaceHolder.commitAppend(handle.getTableName(), allFragments);
         }
         return Optional.empty();
     }
@@ -266,7 +265,7 @@ public class LanceMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        namespaceHolder.dropTable(lanceTable.getSchemaName(), lanceTable.getTableName());
+        namespaceHolder.dropTable(lanceTable.getTableName());
     }
 
     private List<org.lance.FragmentMetadata> collectFragments(Collection<Slice> fragments)
@@ -274,7 +273,7 @@ public class LanceMetadata
         ImmutableList.Builder<org.lance.FragmentMetadata> allFragments = ImmutableList.builder();
         for (Slice slice : fragments) {
             LanceCommitTaskData commitData = commitTaskDataCodec.fromJson(slice.getBytes());
-            allFragments.addAll(LancePageSink.deserializeFragments(commitData.getFragmentsJson()));
+            allFragments.addAll(LanceFragmentData.deserializeFragments(commitData.getFragmentsJson()));
         }
         return allFragments.build();
     }

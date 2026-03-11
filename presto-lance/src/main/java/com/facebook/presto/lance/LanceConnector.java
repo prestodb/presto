@@ -34,6 +34,7 @@ public class LanceConnector
 
     private final LifeCycleManager lifeCycleManager;
     private final LanceMetadata metadata;
+    private final LanceNamespaceHolder namespaceHolder;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -42,12 +43,14 @@ public class LanceConnector
     public LanceConnector(
             LifeCycleManager lifeCycleManager,
             LanceMetadata metadata,
+            LanceNamespaceHolder namespaceHolder,
             ConnectorSplitManager splitManager,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
@@ -91,6 +94,9 @@ public class LanceConnector
         }
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
+        }
+        finally {
+            namespaceHolder.shutdown();
         }
     }
 }

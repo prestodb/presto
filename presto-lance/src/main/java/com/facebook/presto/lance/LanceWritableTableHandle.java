@@ -73,7 +73,7 @@ public class LanceWritableTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, schemaJson, inputColumns);
     }
 
     @Override
@@ -87,7 +87,9 @@ public class LanceWritableTableHandle
         }
         LanceWritableTableHandle other = (LanceWritableTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.schemaJson, other.schemaJson) &&
+                Objects.equals(this.inputColumns, other.inputColumns);
     }
 
     @Override

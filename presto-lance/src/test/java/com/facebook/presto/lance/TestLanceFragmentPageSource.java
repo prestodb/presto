@@ -59,8 +59,8 @@ public class TestLanceFragmentPageSource
         namespaceHolder = new LanceNamespaceHolder(config);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
         tableHandle = new LanceTableHandle("default", "test_table1");
-        tablePath = namespaceHolder.getTablePath("default", "test_table1");
-        fragments = namespaceHolder.getFragments("default", "test_table1");
+        tablePath = namespaceHolder.getTablePath("test_table1");
+        fragments = namespaceHolder.getFragments("test_table1");
     }
 
     @Test
@@ -75,7 +75,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                arrowBlockBuilder)) {
+                arrowBlockBuilder,
+                namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 4);
@@ -106,7 +107,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                arrowBlockBuilder)) {
+                arrowBlockBuilder,
+                namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);
@@ -137,7 +139,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                arrowBlockBuilder)) {
+                arrowBlockBuilder,
+                namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);
