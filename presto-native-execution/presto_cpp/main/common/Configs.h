@@ -917,6 +917,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanConsistencyCheckEnabled{
       "plan-consistency-check-enabled"};
 
+  /// When set, each task's Velox plan is written to this directory as JSON
+  /// (one file per task, filename derived from task ID). Useful for
+  /// extracting plans for TPC-DS/TPC-H queries to build TpcdsQueryBuilder-style
+  /// plans.
+  static constexpr std::string_view kPlanDumpDir{"plan-dump-dir"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1286,6 +1292,8 @@ class SystemConfig : public ConfigBase {
   bool enumTypesEnabled() const;
 
   bool planConsistencyCheckEnabled() const;
+
+  folly::Optional<std::string> planDumpDir() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

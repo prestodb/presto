@@ -12,18 +12,128 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <folly/json.h>
 #include <presto_cpp/main/common/Exception.h>
+#include <fstream>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/PlanConsistencyChecker.h"
+#include "velox/core/PlanNode.h"
+#if __has_include("filesystem")
+#include <filesystem>
+#else
+#include <experimental/filesystem>
+#endif
 
 namespace facebook::presto {
 
 namespace {
+
+// Sanitize taskId into a filesystem-safe string.
+std::string sanitizeTaskId(const protocol::TaskId& taskId) {
+  std::string safeId;
+  safeId.reserve(taskId.size());
+  for (char c : taskId) {
+    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') {
+      safeId.push_back(c);
+    } else if (c == '.' || c == ':' || c == '/') {
+      safeId.push_back('_');
+    }
+  }
+  return safeId.empty() ? std::string("task") : safeId;
+}
+
+void maybeDumpVeloxPlan(
+    const protocol::TaskId& taskId,
+    const velox::core::PlanNodePtr& planNode) {
+  auto dirOpt = SystemConfig::instance()->planDumpDir();
+  if (!dirOpt.has_value() || dirOpt->empty()) {
+    return;
+  }
+  const std::string& dir = dirOpt.value();
+  const std::string safeId = sanitizeTaskId(taskId);
+  const std::string path = dir + "/" + safeId + ".json";
+  try {
+#if __has_include("filesystem")
+    std::filesystem::create_directories(dir);
+#else
+    std::experimental::filesystem::create_directories(dir);
+#endif
+    folly::dynamic json = planNode->serialize();
+    std::ofstream outFile(path);
+    outFile << folly::toPrettyJson(json);
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "Failed to dump plan to " << path << ": " << e.what();
+  }
+}
+
+// Dump splits (sources) for a task. Called on every task update (not only the
+// first one that has the plan fragment) because Presto sends splits in multiple
+// batches. Accumulates: reads existing file, merges new splits, writes back.
+void maybeDumpSplits(
+    const protocol::TaskId& taskId,
+    const std::vector<protocol::TaskSource>& sources) {
+  auto dirOpt = SystemConfig::instance()->planDumpDir();
+  if (!dirOpt.has_value() || dirOpt->empty()) {
+    return;
+  }
+  // Only dump sources that actually contain splits.
+  bool hasSplits = false;
+  for (const auto& source : sources) {
+    if (!source.splits.empty()) {
+      hasSplits = true;
+      break;
+    }
+  }
+  if (!hasSplits) {
+    return;
+  }
+  const std::string& dir = dirOpt.value();
+  const std::string safeId = sanitizeTaskId(taskId);
+  const std::string path = dir + "/" + safeId + ".splits.json";
+  try {
+#if __has_include("filesystem")
+    std::filesystem::create_directories(dir);
+#else
+    std::experimental::filesystem::create_directories(dir);
+#endif
+    // Read existing accumulated splits (if any) so we can merge.
+    nlohmann::json existing = nlohmann::json::object();
+    {
+      std::ifstream inFile(path);
+      if (inFile.good()) {
+        try {
+          inFile >> existing;
+        } catch (...) {
+          existing = nlohmann::json::object();
+        }
+      }
+    }
+    // Merge new splits into existing, grouped by planNodeId.
+    for (const auto& source : sources) {
+      for (const auto& split : source.splits) {
+        nlohmann::json sjson;
+        protocol::to_json(sjson, split);
+        // Append to the array for this planNodeId.
+        if (!existing.contains(source.planNodeId) ||
+            !existing[source.planNodeId].is_array()) {
+          existing[source.planNodeId] = nlohmann::json::array();
+        }
+        existing[source.planNodeId].push_back(sjson);
+      }
+    }
+    std::ofstream outFile(path);
+    outFile << existing.dump(2);
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "Failed to dump splits to " << path << ": " << e.what();
+  }
+}
 
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
@@ -341,6 +451,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
           velox::core::PlanConsistencyChecker::check(planFragment.planNode);
         }
+        maybeDumpVeloxPlan(taskId, planFragment.planNode);
+        maybeDumpSplits(taskId, updateRequest.sources);
 
         return taskManager_.createOrUpdateBatchTask(
             taskId,
@@ -391,7 +503,12 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
           planValidator_->validatePlanFragment(planFragment);
+          maybeDumpVeloxPlan(taskId, planFragment.planNode);
         }
+
+        // Dump splits on every task update (not only the first one with a
+        // fragment) because Presto sends splits in subsequent requests.
+        maybeDumpSplits(taskId, updateRequest.sources);
 
         return taskManager_.createOrUpdateTask(
             taskId,
