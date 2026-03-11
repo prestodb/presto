@@ -1278,6 +1278,10 @@ bool SystemConfig::planConsistencyCheckEnabled() const {
   return optionalProperty<bool>(kPlanConsistencyCheckEnabled).value();
 }
 
+folly::Optional<std::string> SystemConfig::planDumpDir() const {
+  return optionalProperty<std::string>(kPlanDumpDir);
+}
+
 NodeConfig::NodeConfig() {
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
