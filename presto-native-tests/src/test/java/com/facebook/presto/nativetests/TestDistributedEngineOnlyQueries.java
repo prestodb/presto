@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.nativetests;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestEngineOnlyQueries;
 import org.testng.annotations.BeforeClass;
@@ -77,5 +79,16 @@ public class TestDistributedEngineOnlyQueries
         //assertQueryFails("SELECT TIME '3:04:05 +06:00'", timeTypeUnsupportedError);
         //assertQueryFails("SELECT TIME '3:04:05 +0507'", timeTypeUnsupportedError);
         //assertQueryFails("SELECT TIME '3:04:05 +03'", timeTypeUnsupportedError);
+    }
+
+    @Test
+    public void testUtcTimezoneConfiguration()
+    {
+        // Test that UTC timezone is correctly propagated to the native execution engine
+        Session utcSession = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.UTC_KEY)
+                .build();
+
+        assertQueryWithSameQueryRunner(utcSession, "SELECT current_timezone()", "SELECT 'UTC'");
     }
 }

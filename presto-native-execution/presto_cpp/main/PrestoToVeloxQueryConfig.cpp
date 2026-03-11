@@ -99,13 +99,10 @@ void updateFromSessionConfigs(
         folly::join(',', session.clientTags);
   }
 
-  // If there's a timeZoneKey, convert to timezone name and add to the
-  // configs. Throws if timeZoneKey can't be resolved.
-  if (session.timeZoneKey != 0) {
-    queryConfigs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::tz::getTimeZoneName(session.timeZoneKey));
-  }
+  // If there's a timeZoneKey, convert to timezone name and add to the configs.
+  queryConfigs.emplace(
+      velox::core::QueryConfig::kSessionTimezone,
+      velox::tz::getTimeZoneName(session.timeZoneKey));
 }
 
 void updateFromSystemConfigs(
