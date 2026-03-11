@@ -368,7 +368,8 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public boolean isPublishHboStatsEnabled(ConnectorSession session, ConnectorTableHandle tableHandle) {
+    public boolean isPublishHboStatsEnabled(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
         if (tableHandle instanceof IcebergTableHandle) {
             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
             // If there is snapshot id, it can use the stats, but it should not publish stats

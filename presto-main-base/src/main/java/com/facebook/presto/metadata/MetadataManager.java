@@ -1796,7 +1796,8 @@ public class MetadataManager
     }
 
     @Override
-    public boolean isPublishHboStatsEnabled(Session session, TableHandle tableHandle) {
+    public boolean isPublishHboStatsEnabled(Session session, TableHandle tableHandle)
+    {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata connectorMetadata = getMetadata(session, connectorId);
 
