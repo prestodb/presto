@@ -343,11 +343,11 @@ public class TestHiveHistoryBasedStatsTracking
                 .setSystemProperty(CTE_PARTITIONING_PROVIDER_CATALOG, "hive")
                 .build();
         // CBO Statistics
-        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(0D)));
 
         // HBO Statistics
         executeAndTrackHistory(sql, cteMaterialization);
-        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3)));
+        assertPlan(cteMaterialization, sql, anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(3D)));
     }
 
     @Test
