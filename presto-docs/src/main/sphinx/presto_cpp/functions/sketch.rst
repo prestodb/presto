@@ -60,7 +60,7 @@ For more information on KLL sketches, please see the Apache DataSketches
     The rank is a value between 0.0 and 1.0, where 0.0 represents the minimum
     value and 1.0 represents the maximum value. By default, uses inclusive mode
     (values less than or equal to the given value). Supported types: ``bigint``,
-    ``double``, ``varchar``, ``boolean``
+    ``double``, ``varchar``, ``boolean``.
 
     Example::
 
