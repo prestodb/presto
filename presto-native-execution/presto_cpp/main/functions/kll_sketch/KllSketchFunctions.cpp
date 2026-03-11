@@ -33,7 +33,8 @@ inline SketchType convertToSketchType(const InputType& value) {
 template <>
 inline std::string convertToSketchType<std::string, velox::StringView>(
     const velox::StringView& value) {
-  return std::string(value.data(), static_cast<std::string::size_type>(value.size()));
+  return std::string(
+      value.data(), static_cast<std::string::size_type>(value.size()));
 }
 
 // Generic sketch_kll_rank function with inclusive parameter
@@ -48,7 +49,6 @@ struct KllSketchRankFunction {
         const arg_type<velox::Varbinary>& rawSketch,
         const arg_type<QuantileType>& quantile,
         const arg_type<bool>& inclusive) {
-
       auto sketch = datasketches::kll_sketch<SketchType>::deserialize(
           rawSketch.data(), rawSketch.size());
 
@@ -70,7 +70,6 @@ struct KllSketchRankDefaultFunction {
         out_type<double>& result,
         const arg_type<velox::Varbinary>& rawSketch,
         const arg_type<QuantileType>& quantile) {
-
       auto sketch = datasketches::kll_sketch<SketchType>::deserialize(
           rawSketch.data(), rawSketch.size());
 
@@ -82,29 +81,23 @@ struct KllSketchRankDefaultFunction {
 };
 
 // Type aliases for cleaner registration
-using KllSketchRankDouble =
-    KllSketchRankFunction<double, double>;
+using KllSketchRankDouble = KllSketchRankFunction<double, double>;
 
-using KllSketchRankDoubleDefault =
-    KllSketchRankDefaultFunction<double, double>;
+using KllSketchRankDoubleDefault = KllSketchRankDefaultFunction<double, double>;
 
-using KllSketchRankBigint =
-    KllSketchRankFunction<int64_t, int64_t>;
+using KllSketchRankBigint = KllSketchRankFunction<int64_t, int64_t>;
 
 using KllSketchRankBigintDefault =
     KllSketchRankDefaultFunction<int64_t, int64_t>;
 
-using KllSketchRankVarchar =
-    KllSketchRankFunction<std::string, velox::Varchar>;
+using KllSketchRankVarchar = KllSketchRankFunction<std::string, velox::Varchar>;
 
 using KllSketchRankVarcharDefault =
     KllSketchRankDefaultFunction<std::string, velox::Varchar>;
 
-using KllSketchRankBoolean =
-    KllSketchRankFunction<bool, bool>;
+using KllSketchRankBoolean = KllSketchRankFunction<bool, bool>;
 
-using KllSketchRankBooleanDefault =
-    KllSketchRankDefaultFunction<bool, bool>;
+using KllSketchRankBooleanDefault = KllSketchRankDefaultFunction<bool, bool>;
 
 } // namespace
 
@@ -112,20 +105,56 @@ void registerKllSketchFunctions(const std::string& prefix) {
   const std::string funcName = prefix + "sketch_kll_rank";
 
   // Register DOUBLE variants
-  velox::registerFunction<KllSketchRankDouble, double, velox::Varbinary, double, bool>({funcName});
-  velox::registerFunction<KllSketchRankDoubleDefault, double, velox::Varbinary, double>({funcName});
+  velox::registerFunction<
+      KllSketchRankDouble,
+      double,
+      velox::Varbinary,
+      double,
+      bool>({funcName});
+  velox::registerFunction<
+      KllSketchRankDoubleDefault,
+      double,
+      velox::Varbinary,
+      double>({funcName});
 
   // Register BIGINT variants
-  velox::registerFunction<KllSketchRankBigint, double, velox::Varbinary, int64_t, bool>({funcName});
-  velox::registerFunction<KllSketchRankBigintDefault, double, velox::Varbinary, int64_t>({funcName});
+  velox::registerFunction<
+      KllSketchRankBigint,
+      double,
+      velox::Varbinary,
+      int64_t,
+      bool>({funcName});
+  velox::registerFunction<
+      KllSketchRankBigintDefault,
+      double,
+      velox::Varbinary,
+      int64_t>({funcName});
 
   // Register VARCHAR variants
-  velox::registerFunction<KllSketchRankVarchar, double, velox::Varbinary, velox::Varchar, bool>({funcName});
-  velox::registerFunction<KllSketchRankVarcharDefault, double, velox::Varbinary, velox::Varchar>({funcName});
+  velox::registerFunction<
+      KllSketchRankVarchar,
+      double,
+      velox::Varbinary,
+      velox::Varchar,
+      bool>({funcName});
+  velox::registerFunction<
+      KllSketchRankVarcharDefault,
+      double,
+      velox::Varbinary,
+      velox::Varchar>({funcName});
 
   // Register BOOLEAN variants
-  velox::registerFunction<KllSketchRankBoolean, double, velox::Varbinary, bool, bool>({funcName});
-  velox::registerFunction<KllSketchRankBooleanDefault, double, velox::Varbinary, bool>({funcName});
+  velox::registerFunction<
+      KllSketchRankBoolean,
+      double,
+      velox::Varbinary,
+      bool,
+      bool>({funcName});
+  velox::registerFunction<
+      KllSketchRankBooleanDefault,
+      double,
+      velox::Varbinary,
+      bool>({funcName});
 }
 
 } // namespace facebook::presto::functions

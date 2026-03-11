@@ -15,5 +15,5 @@ add_library(presto_kll_sketch_functions KllSketchAggregate.cpp KllSketchFunction
 target_link_libraries(presto_kll_sketch_functions velox_common_base Folly::folly)
 
 if(PRESTO_ENABLE_TESTING)
-    add_subdirectory(tests)
+  add_subdirectory(tests)
 endif()

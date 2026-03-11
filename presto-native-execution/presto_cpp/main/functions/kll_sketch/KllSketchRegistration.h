@@ -1,5 +1,5 @@
 /*
-* Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -40,7 +40,8 @@ namespace facebook::presto::functions::aggregate::kll_sketch {
 namespace {
 void registerAllKllSketchFunctions(const std::string& prefix = "") {
   facebook::presto::functions::aggregate::registerKllSketchAggregate(prefix);
-  facebook::presto::functions::aggregate::registerKllSketchWithKAggregate(prefix);
+  facebook::presto::functions::aggregate::registerKllSketchWithKAggregate(
+      prefix);
   facebook::presto::functions::registerKllSketchFunctions(prefix);
 }
 } // namespace

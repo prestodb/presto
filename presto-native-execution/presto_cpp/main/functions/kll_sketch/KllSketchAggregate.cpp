@@ -404,8 +404,7 @@ velox::exec::AggregateRegistrationResult registerKllSketchAggregate(
                   KllSketchAggregate<double>>>(step, argTypes, resultType);
             case velox::TypeKind::VARCHAR:
               return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchAggregate<std::string>>>(
-                  step, argTypes, resultType);
+                  KllSketchAggregate<std::string>>>(step, argTypes, resultType);
             case velox::TypeKind::BOOLEAN:
               return std::make_unique<velox::exec::SimpleAggregateAdapter<
                   KllSketchAggregate<bool>>>(step, argTypes, resultType);
@@ -418,8 +417,8 @@ velox::exec::AggregateRegistrationResult registerKllSketchAggregate(
         } else {
           // For intermediate steps, we always deserialize from varbinary
           // The type doesn't matter since we're just passing serialized data
-          return std::make_unique<velox::exec::SimpleAggregateAdapter<
-              KllSketchAggregate<double>>>(
+          return std::make_unique<
+              velox::exec::SimpleAggregateAdapter<KllSketchAggregate<double>>>(
               step, argTypes, resultType);
         }
       },
@@ -464,7 +463,8 @@ velox::exec::AggregateRegistrationResult registerKllSketchWithKAggregate(
           switch (inputType->kind()) {
             case velox::TypeKind::BIGINT:
               return std::make_unique<velox::exec::SimpleAggregateAdapter<
-                  KllSketchWithKAggregate<int64_t>>>(step, argTypes, resultType);
+                  KllSketchWithKAggregate<int64_t>>>(
+                  step, argTypes, resultType);
             case velox::TypeKind::DOUBLE:
               return std::make_unique<velox::exec::SimpleAggregateAdapter<
                   KllSketchWithKAggregate<double>>>(step, argTypes, resultType);
@@ -483,8 +483,7 @@ velox::exec::AggregateRegistrationResult registerKllSketchWithKAggregate(
           }
         } else {
           return std::make_unique<velox::exec::SimpleAggregateAdapter<
-              KllSketchWithKAggregate<double>>>(
-              step, argTypes, resultType);
+              KllSketchWithKAggregate<double>>>(step, argTypes, resultType);
         }
       },
       withCompanionFunctions,

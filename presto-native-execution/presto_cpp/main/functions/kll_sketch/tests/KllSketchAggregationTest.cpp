@@ -50,26 +50,37 @@ class KllSketchRankTest : public AggregationTestBase {
 
   // Helper to test rank function
   template <typename T>
-  double testRank(const std::vector<T>& values, T queryValue, bool inclusive = true) {
+  double
+  testRank(const std::vector<T>& values, T queryValue, bool inclusive = true) {
     auto sketch = createSerializedSketch(values);
-    auto input = makeRowVector({makeFlatVector<std::string>({sketch}, VARBINARY())});
-    
+    auto input =
+        makeRowVector({makeFlatVector<std::string>({sketch}, VARBINARY())});
+
     std::string query;
     if constexpr (std::is_same_v<T, std::string>) {
-      query = fmt::format("sketch_kll_rank(c0, '{}'{})", queryValue, inclusive ? "" : ", false");
+      query = fmt::format(
+          "sketch_kll_rank(c0, '{}'{})",
+          queryValue,
+          inclusive ? "" : ", false");
     } else if constexpr (std::is_same_v<T, bool>) {
-      query = fmt::format("sketch_kll_rank(c0, {}{})", queryValue ? "true" : "false", inclusive ? "" : ", false");
+      query = fmt::format(
+          "sketch_kll_rank(c0, {}{})",
+          queryValue ? "true" : "false",
+          inclusive ? "" : ", false");
     } else if constexpr (std::is_same_v<T, double>) {
-      query = fmt::format("sketch_kll_rank(c0, CAST({} AS DOUBLE){})", queryValue, inclusive ? "" : ", false");
+      query = fmt::format(
+          "sketch_kll_rank(c0, CAST({} AS DOUBLE){})",
+          queryValue,
+          inclusive ? "" : ", false");
     } else {
-      query = fmt::format("sketch_kll_rank(c0, CAST({} AS BIGINT){})", queryValue, inclusive ? "" : ", false");
+      query = fmt::format(
+          "sketch_kll_rank(c0, CAST({} AS BIGINT){})",
+          queryValue,
+          inclusive ? "" : ", false");
     }
-    
-    auto op = PlanBuilder()
-                  .values({input})
-                  .project({query})
-                  .planNode();
-    
+
+    auto op = PlanBuilder().values({input}).project({query}).planNode();
+
     return readSingleValue(op).template value<TypeKind::DOUBLE>();
   }
 };
@@ -144,4 +155,3 @@ TEST_F(KllSketchRankTest, testBooleans) {
 
 } // namespace
 } // namespace facebook::presto::functions::aggregate::test
-
