@@ -48,7 +48,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALES
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 public class NativeExpressionOptimizer
         implements ExpressionOptimizer
@@ -77,20 +76,17 @@ public class NativeExpressionOptimizer
         List<RowExpression> expressionsToOptimize = collectingVisitor.getExpressionsToOptimize();
 
         // Create a map of original expressions and expressions with variables resolved to constants or row expressions.
-        Map<RowExpression, RowExpression> expressions = expressionsToOptimize.stream()
-                .collect(toMap(
-                        Function.identity(),
-                        rowExpression -> rowExpression.accept(
-                                new ReplacingVisitor(variable -> {
-                                    // Apply resolver
-                                    Object replacement = variableResolver.apply(variable);
-                                    // Preserve original variable if resolver returns null
-                                    return replacement != null
-                                            ? toRowExpression(variable.getSourceLocation(), replacement, variable.getType())
-                                            : variable;
-                                }),
-                                null),
-                        (a, b) -> a));
+        Map<RowExpression, RowExpression> expressions = new IdentityHashMap<>();
+        for (RowExpression rowExpression : expressionsToOptimize) {
+            expressions.put(rowExpression, rowExpression.accept(
+                    new ReplacingVisitor(variable -> {
+                        Object replacement = variableResolver.apply(variable);
+                        return replacement != null
+                                ? toRowExpression(variable.getSourceLocation(), replacement, variable.getType())
+                                : variable;
+                    }),
+                    null));
+        }
         if (expressions.isEmpty()) {
             return expression;
         }
@@ -107,7 +103,7 @@ public class NativeExpressionOptimizer
         }
 
         // Optimize the expressions using the sidecar interpreter
-        Map<RowExpression, RowExpression> replacements = new HashMap<>();
+        Map<RowExpression, RowExpression> replacements = new IdentityHashMap<>();
         if (!expressions.isEmpty()) {
             // The native endpoint only supports optimizer levels OPTIMIZED or EVALUATED.
             // In the sidecar, SERIALIZABLE is effectively the same as OPTIMIZED,

@@ -700,6 +700,16 @@ public class TestNativeSidecarPlugin
         // Test dereference expression with SQL invoked function, array_least_frequent.
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(orderkey)) from orders");
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(nationkey)) from nation");
+
+        // equal lambda expressions in args
+        assertQuerySucceeds(session, "SELECT REDUCE_AGG((x,y), (0,0), (x, y)->(x[1],y[1]), (x,y)->(x[1],y[1]))[1] from (select 1 x, 2 y)");
+        assertQueryFails(session, "select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", "(?s).*Initial value in reduce_agg cannot be null.*");
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQueryFails(session, "select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
+        assertQueryFails(session, "select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
+        assertEquals(
+                computeActual(session, "select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)"),
+                computeActual(session, "select array[null]"));
     }
 
     @Test
