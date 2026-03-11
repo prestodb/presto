@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar.expressions;
+package com.facebook.presto.nativetests.sidecar.expressions;
 
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nativeworker.NativeSidecarPluginQueryRunner;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
@@ -60,7 +61,7 @@ public class TestNativeExpressionOptimizer
         closeAllRuntimeException(queryRunner);
     }
 
-    @Test
+    @Test(groups = "sidecar")
     public void testLambdaBodyConstantFolding()
     {
         // Simple lambda constant folding.

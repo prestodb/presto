@@ -40,7 +40,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.list;
 import static org.testng.Assert.assertEquals;
@@ -86,7 +85,6 @@ public class TestPlanCheckerRouterPlugin
                 .setFailOnNestedLoopJoin(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 

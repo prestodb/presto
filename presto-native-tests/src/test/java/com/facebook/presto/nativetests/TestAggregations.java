@@ -17,7 +17,6 @@ import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestAggregations
@@ -50,9 +49,6 @@ public class TestAggregations
                 .setImplicitCastCharNToVarchar(charNToVarcharImplicitCast)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 
