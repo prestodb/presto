@@ -93,6 +93,9 @@ public class MongoSession
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
 
+    private static final String VIEW_TYPE_NAME = "view";
+    private static final String COLLECTION_TYPE_NAME = "collection";
+
     private static final String OR_OP = "$or";
     private static final String AND_OP = "$and";
     private static final String NOT_OP = "$not";
@@ -197,7 +200,7 @@ public class MongoSession
         return new MongoTable(
                 tableHandle,
                 columnHandles.build(),
-                "view".equals(tableMeta.get("type")) ? ImmutableList.of() : getIndexes(tableName));
+                VIEW_TYPE_NAME.equals(tableMeta.get(FIELDS_TYPE_KEY)) ? ImmutableList.of() : getIndexes(tableName));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
@@ -394,7 +397,7 @@ public class MongoSession
             else {
                 Document metadata = new Document(TABLE_NAME_KEY, tableName);
                 metadata.append(FIELDS_KEY, guessTableFields(schemaTableName));
-                metadata.append("type", isView(schemaName, tableName) ? "view" : "collection");
+                metadata.append(FIELDS_TYPE_KEY, guessTableType(schemaName, tableName));
 
                 schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
                 schema.insertOne(metadata);
@@ -406,15 +409,18 @@ public class MongoSession
         return doc;
     }
 
-    private boolean isView(String schema, String table)
+    private String guessTableType(String schema, String table)
     {
         MongoDatabase database = client.getDatabase(schema);
         Document doc = database.listCollections().filter(
                 new Document(new Document(ImmutableMap.of(
-                        "name", table,
-                        "type", "view")))).first();
+                        FIELDS_NAME_KEY, table,
+                        FIELDS_TYPE_KEY, VIEW_TYPE_NAME)))).first();
 
-        return doc != null;
+        if (doc != null) {
+            return VIEW_TYPE_NAME;
+        }
+        return COLLECTION_TYPE_NAME;
     }
 
     public boolean collectionExists(MongoDatabase db, String collectionName)
