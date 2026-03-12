@@ -92,7 +92,7 @@
             <artifactId>zookeeper</artifactId>
             <scope>runtime</scope>
             <!-- This is the version used by kafka tranitively -->
-            <version>3.8.4</version>
+            <version>3.8.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>ch.qos.logback</groupId>
