@@ -1936,11 +1936,37 @@ to a single Iceberg table. To run transaction statements, use
 The Iceberg connector provides snapshot isolation at ``REPEATABLE READ`` level.
 This also satisfies ``READ COMMITTED`` and ``READ UNCOMMITTED``, so these
 isolation levels are supported as well. For snapshot semantics, use
-``REPEATABLE READ``::
+``REPEATABLE READ``.
+
+Within a transaction, reads can access multiple tables, while write operations are
+restricted to a single Iceberg table. All operations execute under snapshot isolation.
+The transaction therefore behaves as a **multi-table read, single-table write** transaction::
 
     START TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+    INSERT INTO iceberg.default.test_table
+        SELECT id, status
+        FROM iceberg.source.source_table1
+        WHERE status = 'pending';
+    INSERT INTO iceberg.default.test_table
+        SELECT * FROM iceberg.source.source_table2;
     INSERT INTO iceberg.default.test_table (id, status) VALUES (1, 'pending');
+    UPDATE iceberg.default.test_table
+        SET status = 'committed'
+        WHERE id < 100 and status = 'pending';
+    COMMIT;
+
+Statements executed within the same transaction follow **read-your-writes**
+semantics. This behavior is important for standard SQL interactive transactions.
+Data modifications performed earlier in the transaction are visible to subsequent
+statements before the transaction is committed::
+
+    START TRANSACTION;
+    INSERT INTO iceberg.default.test_table (id, status) VALUES (1, 'pending'), (2, 'pending');
     UPDATE iceberg.default.test_table SET status = 'committed' WHERE id = 1;
+    SELECT * FROM iceberg.default.test_table;   -- (1, 'committed'), (2, 'pending')
+
+    DELETE FROM iceberg.default.test_table WHERE status = 'pending';
+    SELECT * FROM iceberg.default.test_table;   -- (1, 'committed')
     COMMIT;
 
 Limitations:
