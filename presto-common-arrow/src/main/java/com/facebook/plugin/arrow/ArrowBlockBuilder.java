@@ -54,6 +54,7 @@ import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.TimeStampMilliTZVector;
 import org.apache.arrow.vector.TimeStampMilliVector;
@@ -62,6 +63,7 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -112,7 +114,7 @@ public class ArrowBlockBuilder
         return builder.build();
     }
 
-    protected Type getPrestoTypeFromArrowField(Field field)
+    public Type getPrestoTypeFromArrowField(Field field)
     {
         switch (field.getType().getTypeID()) {
             case Int:
@@ -139,7 +141,8 @@ public class ArrowBlockBuilder
                 return BooleanType.BOOLEAN;
             case Time:
                 return TimeType.TIME;
-            case List: {
+            case List:
+            case FixedSizeList: {
                 List<Field> children = field.getChildren();
                 checkArgument(children.size() == 1, "Arrow List expected to have 1 child Field, got: " + children.size());
                 return new ArrayType(getPrestoTypeFromArrowField(field.getChildren().get(0)));
@@ -292,12 +295,18 @@ public class ArrowBlockBuilder
         else if (vector instanceof TimeMicroVector) {
             assignBlockFromTimeMicroVector((TimeMicroVector) vector, type, builder, startIndex, endIndex);
         }
+        else if (vector instanceof TimeStampMicroTZVector) {
+            assignBlockFromTimeStampMicroTZVector((TimeStampMicroTZVector) vector, type, builder, startIndex, endIndex);
+        }
         else if (vector instanceof TimeStampMilliTZVector) {
             assignBlockFromTimeMilliTZVector((TimeStampMilliTZVector) vector, type, builder, startIndex, endIndex);
         }
         else if (vector instanceof MapVector) {
             // NOTE: MapVector is also instanceof ListVector, so check for Map first
             assignBlockFromMapVector((MapVector) vector, type, builder, startIndex, endIndex);
+        }
+        else if (vector instanceof FixedSizeListVector) {
+            assignBlockFromFixedSizeListVector((FixedSizeListVector) vector, type, builder, startIndex, endIndex);
         }
         else if (vector instanceof ListVector) {
             assignBlockFromListVector((ListVector) vector, type, builder, startIndex, endIndex);
@@ -662,6 +671,49 @@ public class ArrowBlockBuilder
                 assignBlockFromValueVector(
                         vector.getDataVector(), elementType, elementBuilder, vector.getElementStartIndex(i), vector.getElementEndIndex(i));
                 builder.closeEntry();
+            }
+        }
+    }
+
+    public void assignBlockFromFixedSizeListVector(FixedSizeListVector vector, Type type, BlockBuilder builder, int startIndex, int endIndex)
+    {
+        if (!(type instanceof ArrayType)) {
+            throw new IllegalArgumentException("Type must be an ArrayType for FixedSizeListVector");
+        }
+
+        ArrayType arrayType = (ArrayType) type;
+        Type elementType = arrayType.getElementType();
+        int listSize = vector.getListSize();
+
+        for (int i = startIndex; i < endIndex; i++) {
+            if (vector.isNull(i)) {
+                builder.appendNull();
+            }
+            else {
+                BlockBuilder elementBuilder = builder.beginBlockEntry();
+                int elementStart = i * listSize;
+                int elementEnd = elementStart + listSize;
+                assignBlockFromValueVector(
+                        vector.getDataVector(), elementType, elementBuilder, elementStart, elementEnd);
+                builder.closeEntry();
+            }
+        }
+    }
+
+    public void assignBlockFromTimeStampMicroTZVector(TimeStampMicroTZVector vector, Type type, BlockBuilder builder, int startIndex, int endIndex)
+    {
+        if (!(type instanceof TimestampType)) {
+            throw new IllegalArgumentException("Expected TimestampType but got " + type.getClass().getName());
+        }
+
+        for (int i = startIndex; i < endIndex; i++) {
+            if (vector.isNull(i)) {
+                builder.appendNull();
+            }
+            else {
+                long micros = vector.get(i);
+                long millis = TimeUnit.MICROSECONDS.toMillis(micros);
+                type.writeLong(builder, millis);
             }
         }
     }
