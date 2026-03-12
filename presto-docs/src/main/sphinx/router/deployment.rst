@@ -2,11 +2,6 @@
 Deploying Presto Router
 =======================
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Installing Router
 -----------------
 

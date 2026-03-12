@@ -128,8 +128,7 @@ velox::variant VeloxExprConverter::getConstantValue(
           std::string(valueVector->as<velox::SimpleVector<velox::StringView>>()
                           ->valueAt(0)));
     default:
-      throw std::invalid_argument(
-          fmt::format("Unexpected Block type: {}", typeKind));
+      VELOX_UNSUPPORTED("Unexpected Block type: {}", typeKind);
   }
 }
 
@@ -902,8 +901,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
     return toVeloxExpr(lambda);
   }
 
-  throw std::invalid_argument(
-      "Unsupported RowExpression type: " + pexpr->_type);
+  VELOX_UNSUPPORTED("Unsupported RowExpression type: {}", pexpr->_type);
 }
 
 } // namespace facebook::presto

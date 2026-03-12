@@ -38,8 +38,7 @@ std::string extractTaskId(const std::string& path) {
 
   VLOG(1) << "Failed to extract task ID from remote split: " << path;
 
-  throw std::invalid_argument(
-      fmt::format("Cannot extract task ID from remote split URL: {}", path));
+  VELOX_FAIL("Cannot extract task ID from remote split URL: {}", path);
 }
 
 void onFinalFailure(

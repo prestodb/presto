@@ -16,6 +16,7 @@
 
 #include <folly/String.h>
 #include "presto_cpp/main/types/TypeParser.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -389,7 +390,8 @@ std::unique_ptr<common::Filter> combineIntegerRanges(
   if (bigintFilters.size() == 2 &&
       bigintFilters[0]->lower() == std::numeric_limits<int64_t>::min() &&
       bigintFilters[1]->upper() == std::numeric_limits<int64_t>::max()) {
-    assert(bigintFilters[0]->upper() + 1 <= bigintFilters[1]->lower() - 1);
+    VELOX_CHECK_LE(
+        bigintFilters[0]->upper() + 1, bigintFilters[1]->lower() - 1);
     return std::make_unique<common::NegatedBigintRange>(
         bigintFilters[0]->upper() + 1,
         bigintFilters[1]->lower() - 1,
@@ -398,7 +400,7 @@ std::unique_ptr<common::Filter> combineIntegerRanges(
 
   bool allNegatedValues = true;
   bool foundMaximum = false;
-  assert(bigintFilters.size() > 1); // true by size checks on ranges
+  VELOX_CHECK_GT(bigintFilters.size(), 1);
   std::vector<int64_t> rejectedValues;
 
   // check if int64 min is a rejected value
