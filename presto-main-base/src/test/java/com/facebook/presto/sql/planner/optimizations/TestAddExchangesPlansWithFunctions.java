@@ -214,7 +214,7 @@ public class TestAddExchangesPlansWithFunctions
                 .map(TestAddExchangesPlansWithFunctions::convertToSqlInvokedFunction)
                 .forEach(function -> queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(function, true));
         queryRunner.getExpressionManager().addExpressionOptimizerFactory(new NoOpExpressionOptimizerFactory());
-        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NO_OP_OPTIMIZER, NO_OP_OPTIMIZER, ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NO_OP_OPTIMIZER, NO_OP_OPTIMIZER, ImmutableMap.of(), ImmutableMap.of());
         return queryRunner;
     }
 

@@ -150,7 +150,8 @@ public class TestHiveAggregationFunctions
                 "hive-functions",
                 "hive",
                 Collections.emptyMap(),
-                server.getPluginNodeManager());
+                server.getPluginNodeManager(),
+                Collections.emptyMap());
         server.refreshNodes();
         return server;
     }

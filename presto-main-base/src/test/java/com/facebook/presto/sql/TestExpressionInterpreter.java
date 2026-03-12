@@ -79,7 +79,8 @@ public class TestExpressionInterpreter
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
                 "json",
                 ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"),
-                new TestingNodeManager());
+                new TestingNodeManager(),
+                emptyMap());
     }
 
     @Test

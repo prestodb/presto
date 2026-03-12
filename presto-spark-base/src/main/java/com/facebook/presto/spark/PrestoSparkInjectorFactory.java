@@ -220,11 +220,11 @@ public class PrestoSparkInjectorFactory
                             && !featuresConfig.isInlineSqlFunctions())) {
                 if (functionNamespaceProperties.isPresent()) {
                     injector.getInstance(StaticFunctionNamespaceStore.class)
-                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get(), ImmutableMap.of());
                 }
                 else {
                     injector.getInstance(StaticFunctionNamespaceStore.class)
-                            .loadFunctionNamespaceManagers();
+                            .loadFunctionNamespaceManagers(ImmutableMap.of());
                 }
             }
             bootstrapTimer.endDriverModulesLoading();

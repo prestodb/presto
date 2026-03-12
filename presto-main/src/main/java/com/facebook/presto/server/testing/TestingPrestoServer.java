@@ -15,6 +15,7 @@ package com.facebook.presto.server.testing;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.discovery.client.Announcer;
 import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
@@ -127,6 +128,7 @@ import java.util.concurrent.CountDownLatch;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.presto.server.PrestoServer.extractInternalCommunicationConfigs;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -186,6 +188,7 @@ public class TestingPrestoServer
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final Map<String, String> authClientConfigs;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -414,6 +417,7 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         expressionManager = injector.getInstance(ExpressionOptimizerManager.class);
+        authClientConfigs = extractInternalCommunicationConfigs(injector.getInstance(ConfigurationFactory.class).getProperties());
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -431,7 +435,7 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
             planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
-            expressionManager.loadExpressionOptimizerFactories();
+            expressionManager.loadExpressionOptimizerFactories(authClientConfigs);
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -561,6 +565,11 @@ public class TestingPrestoServer
                 deleteRecursively(dataDirectory, ALLOW_INSECURE);
             }
         }
+    }
+
+    public Map<String, String> getAuthClientConfigs()
+    {
+        return authClientConfigs;
     }
 
     public PluginManager getPluginManager()

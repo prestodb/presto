@@ -14,6 +14,8 @@
 package com.facebook.presto.sidecar.nativechecker;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.airlift.node.NodeConfig;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.SimplePlanFragment;
@@ -42,6 +44,8 @@ public class NativePlanCheckerModule
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(NodeConfig.class);
+        binder.bind(NodeInfo.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NativePlanCheckerConfig.class, NativePlanCheckerConfig.CONFIG_PREFIX);
         binder.install(new JsonModule());
         binder.bind(NodeManager.class).toInstance(nodeManager);

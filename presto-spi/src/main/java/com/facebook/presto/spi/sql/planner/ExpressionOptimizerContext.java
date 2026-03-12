@@ -18,6 +18,8 @@ import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionOptimizerContext
@@ -26,13 +28,20 @@ public class ExpressionOptimizerContext
     private final RowExpressionSerde rowExpressionSerde;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
+    private final Map<String, String> authClientConfigs;
 
-    public ExpressionOptimizerContext(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution)
+    public ExpressionOptimizerContext(
+            NodeManager nodeManager,
+            RowExpressionSerde rowExpressionSerde,
+            FunctionMetadataManager functionMetadataManager,
+            StandardFunctionResolution functionResolution,
+            Map<String, String> authClientConfigs)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
+        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
     }
 
     public NodeManager getNodeManager()
@@ -53,5 +62,10 @@ public class ExpressionOptimizerContext
     public StandardFunctionResolution getFunctionResolution()
     {
         return functionResolution;
+    }
+
+    public Map<String, String> getAuthClientConfigs()
+    {
+        return authClientConfigs;
     }
 }

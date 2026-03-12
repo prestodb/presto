@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.discovery.client.Announcer;
 import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
@@ -74,6 +75,7 @@ import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
@@ -169,6 +171,11 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
+            // todo: remove this hack, extract a light-weight POJO to pass down the configs
+            // get all required auth configs to pass down to http clients
+            Map<String, String> authClientConfigs =
+                    extractInternalCommunicationConfigs(injector.getInstance(ConfigurationFactory.class).getProperties());
+
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
             if (!serverConfig.isResourceManager()) {
@@ -187,7 +194,7 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(DriftServer.class));
 
-            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(authClientConfigs);
             injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -209,15 +216,15 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders(authClientConfigs);
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
-            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager, authClientConfigs);
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
-            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories(authClientConfigs);
 
             injector.getInstance(FunctionAndTypeManager.class)
                     .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
@@ -237,6 +244,21 @@ public class PrestoServer
             log.error(e);
             System.exit(1);
         }
+    }
+
+    public static Map<String, String> extractInternalCommunicationConfigs(Map<String, String> properties)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+
+        properties.forEach((key, value) -> {
+            // Requests through plugin HTTP clients should be treated as coming from the same node as the coordinator,
+            // so we propagate the required node properties here.
+            if (key.startsWith("internal-communication.") || key.equals("node.id") || key.equals("node.environment")) {
+                builder.put(key, value);
+            }
+        });
+
+        return builder.build();
     }
 
     protected Iterable<? extends Module> getAdditionalModules()

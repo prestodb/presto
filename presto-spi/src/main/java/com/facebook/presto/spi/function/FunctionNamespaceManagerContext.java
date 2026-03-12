@@ -16,6 +16,8 @@ package com.facebook.presto.spi.function;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 
+import java.util.Map;
+
 import static java.util.Objects.requireNonNull;
 
 public class FunctionNamespaceManagerContext
@@ -23,15 +25,18 @@ public class FunctionNamespaceManagerContext
     private final TypeManager typeManager;
     private final NodeManager nodeManager;
     private final FunctionMetadataManager functionMetadataManager;
+    private final Map<String, String> authClientConfigs;
 
     public FunctionNamespaceManagerContext(
             TypeManager typeManager,
             NodeManager nodeManager,
-            FunctionMetadataManager functionMetadataManager)
+            FunctionMetadataManager functionMetadataManager,
+            Map<String, String> authClientConfigs)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
     }
 
     public TypeManager getTypeManager()
@@ -47,5 +52,10 @@ public class FunctionNamespaceManagerContext
     public FunctionMetadataManager getFunctionMetadataManager()
     {
         return functionMetadataManager;
+    }
+
+    public Map<String, String> getAuthClientConfigs()
+    {
+        return authClientConfigs;
     }
 }

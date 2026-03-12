@@ -14,6 +14,7 @@
 package com.facebook.presto.sidecar.nativechecker;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.presto.server.CommonInternalCommunicationModule;
 import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
@@ -47,12 +48,13 @@ public class NativePlanCheckerProviderFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NativePlanCheckerModule(context.getNodeManager(), context.getSimplePlanFragmentSerde()),
+                    new CommonInternalCommunicationModule(),
                     new NativeSidecarCommunicationModule());
 
             Injector injector = app
-                    .noStrictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(properties)
+                    .setRequiredConfigurationProperties(context.getAuthClientConfigs())
                     .quiet()
                     .initialize();
 

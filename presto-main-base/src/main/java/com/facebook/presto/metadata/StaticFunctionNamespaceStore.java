@@ -46,7 +46,7 @@ public class StaticFunctionNamespaceStore
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
-    public void loadFunctionNamespaceManagers()
+    public void loadFunctionNamespaceManagers(Map<String, String> authClientConfigs)
             throws Exception
     {
         if (!functionNamespaceLoading.compareAndSet(false, true)) {
@@ -61,24 +61,24 @@ public class StaticFunctionNamespaceStore
                         "Function namespace configuration %s does not contain %s",
                         file.getAbsoluteFile(),
                         FUNCTION_NAMESPACE_MANAGER_NAME);
-                loadFunctionNamespaceManager(catalogName, properties);
+                loadFunctionNamespaceManager(catalogName, properties, authClientConfigs);
             }
         }
     }
 
-    public void loadFunctionNamespaceManagers(Map<String, Map<String, String>> catalogProperties)
+    public void loadFunctionNamespaceManagers(Map<String, Map<String, String>> catalogProperties, Map<String, String> authClientConfigs)
     {
         catalogProperties.entrySet().stream()
-                .forEach(entry -> loadFunctionNamespaceManager(entry.getKey(), entry.getValue()));
+                .forEach(entry -> loadFunctionNamespaceManager(entry.getKey(), entry.getValue(), authClientConfigs));
     }
 
-    private void loadFunctionNamespaceManager(String catalogName, Map<String, String> properties)
+    private void loadFunctionNamespaceManager(String catalogName, Map<String, String> properties, Map<String, String> authClientConfigs)
     {
         log.info("-- Loading function namespace manager for catalog %s --", catalogName);
         properties = new HashMap<>(properties);
         String functionNamespaceManagerName = properties.remove(FUNCTION_NAMESPACE_MANAGER_NAME);
         checkState(!isNullOrEmpty(functionNamespaceManagerName), "%s property must be present", FUNCTION_NAMESPACE_MANAGER_NAME);
-        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager, authClientConfigs);
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 

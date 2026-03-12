@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.security.BasicPrincipal;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -43,6 +44,7 @@ public class InternalAuthenticationManager
     private final boolean internalJwtEnabled;
     private final byte[] hmac;
     private final String nodeId;
+    private Optional<String> sharedSecret;
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)
@@ -52,7 +54,7 @@ public class InternalAuthenticationManager
 
     public InternalAuthenticationManager(Optional<String> sharedSecret, String nodeId, boolean internalJwtEnabled)
     {
-        requireNonNull(sharedSecret, "sharedSecret is null");
+        this.sharedSecret = requireNonNull(sharedSecret, "sharedSecret is null");
         requireNonNull(nodeId, "nodeId is null");
         this.internalJwtEnabled = internalJwtEnabled;
         if (internalJwtEnabled) {
@@ -129,5 +131,11 @@ public class InternalAuthenticationManager
         return fromRequest(request)
                 .addHeader(PRESTO_INTERNAL_BEARER, generateJwt())
                 .build();
+    }
+
+    @VisibleForTesting
+    public Optional<String> getSharedSecret()
+    {
+        return sharedSecret;
     }
 }

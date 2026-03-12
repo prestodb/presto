@@ -163,7 +163,7 @@ public final class SessionPropertyManager
                 new SessionPropertyProviderConfig());
     }
 
-    public void loadSessionPropertyProviders()
+    public void loadSessionPropertyProviders(Map<String, String> authClientConfigs)
             throws Exception
     {
         if (!sessionPropertyProvidersLoading.compareAndSet(false, true)) {
@@ -180,17 +180,22 @@ public final class SessionPropertyManager
                         SESSION_PROPERTY_PROVIDER_NAME);
                 properties = new HashMap<>(properties);
                 properties.remove(SESSION_PROPERTY_PROVIDER_NAME);
-                loadSessionPropertyProvider(sessionPropertyProviderName, properties, functionAndTypeManager, nodeManager);
+                loadSessionPropertyProvider(sessionPropertyProviderName, properties, functionAndTypeManager, nodeManager, authClientConfigs);
             }
         }
     }
 
-    public void loadSessionPropertyProvider(String sessionPropertyProviderName, Map<String, String> properties, Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
+    public void loadSessionPropertyProvider(
+            String sessionPropertyProviderName,
+            Map<String, String> properties,
+            Optional<TypeManager> typeManager,
+            Optional<NodeManager> nodeManager,
+            Map<String, String> authClientConfigs)
     {
         log.info("-- Loading %s session property provider --", sessionPropertyProviderName);
         WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);
         checkState(factory != null, "No factory for session property provider : " + sessionPropertyProviderName);
-        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager), properties);
+        WorkerSessionPropertyProvider sessionPropertyProvider = factory.create(new SessionPropertyContext(typeManager, nodeManager, authClientConfigs), properties);
         if (workerSessionPropertyProviders.putIfAbsent(sessionPropertyProviderName, sessionPropertyProvider) != null) {
             throw new IllegalArgumentException("System session property provider is already registered for property provider : " + sessionPropertyProviderName);
         }

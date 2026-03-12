@@ -106,6 +106,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
+import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -788,7 +789,21 @@ public class DistributedQueryRunner
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
+            server.getMetadata().getFunctionAndTypeManager()
+                    .loadFunctionNamespaceManager(
+                            functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), server.getAuthClientConfigs());
+        }
+    }
+
+    @Override
+    public void loadExpressionOptimizer(String expressionOptimizerFactoryName, String expressionOptimizerName, Map<String, String> properties)
+    {
+        for (TestingPrestoServer server : servers) {
+            server.getExpressionManager().loadExpressionOptimizerFactory(
+                    expressionOptimizerFactoryName,
+                    expressionOptimizerName,
+                    properties,
+                    server.getAuthClientConfigs());
         }
     }
 
@@ -1058,7 +1073,7 @@ public class DistributedQueryRunner
             if (coordinatorOnly && !server.isCoordinator()) {
                 continue;
             }
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
+            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), emptyMap());
         }
     }
 
@@ -1104,7 +1119,8 @@ public class DistributedQueryRunner
                     sessionPropertyProviderName,
                     properties,
                     Optional.ofNullable(server.getMetadata().getFunctionAndTypeManager()),
-                    Optional.ofNullable(server.getPluginNodeManager()));
+                    Optional.ofNullable(server.getPluginNodeManager()),
+                    server.getAuthClientConfigs());
         }
     }
 
@@ -1120,7 +1136,9 @@ public class DistributedQueryRunner
     public void loadPlanCheckerProviderManager(String planCheckerProviderName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getPlanCheckerProviderManager().loadPlanCheckerProvider(planCheckerProviderName, properties, server.getPluginNodeManager());
+            server.getPlanCheckerProviderManager()
+                    .loadPlanCheckerProvider(
+                            planCheckerProviderName, properties, server.getPluginNodeManager(), server.getAuthClientConfigs());
         }
     }
 

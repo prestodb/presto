@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
+import com.facebook.presto.server.CommonInternalCommunicationModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
@@ -55,12 +56,14 @@ public class RestBasedFunctionNamespaceManagerFactory
         try {
             Bootstrap app = new Bootstrap(
                     new RestBasedCommunicationModule(),
+                    new CommonInternalCommunicationModule(),
                     new RestBasedFunctionNamespaceManagerModule(catalogName),
                     new RestSqlFunctionExecutorsModule());
 
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
+                    .setRequiredConfigurationProperties(context.getAuthClientConfigs())
                     .initialize();
             return injector.getInstance(RestBasedFunctionNamespaceManager.class);
         }

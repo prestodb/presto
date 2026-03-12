@@ -38,7 +38,8 @@ public final class HiveFunctionsTestUtils
                 "hive-functions",
                 "hive",
                 getNamespaceManagerCreationProperties(),
-                server.getPluginNodeManager());
+                server.getPluginNodeManager(),
+                Collections.emptyMap());
         server.refreshNodes();
         return server;
     }

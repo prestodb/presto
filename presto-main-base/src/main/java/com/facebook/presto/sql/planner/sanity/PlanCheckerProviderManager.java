@@ -63,7 +63,7 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProviders(NodeManager nodeManager)
+    public void loadPlanCheckerProviders(NodeManager nodeManager, Map<String, String> authClientConfigs)
             throws IOException
     {
         for (File file : listFiles(configDirectory)) {
@@ -77,18 +77,18 @@ public class PlanCheckerProviderManager
                         "Plan checker configuration %s does not contain %s",
                         file.getAbsoluteFile(),
                         PLAN_CHECKER_PROVIDER_NAME);
-                loadPlanCheckerProvider(planCheckerProviderName, properties, nodeManager);
+                loadPlanCheckerProvider(planCheckerProviderName, properties, nodeManager, authClientConfigs);
             }
         }
     }
 
-    public void loadPlanCheckerProvider(String planCheckerProviderName, Map<String, String> properties, NodeManager nodeManager)
+    public void loadPlanCheckerProvider(String planCheckerProviderName, Map<String, String> properties, NodeManager nodeManager, Map<String, String> authClientConfigs)
     {
         checkArgument(!isNullOrEmpty(planCheckerProviderName), "Plan checker provider name is null or empty");
         requireNonNull(properties, "properties is null");
         requireNonNull(nodeManager, "nodeManager is null");
 
-        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager);
+        PlanCheckerProviderContext planCheckerProviderContext = new PlanCheckerProviderContext(simplePlanFragmentSerde, nodeManager, authClientConfigs);
 
         log.info("-- Loading plan checker provider [%s] --", planCheckerProviderName);
         PlanCheckerProviderFactory providerFactory = providerFactories.get(planCheckerProviderName);
