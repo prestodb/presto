@@ -55,6 +55,8 @@ public class MetadataManagerStats
     private final AtomicLong getNewTableLayoutCalls = new AtomicLong();
     private final AtomicLong beginCreateTableCalls = new AtomicLong();
     private final AtomicLong finishCreateTableCalls = new AtomicLong();
+    private final AtomicLong beginCreateVectorIndexCalls = new AtomicLong();
+    private final AtomicLong finishCreateVectorIndexCalls = new AtomicLong();
     private final AtomicLong getInsertLayoutCalls = new AtomicLong();
     private final AtomicLong getStatisticsCollectionMetadataForWriteCalls = new AtomicLong();
     private final AtomicLong getStatisticsCollectionMetadataCalls = new AtomicLong();
@@ -165,6 +167,8 @@ public class MetadataManagerStats
     private final TimeStat getNewTableLayoutTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat beginCreateTableTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat finishCreateTableTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat beginCreateVectorIndexTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat finishCreateVectorIndexTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getInsertLayoutTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getStatisticsCollectionMetadataForWriteTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getStatisticsCollectionMetadataTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -646,6 +650,20 @@ public class MetadataManagerStats
     public TimeStat getFinishCreateTableTime()
     {
         return finishCreateTableTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getBeginCreateVectorIndexTime()
+    {
+        return beginCreateVectorIndexTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getFinishCreateVectorIndexTime()
+    {
+        return finishCreateVectorIndexTime;
     }
 
     @Managed
@@ -1355,6 +1373,18 @@ public class MetadataManagerStats
     {
         finishCreateTableCalls.incrementAndGet();
         finishCreateTableTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordBeginCreateVectorIndexCall(long duration)
+    {
+        beginCreateVectorIndexCalls.incrementAndGet();
+        beginCreateVectorIndexTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordFinishCreateVectorIndexCall(long duration)
+    {
+        finishCreateVectorIndexCalls.incrementAndGet();
+        finishCreateVectorIndexTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordGetInsertLayoutCall(long duration)
