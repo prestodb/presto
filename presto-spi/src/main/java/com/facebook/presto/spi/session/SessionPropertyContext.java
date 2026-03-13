@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.session;
 
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 
@@ -24,11 +25,13 @@ public class SessionPropertyContext
 {
     private final Optional<TypeManager> typeManager;
     private final Optional<NodeManager> nodeManager;
+    private final AuthClientConfigs authClientConfigs;
 
-    public SessionPropertyContext(Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager)
+    public SessionPropertyContext(Optional<TypeManager> typeManager, Optional<NodeManager> nodeManager, AuthClientConfigs authClientConfigs)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
     }
 
     public NodeManager getNodeManager()
@@ -39,5 +42,10 @@ public class SessionPropertyContext
     public TypeManager getTypeManager()
     {
         return typeManager.orElseThrow(() -> new IllegalArgumentException("typeManager is not present"));
+    }
+
+    public AuthClientConfigs getAuthClientConfigs()
+    {
+        return authClientConfigs;
     }
 }

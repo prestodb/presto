@@ -24,6 +24,7 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -55,6 +56,7 @@ import static com.facebook.airlift.http.client.StringResponseHandler.createStrin
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.EAGER_PLAN_VALIDATION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -392,7 +394,8 @@ public class TestQueues
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.installCoordinatorPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
         PlanCheckerProviderManager planCheckerProviderManager = queryRunner.getCoordinator().getInstance(Key.get(PlanCheckerProviderManager.class));
-        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        NodeManager nodeManager = new TestingNodeManager();
+        planCheckerProviderManager.loadPlanCheckerProviders(nodeManager, defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
         queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
 
         Session.SessionBuilder builder = testSessionBuilder()

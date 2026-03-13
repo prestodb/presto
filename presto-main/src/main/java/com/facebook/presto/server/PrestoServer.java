@@ -34,6 +34,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -169,6 +170,12 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
+            // get all required auth configs to pass down to http clients
+            AuthClientConfigs authClientConfigs =
+                    createAuthClientConfigs(
+                            injector.getInstance(InternalCommunicationConfig.class),
+                            injector.getInstance(NodeInfo.class));
+
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
             if (!serverConfig.isResourceManager()) {
@@ -187,7 +194,7 @@ public class PrestoServer
                     injector.getInstance(Announcer.class),
                     injector.getInstance(DriftServer.class));
 
-            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(authClientConfigs);
             injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
@@ -209,15 +216,15 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
-            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders(authClientConfigs);
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
-            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager, authClientConfigs);
 
             injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
-            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories(authClientConfigs);
 
             injector.getInstance(FunctionAndTypeManager.class)
                     .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
@@ -237,6 +244,20 @@ public class PrestoServer
             log.error(e);
             System.exit(1);
         }
+    }
+
+    public static AuthClientConfigs createAuthClientConfigs(InternalCommunicationConfig config, NodeInfo nodeInfo)
+    {
+        return new AuthClientConfigs(
+                nodeInfo.getNodeId(),
+                config.getKeyStorePath(),
+                config.getKeyStorePassword(),
+                config.getTrustStorePath(),
+                config.getTrustStorePassword(),
+                config.getExcludeCipherSuites(),
+                config.getIncludedCipherSuites(),
+                config.isInternalJwtEnabled(),
+                config.getSharedSecret());
     }
 
     protected Iterable<? extends Module> getAdditionalModules()

@@ -113,6 +113,7 @@ import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.INFO;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.airlift.units.Duration.nanosSince;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getQueryExecutionStrategies;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
@@ -710,7 +711,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager, defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 
     @Override
