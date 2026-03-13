@@ -14,10 +14,12 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -38,7 +40,9 @@ public class TestLanceConfig
                 .setMaxRowsPerGroup(100_000)
                 .setWriteBatchSize(10_000)
                 .setIndexCacheSize(new DataSize(128, MEGABYTE))
-                .setMetadataCacheSize(new DataSize(128, MEGABYTE)));
+                .setMetadataCacheSize(new DataSize(128, MEGABYTE))
+                .setDatasetCacheMaxEntries(100)
+                .setDatasetCacheTtl(new Duration(60, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -54,6 +58,8 @@ public class TestLanceConfig
                 .put("lance.write-batch-size", "5000")
                 .put("lance.index-cache-size", "256MB")
                 .put("lance.metadata-cache-size", "512MB")
+                .put("lance.dataset-cache-max-entries", "50")
+                .put("lance.dataset-cache-ttl", "30m")
                 .build();
 
         LanceConfig expected = new LanceConfig()
@@ -65,7 +71,9 @@ public class TestLanceConfig
                 .setMaxRowsPerGroup(50_000)
                 .setWriteBatchSize(5_000)
                 .setIndexCacheSize(new DataSize(256, MEGABYTE))
-                .setMetadataCacheSize(new DataSize(512, MEGABYTE));
+                .setMetadataCacheSize(new DataSize(512, MEGABYTE))
+                .setDatasetCacheMaxEntries(50)
+                .setDatasetCacheTtl(new Duration(30, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }
