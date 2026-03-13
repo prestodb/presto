@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
 import static com.facebook.presto.sql.planner.PlannerUtils.getVariableHash;
+import static com.facebook.presto.sql.planner.PlannerUtils.isDeterministicScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.isScanFilterProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
 import static com.facebook.presto.sql.planner.PlannerUtils.restrictOutput;
@@ -190,8 +191,14 @@ public class JoinPrefilter
             PlanNode rewrittenRight = rewriteWith(this, right);
             List<EquiJoinClause> equiJoinClause = node.getCriteria();
 
-            // We apply this for only left and inner join and the left side of the join is a simple scan
-            if ((node.getType() == LEFT || node.getType() == INNER) && isScanFilterProject(rewrittenLeft) && !node.getCriteria().isEmpty()) {
+            // We apply this for only left and inner join and the left side of the join is a simple scan.
+            // We also require that all expressions in the left subtree are deterministic, because
+            // cloning a subtree with non-deterministic expressions (like rand() from TABLESAMPLE BERNOULLI)
+            // would produce different results from each clone, leading to incorrect query results.
+            if ((node.getType() == LEFT || node.getType() == INNER)
+                    && isScanFilterProject(rewrittenLeft)
+                    && isDeterministicScanFilterProject(rewrittenLeft, functionAndTypeManager)
+                    && !node.getCriteria().isEmpty()) {
                 List<VariableReferenceExpression> leftKeyList = equiJoinClause.stream().map(EquiJoinClause::getLeft).collect(toImmutableList());
                 List<VariableReferenceExpression> rightKeyList = equiJoinClause.stream().map(EquiJoinClause::getRight).collect(toImmutableList());
                 checkState(IntStream.range(0, leftKeyList.size()).boxed().allMatch(i -> leftKeyList.get(i).getType().equals(rightKeyList.get(i).getType())));

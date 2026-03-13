@@ -40,6 +40,7 @@ import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -48,6 +49,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -470,6 +472,37 @@ public class PlannerUtils
         return node instanceof TableScanNode ||
                 node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
                 node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
+    }
+
+    /**
+     * Returns true if the scan-filter-project plan subtree contains only deterministic
+     * expressions in all filters and projections. This check is critical for optimizations
+     * that clone the subtree (e.g., JoinPrefilter), because cloning a subtree with
+     * non-deterministic expressions (like rand()) produces different results from each
+     * clone, leading to incorrect query results.
+     */
+    public static boolean isDeterministicScanFilterProject(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        return isDeterministicPlanSubtree(node, determinismEvaluator);
+    }
+
+    private static boolean isDeterministicPlanSubtree(PlanNode node, DeterminismEvaluator determinismEvaluator)
+    {
+        if (node instanceof TableScanNode) {
+            return true;
+        }
+        else if (node instanceof FilterNode) {
+            FilterNode filterNode = (FilterNode) node;
+            return determinismEvaluator.isDeterministic(filterNode.getPredicate())
+                    && isDeterministicPlanSubtree(filterNode.getSource(), determinismEvaluator);
+        }
+        else if (node instanceof ProjectNode) {
+            ProjectNode projectNode = (ProjectNode) node;
+            return projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)
+                    && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator);
+        }
+        return false;
     }
 
     public static CallExpression equalityPredicate(FunctionResolution functionResolution, RowExpression leftExpr, RowExpression rightExpr)
