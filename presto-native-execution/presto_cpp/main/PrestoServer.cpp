@@ -931,7 +931,7 @@ class BatchThreadFactory : public folly::NamedThreadFactory {
 #endif
 
 void PrestoServer::initializeThreadPools() {
-  const auto hwConcurrency = folly::hardware_concurrency();
+  const auto hwConcurrency = folly::available_concurrency();
   auto* systemConfig = SystemConfig::instance();
 
   const auto numDriverCpuThreads = std::max<size_t>(
@@ -975,7 +975,7 @@ void PrestoServer::initializeThreadPools() {
   }
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
-          folly::hardware_concurrency(),
+          folly::available_concurrency(),
       1);
   exchangeHttpIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
       numExchangeHttpClientIoThreads,
@@ -995,7 +995,7 @@ void PrestoServer::initializeThreadPools() {
 
   const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
-          folly::hardware_concurrency(),
+          folly::available_concurrency(),
       1);
 
   exchangeHttpCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
@@ -1367,7 +1367,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
   const auto numConnectorCpuThreads = std::max<size_t>(
       SystemConfig::instance()->connectorNumCpuThreadsHwMultiplier() *
-          folly::hardware_concurrency(),
+          folly::available_concurrency(),
       0);
   if (numConnectorCpuThreads > 0) {
     connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
@@ -1381,7 +1381,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
 
   const auto numConnectorIoThreads = std::max<size_t>(
       SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
-          folly::hardware_concurrency(),
+          folly::available_concurrency(),
       0);
   if (numConnectorIoThreads > 0) {
     connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
@@ -1707,7 +1707,7 @@ void PrestoServer::checkOverload() {
     memOverloaded_ = memOverloaded;
   }
 
-  static const auto hwConcurrency = folly::hardware_concurrency();
+  static const auto hwConcurrency = folly::available_concurrency();
   const auto overloadedThresholdCpuPct =
       systemConfig->workerOverloadedThresholdCpuPct();
   const auto overloadedThresholdQueuedDrivers = hwConcurrency *
@@ -1902,7 +1902,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       address_,
       address_,
       **memoryInfo_.rlock(),
-      (int)folly::hardware_concurrency(),
+      (int)folly::available_concurrency(),
       cpuLoadPct,
       cpuLoadPct,
       pool_ ? pool_->usedBytes() : 0,
