@@ -69,6 +69,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isAggregatePushDownEnabled;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
@@ -94,7 +95,7 @@ public class IcebergAggregationOptimizer
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        if (isPushdownFilterEnabled(session)) {
+        if (!isAggregatePushDownEnabled(session) || isPushdownFilterEnabled(session)) {
             return maxSubplan;
         }
         Optimizer optimizer = new Optimizer(session, idAllocator, icebergTransactionManager, functionResolution);
@@ -146,7 +147,7 @@ public class IcebergAggregationOptimizer
             }
 
             Expression filter = toIcebergExpression(predicate);
-            // Fold min/max aggregations to a constant value
+            // Fold min/max/count aggregations to a constant value
             return reduce(node, table.schema(), table, tableHandle.getIcebergTableName().getSnapshotId(), filter);
         }
 
