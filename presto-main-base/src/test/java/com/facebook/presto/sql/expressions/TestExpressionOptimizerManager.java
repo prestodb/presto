@@ -152,10 +152,16 @@ public class TestExpressionOptimizerManager
 
     public ExpressionOptimizerFactory getExpressionOptimizerFactory(String name)
     {
-        return new ExpressionOptimizerFactory() {
+        return new ExpressionOptimizerFactory()
+        {
             @Override
             public ExpressionOptimizer createOptimizer(Map<String, String> config, ExpressionOptimizerContext context)
             {
+                // verify if AuthClientConfigs properly propagated into ExpressionOptimizerContext
+                assertEquals(
+                        context.getAuthClientConfigs().getNodeId(),
+                        pluginNodeManager.getCurrentNode().getNodeIdentifier(),
+                        "AuthClientConfigs.nodeId should match current plugin node identifier");
                 return (expression, level, session, variableResolver) -> constant(
                         Slices.utf8Slice(name),
                         METADATA.getType(TypeSignature.parseTypeSignature(format("varchar(%s)", name.length()))));

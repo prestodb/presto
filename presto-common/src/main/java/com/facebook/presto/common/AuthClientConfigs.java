@@ -31,10 +31,10 @@ public class AuthClientConfigs
     {
         return new AuthClientConfigs(
                 nodeId,
-                "",
-                "",
-                "",
-                "",
+                null,
+                null,
+                null,
+                null,
                 Optional.empty(),
                 Optional.empty(),
                 false,
