@@ -13,10 +13,13 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
+#include <glog/logging.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/properties/session/CudfSessionProperties.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/experimental/cudf/common/CudfConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::presto {
@@ -239,7 +242,29 @@ void updateFromSystemConfigs(
     }
   }
 }
+
 } // namespace
+
+velox::cudf_velox::CudfQueryConfig toCudfConfigs(
+    const protocol::SessionRepresentation& session) {
+  std::unordered_map<std::string, std::string> cudfConfigs;
+  auto* cudfSessionProperties = cudf::CudfSessionProperties::instance();
+
+  // Iterate through session properties and extract cuDF configs
+  for (const auto& [sessionPropName, sessionPropValue] :
+       session.systemProperties) {
+    // Use toVeloxConfig to get the mapped Velox config name
+    // CudfConfig::updateConfigs() will only process keys it recognizes
+    const auto veloxConfigName =
+        cudfSessionProperties->toVeloxConfig(sessionPropName);
+
+    if (!veloxConfigName.empty()) {
+      cudfConfigs[veloxConfigName] = sessionPropValue;
+    }
+  }
+
+  return velox::cudf_velox::CudfQueryConfig(std::move(cudfConfigs));
+}
 
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {

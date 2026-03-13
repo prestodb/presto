@@ -14,11 +14,14 @@
 
 #include "presto_cpp/main/QueryContextManager.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <glog/logging.h>
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
+// CudfConfig is plain C++ (no CUDA) - always include for CudfQueryConfig type.
+#include "velox/experimental/cudf/common/CudfConfig.h"
 
 using namespace facebook::velox;
 
@@ -110,6 +113,7 @@ QueryContextManager::findOrCreateQueryCtx(
       taskId,
       toVeloxConfigs(
           taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+      toCudfConfigs(taskUpdateRequest.session),
       toConnectorConfigs(taskUpdateRequest));
 }
 
@@ -122,6 +126,7 @@ QueryContextManager::findOrCreateBatchQueryCtx(
       taskId,
       toVeloxConfigs(
           taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+      toCudfConfigs(taskUpdateRequest.session),
       toConnectorConfigs(taskUpdateRequest));
   if (queryCtx->pool()->aborted()) {
     // In Batch mode, only one query is running at a time. When tasks fail
@@ -138,6 +143,7 @@ QueryContextManager::findOrCreateBatchQueryCtx(
         taskId,
         toVeloxConfigs(
             taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
+        toCudfConfigs(taskUpdateRequest.session),
         toConnectorConfigs(taskUpdateRequest));
   }
   return queryCtx;
@@ -159,6 +165,7 @@ std::shared_ptr<core::QueryCtx>
 QueryContextManager::createAndCacheQueryCtxLocked(
     const QueryId& queryId,
     velox::core::QueryConfig&& queryConfig,
+    velox::cudf_velox::CudfQueryConfig&& cudfConfigs,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
         connectorConfigs,
     std::shared_ptr<memory::MemoryPool>&& pool) {
@@ -169,13 +176,16 @@ QueryContextManager::createAndCacheQueryCtxLocked(
       cache::AsyncDataCache::getInstance(),
       std::move(pool),
       spillerExecutor_,
-      queryId);
+      queryId,
+      /* tokenProvider */ nullptr,
+      std::move(cudfConfigs));
   return queryContextCache_.insert(queryId, std::move(queryCtx));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
     const TaskId& taskId,
     velox::core::QueryConfig&& queryConfig,
+    velox::cudf_velox::CudfQueryConfig&& cudfConfigs,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
         connectorConfigs) {
   const QueryId queryId{queryIdFromTaskId(taskId)};
@@ -208,6 +218,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
   return createAndCacheQueryCtxLocked(
       queryId,
       std::move(queryConfig),
+      std::move(cudfConfigs),
       std::move(connectorConfigs),
       std::move(pool));
 }
