@@ -107,6 +107,7 @@ public class SqlStandardAccessControl
     private final String connectorId;
     private final HiveTransactionManager hiveTransactionManager;
     private final boolean restrictProcedureCall;
+    private final ProcedureAccessControl procedureAccessControl;
 
     @Inject
     public SqlStandardAccessControl(
@@ -117,6 +118,7 @@ public class SqlStandardAccessControl
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.restrictProcedureCall = requireNonNull(securityConfig, "securityConfig is null").isRestrictProcedureCall();
+        this.procedureAccessControl = new ProcedureAccessControl(securityConfig);
     }
 
     @Override
@@ -364,9 +366,11 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
     {
-        if (restrictProcedureCall) {
-            denyCallProcedure(procedureName.toString());
+        if (!restrictProcedureCall) {
+            return;
         }
+
+        procedureAccessControl.checkCanCallProcedure(identity, procedureName);
     }
 
     @Override

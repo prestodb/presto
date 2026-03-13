@@ -447,13 +447,16 @@ limitations and differences:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+Procedure calls are denied by default. To allow procedure calls, configure
+procedure access control rules:
+
 ================================================== ================================================================ ============
 Property Name                                      Description                                                      Default
 ================================================== ================================================================ ============
-``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
-                                                   calls are restricted. It defaults to ``true``, meaning procedure
-                                                   calls are not allowed. Set it to ``false`` to allow procedure
-                                                   calls.
+``hive.procedure-access-control.config-file``      Path to a JSON file containing procedure access control rules.   none
+                                                   See :ref:`hive-file-based-authorization` for the rule format.
+
+``hive.procedure-access-control.refresh-period``   How often the rules file is reloaded.                            none
 ================================================== ================================================================ ============
 
 .. _hive-file-based-authorization:
@@ -671,8 +674,8 @@ Property Name                                      Description                  
 
 ``ranger.http-client.trust-store-password``        Ranger SSL configuration - client trust-store password
 
-``hive.restrict-procedure-call``                   A configuration property that controls whether procedure         true
-                                                   calls are restricted. It defaults to ``true``, meaning procedure
-                                                   calls are not allowed. Set it to ``false`` to allow procedure
-                                                   calls.
+``hive.procedure-access-control.config-file``      Path to a JSON file containing procedure access control rules.   none
+                                                   See :ref:`hive-file-based-authorization` for the rule format.
+
+``hive.procedure-access-control.refresh-period``   How often the rules file is reloaded.                            none
 ================================================== ================================================================ ============

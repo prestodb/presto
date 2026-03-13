@@ -14,12 +14,17 @@
 package com.facebook.presto.hive.security;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 
 public class SecurityConfig
 {
     private String securitySystem = "legacy";
     private boolean restrictProcedureCall = true;
+    private String procedureAccessControlConfigFile;
+    private Duration procedureAccessControlRefreshPeriod;
 
     @NotNull
     public String getSecuritySystem()
@@ -34,15 +39,44 @@ public class SecurityConfig
         return this;
     }
 
+    @Deprecated
     public boolean isRestrictProcedureCall()
     {
         return restrictProcedureCall;
     }
 
+    @Deprecated
     @Config("hive.restrict-procedure-call")
     public SecurityConfig setRestrictProcedureCall(boolean restrictProcedureCall)
     {
         this.restrictProcedureCall = restrictProcedureCall;
+        return this;
+    }
+
+    public String getProcedureAccessControlConfigFile()
+    {
+        return procedureAccessControlConfigFile;
+    }
+
+    @Config("hive.procedure-access-control.config-file")
+    @ConfigDescription("Path to a JSON file containing procedure access control rules")
+    public SecurityConfig setProcedureAccessControlConfigFile(String procedureAccessControlConfigFile)
+    {
+        this.procedureAccessControlConfigFile = procedureAccessControlConfigFile;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getProcedureAccessControlRefreshPeriod()
+    {
+        return procedureAccessControlRefreshPeriod;
+    }
+
+    @Config("hive.procedure-access-control.refresh-period")
+    @ConfigDescription("How often the procedure access control rules file is reloaded")
+    public SecurityConfig setProcedureAccessControlRefreshPeriod(Duration procedureAccessControlRefreshPeriod)
+    {
+        this.procedureAccessControlRefreshPeriod = procedureAccessControlRefreshPeriod;
         return this;
     }
 }

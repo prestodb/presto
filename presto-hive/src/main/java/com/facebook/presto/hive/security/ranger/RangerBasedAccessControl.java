@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.hive.security.ProcedureAccessControl;
 import com.facebook.presto.hive.security.SecurityConfig;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -52,7 +53,6 @@ import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlC
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_GROUP_URL;
 import static com.facebook.presto.hive.security.ranger.RangerBasedAccessControlConfig.RANGER_REST_USER_ROLES_URL;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
-import static com.facebook.presto.spi.security.AccessDeniedException.denyCallProcedure;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
@@ -94,6 +94,7 @@ public class RangerBasedAccessControl
     private final Supplier<ServicePolicies> servicePolicies;
     private final HttpClient httpClient;
     private final boolean restrictProcedureCall;
+    private final ProcedureAccessControl procedureAccessControl;
 
     @Inject
     public RangerBasedAccessControl(RangerBasedAccessControlConfig config, SecurityConfig securityConfig, @ForRangerInfo HttpClient httpClient)
@@ -104,6 +105,7 @@ public class RangerBasedAccessControl
         requireNonNull(securityConfig, "securityConfig is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.restrictProcedureCall = securityConfig.isRestrictProcedureCall();
+        this.procedureAccessControl = new ProcedureAccessControl(securityConfig);
 
         try {
             servicePolicies = memoizeWithExpiration(
@@ -425,9 +427,11 @@ public class RangerBasedAccessControl
     @Override
     public void checkCanCallProcedure(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName procedureName)
     {
-        if (restrictProcedureCall) {
-            denyCallProcedure(procedureName.toString());
+        if (!restrictProcedureCall) {
+            return;
         }
+
+        procedureAccessControl.checkCanCallProcedure(identity, procedureName);
     }
 
     /**
