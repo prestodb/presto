@@ -43,6 +43,8 @@ Property Name                         Description                               
 ``lance.write-batch-size``            Number of rows to batch before writing to Arrow.               ``10000``
 ``lance.index-cache-size``            Size of Lance index cache per worker.                         ``128MB``
 ``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                      ``128MB``
+``lance.dataset-cache-max-entries``   Maximum number of cached Lance datasets per worker.            ``100``
+``lance.dataset-cache-ttl``           TTL for cached Lance datasets.                                ``60m``
 ===================================== ============================================================= ===============
 
 ``lance.impl``
@@ -118,6 +120,20 @@ scalar and vector index data to speed up filtered queries. The default is
 Size of the Lance metadata cache per worker node. The metadata cache
 stores dataset and fragment metadata to reduce I/O on repeated queries. The
 default is ``128MB``.
+
+``lance.dataset-cache-max-entries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Maximum number of Lance dataset objects cached per worker node. Caching
+datasets avoids repeated ``Dataset.open()`` calls for the same table. The
+cache is automatically invalidated on write operations. The default is ``100``.
+
+``lance.dataset-cache-ttl``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time-to-live for cached Lance dataset objects. After this duration of
+inactivity, cached datasets are evicted and their resources released. The
+default is ``60m`` (60 minutes).
 
 Data Types
 ----------
