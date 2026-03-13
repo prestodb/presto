@@ -44,7 +44,7 @@ public class InternalAuthenticationManager
     private final boolean internalJwtEnabled;
     private final byte[] hmac;
     private final String nodeId;
-    private Optional<String> sharedSecret;
+    private final Optional<String> sharedSecret;
 
     @Inject
     public InternalAuthenticationManager(InternalCommunicationConfig internalCommunicationConfig, NodeInfo nodeInfo)

@@ -170,7 +170,6 @@ public class PrestoServer
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
-            // todo: remove this hack, extract a light-weight POJO to pass down the configs
             // get all required auth configs to pass down to http clients
             AuthClientConfigs authClientConfigs =
                     createAuthClientConfigs(

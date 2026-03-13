@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.airlift.http.client.spnego.KerberosConfig;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.server.security.InternalAuthenticationFilter;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -55,6 +56,38 @@ public class CommonInternalCommunicationModule
 
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
         binder.bind(InternalAuthenticationManager.class);
+        httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
+        jaxrsBinder(binder).bind(InternalAuthenticationFilter.class);
+    }
+
+    public static void bindHttpClientDefaults(Binder binder, AuthClientConfigs authClientConfigs)
+    {
+        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setKeyStorePath(authClientConfigs.getKeyStorePath());
+            config.setKeyStorePassword(authClientConfigs.getKeyStorePassword());
+            config.setTrustStorePath(authClientConfigs.getTrustStorePath());
+            config.setTrustStorePassword(authClientConfigs.getTrustStorePassword());
+
+            authClientConfigs.getIncludedCipherSuites()
+                    .ifPresent(config::setHttpsIncludedCipherSuites);
+
+            authClientConfigs.getExcludeCipherSuites()
+                    .ifPresent(config::setHttpsExcludedCipherSuites);
+        });
+    }
+
+    public static void bindInternalAuth(Binder binder, AuthClientConfigs authClientConfigs)
+    {
+        bindHttpClientDefaults(binder, authClientConfigs);
+
+        InternalAuthenticationManager manager =
+                new InternalAuthenticationManager(
+                        authClientConfigs.getSharedSecret(),
+                        authClientConfigs.getNodeId(),
+                        authClientConfigs.isInternalJwtEnabled());
+
+        binder.bind(InternalAuthenticationManager.class).toInstance(manager);
+        binder.bind(AuthClientConfigs.class).toInstance(authClientConfigs);
         httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
         jaxrsBinder(binder).bind(InternalAuthenticationFilter.class);
     }

@@ -13,19 +13,13 @@
  */
 package com.facebook.presto.functionNamespace.rest;
 
-import com.facebook.airlift.http.client.HttpClientConfig;
 import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.functionNamespace.ForRestServer;
-import com.facebook.presto.server.InternalAuthenticationManager;
-import com.facebook.presto.server.security.InternalAuthenticationFilter;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
-import jakarta.inject.Singleton;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static com.facebook.presto.server.CommonInternalCommunicationModule.bindInternalAuth;
 import static java.util.Objects.requireNonNull;
 
 public class RestBasedCommunicationModule
@@ -37,36 +31,11 @@ public class RestBasedCommunicationModule
     {
         this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
     }
+
     @Override
     public void configure(Binder binder)
     {
-        configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
-            config.setKeyStorePath(authClientConfigs.getKeyStorePath());
-            config.setKeyStorePassword(authClientConfigs.getKeyStorePassword());
-            config.setTrustStorePath(authClientConfigs.getTrustStorePath());
-            config.setTrustStorePassword(authClientConfigs.getTrustStorePassword());
-            if (authClientConfigs.getIncludedCipherSuites().isPresent()) {
-                config.setHttpsIncludedCipherSuites(authClientConfigs.getIncludedCipherSuites().get());
-            }
-            if (authClientConfigs.getExcludeCipherSuites().isPresent()) {
-                config.setHttpsExcludedCipherSuites(authClientConfigs.getExcludeCipherSuites().get());
-            }
-        });
-
-        binder.bind(AuthClientConfigs.class).toInstance(authClientConfigs);
-        httpClientBinder(binder).bindGlobalFilter(InternalAuthenticationManager.class);
-        jaxrsBinder(binder).bind(InternalAuthenticationFilter.class);
+        bindInternalAuth(binder, authClientConfigs);
         httpClientBinder(binder).bindHttpClient("restServer", ForRestServer.class);
-    }
-
-    @Provides
-    @Singleton
-    public InternalAuthenticationManager provideInternalAuthenticationManager(
-            AuthClientConfigs authClientConfigs)
-    {
-        return new InternalAuthenticationManager(
-                authClientConfigs.getSharedSecret(),
-                authClientConfigs.getNodeId(),
-                authClientConfigs.isInternalJwtEnabled());
     }
 }
