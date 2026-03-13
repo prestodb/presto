@@ -14,6 +14,10 @@
 package com.facebook.presto.tests.operator.scalar;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.StandardErrorCode;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public interface TestFunctions
 {
@@ -29,10 +33,20 @@ public interface TestFunctions
     void assertNotSupported(String projection, String message);
 
     /**
-     * Asserts that the projection contains an invalid function call and fails
-     * with the specified functional error message.
+     * Asserts that the projection is an invalid function call and that it fails with the expected error code and
+     * message.
      */
-    void assertInvalidFunction(String projection, String message);
+    void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern);
+
+    default void assertInvalidFunction(String projection, StandardErrorCode expectedErrorCode)
+    {
+        assertInvalidFunction(projection, expectedErrorCode, ".*");
+    }
+
+    default void assertInvalidFunction(String projection, String message)
+    {
+        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
+    }
 
     /**
      * Asserts that the projection contains an invalid type conversion (cast)
