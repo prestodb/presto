@@ -158,7 +158,7 @@ public class BooleanBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (nonNullValueTemp.length < minNonNullValueSize) {
             nonNullValueTemp = new byte[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(nonNullValueTemp));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.getSetBits(nonNullCount, nonNullValueTemp);
@@ -224,6 +224,6 @@ public class BooleanBatchStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(nonNullValueTemp);
     }
 }
