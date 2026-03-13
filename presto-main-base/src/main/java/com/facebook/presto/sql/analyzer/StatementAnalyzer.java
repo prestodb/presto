@@ -109,6 +109,7 @@ import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -1141,6 +1142,71 @@ class StatementAnalyzer
             analysis.setUpdateInfo(node.getUpdateInfo());
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateVectorIndex(CreateVectorIndex node, Optional<Scope> scope)
+        {
+            QualifiedObjectName sourceTableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            if (!metadataResolver.tableExists(sourceTableName)) {
+                throw new SemanticException(MISSING_TABLE, node, "Source table '%s' does not exist", sourceTableName);
+            }
+
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getIndexName(), metadata);
+            if (metadataResolver.tableExists(targetTable)) {
+                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+            }
+
+            // Analyze the source table to build a proper scope with typed columns
+            // Use AllowAllAccessControl since we check permissions separately below
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector);
+
+            Table sourceTable = new Table(node.getTableName());
+            Scope tableScope = analyzer.analyze(sourceTable, scope);
+
+            // Validate that specified columns exist in the source table
+            TableHandle sourceTableHandle = metadataResolver.getTableHandle(sourceTableName).get();
+            Map<String, ColumnHandle> sourceColumns = metadataResolver.getColumnHandles(sourceTableHandle);
+            for (Identifier column : node.getColumns()) {
+                if (!sourceColumns.containsKey(column.getValue())) {
+                    throw new SemanticException(MISSING_COLUMN, column, "Column '%s' does not exist in source table '%s'", column.getValue(), sourceTableName);
+                }
+            }
+
+            // Analyze UPDATING FOR predicate (validates column references, types, etc.)
+            node.getUpdatingFor().ifPresent(where -> analyzeWhere(node, tableScope, where));
+
+            validateProperties(node.getProperties(), scope);
+
+            Map<String, Expression> allProperties = mapFromProperties(node.getProperties());
+
+            // user must have read permission on the source table to create a vector index
+            Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                    .putAll(sourceTableName, sourceColumns.keySet().stream()
+                            .map(column -> new Subfield(column, ImmutableList.of()))
+                            .collect(toImmutableSet()))
+                    .build();
+            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(),
+                    session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
+
+            analysis.addAccessControlCheckForTable(TABLE_CREATE,
+                    new AccessControlInfoForTable(accessControl, session.getIdentity(),
+                            session.getTransactionId(), session.getAccessControlContext(), targetTable));
+
+            analysis.setCreateVectorIndexAnalysis(new Analysis.CreateVectorIndexAnalysis(
+                    sourceTableName,
+                    targetTable,
+                    node.getColumns(),
+                    allProperties,
+                    node.getUpdatingFor()));
+
+            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "result", VARCHAR));
         }
 
         @Override
