@@ -2922,6 +2922,7 @@ public class TestHiveMaterializedViewLogicalPlanner
         String table2 = "orders_partitioned_target";
         String table3 = "orders_from_mv";
         String table4 = "orders_from_refreshed_mv";
+        String table5 = "orders_from_mv_no_stitch";
         String view = "test_orders_view";
         try {
             queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
@@ -2936,8 +2937,15 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE 1=0", table2, table1), 0);
             assertTrue(getQueryRunner().tableExists(getSession(), table2));
 
-            // CTAS from a materialized view should succeed (MV is not yet refreshed so storage is empty)
-            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE ds = '2020-01-01'", table3, view), 0);
+            // CTAS from unrefreshed MV without data consistency should read from empty storage
+            Session noStitchSession = Session.builder(getSession())
+                    .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                    .build();
+            assertUpdate(noStitchSession, format("CREATE TABLE %s AS SELECT * FROM %s WHERE ds = '2020-01-01'", table5, view), 0);
+            assertTrue(getQueryRunner().tableExists(getSession(), table5));
+
+            // CTAS from unrefreshed MV should read from base table via stitching
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WHERE ds = '2020-01-01'", table3, view), 255);
             assertTrue(getQueryRunner().tableExists(getSession(), table3));
 
             // Refresh the MV so it has data, then CTAS should read from the refreshed MV
@@ -2961,6 +2969,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             queryRunner.execute("DROP TABLE IF EXISTS " + table2);
             queryRunner.execute("DROP TABLE IF EXISTS " + table3);
             queryRunner.execute("DROP TABLE IF EXISTS " + table4);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table5);
         }
     }
 
