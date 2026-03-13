@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -381,6 +382,12 @@ public class PlanRemoteProjections
                 else {
                     List<ProjectionContext> argumentProjection = argument.accept(this, null);
                     if (argumentProjection.isEmpty()) {
+                        if (local && argument.getType().equals(JSON_PATH)) {
+                            // JsonPath type is not serializable and cannot be an output of a ProjectNode.
+                            // Keep it inline when the parent function is local.
+                            newArguments.add(argument);
+                            continue;
+                        }
                         VariableReferenceExpression variable = variableAllocator.newVariable(argument);
                         argumentProjection = ImmutableList.of(new ProjectionContext(ImmutableMap.of(variable, argument), false));
                     }

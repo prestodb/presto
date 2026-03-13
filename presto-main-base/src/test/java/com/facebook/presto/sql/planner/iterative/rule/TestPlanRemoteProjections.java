@@ -55,7 +55,9 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections.ProjectionContext;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestPlanRemoteProjections
 {
@@ -186,6 +188,24 @@ public class TestPlanRemoteProjections
                 .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
         assertEquals(rewritten.size(), 4);
         assertEquals(rewritten.get(3).getProjections().size(), 5);
+    }
+
+    @Test
+    void testJsonPathArgumentKeptInline()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), planBuilder.rowExpression("json_extract_scalar(CAST(unittest.memory.remote_foo() AS VARCHAR), '$.key')"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 2);
+        // Verify no projection context extracts a JsonPath-typed variable
+        for (ProjectionContext context : rewritten) {
+            context.getProjections().keySet().forEach(variable ->
+                    assertFalse(variable.getType().equals(JSON_PATH),
+                            "JsonPath type should not be extracted as a ProjectNode output"));
+        }
     }
 
     @Test
