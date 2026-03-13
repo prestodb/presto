@@ -1168,6 +1168,9 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
               maxSize,
               *bufferManager_);
         }
+        // Keep the promiseHolder alive to make sure that maxWaitMicros is
+        // effective.
+        keepPromiseAlive(promiseHolder, state);
         return std::move(future)
             .via(httpSrvCpuExecutor_)
             .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
