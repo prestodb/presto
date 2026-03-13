@@ -34,7 +34,9 @@ public class TestLanceConfig
                 .setReadBatchSize(8192)
                 .setMaxRowsPerFile(1_000_000)
                 .setMaxRowsPerGroup(100_000)
-                .setWriteBatchSize(10_000));
+                .setWriteBatchSize(10_000)
+                .setIndexCacheSizeBytes(134_217_728L)
+                .setMetadataCacheSizeBytes(134_217_728L));
     }
 
     @Test
@@ -48,6 +50,8 @@ public class TestLanceConfig
                 .put("lance.max-rows-per-file", "500000")
                 .put("lance.max-rows-per-group", "50000")
                 .put("lance.write-batch-size", "5000")
+                .put("lance.index-cache-size-bytes", "268435456")
+                .put("lance.metadata-cache-size-bytes", "536870912")
                 .build();
 
         LanceConfig expected = new LanceConfig()
@@ -57,7 +61,9 @@ public class TestLanceConfig
                 .setReadBatchSize(4096)
                 .setMaxRowsPerFile(500_000)
                 .setMaxRowsPerGroup(50_000)
-                .setWriteBatchSize(5_000);
+                .setWriteBatchSize(5_000)
+                .setIndexCacheSizeBytes(268_435_456L)
+                .setMetadataCacheSizeBytes(536_870_912L);
 
         assertFullMapping(properties, expected);
     }

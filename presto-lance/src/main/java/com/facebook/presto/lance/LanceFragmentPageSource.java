@@ -35,10 +35,11 @@ public class LanceFragmentPageSource
             List<Integer> fragments,
             String tablePath,
             int readBatchSize,
+            ReadOptions readOptions,
             ArrowBlockBuilder arrowBlockBuilder,
             BufferAllocator parentAllocator)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize), arrowBlockBuilder, parentAllocator);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, readOptions), arrowBlockBuilder, parentAllocator);
     }
 
     private static class FragmentScannerFactory
@@ -47,14 +48,16 @@ public class LanceFragmentPageSource
         private final List<Integer> fragmentIds;
         private final String tablePath;
         private final int readBatchSize;
+        private final ReadOptions readOptions;
         private Dataset dataset;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, ReadOptions readOptions)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = tablePath;
             this.readBatchSize = readBatchSize;
+            this.readOptions = readOptions;
         }
 
         @Override
@@ -67,7 +70,7 @@ public class LanceFragmentPageSource
             optionsBuilder.batchSize(readBatchSize);
             optionsBuilder.fragmentIds(fragmentIds);
 
-            this.dataset = Dataset.open(tablePath, new ReadOptions.Builder().build());
+            this.dataset = Dataset.open(tablePath, readOptions);
             this.scanner = dataset.newScan(optionsBuilder.build());
             return scanner;
         }
