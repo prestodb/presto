@@ -75,7 +75,7 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.buildReadOptions(),
+                namespaceHolder.getReadOptions(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -108,7 +108,7 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.buildReadOptions(),
+                namespaceHolder.getReadOptions(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -141,7 +141,7 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.buildReadOptions(),
+                namespaceHolder.getReadOptions(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();

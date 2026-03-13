@@ -72,7 +72,7 @@ public class LancePageSourceProvider
                 lanceSplit.getFragments(),
                 tablePath,
                 config.getReadBatchSize(),
-                namespaceHolder.buildReadOptions(),
+                namespaceHolder.getReadOptions(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator());
     }
