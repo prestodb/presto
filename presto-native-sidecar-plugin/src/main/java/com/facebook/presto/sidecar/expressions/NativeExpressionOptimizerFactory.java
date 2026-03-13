@@ -14,7 +14,6 @@
 package com.facebook.presto.sidecar.expressions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.presto.server.CommonInternalCommunicationModule;
 import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -51,14 +50,12 @@ public class NativeExpressionOptimizerFactory
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
-                    new CommonInternalCommunicationModule(),
-                    new NativeSidecarCommunicationModule(),
+                    new NativeSidecarCommunicationModule(context.getAuthClientConfigs()),
                     new NativeExpressionsModule(context.getNodeManager(), context.getRowExpressionSerde(), context.getFunctionMetadataManager(), context.getFunctionResolution()));
 
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
-                    .setRequiredConfigurationProperties(context.getAuthClientConfigs())
                     .quiet()
                     .initialize();
             return injector.getInstance(NativeExpressionOptimizer.class);

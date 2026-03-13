@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -46,7 +47,7 @@ public class StaticFunctionNamespaceStore
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
-    public void loadFunctionNamespaceManagers(Map<String, String> authClientConfigs)
+    public void loadFunctionNamespaceManagers(AuthClientConfigs authClientConfigs)
             throws Exception
     {
         if (!functionNamespaceLoading.compareAndSet(false, true)) {
@@ -66,13 +67,13 @@ public class StaticFunctionNamespaceStore
         }
     }
 
-    public void loadFunctionNamespaceManagers(Map<String, Map<String, String>> catalogProperties, Map<String, String> authClientConfigs)
+    public void loadFunctionNamespaceManagers(Map<String, Map<String, String>> catalogProperties, AuthClientConfigs authClientConfigs)
     {
         catalogProperties.entrySet().stream()
                 .forEach(entry -> loadFunctionNamespaceManager(entry.getKey(), entry.getValue(), authClientConfigs));
     }
 
-    private void loadFunctionNamespaceManager(String catalogName, Map<String, String> properties, Map<String, String> authClientConfigs)
+    private void loadFunctionNamespaceManager(String catalogName, Map<String, String> properties, AuthClientConfigs authClientConfigs)
     {
         log.info("-- Loading function namespace manager for catalog %s --", catalogName);
         properties = new HashMap<>(properties);

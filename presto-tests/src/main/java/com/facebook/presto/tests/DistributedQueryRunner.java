@@ -93,6 +93,7 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.spi.NodePoolType.INTERMEDIATE;
 import static com.facebook.presto.spi.NodePoolType.LEAF;
@@ -106,7 +107,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.lang.System.nanoTime;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -1073,7 +1073,13 @@ public class DistributedQueryRunner
             if (coordinatorOnly && !server.isCoordinator()) {
                 continue;
             }
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), emptyMap());
+            server.getMetadata().getFunctionAndTypeManager()
+                    .loadFunctionNamespaceManager(
+                            functionNamespaceManagerName,
+                            catalogName,
+                            properties,
+                            server.getPluginNodeManager(),
+                            defaultAuthClientConfigs(server.getPluginNodeManager().getCurrentNode().getNodeIdentifier()));
         }
     }
 

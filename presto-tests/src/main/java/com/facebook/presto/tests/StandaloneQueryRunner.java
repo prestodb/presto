@@ -47,9 +47,9 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static com.facebook.presto.tests.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -254,7 +254,13 @@ public final class StandaloneQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), emptyMap());
+        server.getMetadata().getFunctionAndTypeManager()
+                .loadFunctionNamespaceManager(
+                        functionNamespaceManagerName,
+                        catalogName,
+                        properties,
+                        server.getPluginNodeManager(),
+                        defaultAuthClientConfigs(server.getPluginNodeManager().getCurrentNode().getNodeIdentifier()));
     }
 
     @Override

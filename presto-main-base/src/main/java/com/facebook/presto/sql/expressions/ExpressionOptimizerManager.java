@@ -16,6 +16,7 @@ package com.facebook.presto.sql.expressions;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
@@ -79,7 +80,7 @@ public class ExpressionOptimizerManager
         expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, new RowExpressionOptimizer(functionAndTypeManager));
     }
 
-    public void loadExpressionOptimizerFactories(Map<String, String> authClientConfigs)
+    public void loadExpressionOptimizerFactories(AuthClientConfigs authClientConfigs)
     {
         try {
             for (File file : listFiles(configurationDirectory)) {
@@ -93,7 +94,7 @@ public class ExpressionOptimizerManager
         }
     }
 
-    public void loadExpressionOptimizerFactory(File configurationFile, Map<String, String> authClientConfigs)
+    public void loadExpressionOptimizerFactory(File configurationFile, AuthClientConfigs authClientConfigs)
             throws IOException
     {
         String optimizerName = getNameWithoutExtension(configurationFile.getName());
@@ -107,7 +108,7 @@ public class ExpressionOptimizerManager
         loadExpressionOptimizerFactory(factoryName, optimizerName, properties, authClientConfigs);
     }
 
-    public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties, Map<String, String> authClientConfigs)
+    public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties, AuthClientConfigs authClientConfigs)
     {
         requireNonNull(factoryName, "factoryName is null");
         checkArgument(expressionOptimizerFactories.containsKey(factoryName),

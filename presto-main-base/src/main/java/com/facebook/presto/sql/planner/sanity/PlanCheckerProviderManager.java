@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.plan.PlanCheckerProvider;
 import com.facebook.presto.spi.plan.PlanCheckerProviderContext;
@@ -63,7 +64,7 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProviders(NodeManager nodeManager, Map<String, String> authClientConfigs)
+    public void loadPlanCheckerProviders(NodeManager nodeManager, AuthClientConfigs authClientConfigs)
             throws IOException
     {
         for (File file : listFiles(configDirectory)) {
@@ -82,7 +83,7 @@ public class PlanCheckerProviderManager
         }
     }
 
-    public void loadPlanCheckerProvider(String planCheckerProviderName, Map<String, String> properties, NodeManager nodeManager, Map<String, String> authClientConfigs)
+    public void loadPlanCheckerProvider(String planCheckerProviderName, Map<String, String> properties, NodeManager nodeManager, AuthClientConfigs authClientConfigs)
     {
         checkArgument(!isNullOrEmpty(planCheckerProviderName), "Plan checker provider name is null or empty");
         requireNonNull(properties, "properties is null");

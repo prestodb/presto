@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -43,7 +44,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.newOutputStream;
-import static java.util.Collections.emptyMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
@@ -54,6 +54,7 @@ public class TestExpressionOptimizerManager
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
     private File directory;
     private ExpressionOptimizerManager manager;
+    private PluginNodeManager pluginNodeManager;
 
     @BeforeMethod
     public void setUp()
@@ -63,7 +64,7 @@ public class TestExpressionOptimizerManager
         directory.deleteOnExit();
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager);
+        pluginNodeManager = new PluginNodeManager(nodeManager);
         manager = new ExpressionOptimizerManager(
                 pluginNodeManager,
                 METADATA.getFunctionAndTypeManager(),
@@ -87,7 +88,7 @@ public class TestExpressionOptimizerManager
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("bar"));
-        manager.loadExpressionOptimizerFactories(emptyMap());
+        manager.loadExpressionOptimizerFactories(defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier()));
 
         assertOptimizedExpression("1+1", "2", ImmutableMap.of());
         assertOptimizedExpression("1+1", "2", ImmutableMap.of("expression_optimizer_name", "default"));
@@ -104,7 +105,7 @@ public class TestExpressionOptimizerManager
         createPropertiesFile("default.properties", ImmutableMap.of("expression-manager-factory.name", "default"));
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("default"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
     }
 
     @Test
@@ -114,7 +115,7 @@ public class TestExpressionOptimizerManager
         createPropertiesFile("foo.properties", ImmutableMap.of());
 
         manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
     }
 
     @Test
@@ -122,7 +123,7 @@ public class TestExpressionOptimizerManager
             throws Exception
     {
         createPropertiesFile("foo.properties", ImmutableMap.of("expression-manager-factory.name", "foo"));
-        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(emptyMap()));
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
     }
 
     private void assertOptimizedExpression(String originalExpression, String optimizedExpression, Map<String, String> systemProperties)

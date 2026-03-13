@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -214,17 +216,18 @@ public class PrestoSparkInjectorFactory
                 }
             }
 
+            NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
             FeaturesConfig featuresConfig = injector.getInstance(FeaturesConfig.class);
             if (sparkProcessType.equals(DRIVER) ||
                     (!featuresConfig.isNativeExecutionEnabled()
                             && !featuresConfig.isInlineSqlFunctions())) {
                 if (functionNamespaceProperties.isPresent()) {
                     injector.getInstance(StaticFunctionNamespaceStore.class)
-                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get(), ImmutableMap.of());
+                            .loadFunctionNamespaceManagers(functionNamespaceProperties.get(), defaultAuthClientConfigs(nodeInfo.getNodeId()));
                 }
                 else {
                     injector.getInstance(StaticFunctionNamespaceStore.class)
-                            .loadFunctionNamespaceManagers(ImmutableMap.of());
+                            .loadFunctionNamespaceManagers(defaultAuthClientConfigs(nodeInfo.getNodeId()));
                 }
             }
             bootstrapTimer.endDriverModulesLoading();

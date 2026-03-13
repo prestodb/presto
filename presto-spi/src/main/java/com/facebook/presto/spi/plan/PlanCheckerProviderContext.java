@@ -14,9 +14,8 @@
 
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.spi.NodeManager;
-
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,9 +23,9 @@ public class PlanCheckerProviderContext
 {
     private final SimplePlanFragmentSerde simplePlanFragmentSerde;
     private final NodeManager nodeManager;
-    private final Map<String, String> authClientConfigs;
+    private final AuthClientConfigs authClientConfigs;
 
-    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager, Map<String, String> authClientConfigs)
+    public PlanCheckerProviderContext(SimplePlanFragmentSerde simplePlanFragmentSerde, NodeManager nodeManager, AuthClientConfigs authClientConfigs)
     {
         this.simplePlanFragmentSerde = requireNonNull(simplePlanFragmentSerde, "simplePlanFragmentSerde is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -43,7 +42,7 @@ public class PlanCheckerProviderContext
         return nodeManager;
     }
 
-    public Map<String, String> getAuthClientConfigs()
+    public AuthClientConfigs getAuthClientConfigs()
     {
         return authClientConfigs;
     }

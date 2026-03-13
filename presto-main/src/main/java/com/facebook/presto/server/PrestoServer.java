@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.configuration.ConfigurationFactory;
 import com.facebook.airlift.discovery.client.Announcer;
 import com.facebook.airlift.discovery.client.DiscoveryModule;
 import com.facebook.airlift.discovery.client.ServiceAnnouncement;
@@ -35,6 +34,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -75,7 +75,6 @@ import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
@@ -173,8 +172,10 @@ public class PrestoServer
 
             // todo: remove this hack, extract a light-weight POJO to pass down the configs
             // get all required auth configs to pass down to http clients
-            Map<String, String> authClientConfigs =
-                    extractInternalCommunicationConfigs(injector.getInstance(ConfigurationFactory.class).getProperties());
+            AuthClientConfigs authClientConfigs =
+                    createAuthClientConfigs(
+                            injector.getInstance(InternalCommunicationConfig.class),
+                            injector.getInstance(NodeInfo.class));
 
             ServerConfig serverConfig = injector.getInstance(ServerConfig.class);
 
@@ -246,19 +247,18 @@ public class PrestoServer
         }
     }
 
-    public static Map<String, String> extractInternalCommunicationConfigs(Map<String, String> properties)
+    public static AuthClientConfigs createAuthClientConfigs(InternalCommunicationConfig config, NodeInfo nodeInfo)
     {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-
-        properties.forEach((key, value) -> {
-            // Requests through plugin HTTP clients should be treated as coming from the same node as the coordinator,
-            // so we propagate the required node properties here.
-            if (key.startsWith("internal-communication.") || key.equals("node.id") || key.equals("node.environment")) {
-                builder.put(key, value);
-            }
-        });
-
-        return builder.build();
+        return new AuthClientConfigs(
+                nodeInfo.getNodeId(),
+                config.getKeyStorePath(),
+                config.getKeyStorePassword(),
+                config.getTrustStorePath(),
+                config.getTrustStorePassword(),
+                config.getExcludeCipherSuites(),
+                config.getIncludedCipherSuites(),
+                config.isInternalJwtEnabled(),
+                config.getSharedSecret());
     }
 
     protected Iterable<? extends Module> getAdditionalModules()

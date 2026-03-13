@@ -14,8 +14,6 @@
 package com.facebook.presto.sidecar.expressions;
 
 import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.node.NodeConfig;
-import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -25,7 +23,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.Objects.requireNonNull;
@@ -54,8 +51,6 @@ public class NativeExpressionsModule
         binder.bind(RowExpressionSerde.class).toInstance(rowExpressionSerde);
         binder.bind(FunctionMetadataManager.class).toInstance(functionMetadataManager);
         binder.bind(StandardFunctionResolution.class).toInstance(functionResolution);
-        configBinder(binder).bindConfig(NodeConfig.class);
-        binder.bind(NodeInfo.class).in(Scopes.SINGLETON);
 
         // JSON dependencies and setup
         binder.install(new JsonModule());

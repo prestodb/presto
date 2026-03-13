@@ -38,6 +38,7 @@ import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.collect.ImmutableList;
@@ -51,6 +52,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTIONS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM;
 import static com.facebook.presto.SystemSessionProperties.SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser.parseFunctionDefinitions;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -214,7 +216,11 @@ public class TestAddExchangesPlansWithFunctions
                 .map(TestAddExchangesPlansWithFunctions::convertToSqlInvokedFunction)
                 .forEach(function -> queryRunner.getMetadata().getFunctionAndTypeManager().createFunction(function, true));
         queryRunner.getExpressionManager().addExpressionOptimizerFactory(new NoOpExpressionOptimizerFactory());
-        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NO_OP_OPTIMIZER, NO_OP_OPTIMIZER, ImmutableMap.of(), ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(
+                NO_OP_OPTIMIZER,
+                NO_OP_OPTIMIZER,
+                ImmutableMap.of(),
+                defaultAuthClientConfigs(new TestingNodeManager().getCurrentNode().getNodeIdentifier()));
         return queryRunner;
     }
 

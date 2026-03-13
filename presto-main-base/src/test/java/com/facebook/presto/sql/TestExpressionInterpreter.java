@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -49,6 +50,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.AuthClientConfigs.defaultAuthClientConfigs;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
@@ -74,13 +76,14 @@ public class TestExpressionInterpreter
     // Run this method exactly once.
     private void setupJsonFunctionNamespaceManager(FunctionAndTypeManager functionAndTypeManager)
     {
+        NodeManager nodeManager = new TestingNodeManager();
         functionAndTypeManager.addFunctionNamespaceFactory(new JsonFileBasedFunctionNamespaceManagerFactory());
         functionAndTypeManager.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
                 "json",
                 ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"),
-                new TestingNodeManager(),
-                emptyMap());
+                nodeManager,
+                defaultAuthClientConfigs(nodeManager.getCurrentNode().getNodeIdentifier()));
     }
 
     @Test

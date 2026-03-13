@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -360,7 +361,7 @@ public class FunctionAndTypeManager
             String catalogName,
             Map<String, String> properties,
             NodeManager nodeManager,
-            Map<String, String> authClientConfigs)
+            AuthClientConfigs authClientConfigs)
     {
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);

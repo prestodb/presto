@@ -15,8 +15,6 @@ package com.facebook.presto.functionNamespace.rest;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.node.NodeConfig;
-import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionLanguageConfig;
@@ -55,8 +53,6 @@ public class RestBasedFunctionNamespaceManagerModule
         binder.bind(RestBasedFunctionNamespaceManager.class).in(SINGLETON);
         binder.bind(new TypeLiteral<JsonCodec<Map<String, List<JsonBasedUdfFunctionMetadata>>>>() {})
                 .toInstance(new JsonCodecFactory().mapJsonCodec(String.class, listJsonCodec(JsonBasedUdfFunctionMetadata.class)));
-        configBinder(binder).bindConfig(NodeConfig.class);
-        binder.bind(NodeInfo.class).in(SINGLETON);
     }
 
     @Provides

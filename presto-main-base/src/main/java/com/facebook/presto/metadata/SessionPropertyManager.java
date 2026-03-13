@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
@@ -163,7 +164,7 @@ public final class SessionPropertyManager
                 new SessionPropertyProviderConfig());
     }
 
-    public void loadSessionPropertyProviders(Map<String, String> authClientConfigs)
+    public void loadSessionPropertyProviders(AuthClientConfigs authClientConfigs)
             throws Exception
     {
         if (!sessionPropertyProvidersLoading.compareAndSet(false, true)) {
@@ -190,7 +191,7 @@ public final class SessionPropertyManager
             Map<String, String> properties,
             Optional<TypeManager> typeManager,
             Optional<NodeManager> nodeManager,
-            Map<String, String> authClientConfigs)
+            AuthClientConfigs authClientConfigs)
     {
         log.info("-- Loading %s session property provider --", sessionPropertyProviderName);
         WorkerSessionPropertyProviderFactory factory = workerSessionPropertyProviderFactories.get(sessionPropertyProviderName);

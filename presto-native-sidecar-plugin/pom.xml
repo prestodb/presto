@@ -138,7 +138,7 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>node</artifactId>
+            <artifactId>jaxrs</artifactId>
         </dependency>
 
         <dependency>

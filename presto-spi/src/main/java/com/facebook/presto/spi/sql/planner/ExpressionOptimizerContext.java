@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.spi.sql.planner;
 
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,14 +27,14 @@ public class ExpressionOptimizerContext
     private final RowExpressionSerde rowExpressionSerde;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
-    private final Map<String, String> authClientConfigs;
+    private final AuthClientConfigs authClientConfigs;
 
     public ExpressionOptimizerContext(
             NodeManager nodeManager,
             RowExpressionSerde rowExpressionSerde,
             FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
-            Map<String, String> authClientConfigs)
+            AuthClientConfigs authClientConfigs)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
@@ -64,7 +63,7 @@ public class ExpressionOptimizerContext
         return functionResolution;
     }
 
-    public Map<String, String> getAuthClientConfigs()
+    public AuthClientConfigs getAuthClientConfigs()
     {
         return authClientConfigs;
     }
