@@ -49,13 +49,19 @@ public class OAuth2Authenticator
     private final OAuth2Client client;
     private final TokenPairSerializer tokenPairSerializer;
     private final TokenRefresher tokenRefresher;
+    private final URI authorizationUri;
 
     @Inject
     public OAuth2Authenticator(OAuth2Client client, OAuth2Config config, TokenRefresher tokenRefresher, TokenPairSerializer tokenPairSerializer)
     {
         this.client = requireNonNull(client, "service is null");
-        this.principalField = config.getPrincipalField();
         requireNonNull(config, "oauth2Config is null");
+        this.principalField = config.getPrincipalField();
+        Optional<String> authorizationEndpoint = config.getAuthorizationEndpoint();
+        if (authorizationEndpoint.isEmpty()) {
+            authorizationEndpoint = Optional.of(config.getIssuer());
+        }
+        this.authorizationUri = URI.create(authorizationEndpoint.get());
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
     }

@@ -66,6 +66,7 @@ public class TestExternalAuthenticator
 
     @Test
     public void testChallengeWithOnlyTokenServerUri()
+            throws URISyntaxException
     {
         assertThat(buildAuthentication("Bearer x_token_server=\"http://token.uri\""))
                 .hasValueSatisfying(authentication -> {
@@ -76,6 +77,7 @@ public class TestExternalAuthenticator
 
     @Test
     public void testChallengeWithBothUri()
+            throws URISyntaxException
     {
         assertThat(buildAuthentication("Bearer x_redirect_server=\"http://redirect.uri\", x_token_server=\"http://token.uri\""))
                 .hasValueSatisfying(authentication -> {
@@ -86,6 +88,7 @@ public class TestExternalAuthenticator
 
     @Test
     public void testChallengeWithValuesWithoutQuotes()
+            throws URISyntaxException
     {
         // this is legal according to RFC 7235
         assertThat(buildAuthentication("Bearer x_redirect_server=http://redirect.uri, x_token_server=http://token.uri"))
@@ -97,6 +100,7 @@ public class TestExternalAuthenticator
 
     @Test
     public void testChallengeWithAdditionalFields()
+            throws URISyntaxException
     {
         assertThat(buildAuthentication("Bearer type=\"token\", x_redirect_server=\"http://redirect.uri\", x_token_server=\"http://token.uri\", description=\"oauth challenge\""))
                 .hasValueSatisfying(authentication -> {
@@ -107,6 +111,7 @@ public class TestExternalAuthenticator
 
     @Test
     public void testInvalidChallenges()
+            throws URISyntaxException
     {
         // no authentication parameters
         assertThat(buildAuthentication("Bearer")).isEmpty();
