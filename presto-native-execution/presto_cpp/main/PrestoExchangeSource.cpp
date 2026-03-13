@@ -87,7 +87,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       immediateBufferTransfer_(
           enableBufferCopy_ &&
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
-      driverExecutor_(driverExecutor) {
+      exchangeHttpCpuExecutor_(driverExecutor) {
   folly::SocketAddress address;
   if (folly::IPAddress::validate(host_)) {
     address = folly::SocketAddress(folly::IPAddress(host_), port_);
@@ -100,7 +100,7 @@ PrestoExchangeSource::PrestoExchangeSource(
   const auto connectTimeoutMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           SystemConfig::instance()->exchangeConnectTimeoutMs());
-  VELOX_CHECK_NOT_NULL(driverExecutor_);
+  VELOX_CHECK_NOT_NULL(exchangeHttpCpuExecutor_);
   VELOX_CHECK_NOT_NULL(ioEventBase);
   VELOX_CHECK_NOT_NULL(pool_);
   auto systemConfig = SystemConfig::instance();
@@ -204,7 +204,7 @@ void PrestoExchangeSource::doRequest(
               .toString())
       .header(proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", host_, port_))
       .send(httpClient_.get(), "", delayMs)
-      .via(driverExecutor_)
+      .via(exchangeHttpCpuExecutor_)
       .thenTry(
           [this, path, maxBytes, maxWait, self = getSelfPtr()](
               folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
@@ -477,7 +477,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
       .method(proxygen::HTTPMethod::GET)
       .url(ackPath)
       .send(httpClient_.get())
-      .via(driverExecutor_)
+      .via(exchangeHttpCpuExecutor_)
       .thenTry(
           [this, self = getSelfPtr()](
               folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
@@ -522,7 +522,7 @@ void PrestoExchangeSource::doAbortResults(int64_t delayMs) {
       .method(proxygen::HTTPMethod::DELETE)
       .url(basePath_)
       .send(httpClient_.get(), "", delayMs)
-      .via(driverExecutor_)
+      .via(exchangeHttpCpuExecutor_)
       .thenTry([this, self = getSelfPtr()](
                    folly::Try<std::unique_ptr<http::HttpResponse>> response) {
         handleAbortResponse(std::move(response));
