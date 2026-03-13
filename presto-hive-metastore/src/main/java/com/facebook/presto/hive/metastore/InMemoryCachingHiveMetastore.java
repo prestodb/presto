@@ -432,10 +432,10 @@ public class InMemoryCachingHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
-        List<KeyAndContext<HivePartitionName>> partitions = partitionNames.stream()
-                .map(partitionName -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, partitionName)))
+        List<KeyAndContext<HivePartitionName>> partitions = partitionNamesWithVersion.stream()
+                .map(partitionNameWithVersion -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, partitionNameWithVersion.getPartitionName())))
                 .collect(toImmutableList());
         Map<KeyAndContext<HivePartitionName>, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
         return statistics.entrySet()
@@ -450,7 +450,7 @@ public class InMemoryCachingHiveMetastore
                 partition.getContext(),
                 partition.getKey().getHiveTableName().getDatabaseName(),
                 partition.getKey().getHiveTableName().getTableName(),
-                ImmutableSet.of(partitionName));
+                ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty())));
         if (!partitionStatistics.containsKey(partitionName)) {
             throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partition.getKey().getPartitionNameWithVersion());
         }
@@ -463,11 +463,12 @@ public class InMemoryCachingHiveMetastore
                 .collect(toImmutableSetMultimap(nameKey -> getCachingKey(nameKey.getContext(), nameKey.getKey().getHiveTableName()), nameKey -> nameKey));
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, PartitionStatistics> result = ImmutableMap.builder();
         tablePartitions.keySet().forEach(table -> {
-            Set<String> partitionNames = tablePartitions.get(table).stream()
-                    .map(partitionName -> partitionName.getKey().getPartitionNameWithVersion().get().getPartitionName())
+            Set<PartitionNameWithVersion> partitionNamesWithVersion = tablePartitions.get(table).stream()
+                    .map(partitionName -> partitionName.getKey().getPartitionNameWithVersion().get())
                     .collect(toImmutableSet());
-            Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table.getContext(), table.getKey().getDatabaseName(), table.getKey().getTableName(), partitionNames);
-            for (String partitionName : partitionNames) {
+            Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table.getContext(), table.getKey().getDatabaseName(), table.getKey().getTableName(), partitionNamesWithVersion);
+            for (PartitionNameWithVersion partitionNameWithVersion : partitionNamesWithVersion) {
+                String partitionName = partitionNameWithVersion.getPartitionName();
                 if (!partitionStatistics.containsKey(partitionName)) {
                     throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
                 }
