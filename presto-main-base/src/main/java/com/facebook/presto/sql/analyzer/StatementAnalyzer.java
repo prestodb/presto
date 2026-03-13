@@ -2219,7 +2219,7 @@ class StatementAnalyzer
                 }
             }
             Statement statement = analysis.getStatement();
-            if (optionalMaterializedView.isPresent() && statement instanceof Query) {
+            if (optionalMaterializedView.isPresent() && (statement instanceof Query || statement instanceof Insert || statement instanceof CreateTableAsSelect)) {
                 if (isMaterializedViewDataConsistencyEnabled(session) || !isLegacyMaterializedViews(session)) {
                     // When the materialized view has already been expanded, do not process it. Just use it as a table.
                     MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);

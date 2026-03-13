@@ -233,12 +233,14 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
+        <module>presto-common-arrow</module>
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
         <module>presto-router-example-plugin-scheduler</module>
         <module>presto-plan-checker-router-plugin</module>
         <module>presto-sql-helpers/presto-sql-invoked-functions-plugin</module>
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
+        <module>presto-lance</module>
     </modules>
 
     <dependencyManagement>
@@ -1018,6 +1020,12 @@
                 <artifactId>spark-core</artifactId>
                 <version>${dep.spark.version}</version>
                 <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-common-arrow</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>

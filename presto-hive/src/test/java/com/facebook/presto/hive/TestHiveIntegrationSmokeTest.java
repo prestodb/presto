@@ -6237,6 +6237,121 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCtasFromMaterializedViewDataConsistency()
+    {
+        Session stitchingDisabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+        Session stitchingEnabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "true")
+                .build();
+
+        assertUpdate("CREATE TABLE mv_ctas_base (id BIGINT, partkey VARCHAR) " +
+                "WITH (partitioned_by=ARRAY['partkey'])");
+        assertUpdate("INSERT INTO mv_ctas_base VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_ctas " +
+                "WITH (partitioned_by=ARRAY['partkey']" + retentionDays(30) + ") " +
+                "AS SELECT id, partkey FROM mv_ctas_base");
+
+        try {
+            // CTAS from unrefreshed MV without stitching should produce empty data
+            assertUpdate(stitchingDisabledSession,
+                    "CREATE TABLE mv_ctas_no_stitch AS SELECT * FROM mv_ctas", 0);
+            assertQuery(stitchingDisabledSession,
+                    "SELECT COUNT(*) FROM mv_ctas_no_stitch", "SELECT 0");
+
+            // CTAS from unrefreshed MV with stitching should read from base table
+            assertUpdate(stitchingEnabledSession,
+                    "CREATE TABLE mv_ctas_stitch AS SELECT * FROM mv_ctas", 3);
+            assertQuery(stitchingEnabledSession,
+                    "SELECT * FROM mv_ctas_stitch ORDER BY id",
+                    "VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')");
+
+            // After refreshing, CTAS should return data even without stitching
+            Session fullRefreshSession = Session.builder(getSession())
+                    .setSystemProperty(MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED, "true")
+                    .build();
+            assertUpdate(fullRefreshSession, "REFRESH MATERIALIZED VIEW mv_ctas", 3);
+
+            assertUpdate(stitchingDisabledSession,
+                    "CREATE TABLE mv_ctas_refreshed AS SELECT * FROM mv_ctas", 3);
+            assertQuery(stitchingDisabledSession,
+                    "SELECT * FROM mv_ctas_refreshed ORDER BY id",
+                    "VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_ctas_no_stitch");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_ctas_stitch");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_ctas_refreshed");
+            getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS mv_ctas");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_ctas_base");
+        }
+    }
+
+    @Test
+    public void testInsertFromMaterializedViewDataConsistency()
+    {
+        Session stitchingDisabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .build();
+        Session stitchingEnabledSession = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "true")
+                .build();
+
+        assertUpdate("CREATE TABLE mv_insert_base (id BIGINT, partkey VARCHAR) " +
+                "WITH (partitioned_by=ARRAY['partkey'])");
+        assertUpdate("INSERT INTO mv_insert_base VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_insert " +
+                "WITH (partitioned_by=ARRAY['partkey']" + retentionDays(30) + ") " +
+                "AS SELECT id, partkey FROM mv_insert_base");
+
+        try {
+            // INSERT from unrefreshed MV without stitching should produce empty data
+            assertUpdate(stitchingDisabledSession,
+                    "CREATE TABLE mv_insert_no_stitch (id BIGINT, partkey VARCHAR) " +
+                            "WITH (partitioned_by=ARRAY['partkey'])");
+            assertUpdate(stitchingDisabledSession,
+                    "INSERT INTO mv_insert_no_stitch SELECT * FROM mv_insert", 0);
+            assertQuery(stitchingDisabledSession,
+                    "SELECT COUNT(*) FROM mv_insert_no_stitch", "SELECT 0");
+
+            // INSERT from unrefreshed MV with stitching should read from base table
+            assertUpdate(stitchingEnabledSession,
+                    "CREATE TABLE mv_insert_stitch (id BIGINT, partkey VARCHAR) " +
+                            "WITH (partitioned_by=ARRAY['partkey'])");
+            assertUpdate(stitchingEnabledSession,
+                    "INSERT INTO mv_insert_stitch SELECT * FROM mv_insert", 3);
+            assertQuery(stitchingEnabledSession,
+                    "SELECT * FROM mv_insert_stitch ORDER BY id",
+                    "VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')");
+
+            // After refreshing, INSERT should return data even without stitching
+            Session fullRefreshSession = Session.builder(getSession())
+                    .setSystemProperty(MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED, "true")
+                    .build();
+            assertUpdate(fullRefreshSession, "REFRESH MATERIALIZED VIEW mv_insert", 3);
+
+            assertUpdate(stitchingDisabledSession,
+                    "CREATE TABLE mv_insert_refreshed (id BIGINT, partkey VARCHAR) " +
+                            "WITH (partitioned_by=ARRAY['partkey'])");
+            assertUpdate(stitchingDisabledSession,
+                    "INSERT INTO mv_insert_refreshed SELECT * FROM mv_insert", 3);
+            assertQuery(stitchingDisabledSession,
+                    "SELECT * FROM mv_insert_refreshed ORDER BY id",
+                    "VALUES (1, 'p1'), (2, 'p2'), (3, 'p1')");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_insert_no_stitch");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_insert_stitch");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_insert_refreshed");
+            getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS mv_insert");
+            getQueryRunner().execute("DROP TABLE IF EXISTS mv_insert_base");
+        }
+    }
+
+    @Test
     public void testAlphaFormatDdl()
     {
         assertUpdate("CREATE TABLE test_alpha_ddl_table (col1 bigint) WITH (format = 'ALPHA')");
