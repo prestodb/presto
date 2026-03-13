@@ -63,6 +63,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -158,6 +159,7 @@ public class TestingPrestoServer
     private final StatsCalculator statsCalculator;
     private final TestingEventListenerManager eventListenerManager;
     private final TestingAccessControlManager accessControl;
+    private final PrestoAuthenticatorManager prestoAuthenticatorManager;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
     private final SplitManager splitManager;
@@ -226,7 +228,8 @@ public class TestingPrestoServer
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
-    public TestingPrestoServer(Map<String, String> properties) throws Exception
+    public TestingPrestoServer(Map<String, String> properties)
+            throws Exception
     {
         this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of());
     }
@@ -410,6 +413,7 @@ public class TestingPrestoServer
         sqlParser = injector.getInstance(SqlParser.class);
         metadata = injector.getInstance(Metadata.class);
         accessControl = (TestingAccessControlManager) injector.getInstance(AccessControlManager.class);
+        prestoAuthenticatorManager = injector.getInstance(PrestoAuthenticatorManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
@@ -694,6 +698,16 @@ public class TestingPrestoServer
     public TestingAccessControlManager getAccessControl()
     {
         return accessControl;
+    }
+
+    public PrestoAuthenticatorManager getPrestoAuthenticatorManager()
+    {
+        return prestoAuthenticatorManager;
+    }
+
+    public ClientRequestFilterManager getClientRequestFilterManager()
+    {
+        return clientRequestFilterManager;
     }
 
     public ProcedureTester getProcedureTester()
