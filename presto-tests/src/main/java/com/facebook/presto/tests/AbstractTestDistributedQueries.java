@@ -1611,8 +1611,7 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testShardedJoinOptimization()
     {
-        Session defaultSession = getSession();
-        Session defaultSessionLegacyTimestampDisabled = sessionWithLegacyTimestamp();
+        Session defaultSession = sessionWithLegacyTimestamp();
 
         Session session = Session.builder(defaultSession)
                 .setSystemProperty(SHARDED_JOINS_STRATEGY, "ALWAYS")
@@ -1642,7 +1641,7 @@ public abstract class AbstractTestDistributedQueries
             MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
             assert (!((String) resultExplainQuery.getOnlyValue()).contains("random"));
 
-            assertQueryWithSameQueryRunner(session, query, defaultSessionLegacyTimestampDisabled);
+            assertQueryWithSameQueryRunner(session, query, defaultSession);
         }
     }
 
