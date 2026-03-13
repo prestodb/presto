@@ -13,7 +13,7 @@
  */
 
 #include "presto_cpp/main/JsonSignatureParser.h"
-#include <folly/json.h>
+#include <folly/json/json.h>
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto {
