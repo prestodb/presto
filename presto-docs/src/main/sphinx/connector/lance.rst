@@ -41,8 +41,8 @@ Property Name                         Description                               
 ``lance.max-rows-per-file``           Maximum number of rows per Lance data file.                    ``1000000``
 ``lance.max-rows-per-group``          Maximum number of rows per row group.                          ``100000``
 ``lance.write-batch-size``            Number of rows to batch before writing to Arrow.               ``10000``
-``lance.index-cache-size-bytes``      Size in bytes for Lance index cache per worker.                ``134217728``
-``lance.metadata-cache-size-bytes``   Size in bytes for Lance metadata cache per worker.             ``134217728``
+``lance.index-cache-size``            Size of Lance index cache per worker.                         ``128MB``
+``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                      ``128MB``
 ===================================== ============================================================= ===============
 
 ``lance.impl``
@@ -105,19 +105,19 @@ default is ``10000``.
     This property is reserved for future use and is not yet wired into the
     write path.
 
-``lance.index-cache-size-bytes``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``lance.index-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Size in bytes for the Lance index cache per worker node. The index cache stores
+Size of the Lance index cache per worker node. The index cache stores
 scalar and vector index data to speed up filtered queries. The default is
-``134217728`` (128 MB).
+``128MB``.
 
-``lance.metadata-cache-size-bytes``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``lance.metadata-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Size in bytes for the Lance metadata cache per worker node. The metadata cache
+Size of the Lance metadata cache per worker node. The metadata cache
 stores dataset and fragment metadata to reduce I/O on repeated queries. The
-default is ``134217728`` (128 MB).
+default is ``128MB``.
 
 Data Types
 ----------

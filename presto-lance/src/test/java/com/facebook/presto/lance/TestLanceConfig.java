@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.airlift.units.DataSize;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -21,6 +22,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestLanceConfig
 {
@@ -35,8 +37,8 @@ public class TestLanceConfig
                 .setMaxRowsPerFile(1_000_000)
                 .setMaxRowsPerGroup(100_000)
                 .setWriteBatchSize(10_000)
-                .setIndexCacheSizeBytes(134_217_728L)
-                .setMetadataCacheSizeBytes(134_217_728L));
+                .setIndexCacheSize(new DataSize(128, MEGABYTE))
+                .setMetadataCacheSize(new DataSize(128, MEGABYTE)));
     }
 
     @Test
@@ -50,8 +52,8 @@ public class TestLanceConfig
                 .put("lance.max-rows-per-file", "500000")
                 .put("lance.max-rows-per-group", "50000")
                 .put("lance.write-batch-size", "5000")
-                .put("lance.index-cache-size-bytes", "268435456")
-                .put("lance.metadata-cache-size-bytes", "536870912")
+                .put("lance.index-cache-size", "256MB")
+                .put("lance.metadata-cache-size", "512MB")
                 .build();
 
         LanceConfig expected = new LanceConfig()
@@ -62,8 +64,8 @@ public class TestLanceConfig
                 .setMaxRowsPerFile(500_000)
                 .setMaxRowsPerGroup(50_000)
                 .setWriteBatchSize(5_000)
-                .setIndexCacheSizeBytes(268_435_456L)
-                .setMetadataCacheSizeBytes(536_870_912L);
+                .setIndexCacheSize(new DataSize(256, MEGABYTE))
+                .setMetadataCacheSize(new DataSize(512, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

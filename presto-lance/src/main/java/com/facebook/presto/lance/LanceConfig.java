@@ -15,9 +15,12 @@ package com.facebook.presto.lance;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class LanceConfig
 {
@@ -28,8 +31,8 @@ public class LanceConfig
     private int maxRowsPerFile = 1_000_000;
     private int maxRowsPerGroup = 100_000;
     private int writeBatchSize = 10_000;
-    private long indexCacheSizeBytes = 134_217_728; // 128MB
-    private long metadataCacheSizeBytes = 134_217_728; // 128MB
+    private DataSize indexCacheSize = new DataSize(128, MEGABYTE);
+    private DataSize metadataCacheSize = new DataSize(128, MEGABYTE);
 
     @NotNull
     public String getImpl()
@@ -128,31 +131,31 @@ public class LanceConfig
         return this;
     }
 
-    @Min(0)
-    public long getIndexCacheSizeBytes()
+    @NotNull
+    public DataSize getIndexCacheSize()
     {
-        return indexCacheSizeBytes;
+        return indexCacheSize;
     }
 
-    @Config("lance.index-cache-size-bytes")
-    @ConfigDescription("Size in bytes for Lance index cache per worker")
-    public LanceConfig setIndexCacheSizeBytes(long indexCacheSizeBytes)
+    @Config("lance.index-cache-size")
+    @ConfigDescription("Size of Lance index cache per worker")
+    public LanceConfig setIndexCacheSize(DataSize indexCacheSize)
     {
-        this.indexCacheSizeBytes = indexCacheSizeBytes;
+        this.indexCacheSize = indexCacheSize;
         return this;
     }
 
-    @Min(0)
-    public long getMetadataCacheSizeBytes()
+    @NotNull
+    public DataSize getMetadataCacheSize()
     {
-        return metadataCacheSizeBytes;
+        return metadataCacheSize;
     }
 
-    @Config("lance.metadata-cache-size-bytes")
-    @ConfigDescription("Size in bytes for Lance metadata cache per worker")
-    public LanceConfig setMetadataCacheSizeBytes(long metadataCacheSizeBytes)
+    @Config("lance.metadata-cache-size")
+    @ConfigDescription("Size of Lance metadata cache per worker")
+    public LanceConfig setMetadataCacheSize(DataSize metadataCacheSize)
     {
-        this.metadataCacheSizeBytes = metadataCacheSizeBytes;
+        this.metadataCacheSize = metadataCacheSize;
         return this;
     }
 }
