@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -41,9 +42,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Holds the Lance namespace configuration and provides table management operations.
@@ -68,12 +69,12 @@ public class LanceNamespaceHolder
         this.root = requireNonNull(config.getRootUrl(), "root is null");
         this.singleLevelNs = config.isSingleLevelNs();
         this.readOptions = new ReadOptions.Builder()
-                .setIndexCacheSizeBytes((long) config.getIndexCacheSize().toBytes())
-                .setMetadataCacheSizeBytes((long) config.getMetadataCacheSize().toBytes())
+                .setIndexCacheSizeBytes(config.getIndexCacheSize().toBytes())
+                .setMetadataCacheSizeBytes(config.getMetadataCacheSize().toBytes())
                 .build();
         this.datasetCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getDatasetCacheMaxEntries())
-                .expireAfterAccess((long) config.getDatasetCacheTtl().getValue(), TimeUnit.valueOf(config.getDatasetCacheTtl().getUnit().name()))
+                .expireAfterAccess(config.getDatasetCacheTtl().toMillis(), MILLISECONDS)
                 .removalListener((RemovalListener<String, Dataset>) notification -> {
                     try {
                         notification.getValue().close();
@@ -131,7 +132,7 @@ public class LanceNamespaceHolder
             return datasetCache.get(tablePath, () -> Dataset.open(tablePath, readOptions));
         }
         catch (ExecutionException e) {
-            throw new RuntimeException("Failed to open dataset: " + tableName, e.getCause());
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to open dataset: " + tableName, e.getCause());
         }
     }
 
