@@ -104,11 +104,20 @@ public class LanceArrowToPageScanner
             LanceColumnHandle column = columns.get(col);
             FieldVector vector = root.getVector(column.getColumnName());
             Type type = column.getColumnType();
-            if (vector instanceof Float2Vector) {
-                // Widen float16 to float32 since Presto has no float16 type
-                vector = widenFloat2ToFloat4((Float2Vector) vector);
+            Float4Vector widened = null;
+            try {
+                if (vector instanceof Float2Vector) {
+                    // Widen float16 to float32 since Presto has no float16 type
+                    widened = widenFloat2ToFloat4((Float2Vector) vector);
+                    vector = widened;
+                }
+                blocks[col] = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, null);
             }
-            blocks[col] = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, null);
+            finally {
+                if (widened != null) {
+                    widened.close();
+                }
+            }
         }
 
         return new Page(rowCount, blocks);
