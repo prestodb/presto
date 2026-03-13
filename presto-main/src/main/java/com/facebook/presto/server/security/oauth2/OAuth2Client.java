@@ -60,14 +60,20 @@ public interface OAuth2Client
     {
         private final String accessToken;
         private final Instant expiration;
-
         private final Optional<String> refreshToken;
+        private final Map<String, Object> claims;
 
         public Response(String accessToken, Instant expiration, Optional<String> refreshToken)
+        {
+            this(accessToken, expiration, refreshToken, null);
+        }
+
+        public Response(String accessToken, Instant expiration, Optional<String> refreshToken, Map<String, Object> claims)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.expiration = requireNonNull(expiration, "expiration is null");
             this.refreshToken = requireNonNull(refreshToken, "refreshToken is null");
+            this.claims = claims;
         }
 
         public String getAccessToken()
@@ -83,6 +89,17 @@ public interface OAuth2Client
         public Optional<String> getRefreshToken()
         {
             return refreshToken;
+        }
+
+        /**
+         * Returns the user claims from ID token (for OIDC) or UserInfo endpoint (for OAuth2).
+         * These claims should be used for extracting the principal field, not the access token.
+         *
+         * @return Optional containing claims map, or empty if not available
+         */
+        public Optional<Map<String, Object>> getClaims()
+        {
+            return Optional.ofNullable(claims);
         }
     }
 }
