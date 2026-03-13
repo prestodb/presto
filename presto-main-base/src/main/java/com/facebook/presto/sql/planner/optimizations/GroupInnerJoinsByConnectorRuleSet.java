@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.MultiJoinNode;
 import com.facebook.presto.sql.planner.plan.Patterns;
+import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
@@ -159,10 +160,10 @@ public class GroupInnerJoinsByConnectorRuleSet
     private final Metadata metadata;
     private final PlanOptimizer predicatePushdownOptimizer;
 
-    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata, PlanOptimizer predicatePushdown)
+    public GroupInnerJoinsByConnectorRuleSet(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
     {
         this.metadata = metadata;
-        this.predicatePushdownOptimizer = predicatePushdown;
+        this.predicatePushdownOptimizer = predicatePushdownOptimizer;
     }
 
     public Set<Rule<?>> rules()
@@ -265,7 +266,6 @@ public class GroupInnerJoinsByConnectorRuleSet
 
         final FunctionAndTypeManager functionAndTypeManager;
         private final PlanOptimizer predicatePushdownOptimizer;
-
         public BaseGroupInnerJoinsByConnector(Metadata metadata, PlanOptimizer predicatePushdownOptimizer)
         {
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
@@ -338,6 +338,33 @@ public class GroupInnerJoinsByConnectorRuleSet
             }
         }
 
+        private static class GroupReferenceRewriter
+                extends SimplePlanRewriter<Void>
+        {
+            private final Lookup lookup;
+
+            public GroupReferenceRewriter(Lookup lookup)
+            {
+                this.lookup = lookup;
+            }
+
+            @Override
+            public PlanNode visitGroupReference(GroupReference node, RewriteContext<Void> context)
+            {
+                // Lookup the actual PlanNode for this GroupReference
+                PlanNode actualNode = lookup.resolve(node);
+                // Recursively rewrite the resolved node
+                return context.rewrite(actualNode);
+            }
+
+            // Other nodes are rewritten by default
+            @Override
+            public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+            {
+                return context.defaultRewrite(node, context.get());
+            }
+        }
+
         protected PlanNode getCombinedJoin(JoinNode node, FunctionResolution functionResolution, DeterminismEvaluator determinismEvaluator, Metadata metadata, Context context)
         {
             Lookup lookup = context.getLookup();
@@ -350,14 +377,18 @@ public class GroupInnerJoinsByConnectorRuleSet
             if (rewrittenMultiJoinNode.getContainsCombinedSources()) {
                 // Create a left deep join tree
                 PlanNode leftDeepJoinTree = createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
+                PlanNode resolvedTree = SimplePlanRewriter.rewriteWith(
+                        new GroupReferenceRewriter(context.getLookup()),
+                        leftDeepJoinTree);
                 // Push pulled up predicates to re-form the Join conditions and remove CrossJoins
                 return predicatePushdownOptimizer.optimize(
-                        leftDeepJoinTree,
+                        resolvedTree,
                         session,
                         TypeProvider.viewOf(variableAllocator.getVariables()),
                         variableAllocator,
                         idAllocator,
                         context.getWarningCollector()).getPlanNode();
+//                return createLeftDeepJoinTree(rewrittenMultiJoinNode, idAllocator);
             }
             return node;
         }
@@ -576,10 +607,10 @@ public class GroupInnerJoinsByConnectorRuleSet
              3. A list of overall output variables
              We can now build our new TableScanNode which represents the join pushed down tables and the final TableScanNode could create at connector level
             */
-            return buildSingleTableScan(joinPushdownSources, idAllocator);
+            return buildSingleTableScan(joinPushdownSources, idAllocator, session);
         }
 
-        private PlanNode buildSingleTableScan(List<PlanNode> groupNodes, PlanNodeIdAllocator idAllocator)
+        private TableScanNode buildSingleTableScan(List<PlanNode> groupNodes, PlanNodeIdAllocator idAllocator, Session session)
         {
             // Build a set of individual TableHandles that need to be combined
             TableHandle firstResolvedTableHandle = null;
@@ -602,20 +633,21 @@ public class GroupInnerJoinsByConnectorRuleSet
             }
 
             // Build a new TableHandle that represents the combined set of TableHandles
-            TableHandle updatedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
+            TableHandle combinedTableHandle = new TableHandle(firstResolvedTableHandle.getConnectorId(),
                     new JoinTableSet(builder.build()),
                     firstResolvedTableHandle.getTransaction(),
                     firstResolvedTableHandle.getLayout(),
                     firstResolvedTableHandle.getDynamicFilter());
-
-            return new TableScanNode(Optional.empty(),
+            TableScanNode joinedTableScanNode = new TableScanNode(Optional.empty(),
                     idAllocator.getNextId(),
-                    updatedTableHandle,
+                    combinedTableHandle,
                     outputVariables,
                     assignments,
                     firstResolvedTableScanNode.getCurrentConstraint(),
                     firstResolvedTableScanNode.getEnforcedConstraint(),
                     firstResolvedTableScanNode.getCteMaterializationInfo());
+
+            return metadata.buildJoinTableScanNode(joinedTableScanNode, combinedTableHandle, session);
         }
 
         private TableScanNode getTableScanNode(PlanNode planNode)
