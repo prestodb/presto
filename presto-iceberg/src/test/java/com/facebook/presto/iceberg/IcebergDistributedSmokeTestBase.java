@@ -2567,4 +2567,37 @@ public abstract class IcebergDistributedSmokeTestBase
             queryRunner.execute("DROP TABLE IF EXISTS test_pushdown_subfields_dml");
         }
     }
+
+    @Test
+    public void testAggregatePushDownForCountMinMax()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_lineitem_with_partition";
+        try {
+            queryRunner.execute("CREATE TABLE " + tableName +
+                    " with (partitioning = ARRAY['suppkey'])" +
+                    " as select * from tpch.tiny.lineitem");
+
+            @Language("SQL") String query = "select count(*), min(orderkey), max(orderkey), min(shipdate), max(commitdate) from " + tableName;
+            MaterializedResult resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, query);
+            MaterializedResult resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, query);
+            Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+
+            @Language("SQL") String queryWithFilter = "select count(*), min(orderkey), max(orderkey), min(shipdate), max(commitdate) from " + tableName +
+                    " where suppkey > 50";
+            resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, queryWithFilter);
+            resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, queryWithFilter);
+            Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }
