@@ -348,6 +348,59 @@ public class TestIcebergLogicalPlanner
     }
 
     @Test
+    public void testAggregationPushDownOptimizerWithThoroughlyPushedDownFilter()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String tableName = "aggregation_push_down_with_filter_" + randomTableSuffix();
+        try {
+            queryRunner.execute(format("create table %s(v1 int, v2 varchar, a int, b varchar)" +
+                    " with(partitioning = ARRAY['a', 'b'])", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (1, '1001', 5, '1001')," +
+                    " (2, '1002', 2, '1001')," +
+                    " (3, '1003', 9, '1002')," +
+                    " (4, '1004', 6, '1002')", tableName));
+            queryRunner.execute(format("insert into %s values" +
+                    " (5, '1005', 19, '1001')," +
+                    " (9, '1006', 21, '1001')," +
+                    " (13, '1007', 33, '1002')," +
+                    " (17, '1008', 37, '1002')", tableName));
+
+            // Push down aggregations for query on Iceberg table with filters which can be thoroughly pushed down
+            assertQuery(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName + " where a > 5 and b = '1002'", "values(3, 17, 4, 6, 37)");
+            assertPlan(session, "select min(v1), max(v1), count(v2), min(a), max(a) from " + tableName + " where a > 5 and b = '1002'",
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of(
+                                    "min(v1)", expression("3"),
+                                    "max(v1)", expression("17"),
+                                    "count(v2)", expression("4"),
+                                    "min(a)", expression("6"),
+                                    "max(a)", expression("37")),
+                            anyTree(values()))));
+
+            // Couldn't push down aggregations for query on Iceberg table with filters which cannot be thoroughly pushed down
+            assertPlan(session, "select min(v1), count(v2), max(a) from " + tableName + " where v1 > 4",
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_min", functionCall("min", ImmutableList.of("partial_min")),
+                                            "final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_min", functionCall("min", ImmutableList.of("v1")),
+                                                                    "partial_count", functionCall("count", ImmutableList.of("v2")),
+                                                                    "partial_max", functionCall("max", ImmutableList.of("a"))),
+                                                            PARTIAL,
+                                                            filter(strictTableScan(tableName, identityMap("v1", "v2", "a")))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testDifferentDataTypesAggregatePushDown()
     {
         QueryRunner queryRunner = getQueryRunner();
