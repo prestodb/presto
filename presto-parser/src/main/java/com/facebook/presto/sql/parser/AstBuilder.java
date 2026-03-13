@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateTag;
 import com.facebook.presto.sql.tree.CreateType;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.CurrentTime;
@@ -366,6 +367,35 @@ class AstBuilder
                 context.EXISTS() != null,
                 properties,
                 comment);
+    }
+
+    @Override
+    public Node visitCreateVectorIndex(SqlBaseParser.CreateVectorIndexContext context)
+    {
+        QualifiedName indexName = getQualifiedName(context.qualifiedName(0));
+        QualifiedName tableName = getQualifiedName(context.qualifiedName(1));
+
+        List<Identifier> columns = context.identifier().stream()
+                .map(id -> (Identifier) visit(id))
+                .collect(toImmutableList());
+
+        Optional<Expression> updatingFor = Optional.empty();
+        if (context.UPDATING() != null) {
+            updatingFor = Optional.of((Expression) visit(context.booleanExpression()));
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new CreateVectorIndex(
+                getLocation(context),
+                indexName,
+                tableName,
+                columns,
+                updatingFor,
+                properties);
     }
 
     @Override
