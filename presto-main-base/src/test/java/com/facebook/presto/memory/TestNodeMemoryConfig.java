@@ -15,6 +15,8 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -119,6 +121,22 @@ public class TestNodeMemoryConfig
         config.setHeapHeadroom(new DataSize(3.1, GIGABYTE));
         // In this case we have 4GB - 1GB = 3GB available memory for the general pool
         // and the heap headroom and the config is more than that.
-        validateHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
+        // Test with a worker node (coordinator=false or includeCoordinator=true)
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(false);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig();
+        validateHeapHeadroom(config, serverConfig, schedulerConfig, new DataSize(4, GIGABYTE).toBytes());
+    }
+
+    @Test
+    public void testCoordinatorOnlySkipsValidation()
+    {
+        NodeMemoryConfig config = new NodeMemoryConfig();
+        config.setMaxQueryTotalMemoryPerNode(new DataSize(1, GIGABYTE));
+        config.setHeapHeadroom(new DataSize(3.1, GIGABYTE));
+        // Coordinator-only mode should skip validation even with invalid values
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(true);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(false);
+        // This should not throw an exception
+        validateHeapHeadroom(config, serverConfig, schedulerConfig, new DataSize(4, GIGABYTE).toBytes());
     }
 }

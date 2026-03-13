@@ -14,6 +14,8 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.annotations.VisibleForTesting;
@@ -44,21 +46,23 @@ public final class LocalMemoryManager
     private Map<MemoryPoolId, MemoryPool> pools;
 
     @Inject
-    public LocalMemoryManager(NodeMemoryConfig config)
+    public LocalMemoryManager(NodeMemoryConfig config, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
     {
-        this(config, Runtime.getRuntime().maxMemory());
+        this(config, serverConfig, schedulerConfig, Runtime.getRuntime().maxMemory());
     }
 
     @VisibleForTesting
-    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
+    public LocalMemoryManager(NodeMemoryConfig config, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig, long availableMemory)
     {
         requireNonNull(config, "config is null");
-        configureMemoryPools(config, availableMemory);
+        requireNonNull(serverConfig, "serverConfig is null");
+        requireNonNull(schedulerConfig, "schedulerConfig is null");
+        configureMemoryPools(config, serverConfig, schedulerConfig, availableMemory);
     }
 
-    private void configureMemoryPools(NodeMemoryConfig config, long availableMemory)
+    private void configureMemoryPools(NodeMemoryConfig config, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig, long availableMemory)
     {
-        validateHeapHeadroom(config, availableMemory);
+        validateHeapHeadroom(config, serverConfig, schedulerConfig, availableMemory);
         maxMemory = new DataSize(availableMemory - config.getHeapHeadroom().toBytes(), BYTE);
         checkArgument(
                 config.getMaxQueryMemoryPerNode().toBytes() <= config.getMaxQueryTotalMemoryPerNode().toBytes(),
@@ -87,8 +91,16 @@ public final class LocalMemoryManager
     }
 
     @VisibleForTesting
-    static void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
+    static void validateHeapHeadroom(NodeMemoryConfig config, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig, long availableMemory)
     {
+        // Skip validation if this is a coordinator that doesn't run query tasks
+        // Coordinators that don't include themselves in scheduling don't execute query tasks,
+        // so they don't need to validate query.max-memory-per-node against JVM heap
+        boolean isCoordinatorOnly = serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator();
+        if (isCoordinatorOnly) {
+            return;
+        }
+
         long maxQueryTotalMemoryPerNode = config.getMaxQueryTotalMemoryPerNode().toBytes();
         long heapHeadroom = config.getHeapHeadroom().toBytes();
         // (availableMemory - maxQueryTotalMemoryPerNode) bytes will be available for the general pool and the

@@ -84,7 +84,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
+        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new com.facebook.presto.server.ServerConfig(), new com.facebook.presto.execution.scheduler.NodeSchedulerConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16, 3, 4, TASK_FAIR, Ticker.systemTicker());
         taskExecutor.start();

@@ -14,6 +14,8 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.units.DataSize;
+import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.server.ServerConfig;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
@@ -32,7 +34,9 @@ public class TestLocalMemoryManager
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
 
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config,
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(false);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig();
+        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, serverConfig, schedulerConfig,
                 new DataSize(60, GIGABYTE).toBytes());
         assertFalse(localMemoryManager.getReservedPool().isPresent());
         assertEquals(localMemoryManager.getPools().size(), 1);
@@ -46,7 +50,9 @@ public class TestLocalMemoryManager
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
 
-        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config,
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(false);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig();
+        LocalMemoryManager localMemoryManager = new LocalMemoryManager(config, serverConfig, schedulerConfig,
                 new DataSize(60, GIGABYTE).toBytes());
         assertTrue(localMemoryManager.getReservedPool().isPresent());
         assertEquals(localMemoryManager.getPools().size(), 2);
@@ -60,7 +66,9 @@ public class TestLocalMemoryManager
                 .setMaxQueryMemoryPerNode(new DataSize(200, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
 
-        new LocalMemoryManager(config, new DataSize(60, GIGABYTE).toBytes());
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(false);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig();
+        new LocalMemoryManager(config, serverConfig, schedulerConfig, new DataSize(60, GIGABYTE).toBytes());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class,
@@ -74,6 +82,8 @@ public class TestLocalMemoryManager
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
 
-        new LocalMemoryManager(config, new DataSize(10, GIGABYTE).toBytes());
+        ServerConfig serverConfig = new ServerConfig().setCoordinator(false);
+        NodeSchedulerConfig schedulerConfig = new NodeSchedulerConfig();
+        new LocalMemoryManager(config, serverConfig, schedulerConfig, new DataSize(10, GIGABYTE).toBytes());
     }
 }
