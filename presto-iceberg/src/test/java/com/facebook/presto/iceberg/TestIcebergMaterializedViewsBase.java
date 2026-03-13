@@ -1762,12 +1762,16 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_insert_mv AS SELECT id, name, value FROM test_mv_insert_base");
 
         try {
-            // CTAS from MV should succeed (no longer blanket-blocked)
-            assertQuerySucceeds("CREATE TABLE test_mv_insert_ctas AS SELECT * FROM test_mv_insert_mv");
+            // CTAS from unrefreshed MV should read from base table via stitching
+            assertUpdate("CREATE TABLE test_mv_insert_ctas AS SELECT * FROM test_mv_insert_mv", 3);
+            assertQuery("SELECT * FROM test_mv_insert_ctas ORDER BY id",
+                    "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
-            // INSERT from MV into a non-base-table should succeed
+            // INSERT from MV into a non-base-table should succeed with data via stitching
             assertUpdate("CREATE TABLE test_mv_insert_target (id BIGINT, name VARCHAR, value BIGINT)");
-            assertQuerySucceeds("INSERT INTO test_mv_insert_target SELECT * FROM test_mv_insert_mv");
+            assertUpdate("INSERT INTO test_mv_insert_target SELECT * FROM test_mv_insert_mv", 3);
+            assertQuery("SELECT * FROM test_mv_insert_target ORDER BY id",
+                    "VALUES (1, 'Alice', 100), (2, 'Bob', 200), (3, 'Charlie', 300)");
 
             // INSERT from MV into its base table should fail (circular dependency)
             assertQueryFails("INSERT INTO test_mv_insert_base SELECT * FROM test_mv_insert_mv",
@@ -1793,9 +1797,11 @@ public abstract class TestIcebergMaterializedViewsBase
         assertUpdate("CREATE MATERIALIZED VIEW test_mv_transitive_mv AS SELECT id, category, amount FROM test_mv_transitive_view");
 
         try {
-            // INSERT from MV into a non-base-table should succeed
+            // INSERT from MV into a non-base-table should succeed with data via stitching
             assertUpdate("CREATE TABLE test_mv_transitive_target (id BIGINT, category VARCHAR, amount BIGINT)");
-            assertQuerySucceeds("INSERT INTO test_mv_transitive_target SELECT * FROM test_mv_transitive_mv");
+            assertUpdate("INSERT INTO test_mv_transitive_target SELECT * FROM test_mv_transitive_mv", 3);
+            assertQuery("SELECT * FROM test_mv_transitive_target ORDER BY id",
+                    "VALUES (1, 'A', 100), (2, 'B', 200), (3, 'A', 300)");
 
             // INSERT from MV into the transitive base table (underlying table of the view) should fail
             assertQueryFails("INSERT INTO test_mv_transitive_base SELECT * FROM test_mv_transitive_mv",
