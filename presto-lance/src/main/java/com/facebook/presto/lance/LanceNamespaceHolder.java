@@ -14,6 +14,9 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalListener;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
 import org.apache.arrow.memory.BufferAllocator;
@@ -37,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Objects.requireNonNull;
 
@@ -55,6 +60,7 @@ public class LanceNamespaceHolder
     private final String root;
     private final boolean singleLevelNs;
     private final ReadOptions readOptions;
+    private final Cache<String, Dataset> datasetCache;
 
     @Inject
     public LanceNamespaceHolder(LanceConfig config)
@@ -65,12 +71,25 @@ public class LanceNamespaceHolder
                 .setIndexCacheSizeBytes((long) config.getIndexCacheSize().toBytes())
                 .setMetadataCacheSizeBytes((long) config.getMetadataCacheSize().toBytes())
                 .build();
+        this.datasetCache = CacheBuilder.newBuilder()
+                .maximumSize(config.getDatasetCacheMaxEntries())
+                .expireAfterAccess((long) config.getDatasetCacheTtl().getValue(), TimeUnit.valueOf(config.getDatasetCacheTtl().getUnit().name()))
+                .removalListener((RemovalListener<String, Dataset>) notification -> {
+                    try {
+                        notification.getValue().close();
+                    }
+                    catch (Exception e) {
+                        log.warn(e, "Error closing cached dataset: %s", notification.getKey());
+                    }
+                })
+                .build();
         this.allocator = new RootAllocator(Long.MAX_VALUE);
         log.debug("LanceNamespaceHolder initialized: root=%s, singleLevelNs=%s", root, singleLevelNs);
     }
 
     public void shutdown()
     {
+        datasetCache.invalidateAll();
         try {
             allocator.close();
         }
@@ -103,6 +122,20 @@ public class LanceNamespaceHolder
     }
 
     /**
+     * Get a cached or newly opened Dataset for the given table.
+     */
+    private Dataset getCachedDataset(String tableName)
+    {
+        String tablePath = getTablePath(tableName);
+        try {
+            return datasetCache.get(tablePath, () -> Dataset.open(tablePath, readOptions));
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException("Failed to open dataset: " + tableName, e.getCause());
+        }
+    }
+
+    /**
      * Get the filesystem path for a table.
      */
     public String getTablePath(String tableName)
@@ -129,10 +162,7 @@ public class LanceNamespaceHolder
      */
     public Schema describeTable(String tableName)
     {
-        String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
-            return dataset.getSchema();
-        }
+        return getCachedDataset(tableName).getSchema();
     }
 
     /**
@@ -174,10 +204,12 @@ public class LanceNamespaceHolder
      */
     public void dropTable(String tableName)
     {
-        Path tablePath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
-        if (Files.exists(tablePath)) {
+        String tablePath = getTablePath(tableName);
+        datasetCache.invalidate(tablePath);
+        Path fsPath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
+        if (Files.exists(fsPath)) {
             try {
-                MoreFiles.deleteRecursively(tablePath, RecursiveDeleteOption.ALLOW_INSECURE);
+                MoreFiles.deleteRecursively(fsPath, RecursiveDeleteOption.ALLOW_INSECURE);
             }
             catch (IOException e) {
                 throw new RuntimeException("Failed to delete table " + tableName, e);
@@ -195,6 +227,8 @@ public class LanceNamespaceHolder
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragments);
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
+        // Invalidate cache since dataset version changed
+        datasetCache.invalidate(tablePath);
     }
 
     /**
@@ -202,9 +236,6 @@ public class LanceNamespaceHolder
      */
     public List<Fragment> getFragments(String tableName)
     {
-        String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
-            return dataset.getFragments();
-        }
+        return getCachedDataset(tableName).getFragments();
     }
 }
