@@ -21,6 +21,8 @@ import com.facebook.presto.spi.PrestoException;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.Float2Vector;
+import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.lance.ipc.LanceScanner;
@@ -36,6 +38,7 @@ public class LanceArrowToPageScanner
 {
     private final ScannerFactory scannerFactory;
     private final ArrowReader arrowReader;
+    private final BufferAllocator allocator;
     private final List<LanceColumnHandle> columns;
     private final ArrowBlockBuilder arrowBlockBuilder;
     private long lastBatchBytes;
@@ -46,6 +49,7 @@ public class LanceArrowToPageScanner
             ScannerFactory scannerFactory,
             ArrowBlockBuilder arrowBlockBuilder)
     {
+        this.allocator = requireNonNull(allocator, "allocator is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.scannerFactory = requireNonNull(scannerFactory, "scannerFactory is null");
         this.arrowBlockBuilder = requireNonNull(arrowBlockBuilder, "arrowBlockBuilder is null");
@@ -100,10 +104,31 @@ public class LanceArrowToPageScanner
             LanceColumnHandle column = columns.get(col);
             FieldVector vector = root.getVector(column.getColumnName());
             Type type = column.getColumnType();
+            if (vector instanceof Float2Vector) {
+                // Widen float16 to float32 since Presto has no float16 type
+                vector = widenFloat2ToFloat4((Float2Vector) vector);
+            }
             blocks[col] = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, null);
         }
 
         return new Page(rowCount, blocks);
+    }
+
+    private Float4Vector widenFloat2ToFloat4(Float2Vector f2v)
+    {
+        int valueCount = f2v.getValueCount();
+        Float4Vector f4v = new Float4Vector(f2v.getName(), allocator);
+        f4v.allocateNew(valueCount);
+        for (int i = 0; i < valueCount; i++) {
+            if (f2v.isNull(i)) {
+                f4v.setNull(i);
+            }
+            else {
+                f4v.set(i, f2v.getValueAsFloat(i));
+            }
+        }
+        f4v.setValueCount(valueCount);
+        return f4v;
     }
 
     @Override

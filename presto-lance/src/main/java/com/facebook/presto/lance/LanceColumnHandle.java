@@ -122,7 +122,8 @@ public class LanceColumnHandle
         }
         else if (type instanceof ArrowType.FloatingPoint) {
             ArrowType.FloatingPoint fpType = (ArrowType.FloatingPoint) type;
-            if (fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
+            if (fpType.getPrecision() == FloatingPointPrecision.HALF ||
+                    fpType.getPrecision() == FloatingPointPrecision.SINGLE) {
                 return RealType.REAL;
             }
             return DoubleType.DOUBLE;
