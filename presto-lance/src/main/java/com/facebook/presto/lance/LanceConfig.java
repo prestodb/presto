@@ -28,6 +28,8 @@ public class LanceConfig
     private int maxRowsPerFile = 1_000_000;
     private int maxRowsPerGroup = 100_000;
     private int writeBatchSize = 10_000;
+    private long indexCacheSizeBytes = 134_217_728; // 128MB
+    private long metadataCacheSizeBytes = 134_217_728; // 128MB
 
     @NotNull
     public String getImpl()
@@ -123,6 +125,34 @@ public class LanceConfig
     public LanceConfig setWriteBatchSize(int writeBatchSize)
     {
         this.writeBatchSize = writeBatchSize;
+        return this;
+    }
+
+    @Min(0)
+    public long getIndexCacheSizeBytes()
+    {
+        return indexCacheSizeBytes;
+    }
+
+    @Config("lance.index-cache-size-bytes")
+    @ConfigDescription("Size in bytes for Lance index cache per worker")
+    public LanceConfig setIndexCacheSizeBytes(long indexCacheSizeBytes)
+    {
+        this.indexCacheSizeBytes = indexCacheSizeBytes;
+        return this;
+    }
+
+    @Min(0)
+    public long getMetadataCacheSizeBytes()
+    {
+        return metadataCacheSizeBytes;
+    }
+
+    @Config("lance.metadata-cache-size-bytes")
+    @ConfigDescription("Size in bytes for Lance metadata cache per worker")
+    public LanceConfig setMetadataCacheSizeBytes(long metadataCacheSizeBytes)
+    {
+        this.metadataCacheSizeBytes = metadataCacheSizeBytes;
         return this;
     }
 }

@@ -36,12 +36,13 @@ public class LanceFragmentPageSource
             List<Integer> fragments,
             String tablePath,
             int readBatchSize,
+            ReadOptions readOptions,
             ArrowBlockBuilder arrowBlockBuilder,
             BufferAllocator parentAllocator,
             Optional<String> filter,
             List<String> filterProjectionColumns)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, readOptions, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
     }
 
     private static class FragmentScannerFactory
@@ -50,15 +51,17 @@ public class LanceFragmentPageSource
         private final List<Integer> fragmentIds;
         private final String tablePath;
         private final int readBatchSize;
+        private final ReadOptions readOptions;
         private final List<String> filterProjectionColumns;
         private Dataset dataset;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, List<String> filterProjectionColumns)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, ReadOptions readOptions, List<String> filterProjectionColumns)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = tablePath;
             this.readBatchSize = readBatchSize;
+            this.readOptions = readOptions;
             this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
         }
 
@@ -80,7 +83,7 @@ public class LanceFragmentPageSource
             optionsBuilder.fragmentIds(fragmentIds);
             filter.ifPresent(optionsBuilder::filter);
 
-            this.dataset = Dataset.open(tablePath, new ReadOptions.Builder().build());
+            this.dataset = Dataset.open(tablePath, readOptions);
             this.scanner = dataset.newScan(optionsBuilder.build());
             return scanner;
         }
