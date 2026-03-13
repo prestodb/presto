@@ -17,11 +17,17 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.RuntimeMetric;
 import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.operator.OperatorStats;
+import com.facebook.presto.operator.PipelineStats;
+import com.facebook.presto.operator.TaskStats;
 import org.apache.commons.text.CaseUtils;
 import org.apache.spark.TaskContext;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.util.AccumulatorV2;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class PrestoSparkStatsCollectionUtils
@@ -42,6 +48,9 @@ public class PrestoSparkStatsCollectionUtils
         try {
             taskInfo.getStats().getRuntimeStats().getMetrics()
                     .forEach(PrestoSparkStatsCollectionUtils::incSparkInternalAccumulator);
+
+            // Populate existing Spark TaskMetrics accumulators from TaskStats
+            collectTaskStatsMetrics(taskInfo.getStats());
         }
         catch (Exception e) {
             log.warn(e, "An error occurred while updating Spark Internal metrics for task=%s", taskInfo);
@@ -98,5 +107,88 @@ public class PrestoSparkStatsCollectionUtils
             sum = TimeUnit.NANOSECONDS.toMillis(sum);
         }
         return sum;
+    }
+
+    /**
+     * Populates existing Spark TaskMetrics accumulators from Presto TaskStats.
+     * Only writes to accumulators that are already registered in Spark's nameToAccums,
+     * so no fb-spark changes are required.
+     */
+    static void collectTaskStatsMetrics(final TaskStats taskStats)
+    {
+        if (taskStats == null) {
+            return;
+        }
+
+        try {
+            Map<String, Long> metrics = computeTaskStatsMetrics(taskStats);
+            for (Map.Entry<String, Long> entry : metrics.entrySet()) {
+                incSparkAccumulator(entry.getKey(), entry.getValue());
+            }
+        }
+        catch (Exception e) {
+            log.warn(e, "An error occurred while updating Spark Internal metrics from TaskStats");
+        }
+    }
+
+    /**
+     * Computes metrics from TaskStats mapped to existing Spark accumulator keys.
+     * Separated from accumulator wiring for testability.
+     */
+    static Map<String, Long> computeTaskStatsMetrics(final TaskStats taskStats)
+    {
+        Map<String, Long> metrics = new HashMap<>();
+
+        // Timing: executorCpuTime (nanos) — total CPU time
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "executorCpuTime",
+                taskStats.getTotalCpuTimeInNanos());
+
+        // Spill: memoryBytesSpilled — aggregate spill across all pipeline operators
+        long totalSpilledBytes = 0;
+        List<PipelineStats> pipelines = taskStats.getPipelines();
+        if (pipelines != null) {
+            for (PipelineStats pipeline : pipelines) {
+                for (OperatorStats operator : pipeline.getOperatorSummaries()) {
+                    totalSpilledBytes += operator.getSpilledDataSizeInBytes();
+                }
+            }
+        }
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "memoryBytesSpilled", totalSpilledBytes);
+
+        // Standard Spark I/O accumulator keys for Spark UI visibility
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "input.bytesRead",
+                taskStats.getRawInputDataSizeInBytes());
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "input.recordsRead",
+                taskStats.getRawInputPositions());
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "output.bytesWritten",
+                taskStats.getPhysicalWrittenDataSizeInBytes());
+        metrics.put(SPARK_INTERNAL_ACCUMULATOR_PREFIX + "output.recordsWritten",
+                taskStats.getOutputPositions());
+
+        return metrics;
+    }
+
+    /**
+     * Helper method to directly increment a Spark internal accumulator by name.
+     */
+    static void incSparkAccumulator(final String sparkInternalAccumulatorName, final long value)
+    {
+        TaskContext taskContext = TaskContext.get();
+        if (taskContext == null) {
+            return;
+        }
+
+        TaskMetrics sparkTaskMetrics = taskContext.taskMetrics();
+        if (sparkTaskMetrics == null) {
+            return;
+        }
+
+        scala.Option accumulatorV2Optional = sparkTaskMetrics.nameToAccums().get(sparkInternalAccumulatorName);
+        if (accumulatorV2Optional.isEmpty()) {
+            return;
+        }
+
+        AccumulatorV2<Object, Object> accumulatorV2 = (AccumulatorV2<Object, Object>) accumulatorV2Optional.get();
+        accumulatorV2.add(value);
     }
 }
