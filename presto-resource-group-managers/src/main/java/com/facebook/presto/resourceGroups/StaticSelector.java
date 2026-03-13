@@ -18,6 +18,7 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
@@ -55,6 +56,7 @@ public class StaticSelector
     private final Optional<Pattern> principalRegex;
     private final ResourceGroupIdTemplate group;
     private final Set<String> variableNames;
+    private final ImmutableMap<Pattern, ImmutableSet<String>> patternNamedGroups;
 
     public StaticSelector(
             Optional<Pattern> userRegex,
@@ -82,6 +84,11 @@ public class StaticSelector
         userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
         sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
         this.variableNames = ImmutableSet.copyOf(variableNames);
+
+        ImmutableMap.Builder<Pattern, ImmutableSet<String>> patternGroupsBuilder = ImmutableMap.builder();
+        userRegex.ifPresent(u -> patternGroupsBuilder.put(u, extractNamedGroups(u)));
+        sourceRegex.ifPresent(s -> patternGroupsBuilder.put(s, extractNamedGroups(s)));
+        this.patternNamedGroups = patternGroupsBuilder.build();
 
         Set<String> unresolvedVariables = Sets.difference(group.getVariableNames(), variableNames);
         checkArgument(unresolvedVariables.isEmpty(), "unresolved variables %s in resource group ID '%s', available: %s\"", unresolvedVariables, group, variableNames);
@@ -167,19 +174,28 @@ public class StaticSelector
         }
     }
 
+    private static ImmutableSet<String> extractNamedGroups(Pattern pattern)
+    {
+        ImmutableSet.Builder<String> groups = ImmutableSet.builder();
+        Matcher matcher = NAMED_GROUPS_PATTERN.matcher(pattern.pattern());
+        while (matcher.find()) {
+            groups.add(matcher.group(1));
+        }
+        return groups.build();
+    }
+
     private void addVariableValues(Pattern pattern, String candidate, Map<String, String> mapping)
     {
-        for (String key : variableNames) {
-            Matcher keyMatcher = pattern.matcher(candidate);
-            if (keyMatcher.find()) {
-                try {
-                    String value = keyMatcher.group(key);
-                    if (value != null) {
-                        mapping.put(key, value);
-                    }
-                }
-                catch (IllegalArgumentException ignored) {
-                    // there was no capturing group with the specified name
+        Set<String> groups = patternNamedGroups.getOrDefault(pattern, ImmutableSet.of());
+        if (groups.isEmpty()) {
+            return;
+        }
+        Matcher keyMatcher = pattern.matcher(candidate);
+        if (keyMatcher.find()) {
+            for (String key : groups) {
+                String value = keyMatcher.group(key);
+                if (value != null) {
+                    mapping.put(key, value);
                 }
             }
         }
