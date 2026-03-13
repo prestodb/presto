@@ -54,16 +54,17 @@ public class LanceNamespaceHolder
     private final BufferAllocator allocator;
     private final String root;
     private final boolean singleLevelNs;
-    private final long indexCacheSizeBytes;
-    private final long metadataCacheSizeBytes;
+    private final ReadOptions readOptions;
 
     @Inject
     public LanceNamespaceHolder(LanceConfig config)
     {
         this.root = requireNonNull(config.getRootUrl(), "root is null");
         this.singleLevelNs = config.isSingleLevelNs();
-        this.indexCacheSizeBytes = config.getIndexCacheSizeBytes();
-        this.metadataCacheSizeBytes = config.getMetadataCacheSizeBytes();
+        this.readOptions = new ReadOptions.Builder()
+                .setIndexCacheSizeBytes((long) config.getIndexCacheSize().toBytes())
+                .setMetadataCacheSizeBytes((long) config.getMetadataCacheSize().toBytes())
+                .build();
         this.allocator = new RootAllocator(Long.MAX_VALUE);
         log.debug("LanceNamespaceHolder initialized: root=%s, singleLevelNs=%s", root, singleLevelNs);
     }
@@ -94,14 +95,11 @@ public class LanceNamespaceHolder
     }
 
     /**
-     * Build ReadOptions with configured cache sizes.
+     * Get ReadOptions with configured cache sizes.
      */
-    public ReadOptions buildReadOptions()
+    public ReadOptions getReadOptions()
     {
-        return new ReadOptions.Builder()
-                .setIndexCacheSizeBytes(indexCacheSizeBytes)
-                .setMetadataCacheSizeBytes(metadataCacheSizeBytes)
-                .build();
+        return readOptions;
     }
 
     /**
@@ -132,7 +130,7 @@ public class LanceNamespaceHolder
     public Schema describeTable(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, buildReadOptions())) {
+        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
             return dataset.getSchema();
         }
     }
@@ -193,7 +191,7 @@ public class LanceNamespaceHolder
     public void commitAppend(String tableName, List<FragmentMetadata> fragments)
     {
         String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, buildReadOptions())) {
+        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragments);
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
@@ -205,7 +203,7 @@ public class LanceNamespaceHolder
     public List<Fragment> getFragments(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, buildReadOptions())) {
+        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
             return dataset.getFragments();
         }
     }
