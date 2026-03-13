@@ -30,18 +30,20 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=============================== ============================================================= ===============
-Property Name                   Description                                                   Default
-=============================== ============================================================= ===============
-``lance.impl``                  Namespace implementation: ``dir``                              ``dir``
-``lance.root-url``              Root storage path for Lance datasets.                          ``""``
-``lance.single-level-ns``       When ``true``, uses a single-level namespace with a            ``true``
-                                virtual ``default`` schema.
-``lance.read-batch-size``       Number of rows per Arrow batch during reads.                   ``8192``
-``lance.max-rows-per-file``     Maximum number of rows per Lance data file.                    ``1000000``
-``lance.max-rows-per-group``    Maximum number of rows per row group.                          ``100000``
-``lance.write-batch-size``      Number of rows to batch before writing to Arrow.               ``10000``
-=============================== ============================================================= ===============
+===================================== ============================================================= ===============
+Property Name                         Description                                                   Default
+===================================== ============================================================= ===============
+``lance.impl``                        Namespace implementation: ``dir``                              ``dir``
+``lance.root-url``                    Root storage path for Lance datasets.                          ``""``
+``lance.single-level-ns``             When ``true``, uses a single-level namespace with a            ``true``
+                                      virtual ``default`` schema.
+``lance.read-batch-size``             Number of rows per Arrow batch during reads.                   ``8192``
+``lance.max-rows-per-file``           Maximum number of rows per Lance data file.                    ``1000000``
+``lance.max-rows-per-group``          Maximum number of rows per row group.                          ``100000``
+``lance.write-batch-size``            Number of rows to batch before writing to Arrow.               ``10000``
+``lance.index-cache-size-bytes``      Size in bytes for Lance index cache per worker.                ``134217728``
+``lance.metadata-cache-size-bytes``   Size in bytes for Lance metadata cache per worker.             ``134217728``
+===================================== ============================================================= ===============
 
 ``lance.impl``
 ^^^^^^^^^^^^^^
@@ -102,6 +104,20 @@ default is ``10000``.
 
     This property is reserved for future use and is not yet wired into the
     write path.
+
+``lance.index-cache-size-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Size in bytes for the Lance index cache per worker node. The index cache stores
+scalar and vector index data to speed up filtered queries. The default is
+``134217728`` (128 MB).
+
+``lance.metadata-cache-size-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Size in bytes for the Lance metadata cache per worker node. The metadata cache
+stores dataset and fragment metadata to reduce I/O on repeated queries. The
+default is ``134217728`` (128 MB).
 
 Data Types
 ----------
