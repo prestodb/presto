@@ -140,6 +140,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilt
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteJsonExtractScalarWithStrposFilter;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteRowExpressions;
@@ -394,6 +395,13 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
 
+        IterativeOptimizer jsonExtractScalarStrposRewriter = new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new RewriteJsonExtractScalarWithStrposFilter(metadata.getFunctionAndTypeManager()).rules());
+
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, expressionOptimizerManager, featuresConfig.isNativeExecutionEnabled()));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
@@ -620,6 +628,7 @@ public class PlanOptimizers
                 caseToMapRewriter,
                 caseExpressionPredicateRewriter,
                 containsToInRewriter,
+                jsonExtractScalarStrposRewriter,
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,

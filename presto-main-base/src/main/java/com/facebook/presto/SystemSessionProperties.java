@@ -335,6 +335,7 @@ public final class SystemSessionProperties
     public static final String CANONICALIZED_JSON_EXTRACT = "canonicalized_json_extract";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
+    public static final String REWRITE_JSON_EXTRACT_SCALAR_STRPOS_FILTER = "rewrite_json_extract_scalar_strpos_filter";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
     public static final String ENABLE_HISTORY_BASED_SCALED_WRITER = "enable_history_based_scaled_writer";
     public static final String USE_PARTIAL_AGGREGATION_HISTORY = "use_partial_aggregation_history";
@@ -1959,6 +1960,11 @@ public final class SystemSessionProperties
                         featuresConfig.isRewriteConstantArrayContainsToInEnabled(),
                         false),
                 booleanProperty(
+                        REWRITE_JSON_EXTRACT_SCALAR_STRPOS_FILTER,
+                        "Add strpos pre-filter for json_extract_scalar equality predicates to short-circuit expensive JSON parsing",
+                        featuresConfig.isRewriteJsonExtractScalarStrposFilterEnabled(),
+                        false),
+                booleanProperty(
                         INFER_INEQUALITY_PREDICATES,
                         "Infer nonequality predicates for joins",
                         featuresConfig.getInferInequalityPredicates(),
@@ -3491,6 +3497,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteConstantArrayContainsToInExpressionEnabled(Session session)
     {
         return session.getSystemProperty(REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION, Boolean.class);
+    }
+
+    public static boolean isRewriteJsonExtractScalarStrposFilterEnabled(Session session)
+    {
+        return session.getSystemProperty(REWRITE_JSON_EXTRACT_SCALAR_STRPOS_FILTER, Boolean.class);
     }
 
     public static boolean shouldInferInequalityPredicates(Session session)
