@@ -242,12 +242,6 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
   auto type = stringToType(icebergColumn->type, typeParser);
-  velox::connector::hive::HiveColumnHandle::ColumnParseParameters
-      columnParseParameters;
-  if (type->isDate()) {
-    columnParseParameters.partitionDateValueFormat = velox::connector::hive::
-        HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
-  }
 
   return std::make_unique<velox::connector::hive::iceberg::IcebergColumnHandle>(
       icebergColumn->columnIdentity.name,
