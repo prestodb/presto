@@ -154,9 +154,9 @@ public class IcebergRestCatalogFactory
                             "version", nodeVersion.toString());
 
                     String jwt = Jwts.builder()
-                            .setSubject(session.getUser())
-                            .setIssuer(nodeVersion.toString())
-                            .setIssuedAt(new Date())
+                            .subject(session.getUser())
+                            .issuer(nodeVersion.toString())
+                            .issuedAt(new Date())
                             .claim("user", session.getUser())
                             .claim("source", session.getSource().orElse(""))
                             .compact();
