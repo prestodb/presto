@@ -371,6 +371,8 @@ public abstract class IcebergAbstractMetadata
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
+    public abstract CatalogType getCatalogType();
+
     public Optional<IcebergProcedureContext> getProcedureContext()
     {
         return this.procedureContext;

@@ -250,6 +250,13 @@ public final class IcebergUtil
         return icebergMetadata.getIcebergTable(session, table);
     }
 
+    public static boolean tableExists(ConnectorMetadata metadata, ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        checkArgument(metadata instanceof IcebergAbstractMetadata, "metadata must be instance of IcebergAbstractMetadata!");
+        IcebergAbstractMetadata icebergMetadata = (IcebergAbstractMetadata) metadata;
+        return icebergMetadata.tableExists(session, schemaTableName);
+    }
+
     public static Table getShallowWrappedIcebergTable(Schema schema, PartitionSpec spec, Map<String, String> properties, Optional<SortOrder> sortOrder)
     {
         return new PrestoIcebergTableForMetricsConfig(schema, spec, properties, sortOrder);
