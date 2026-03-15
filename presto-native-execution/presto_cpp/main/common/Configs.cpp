@@ -40,9 +40,9 @@ std::string bool2String(bool value) {
 }
 
 uint32_t hardwareConcurrency() {
-  const auto numLogicalCores = folly::hardware_concurrency();
-  // The spec says folly::hardware_concurrency() might return 0.
-  // But we depend on folly::hardware_concurrency() to create executors.
+  const auto numLogicalCores = folly::available_concurrency();
+  // The spec says folly::available_concurrency() might return 0.
+  // But we depend on folly::available_concurrency() to create executors.
   // Check to ensure numThreads is > 0.
   VELOX_CHECK_GT(numLogicalCores, 0);
   return numLogicalCores;

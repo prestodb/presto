@@ -246,7 +246,7 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
       {.target = ServerOperation::Target::kSystemConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::available_concurrency());
 }
 
 TEST_F(ServerOperationTest, veloxQueryConfigEndpoint) {
@@ -270,7 +270,7 @@ TEST_F(ServerOperationTest, veloxQueryConfigEndpoint) {
       {.target = ServerOperation::Target::kVeloxQueryConfig,
        .action = ServerOperation::Action::kGetProperty},
       &httpMessage);
-  EXPECT_EQ(std::stoi(getPropertyResponse), folly::hardware_concurrency());
+  EXPECT_EQ(std::stoi(getPropertyResponse), folly::available_concurrency());
 
   // Setting a registered property returns a message with "velox query config"
   // wording (verifying the copy-paste bug fix from systemConfigOperation).
