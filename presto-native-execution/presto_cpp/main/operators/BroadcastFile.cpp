@@ -109,12 +109,13 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 BroadcastFileWriter::BroadcastFileWriter(
     const std::string& pathPrefix,
     uint64_t maxBroadcastBytes,
+    uint64_t targetFileSize,
     uint64_t writeBufferSize,
     std::unique_ptr<VectorSerde::Options> serdeOptions,
     velox::memory::MemoryPool* pool)
     : serializer::SerializedPageFileWriter(
           pathPrefix,
-          std::numeric_limits<uint64_t>::max(),
+          targetFileSize,
           writeBufferSize,
           "",
           std::move(serdeOptions),
@@ -159,6 +160,7 @@ void BroadcastFileWriter::closeFile() {
   }
   writeFooter();
   serializer::SerializedPageFileWriter::closeFile();
+  pageSizes_.clear();
 }
 
 void BroadcastFileWriter::writeFooter() {
@@ -183,26 +185,27 @@ void BroadcastFileWriter::noMoreData() {
   if (fileInfos.empty()) {
     return;
   }
-  VELOX_CHECK_EQ(fileInfos.size(), 1);
 
-  // Return stats for the single file with multiple pages
+  const auto numFiles = fileInfos.size();
   auto fileNameVector =
-      BaseVector::create<FlatVector<StringView>>(VARCHAR(), 1, pool_);
+      BaseVector::create<FlatVector<StringView>>(VARCHAR(), numFiles, pool_);
   auto maxSerializedSizeVector =
-      BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), numFiles, pool_);
   auto numRowsVector =
-      BaseVector::create<FlatVector<int64_t>>(BIGINT(), 1, pool_);
+      BaseVector::create<FlatVector<int64_t>>(BIGINT(), numFiles, pool_);
 
-  fileNameVector->set(0, StringView(fileInfos.back().path));
-  maxSerializedSizeVector->set(0, fileInfos.back().size);
-  numRowsVector->set(0, numRows_);
+  for (vector_size_t i = 0; i < numFiles; ++i) {
+    fileNameVector->set(i, StringView(fileInfos[i].path));
+    maxSerializedSizeVector->set(i, fileInfos[i].size);
+    numRowsVector->set(i, numRows_);
+  }
 
   fileStats_ = std::make_shared<RowVector>(
       pool_,
       ROW({"filepath", "maxserializedsize", "numrows"},
           {VARCHAR(), BIGINT(), BIGINT()}),
       nullptr,
-      1,
+      numFiles,
       std::vector<VectorPtr>(
           {std::move(fileNameVector),
            std::move(maxSerializedSizeVector),
