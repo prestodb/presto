@@ -141,6 +141,78 @@ public class TestPushPartialAggregationThroughJoin
     }
 
     @Test
+    public void testPushesPartialAggregationWithMixedProjectionThroughJoin()
+    {
+        FunctionResolution functionResolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());
+        // The projection has BOTH a left-side assignment (LEFT_AGGR_X2 = LEFT_AGGR * 2) and a
+        // right-side assignment (RIGHT_AGGR_X2 = RIGHT_EQUI * 2). The rule must split them:
+        // LEFT_AGGR_X2 is pushed below the left join child and RIGHT_AGGR_X2 is pushed below the
+        // right join child. The aggregation (which uses only LEFT_AGGR_X2) is then pushed to the
+        // left child.
+        tester().assertThat(new PushPartialAggregationThroughJoinRuleSet().withProjectionRule())
+                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression leftEqui = p.variable("LEFT_EQUI");
+                    VariableReferenceExpression leftNonEqui = p.variable("LEFT_NON_EQUI");
+                    VariableReferenceExpression leftGroupBy = p.variable("LEFT_GROUP_BY");
+                    VariableReferenceExpression leftAggr = p.variable("LEFT_AGGR");
+                    VariableReferenceExpression leftHash = p.variable("LEFT_HASH");
+                    VariableReferenceExpression rightEqui = p.variable("RIGHT_EQUI");
+                    VariableReferenceExpression rightNonEqui = p.variable("RIGHT_NON_EQUI");
+                    VariableReferenceExpression rightGroupBy = p.variable("RIGHT_GROUP_BY");
+                    VariableReferenceExpression rightHash = p.variable("RIGHT_HASH");
+                    VariableReferenceExpression leftAggrX2 = p.variable("LEFT_AGGR_X2", BIGINT);
+                    VariableReferenceExpression rightAggrX2 = p.variable("RIGHT_AGGR_X2", BIGINT);
+                    return p.aggregation(ab -> ab
+                            .source(
+                                    p.project(
+                                            PlanBuilder.assignment(
+                                                    leftAggrX2,
+                                                    call("LEFT_AGGR * 2",
+                                                            functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT),
+                                                            BIGINT,
+                                                            leftAggr,
+                                                            constant(2L, BIGINT)),
+                                                    rightAggrX2,
+                                                    call("RIGHT_EQUI * 2",
+                                                            functionResolution.arithmeticFunction(MULTIPLY, BIGINT, BIGINT),
+                                                            BIGINT,
+                                                            rightEqui,
+                                                            constant(2L, BIGINT))),
+                                            p.join(
+                                                    INNER,
+                                                    p.values(leftEqui, leftNonEqui, leftGroupBy, leftAggr, leftHash),
+                                                    p.values(rightEqui, rightNonEqui, rightGroupBy, rightHash),
+                                                    ImmutableList.of(new EquiJoinClause(leftEqui, rightEqui)),
+                                                    ImmutableList.of(leftGroupBy, leftAggr, rightGroupBy, rightEqui),
+                                                    Optional.of(p.rowExpression("LEFT_NON_EQUI <= RIGHT_NON_EQUI")),
+                                                    Optional.of(leftHash),
+                                                    Optional.of(rightHash))))
+                            .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("AVG(LEFT_AGGR_X2)"))
+                            .singleGroupingSet(leftGroupBy, rightGroupBy)
+                            .step(PARTIAL));
+                })
+                .matches(project(ImmutableMap.of(
+                        "LEFT_GROUP_BY", PlanMatchPattern.expression("LEFT_GROUP_BY"),
+                        "RIGHT_GROUP_BY", PlanMatchPattern.expression("RIGHT_GROUP_BY"),
+                        "AVG", PlanMatchPattern.expression("AVG")),
+                        join(INNER, ImmutableList.of(equiJoinClause("LEFT_EQUI", "RIGHT_EQUI")),
+                                Optional.of("LEFT_NON_EQUI <= RIGHT_NON_EQUI"),
+                                aggregation(
+                                        singleGroupingSet("LEFT_GROUP_BY", "LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_HASH"),
+                                        ImmutableMap.of(Optional.of("AVG"), functionCall("avg", ImmutableList.of("LEFT_AGGR_X2"))),
+                                        ImmutableMap.of(),
+                                        Optional.empty(),
+                                        PARTIAL,
+                                        project(
+                                                ImmutableMap.of("LEFT_AGGR_X2", PlanMatchPattern.expression("LEFT_AGGR * 2")),
+                                                values("LEFT_EQUI", "LEFT_NON_EQUI", "LEFT_GROUP_BY", "LEFT_AGGR", "LEFT_HASH"))),
+                                project(
+                                        ImmutableMap.of("RIGHT_AGGR_X2", PlanMatchPattern.expression("RIGHT_EQUI * 2")),
+                                        values("RIGHT_EQUI", "RIGHT_NON_EQUI", "RIGHT_GROUP_BY", "RIGHT_HASH")))));
+    }
+
+    @Test
     public void testDoesNotFireWhenProjectSpansBothSides()
     {
         FunctionResolution functionResolution = new FunctionResolution(tester().getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver());

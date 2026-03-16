@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 
@@ -68,8 +69,10 @@ import static com.google.common.collect.Sets.intersection;
  * into a plan where the partial aggregation (and the projection, if present) are pushed
  * below the join to whichever side all the aggregation inputs come from.
  * <p>
- * For the second form, the projection can only be pushed below the join if all the
- * assignment expressions reference variables from a single side of the join.
+ * For the second form, the projection is split: each assignment is pushed to whichever join child
+ * all of its referenced variables come from (constants are pushed to the left child). An assignment
+ * that spans both sides of the join prevents the rule from firing. This split allows the partial
+ * aggregation to then be pushed below the join to whichever side all aggregation inputs come from.
  */
 public class PushPartialAggregationThroughJoinRuleSet
 {
@@ -156,9 +159,12 @@ public class PushPartialAggregationThroughJoinRuleSet
      *           Join (INNER)
      * </pre>
      *
-     * The projection is pushed below the Join when all its assignment expressions reference
-     * variables from only one side of the join. This unblocks the partial-aggregation
-     * push-down through the join.
+     * The projection is split into two parts: assignments whose referenced variables come
+     * entirely from the left join child are pushed to the left, and those from the right child
+     * are pushed to the right. Constants (no variable references) are pushed to the left.
+     * Any single assignment that references variables from both sides prevents the rule from
+     * firing. After the split, the partial aggregation is pushed to whichever side all of its
+     * inputs now reside on.
      */
     @VisibleForTesting
     static class PushPartialAggregationWithProjectThroughJoin
@@ -183,17 +189,13 @@ public class PushPartialAggregationThroughJoinRuleSet
             Set<VariableReferenceExpression> leftVariables = ImmutableSet.copyOf(joinNode.getLeft().getOutputVariables());
             Set<VariableReferenceExpression> rightVariables = ImmutableSet.copyOf(joinNode.getRight().getOutputVariables());
 
-            // Determine which side each assignment expression belongs to.
-            // An assignment is "left-only" if all referenced variables come from the left child,
-            // and "right-only" if all referenced variables come from the right child.
-            // If any expression references variables from both sides, we cannot push the projection.
-            boolean allLeft = true;
-            boolean allRight = true;
+            // Split assignments: left-only (including constants with no variable refs) vs right-only.
+            // Any single assignment that spans both sides is rejected outright.
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> leftAssignmentsBuilder = ImmutableMap.builder();
+            ImmutableMap.Builder<VariableReferenceExpression, RowExpression> rightAssignmentsBuilder = ImmutableMap.builder();
 
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : projectNode.getAssignments().entrySet()) {
                 Set<VariableReferenceExpression> referencedVars = VariablesExtractor.extractUnique(entry.getValue());
-                // Ignore pure variable pass-throughs (identity assignments) – they don't constrain
-                // which side the projection lands on; they belong to whichever side their source var is on.
                 boolean usesLeft = !intersection(referencedVars, leftVariables).isEmpty();
                 boolean usesRight = !intersection(referencedVars, rightVariables).isEmpty();
 
@@ -202,44 +204,41 @@ public class PushPartialAggregationThroughJoinRuleSet
                     return Result.empty();
                 }
                 if (usesRight) {
-                    allLeft = false;
+                    rightAssignmentsBuilder.put(entry.getKey(), entry.getValue());
                 }
-                if (usesLeft) {
-                    allRight = false;
+                else {
+                    // Belongs to left side: uses only left variables, or is a constant (no variable refs).
+                    leftAssignmentsBuilder.put(entry.getKey(), entry.getValue());
                 }
             }
 
-            // At least one side must be chosen; if the projection produces only constants
-            // (no join-side variables at all) we cannot determine a side to push to.
-            if (!allLeft && !allRight) {
-                return Result.empty();
-            }
+            Map<VariableReferenceExpression, RowExpression> leftAssignments = leftAssignmentsBuilder.build();
+            Map<VariableReferenceExpression, RowExpression> rightAssignments = rightAssignmentsBuilder.build();
 
-            // Push the projection to the appropriate join child and rebuild the join.
-            JoinNode newJoinNode;
-            if (allLeft) {
-                // Build a new ProjectNode over the left child that includes:
-                //   1. All non-identity assignments from the original projection that reference the left side.
-                //   2. Identity pass-throughs for all left-child output variables not already covered,
-                //      so that the join still has all the variables it needs (criteria, filters, etc.).
-                PlanNode newLeft = buildPushedProjection(projectNode, joinNode.getLeft(), context);
-                newJoinNode = rebuildJoin(joinNode, newLeft, joinNode.getRight());
-            }
-            else {
-                PlanNode newRight = buildPushedProjection(projectNode, joinNode.getRight(), context);
-                newJoinNode = rebuildJoin(joinNode, joinNode.getLeft(), newRight);
-            }
+            // Only wrap a join child in a ProjectNode when there are assignments to push to that side.
+            PlanNode newLeft = leftAssignments.isEmpty()
+                    ? joinNode.getLeft()
+                    : buildPushedProjection(projectNode, leftAssignments, joinNode.getLeft(), context);
+            PlanNode newRight = rightAssignments.isEmpty()
+                    ? joinNode.getRight()
+                    : buildPushedProjection(projectNode, rightAssignments, joinNode.getRight(), context);
+
+            JoinNode newJoinNode = rebuildJoin(joinNode, newLeft, newRight);
 
             // Now apply the aggregation push-down logic on the rewritten Agg -> Join tree.
             return applyPushdown(aggregationNode, newJoinNode, context);
         }
 
         /**
-         * Builds a ProjectNode over {@code joinChild} that carries all non-identity assignments
-         * from {@code originalProject}, plus identity pass-throughs for every output variable of
-         * {@code joinChild} that is not already an output of the original projection.
+         * Builds a ProjectNode over {@code joinChild} that carries the specified
+         * {@code assignmentsToPush} plus identity pass-throughs for every output variable of
+         * {@code joinChild}, so the join still has all the variables it needs.
          */
-        private PlanNode buildPushedProjection(ProjectNode originalProject, PlanNode joinChild, Context context)
+        private PlanNode buildPushedProjection(
+                ProjectNode originalProject,
+                Map<VariableReferenceExpression, RowExpression> assignmentsToPush,
+                PlanNode joinChild,
+                Context context)
         {
             com.facebook.presto.spi.plan.Assignments.Builder assignments =
                     com.facebook.presto.spi.plan.Assignments.builder();
@@ -249,17 +248,9 @@ public class PushPartialAggregationThroughJoinRuleSet
                 assignments.put(var, var);
             }
 
-            Set<VariableReferenceExpression> joinChildOutputSet = ImmutableSet.copyOf(joinChild.getOutputVariables());
-
-            // Add the non-trivial assignments from the original projection.
-            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : originalProject.getAssignments().entrySet()) {
-                RowExpression expr = entry.getValue();
-                // Include non-identity assignments whose variables all come from this join side.
-                Set<VariableReferenceExpression> refs = VariablesExtractor.extractUnique(expr);
-                boolean refsFromChild = joinChildOutputSet.containsAll(refs);
-                if (refsFromChild) {
-                    assignments.put(entry.getKey(), expr);
-                }
+            // Layer on the caller-supplied assignments (already filtered to this side).
+            for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignmentsToPush.entrySet()) {
+                assignments.put(entry.getKey(), entry.getValue());
             }
 
             return new ProjectNode(
