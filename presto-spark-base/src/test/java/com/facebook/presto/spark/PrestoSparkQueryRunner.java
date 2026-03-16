@@ -340,16 +340,16 @@ public class PrestoSparkQueryRunner
                 // Sql-Standard Access Control Checker
                 // needs us to specify our role
                 .setIdentity(
-                        new Identity(
-                                "hive",
-                                Optional.empty(),
-                                ImmutableMap.of(defaultCatalog,
-                                        new SelectedRole(Type.ROLE, Optional.of("admin"))),
-                                ImmutableMap.of(),
-                                ImmutableMap.of(),
-                                Optional.empty(),
-                                Optional.empty()))
-                .build();
+                    new Identity(
+                            "hive",
+                            Optional.empty(),
+                            ImmutableMap.of(defaultCatalog,
+                                new SelectedRole(Type.ROLE, Optional.of("admin"))),
+                            ImmutableMap.of(),
+                            ImmutableMap.of(),
+                            Optional.empty(),
+                            Optional.empty()))
+                    .build();
 
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);

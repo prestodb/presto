@@ -88,21 +88,21 @@ public class PinotPageSourceProvider
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
                 return new PinotSegmentPageSource(
-                    session,
-                    pinotConfig,
-                    pinotStreamingQueryClient,
-                    pinotSplit,
-                    handles);
+                        session,
+                        pinotConfig,
+                        pinotStreamingQueryClient,
+                        pinotSplit,
+                        handles);
             case BROKER:
                 return new PinotBrokerPageSource(
-                    pinotConfig,
-                    session,
-                    pinotSplit.getBrokerPinotQuery().get(),
-                    handles,
-                    pinotSplit.getExpectedColumnHandles(),
-                    clusterInfoFetcher,
-                    objectMapper,
-                    brokerAuthenticationProvider);
+                        pinotConfig,
+                        session,
+                        pinotSplit.getBrokerPinotQuery().get(),
+                        handles,
+                        pinotSplit.getExpectedColumnHandles(),
+                        clusterInfoFetcher,
+                        objectMapper,
+                        brokerAuthenticationProvider);
             default:
                 throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
         }
