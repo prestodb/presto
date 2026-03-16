@@ -17,6 +17,7 @@ import com.facebook.presto.iceberg.IcebergMetadataFactory;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
@@ -71,14 +72,16 @@ public class SetCurrentSnapshotProcedure
 
     public void setCurrentSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId, String reference)
     {
-        checkState((snapshotId != null && reference == null) || (snapshotId == null && reference != null),
-                "Either snapshot_id or reference must be provided, not both");
-        SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        IcebergTransactionMetadata metadata = metadataFactory.create();
-        Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
-        long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
-        icebergTable.manageSnapshots().setCurrentSnapshot(targetSnapshotId).commit();
-        metadata.commit();
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            checkState((snapshotId != null && reference == null) || (snapshotId == null && reference != null),
+                    "Either snapshot_id or reference must be provided, not both");
+            SchemaTableName schemaTableName = new SchemaTableName(schema, table);
+            IcebergTransactionMetadata metadata = metadataFactory.create();
+            Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
+            long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
+            icebergTable.manageSnapshots().setCurrentSnapshot(targetSnapshotId).commit();
+            metadata.commit();
+        }
     }
 
     private long getSnapshotIdFromReference(Table table, String refName)
