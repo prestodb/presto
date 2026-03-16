@@ -31,6 +31,8 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
   }
+  // TODO: Map POSITION_UPDATES once the Velox submodule includes
+  // FileContent::kPositionalUpdates (D95595341).
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
 
@@ -209,6 +211,11 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
 
     deletes.emplace_back(icebergDeleteFile);
   }
+
+  // TODO: Wire up positional update files once the Velox submodule is updated
+  // to include HiveIcebergSplit::updateFiles (from D95595341).
+  // The protocol already carries icebergSplit->updates; conversion logic
+  // mirrors the deletes loop above using toVeloxFileContent/toVeloxFileFormat.
 
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
