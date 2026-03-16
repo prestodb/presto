@@ -267,7 +267,8 @@ static const std::pair<FileContent, json> FileContent_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {FileContent::DATA, "DATA"},
         {FileContent::POSITION_DELETES, "POSITION_DELETES"},
-        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"}};
+        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"},
+        {FileContent::POSITION_UPDATES, "POSITION_UPDATES"}};
 void to_json(json& j, const FileContent& e) {
   static_assert(
       std::is_enum<FileContent>::value, "FileContent must be an enum!");
@@ -1692,6 +1693,8 @@ void to_json(json& j, const IcebergSplit& p) {
   to_json_key(
       j, "deletes", p.deletes, "IcebergSplit", "List<DeleteFile>", "deletes");
   to_json_key(
+      j, "updates", p.updates, "IcebergSplit", "List<DeleteFile>", "updates");
+  to_json_key(
       j,
       "changelogSplitInfo",
       p.changelogSplitInfo,
@@ -1770,6 +1773,8 @@ void from_json(const json& j, IcebergSplit& p) {
       "splitWeight");
   from_json_key(
       j, "deletes", p.deletes, "IcebergSplit", "List<DeleteFile>", "deletes");
+  from_json_key(
+      j, "updates", p.updates, "IcebergSplit", "List<DeleteFile>", "updates");
   from_json_key(
       j,
       "changelogSplitInfo",
