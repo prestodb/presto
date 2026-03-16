@@ -126,6 +126,7 @@
         </dependency>
 
         <!-- for testing -->
+        <!-- following two testcontainers deps required for view creation in testing -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
