@@ -55,6 +55,7 @@ public class ClientSession
     private final boolean compressionDisabled;
     private final Map<String, String> sessionFunctions;
     private final boolean validateNextUriSource;
+    private final boolean binaryResults;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -89,7 +90,8 @@ public class ClientSession
             boolean compressionDisabled,
             Map<String, String> sessionFunctions,
             Map<String, String> customHeaders,
-            boolean validateNextUriSource)
+            boolean validateNextUriSource,
+            boolean binaryResults)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -112,6 +114,7 @@ public class ClientSession
         this.compressionDisabled = compressionDisabled;
         this.sessionFunctions = ImmutableMap.copyOf(requireNonNull(sessionFunctions, "sessionFunctions is null"));
         this.validateNextUriSource = validateNextUriSource;
+        this.binaryResults = binaryResults;
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -263,6 +266,11 @@ public class ClientSession
         return validateNextUriSource;
     }
 
+    public boolean isBinaryResults()
+    {
+        return binaryResults;
+    }
+
     @Override
     public String toString()
     {
@@ -305,6 +313,7 @@ public class ClientSession
         private boolean compressionDisabled;
         private Map<String, String> sessionFunctions;
         private boolean validateNextUriSource;
+        private boolean binaryResults;
 
         private Builder(ClientSession clientSession)
         {
@@ -330,6 +339,7 @@ public class ClientSession
             compressionDisabled = clientSession.isCompressionDisabled();
             sessionFunctions = clientSession.getSessionFunctions();
             validateNextUriSource = clientSession.validateNextUriSource();
+            binaryResults = clientSession.isBinaryResults();
         }
 
         public Builder withCatalog(String catalog)
@@ -404,6 +414,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder withBinaryResults(boolean binaryResults)
+        {
+            this.binaryResults = binaryResults;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -427,7 +443,8 @@ public class ClientSession
                     compressionDisabled,
                     sessionFunctions,
                     customHeaders,
-                    validateNextUriSource);
+                    validateNextUriSource,
+                    binaryResults);
         }
     }
 }
