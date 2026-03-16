@@ -17,6 +17,10 @@ set -x
 export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
+export LD_LIBRARY_PATH=/usr/local/lib64
+
+echo "/usr/local/lib64/" > /etc/ld.so.conf.d/usr_local_lib64.conf
+
 GPERF_VERSION="3.1"
 DATASKETCHES_VERSION="5.2.0"
 
