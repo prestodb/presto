@@ -511,6 +511,13 @@ void to_json(json& j, const IcebergTableName& p) {
       j, "snapshotId", p.snapshotId, "IcebergTableName", "Long", "snapshotId");
   to_json_key(
       j,
+      "branchName",
+      p.branchName,
+      "IcebergTableName",
+      "String",
+      "branchName");
+  to_json_key(
+      j,
       "changelogEndSnapshot",
       p.changelogEndSnapshot,
       "IcebergTableName",
@@ -530,6 +537,13 @@ void from_json(const json& j, IcebergTableName& p) {
       "tableType");
   from_json_key(
       j, "snapshotId", p.snapshotId, "IcebergTableName", "Long", "snapshotId");
+  from_json_key(
+      j,
+      "branchName",
+      p.branchName,
+      "IcebergTableName",
+      "String",
+      "branchName");
   from_json_key(
       j,
       "changelogEndSnapshot",

@@ -124,6 +124,7 @@ struct IcebergTableName {
   String tableName = {};
   IcebergTableType tableType = {};
   std::shared_ptr<Long> snapshotId = {};
+  std::shared_ptr<String> branchName = {};
   std::shared_ptr<Long> changelogEndSnapshot = {};
 };
 void to_json(json& j, const IcebergTableName& p);
