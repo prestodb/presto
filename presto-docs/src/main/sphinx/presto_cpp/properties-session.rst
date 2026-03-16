@@ -193,6 +193,14 @@ Use this threshold to manage memory usage more efficiently during `ORDER BY` ope
 
 Native Execution only. Enable row number spilling on native engine.
 
+``native_mark_distinct_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. Enable mark distinct spilling on native engine.
+
 ``native_simplified_expression_evaluation_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
