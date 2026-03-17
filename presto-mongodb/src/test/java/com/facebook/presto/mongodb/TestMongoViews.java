@@ -23,6 +23,7 @@ import org.bson.Document;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -37,24 +38,23 @@ public class TestMongoViews
 {
     private static GenericContainer<?> mongoContainer;
     private static MongoClient mongoClient;
-    private static boolean initialized;
     private final int mongoContainerInternalPort = 27017;
 
-    private synchronized void ensureContainerStarted()
+    @BeforeClass
+    @Override
+    public void init()
+            throws Exception
     {
-        if (!initialized) {
-            mongoContainer = new GenericContainer<>(DockerImageName.parse("mongo:5.0"))
-                    .withExposedPorts(27017)
-                    .withCommand("mongod", "--bind_ip_all");
-            mongoContainer.start();
+        mongoContainer = new GenericContainer<>(DockerImageName.parse("mongo:5.0"))
+                .withExposedPorts(27017)
+                .withCommand("mongod", "--bind_ip_all");
+        mongoContainer.start();
 
-            String host = mongoContainer.getContainerIpAddress();
-            Integer port = mongoContainer.getMappedPort(27017);
+        String host = mongoContainer.getContainerIpAddress();
+        Integer port = mongoContainer.getMappedPort(27017);
 
-            mongoClient = new MongoClient(host, port);
-
-            initialized = true;
-        }
+        mongoClient = new MongoClient(host, port);
+        super.init();
     }
 
     @AfterClass(alwaysRun = true)
@@ -68,14 +68,11 @@ public class TestMongoViews
             mongoContainer.stop();
             mongoContainer = null;
         }
-        initialized = false;
     }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        ensureContainerStarted();
-
         String mongoUrl = mongoContainer.getHost() + ":" + mongoContainer.getMappedPort(mongoContainerInternalPort);
 
         Session session = testSessionBuilder()
