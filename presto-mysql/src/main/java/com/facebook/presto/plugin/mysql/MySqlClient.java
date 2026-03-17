@@ -389,9 +389,6 @@ public class MySqlClient
                 }
                 return builder.build();
             }
-            catch (SQLException e) {
-                throw new PrestoException(JDBC_ERROR, e);
-            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
