@@ -92,7 +92,6 @@ public class MongoSession
     private static final String FIELDS_NAME_KEY = "name";
     private static final String FIELDS_TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
-
     private static final String VIEW_TYPE_NAME = "view";
     private static final String COLLECTION_TYPE_NAME = "collection";
 
@@ -409,20 +408,6 @@ public class MongoSession
         return doc;
     }
 
-    private String guessTableType(String schema, String table)
-    {
-        MongoDatabase database = client.getDatabase(schema);
-        Document doc = database.listCollections().filter(
-                new Document(new Document(ImmutableMap.of(
-                        FIELDS_NAME_KEY, table,
-                        FIELDS_TYPE_KEY, VIEW_TYPE_NAME)))).first();
-
-        if (doc != null) {
-            return VIEW_TYPE_NAME;
-        }
-        return COLLECTION_TYPE_NAME;
-    }
-
     public boolean collectionExists(MongoDatabase db, String collectionName)
     {
         for (String name : db.listCollectionNames()) {
@@ -492,7 +477,6 @@ public class MongoSession
 
         MongoDatabase db = client.getDatabase(schemaName);
         Document doc = db.getCollection(tableName).find().first();
-
         if (doc == null) {
             // no records at the collection
             return ImmutableList.of();
@@ -518,6 +502,20 @@ public class MongoSession
         }
 
         return builder.build();
+    }
+
+    private String guessTableType(String schema, String table)
+    {
+        MongoDatabase database = client.getDatabase(schema);
+        Document doc = database.listCollections().filter(
+                new Document(ImmutableMap.of(
+                        FIELDS_NAME_KEY, table,
+                        FIELDS_TYPE_KEY, VIEW_TYPE_NAME))).first();
+
+        if (doc != null) {
+            return VIEW_TYPE_NAME;
+        }
+        return COLLECTION_TYPE_NAME;
     }
 
     private Optional<TypeSignature> guessFieldType(Object value)
