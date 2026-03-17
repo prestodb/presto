@@ -320,6 +320,7 @@ public final class SystemSessionProperties
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
     public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
     public static final String MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER = "merge_aggregations_with_and_without_filter";
+    public static final String MERGE_SUMS_TO_VECTOR_SUM_THRESHOLD = "merge_sums_to_vector_sum_threshold";
     public static final String SIMPLIFY_PLAN_WITH_EMPTY_INPUT = "simplify_plan_with_empty_input";
     public static final String PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN = "push_down_filter_expression_evaluation_through_cross_join";
     public static final String REWRITE_CROSS_JOIN_OR_TO_INNER_JOIN = "rewrite_cross_join_or_to_inner_join";
@@ -1871,6 +1872,11 @@ public final class SystemSessionProperties
                         MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER,
                         "Merge aggregations that are same except for filter",
                         featuresConfig.isMergeAggregationsWithAndWithoutFilter(),
+                        false),
+                integerProperty(
+                        MERGE_SUMS_TO_VECTOR_SUM_THRESHOLD,
+                        "Minimum number of SUM aggregations to merge into a single vector_sum call (0 = disabled)",
+                        featuresConfig.getMergeSumsToVectorSumThreshold(),
                         false),
                 booleanProperty(
                         SIMPLIFY_PLAN_WITH_EMPTY_INPUT,
@@ -3431,6 +3437,11 @@ public final class SystemSessionProperties
     public static boolean isMergeDuplicateAggregationsEnabled(Session session)
     {
         return session.getSystemProperty(MERGE_DUPLICATE_AGGREGATIONS, Boolean.class);
+    }
+
+    public static int getMergeSumsToVectorSumThreshold(Session session)
+    {
+        return session.getSystemProperty(MERGE_SUMS_TO_VECTOR_SUM_THRESHOLD, Integer.class);
     }
 
     public static boolean isSimplifyPlanWithEmptyInputEnabled(Session session)
