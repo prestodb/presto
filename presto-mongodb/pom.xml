@@ -126,7 +126,7 @@
         </dependency>
 
         <!-- for testing -->
-        <!-- following two testcontainers deps required for view creation in testing -->
+        <!-- NOTE: creating views was only working with a GenericContainer, should move to use org.testcontainers.mongodb.MongoDBContainer -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
