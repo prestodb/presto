@@ -193,6 +193,68 @@ public class TestIcebergHiveStatistics
     }
 
     @Test
+    public void testStatsWithVarcharColumns()
+    {
+        // Un-partitioned tables
+        assertQuerySucceeds("CREATE TABLE statsBeforeAnalyzeVarChar as SELECT * FROM orders LIMIT 100");
+        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR statsBeforeAnalyzeVarChar");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats, NON_NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, stats, NON_NUMERIC_ORDERS_COLUMNS);
+        // Partitioned table
+        assertQuerySucceeds("CREATE TABLE statsWithPartitionAnalyzeVarChar WITH (partitioning = ARRAY['orderdate']) as SELECT * FROM orders LIMIT 100");
+        MaterializedResult stats2 = getQueryRunner().execute("SHOW STATS FOR statsWithPartitionAnalyzeVarChar");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats2, NON_NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, stats2, NON_NUMERIC_ORDERS_COLUMNS);
+    }
+
+    @Test
+    public void testStatsWithVarcharColumnIsNull()
+    {
+        // Scenario 1. stats for Empty table
+        assertQuerySucceeds("CREATE TABLE emptyTable (name varchar(10), id varchar(10))");
+        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR emptyTable");
+        assertStatValueAbsent(StatsSchema.LOW_VALUE, stats, ImmutableSet.of("id"));
+        assertStatValueAbsent(StatsSchema.HIGH_VALUE, stats, ImmutableSet.of("id"));
+        assertStatValueAbsent(StatsSchema.LOW_VALUE, stats, ImmutableSet.of("name"));
+        assertStatValueAbsent(StatsSchema.HIGH_VALUE, stats, ImmutableSet.of("name"));
+        // Scenario 2. stats for column with null values and non-null values..
+        assertQuerySucceeds("INSERT INTO emptyTable values ( 'n', NULL )");
+        assertQuerySucceeds("INSERT INTO emptyTable values ( 'b', NULL )");
+        MaterializedResult statsWithNull = getQueryRunner().execute("SHOW STATS FOR emptyTable");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, statsWithNull, ImmutableSet.of("name"));
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, statsWithNull, ImmutableSet.of("name"));
+        assertStatValueAbsent(StatsSchema.LOW_VALUE, statsWithNull, ImmutableSet.of("id"));
+        assertStatValueAbsent(StatsSchema.HIGH_VALUE, statsWithNull, ImmutableSet.of("id"));
+        // Scenario 3. inserting non-null values in the column with all nulls should update min/max correctly.
+        // If Nulls were being evaluated as string then we should see min and max NULL and not testString1.
+        String testString1 = "a string1";
+        String testString2 = "z string2";
+        assertQuerySucceeds("INSERT INTO emptyTable values ('c', '" + testString1 + "')");
+        MaterializedResult stats1 = getQueryRunner().execute("SHOW STATS FOR emptyTable");
+        assertStatValue(StatsSchema.LOW_VALUE, stats1, ImmutableSet.of("id"), testString1, false);
+        assertStatValue(StatsSchema.HIGH_VALUE, stats1, ImmutableSet.of("id"), testString1, false);
+        assertQuerySucceeds("INSERT INTO emptyTable values ('d', '" + testString2 + "')");
+        MaterializedResult stats2 = getQueryRunner().execute("SHOW STATS FOR emptyTable");
+        assertStatValue(StatsSchema.LOW_VALUE, stats2, ImmutableSet.of("id"), testString1, false);
+        assertStatValue(StatsSchema.HIGH_VALUE, stats2, ImmutableSet.of("id"), testString2, false);
+
+        // Scenario 4. what if the value itself is string null i.e. 'null'
+        assertQuerySucceeds("CREATE TABLE tableWithNullAsString (name varchar, id varchar(10))");
+        String stringNull = "NULL";
+        assertQuerySucceeds("INSERT INTO tableWithNullAsString values ('d', '" + stringNull + "')");
+        assertQuerySucceeds("INSERT INTO tableWithNullAsString values ('e', NULL)");
+        MaterializedResult statsWithNullAsString = getQueryRunner().execute("SHOW STATS FOR tableWithNullAsString");
+        assertStatValue(StatsSchema.LOW_VALUE, statsWithNullAsString, ImmutableSet.of("id"), stringNull, false);
+        assertStatValue(StatsSchema.HIGH_VALUE, statsWithNullAsString, ImmutableSet.of("id"), stringNull, false);
+        // Scenario 5. Inserting actual values should not remove null inserted as string.
+        String minString = "A";
+        assertQuerySucceeds("INSERT INTO tableWithNullAsString values ('e', '" + minString + "')");
+        statsWithNullAsString = getQueryRunner().execute("SHOW STATS FOR tableWithNullAsString");
+        assertStatValue(StatsSchema.LOW_VALUE, statsWithNullAsString, ImmutableSet.of("id"), minString, false);
+        assertStatValue(StatsSchema.HIGH_VALUE, statsWithNullAsString, ImmutableSet.of("id"), stringNull, false);
+    }
+
+    @Test
     public void testStatsWithPartitionedTableAnalyzed()
     {
         assertQuerySucceeds("CREATE TABLE statsNoPartitionAnalyze as SELECT * FROM orders LIMIT 100");

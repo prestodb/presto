@@ -36,6 +36,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -74,6 +75,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.CharBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -269,6 +271,10 @@ public class TableStatisticsMaker
                     columnBuilder.setHistogram(columnBuilder.getHistogram()
                             .map(histogram -> DisjointRangeDomainHistogram
                                     .addConjunction(histogram, Range.range(DOUBLE, histRange.getMin(), true, histRange.getMax(), true))));
+                }
+                else if (min instanceof CharBuffer && max instanceof CharBuffer) {
+                    final StringRange stringRange = new StringRange(String.valueOf(min), String.valueOf(max));
+                    columnBuilder.setStringRange(stringRange);
                 }
             }
             result.setColumnStatistics(columnHandle, columnBuilder.build());

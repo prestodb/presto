@@ -104,7 +104,7 @@ public final class StatisticsUtil
                     .setNullsFraction(icebergColumnStats.getNullsFraction())
                     .setDistinctValuesCount(icebergColumnStats.getDistinctValuesCount())
                     .setHistogram(icebergColumnStats.getHistogram())
-                    .setRange(icebergColumnStats.getRange());
+                    .setStringRange(icebergColumnStats.getStringRange());
             if (hiveColumnStats != null) {
                 // NDVs
                 if (mergeFlags.contains(NUMBER_OF_DISTINCT_VALUES)) {
