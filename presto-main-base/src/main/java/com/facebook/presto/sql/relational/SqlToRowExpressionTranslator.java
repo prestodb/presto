@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
@@ -109,7 +110,6 @@ import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabl
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
-import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -800,16 +800,6 @@ public final class SqlToRowExpressionTranslator
                     rhs);
         }
 
-        private RowExpression buildNotEquals(RowExpression lhs, RowExpression rhs)
-        {
-            return call(
-                    NOT_EQUAL.getOperator(),
-                    functionResolution.comparisonFunction(ComparisonExpression.Operator.NOT_EQUAL, lhs.getType(), rhs.getType()),
-                    BOOLEAN,
-                    lhs,
-                    rhs);
-        }
-
         @Override
         protected RowExpression visitExists(ExistsPredicate existsPredicate, Context context)
         {
@@ -998,10 +988,11 @@ public final class SqlToRowExpressionTranslator
                         }
                         else if (LIKE_SIMPLE_EXISTS_PATTERN.matcher(patternString).matches()) {
                             // pattern should just exist in the string ignoring leading and trailing stuff
-                            // x LIKE '%some string%' is same as STRPOS(x, 'some string') != 0
-                            return buildNotEquals(
-                                    call(functionAndTypeManager, "STRPOS", BIGINT, value, constant(slice.slice(1, matchBytesLength - 2), VARCHAR)),
-                                    constant(0L, BIGINT));
+                            // x LIKE '%some string%' is same as CARDINALITY(SPLIT(x, 'some string', 2)) = 2
+                            // Split is most efficient as it uses string.indexOf java builtin so little memory/cpu overhead
+                            return buildEquals(
+                                    call(functionAndTypeManager, "CARDINALITY", BIGINT, call(functionAndTypeManager, "SPLIT", new ArrayType(VARCHAR), value, constant(slice.slice(1, matchBytesLength - 2), VARCHAR), constant(2L, BIGINT))),
+                                    constant(2L, BIGINT));
                         }
                     }
                 }
