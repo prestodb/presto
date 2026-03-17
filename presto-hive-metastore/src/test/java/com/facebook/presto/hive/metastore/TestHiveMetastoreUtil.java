@@ -36,6 +36,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
@@ -213,5 +214,31 @@ public class TestHiveMetastoreUtil
         assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221", Optional.of(ImmutableList.of("datePartition", "countryPartition"))), ImmutableList.of(datePartition, countryPartition));
         assertEquals(extractPartitionValues("datePartition=20201221/countryPartition=united_states"), ImmutableList.of(datePartition, countryPartition));
         assertEquals(extractPartitionValues("countryPartition=united_states/datePartition=20201221"), ImmutableList.of(countryPartition, datePartition));
+    }
+    @Test
+    public void testExtractPartitionValuesWithSpecEvolution()
+    {
+        // When a table evolves from (ds, country) to (ds, country, region),
+        // old partitions keep their original names with only 2 key segments.
+        // extractPartitionValues should pad missing keys with __HIVE_DEFAULT_PARTITION__.
+        assertEquals(
+                extractPartitionValues(
+                        "ds=2024-01-01/country=US",
+                        Optional.of(ImmutableList.of("ds", "country", "region"))),
+                ImmutableList.of("2024-01-01", "US", HIVE_DEFAULT_DYNAMIC_PARTITION));
+
+        // Multiple evolved keys
+        assertEquals(
+                extractPartitionValues(
+                        "ds=2024-01-01",
+                        Optional.of(ImmutableList.of("ds", "country", "region"))),
+                ImmutableList.of("2024-01-01", HIVE_DEFAULT_DYNAMIC_PARTITION, HIVE_DEFAULT_DYNAMIC_PARTITION));
+
+        // No evolution (all keys present) still works
+        assertEquals(
+                extractPartitionValues(
+                        "ds=2024-01-01/country=US/region=eu-west",
+                        Optional.of(ImmutableList.of("ds", "country", "region"))),
+                ImmutableList.of("2024-01-01", "US", "eu-west"));
     }
 }

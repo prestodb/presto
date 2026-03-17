@@ -612,9 +612,25 @@ public class MetastoreUtil
         if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
             return values.build();
         }
+        List<String> keyList = keys.build();
+        List<String> valueList = values.build();
+        Map<String, Integer> keyIndexMap = new HashMap<>();
+        for (int i = 0; i < keyList.size(); i++) {
+            keyIndexMap.put(keyList.get(i), i);
+        }
         ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
-        partitionColumnNames.get()
-                .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
+        for (String columnName : partitionColumnNames.get()) {
+            Integer idx = keyIndexMap.get(columnName);
+            if (idx != null) {
+                orderedValues.add(valueList.get(idx));
+            }
+            else {
+                // Partition key not present in partition name. This happens when
+                // partition keys are added to a table after this partition was created
+                // (partition spec evolution). Pad with Hive default partition value.
+                orderedValues.add(HIVE_DEFAULT_DYNAMIC_PARTITION);
+            }
+        }
         return orderedValues.build();
     }
 
