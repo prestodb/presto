@@ -32,9 +32,9 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
   } else if (content == protocol::iceberg::FileContent::EQUALITY_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kEqualityDeletes;
+  } else if (content == protocol::iceberg::FileContent::POSITION_UPDATES) {
+    return velox::connector::hive::iceberg::FileContent::kPositionalUpdates;
   }
-  // TODO: Map POSITION_UPDATES once the Velox submodule includes
-  // FileContent::kPositionalUpdates (D95595341).
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
 
@@ -217,10 +217,28 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     deletes.emplace_back(icebergDeleteFile);
   }
 
-  // TODO: Wire up positional update files once the Velox submodule is updated
-  // to include HiveIcebergSplit::updateFiles (from D95595341).
-  // The protocol already carries icebergSplit->updates; conversion logic
-  // mirrors the deletes loop above using toVeloxFileContent/toVeloxFileFormat.
+  std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> updates;
+  updates.reserve(icebergSplit->updates.size());
+  for (const auto& updateFile : icebergSplit->updates) {
+    const std::unordered_map<int32_t, std::string> updateLowerBounds(
+        updateFile.lowerBounds.begin(), updateFile.lowerBounds.end());
+
+    const std::unordered_map<int32_t, std::string> updateUpperBounds(
+        updateFile.upperBounds.begin(), updateFile.upperBounds.end());
+
+    const velox::connector::hive::iceberg::IcebergDeleteFile icebergUpdateFile(
+        toVeloxFileContent(updateFile.content),
+        updateFile.path,
+        toVeloxFileFormat(updateFile.format),
+        updateFile.recordCount,
+        updateFile.fileSizeInBytes,
+        std::vector(updateFile.equalityFieldIds),
+        updateLowerBounds,
+        updateUpperBounds,
+        updateFile.dataSequenceNumber);
+
+    updates.emplace_back(icebergUpdateFile);
+  }
 
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
@@ -241,7 +259,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       deletes,
       infoColumns,
       std::nullopt,
-      std::vector<velox::connector::hive::iceberg::IcebergDeleteFile>{},
+      updates,
       dataSequenceNumber);
 }
 
