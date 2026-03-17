@@ -40,6 +40,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -321,8 +322,14 @@ public class ShowStatsRewrite
             rowValues.add(createEstimateRepresentation(columnStatistics.getDistinctValuesCount()));
             rowValues.add(createEstimateRepresentation(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            if (columnStatistics.getStringRange().isPresent()) {
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMin).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMax).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+            }
+            else {
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            }
             rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
             return new Row(rowValues.build());
         }

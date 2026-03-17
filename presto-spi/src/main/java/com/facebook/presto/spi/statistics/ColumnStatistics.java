@@ -31,12 +31,13 @@ public final class ColumnStatistics
 
     public static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
     public static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
-    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty());
+    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty(), Optional.empty());
 
     private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
     private final Estimate dataSize;
     private final Optional<DoubleRange> range;
+    private final Optional<StringRange> stringRange;
 
     private final Optional<ConnectorHistogram> histogram;
 
@@ -50,6 +51,7 @@ public final class ColumnStatistics
             Estimate distinctValuesCount,
             Estimate dataSize,
             Optional<DoubleRange> range,
+            Optional<StringRange> stringRange,
             Optional<ConnectorHistogram> histogram)
     {
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
@@ -67,6 +69,7 @@ public final class ColumnStatistics
             throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
         }
         this.range = requireNonNull(range, "range is null");
+        this.stringRange = requireNonNull(stringRange, "string range is null");
         this.histogram = requireNonNull(histogram, "histogram is null");
     }
 
@@ -95,6 +98,12 @@ public final class ColumnStatistics
     }
 
     @JsonProperty
+    public Optional<StringRange> getStringRange()
+    {
+        return stringRange;
+    }
+
+    @JsonProperty
     public Optional<ConnectorHistogram> getHistogram()
     {
         return histogram;
@@ -114,13 +123,14 @@ public final class ColumnStatistics
                 Objects.equals(distinctValuesCount, that.distinctValuesCount) &&
                 Objects.equals(dataSize, that.dataSize) &&
                 Objects.equals(range, that.range) &&
+                Objects.equals(stringRange, that.stringRange) &&
                 Objects.equals(histogram, that.histogram);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range, histogram);
+        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range, stringRange, histogram);
     }
 
     @Override
@@ -131,6 +141,7 @@ public final class ColumnStatistics
                 ", distinctValuesCount=" + distinctValuesCount +
                 ", dataSize=" + dataSize +
                 ", range=" + range +
+                ", stringRange" + stringRange +
                 ", histogram=" + histogram +
                 '}';
     }
@@ -144,6 +155,7 @@ public final class ColumnStatistics
     {
         return new Builder()
                 .setRange(statistics.getRange())
+                .setStringRange(statistics.getStringRange())
                 .setDataSize(statistics.getDataSize())
                 .setNullsFraction(statistics.getNullsFraction())
                 .setDistinctValuesCount(statistics.getDistinctValuesCount())
@@ -172,6 +184,7 @@ public final class ColumnStatistics
         private Estimate distinctValuesCount = Estimate.unknown();
         private Estimate dataSize = Estimate.unknown();
         private Optional<DoubleRange> range = Optional.empty();
+        private Optional<StringRange> stringRange = Optional.empty();
 
         private Optional<ConnectorHistogram> histogram = Optional.empty();
 
@@ -211,6 +224,18 @@ public final class ColumnStatistics
         public Builder setRange(DoubleRange range)
         {
             this.range = Optional.of(requireNonNull(range, "range is null"));
+            return this;
+        }
+
+        public Builder setStringRange(StringRange stringRange)
+        {
+            this.stringRange = Optional.of(requireNonNull(stringRange, "stringRange is null"));
+            return this;
+        }
+
+        public Builder setStringRange(Optional<StringRange> stringRange)
+        {
+            this.stringRange = requireNonNull(stringRange, "stringRange is null");
             return this;
         }
 
@@ -258,7 +283,7 @@ public final class ColumnStatistics
 
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, histogram);
+            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, stringRange, histogram);
         }
     }
 }
