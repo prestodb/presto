@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -47,6 +48,7 @@ import static com.facebook.presto.sql.tree.IntervalLiteral.Sign.POSITIVE;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestSetTimeZoneTask
@@ -84,10 +86,11 @@ public class TestSetTimeZoneTask
                 Optional.empty());
         executeSetTimeZone(setTimeZone, stateMachine);
 
+        // LOCAL should set the timezone to JVM default
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(setSessionProperties.size(), 1);
-        // LOCAL should set to the session's initial timezone
-        assertEquals(setSessionProperties.get(TIME_ZONE_ID), TEST_SESSION.getTimeZoneKey().getId());
+        assertTrue(setSessionProperties.containsKey(TIME_ZONE_ID));
+        assertEquals(setSessionProperties.get(TIME_ZONE_ID), TimeZone.getDefault().getID());
     }
 
     @Test
@@ -244,6 +247,34 @@ public class TestSetTimeZoneTask
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(setSessionProperties.size(), 1);
         assertEquals(setSessionProperties.get(TIME_ZONE_ID), "+03:00");
+    }
+
+    @Test
+    public void testSetTimeZoneLocalResetsToDefault()
+    {
+        // First, change the timezone to something different
+        QueryStateMachine stateMachine1 = createQueryStateMachine("SET TIME ZONE 'America/Los_Angeles'");
+        SetTimeZone setTimeZone1 = new SetTimeZone(
+                new NodeLocation(1, 1),
+                Optional.of(new StringLiteral("America/Los_Angeles")));
+        executeSetTimeZone(setTimeZone1, stateMachine1);
+
+        Map<String, String> setSessionProperties1 = stateMachine1.getSetSessionProperties();
+        assertEquals(setSessionProperties1.size(), 1);
+        assertEquals(setSessionProperties1.get(TIME_ZONE_ID), "America/Los_Angeles");
+
+        // Now execute SET TIME ZONE LOCAL - it should set to JVM default timezone
+        QueryStateMachine stateMachine2 = createQueryStateMachine("SET TIME ZONE LOCAL");
+        SetTimeZone setTimeZone2 = new SetTimeZone(
+                new NodeLocation(1, 1),
+                Optional.empty());
+        executeSetTimeZone(setTimeZone2, stateMachine2);
+
+        // Verify that LOCAL sets the timezone to JVM default (not reset)
+        Map<String, String> setSessionProperties2 = stateMachine2.getSetSessionProperties();
+        assertEquals(setSessionProperties2.size(), 1);
+        assertTrue(setSessionProperties2.containsKey(TIME_ZONE_ID));
+        assertEquals(setSessionProperties2.get(TIME_ZONE_ID), TimeZone.getDefault().getID());
     }
 
     @Test

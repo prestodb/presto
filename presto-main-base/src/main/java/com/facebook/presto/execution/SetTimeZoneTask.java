@@ -37,6 +37,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.facebook.presto.SystemSessionProperties.TIME_ZONE_ID;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
@@ -71,12 +72,14 @@ public class SetTimeZoneTask
         Session session = stateMachine.getSession();
         Optional<Expression> timeZoneExpression = statement.getTimeZone();
 
-        TimeZoneKey timeZoneKey;
+        // SET TIME ZONE LOCAL - set to JVM default timezone
         if (timeZoneExpression.isEmpty()) {
-            // SET TIME ZONE LOCAL - use session default
-            timeZoneKey = session.getTimeZoneKey();
+            stateMachine.addSetSessionProperties(TIME_ZONE_ID, TimeZone.getDefault().getID());
+            return immediateFuture(null);
         }
-        else {
+
+        TimeZoneKey timeZoneKey;
+        {
             Expression expression = timeZoneExpression.get();
 
             if (expression instanceof StringLiteral) {
