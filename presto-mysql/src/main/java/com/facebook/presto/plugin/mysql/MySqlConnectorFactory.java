@@ -15,6 +15,7 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 
 import java.util.Map;
 
@@ -41,6 +42,7 @@ public class MySqlConnectorFactory
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
+                        binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
                     },
                     new JdbcModule(catalogName),
                     module);
