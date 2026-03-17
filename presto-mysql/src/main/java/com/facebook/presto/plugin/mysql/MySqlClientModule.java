@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
+import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.mysql.cj.conf.ConnectionUrl;
@@ -32,7 +33,6 @@ public class MySqlClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).to(MySqlClient.class).in(Scopes.SINGLETON);
-        binder.bind(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, baseJdbcConfig -> {
             baseJdbcConfig.setlistSchemasIgnoredSchemas("information_schema,mysql");
         });
