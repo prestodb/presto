@@ -20,6 +20,7 @@
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 
@@ -292,4 +293,138 @@ TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleDeeplyNested) {
   EXPECT_EQ(icebergHandle->field().children[0].fieldId, 2);
   ASSERT_EQ(icebergHandle->field().children[0].children.size(), 1);
   EXPECT_EQ(icebergHandle->field().children[0].children[0].fieldId, 3);
+}
+
+TEST_F(PrestoToVeloxConnectorTest, ctasPassesTextfileSerdeParameters) {
+  auto hiveOutputTableHandle =
+      std::make_shared<protocol::hive::HiveOutputTableHandle>();
+  hiveOutputTableHandle->schemaName = "test_schema";
+  hiveOutputTableHandle->tableName = "test_table";
+  hiveOutputTableHandle->tableOwner = "owner";
+  hiveOutputTableHandle->actualStorageFormat =
+      protocol::hive::HiveStorageFormat::TEXTFILE;
+  hiveOutputTableHandle->tableStorageFormat =
+      protocol::hive::HiveStorageFormat::TEXTFILE;
+  hiveOutputTableHandle->partitionStorageFormat =
+      protocol::hive::HiveStorageFormat::TEXTFILE;
+  hiveOutputTableHandle->compressionCodec =
+      protocol::hive::HiveCompressionCodec::NONE;
+  hiveOutputTableHandle->locationHandle.targetPath = "/path/to/target";
+  hiveOutputTableHandle->locationHandle.writePath = "/path/to/write";
+  hiveOutputTableHandle->locationHandle.tableType =
+      protocol::hive::TableType::NEW;
+  hiveOutputTableHandle->additionalTableParameters = {
+      {"field.delim", "|"},
+      {"escape.delim", "\\"},
+      {"collection.delim", "$"},
+      {"mapkey.delim", "#"},
+      {"presto.version", "0.297"}};
+
+  protocol::OutputTableHandle outputHandle;
+  outputHandle.connectorId = "hive";
+  outputHandle.connectorHandle = hiveOutputTableHandle;
+
+  protocol::CreateHandle createHandle;
+  createHandle.handle = outputHandle;
+
+  HivePrestoToVeloxConnector hiveConnector("hive");
+  auto result =
+      hiveConnector.toVeloxInsertTableHandle(&createHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  auto* hiveInsert =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(result.get());
+  ASSERT_NE(hiveInsert, nullptr);
+
+  const auto& serdeParams = hiveInsert->serdeParameters();
+  // Only serde keys should be extracted, not table-level keys like
+  // presto.version.
+  EXPECT_EQ(serdeParams.size(), 4);
+  EXPECT_EQ(serdeParams.at("field.delim"), "|");
+  EXPECT_EQ(serdeParams.at("escape.delim"), "\\");
+  EXPECT_EQ(serdeParams.at("collection.delim"), "$");
+  EXPECT_EQ(serdeParams.at("mapkey.delim"), "#");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, ctasPassesNimbleSerdeParameters) {
+  auto hiveOutputTableHandle =
+      std::make_shared<protocol::hive::HiveOutputTableHandle>();
+  hiveOutputTableHandle->schemaName = "test_schema";
+  hiveOutputTableHandle->tableName = "test_table";
+  hiveOutputTableHandle->tableOwner = "owner";
+  hiveOutputTableHandle->actualStorageFormat =
+      protocol::hive::HiveStorageFormat::ALPHA;
+  hiveOutputTableHandle->tableStorageFormat =
+      protocol::hive::HiveStorageFormat::ALPHA;
+  hiveOutputTableHandle->partitionStorageFormat =
+      protocol::hive::HiveStorageFormat::ALPHA;
+  hiveOutputTableHandle->compressionCodec =
+      protocol::hive::HiveCompressionCodec::NONE;
+  hiveOutputTableHandle->locationHandle.targetPath = "/path/to/target";
+  hiveOutputTableHandle->locationHandle.writePath = "/path/to/write";
+  hiveOutputTableHandle->locationHandle.tableType =
+      protocol::hive::TableType::NEW;
+  hiveOutputTableHandle->additionalTableParameters = {
+      {"nimble.enable.vectorized.stats", "true"},
+      {"nimble.index.columns", "id"},
+      {"presto.version", "0.297"}};
+
+  protocol::OutputTableHandle outputHandle;
+  outputHandle.connectorId = "hive";
+  outputHandle.connectorHandle = hiveOutputTableHandle;
+
+  protocol::CreateHandle createHandle;
+  createHandle.handle = outputHandle;
+
+  HivePrestoToVeloxConnector hiveConnector("hive");
+  auto result =
+      hiveConnector.toVeloxInsertTableHandle(&createHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  auto* hiveInsert =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(result.get());
+  ASSERT_NE(hiveInsert, nullptr);
+
+  const auto& serdeParams = hiveInsert->serdeParameters();
+  EXPECT_EQ(serdeParams.size(), 2);
+  EXPECT_EQ(serdeParams.at("nimble.enable.vectorized.stats"), "true");
+  EXPECT_EQ(serdeParams.at("nimble.index.columns"), "id");
+}
+
+TEST_F(PrestoToVeloxConnectorTest, ctasEmptySerdeParameters) {
+  auto hiveOutputTableHandle =
+      std::make_shared<protocol::hive::HiveOutputTableHandle>();
+  hiveOutputTableHandle->schemaName = "test_schema";
+  hiveOutputTableHandle->tableName = "test_table";
+  hiveOutputTableHandle->tableOwner = "owner";
+  hiveOutputTableHandle->actualStorageFormat =
+      protocol::hive::HiveStorageFormat::DWRF;
+  hiveOutputTableHandle->tableStorageFormat =
+      protocol::hive::HiveStorageFormat::DWRF;
+  hiveOutputTableHandle->partitionStorageFormat =
+      protocol::hive::HiveStorageFormat::DWRF;
+  hiveOutputTableHandle->compressionCodec =
+      protocol::hive::HiveCompressionCodec::NONE;
+  hiveOutputTableHandle->locationHandle.targetPath = "/path/to/target";
+  hiveOutputTableHandle->locationHandle.writePath = "/path/to/write";
+  hiveOutputTableHandle->locationHandle.tableType =
+      protocol::hive::TableType::NEW;
+
+  protocol::OutputTableHandle outputHandle;
+  outputHandle.connectorId = "hive";
+  outputHandle.connectorHandle = hiveOutputTableHandle;
+
+  protocol::CreateHandle createHandle;
+  createHandle.handle = outputHandle;
+
+  HivePrestoToVeloxConnector hiveConnector("hive");
+  auto result =
+      hiveConnector.toVeloxInsertTableHandle(&createHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  auto* hiveInsert =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(result.get());
+  ASSERT_NE(hiveInsert, nullptr);
+
+  EXPECT_TRUE(hiveInsert->serdeParameters().empty());
 }
