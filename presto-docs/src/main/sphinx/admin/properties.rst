@@ -1512,6 +1512,20 @@ migration purposes only.
 
     This should only be enabled in non-production environments.
 
+``materialized-view-query-rewrite-cost-based-selection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable cost-based selection when multiple materialized views are available for query
+rewriting. When enabled, the optimizer evaluates all compatible materialized view rewrites
+and selects the plan with the lowest estimated cost, instead of using the first compatible
+view.
+
+The corresponding session property is
+:ref:`admin/properties-session:\`\`materialized_view_query_rewrite_cost_based_selection_enabled\`\``.
+
 ``materialized-view-stale-read-behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

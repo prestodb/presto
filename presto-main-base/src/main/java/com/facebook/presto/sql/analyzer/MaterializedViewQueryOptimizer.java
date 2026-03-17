@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
@@ -86,6 +87,7 @@ import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewQueryRewriteCostBasedSelectionEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -335,7 +337,7 @@ public class MaterializedViewQueryOptimizer
         return (T) process(node);
     }
 
-    private QuerySpecification rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
+    private Node rewriteQuerySpecificationIfCompatible(QuerySpecification querySpecification, Table baseTable)
     {
         Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
 
@@ -351,6 +353,11 @@ public class MaterializedViewQueryOptimizer
         // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
         // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
 
+        if (isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
+            return rewriteWithAllCandidates(querySpecification, referencedMaterializedViews);
+        }
+
+        // Default path: return the first compatible MV
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
             QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, querySpecification);
             if (rewrittenQuerySpecification != querySpecification) {
@@ -358,6 +365,31 @@ public class MaterializedViewQueryOptimizer
             }
         }
         return querySpecification;
+    }
+
+    private QueryBody rewriteWithAllCandidates(
+            QuerySpecification originalQuery,
+            List<QualifiedObjectName> referencedMaterializedViews)
+    {
+        ImmutableList.Builder<QueryWithMVRewriteCandidates.MVRewriteCandidate> candidates = ImmutableList.builder();
+
+        for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, originalQuery);
+            if (rewrittenQuerySpecification != originalQuery) {
+                candidates.add(new QueryWithMVRewriteCandidates.MVRewriteCandidate(
+                        rewrittenQuerySpecification,
+                        materializedViewName.getCatalogName(),
+                        materializedViewName.getSchemaName(),
+                        materializedViewName.getObjectName()));
+            }
+        }
+
+        List<QueryWithMVRewriteCandidates.MVRewriteCandidate> candidateList = candidates.build();
+        if (candidateList.isEmpty()) {
+            return originalQuery;
+        }
+
+        return new QueryWithMVRewriteCandidates(originalQuery, candidateList);
     }
 
     private QuerySpecification getRewrittenQuerySpecification(QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
@@ -405,7 +437,7 @@ public class MaterializedViewQueryOptimizer
                     return querySpecification;
                 }
 
-                if (!isMaterializedViewDataConsistencyEnabled(session)) {
+                if (!isMaterializedViewDataConsistencyEnabled(session) || isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
                     return rewrittenQuerySpecification;
                 }
