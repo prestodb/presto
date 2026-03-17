@@ -13,7 +13,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/IPAddressRegistration.h"
