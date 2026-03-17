@@ -36,26 +36,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        String clientClassName = jdbcClient.getClass().getName();
-        if (clientClassName.contains("MySql")) {
-            try {
-                Class<?> mySqlClientClass = Class.forName("com.facebook.presto.plugin.mysql.MySqlClient");
-                Class<?> mySqlMetadataClass = Class.forName("com.facebook.presto.plugin.mysql.MySqlMetadata");
-
-                if (mySqlClientClass.isInstance(jdbcClient)) {
-                    return (JdbcMetadata) mySqlMetadataClass
-                            .getConstructor(
-                                    JdbcMetadataCache.class,
-                                    mySqlClientClass,
-                                    boolean.class,
-                                    TableLocationProvider.class)
-                            .newInstance(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
-                }
-            }
-            catch (Exception e) {
-                // Fall back to default if reflection fails
-            }
-        }
         return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
     }
 }
