@@ -133,8 +133,7 @@ public class TestMySqlMetadata
         String newViewName = "test_rename_view_new";
         String viewDefinition = "SELECT orderkey, custkey FROM tpch.orders";
 
-        dropViewIfExists(oldViewName);
-        dropViewIfExists(newViewName);
+        dropViewIfExists(new String[]{oldViewName, newViewName});
 
         assertUpdate("CREATE VIEW " + oldViewName + " AS " + viewDefinition);
         assertTrue(viewExistsInMySQL(oldViewName), "Old view should exist after creation");
@@ -156,8 +155,7 @@ public class TestMySqlMetadata
         String view2 = "test_list_view_2";
         String viewDefinition = "SELECT orderkey FROM tpch.orders";
 
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
+        dropViewIfExists(new String[]{view1, view2});
 
         assertUpdate("CREATE VIEW " + view1 + " AS " + viewDefinition);
         assertUpdate("CREATE VIEW " + view2 + " AS " + viewDefinition);
@@ -169,8 +167,7 @@ public class TestMySqlMetadata
         assertTrue(tables.contains(view1), "View 1 should be in the list");
         assertTrue(tables.contains(view2), "View 2 should be in the list");
 
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
+        dropViewIfExists(new String[]{view1, view2});
     }
 
     @Test
@@ -197,9 +194,7 @@ public class TestMySqlMetadata
         String view3 = "test_other_view";
         String viewDefinition = "SELECT orderkey FROM tpch.orders";
 
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
-        dropViewIfExists(view3);
+        dropViewIfExists(new String[]{view1, view2, view3});
 
         assertUpdate("CREATE VIEW " + view1 + " AS " + viewDefinition);
         assertUpdate("CREATE VIEW " + view2 + " AS " + viewDefinition);
@@ -209,9 +204,7 @@ public class TestMySqlMetadata
         assertTrue(viewExistsInMySQL(view2), "View 2 should be in results");
         assertTrue(viewExistsInMySQL(view3), "View 3 should exist");
 
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
-        dropViewIfExists(view3);
+        dropViewIfExists(new String[]{view1, view2, view3});
     }
 
     @Test
@@ -243,22 +236,16 @@ public class TestMySqlMetadata
                 .setSchema("tpch")
                 .build();
 
-        dropViewIfExists("tpch", viewName);
+        dropViewIfExists(viewName);
 
         assertUpdate(tpchSession, "CREATE VIEW " + viewName + " AS " + viewDefinition);
-        assertTrue(viewExistsInMySQL("tpch", viewName), "View should exist in tpch schema");
+        assertTrue(viewExistsInMySQL(viewName), "View should exist in tpch schema");
         assertQuerySucceeds(tpchSession, "SELECT * FROM " + viewName);
 
-        dropViewIfExists("tpch", viewName);
+        dropViewIfExists(viewName);
     }
 
     private boolean viewExistsInMySQL(String viewName)
-            throws SQLException
-    {
-        return viewExistsInMySQL("tpch", viewName);
-    }
-
-    private boolean viewExistsInMySQL(String schemaName, String viewName)
             throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(
@@ -268,18 +255,20 @@ public class TestMySqlMetadata
                 Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery(
                         "SELECT COUNT(*) FROM information_schema.views " +
-                                "WHERE table_schema = '" + schemaName + "' AND table_name = '" + viewName + "'")) {
+                                "WHERE table_schema = 'tpch' AND table_name = '" + viewName + "'")) {
             return rs.next() && rs.getInt(1) > 0;
         }
     }
 
-    private void dropViewIfExists(String viewName)
+    private void dropViewIfExists(String[] viewNames)
             throws SQLException
     {
-        dropViewIfExists("tpch", viewName);
+        for (String viewName : viewNames) {
+            dropViewIfExists(viewName);
+        }
     }
 
-    private void dropViewIfExists(String schemaName, String viewName)
+    private void dropViewIfExists(String viewName)
             throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(
@@ -287,7 +276,7 @@ public class TestMySqlMetadata
                 mysqlContainer.getUsername(),
                 mysqlContainer.getPassword());
                 Statement statement = connection.createStatement()) {
-            statement.execute("DROP VIEW IF EXISTS " + schemaName + "." + viewName);
+            statement.execute("DROP VIEW IF EXISTS tpch." + viewName);
         }
     }
 }
