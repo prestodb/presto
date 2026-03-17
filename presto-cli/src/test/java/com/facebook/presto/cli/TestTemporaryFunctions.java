@@ -29,12 +29,12 @@ public class TestTemporaryFunctions
     public void testAddAndDropTempFunctions()
             throws InterruptedException
     {
-        server.enqueue(createMockResponse().addHeader(PRESTO_ADDED_SESSION_FUNCTION, "foo=foofunction"));
-        server.enqueue(createMockResponse().addHeader(PRESTO_ADDED_SESSION_FUNCTION, "bar=barfunction"));
+        server.enqueue(createMockResponseWithHeader(PRESTO_ADDED_SESSION_FUNCTION, "foo=foofunction"));
+        server.enqueue(createMockResponseWithHeader(PRESTO_ADDED_SESSION_FUNCTION, "bar=barfunction"));
         server.enqueue(createMockResponse());
-        server.enqueue(createMockResponse().addHeader(PRESTO_REMOVED_SESSION_FUNCTION, "foo"));
+        server.enqueue(createMockResponseWithHeader(PRESTO_REMOVED_SESSION_FUNCTION, "foo"));
         server.enqueue(createMockResponse());
-        server.enqueue(createMockResponse().addHeader(PRESTO_REMOVED_SESSION_FUNCTION, "bar"));
+        server.enqueue(createMockResponseWithHeader(PRESTO_REMOVED_SESSION_FUNCTION, "bar"));
         server.enqueue(createMockResponse());
 
         executeQueries(ImmutableList.of(

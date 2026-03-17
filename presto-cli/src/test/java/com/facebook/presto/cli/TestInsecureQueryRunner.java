@@ -14,7 +14,7 @@
 package com.facebook.presto.cli;
 
 import com.google.common.collect.ImmutableList;
-import okhttp3.mockwebserver.MockWebServer;
+import mockwebserver3.MockWebServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -48,7 +48,7 @@ public class TestInsecureQueryRunner
     {
         server = new MockWebServer();
         SSLContext sslContext = buildTestSslContext();
-        server.useHttps(sslContext.getSocketFactory(), false);
+        server.useHttps(sslContext.getSocketFactory());
         server.start();
     }
 
@@ -68,7 +68,7 @@ public class TestInsecureQueryRunner
         executeQueries(createQueryRunner(createMockClientSession(), true),
                 ImmutableList.of("query with insecure mode;"));
         try {
-            assertEquals(server.takeRequest(1, SECONDS).getPath(), "/v1/statement");
+            assertEquals(server.takeRequest(1, SECONDS).getUrl().encodedPath(), "/v1/statement");
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

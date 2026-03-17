@@ -23,9 +23,9 @@ import com.facebook.presto.common.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import mockwebserver3.MockResponse;
+import mockwebserver3.MockWebServer;
 import okhttp3.Headers;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
@@ -107,9 +107,19 @@ public abstract class AbstractCliTest
 
     protected MockResponse createMockResponse()
     {
-        return new MockResponse()
+        return new MockResponse.Builder()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(QUERY_RESULTS_JSON_CODEC.toJson(createMockQueryResults()));
+                .body(QUERY_RESULTS_JSON_CODEC.toJson(createMockQueryResults()))
+                .build();
+    }
+
+    protected MockResponse createMockResponseWithHeader(String headerName, String headerValue)
+    {
+        return new MockResponse.Builder()
+                .addHeader(CONTENT_TYPE, "application/json")
+                .addHeader(headerName, headerValue)
+                .body(QUERY_RESULTS_JSON_CODEC.toJson(createMockQueryResults()))
+                .build();
     }
 
     protected void executeQueries(List<String> queries)

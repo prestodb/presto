@@ -1119,6 +1119,33 @@ public class TestPrestoSparkHttpClient
         {
             return Timeout.NONE;
         }
+
+        @Override
+        public <T> T tag(Class<? extends T> type)
+        {
+            return request.tag(type);
+        }
+
+        @Override
+        public <T> T tag(Class<T> type, kotlin.jvm.functions.Function0<? extends T> defaultValue)
+        {
+            T tag = request.tag(type);
+            return tag != null ? tag : defaultValue.invoke();
+        }
+
+        @Override
+        public <T> T tag(kotlin.reflect.KClass<T> type)
+        {
+            // Convert KClass to Java Class and delegate to the Class-based method
+            return tag(kotlin.jvm.JvmClassMappingKt.getJavaClass(type));
+        }
+
+        @Override
+        public <T> T tag(kotlin.reflect.KClass<T> type, kotlin.jvm.functions.Function0<? extends T> defaultValue)
+        {
+            // Convert KClass to Java Class and delegate to the Class-based method
+            return tag(kotlin.jvm.JvmClassMappingKt.getJavaClass(type), defaultValue);
+        }
     }
 
     /**
