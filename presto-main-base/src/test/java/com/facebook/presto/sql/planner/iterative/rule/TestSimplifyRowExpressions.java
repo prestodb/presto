@@ -175,6 +175,11 @@ public class TestSimplifyRowExpressions
         assertSimplifies(
                 "IF(X, V, CAST(null AS boolean))",
                 "IF(X, V)");
+
+        // No simplification: inner condition is non-deterministic
+        assertSimplifies(
+                "IF(X, IF(random() > 0.5e0, V, Z), Z)",
+                "IF(X, IF(random() > 0.5e0, V, Z), Z)");
     }
 
     @Test

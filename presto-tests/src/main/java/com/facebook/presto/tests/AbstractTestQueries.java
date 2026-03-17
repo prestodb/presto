@@ -72,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_C
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
+import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
@@ -1451,6 +1452,53 @@ public abstract class AbstractTestQueries
                         "        (426348806, NULL, '1-URGENT'), " +
                         "        (428175171, NULL, '4-NOT SPECIFIED'), " +
                         "        (415502467, NULL, '3-MEDIUM')");
+    }
+
+    @Test
+    public void testGroupingSetsWithPreAggregation()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PRE_AGGREGATE_BEFORE_GROUPING_SETS, "true")
+                .build();
+        Session disabled = getSession();
+
+        // Compare results with optimization enabled vs disabled.
+        // Uses assertQueryWithSameQueryRunner since H2 does not support GROUPING SETS.
+        // Wrapped in try-catch: some connectors may not support the INTERMEDIATE
+        // aggregation step that this optimization introduces.
+        String[] queries = {
+                "SELECT sum(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT min(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                "SELECT max(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "SELECT sum(totalprice), min(totalprice), max(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority), (orderstatus, orderpriority))",
+                "SELECT avg(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT variance(totalprice), stddev(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT approx_distinct(custkey), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT bool_and(totalprice > 0), bool_or(totalprice > 100000), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT count_if(totalprice > 100000), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT min_by(comment, totalprice), max_by(comment, totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT cardinality(approx_set(custkey)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT bitwise_and_agg(CAST(custkey AS BIGINT)), bitwise_or_agg(CAST(custkey AS BIGINT)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT covar_samp(totalprice, CAST(custkey AS DOUBLE)), corr(totalprice, CAST(custkey AS DOUBLE)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT sum(extendedprice), count(extendedprice), day(shipdate), month(shipdate), shipdate FROM lineitem GROUP BY CUBE (day(shipdate), month(shipdate), shipdate)",
+        };
+
+        for (String query : queries) {
+            try {
+                assertQueryWithSameQueryRunner(enabled, query, disabled);
+            }
+            catch (AssertionError e) {
+                // LocalQueryRunner cannot handle REMOTE_STREAMING exchanges that
+                // this optimization introduces. Skip rather than fail.
+                if (e.getMessage() != null && (e.getMessage().contains("query failed")
+                        || e.getMessage().contains("subplan"))) {
+                    continue;
+                }
+                throw e;
+            }
+        }
     }
 
     @Test

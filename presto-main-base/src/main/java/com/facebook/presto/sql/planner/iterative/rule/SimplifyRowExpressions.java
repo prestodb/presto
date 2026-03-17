@@ -134,7 +134,7 @@ public class SimplifyRowExpressions
                 List<RowExpression> innerArgs = innerIf.getArguments();
                 RowExpression innerCondition = innerArgs.get(0);
                 if (falseValue.equals(innerArgs.get(2)) && determinismEvaluator.isDeterministic(innerCondition)) {
-                    RowExpression combinedCondition = new SpecialFormExpression(AND, BOOLEAN, condition, innerCondition);
+                    RowExpression combinedCondition = new SpecialFormExpression(rewritten.getSourceLocation(), AND, BOOLEAN, condition, innerCondition);
                     return new SpecialFormExpression(rewritten.getSourceLocation(), IF, rewritten.getType(), combinedCondition, innerArgs.get(1), falseValue);
                 }
             }
