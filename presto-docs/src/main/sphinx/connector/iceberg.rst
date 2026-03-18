@@ -1364,45 +1364,49 @@ All above procedures are supported in Presto C++.
 SQL Support
 -----------
 
-============================== ============= ============ ============================================================================
-SQL Operation                  Presto Java   Presto C++   Comments
-============================== ============= ============ ============================================================================
-``CREATE SCHEMA``              Yes           Yes
+==================================== ============= ============ ============================================================================
+SQL Operation                        Presto Java   Presto C++   Comments
+==================================== ============= ============ ============================================================================
+``CREATE SCHEMA``                    Yes           Yes
 
-``CREATE TABLE``               Yes           Yes
+``CREATE TABLE``                     Yes           Yes
 
-``CREATE VIEW``                Yes           Yes
+``CREATE VIEW``                      Yes           Yes
 
-``INSERT INTO``                Yes           No
+``INSERT INTO``                      Yes           No
 
-``CREATE TABLE AS SELECT``     Yes           No
+``CREATE TABLE AS SELECT``           Yes           No
 
-``SELECT``                     Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
+``SELECT``                           Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
 
-``ALTER TABLE``                Yes           Yes
+``ALTER TABLE``                      Yes           Yes
 
-``ALTER VIEW``                 Yes           Yes
+``ALTER TABLE ADD COLUMN DEFAULT``   Yes           Yes          DDL (metadata update) is supported in both. ``initial-default`` read
+                                                                support (returning the default value for historical rows) is only
+                                                                available in Presto C++. Presto Java returns ``NULL`` for historical rows.
 
-``TRUNCATE``                   Yes           Yes
+``ALTER VIEW``                       Yes           Yes
 
-``DELETE``                     Yes           No
+``TRUNCATE``                         Yes           Yes
 
-``DROP TABLE``                 Yes           Yes
+``DELETE``                           Yes           No
 
-``DROP VIEW``                  Yes           Yes
+``DROP TABLE``                       Yes           Yes
 
-``DROP SCHEMA``                Yes           Yes
+``DROP VIEW``                        Yes           Yes
 
-``SHOW CREATE TABLE``          Yes           Yes
+``DROP SCHEMA``                      Yes           Yes
 
-``SHOW COLUMNS``               Yes           Yes
+``SHOW CREATE TABLE``                Yes           Yes
 
-``DESCRIBE``                   Yes           Yes
+``SHOW COLUMNS``                     Yes           Yes
 
-``UPDATE``                     Yes           No
+``DESCRIBE``                         Yes           Yes
 
-``MERGE``                      Yes           No
-============================== ============= ============ ============================================================================
+``UPDATE``                           Yes           No
+
+``MERGE``                            Yes           No
+==================================== ============= ============ ============================================================================
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
@@ -1679,6 +1683,39 @@ For example, to set ``commit.retry.num-retries`` to 6 for the table ``iceberg.we
 To set ``write.metadata.delete-after-commit.enabled`` to true and set ``write.metadata.previous-versions-max`` to 5, use::
 
     ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("write.metadata.delete-after-commit.enabled" = true, "write.metadata.previous-versions-max" = 5);
+
+ADD COLUMN with DEFAULT (Iceberg V3, Presto C++ only)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    ``ADD COLUMN DEFAULT`` read support is only available in **Presto C++** (Prestissimo).
+    Presto Java executes the DDL and stores the default in Iceberg metadata, but does **not**
+    inject the ``initial-default`` value during reads — historical rows return ``NULL`` in
+    Presto Java. Write-time handling of ``write-default`` is not yet supported in either engine.
+
+Iceberg Format Version 3 supports default column values for schema evolution. When a column is
+added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
+fields in the Iceberg schema metadata. This is a metadata-only change — no data files are rewritten.
+
+During reads in Presto C++, rows written before the column was added return the ``initial-default``
+value instead of ``NULL``. This enables correct interoperability with Iceberg V3 tables created or
+evolved by other engines (e.g. Spark).
+
+Example — Add a ``country`` column with a default value of ``'IN'``::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN country VARCHAR DEFAULT 'IN';
+
+After this statement, a ``SELECT`` on the table in Presto C++ returns ``'IN'`` for the ``country``
+column in all rows that were written before the column was added::
+
+     SELECT order_id, country FROM iceberg.web.orders;
+
+      order_id | country
+     ----------+---------
+             1 | IN
+             2 | IN
+             3 | IN
 
 ALTER VIEW
 ^^^^^^^^^^

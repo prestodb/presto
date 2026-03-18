@@ -39,6 +39,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -78,6 +79,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -177,6 +179,7 @@ import static java.lang.Long.parseLong;
 import static java.lang.Math.toIntExact;
 import static java.lang.Math.ulp;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
@@ -234,7 +237,22 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_ZERO = 0x80000000;
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
+    public static final String DEFAULT_VALUE_PROPERTY = "default_value";
+
     protected static final String VIEW_OWNER = "view_owner";
+
+    /**
+     * Retrieves the initial-default value from a ColumnMetadata properties map.
+     * This value is used during reads for rows written before the column existed.
+     *
+     * @param column the ColumnMetadata to extract the initial-default from
+     * @return Optional containing the initial-default value as a String, or empty if not set
+     */
+    public static Optional<String> getInitialDefaultValue(ColumnMetadata column)
+    {
+        Object value = column.getProperties().get(DEFAULT_VALUE_PROPERTY);
+        return value != null ? Optional.of(value.toString()) : Optional.empty();
+    }
 
     private IcebergUtil() {}
 
@@ -1427,5 +1445,53 @@ public final class IcebergUtil
         sb.append(identifier.name());
 
         return sb.toString();
+    }
+
+    /**
+     * Convert a string default value to an Iceberg Literal based on the column type.
+     * This is used to set initial-default and write-default values in Iceberg V3 schemas.
+     */
+    public static Literal<?> convertToIcebergLiteral(String defaultValueStr, org.apache.iceberg.types.Type icebergType)
+    {
+        String value = defaultValueStr.trim();
+        // Extract the value from Presto's SqlFormatter output, which often formats literals as "TYPE 'value'"
+        // e.g. "DATE '2023-01-01'", "DECIMAL '10.5'", "TIMESTAMP '2023-01-01 10:00:00.000000'"
+        int firstQuote = value.indexOf("'");
+        int lastQuote = value.lastIndexOf("'");
+        if (firstQuote >= 0 && lastQuote == value.length() - 1 && firstQuote < lastQuote) {
+            value = value.substring(firstQuote + 1, lastQuote);
+            // SqlFormatter escapes single quotes as two single quotes
+            if (value.contains("''")) {
+                value = value.replace("''", "'");
+            }
+        }
+
+        switch (icebergType.typeId()) {
+            case STRING:
+                return Literal.of(value);
+            case INTEGER:
+                return Literal.of(parseInt(value));
+            case LONG:
+                return Literal.of(parseLong(value));
+            case FLOAT:
+                return Literal.of(parseFloat(value));
+            case DOUBLE:
+                return Literal.of(parseDouble(value));
+            case BOOLEAN:
+                return Literal.of(Boolean.parseBoolean(value));
+            case DATE:
+                return Literal.of((int) java.sql.Date.valueOf(value).toLocalDate().toEpochDay());
+            case TIMESTAMP:
+                java.sql.Timestamp timestamp = java.sql.Timestamp.valueOf(value);
+                long micros = timestamp.toLocalDateTime().toEpochSecond(UTC) * 1_000_000L + (timestamp.getNanos() / 1000);
+                return Literal.of(micros);
+            case DECIMAL:
+                return Literal.of(new java.math.BigDecimal(value));
+            case BINARY:
+            case FIXED:
+                return Literal.of(java.nio.ByteBuffer.wrap(value.getBytes()));
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
+        }
     }
 }
