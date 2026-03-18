@@ -42,6 +42,10 @@ ExtraFields:
   RemoteTransactionHandle:
     Optional<String>: dummy
 
+UpdateFields:
+  RemoteSourceNode:
+    std::shared_ptr<TransportType>: transportType
+
 AbstractClasses:
   ColumnHandle:
     super: JsonEncodedSubclass
@@ -293,6 +297,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ProjectNode.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Range.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/RemoteSourceNode.java
+  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/TransportType.java
   - presto-spi/src/main/java/com/facebook/presto/spi/session/ResourceEstimates.java
   - presto-main-base/src/main/java/com/facebook/presto/execution/ScheduledSplit.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SchemaTableName.java

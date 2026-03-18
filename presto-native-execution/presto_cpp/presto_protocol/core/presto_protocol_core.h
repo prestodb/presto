@@ -2094,6 +2094,11 @@ void to_json(json& j, const StatsAndCosts& p);
 void from_json(const json& j, StatsAndCosts& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+enum class TransportType { HTTP, UCX };
+extern void to_json(json& j, const TransportType& e);
+extern void from_json(const json& j, TransportType& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct PlanFragment {
   PlanFragmentId id = {};
   std::shared_ptr<PlanNode> root = {};
@@ -2104,6 +2109,7 @@ struct PlanFragment {
   StageExecutionDescriptor stageExecutionDescriptor = {};
   std::shared_ptr<OrderingScheme> outputOrderingScheme = {};
   bool outputTableWriterFragment = {};
+  std::shared_ptr<TransportType> outputTransportType = {};
   std::shared_ptr<String> jsonRepresentation = {};
 };
 void to_json(json& j, const PlanFragment& p);
@@ -2149,6 +2155,7 @@ struct RemoteSourceNode : public PlanNode {
   std::shared_ptr<OrderingScheme> orderingScheme = {};
   ExchangeNodeType exchangeType = {};
   ExchangeEncoding encoding = {};
+  std::shared_ptr<TransportType> transportType = {};
 
   RemoteSourceNode() noexcept;
 };

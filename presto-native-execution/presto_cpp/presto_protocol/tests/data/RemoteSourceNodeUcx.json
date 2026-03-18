@@ -1,0 +1,18 @@
+{
+  "@type": "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
+  "id": "197",
+  "sourceFragmentIds": [
+    "2"
+  ],
+  "outputVariables": [
+    {
+      "@type": "variable",
+      "name": "regionkey",
+      "type": "bigint"
+    }
+  ],
+  "ensureSourceOrdering": false,
+  "exchangeType": "REPARTITION",
+  "encoding": "COLUMNAR",
+  "transportType": "UCX"
+}

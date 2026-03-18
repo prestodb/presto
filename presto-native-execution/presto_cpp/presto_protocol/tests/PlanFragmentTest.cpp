@@ -56,3 +56,96 @@ TEST_F(TestPlanNodes, TestOutputNode) {
 TEST_F(TestPlanNodes, TestValuesNode) {
   testJsonRoundTripFile<protocol::ValuesNode>("ValuesNode.json");
 }
+
+TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeUcx) {
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      "RemoteSourceNodeUcx.json"));
+  json j = json::parse(str);
+  protocol::RemoteSourceNode node = j;
+
+  ASSERT_NE(node.transportType, nullptr);
+  ASSERT_EQ(*node.transportType, protocol::TransportType::UCX);
+
+  // Round-trip: serialize back to JSON and verify transportType is preserved.
+  json r = node;
+  ASSERT_EQ(r["transportType"], "UCX");
+  testJsonRoundtrip(j, node);
+}
+
+TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeHttp) {
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      "RemoteSourceNodeHttp.json"));
+  json j = json::parse(str);
+  protocol::RemoteSourceNode node = j;
+
+  ASSERT_NE(node.transportType, nullptr);
+  ASSERT_EQ(*node.transportType, protocol::TransportType::HTTP);
+
+  json r = node;
+  ASSERT_EQ(r["transportType"], "HTTP");
+  testJsonRoundtrip(j, node);
+}
+
+TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeAbsent) {
+  // RemoteSourceNode JSON without transportType field should leave ptr null.
+  std::string str = R"({
+    "@type": "com.facebook.presto.sql.planner.plan.RemoteSourceNode",
+    "id": "42",
+    "sourceFragmentIds": ["1"],
+    "outputVariables": [
+      {"@type": "variable", "name": "col", "type": "bigint"}
+    ],
+    "ensureSourceOrdering": false,
+    "exchangeType": "GATHER",
+    "encoding": "COLUMNAR"
+  })";
+  json j = json::parse(str);
+  protocol::RemoteSourceNode node = j;
+
+  ASSERT_EQ(node.transportType, nullptr);
+}
+
+TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeUcx) {
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      "PlanFragmentWithRemoteSource.json"));
+  json j = json::parse(str);
+  j["outputTransportType"] = "UCX";
+
+  protocol::PlanFragment fragment = j;
+  ASSERT_NE(fragment.outputTransportType, nullptr);
+  ASSERT_EQ(*fragment.outputTransportType, protocol::TransportType::UCX);
+
+  json r = fragment;
+  ASSERT_EQ(r["outputTransportType"], "UCX");
+}
+
+TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeHttp) {
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      "PlanFragmentWithRemoteSource.json"));
+  json j = json::parse(str);
+  j["outputTransportType"] = "HTTP";
+
+  protocol::PlanFragment fragment = j;
+  ASSERT_NE(fragment.outputTransportType, nullptr);
+  ASSERT_EQ(*fragment.outputTransportType, protocol::TransportType::HTTP);
+
+  json r = fragment;
+  ASSERT_EQ(r["outputTransportType"], "HTTP");
+}
+
+TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeAbsent) {
+  // PlanFragment JSON without outputTransportType should leave ptr null.
+  std::string str = slurp(getDataPath(
+      "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
+      "PlanFragmentWithRemoteSource.json"));
+  json j = json::parse(str);
+  // Ensure the field is NOT present.
+  ASSERT_FALSE(j.count("outputTransportType"));
+
+  protocol::PlanFragment fragment = j;
+  ASSERT_EQ(fragment.outputTransportType, nullptr);
+}
