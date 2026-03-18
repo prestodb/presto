@@ -16,30 +16,16 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Module;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
-import static java.util.Objects.requireNonNull;
 
 public class MySqlPlugin
         implements Plugin
 {
-    private final String name;
-    private final Module module;
-
-    public MySqlPlugin(String name, Module module)
-    {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
-        this.module = requireNonNull(module, "module is null");
-    }
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new MySqlConnectorFactory(name, module, getClassLoader()));
+        return ImmutableList.of(new MySqlConnectorFactory("mysql", new MySqlClientModule(), getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()

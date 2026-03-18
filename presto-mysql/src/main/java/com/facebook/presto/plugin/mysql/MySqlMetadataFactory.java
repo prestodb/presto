@@ -18,10 +18,12 @@ import com.facebook.presto.plugin.jdbc.JdbcMetadataCache;
 import com.facebook.presto.plugin.jdbc.JdbcMetadataConfig;
 import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
 import com.facebook.presto.plugin.jdbc.TableLocationProvider;
+import jakarta.inject.Inject;
 
 public class MySqlMetadataFactory
         extends JdbcMetadataFactory
 {
+    @Inject
     public MySqlMetadataFactory(JdbcMetadataCache jdbcMetadataCache, MySqlClient jdbcClient, JdbcMetadataConfig config, TableLocationProvider tableLocationProvider)
     {
         super(jdbcMetadataCache, jdbcClient, config, tableLocationProvider);
