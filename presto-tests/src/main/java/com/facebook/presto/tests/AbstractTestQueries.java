@@ -76,6 +76,7 @@ import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_G
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
+import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_NULL_SOURCE_KEY_IN_SEMI_JOIN_STRATEGY;
@@ -1498,6 +1499,34 @@ public abstract class AbstractTestQueries
                 }
                 throw e;
             }
+        }
+    }
+
+    @Test
+    public void testPushProjectionThroughCrossJoin()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_PROJECTION_THROUGH_CROSS_JOIN, "true")
+                .build();
+        Session disabled = getSession();
+
+        // Use real CROSS JOINs (JoinNode with empty equi-join criteria).
+        // CROSS JOIN UNNEST produces an UnnestNode, not a JoinNode.
+        String[] queries = {
+                // Left-only projections pushed below cross join
+                "SELECT n.nationkey * 2, r.regionkey FROM nation n CROSS JOIN region r",
+                // Right-only projection
+                "SELECT n.nationkey, r.regionkey * 10 FROM nation n CROSS JOIN region r",
+                // Both sides have pushable projections
+                "SELECT length(n.name), r.regionkey * 10 FROM nation n CROSS JOIN region r",
+                // Mixed: some pushable, some not
+                "SELECT n.nationkey * 2, n.nationkey + r.regionkey, r.name FROM nation n CROSS JOIN region r",
+                // Multiple expressions per side
+                "SELECT n.nationkey * 2, length(n.name), r.regionkey * 10, length(r.name) FROM nation n CROSS JOIN region r",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
         }
     }
 
