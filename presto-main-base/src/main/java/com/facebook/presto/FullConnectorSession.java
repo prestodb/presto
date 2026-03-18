@@ -321,4 +321,10 @@ public class FullConnectorSession
     {
         return new FullConnectorSession(session, identity);
     }
+
+    @Override
+    public Map<String, String> getSystemProperties()
+    {
+        return session.getSystemProperties();
+    }
 }
