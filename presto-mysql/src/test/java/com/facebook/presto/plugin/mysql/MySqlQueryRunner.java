@@ -60,7 +60,7 @@ public final class MySqlQueryRunner
             connectorProperties.putIfAbsent("connection-url", jdbcUrlWithCredentials);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
-            queryRunner.installPlugin(new MySqlPlugin("mysql", new MySqlClientModule()));
+            queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
