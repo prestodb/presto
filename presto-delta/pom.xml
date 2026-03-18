@@ -319,6 +319,12 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-server</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-io</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
