@@ -23,6 +23,7 @@ struct IcebergColumnHandle : public ColumnHandle {
   std::shared_ptr<String> comment = {};
   hive::ColumnType columnType = {};
   List<Subfield> requiredSubfields = {};
+  std::shared_ptr<String> defaultValue = {};
 
   IcebergColumnHandle() noexcept;
 

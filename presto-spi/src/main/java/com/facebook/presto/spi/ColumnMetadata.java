@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata
 {
+    public static final String DEFAULT_VALUE_PROPERTY = "default_value";
     private final String name;
     private final Type type;
     private final boolean nullable;
@@ -89,6 +90,13 @@ public class ColumnMetadata
     {
         return properties;
     }
+
+    public Optional<String> getDefaultValue()
+    {
+        Object value = properties.get(DEFAULT_VALUE_PROPERTY);
+        return value != null ? Optional.of(value.toString()) : Optional.empty();
+    }
+
     public Builder toBuilder()
     {
         return ColumnMetadata.builder()

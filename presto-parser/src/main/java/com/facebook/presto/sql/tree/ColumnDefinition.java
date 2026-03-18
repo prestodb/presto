@@ -30,17 +30,29 @@ public final class ColumnDefinition
     private final boolean nullable;
     private final List<Property> properties;
     private final Optional<String> comment;
+    private final Optional<Expression> defaultExpression;
 
     public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, type, nullable, properties, comment);
+        this(Optional.empty(), name, type, nullable, properties, comment, Optional.empty());
+    }
+
+    public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    {
+        this(Optional.empty(), name, type, nullable, properties, comment, defaultExpression);
     }
 
     public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, type, nullable, properties, comment);
+        this(Optional.of(location), name, type, nullable, properties, comment, Optional.empty());
     }
-    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
+
+    public ColumnDefinition(NodeLocation location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
+    {
+        this(Optional.of(location), name, type, nullable, properties, comment, defaultExpression);
+    }
+
+    private ColumnDefinition(Optional<NodeLocation> location, Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment, Optional<Expression> defaultExpression)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
@@ -48,6 +60,7 @@ public final class ColumnDefinition
         this.nullable = nullable;
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
+        this.defaultExpression = requireNonNull(defaultExpression, "defaultExpression is null");
     }
 
     public Identifier getName()
@@ -75,6 +88,11 @@ public final class ColumnDefinition
         return comment;
     }
 
+    public Optional<Expression> getDefaultExpression()
+    {
+        return defaultExpression;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -84,7 +102,9 @@ public final class ColumnDefinition
     @Override
     public List<Node> getChildren()
     {
-        return ImmutableList.of();
+        ImmutableList.Builder<Node> children = ImmutableList.builder();
+        defaultExpression.ifPresent(children::add);
+        return children.build();
     }
 
     @Override
@@ -101,13 +121,14 @@ public final class ColumnDefinition
                 Objects.equals(this.type, o.type) &&
                 this.nullable == o.nullable &&
                 Objects.equals(properties, o.properties) &&
-                Objects.equals(this.comment, o.comment);
+                Objects.equals(this.comment, o.comment) &&
+                Objects.equals(this.defaultExpression, o.defaultExpression);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, properties, comment, nullable);
+        return Objects.hash(name, type, properties, comment, nullable, defaultExpression);
     }
 
     @Override
@@ -119,6 +140,7 @@ public final class ColumnDefinition
                 .add("nullable", nullable)
                 .add("properties", properties)
                 .add("comment", comment)
+                .add("defaultExpression", defaultExpression)
                 .toString();
     }
 }

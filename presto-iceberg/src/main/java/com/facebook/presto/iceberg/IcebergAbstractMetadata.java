@@ -125,8 +125,10 @@ import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.iceberg.UpdateSchema;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
@@ -203,6 +205,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
+import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
@@ -1224,7 +1227,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        if (!column.isNullable()) {
+        if (!column.isNullable() && !column.getDefaultValue().isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support add column with non null");
         }
 
@@ -1234,7 +1237,15 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        icebergTable.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
+        UpdateSchema updateSchema = icebergTable.updateSchema();
+        if (column.getDefaultValue().isPresent()) {
+            String defaultValueStr = column.getDefaultValue().get();
+            Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValueStr, columnType);
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral).commit();
+        }
+        else {
+            updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
+        }
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             List<String> partitioningTransform = (List<String>) column.getProperties().get(PARTITIONING_PROPERTY);
             UpdatePartitionSpec updatePartitionSpec = icebergTable.updateSpec();

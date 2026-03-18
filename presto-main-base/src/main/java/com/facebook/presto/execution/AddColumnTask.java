@@ -41,6 +41,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
+import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
@@ -117,6 +118,15 @@ public class AddColumnTask
 
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
+
+        // Handle default expression if present
+        if (element.getDefaultExpression().isPresent()) {
+            Expression defaultExpr = element.getDefaultExpression().get();
+            // Store the default expression as a string in column properties
+            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
+            updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultExpr.toString());
+            columnProperties = updatedProperties;
+        }
 
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(name)

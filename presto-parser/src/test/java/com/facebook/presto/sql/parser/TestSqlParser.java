@@ -1919,6 +1919,38 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
                         new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, true));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN'",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("status"), "varchar", false, emptyList(), Optional.empty(), Optional.of(new StringLiteral("ACTIVE"))), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN priority integer DEFAULT 5",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("priority"), "integer", true, emptyList(), Optional.empty(), Optional.of(new LongLiteral("5"))), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN score double DEFAULT 0.0E0",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("score"), "double", true, emptyList(), Optional.empty(), Optional.of(new DoubleLiteral("0.0E0"))), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN is_active boolean DEFAULT true",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("is_active"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.TRUE_LITERAL)), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN is_deleted boolean DEFAULT false",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("is_deleted"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.FALSE_LITERAL)), false, false));
+
+        assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS country varchar DEFAULT 'US'",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("US"))), false, true));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN country varchar DEFAULT 'UK'",
+                new AddColumn(QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
     }
 
     @Test

@@ -321,7 +321,8 @@ public class TestStatisticsUtil
                 INTEGER,
                 Optional.empty(),
                 partitioned ? PARTITION_KEY : REGULAR,
-                ImmutableList.of());
+                ImmutableList.of(),
+                Optional.empty());
     }
 
     private static TableStatistics generateSingleColumnIcebergStats()
