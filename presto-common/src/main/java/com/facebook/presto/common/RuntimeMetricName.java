@@ -87,4 +87,6 @@ public class RuntimeMetricName
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
     public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
     public static final String FILES_READ_COUNT = "filesReadCount";
+    public static final String COORDINATOR_BUFFER_DRAINED_PAGES = "coordinatorBufferDrainedPages";
+    public static final String COORDINATOR_BUFFER_DRAINED_BYTES = "coordinatorBufferDrainedBytes";
 }
