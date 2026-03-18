@@ -27,7 +27,16 @@ public class PartitionWithStatistics
     {
         this.partition = requireNonNull(partition, "partition is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
-        checkArgument(toPartitionValues(partitionName).equals(partition.getValues()), "unexpected partition name: %s != %s", partitionName, partition.getValues());
+        List<String> nameValues = toPartitionValues(partitionName);
+        // Allow partition values to be longer than what the name produces.
+        // This happens with partition spec evolution: old partitions have short
+        // names but Metastore pads the values list with __HIVE_DEFAULT_PARTITION__
+        // for keys added after the partition was created.
+        checkArgument(
+                partition.getValues().size() >= nameValues.size()
+                        && partition.getValues().subList(0, nameValues.size()).equals(nameValues),
+                "unexpected partition name %s: name-parsed values %s are not a prefix of partition values %s",
+                partitionName, nameValues, partition.getValues());
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
 

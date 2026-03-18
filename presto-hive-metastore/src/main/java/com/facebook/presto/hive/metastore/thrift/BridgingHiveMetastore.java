@@ -51,6 +51,7 @@ import org.apache.hadoop.hive.common.StatsSetupConst;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -338,15 +339,19 @@ public class BridgingHiveMetastore
         List<String> partitionNames = partitionNamesWithVersion.stream()
                 .map(PartitionNameWithVersion::getPartitionName)
                 .collect(toImmutableList());
-        Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
-                .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
-        Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).stream()
-                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator, metastoreContext.getColumnConverter()))
-                .collect(Collectors.toMap(Partition::getValues, identity()));
+        // Join by partition name string rather than parsed values. For evolved
+        // tables, Partition.getValues() is padded for new keys but the partition
+        // name retains its original form, so values-based matching would fail.
+        Map<String, Partition> partitionMap = new HashMap<>();
+        for (org.apache.hadoop.hive.metastore.api.Partition raw :
+                delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames)) {
+            partitionMap.put(
+                    raw.getPartitionName(),
+                    fromMetastoreApiPartition(raw, partitionMutator, metastoreContext.getColumnConverter()));
+        }
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
-        for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
-            Partition partition = partitionValuesToPartitionMap.get(entry.getValue());
-            resultBuilder.put(entry.getKey(), Optional.ofNullable(partition));
+        for (String name : partitionNames) {
+            resultBuilder.put(name, Optional.ofNullable(partitionMap.get(name)));
         }
         return resultBuilder.build();
     }
