@@ -26,6 +26,15 @@ fi
 
 if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
 export LD_LIBRARY_PATH=/usr/local/cuda/compat:${LD_LIBRARY_PATH}
+else
+  echo "For GPU $CUDA_VISIBLE_DEVICES"
+  nvidia-smi topo -C -M -i $CUDA_VISIBLE_DEVICES
+  numa_id=$(nvidia-smi topo -C -i $CUDA_VISIBLE_DEVICES | awk -F':' '/NUMA IDs of closest CPU/{gsub(/ /,"",$2); print $2}')
+  if [[ $numa_id =~ ^[0-9]+$ ]]; then
+    LAUNCHER="numactl --cpunodebind=$numa_id --membind=$numa_id"
+  else
+    LAUNCHER=""
+  fi
 fi
 
-GLOG_logtostderr=1 $PROFILE_CMD presto_server --etc-dir=/opt/presto-server/etc
+GLOG_logtostderr=1 $PROFILE_CMD $LAUNCHER presto_server --etc-dir=/opt/presto-server/etc
