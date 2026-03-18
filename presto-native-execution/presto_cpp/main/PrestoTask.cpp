@@ -19,6 +19,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/time/Timer.h"
+#include "velox/exec/Operator.h"
 
 using namespace facebook::velox;
 
@@ -927,6 +928,20 @@ void PrestoTask::updateExecutionInfoLocked(
         auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
             veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
             veloxOp.finishTiming.cpuNanos;
+
+        // When enabled, add spill background CPU time (runs on executor
+        // threads, not the driver thread) to task-level CPU accounting. This
+        // is tracked as a runtime stat rather than via backgroundTiming to
+        // avoid inflating per-operator finishCpu and per-driver kDriverCpuTime.
+        if (task->queryCtx()
+                ->queryConfig()
+                .trackSpillBackgroundCpuTime()) {
+          auto it = veloxOp.runtimeStats.find(
+              std::string(exec::Operator::kSpillBackgroundCpuTime));
+          if (it != veloxOp.runtimeStats.end()) {
+            cpuNanos += it->second.sum;
+          }
+        }
 
         prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
         prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
