@@ -316,7 +316,7 @@ public class HiveSplitManager
                 splitSchedulingContext.schedulerUsesHostAddresses(),
                 layout.isPartialAggregationsPushedDown());
 
-        HiveSplitSource splitSource = computeSplitSource(splitSchedulingContext, table, session, hiveSplitLoader, ratio);
+        HiveSplitSource splitSource = computeSplitSource(splitSchedulingContext, table, session, hiveSplitLoader, ratio, bucketHandle);
         hiveSplitLoader.start(splitSource);
 
         return splitSource;
@@ -372,7 +372,8 @@ public class HiveSplitManager
                                                Table table,
                                                ConnectorSession session,
                                                HiveSplitLoader hiveSplitLoader,
-                                               double splitScanRatio)
+                                               double splitScanRatio,
+                                               Optional<HiveBucketHandle> bucketHandle)
     {
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
@@ -392,13 +393,15 @@ public class HiveSplitManager
                         splitScanRatio);
                 break;
             case GROUPED_SCHEDULING:
+                int bucketCount = bucketHandle.map(HiveBucketHandle::getReadBucketCount).orElse(1);
+                int estimatedOutstandingSplitsPerBucket = Math.max(8, maxOutstandingSplits / bucketCount);
                 splitSource = HiveSplitSource.bucketed(
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
                         cacheQuotaRequirement,
                         getHiveMaxInitialSplitSize(session),
-                        maxOutstandingSplits,
+                        estimatedOutstandingSplitsPerBucket,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
                         executor,
