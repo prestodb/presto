@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -59,6 +60,12 @@ public class TestLanceMetadata
         metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
     }
 
+    @AfterMethod
+    public void tearDown()
+    {
+        namespaceHolder.shutdown();
+    }
+
     @Test
     public void testListSchemaNames()
     {
@@ -94,8 +101,9 @@ public class TestLanceMetadata
     @Test
     public void testGetColumnHandles()
     {
-        LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table1");
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(null, tableHandle);
+        ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
+        assertNotNull(handle);
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(null, handle);
         assertNotNull(columns);
         assertEquals(columns.size(), 4);
         assertTrue(columns.containsKey("x"));
@@ -107,8 +115,9 @@ public class TestLanceMetadata
     @Test
     public void testGetTableMetadata()
     {
-        LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table1");
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(null, tableHandle);
+        ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
+        assertNotNull(handle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(null, handle);
         assertNotNull(tableMetadata);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("default", "test_table1"));
         assertEquals(tableMetadata.getColumns().size(), 4);
