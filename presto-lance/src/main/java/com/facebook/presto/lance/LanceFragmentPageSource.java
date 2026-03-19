@@ -23,6 +23,8 @@ import org.lance.ipc.ScanOptions;
 
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
+
 public class LanceFragmentPageSource
         extends LanceBasePageSource
 {
@@ -55,9 +57,9 @@ public class LanceFragmentPageSource
         FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Long datasetVersion)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
-            this.tablePath = tablePath;
+            this.tablePath = requireNonNull(tablePath, "tablePath is null");
             this.readBatchSize = readBatchSize;
-            this.namespaceHolder = namespaceHolder;
+            this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
             this.datasetVersion = datasetVersion;
         }
 
@@ -71,7 +73,7 @@ public class LanceFragmentPageSource
             optionsBuilder.batchSize(readBatchSize);
             optionsBuilder.fragmentIds(fragmentIds);
 
-            Dataset dataset = namespaceHolder.getCachedDataset(null, tablePath, datasetVersion);
+            Dataset dataset = namespaceHolder.getCachedDataset(tablePath, datasetVersion);
             this.scanner = dataset.newScan(optionsBuilder.build());
             return scanner;
         }
