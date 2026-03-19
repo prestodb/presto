@@ -282,6 +282,7 @@ public class FeaturesConfig
     private boolean useDefaultsForCorrelatedAggregationPushdownThroughOuterJoins = true;
     private boolean mergeDuplicateAggregationsEnabled = true;
     private boolean mergeAggregationsWithAndWithoutFilter;
+    private int mergeSumsToVectorSumThreshold;
     private boolean simplifyPlanWithEmptyInput = true;
     private PushDownFilterThroughCrossJoinStrategy pushDownFilterExpressionEvaluationThroughCrossJoin = PushDownFilterThroughCrossJoinStrategy.REWRITTEN_TO_INNER_JOIN;
     private boolean rewriteCrossJoinWithOrFilterToInnerJoin = true;
@@ -2854,6 +2855,19 @@ public class FeaturesConfig
     public FeaturesConfig setMergeAggregationsWithAndWithoutFilter(boolean mergeAggregationsWithAndWithoutFilter)
     {
         this.mergeAggregationsWithAndWithoutFilter = mergeAggregationsWithAndWithoutFilter;
+        return this;
+    }
+
+    public int getMergeSumsToVectorSumThreshold()
+    {
+        return mergeSumsToVectorSumThreshold;
+    }
+
+    @Config("optimizer.merge-sums-to-vector-sum-threshold")
+    @ConfigDescription("Minimum number of SUM aggregations to merge into a single vector_sum call (0 = disabled)")
+    public FeaturesConfig setMergeSumsToVectorSumThreshold(int mergeSumsToVectorSumThreshold)
+    {
+        this.mergeSumsToVectorSumThreshold = mergeSumsToVectorSumThreshold;
         return this;
     }
 
