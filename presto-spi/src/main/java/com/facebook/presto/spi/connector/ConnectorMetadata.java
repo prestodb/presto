@@ -503,6 +503,22 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Begin the atomic creation of a vector index with data.
+     */
+    default ConnectorOutputTableHandle beginCreateVectorIndex(ConnectorSession session, ConnectorTableMetadata indexMetadata, Optional<ConnectorNewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating vector indexes");
+    }
+
+    /**
+     * Finish a vector index creation with data after the data is written.
+     */
+    default Optional<ConnectorOutputMetadata> finishCreateVectorIndex(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating vector indexes");
+    }
+
+    /**
      * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
      */
     default void beginQuery(ConnectorSession session) {}
