@@ -73,7 +73,7 @@ public class LancePageSourceProvider
                 tablePath,
                 config.getReadBatchSize(),
                 namespaceHolder,
-                tableHandle.getDatasetVersion().orElse(null),
+                tableHandle.getDatasetVersion(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator());
     }
