@@ -186,8 +186,7 @@ public class JoinCompiler
                 .comment("INSTANCE_SIZE = ClassLayout.parseClass(%s.class).instanceSize()", definition.getName())
                 .push(definition.getType())
                 .invokeStatic(ClassLayout.class, "parseClass", ClassLayout.class, Class.class)
-                .invokeVirtual(ClassLayout.class, "instanceSize", int.class)
-                .intToLong()
+                .invokeVirtual(ClassLayout.class, "instanceSize", long.class)
                 .putStaticField(instanceSize);
         return instanceSize;
     }

@@ -38,9 +38,9 @@ import static java.util.Objects.requireNonNull;
 public class InternalHiveSplit
 {
     // Overhead of ImmutableList and ImmutableMap is not accounted for because of its complexity.
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(InternalHiveSplit.class).instanceSize();
 
-    private static final int HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
+    private static final long HOST_ADDRESS_INSTANCE_SIZE = ClassLayout.parseClass(HostAddress.class).instanceSize() +
             ClassLayout.parseClass(String.class).instanceSize();
 
     private final String path;
@@ -251,9 +251,9 @@ public class InternalHiveSplit
      * PartitionInfo is a shared object, so its memory usage is
      * tracked separately in HiveSplitSource.
      */
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        int result = INSTANCE_SIZE;
+        long result = INSTANCE_SIZE;
         result += sizeOfCharArray(path.length());
         result += sizeOf(blockEndOffsets);
         if (!blockAddresses.isEmpty()) {
@@ -261,7 +261,7 @@ public class InternalHiveSplit
             for (List<HostAddress> addresses : blockAddresses) {
                 result += sizeOfObjectArray(addresses.size());
                 for (HostAddress address : addresses) {
-                    result += HOST_ADDRESS_INSTANCE_SIZE + address.getHostText().length() * Character.BYTES;
+                    result += HOST_ADDRESS_INSTANCE_SIZE + (long) address.getHostText().length() * Character.BYTES;
                 }
             }
         }

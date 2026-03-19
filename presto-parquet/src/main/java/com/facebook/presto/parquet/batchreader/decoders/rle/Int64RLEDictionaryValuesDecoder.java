@@ -30,7 +30,7 @@ public class Int64RLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements Int64ValuesDecoder, ShortDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64RLEDictionaryValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64RLEDictionaryValuesDecoder.class).instanceSize();
 
     private final LongDictionary dictionary;
 
