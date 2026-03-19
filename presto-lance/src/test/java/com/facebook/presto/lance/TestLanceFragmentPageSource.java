@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.lance.Fragment;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -64,6 +65,12 @@ public class TestLanceFragmentPageSource
         tableHandle = new LanceTableHandle("default", "test_table1", datasetVersion);
         tablePath = namespaceHolder.getTablePath("test_table1");
         fragments = namespaceHolder.getFragments("test_table1", datasetVersion);
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        namespaceHolder.shutdown();
     }
 
     @Test

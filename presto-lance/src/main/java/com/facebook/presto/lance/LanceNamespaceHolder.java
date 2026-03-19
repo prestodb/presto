@@ -43,7 +43,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -118,24 +120,30 @@ public class LanceNamespaceHolder
     /**
      * Get ReadOptions with configured cache sizes.
      */
-    public ReadOptions getReadOptions()
+    private ReadOptions getReadOptions()
     {
         return readOptions;
     }
 
     /**
      * Get a cached or newly opened Dataset for the given table path with optional version.
+     * The returned Dataset is managed by the cache — callers must NOT close it.
      *
-     * @param userIdentity the user identity string (may be null)
+     * <p>Thread safety: Lance Dataset objects use an internal LockManager for
+     * concurrent access. Multiple threads may safely call getFragments(),
+     * getSchema(), and newScan() on the same cached Dataset instance.
+     *
      * @param tablePath the full table path (URI)
      * @param version the dataset version to open (null for latest)
      */
-    public Dataset getCachedDataset(String userIdentity, String tablePath, Long version)
+    Dataset getCachedDataset(String tablePath, Long version)
     {
-        DatasetCacheKey cacheKey = new DatasetCacheKey(userIdentity, tablePath, version);
+        DatasetCacheKey cacheKey = new DatasetCacheKey(tablePath, version);
         try {
             return datasetCache.get(cacheKey, () -> {
                 if (version != null) {
+                    checkArgument(version <= Integer.MAX_VALUE,
+                            "Dataset version %s exceeds maximum supported version", version);
                     ReadOptions versionedOptions = new ReadOptions.Builder()
                             .setIndexCacheSizeBytes(readOptions.getIndexCacheSizeBytes())
                             .setMetadataCacheSizeBytes(readOptions.getMetadataCacheSizeBytes())
@@ -152,23 +160,14 @@ public class LanceNamespaceHolder
     }
 
     /**
-     * Get the latest version of a dataset.
+     * Get the latest version of a dataset. Uses the cache to avoid
+     * opening a throwaway Dataset when a latest-version entry is available.
      */
-    public Long getLatestVersion(String tableName)
+    public long getLatestVersion(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
-            return dataset.version();
-        }
-    }
-
-    /**
-     * Open a fresh dataset bypassing cache. Used for write operations.
-     */
-    public Dataset openDatasetDirect(String tableName)
-    {
-        String tablePath = getTablePath(tableName);
-        return Dataset.open(tablePath, readOptions);
+        // Open via cache with version=null (latest), then read its version
+        return getCachedDataset(tablePath, null).version();
     }
 
     /**
@@ -199,7 +198,7 @@ public class LanceNamespaceHolder
     public Schema describeTable(String tableName, Long version)
     {
         String tablePath = getTablePath(tableName);
-        return getCachedDataset(null, tablePath, version).getSchema();
+        return getCachedDataset(tablePath, version).getSchema();
     }
 
     /**
@@ -242,7 +241,7 @@ public class LanceNamespaceHolder
     public void dropTable(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        datasetCache.asMap().keySet().removeIf(key -> key.tablePath.equals(tablePath));
+        invalidateByTablePath(tablePath);
         Path fsPath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
         if (Files.exists(fsPath)) {
             try {
@@ -265,7 +264,15 @@ public class LanceNamespaceHolder
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
         // Invalidate all cache entries for this table path
-        datasetCache.asMap().keySet().removeIf(key -> key.tablePath.equals(tablePath));
+        invalidateByTablePath(tablePath);
+    }
+
+    private void invalidateByTablePath(String tablePath)
+    {
+        List<DatasetCacheKey> keysToInvalidate = datasetCache.asMap().keySet().stream()
+                .filter(key -> key.matchesTablePath(tablePath))
+                .collect(Collectors.toList());
+        datasetCache.invalidateAll(keysToInvalidate);
     }
 
     /**
@@ -274,23 +281,26 @@ public class LanceNamespaceHolder
     public List<Fragment> getFragments(String tableName, Long version)
     {
         String tablePath = getTablePath(tableName);
-        return getCachedDataset(null, tablePath, version).getFragments();
+        return getCachedDataset(tablePath, version).getFragments();
     }
 
     /**
-     * Cache key that includes user identity, table path, and version.
+     * Cache key that includes table path and version for snapshot isolation.
      */
     private static class DatasetCacheKey
     {
-        private final String userIdentity;
         private final String tablePath;
         private final Long version;
 
-        DatasetCacheKey(String userIdentity, String tablePath, Long version)
+        DatasetCacheKey(String tablePath, Long version)
         {
-            this.userIdentity = userIdentity != null ? userIdentity : "__anonymous__";
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
             this.version = version;
+        }
+
+        boolean matchesTablePath(String path)
+        {
+            return tablePath.equals(path);
         }
 
         @Override
@@ -303,23 +313,21 @@ public class LanceNamespaceHolder
                 return false;
             }
             DatasetCacheKey that = (DatasetCacheKey) o;
-            return Objects.equals(userIdentity, that.userIdentity) &&
-                    Objects.equals(tablePath, that.tablePath) &&
+            return Objects.equals(tablePath, that.tablePath) &&
                     Objects.equals(version, that.version);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(userIdentity, tablePath, version);
+            return Objects.hash(tablePath, version);
         }
 
         @Override
         public String toString()
         {
             return "DatasetCacheKey{" +
-                    "userIdentity='" + userIdentity + '\'' +
-                    ", tablePath='" + tablePath + '\'' +
+                    "tablePath='" + tablePath + '\'' +
                     ", version=" + version +
                     '}';
         }

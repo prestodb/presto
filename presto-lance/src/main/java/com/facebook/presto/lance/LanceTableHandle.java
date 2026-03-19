@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -65,11 +64,6 @@ public class LanceTableHandle
     public Long getDatasetVersion()
     {
         return datasetVersion;
-    }
-
-    public Optional<Long> getOptionalDatasetVersion()
-    {
-        return Optional.ofNullable(datasetVersion);
     }
 
     @Override
