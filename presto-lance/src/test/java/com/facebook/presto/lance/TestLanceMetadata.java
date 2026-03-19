@@ -83,13 +83,14 @@ public class TestLanceMetadata
         assertEquals(lanceHandle.getSchemaName(), "default");
         assertEquals(lanceHandle.getTableName(), "test_table1");
         assertNotNull(lanceHandle.getDatasetVersion());
+        assertTrue(lanceHandle.getDatasetVersion().isPresent());
 
         ConnectorTableHandle handle2 = metadata.getTableHandle(null, new SchemaTableName("default", "test_table2"));
         assertNotNull(handle2);
         LanceTableHandle lanceHandle2 = (LanceTableHandle) handle2;
         assertEquals(lanceHandle2.getSchemaName(), "default");
         assertEquals(lanceHandle2.getTableName(), "test_table2");
-        assertNotNull(lanceHandle2.getDatasetVersion());
+        assertTrue(lanceHandle2.getDatasetVersion().isPresent());
 
         // non-existent schema
         assertNull(metadata.getTableHandle(null, new SchemaTableName("other_schema", "test_table1")));

@@ -45,7 +45,7 @@ public class TestLanceFragmentPageSource
     private LanceNamespaceHolder namespaceHolder;
     private LanceTableHandle tableHandle;
     private String tablePath;
-    private Long datasetVersion;
+    private long datasetVersion;
     private List<Fragment> fragments;
     private ArrowBlockBuilder arrowBlockBuilder;
 
@@ -62,7 +62,7 @@ public class TestLanceFragmentPageSource
         namespaceHolder = new LanceNamespaceHolder(config);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
         datasetVersion = namespaceHolder.getLatestVersion("test_table1");
-        tableHandle = new LanceTableHandle("default", "test_table1", datasetVersion);
+        tableHandle = new LanceTableHandle("default", "test_table1", Optional.of(datasetVersion));
         tablePath = namespaceHolder.getTablePath("test_table1");
         fragments = namespaceHolder.getFragments("test_table1", datasetVersion);
     }

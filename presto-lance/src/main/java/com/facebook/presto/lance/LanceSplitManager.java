@@ -53,7 +53,7 @@ public class LanceSplitManager
 
         List<Fragment> fragments = namespaceHolder.getFragments(
                 tableHandle.getTableName(),
-                tableHandle.getDatasetVersion());
+                tableHandle.getDatasetVersion().orElse(null));
 
         List<ConnectorSplit> splits = fragments.stream()
                 .map(fragment -> (ConnectorSplit) new LanceSplit(
