@@ -43,6 +43,7 @@ public class TestLanceFragmentPageSource
     private LanceNamespaceHolder namespaceHolder;
     private LanceTableHandle tableHandle;
     private String tablePath;
+    private Long datasetVersion;
     private List<Fragment> fragments;
     private ArrowBlockBuilder arrowBlockBuilder;
 
@@ -58,9 +59,10 @@ public class TestLanceFragmentPageSource
                 .setSingleLevelNs(true);
         namespaceHolder = new LanceNamespaceHolder(config);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
-        tableHandle = new LanceTableHandle("default", "test_table1");
+        datasetVersion = namespaceHolder.getLatestVersion("test_table1");
+        tableHandle = new LanceTableHandle("default", "test_table1", datasetVersion);
         tablePath = namespaceHolder.getTablePath("test_table1");
-        fragments = namespaceHolder.getFragments("test_table1");
+        fragments = namespaceHolder.getFragments("test_table1", datasetVersion);
     }
 
     @Test
@@ -75,7 +77,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.getReadOptions(),
+                namespaceHolder,
+                datasetVersion,
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -108,7 +111,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.getReadOptions(),
+                namespaceHolder,
+                datasetVersion,
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -141,7 +145,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
-                namespaceHolder.getReadOptions(),
+                namespaceHolder,
+                datasetVersion,
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();

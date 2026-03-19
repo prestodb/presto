@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestLanceTableHandle
 {
@@ -30,5 +31,17 @@ public class TestLanceTableHandle
         String json = codec.toJson(tableHandle);
         LanceTableHandle copy = codec.fromJson(json);
         assertEquals(copy, tableHandle);
+        assertNull(copy.getDatasetVersion());
+    }
+
+    @Test
+    public void testJsonRoundTripWithVersion()
+    {
+        JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
+        LanceTableHandle handleWithVersion = new LanceTableHandle("default", "test_table", 42L);
+        String json = codec.toJson(handleWithVersion);
+        LanceTableHandle copy = codec.fromJson(json);
+        assertEquals(copy, handleWithVersion);
+        assertEquals(copy.getDatasetVersion(), Long.valueOf(42L));
     }
 }
