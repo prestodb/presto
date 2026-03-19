@@ -42,6 +42,14 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::ORC;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
+  } else if (format == protocol::iceberg::FileFormat::PUFFIN) {
+    // PUFFIN is used for Iceberg V3 deletion vectors. The DeletionVectorReader
+    // reads raw binary from the file and does not use the DWRF/Parquet reader,
+    // so we map PUFFIN to DWRF as a placeholder — the format value is not
+    // actually used by the reader. This mapping is only safe for deletion
+    // vector files; if PUFFIN is encountered for other file content types,
+    // the DV routing logic in toHiveIcebergSplit() must reclassify it first.
+    return velox::dwio::common::FileFormat::DWRF;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
@@ -173,7 +181,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
     const protocol::SplitContext* splitContext) const {
-  auto icebergSplit =
+  const auto* icebergSplit =
       dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
       icebergSplit, "Unexpected split type {}", connectorSplit->_type);
@@ -196,14 +204,27 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> deletes;
   deletes.reserve(icebergSplit->deletes.size());
   for (const auto& deleteFile : icebergSplit->deletes) {
-    std::unordered_map<int32_t, std::string> lowerBounds(
+    const std::unordered_map<int32_t, std::string> lowerBounds(
         deleteFile.lowerBounds.begin(), deleteFile.lowerBounds.end());
 
-    std::unordered_map<int32_t, std::string> upperBounds(
+    const std::unordered_map<int32_t, std::string> upperBounds(
         deleteFile.upperBounds.begin(), deleteFile.upperBounds.end());
 
-    velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
-        toVeloxFileContent(deleteFile.content),
+    // Iceberg V3 deletion vectors arrive from the coordinator as
+    // POSITION_DELETES with PUFFIN format. Reclassify them as
+    // kDeletionVector so that IcebergSplitReader routes them to
+    // DeletionVectorReader instead of PositionalDeleteFileReader.
+    velox::connector::hive::iceberg::FileContent veloxContent =
+        toVeloxFileContent(deleteFile.content);
+    if (veloxContent ==
+            velox::connector::hive::iceberg::FileContent::kPositionalDeletes &&
+        deleteFile.format == protocol::iceberg::FileFormat::PUFFIN) {
+      veloxContent =
+          velox::connector::hive::iceberg::FileContent::kDeletionVector;
+    }
+
+    const velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
+        veloxContent,
         deleteFile.path,
         toVeloxFileFormat(deleteFile.format),
         deleteFile.recordCount,
@@ -219,8 +240,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
 
 
   std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(dataSequenceNumber)},
+      {"$data_sequence_number", std::to_string(dataSequenceNumber)},
       {"$path", icebergSplit->path}};
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
