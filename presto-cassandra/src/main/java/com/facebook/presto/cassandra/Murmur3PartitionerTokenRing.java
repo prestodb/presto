@@ -37,8 +37,9 @@ public final class Murmur3PartitionerTokenRing
     @Override
     public BigInteger getTokenCountInRange(String startToken, String endToken)
     {
-        long start = Long.parseLong(startToken);
-        long end = Long.parseLong(endToken);
+        // Driver 4.x returns tokens in format "Murmur3Token(value)", need to extract the numeric value
+        long start = Long.parseLong(stripTokenWrapper(startToken));
+        long end = Long.parseLong(stripTokenWrapper(endToken));
 
         if (start == end) {
             if (start == MIN_TOKEN) {
@@ -54,5 +55,17 @@ public final class Murmur3PartitionerTokenRing
             result = result.add(TOTAL_TOKEN_COUNT);
         }
         return result;
+    }
+
+    /**
+     * Strip the "Murmur3Token(...)" wrapper from token strings returned by driver 4.x.
+     * Driver 3.x returned raw numeric values, but driver 4.x wraps them.
+     */
+    private static String stripTokenWrapper(String token)
+    {
+        if (token.startsWith("Murmur3Token(") && token.endsWith(")")) {
+            return token.substring(13, token.length() - 1);
+        }
+        return token;
     }
 }

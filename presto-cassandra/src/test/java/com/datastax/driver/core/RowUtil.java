@@ -13,23 +13,31 @@
  */
 package com.datastax.driver.core;
 
-import com.google.common.collect.ImmutableList;
+import com.datastax.oss.driver.api.core.cql.Row;
 
-import java.nio.ByteBuffer;
-
-import static com.datastax.driver.core.ColumnDefinitions.Definition;
-import static java.nio.charset.StandardCharsets.UTF_8;
-
+/**
+ * Utility class for creating test Row objects.
+ * Note: This is a stub implementation for test compatibility.
+ * The new driver doesn't expose internal row construction APIs.
+ */
 public final class RowUtil
 {
     private RowUtil()
     {
     }
 
+    /**
+     * Creates a single string row for testing.
+     * Note: This method is deprecated and should not be used with the new driver.
+     * Tests should use actual Cassandra queries to get Row objects.
+     */
+    @Deprecated
     public static Row createSingleStringRow(String value, int protocolVersion)
     {
-        ColumnDefinitions definitions = new ColumnDefinitions(new Definition[] {new Definition("keyspace", "table", "column", DataType.ascii())}, CodecRegistry.DEFAULT_INSTANCE);
-        ByteBuffer data = ByteBuffer.wrap(value.getBytes(UTF_8));
-        return ArrayBackedRow.fromData(definitions, null, ProtocolVersion.fromInt(protocolVersion), ImmutableList.of(data));
+        throw new UnsupportedOperationException(
+                "Row creation is not supported with the new Cassandra driver. " +
+                "Tests should use actual Cassandra queries to obtain Row objects.");
     }
 }
+
+// Made with Bob

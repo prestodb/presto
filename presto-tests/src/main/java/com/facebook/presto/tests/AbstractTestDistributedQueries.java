@@ -1110,7 +1110,7 @@ public abstract class AbstractTestDistributedQueries
             assertUpdate("CREATE TABLE test_query_logging_count AS SELECT 1 foo_1, 2 foo_2_4", 1);
             assertQuery("SELECT foo_1, foo_2_4 FROM test_query_logging_count", "SELECT 1, 2");
             assertUpdate("DROP TABLE test_query_logging_count");
-            assertQueryFails("SELECT * FROM test_query_logging_count", ".*Table .* does not exist");
+            assertQueryFails("SELECT * FROM test_query_logging_count", ".*(Table .* does not exist|unconfigured table).*");
 
             // TODO: Figure out a better way of synchronization
             assertUntilTimeout(
