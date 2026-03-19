@@ -998,11 +998,17 @@ folly::dynamic PrestoTask::toJson() const {
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
     const RuntimeMetric& metric) {
+  // Presto's RuntimeMetric uses int64_t for count, but Velox's RuntimeMetric
+  // uses uint64_t. To avoid overflow, we cap the count at int64_t's max value.
+  static const uint64_t maxCount =
+      static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+  const auto count = static_cast<int64_t>(
+      std::min(static_cast<uint64_t>(metric.count), maxCount));
   return protocol::RuntimeMetric{
       name,
       toPrestoRuntimeUnit(metric.unit),
       metric.sum,
-      metric.count,
+      count,
       metric.max,
       metric.min};
 }
