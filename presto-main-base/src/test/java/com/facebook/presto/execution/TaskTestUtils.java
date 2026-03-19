@@ -73,7 +73,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -187,7 +187,7 @@ public final class TaskTestUtils
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper(),
+                JsonObjectMapperUtils.createConfiguredObjectMapper(),
                 (session) -> {
                     throw new UnsupportedOperationException();
                 });

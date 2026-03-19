@@ -42,7 +42,7 @@ import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -338,7 +338,7 @@ public class TestSqlTaskManager
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper(),
+                JsonObjectMapperUtils.createConfiguredObjectMapper(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 
