@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar.expressions;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
@@ -30,6 +31,7 @@ import java.util.function.Function;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory.NAME;
 import static com.facebook.presto.sql.expressions.AbstractTestExpressionInterpreter.SYMBOL_TYPES;
@@ -84,18 +86,40 @@ public class TestNativeExpressionOptimizer
                 "filter(transform(ARRAY[unbound_long, unbound_long2], x -> 2), x -> false)");
     }
 
+    @Test
+    public void testSessionPropertiesPropagatingThroughOptimizer()
+    {
+        assertOptimizedEquals(
+                "JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))",
+                "'[3,\"ab\"]'",
+                Session.builder(queryRunner.getDefaultSession())
+                        .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "false")
+                        .build());
+        assertOptimizedEquals(
+                "JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))",
+                "'{\"\":3,\"\":\"ab\"}'",
+                Session.builder(queryRunner.getDefaultSession())
+                        .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
+                        .build());
+    }
+
     private void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        RowExpression optimizedActual = optimize(actual, ExpressionOptimizer.Level.OPTIMIZED);
-        RowExpression optimizedExpected = optimize(expected, ExpressionOptimizer.Level.OPTIMIZED);
+        assertOptimizedEquals(actual, expected, TEST_SESSION);
+    }
+
+    private void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected, Session session)
+    {
+        RowExpression optimizedActual = optimize(actual, ExpressionOptimizer.Level.OPTIMIZED, session);
+        RowExpression optimizedExpected = optimize(expected, ExpressionOptimizer.Level.OPTIMIZED, session);
         assertRowExpressionEvaluationEquals(optimizedActual, optimizedExpected);
     }
 
-    private RowExpression optimize(@Language("SQL") String expression, ExpressionOptimizer.Level level)
+    private RowExpression optimize(@Language("SQL") String expression, ExpressionOptimizer.Level level, Session session)
     {
         RowExpression parsedExpression = sqlToRowExpression(expression);
         Function<com.facebook.presto.spi.relation.VariableReferenceExpression, Object> variableResolver = variable -> null;
-        return expressionOptimizer.optimize(parsedExpression, level, TEST_SESSION.toConnectorSession(), variableResolver);
+        return expressionOptimizer.optimize(parsedExpression, level, session.toConnectorSession(), variableResolver);
     }
 
     private RowExpression sqlToRowExpression(String expression)
