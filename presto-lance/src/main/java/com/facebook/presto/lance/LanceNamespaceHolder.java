@@ -161,18 +161,16 @@ public class LanceNamespaceHolder
     }
 
     /**
-     * Get the latest version of a dataset. Uses the cache to avoid
-     * opening a throwaway Dataset when a latest-version entry is available.
-     *
-     * <p>Note: the returned version is eventually consistent with external
-     * writers, bounded by {@code lance.dataset-cache-ttl}. Writes through
-     * this connector instance invalidate the cache immediately.
+     * Get the latest version of a dataset. Opens a fresh Dataset each time
+     * (bypasses cache) to ensure the returned version is never stale.
+     * The pinned version is then used for all subsequent cached reads.
      */
     public long getLatestVersion(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        // Open via cache with version=null (latest), then read its version
-        return getCachedDataset(tablePath, Optional.empty()).version();
+        try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
+            return dataset.version();
+        }
     }
 
     /**
