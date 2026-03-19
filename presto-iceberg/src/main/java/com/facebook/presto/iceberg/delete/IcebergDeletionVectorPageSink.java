@@ -182,7 +182,7 @@ public class IcebergDeletionVectorPageSink
         CommitTaskData task = new CommitTaskData(
                 puffinPath.toString(),
                 puffinFileSize,
-                new MetricsWrapper(new Metrics(collectedPositions.size(), null, null, null, null)),
+                new MetricsWrapper(new Metrics((long) collectedPositions.size(), null, null, null, null)),
                 partitionSpec.specId(),
                 partitionData.map(PartitionData::toJson),
                 FileFormat.PUFFIN,
@@ -190,7 +190,7 @@ public class IcebergDeletionVectorPageSink
                 POSITION_DELETES,
                 OptionalLong.of(blobOffset),
                 OptionalLong.of(blobLength),
-                OptionalLong.of(collectedPositions.size()));
+                OptionalLong.of((long) collectedPositions.size()));
 
         return completedFuture(ImmutableList.of(wrappedBuffer(jsonCodec.toJsonBytes(task))));
     }
