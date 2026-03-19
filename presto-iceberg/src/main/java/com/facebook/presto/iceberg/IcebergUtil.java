@@ -782,6 +782,7 @@ public final class IcebergUtil
             case TIMESTAMP_NANO:
                 return singleValue(prestoType, Math.floorDiv((Long) value, 1000L));
             case STRING:
+            case VARIANT:
                 return singleValue(prestoType, utf8Slice(value.toString()));
             case FLOAT:
                 return singleValue(prestoType, (long) floatToRawIntBits((Float) value));

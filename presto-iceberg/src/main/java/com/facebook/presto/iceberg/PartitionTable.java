@@ -287,7 +287,7 @@ public class PartitionTable
         if (value == null) {
             return null;
         }
-        if (type instanceof Types.StringType) {
+        if (type instanceof Types.StringType || type.isVariantType()) {
             return value.toString();
         }
         if (type instanceof Types.BinaryType) {
