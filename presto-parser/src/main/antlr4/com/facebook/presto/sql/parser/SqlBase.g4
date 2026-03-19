@@ -43,7 +43,7 @@ statement
         (WITH properties)? AS (query | '('query')')
         (WITH (NO)? DATA)?                                             #createTableAsSelect
     | CREATE TABLE (IF NOT EXISTS)? qualifiedName
-        '(' tableElement (',' tableElement)* ')'
+        '(' tableElement (',' tableElement)* ','? ')'
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
@@ -83,7 +83,7 @@ statement
         DROP TAG (IF EXISTS)? name=string                              #dropTag
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
-        '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
+        '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ','? ')'
         | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
             viewSecurity? AS query                                     #createView
@@ -98,40 +98,40 @@ statement
     | REFRESH MATERIALIZED VIEW qualifiedName
         (WHERE where=booleanExpression)?                               #refreshMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
-        '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
+        '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)* ','?)? ')'
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
     | ALTER FUNCTION qualifiedName types?
       alterRoutineCharacteristics                                      #alterFunction
     | DROP TEMPORARY? FUNCTION (IF EXISTS)? qualifiedName types?       #dropFunction
-    | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
+    | CALL qualifiedName '(' (callArgument (',' callArgument)* ','?)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
     | DROP ROLE name=identifier                                        #dropRole
     | GRANT
         roles
-        TO principal (',' principal)*
+        TO principal (',' principal)* ','?
         (WITH ADMIN OPTION)?
         (GRANTED BY grantor)?                                          #grantRoles
     | REVOKE
         (ADMIN OPTION FOR)?
         roles
-        FROM principal (',' principal)*
+        FROM principal (',' principal)* ','?
         (GRANTED BY grantor)?                                          #revokeRoles
     | SET ROLE (ALL | NONE | role=identifier)                          #setRole
     | GRANT
-        (privilege (',' privilege)* | ALL PRIVILEGES)
+        (privilege (',' privilege)* ','? | ALL PRIVILEGES)
         ON TABLE? qualifiedName TO grantee=principal
         (WITH GRANT OPTION)?                                           #grant
     | REVOKE
         (GRANT OPTION FOR)?
-        (privilege (',' privilege)* | ALL PRIVILEGES)
+        (privilege (',' privilege)* ','? | ALL PRIVILEGES)
         ON TABLE? qualifiedName FROM grantee=principal                #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
     | EXPLAIN ANALYZE? VERBOSE?
-        ('(' explainOption (',' explainOption)* ')')? statement        #explain
+        ('(' explainOption (',' explainOption)* ','? ')')? statement        #explain
     | SHOW CREATE TABLE qualifiedName                                  #showCreateTable
     | SHOW CREATE SCHEMA qualifiedName                                 #showCreateSchema
     | SHOW CREATE VIEW qualifiedName                                   #showCreateView
@@ -156,16 +156,16 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSession
     | SET SESSION qualifiedName EQ expression                          #setSession
     | RESET SESSION qualifiedName                                      #resetSession
-    | START TRANSACTION (transactionMode (',' transactionMode)*)?      #startTransaction
+    | START TRANSACTION (transactionMode (',' transactionMode)* ','?)?      #startTransaction
     | COMMIT WORK?                                                     #commit
     | ROLLBACK WORK?                                                   #rollback
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
-    | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | EXECUTE identifier (USING expression (',' expression)* ','?)?         #execute
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | UPDATE qualifiedName
-        SET updateAssignment (',' updateAssignment)*
+        SET updateAssignment (',' updateAssignment)* ','?
         (WHERE where=booleanExpression)?                               #update
     | MERGE INTO qualifiedName (AS? identifier)?
           USING relation ON expression mergeCase+                        #mergeInto
@@ -180,7 +180,7 @@ query
     ;
 
 with
-    : WITH RECURSIVE? namedQuery (',' namedQuery)*
+    : WITH RECURSIVE? namedQuery (',' namedQuery)* ','?
     ;
 
 tableElement
@@ -198,7 +198,7 @@ likeClause
     ;
 
 properties
-    : '(' property (',' property)* ')'
+    : '(' property (',' property)* ','? ')'
     ;
 
 property
@@ -264,7 +264,7 @@ viewSecurity
 
 queryNoWith:
       queryTerm
-      (ORDER BY sortItem (',' sortItem)*)?
+      (ORDER BY sortItem (',' sortItem)* ','?)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
       ((LIMIT limit=(INTEGER_VALUE | ALL) | (FETCH FIRST fetchFirstNRows=INTEGER_VALUE ROWS ONLY)))?
     ;
@@ -276,10 +276,10 @@ queryTerm
     ;
 
 queryPrimary
-    : querySpecification                   #queryPrimaryDefault
-    | TABLE qualifiedName                  #table
-    | VALUES expression (',' expression)*  #inlineTable
-    | '(' queryNoWith  ')'                 #subquery
+    : querySpecification                        #queryPrimaryDefault
+    | TABLE qualifiedName                       #table
+    | VALUES expression (',' expression)* ','?  #inlineTable
+    | '(' queryNoWith  ')'                      #subquery
     ;
 
 sortItem
@@ -287,26 +287,26 @@ sortItem
     ;
 
 querySpecification
-    : SELECT setQuantifier? selectItem (',' selectItem)*
-      (FROM relation (',' relation)*)?
+    : SELECT setQuantifier? selectItem (',' selectItem)* ','?
+      (FROM relation (',' relation)* ','?)?
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
     ;
 
 groupBy
-    : setQuantifier? groupingElement (',' groupingElement)*
+    : setQuantifier? groupingElement (',' groupingElement)* ','?
     ;
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
-    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
-    | CUBE '(' (expression (',' expression)*)? ')'           #cube
-    | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
+    | ROLLUP '(' (expression (',' expression)* ','?)? ')'         #rollup
+    | CUBE '(' (expression (',' expression)* ','?)? ')'           #cube
+    | GROUPING SETS '(' groupingSet (',' groupingSet)* ','? ')'   #multipleGroupingSets
     ;
 
 groupingSet
-    : '(' (expression (',' expression)*)? ')'
+    : '(' (expression (',' expression)* ','?)? ')'
     | expression
     ;
 
@@ -343,7 +343,7 @@ joinType
 
 joinCriteria
     : ON booleanExpression
-    | USING '(' identifier (',' identifier)* ')'
+    | USING '(' identifier (',' identifier)* ','? ')'
     ;
 
 sampledRelation
@@ -362,13 +362,13 @@ aliasedRelation
     ;
 
 columnAliases
-    : '(' identifier (',' identifier)* ')'
+    : '(' identifier (',' identifier)* ','? ')'
     ;
 
 relationPrimary
     : qualifiedName tableVersionExpression?                             #tableName
     | '(' query ')'                                                   #subqueryRelation
-    | UNNEST '(' expression (',' expression)* ')' (WITH ORDINALITY)?  #unnest
+    | UNNEST '(' expression (',' expression)* ','? ')' (WITH ORDINALITY)?  #unnest
     | LATERAL '(' query ')'                                           #lateral
     | '(' relation ')'                                                #parenthesizedRelation
     | TABLE '(' tableFunctionCall ')'                                 #tableFunctionInvocation
@@ -390,7 +390,7 @@ predicate[ParserRuleContext value]
     : comparisonOperator right=valueExpression                            #comparison
     | comparisonOperator comparisonQuantifier '(' query ')'               #quantifiedComparison
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
-    | NOT? IN '(' expression (',' expression)* ')'                        #inList
+    | NOT? IN '(' expression (',' expression)* ','? ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
     | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
@@ -417,13 +417,13 @@ primaryExpression
     | BINARY_LITERAL                                                                      #binaryLiteral
     | '?'                                                                                 #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
-    | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | '(' expression (',' expression)+ ','? ')'                                                #rowConstructor
+    | ROW '(' expression (',' expression)* ','? ')'                                            #rowConstructor
     | qualifiedName '(' ASTERISK ')' filter? over?                                        #functionCall
-    | qualifiedName '(' (setQuantifier? expression (',' expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)? ')' filter? (nullTreatment? over)?           #functionCall
+    | qualifiedName '(' (setQuantifier? expression (',' expression)* ','? )?
+        (ORDER BY sortItem (',' sortItem)* ','?)? ')' filter? (nullTreatment? over)?           #functionCall
     | identifier '->' expression                                                          #lambda
-    | '(' (identifier (',' identifier)*)? ')' '->' expression                             #lambda
+    | '(' (identifier (',' identifier)* ','?)? ')' '->' expression                             #lambda
     | '(' query ')'                                                                       #subqueryExpression
     // This is an extension to ANSI SQL, which considers EXISTS to be a <boolean expression>
     | EXISTS '(' query ')'                                                                #exists
@@ -431,7 +431,7 @@ primaryExpression
     | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
-    | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
+    | ARRAY '[' (expression (',' expression)* ','?)? ']'                                       #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
     | identifier                                                                          #columnReference
     | base=primaryExpression '.' fieldName=identifier                                     #dereference
@@ -445,7 +445,7 @@ primaryExpression
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
     | '(' expression ')'                                                                  #parenthesizedExpression
-    | GROUPING '(' (qualifiedName (',' qualifiedName)*)? ')'                              #groupingOperation
+    | GROUPING '(' (qualifiedName (',' qualifiedName)* ','?)? ')'                              #groupingOperation
     ;
 
 string
@@ -488,15 +488,15 @@ normalForm
     ;
 
 types
-    : '(' (type (',' type)*)? ')'
+    : '(' (type (',' type)* ','?)? ')'
     ;
 
 type
     : type ARRAY
     | ARRAY '<' type '>'
     | MAP '<' type ',' type '>'
-    | ROW '(' identifier type (',' identifier type)* ')'
-    | baseType ('(' typeParameter (',' typeParameter)* ')')?
+    | ROW '(' identifier type (',' identifier type)* ','? ')'
+    | baseType ('(' typeParameter (',' typeParameter)* ','? ')')?
     | INTERVAL from=intervalField TO to=intervalField
     ;
 
@@ -564,8 +564,8 @@ mergeCase
 
 over
     : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
+        (PARTITION BY partition+=expression (',' partition+=expression)* ','?)?
+        (ORDER BY sortItem (',' sortItem)* ','?)?
         windowFrame?
       ')'
     ;
@@ -642,7 +642,7 @@ principal
     ;
 
 roles
-    : identifier (',' identifier)*
+    : identifier (',' identifier)* ','?
     ;
 
 identifier
