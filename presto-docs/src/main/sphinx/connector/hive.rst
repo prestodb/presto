@@ -321,7 +321,6 @@ Property Name                                            Description            
 
 ======================================================== ============================================================================== =============================
 
-.. note::
 These properties are mapped to the corresponding properties in Hive ``LazySerDeParameters`` during serialization and
 follow the same behaviors with ``LazySimpleSerDe``.
 If they are not defined, the Hive defaults are used, which are typically ``\001`` for field delimiter, ``\002`` for

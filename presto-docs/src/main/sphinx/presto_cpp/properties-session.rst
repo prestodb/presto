@@ -598,7 +598,7 @@ compaction. The value is in the range of [0, 1). Currently only applies to
 approx_most_frequent aggregate with StringView type during global aggregation.
 
 ``native_aggregation_memory_compaction_reclaim_enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
