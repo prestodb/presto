@@ -89,8 +89,8 @@ public class MongoSession
     private static final String TABLE_NAME_KEY = "table";
     private static final String COMMENT_KEY = "comment";
     private static final String FIELDS_KEY = "fields";
-    private static final String FIELDS_NAME_KEY = "name";
-    private static final String FIELDS_TYPE_KEY = "type";
+    private static final String NAME_KEY = "name";
+    private static final String TYPE_KEY = "type";
     private static final String FIELDS_HIDDEN_KEY = "hidden";
     private static final String VIEW_TYPE_NAME = "view";
     private static final String COLLECTION_TYPE_NAME = "collection";
@@ -199,13 +199,18 @@ public class MongoSession
         return new MongoTable(
                 tableHandle,
                 columnHandles.build(),
-                VIEW_TYPE_NAME.equals(tableMeta.get(FIELDS_TYPE_KEY)) ? ImmutableList.of() : getIndexes(tableName));
+                isView(tableMeta) ? ImmutableList.of() : getIndexes(tableName));
+    }
+
+    private static boolean isView(Document tableMeta)
+    {
+        return VIEW_TYPE_NAME.equals(tableMeta.get(TYPE_KEY));
     }
 
     private MongoColumnHandle buildColumnHandle(Document columnMeta)
     {
-        String name = columnMeta.getString(FIELDS_NAME_KEY);
-        String typeString = columnMeta.getString(FIELDS_TYPE_KEY);
+        String name = columnMeta.getString(NAME_KEY);
+        String typeString = columnMeta.getString(TYPE_KEY);
         boolean hidden = columnMeta.getBoolean(FIELDS_HIDDEN_KEY, false);
 
         Type type = typeManager.getType(TypeSignature.parseTypeSignature(typeString));
@@ -396,7 +401,7 @@ public class MongoSession
             else {
                 Document metadata = new Document(TABLE_NAME_KEY, tableName);
                 metadata.append(FIELDS_KEY, guessTableFields(schemaTableName));
-                metadata.append(FIELDS_TYPE_KEY, guessTableType(schemaName, tableName));
+                metadata.append(TYPE_KEY, guessTableType(schemaName, tableName));
 
                 schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
                 schema.insertOne(metadata);
@@ -489,8 +494,8 @@ public class MongoSession
             Optional<TypeSignature> fieldType = guessFieldType(value);
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
-                metadata.append(FIELDS_NAME_KEY, key);
-                metadata.append(FIELDS_TYPE_KEY, fieldType.get().toString());
+                metadata.append(NAME_KEY, key);
+                metadata.append(TYPE_KEY, fieldType.get().toString());
                 metadata.append(FIELDS_HIDDEN_KEY,
                         key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature()));
 
@@ -509,8 +514,8 @@ public class MongoSession
         MongoDatabase database = client.getDatabase(schema);
         Document doc = database.listCollections().filter(
                 new Document(ImmutableMap.of(
-                        FIELDS_NAME_KEY, table,
-                        FIELDS_TYPE_KEY, VIEW_TYPE_NAME))).first();
+                        NAME_KEY, table,
+                        TYPE_KEY, VIEW_TYPE_NAME))).first();
 
         if (doc != null) {
             return VIEW_TYPE_NAME;
@@ -598,8 +603,8 @@ public class MongoSession
         List<Document> columns = new ArrayList<>(getColumnMetadata(metadata));
 
         Document newColumn = new Document()
-                .append(FIELDS_NAME_KEY, columnMetadata.getName())
-                .append(FIELDS_TYPE_KEY, columnMetadata.getType().getTypeSignature().toString())
+                .append(NAME_KEY, columnMetadata.getName())
+                .append(TYPE_KEY, columnMetadata.getType().getTypeSignature().toString())
                 .append(FIELDS_HIDDEN_KEY, false);
         columnMetadata.getComment().ifPresent(comment -> newColumn.append(COMMENT_KEY, comment));
         columns.add(newColumn);
@@ -623,8 +628,8 @@ public class MongoSession
 
         List<Document> columns = getColumnMetadata(metadata).stream()
                 .map(document -> {
-                    if (document.getString(FIELDS_NAME_KEY).equals(source)) {
-                        document.put(FIELDS_NAME_KEY, target);
+                    if (document.getString(NAME_KEY).equals(source)) {
+                        document.put(NAME_KEY, target);
                     }
                     return document;
                 })
@@ -651,7 +656,7 @@ public class MongoSession
         Document metadata = getTableMetadata(schemaTableName);
 
         List<Document> columns = getColumnMetadata(metadata).stream()
-                .filter(document -> !document.getString(FIELDS_NAME_KEY).equals(columnName))
+                .filter(document -> !document.getString(NAME_KEY).equals(columnName))
                 .collect(toImmutableList());
 
         metadata.append(FIELDS_KEY, columns);

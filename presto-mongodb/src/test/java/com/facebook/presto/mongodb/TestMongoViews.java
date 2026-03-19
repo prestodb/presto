@@ -58,7 +58,8 @@ public class TestMongoViews
     }
 
     @AfterClass(alwaysRun = true)
-    public final void destroy()
+    @Override
+    public final void close()
     {
         if (mongoClient != null) {
             mongoClient.close();
