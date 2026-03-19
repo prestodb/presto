@@ -2967,10 +2967,7 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
-            // Use the rewritten HAVING expression (to resolve SELECT alias references)
-            if (node.getHaving().isPresent()) {
-                sourceExpressions.add(analysis.getHaving(node));
-            }
+            node.getHaving().ifPresent(sourceExpressions::add);
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             List<FunctionCall> aggregates = analyzeAggregations(node, sourceExpressions, orderByExpressions);
@@ -3823,12 +3820,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                // Reuse OrderByExpressionRewriter to resolve SELECT aliases in HAVING
-                Multimap<QualifiedName, Expression> namedOutputExpressions = extractNamedOutputExpressions(node.getSelect());
-                Expression rewrittenPredicate = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(namedOutputExpressions, "HAVING"), predicate);
-
-                // Analyze the rewritten expression
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(rewrittenPredicate, scope);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
                 expressionAnalysis.getWindowFunctions().stream()
                         .findFirst()
@@ -3838,12 +3830,12 @@ class StatementAnalyzer
 
                 analysis.recordSubqueries(node, expressionAnalysis);
 
-                Type predicateType = expressionAnalysis.getType(rewrittenPredicate);
+                Type predicateType = expressionAnalysis.getType(predicate);
                 if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, rewrittenPredicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
+                    throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
                 }
 
-                analysis.setHaving(node, rewrittenPredicate);
+                analysis.setHaving(node, predicate);
             }
         }
 
@@ -3894,17 +3886,10 @@ class StatementAnalyzer
                 extends ExpressionRewriter<Void>
         {
             private final Multimap<QualifiedName, Expression> assignments;
-            private final String clauseName;
 
             public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
             {
-                this(assignments, "ORDER BY");
-            }
-
-            public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments, String clauseName)
-            {
                 this.assignments = assignments;
-                this.clauseName = clauseName;
             }
 
             @Override
@@ -3917,7 +3902,7 @@ class StatementAnalyzer
                         .collect(Collectors.toSet());
 
                 if (expressions.size() > 1) {
-                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in '%s' is ambiguous", name, clauseName);
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
                 }
 
                 if (expressions.size() == 1) {
