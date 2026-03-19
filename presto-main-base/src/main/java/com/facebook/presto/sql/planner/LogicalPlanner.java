@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
@@ -29,9 +30,12 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.DeleteNode;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -47,10 +51,14 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.analyzer.Analysis;
+import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
+import com.facebook.presto.sql.analyzer.ExpressionTreeUtils;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
@@ -66,10 +74,13 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -89,6 +100,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -97,10 +109,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.PartitionedTableWritePolicy.MULTIPLE_WRITERS_PER_PARTITION_ALLOWED;
+import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
@@ -113,6 +128,8 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndFinal;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
@@ -214,6 +231,10 @@ public class LogicalPlanner
         else if (statement instanceof RefreshMaterializedView) {
             checkState(analysis.getRefreshMaterializedViewAnalysis().isPresent(), "RefreshMaterializedView analysis is missing");
             return createRefreshMaterializedViewPlan(analysis, (RefreshMaterializedView) statement);
+        }
+        else if (statement instanceof CreateVectorIndex) {
+            checkState(analysis.getCreateVectorIndexAnalysis().isPresent(), "CreateVectorIndex analysis is missing");
+            return createVectorIndexPlan(analysis, (CreateVectorIndex) statement);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
@@ -392,6 +413,208 @@ public class LogicalPlanner
                 tableMetadata.getColumns(),
                 newTableLayout,
                 statisticsMetadata);
+    }
+
+    private RelationPlan createVectorIndexPlan(Analysis analysis, CreateVectorIndex statement)
+    {
+        Analysis.CreateVectorIndexAnalysis vectorIndexAnalysis = analysis.getCreateVectorIndexAnalysis().get();
+
+        QualifiedObjectName sourceTableName = vectorIndexAnalysis.getSourceTableName();
+        QualifiedObjectName targetTableName = vectorIndexAnalysis.getTargetTableName();
+
+        // Resolve source table handle and metadata
+        TableHandle sourceTableHandle = metadata.getHandleVersion(session, sourceTableName, Optional.empty())
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Source table does not exist: " + sourceTableName));
+        TableMetadata sourceMetadata = metadata.getTableMetadata(session, sourceTableHandle);
+        Map<String, ColumnHandle> sourceColumnHandles = metadata.getColumnHandles(session, sourceTableHandle);
+
+        // Index columns (args to create_vector_index aggregate)
+        List<String> indexColumnNames = vectorIndexAnalysis.getColumns().stream()
+                .map(Identifier::getValue)
+                .collect(toImmutableList());
+
+        // Collect all columns needed: index columns + filter columns from UPDATING FOR
+        Set<String> allColumnNames = new LinkedHashSet<>(indexColumnNames);
+        vectorIndexAnalysis.getUpdatingFor().ifPresent(expr ->
+                ExpressionTreeUtils.extractExpressions(ImmutableList.of(expr), Identifier.class)
+                        .stream()
+                        .map(Identifier::getValue)
+                        .forEach(allColumnNames::add));
+
+        // Build scan variables for all referenced columns
+        ImmutableList.Builder<VariableReferenceExpression> scanVariablesBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> scanAssignmentsBuilder = ImmutableMap.builder();
+        Map<String, VariableReferenceExpression> columnToVariable = new LinkedHashMap<>();
+
+        for (String columnName : allColumnNames) {
+            ColumnHandle handle = sourceColumnHandles.get(columnName);
+            if (handle == null) {
+                throw new PrestoException(COLUMN_NOT_FOUND, "Column not found: " + columnName);
+            }
+            ColumnMetadata colMeta = sourceMetadata.getColumn(columnName);
+            VariableReferenceExpression variable = variableAllocator.newVariable(
+                    getSourceLocation(statement), columnName, colMeta.getType());
+            scanVariablesBuilder.add(variable);
+            scanAssignmentsBuilder.put(variable, handle);
+            columnToVariable.put(columnName, variable);
+        }
+
+        // Build TableScanNode
+        PlanNode planNode = new TableScanNode(
+                getSourceLocation(statement),
+                idAllocator.getNextId(),
+                sourceTableHandle,
+                scanVariablesBuilder.build(),
+                scanAssignmentsBuilder.build(),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                Optional.empty());
+
+        // Add FilterNode for UPDATING FOR predicate (WHERE clause equivalent)
+        if (vectorIndexAnalysis.getUpdatingFor().isPresent()) {
+            Expression updatingForExpr = vectorIndexAnalysis.getUpdatingFor().get();
+            // Rewrite Identifier references to SymbolReferences matching scan variables
+            Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
+                @Override
+                public Expression rewriteIdentifier(Identifier node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    VariableReferenceExpression var = columnToVariable.get(node.getValue());
+                    if (var != null) {
+                        return createSymbolReference(var);
+                    }
+                    return node;
+                }
+            }, updatingForExpr);
+
+            RowExpression filterPredicate = rowExpression(rewritten, new SqlPlannerContext(0), analysis);
+
+            planNode = new FilterNode(
+                    getSourceLocation(statement),
+                    idAllocator.getNextId(),
+                    planNode,
+                    filterPredicate);
+        }
+
+        // Build AggregationNode: create_vector_index(id, embedding) or create_vector_index(embedding)
+        List<RowExpression> aggArgs = indexColumnNames.stream()
+                .map(name -> (RowExpression) columnToVariable.get(name))
+                .collect(toImmutableList());
+
+        List<Type> argTypes = aggArgs.stream()
+                .map(RowExpression::getType)
+                .collect(toImmutableList());
+
+        FunctionHandle functionHandle = metadata.getFunctionAndTypeManager()
+                .lookupFunction("create_vector_index", fromTypes(argTypes));
+
+        VariableReferenceExpression resultVar = variableAllocator.newVariable("result", VARCHAR);
+
+        CallExpression aggCall = new CallExpression(
+                getSourceLocation(statement),
+                "create_vector_index",
+                functionHandle,
+                VARCHAR,
+                aggArgs);
+
+        AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
+                aggCall,
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                Optional.empty());
+
+        planNode = new AggregationNode(
+                getSourceLocation(statement),
+                idAllocator.getNextId(),
+                planNode,
+                ImmutableMap.of(resultVar, aggregation),
+                AggregationNode.globalAggregation(),
+                ImmutableList.of(),
+                AggregationNode.Step.SINGLE,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        // Build target table metadata with properties
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, targetTableName.getCatalogName());
+
+        // Vector index properties are not registered with TablePropertyManager, so we evaluate
+        // them directly. The connector's plan optimizer is responsible for validating these properties
+        // when it rewrites the CreateVectorIndexReference plan node.
+        Map<String, Object> properties = new LinkedHashMap<>();
+        for (Map.Entry<String, Expression> entry : vectorIndexAnalysis.getProperties().entrySet()) {
+            properties.put(entry.getKey(), evaluatePropertyExpression(entry.getValue(), analysis));
+        }
+        vectorIndexAnalysis.getUpdatingFor().ifPresent(expr ->
+                properties.put("updating_for", ExpressionFormatter.formatExpression(expr, Optional.empty())));
+
+        // Target table: single VARCHAR column (aggregate output)
+        List<ColumnMetadata> targetColumns = ImmutableList.of(
+                ColumnMetadata.builder().setName("result").setType(VARCHAR).build());
+
+        ConnectorTableMetadata targetTableMetadata = new ConnectorTableMetadata(
+                toSchemaTableName(targetTableName),
+                targetColumns,
+                properties,
+                Optional.empty());
+
+        // Build RelationPlan for the aggregation output
+        List<Field> fields = ImmutableList.of(
+                Field.newUnqualified(statement.getLocation(), "result", VARCHAR));
+        Scope scope = Scope.builder()
+                .withRelationType(RelationId.anonymous(), new RelationType(fields))
+                .build();
+        RelationPlan sourcePlan = new RelationPlan(planNode, scope, ImmutableList.of(resultVar));
+
+        TableWriterNode.CreateVectorIndexReference writerTarget = new TableWriterNode.CreateVectorIndexReference(
+                connectorId,
+                targetTableMetadata,
+                Optional.empty(),
+                Optional.empty(),
+                toSchemaTableName(sourceTableName));
+
+        // Build plan manually with VARCHAR output (not BIGINT row count)
+        // so the connector optimizer can return a single VARCHAR result
+        TableFinishNode commitNode = new TableFinishNode(
+                planNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                new TableWriterNode(
+                        planNode.getSourceLocation(),
+                        idAllocator.getNextId(),
+                        planNode,
+                        Optional.of(writerTarget),
+                        variableAllocator.newVariable("rows", BIGINT),
+                        variableAllocator.newVariable("fragments", VARBINARY),
+                        variableAllocator.newVariable("commitcontext", VARBINARY),
+                        ImmutableList.of(resultVar),
+                        ImmutableList.of("result"),
+                        ImmutableSet.of(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(Boolean.FALSE)),
+                Optional.of(writerTarget),
+                variableAllocator.newVariable("result", VARCHAR),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        return new RelationPlan(commitNode, scope, commitNode.getOutputVariables());
+    }
+
+    private Object evaluatePropertyExpression(Expression expression, Analysis analysis)
+    {
+        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createConstantAnalyzer(
+                metadata, session, analysis.getParameters(), WarningCollector.NOOP, false);
+        analyzer.analyze(expression, Scope.create());
+
+        Type type = analyzer.getExpressionTypes().get(NodeRef.of(expression));
+        Object value = evaluateConstantExpression(expression, type, metadata, session, analysis.getParameters());
+
+        // Convert native representation (e.g., Slice, Block) to Java object (e.g., String, List)
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        writeNativeValue(type, blockBuilder, value);
+        return type.getObjectValue(session.getSqlFunctionProperties(), blockBuilder, 0);
     }
 
     private RelationPlan createRefreshMaterializedViewPlan(Analysis analysis, RefreshMaterializedView refreshMaterializedViewStatement)
