@@ -62,6 +62,7 @@ import com.facebook.presto.operator.aggregation.ClassificationRecallAggregation;
 import com.facebook.presto.operator.aggregation.ClassificationThresholdsAggregation;
 import com.facebook.presto.operator.aggregation.CountAggregation;
 import com.facebook.presto.operator.aggregation.CountIfAggregation;
+import com.facebook.presto.operator.aggregation.CreateVectorIndexAggregation;
 import com.facebook.presto.operator.aggregation.DefaultApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCorrelationAggregation;
 import com.facebook.presto.operator.aggregation.DoubleCovarianceAggregation;
@@ -710,6 +711,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(GeometryUnionAgg.class)
                 .aggregate(SpatialPartitioningAggregateFunction.class)
                 .aggregate(SpatialPartitioningInternalAggregateFunction.class)
+                .aggregates(CreateVectorIndexAggregation.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
