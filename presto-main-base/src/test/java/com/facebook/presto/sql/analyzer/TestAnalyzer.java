@@ -82,6 +82,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_IMPLEMENTATION_ERROR;
@@ -2398,5 +2399,49 @@ public class TestAnalyzer
 
         assertFails(NOT_SUPPORTED, "line 1:1: Merging into materialized views is not supported",
                 "MERGE INTO mv1 USING t1 ON mv1.a = t1.a WHEN MATCHED THEN  UPDATE SET id = bar.id + 1");
+    }
+
+    @Test
+    public void testCreateVectorIndex()
+    {
+        // basic success cases
+        analyze("CREATE VECTOR INDEX test_index ON t1(a, b)");
+        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1')");
+        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1', p2 = 'val2')");
+
+        // with UPDATING FOR clause
+        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) UPDATING FOR a > 10");
+        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1') UPDATING FOR a BETWEEN 1 AND 100");
+
+        // single column
+        analyze("CREATE VECTOR INDEX test_index ON t1(a)");
+
+        // source table does not exist
+        assertFails(MISSING_TABLE, ".*Source table '.*' does not exist",
+                "CREATE VECTOR INDEX test_index ON nonexistent_table(a, b)");
+
+        // destination table already exists (using an existing table name as the index name)
+        assertFails(TABLE_ALREADY_EXISTS, ".*already exists",
+                "CREATE VECTOR INDEX t1 ON t2(a, b)");
+
+        // column does not exist in source table
+        assertFails(MISSING_COLUMN, ".*Column 'unknown' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t1(a, unknown)");
+        assertFails(MISSING_COLUMN, ".*Column 'nonexistent' does not exist in source table '.*'",
+                "CREATE VECTOR INDEX test_index ON t1(nonexistent)");
+
+        // duplicate properties
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
+                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'v1', \"p1\" = 'v2')");
+
+        // unresolved property value
+        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved",
+                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = y)");
+
+        // UPDATING FOR with invalid column reference
+        assertFails(MISSING_ATTRIBUTE, ".*",
+                "CREATE VECTOR INDEX test_index ON t1(a, b) UPDATING FOR nonexistent_col > 10");
     }
 }
