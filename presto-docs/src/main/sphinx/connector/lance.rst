@@ -41,8 +41,8 @@ Property Name                         Description                               
 ``lance.max-rows-per-file``           Maximum number of rows per Lance data file.                    ``1000000``
 ``lance.max-rows-per-group``          Maximum number of rows per row group.                          ``100000``
 ``lance.write-batch-size``            Number of rows to batch before writing to Arrow.               ``10000``
-``lance.index-cache-size``            Size of Lance index cache per worker.                         ``128MB``
-``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                      ``128MB``
+``lance.index-cache-size``            Size of Lance index cache per worker.                          ``128MB``
+``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                       ``128MB``
 ``lance.dataset-cache-max-entries``   Maximum number of cached Lance datasets per worker.            ``100``
 ``lance.dataset-cache-ttl``           TTL for cached Lance datasets.                                ``60m``
 ===================================== ============================================================= ===============

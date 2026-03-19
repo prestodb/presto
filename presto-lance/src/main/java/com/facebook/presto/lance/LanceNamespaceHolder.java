@@ -43,9 +43,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -162,6 +162,10 @@ public class LanceNamespaceHolder
     /**
      * Get the latest version of a dataset. Uses the cache to avoid
      * opening a throwaway Dataset when a latest-version entry is available.
+     *
+     * <p>Note: the returned version is eventually consistent with external
+     * writers, bounded by {@code lance.dataset-cache-ttl}. Writes through
+     * this connector instance invalidate the cache immediately.
      */
     public long getLatestVersion(String tableName)
     {
@@ -271,7 +275,7 @@ public class LanceNamespaceHolder
     {
         List<DatasetCacheKey> keysToInvalidate = datasetCache.asMap().keySet().stream()
                 .filter(key -> key.matchesTablePath(tablePath))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         datasetCache.invalidateAll(keysToInvalidate);
     }
 
