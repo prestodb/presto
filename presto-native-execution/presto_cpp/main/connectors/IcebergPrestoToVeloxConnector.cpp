@@ -210,6 +210,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     deletes.emplace_back(icebergDeleteFile);
   }
 
+
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
        std::to_string(icebergSplit->dataSequenceNumber)},
