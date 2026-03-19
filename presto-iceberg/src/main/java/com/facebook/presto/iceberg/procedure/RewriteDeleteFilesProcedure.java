@@ -183,7 +183,7 @@ public class RewriteDeleteFilesProcedure
             if (blobMetadataList.isEmpty()) {
                 return;
             }
-            for (org.apache.iceberg.puffin.Pair<BlobMetadata, ByteBuffer> pair : reader.readAll(blobMetadataList)) {
+            for (org.apache.iceberg.util.Pair<BlobMetadata, ByteBuffer> pair : reader.readAll(blobMetadataList)) {
                 ByteBuffer blobData = pair.second();
                 deserializeRoaringBitmap(blobData, positions);
             }
