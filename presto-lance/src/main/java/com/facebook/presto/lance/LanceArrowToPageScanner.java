@@ -108,7 +108,7 @@ public class LanceArrowToPageScanner
             try {
                 if (vector instanceof Float2Vector) {
                     // Widen float16 to float32 since Presto has no float16 type
-                    widened = widenFloat2ToFloat4((Float2Vector) vector);
+                    widened = widenFloat2ToFloat4((Float2Vector) vector, allocator);
                     vector = widened;
                 }
                 blocks[col] = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, null);
@@ -123,7 +123,7 @@ public class LanceArrowToPageScanner
         return new Page(rowCount, blocks);
     }
 
-    private Float4Vector widenFloat2ToFloat4(Float2Vector f2v)
+    static Float4Vector widenFloat2ToFloat4(Float2Vector f2v, BufferAllocator allocator)
     {
         int valueCount = f2v.getValueCount();
         Float4Vector f4v = new Float4Vector(f2v.getName(), allocator);

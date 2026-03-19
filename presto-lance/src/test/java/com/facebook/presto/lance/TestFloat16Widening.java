@@ -60,7 +60,7 @@ public class TestFloat16Widening
             f2v.setValueCount(4);
 
             // Widen to Float4Vector
-            try (Float4Vector f4v = widenFloat2ToFloat4(f2v)) {
+            try (Float4Vector f4v = LanceArrowToPageScanner.widenFloat2ToFloat4(f2v, allocator)) {
                 assertEquals(f4v.getValueCount(), 4);
                 assertEquals(f4v.getName(), "f16_col");
 
@@ -83,7 +83,7 @@ public class TestFloat16Widening
             f2v.setNull(2);
             f2v.setValueCount(3);
 
-            try (Float4Vector f4v = widenFloat2ToFloat4(f2v)) {
+            try (Float4Vector f4v = LanceArrowToPageScanner.widenFloat2ToFloat4(f2v, allocator)) {
                 Block block = arrowBlockBuilder.buildBlockFromFieldVector(f4v, REAL, null);
                 assertEquals(block.getPositionCount(), 3);
 
@@ -103,7 +103,7 @@ public class TestFloat16Widening
             f2v.allocateNew(0);
             f2v.setValueCount(0);
 
-            try (Float4Vector f4v = widenFloat2ToFloat4(f2v)) {
+            try (Float4Vector f4v = LanceArrowToPageScanner.widenFloat2ToFloat4(f2v, allocator)) {
                 assertEquals(f4v.getValueCount(), 0);
             }
         }
@@ -119,32 +119,12 @@ public class TestFloat16Widening
             f2v.setNull(2);
             f2v.setValueCount(3);
 
-            try (Float4Vector f4v = widenFloat2ToFloat4(f2v)) {
+            try (Float4Vector f4v = LanceArrowToPageScanner.widenFloat2ToFloat4(f2v, allocator)) {
                 assertEquals(f4v.getValueCount(), 3);
                 assertTrue(f4v.isNull(0));
                 assertTrue(f4v.isNull(1));
                 assertTrue(f4v.isNull(2));
             }
         }
-    }
-
-    /**
-     * Mirrors the private widenFloat2ToFloat4 method in LanceArrowToPageScanner.
-     */
-    private Float4Vector widenFloat2ToFloat4(Float2Vector f2v)
-    {
-        int valueCount = f2v.getValueCount();
-        Float4Vector f4v = new Float4Vector(f2v.getName(), allocator);
-        f4v.allocateNew(valueCount);
-        for (int i = 0; i < valueCount; i++) {
-            if (f2v.isNull(i)) {
-                f4v.setNull(i);
-            }
-            else {
-                f4v.set(i, f2v.getValueAsFloat(i));
-            }
-        }
-        f4v.setValueCount(valueCount);
-        return f4v;
     }
 }
