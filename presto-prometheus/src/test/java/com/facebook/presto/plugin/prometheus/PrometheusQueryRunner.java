@@ -34,13 +34,19 @@ public class PrometheusQueryRunner
     public static DistributedQueryRunner createPrometheusQueryRunner(PrometheusServer server)
             throws Exception
     {
+        Map<String, String> properties = ImmutableMap.of(
+                "prometheus.uri", server.getUri().toString());
+        return createPrometheusQueryRunner(properties);
+    }
+
+    public static DistributedQueryRunner createPrometheusQueryRunner(Map<String, String> properties)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession()).build();
 
             queryRunner.installPlugin(new PrometheusPlugin());
-            Map<String, String> properties = ImmutableMap.of(
-                    "prometheus.uri", server.getUri().toString());
             queryRunner.createCatalog("prometheus", "prometheus", properties);
             return queryRunner;
         }
