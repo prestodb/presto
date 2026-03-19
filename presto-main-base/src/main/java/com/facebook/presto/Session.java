@@ -591,7 +591,9 @@ public final class Session
                 unprocessedCatalogProperties,
                 identity.getRoles(),
                 preparedStatements,
-                sessionFunctions);
+                sessionFunctions,
+                identity.getSelectedUser(),
+                identity.getReasonForSelect());
     }
 
     @Override

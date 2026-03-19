@@ -706,6 +706,8 @@ struct SessionRepresentation {
   Map<String, SelectedRole> roles = {};
   Map<String, String> preparedStatements = {};
   Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = {};
+  std::shared_ptr<String> selectedUser = {};
+  std::shared_ptr<String> reasonForSelect = {};
 };
 void to_json(json& j, const SessionRepresentation& p);
 void from_json(const json& j, SessionRepresentation& p);
