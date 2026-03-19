@@ -134,20 +134,21 @@ public class LanceNamespaceHolder
      * getSchema(), and newScan() on the same cached Dataset instance.
      *
      * @param tablePath the full table path (URI)
-     * @param version the dataset version to open (null for latest)
+     * @param version the dataset version to open (empty for latest)
      */
-    Dataset getCachedDataset(String tablePath, Long version)
+    Dataset getCachedDataset(String tablePath, Optional<Long> version)
     {
         DatasetCacheKey cacheKey = new DatasetCacheKey(tablePath, version);
         try {
             return datasetCache.get(cacheKey, () -> {
-                if (version != null) {
-                    checkArgument(version <= Integer.MAX_VALUE,
-                            "Dataset version %s exceeds maximum supported version", version);
+                if (version.isPresent()) {
+                    long v = version.get();
+                    checkArgument(v <= Integer.MAX_VALUE,
+                            "Dataset version %s exceeds maximum supported version", v);
                     ReadOptions versionedOptions = new ReadOptions.Builder()
                             .setIndexCacheSizeBytes(readOptions.getIndexCacheSizeBytes())
                             .setMetadataCacheSizeBytes(readOptions.getMetadataCacheSizeBytes())
-                            .setVersion(version.intValue())
+                            .setVersion((int) v)
                             .build();
                     return Dataset.open(tablePath, versionedOptions);
                 }
@@ -171,7 +172,7 @@ public class LanceNamespaceHolder
     {
         String tablePath = getTablePath(tableName);
         // Open via cache with version=null (latest), then read its version
-        return getCachedDataset(tablePath, null).version();
+        return getCachedDataset(tablePath, Optional.empty()).version();
     }
 
     /**
@@ -199,7 +200,7 @@ public class LanceNamespaceHolder
     /**
      * Get the Arrow schema for a table at an optional version.
      */
-    public Schema describeTable(String tableName, Long version)
+    public Schema describeTable(String tableName, Optional<Long> version)
     {
         String tablePath = getTablePath(tableName);
         return getCachedDataset(tablePath, version).getSchema();
@@ -282,7 +283,7 @@ public class LanceNamespaceHolder
     /**
      * Get fragments for a table at an optional version.
      */
-    public List<Fragment> getFragments(String tableName, Long version)
+    public List<Fragment> getFragments(String tableName, Optional<Long> version)
     {
         String tablePath = getTablePath(tableName);
         return getCachedDataset(tablePath, version).getFragments();
@@ -294,12 +295,12 @@ public class LanceNamespaceHolder
     private static class DatasetCacheKey
     {
         private final String tablePath;
-        private final Long version;
+        private final Optional<Long> version;
 
-        DatasetCacheKey(String tablePath, Long version)
+        DatasetCacheKey(String tablePath, Optional<Long> version)
         {
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
-            this.version = version;
+            this.version = requireNonNull(version, "version is null");
         }
 
         boolean matchesTablePath(String path)

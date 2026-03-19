@@ -22,6 +22,7 @@ import org.lance.ipc.LanceScanner;
 import org.lance.ipc.ScanOptions;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -37,7 +38,7 @@ public class LanceFragmentPageSource
             String tablePath,
             int readBatchSize,
             LanceNamespaceHolder namespaceHolder,
-            Long datasetVersion,
+            Optional<Long> datasetVersion,
             ArrowBlockBuilder arrowBlockBuilder,
             BufferAllocator parentAllocator)
     {
@@ -51,16 +52,16 @@ public class LanceFragmentPageSource
         private final String tablePath;
         private final int readBatchSize;
         private final LanceNamespaceHolder namespaceHolder;
-        private final Long datasetVersion;
+        private final Optional<Long> datasetVersion;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Long datasetVersion)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
             this.readBatchSize = readBatchSize;
             this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
-            this.datasetVersion = datasetVersion;
+            this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
         }
 
         @Override
