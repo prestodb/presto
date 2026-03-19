@@ -87,8 +87,8 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(tableName.getTableName())) {
             return null;
         }
-        Long datasetVersion = namespaceHolder.getLatestVersion(tableName.getTableName());
-        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), datasetVersion);
+        long datasetVersion = namespaceHolder.getLatestVersion(tableName.getTableName());
+        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), Optional.of(datasetVersion));
     }
 
     @Override
@@ -104,7 +104,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return null;
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion().orElse(null));
         SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
@@ -135,7 +135,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return ImmutableMap.of();
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion().orElse(null));
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (Field field : arrowSchema.getFields()) {
