@@ -117,6 +117,18 @@ public class ParquetPageSource
     }
 
     @Override
+    public long getDecompressedBytes()
+    {
+        return parquetReader.getDataSource().getReadBytes();
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return completedPositions;
+    }
+
+    @Override
     public long getReadTimeNanos()
     {
         return parquetReader.getDataSource().getReadTimeNanos();
