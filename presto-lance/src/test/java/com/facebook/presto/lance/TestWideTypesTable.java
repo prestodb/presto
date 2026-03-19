@@ -100,17 +100,9 @@ public class TestWideTypesTable
     public void testReadAllColumns()
             throws Exception
     {
-        // Project only supported columns (exclude uint64 and nested float16 list
-        // which ArrowBlockBuilder doesn't handle)
-        List<String> supportedColumns = ImmutableList.of(
-                "id", "col_bool", "col_int32", "col_int64",
-                "col_float16", "col_float32", "col_float64",
-                "col_string", "col_binary", "col_date",
-                "col_ts", "col_ts_tz",
-                "col_list_f32", "col_fsl_f32");
-        List<LanceColumnHandle> columns = supportedColumns.stream()
-                .map(name -> (LanceColumnHandle) columnHandles.get(name))
-                .filter(col -> col != null)
+        // Project all columns (uint64 and nested float16 are now coerced)
+        List<LanceColumnHandle> columns = columnHandles.values().stream()
+                .map(LanceColumnHandle.class::cast)
                 .collect(toImmutableList());
 
         Page page = readColumns(columns);
@@ -223,6 +215,39 @@ public class TestWideTypesTable
         assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 0)), 1.0f, 0.01f);
         assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 1)), 2.0f, 0.01f);
         assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 2)), 3.0f, 0.01f);
+    }
+
+    @Test
+    public void testUint64Column()
+    {
+        LanceColumnHandle col = (LanceColumnHandle) columnHandles.get("col_uint64");
+        assertNotNull(col, "col_uint64 not found in schema");
+        assertEquals(col.getColumnType(), BIGINT);
+
+        Page page = readColumns(ImmutableList.of(col));
+        assertEquals(BIGINT.getLong(page.getBlock(0), 0), 42L);
+        assertEquals(BIGINT.getLong(page.getBlock(0), 1), 99L);
+    }
+
+    @Test
+    public void testFixedSizeListFloat16()
+    {
+        LanceColumnHandle col = (LanceColumnHandle) columnHandles.get("col_fsl_f16");
+        assertNotNull(col, "col_fsl_f16 not found");
+        Page page = readColumns(ImmutableList.of(col));
+
+        ArrayType arrayType = (ArrayType) col.getColumnType();
+        Block inner0 = (Block) arrayType.getObject(page.getBlock(0), 0);
+        assertEquals(inner0.getPositionCount(), 3);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 0)), 7.0f, 0.01f);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 1)), 8.0f, 0.01f);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner0, 2)), 9.0f, 0.01f);
+
+        Block inner1 = (Block) arrayType.getObject(page.getBlock(0), 1);
+        assertEquals(inner1.getPositionCount(), 3);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner1, 0)), 10.0f, 0.01f);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner1, 1)), 11.0f, 0.01f);
+        assertEquals(Float.intBitsToFloat((int) REAL.getLong(inner1, 2)), 12.0f, 0.01f);
     }
 
     private Page readColumns(List<LanceColumnHandle> columns)
