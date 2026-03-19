@@ -43,10 +43,9 @@
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/ExpressionOptimizer.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/main/types/VeloxPlanConversion.h"
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/CacheTTLController.h"
@@ -613,12 +612,8 @@ void PrestoServer::initializeTaskResources() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
-  initVeloxPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
-      pool_.get(),
-      httpSrvCpuExecutor_.get(),
-      getVeloxPlanValidator(),
-      *taskManager_);
+      pool_.get(), httpSrvCpuExecutor_.get(), *taskManager_);
   taskResource_->registerUris(*httpServer_);
 }
 
@@ -1629,15 +1624,6 @@ void PrestoServer::enableWorkerStatsReporting() {
   registerStatsCounters();
 }
 
-void PrestoServer::initVeloxPlanValidator() {
-  VELOX_CHECK_NULL(planValidator_);
-  planValidator_ = std::make_unique<VeloxPlanValidator>();
-}
-
-VeloxPlanValidator* PrestoServer::getVeloxPlanValidator() {
-  return planValidator_.get();
-}
-
 void PrestoServer::populateMemAndCPUInfo() {
   auto systemConfig = SystemConfig::instance();
   const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
@@ -1871,10 +1857,9 @@ void PrestoServer::registerSidecarEndpoints() {
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) {
         std::string planFragmentJson = util::extractMessageBody(body);
-        protocol::PlanConversionResponse response = prestoToVeloxPlanConversion(
-            planFragmentJson,
-            server->nativeWorkerPool_.get(),
-            server->getVeloxPlanValidator());
+        protocol::PlanConversionResponse response =
+            VeloxPlanChecker::checkPlanFragment(
+                planFragmentJson, server->nativeWorkerPool_.get());
         if (response.failures.empty()) {
           http::sendOkResponse(downstream, json(response));
         } else {
