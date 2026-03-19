@@ -17,9 +17,8 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
-
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -29,22 +28,22 @@ public class LanceTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private final Long datasetVersion;
+    private final Optional<Long> datasetVersion;
 
     public LanceTableHandle(String schemaName, String tableName)
     {
-        this(schemaName, tableName, null);
+        this(schemaName, tableName, Optional.empty());
     }
 
     @JsonCreator
     public LanceTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("datasetVersion") @Nullable Long datasetVersion)
+            @JsonProperty("datasetVersion") Optional<Long> datasetVersion)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.datasetVersion = datasetVersion;
+        this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
     }
 
     @JsonProperty
@@ -60,8 +59,7 @@ public class LanceTableHandle
     }
 
     @JsonProperty
-    @Nullable
-    public Long getDatasetVersion()
+    public Optional<Long> getDatasetVersion()
     {
         return datasetVersion;
     }
