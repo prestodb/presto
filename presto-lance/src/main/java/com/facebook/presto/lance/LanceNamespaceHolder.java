@@ -40,6 +40,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -61,7 +62,7 @@ public class LanceNamespaceHolder
     private final String root;
     private final boolean singleLevelNs;
     private final ReadOptions readOptions;
-    private final Cache<String, Dataset> datasetCache;
+    private final Cache<DatasetCacheKey, Dataset> datasetCache;
 
     @Inject
     public LanceNamespaceHolder(LanceConfig config)
@@ -75,7 +76,7 @@ public class LanceNamespaceHolder
         this.datasetCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getDatasetCacheMaxEntries())
                 .expireAfterAccess(config.getDatasetCacheTtl().toMillis(), MILLISECONDS)
-                .removalListener((RemovalListener<String, Dataset>) notification -> {
+                .removalListener((RemovalListener<DatasetCacheKey, Dataset>) notification -> {
                     try {
                         notification.getValue().close();
                     }
@@ -123,17 +124,51 @@ public class LanceNamespaceHolder
     }
 
     /**
-     * Get a cached or newly opened Dataset for the given table.
+     * Get a cached or newly opened Dataset for the given table path with optional version.
+     *
+     * @param userIdentity the user identity string (may be null)
+     * @param tablePath the full table path (URI)
+     * @param version the dataset version to open (null for latest)
      */
-    private Dataset getCachedDataset(String tableName)
+    public Dataset getCachedDataset(String userIdentity, String tablePath, Long version)
     {
-        String tablePath = getTablePath(tableName);
+        DatasetCacheKey cacheKey = new DatasetCacheKey(userIdentity, tablePath, version);
         try {
-            return datasetCache.get(tablePath, () -> Dataset.open(tablePath, readOptions));
+            return datasetCache.get(cacheKey, () -> {
+                if (version != null) {
+                    ReadOptions versionedOptions = new ReadOptions.Builder()
+                            .setIndexCacheSizeBytes(readOptions.getIndexCacheSizeBytes())
+                            .setMetadataCacheSizeBytes(readOptions.getMetadataCacheSizeBytes())
+                            .setVersion(version.intValue())
+                            .build();
+                    return Dataset.open(tablePath, versionedOptions);
+                }
+                return Dataset.open(tablePath, readOptions);
+            });
         }
         catch (ExecutionException e) {
-            throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to open dataset: " + tableName, e.getCause());
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to open dataset: " + tablePath, e.getCause());
         }
+    }
+
+    /**
+     * Get the latest version of a dataset.
+     */
+    public Long getLatestVersion(String tableName)
+    {
+        String tablePath = getTablePath(tableName);
+        try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
+            return dataset.version();
+        }
+    }
+
+    /**
+     * Open a fresh dataset bypassing cache. Used for write operations.
+     */
+    public Dataset openDatasetDirect(String tableName)
+    {
+        String tablePath = getTablePath(tableName);
+        return Dataset.open(tablePath, readOptions);
     }
 
     /**
@@ -159,11 +194,12 @@ public class LanceNamespaceHolder
     }
 
     /**
-     * Get the Arrow schema for a table.
+     * Get the Arrow schema for a table at an optional version.
      */
-    public Schema describeTable(String tableName)
+    public Schema describeTable(String tableName, Long version)
     {
-        return getCachedDataset(tableName).getSchema();
+        String tablePath = getTablePath(tableName);
+        return getCachedDataset(null, tablePath, version).getSchema();
     }
 
     /**
@@ -206,14 +242,14 @@ public class LanceNamespaceHolder
     public void dropTable(String tableName)
     {
         String tablePath = getTablePath(tableName);
-        datasetCache.invalidate(tablePath);
+        datasetCache.asMap().keySet().removeIf(key -> key.tablePath.equals(tablePath));
         Path fsPath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
         if (Files.exists(fsPath)) {
             try {
                 MoreFiles.deleteRecursively(fsPath, RecursiveDeleteOption.ALLOW_INSECURE);
             }
             catch (IOException e) {
-                throw new RuntimeException("Failed to delete table " + tableName, e);
+                throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to delete table " + tableName, e);
             }
         }
     }
@@ -228,15 +264,64 @@ public class LanceNamespaceHolder
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragments);
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
-        // Invalidate cache since dataset version changed
-        datasetCache.invalidate(tablePath);
+        // Invalidate all cache entries for this table path
+        datasetCache.asMap().keySet().removeIf(key -> key.tablePath.equals(tablePath));
     }
 
     /**
-     * Get fragments for a table.
+     * Get fragments for a table at an optional version.
      */
-    public List<Fragment> getFragments(String tableName)
+    public List<Fragment> getFragments(String tableName, Long version)
     {
-        return getCachedDataset(tableName).getFragments();
+        String tablePath = getTablePath(tableName);
+        return getCachedDataset(null, tablePath, version).getFragments();
+    }
+
+    /**
+     * Cache key that includes user identity, table path, and version.
+     */
+    private static class DatasetCacheKey
+    {
+        private final String userIdentity;
+        private final String tablePath;
+        private final Long version;
+
+        DatasetCacheKey(String userIdentity, String tablePath, Long version)
+        {
+            this.userIdentity = userIdentity != null ? userIdentity : "__anonymous__";
+            this.tablePath = requireNonNull(tablePath, "tablePath is null");
+            this.version = version;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DatasetCacheKey that = (DatasetCacheKey) o;
+            return Objects.equals(userIdentity, that.userIdentity) &&
+                    Objects.equals(tablePath, that.tablePath) &&
+                    Objects.equals(version, that.version);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(userIdentity, tablePath, version);
+        }
+
+        @Override
+        public String toString()
+        {
+            return "DatasetCacheKey{" +
+                    "userIdentity='" + userIdentity + '\'' +
+                    ", tablePath='" + tablePath + '\'' +
+                    ", version=" + version +
+                    '}';
+        }
     }
 }

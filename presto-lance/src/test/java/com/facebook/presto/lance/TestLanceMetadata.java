@@ -41,6 +41,7 @@ import static org.testng.Assert.assertTrue;
 public class TestLanceMetadata
 {
     private LanceMetadata metadata;
+    private LanceNamespaceHolder namespaceHolder;
 
     @BeforeMethod
     public void setUp()
@@ -53,6 +54,7 @@ public class TestLanceMetadata
                 .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
         LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config);
+        this.namespaceHolder = namespaceHolder;
         JsonCodec<LanceCommitTaskData> commitTaskDataCodec = jsonCodec(LanceCommitTaskData.class);
         metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
     }
@@ -70,11 +72,17 @@ public class TestLanceMetadata
     {
         ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
         assertNotNull(handle);
-        assertEquals(handle, new LanceTableHandle("default", "test_table1"));
+        LanceTableHandle lanceHandle = (LanceTableHandle) handle;
+        assertEquals(lanceHandle.getSchemaName(), "default");
+        assertEquals(lanceHandle.getTableName(), "test_table1");
+        assertNotNull(lanceHandle.getDatasetVersion());
 
         ConnectorTableHandle handle2 = metadata.getTableHandle(null, new SchemaTableName("default", "test_table2"));
         assertNotNull(handle2);
-        assertEquals(handle2, new LanceTableHandle("default", "test_table2"));
+        LanceTableHandle lanceHandle2 = (LanceTableHandle) handle2;
+        assertEquals(lanceHandle2.getSchemaName(), "default");
+        assertEquals(lanceHandle2.getTableName(), "test_table2");
+        assertNotNull(lanceHandle2.getDatasetVersion());
 
         // non-existent schema
         assertNull(metadata.getTableHandle(null, new SchemaTableName("other_schema", "test_table1")));

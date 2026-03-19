@@ -87,7 +87,8 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(tableName.getTableName())) {
             return null;
         }
-        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        Long datasetVersion = namespaceHolder.getLatestVersion(tableName.getTableName());
+        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), datasetVersion);
     }
 
     @Override
@@ -103,7 +104,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return null;
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
         SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
@@ -134,7 +135,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return ImmutableMap.of();
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (Field field : arrowSchema.getFields()) {
@@ -229,7 +230,7 @@ public class LanceMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName());
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), null);
 
         List<LanceColumnHandle> columns = arrowSchema.getFields().stream()
                 .map(field -> new LanceColumnHandle(
