@@ -104,7 +104,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return null;
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion().orElse(null));
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
         SchemaTableName schemaTableName = new SchemaTableName(lanceTable.getSchemaName(), lanceTable.getTableName());
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
@@ -135,7 +135,7 @@ public class LanceMetadata
         if (!namespaceHolder.tableExists(lanceTable.getTableName())) {
             return ImmutableMap.of();
         }
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion().orElse(null));
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), lanceTable.getDatasetVersion());
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (Field field : arrowSchema.getFields()) {
@@ -230,7 +230,7 @@ public class LanceMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
-        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), null);
+        Schema arrowSchema = namespaceHolder.describeTable(lanceTable.getTableName(), Optional.empty());
 
         List<LanceColumnHandle> columns = arrowSchema.getFields().stream()
                 .map(field -> new LanceColumnHandle(

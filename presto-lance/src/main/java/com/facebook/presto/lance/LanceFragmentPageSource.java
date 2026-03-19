@@ -38,7 +38,7 @@ public class LanceFragmentPageSource
             String tablePath,
             int readBatchSize,
             LanceNamespaceHolder namespaceHolder,
-            Long datasetVersion,
+            Optional<Long> datasetVersion,
             ArrowBlockBuilder arrowBlockBuilder,
             BufferAllocator parentAllocator,
             Optional<String> filter,
@@ -54,17 +54,17 @@ public class LanceFragmentPageSource
         private final String tablePath;
         private final int readBatchSize;
         private final LanceNamespaceHolder namespaceHolder;
-        private final Long datasetVersion;
+        private final Optional<Long> datasetVersion;
         private final List<String> filterProjectionColumns;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Long datasetVersion, List<String> filterProjectionColumns)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
             this.readBatchSize = readBatchSize;
             this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
-            this.datasetVersion = datasetVersion;
+            this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
             this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
         }
 

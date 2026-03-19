@@ -64,7 +64,7 @@ public class TestLanceFragmentPageSource
         datasetVersion = namespaceHolder.getLatestVersion("test_table1");
         tableHandle = new LanceTableHandle("default", "test_table1", Optional.of(datasetVersion));
         tablePath = namespaceHolder.getTablePath("test_table1");
-        fragments = namespaceHolder.getFragments("test_table1", datasetVersion);
+        fragments = namespaceHolder.getFragments("test_table1", Optional.of(datasetVersion));
     }
 
     @AfterMethod
@@ -86,7 +86,7 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 namespaceHolder,
-                datasetVersion,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator(),
                 Optional.empty(),
@@ -122,7 +122,7 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 namespaceHolder,
-                datasetVersion,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator(),
                 Optional.empty(),
@@ -158,7 +158,7 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 namespaceHolder,
-                datasetVersion,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator(),
                 Optional.empty(),
