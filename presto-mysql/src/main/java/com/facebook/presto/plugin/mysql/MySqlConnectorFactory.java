@@ -11,53 +11,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.jdbc;
+package com.facebook.presto.plugin.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.plugin.jdbc.JdbcConnector;
+import com.facebook.presto.plugin.jdbc.JdbcConnectorFactory;
+import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
+import com.facebook.presto.plugin.jdbc.JdbcModule;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
+import com.google.inject.util.Modules;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
-public class JdbcConnectorFactory
-        implements ConnectorFactory
+public class MySqlConnectorFactory
+        extends JdbcConnectorFactory
 {
-    protected final String name;
-    protected final Module module;
-    protected final ClassLoader classLoader;
-
-    public JdbcConnectorFactory(String name, Module module, ClassLoader classLoader)
+    public MySqlConnectorFactory(String name, Module module, ClassLoader classLoader)
     {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
-        this.module = requireNonNull(module, "module is null");
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
-    }
-
-    @Override
-    public String getName()
-    {
-        return name;
-    }
-
-    @Override
-    public ConnectorHandleResolver getHandleResolver()
-    {
-        return new JdbcHandleResolver();
+        super(name, module, classLoader);
     }
 
     @Override
@@ -73,8 +57,16 @@ public class JdbcConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    new JdbcModule(catalogName),
-                    module);
+                    Modules.override(new JdbcModule(catalogName)).with(
+                            module,
+                            new Module()
+                            {
+                                @Override
+                                public void configure(Binder binder)
+                                {
+                                    binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
+                                }
+                            }));
 
             Injector injector = app
                     .doNotInitializeLogging()

@@ -13,13 +13,23 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.facebook.presto.plugin.jdbc.JdbcPlugin;
+import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.google.common.collect.ImmutableList;
+
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 public class MySqlPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    public MySqlPlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("mysql", new MySqlClientModule());
+        return ImmutableList.of(new MySqlConnectorFactory("mysql", new MySqlClientModule(), getClassLoader()));
+    }
+
+    private static ClassLoader getClassLoader()
+    {
+        return firstNonNull(Thread.currentThread().getContextClassLoader(), MySqlPlugin.class.getClassLoader());
     }
 }
