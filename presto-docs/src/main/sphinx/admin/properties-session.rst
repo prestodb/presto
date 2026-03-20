@@ -738,6 +738,20 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_query_rewrite_cost_based_selection_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable cost-based selection when multiple materialized views are available for query
+rewriting. When enabled, the optimizer evaluates all compatible materialized view rewrites
+and selects the plan with the lowest estimated cost, instead of using the first compatible
+view.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`materialized-view-query-rewrite-cost-based-selection-enabled\`\``.
+
 ``materialized_view_stale_read_behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

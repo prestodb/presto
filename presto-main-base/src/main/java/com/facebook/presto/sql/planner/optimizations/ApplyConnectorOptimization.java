@@ -33,6 +33,7 @@ import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -103,7 +104,8 @@ public class ApplyConnectorOptimization
             TableWriterNode.class,
             TableFinishNode.class,
             DeleteNode.class,
-            TopNRowNumberNode.class);
+            TopNRowNumberNode.class,
+            MVRewriteCandidatesNode.class);
 
     // for a leaf node that does not belong to any connector (e.g., ValuesNode)
     private static final ConnectorId EMPTY_CONNECTOR_ID = new ConnectorId("$internal$ApplyConnectorOptimization_EMPTY_CONNECTOR");
