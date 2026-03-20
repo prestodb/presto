@@ -520,6 +520,12 @@ public class IcebergNativeMetadata
         catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), false);
     }
 
+    @Override
+    public CatalogType getCatalogType()
+    {
+        return catalogType;
+    }
+
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
     {
         if (!catalogType.equals(HADOOP)) {
