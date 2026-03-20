@@ -35,6 +35,7 @@ target_link_libraries(
   velox_vector_fuzzer
   velox_exec_test_lib
   velox_hive_partition_function
+  velox_presto_serializer
   velox_vector_test_lib
   velox_type
   velox_vector
