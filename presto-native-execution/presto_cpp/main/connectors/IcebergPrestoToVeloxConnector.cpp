@@ -42,7 +42,9 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::ORC;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
-  } else if (format == protocol::iceberg::FileFormat::PUFFIN) {
+  } else if (
+      format == protocol::iceberg::FileFormat::DWRF ||
+      format == protocol::iceberg::FileFormat::PUFFIN) {
     // PUFFIN is used for Iceberg V3 deletion vectors. The DeletionVectorReader
     // reads raw binary from the file and does not use the DWRF/Parquet reader,
     // so we map PUFFIN to DWRF as a placeholder — the format value is not
