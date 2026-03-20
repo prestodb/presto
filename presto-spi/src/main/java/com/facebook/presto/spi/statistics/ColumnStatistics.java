@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.statistics.DoubleRange.RANGE_SIZE;
 import static com.facebook.presto.spi.statistics.Estimate.ESTIMATE_SIZE;
+import static com.facebook.presto.spi.statistics.StringRange.STRING_RANGE_SIZE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -38,7 +39,6 @@ public final class ColumnStatistics
     private final Estimate dataSize;
     private final Optional<DoubleRange> range;
     private final Optional<StringRange> stringRange;
-
     private final Optional<ConnectorHistogram> histogram;
 
     public static ColumnStatistics empty()
@@ -141,7 +141,7 @@ public final class ColumnStatistics
                 ", distinctValuesCount=" + distinctValuesCount +
                 ", dataSize=" + dataSize +
                 ", range=" + range +
-                ", stringRange" + stringRange +
+                ", stringRange=" + stringRange +
                 ", histogram=" + histogram +
                 '}';
     }
@@ -155,11 +155,11 @@ public final class ColumnStatistics
     {
         return new Builder()
                 .setRange(statistics.getRange())
-                .setStringRange(statistics.getStringRange())
                 .setDataSize(statistics.getDataSize())
                 .setNullsFraction(statistics.getNullsFraction())
                 .setDistinctValuesCount(statistics.getDistinctValuesCount())
-                .setHistogram(statistics.getHistogram());
+                .setHistogram(statistics.getHistogram())
+                .setStringRange(statistics.getStringRange());
     }
 
     public long getEstimatedSize()
@@ -167,8 +167,10 @@ public final class ColumnStatistics
         return COLUMN_STATISTICS_SIZE +
                 3 * ESTIMATE_SIZE +
                 2 * OPTION_SIZE +
+                (histogram.isPresent() ? OPTION_SIZE : 0L) +
                 histogram.map(ConnectorHistogram::getEstimatedSize).orElse(0L) +
-                range.map(unused -> RANGE_SIZE).orElse(0L);
+                range.map(unused -> RANGE_SIZE).orElse(0L) +
+                stringRange.map(stringRange -> STRING_RANGE_SIZE + stringRange.getMax().length() * 8L + stringRange.getMin().length() * 8L).orElse(0L);
     }
 
     /**
@@ -185,7 +187,6 @@ public final class ColumnStatistics
         private Estimate dataSize = Estimate.unknown();
         private Optional<DoubleRange> range = Optional.empty();
         private Optional<StringRange> stringRange = Optional.empty();
-
         private Optional<ConnectorHistogram> histogram = Optional.empty();
 
         public Builder setNullsFraction(Estimate nullsFraction)
@@ -274,6 +275,10 @@ public final class ColumnStatistics
                 this.range = other.range;
             }
 
+            if (!stringRange.isPresent()) {
+                this.stringRange = other.stringRange;
+            }
+
             if (!histogram.isPresent()) {
                 this.histogram = other.histogram;
             }
@@ -281,8 +286,16 @@ public final class ColumnStatistics
             return this;
         }
 
+        private void validate()
+        {
+            if (stringRange.isPresent() && range.isPresent()) {
+                throw new IllegalArgumentException("Both StringRange and Range cannot be defined simultaneously on a column.");
+            }
+        }
+
         public ColumnStatistics build()
         {
+            validate();
             return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, stringRange, histogram);
         }
     }

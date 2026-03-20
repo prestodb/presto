@@ -23,24 +23,18 @@ import static java.util.Objects.requireNonNull;
 
 public class StringRange
 {
-    static final long RANGE_SIZE = ClassLayout.parseClass(StringRange.class).instanceSize();
+    static final long STRING_RANGE_SIZE = ClassLayout.parseClass(StringRange.class).instanceSize();
 
-    private final String min;
-    private final String max;
+    private String min = "";
+    private String max = "";
 
     public StringRange(String min, String max)
     {
-        if (min == null) {
-            throw new IllegalArgumentException("min must not be null");
-        }
-        if (max == null) {
-            throw new IllegalArgumentException("max must not be null");
-        }
         if (min.compareTo(max) > 0) {
             throw new IllegalArgumentException(format("max must be greater than or equal to min. min: %s. max: %s. ", min, max));
         }
-        this.min = min;
-        this.max = max;
+        this.min = requireNonNull(min, "min must not be null");
+        this.max = requireNonNull(max, "max must not be null");
     }
 
     @JsonProperty

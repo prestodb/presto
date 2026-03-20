@@ -193,6 +193,29 @@ public class TestIcebergHiveStatistics
     }
 
     @Test
+    public void testStatsWithVarcharColumns()
+    {
+        // With Analyzed and without partitinoing.
+        assertQuerySucceeds("CREATE TABLE statsBeforeAnalyzeVarChar as SELECT comment FROM orders");
+        assertQuerySucceeds("ANALYZE statsBeforeAnalyzeVarChar");
+        MaterializedResult stats = getQueryRunner().execute("SHOW STATS FOR statsBeforeAnalyzeVarChar");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats, NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats, NON_NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, stats, NON_NUMERIC_ORDERS_COLUMNS);
+        // With Analyzed and partitioning.
+        assertQuerySucceeds("CREATE TABLE statsWithPartitionAnalyzeVarChar WITH (partitioning = ARRAY['orderdate']) as SELECT * FROM statsBeforeAnalyzeVarChar");
+        assertQuerySucceeds("ANALYZE statsWithPartitionAnalyzeVarChar");
+        MaterializedResult stats2 = getQueryRunner().execute("SHOW STATS FOR statsWithPartitionAnalyzeVarChar");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats2, NON_NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, stats2, NON_NUMERIC_ORDERS_COLUMNS);
+        // Without Analyzed but with partitioning.
+        assertQuerySucceeds("CREATE TABLE statsWithPartitionNoAnalyze2 WITH (partitioning = ARRAY['orderdate']) as SELECT * FROM statsBeforeAnalyzeVarChar");
+        MaterializedResult stats3 = getQueryRunner().execute("SHOW STATS FOR statsWithPartitionNoAnalyze2");
+        assertStatValuePresent(StatsSchema.LOW_VALUE, stats3, NON_NUMERIC_ORDERS_COLUMNS);
+        assertStatValuePresent(StatsSchema.HIGH_VALUE, stats3, NON_NUMERIC_ORDERS_COLUMNS);
+    }
+
+    @Test
     public void testStatsWithPartitionedTableAnalyzed()
     {
         assertQuerySucceeds("CREATE TABLE statsNoPartitionAnalyze as SELECT * FROM orders LIMIT 100");
