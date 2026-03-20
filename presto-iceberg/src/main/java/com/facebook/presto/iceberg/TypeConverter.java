@@ -124,6 +124,12 @@ public final class TypeConverter
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
                 return TimestampType.TIMESTAMP;
+            case TIMESTAMP_NANO:
+                Types.TimestampNanoType tsNanoType = (Types.TimestampNanoType) type.asPrimitiveType();
+                if (tsNanoType.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
+                return TimestampType.TIMESTAMP_MICROSECONDS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -141,6 +147,8 @@ public final class TypeConverter
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
+            case VARIANT:
+                return VarcharType.createUnboundedVarcharType();
             default:
                 throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
         }
@@ -402,8 +410,10 @@ public final class TypeConverter
             case DATE:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
+            case TIMESTAMP_NANO:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
+            case VARIANT:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:
             case FIXED:
