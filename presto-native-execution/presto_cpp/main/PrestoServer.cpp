@@ -949,25 +949,25 @@ void PrestoServer::initializeThreadPools() {
   }
 
   driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-      numDriverCpuThreads, threadFactory);
+      std::make_pair(numDriverCpuThreads,numDriverCpuThreads), threadFactory);
   driverCpuExecutor_ = velox::checkedPointerCast<folly::CPUThreadPoolExecutor>(
       driverExecutor_.get());
 
   const auto numIoThreads = std::max<size_t>(
       systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
-      numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+      numIoThreads, numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
 
   const auto numCpuThreads = std::max<size_t>(
       systemConfig->httpServerNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
   httpSrvCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-      numCpuThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+      std::make_pair(numCpuThreads, numCpuThreads), std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
 
   const auto numSpillerCpuThreads = std::max<size_t>(
       systemConfig->spillerNumCpuThreadsHwMultiplier() * hwConcurrency, 0);
   if (numSpillerCpuThreads > 0) {
     spillerExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-        numSpillerCpuThreads,
+        std::make_pair(numSpillerCpuThreads, numSpillerCpuThreads),
         std::make_shared<folly::NamedThreadFactory>("Spiller"));
     spillerCpuExecutor_ =
         velox::checkedPointerCast<folly::CPUThreadPoolExecutor>(
@@ -978,7 +978,7 @@ void PrestoServer::initializeThreadPools() {
           folly::available_concurrency(),
       1);
   exchangeHttpIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
-      numExchangeHttpClientIoThreads,
+      numExchangeHttpClientIoThreads, numExchangeHttpClientIoThreads,
       std::make_shared<folly::NamedThreadFactory>("ExchangeIO"));
 
   PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
@@ -999,7 +999,7 @@ void PrestoServer::initializeThreadPools() {
       1);
 
   exchangeHttpCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-      numExchangeHttpClientCpuThreads,
+      std::make_pair(numExchangeHttpClientCpuThreads, numExchangeHttpClientCpuThreads),
       std::make_shared<folly::NamedThreadFactory>("ExchangeCPU"));
 
   PRESTO_STARTUP_LOG(INFO) << "Exchange Http CPU executor '"
@@ -1023,7 +1023,7 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
 
   constexpr int32_t kNumSsdShards = 16;
   cacheExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-      kNumSsdShards, std::make_shared<folly::NamedThreadFactory>("SsdCache"));
+      std::make_pair(kNumSsdShards, kNumSsdShards), std::make_shared<folly::NamedThreadFactory>("SsdCache"));
   velox::cache::SsdCache::Config cacheConfig(
       systemConfig->asyncCacheSsdPath(),
       systemConfig->asyncCacheSsdGb() << 30,
@@ -1371,7 +1371,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
       0);
   if (numConnectorCpuThreads > 0) {
     connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
-        numConnectorCpuThreads,
+        std::make_pair(numConnectorCpuThreads, numConnectorCpuThreads),
         std::make_shared<folly::NamedThreadFactory>("ConnectorCPU"));
 
     PRESTO_STARTUP_LOG(INFO)
@@ -1385,7 +1385,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
       0);
   if (numConnectorIoThreads > 0) {
     connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
-        numConnectorIoThreads,
+        numConnectorIoThreads, numConnectorIoThreads,
         std::make_shared<folly::NamedThreadFactory>("ConnectorIO"));
 
     PRESTO_STARTUP_LOG(INFO)
