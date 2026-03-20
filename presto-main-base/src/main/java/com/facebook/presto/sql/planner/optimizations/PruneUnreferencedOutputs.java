@@ -65,6 +65,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -545,6 +546,24 @@ public class PruneUnreferencedOutputs
                     node.getTarget(),
                     node.getMergeProcessorProjectedVariables(),
                     node.getOutputVariables());
+        }
+
+        @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<Set<VariableReferenceExpression>> context)
+        {
+            Set<VariableReferenceExpression> sourceInputs = ImmutableSet.copyOf(node.getSource().getOutputVariables());
+            PlanNode source = context.rewrite(node.getSource(), sourceInputs);
+
+            return new RPCNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    source,
+                    node.getFunctionName(),
+                    node.getArguments(),
+                    node.getArgumentColumns(),
+                    node.getOutputVariable(),
+                    node.getStreamingMode(),
+                    node.getDispatchBatchSize());
         }
 
         @Override

@@ -69,6 +69,8 @@
 #include "velox/dwio/text/RegisterTextWriter.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/TraceUtil.h"
+#include "velox/exec/rpc/RPCPlanNodeTranslator.h"
+#include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
@@ -1483,6 +1485,11 @@ void PrestoServer::registerCustomOperators() {
   // which will allow server specific operator registration.
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::BroadcastWriteTranslator>());
+
+  // Register RPC plan node translator for async RPC execution.
+  // This enables RPCOperator to be created from RPCNode plan nodes
+  // when fb_llm_inference is detected.
+  velox::exec::rpc::registerRPCPlanNodeTranslator();
 }
 
 void PrestoServer::registerFunctions() {
@@ -1503,6 +1510,17 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+
+  // Register RPC function stubs so the sidecar's /v1/functions endpoint
+  // exposes them to the coordinator for function discovery.
+  LOG(INFO) << "[RPC] Registering RPC function stubs "
+            << "with namespace prefix '" << prestoBuiltinFunctionPrefix_ << "'";
+  velox::exec::rpc::AsyncRPCFunctionRegistry::registerStubs(
+      prestoBuiltinFunctionPrefix_);
+  LOG(INFO) << "[RPC] Registered stubs for "
+            << velox::exec::rpc::AsyncRPCFunctionRegistry::registeredFunctions()
+                   .size()
+            << " RPC function(s).";
 }
 
 void PrestoServer::registerRemoteFunctions() {

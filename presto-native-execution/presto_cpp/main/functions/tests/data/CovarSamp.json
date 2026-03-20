@@ -7,7 +7,8 @@
       },
       "docString": "presto.default.covar_samp",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "double",
       "paramTypes": [
         "double",
@@ -19,8 +20,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "aggregateMetadata": {
@@ -29,7 +30,8 @@
       },
       "docString": "presto.default.covar_samp",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "real",
       "paramTypes": [
         "real",
@@ -41,8 +43,8 @@
         "nullCallClause": "CALLED_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     }
   ]
 }
