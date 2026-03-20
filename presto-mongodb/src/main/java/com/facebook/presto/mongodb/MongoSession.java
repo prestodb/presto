@@ -36,7 +36,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
@@ -143,15 +142,25 @@ public class MongoSession
     public Set<String> getAllTables(String schema)
             throws SchemaNotFoundException
     {
-        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        MongoDatabase db = client.getDatabase(schema);
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames()).stream()
+        Set<String> actualCollections = ImmutableList.copyOf(db.listCollectionNames()).stream()
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
-                .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+                .collect(toSet());
 
-        return builder.build();
+        Set<String> metadataTableNames = getTableMetadataNames(schema);
+
+        // Find stale metadata entries (metadata exists but collection doesn't) and remove them
+        metadataTableNames.stream()
+                .filter(name -> !actualCollections.contains(name))
+                .forEach(staleTableName -> {
+                    SchemaTableName schemaTableName = new SchemaTableName(schema, staleTableName);
+                    log.debug("Removing stale metadata for table: %s", schemaTableName);
+                    deleteTableMetadata(schemaTableName);
+                    tableCache.invalidate(schemaTableName);
+                });
+        return actualCollections;
     }
 
     public MongoTable getTable(SchemaTableName tableName)
