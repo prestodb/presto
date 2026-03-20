@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.statistics.DoubleRange.RANGE_SIZE;
 import static com.facebook.presto.spi.statistics.Estimate.ESTIMATE_SIZE;
+import static com.facebook.presto.spi.statistics.StringRange.STRING_RANGE_SIZE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -31,13 +32,13 @@ public final class ColumnStatistics
 
     public static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
     public static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
-    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty());
+    private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty(), Optional.empty());
 
     private final Estimate nullsFraction;
     private final Estimate distinctValuesCount;
     private final Estimate dataSize;
     private final Optional<DoubleRange> range;
-
+    private final Optional<StringRange> stringRange;
     private final Optional<ConnectorHistogram> histogram;
 
     public static ColumnStatistics empty()
@@ -50,6 +51,7 @@ public final class ColumnStatistics
             Estimate distinctValuesCount,
             Estimate dataSize,
             Optional<DoubleRange> range,
+            Optional<StringRange> stringRange,
             Optional<ConnectorHistogram> histogram)
     {
         this.nullsFraction = requireNonNull(nullsFraction, "nullsFraction is null");
@@ -67,6 +69,7 @@ public final class ColumnStatistics
             throw new IllegalArgumentException(format("dataSize must be greater than or equal to 0: %s", dataSize.getValue()));
         }
         this.range = requireNonNull(range, "range is null");
+        this.stringRange = requireNonNull(stringRange, "string range is null");
         this.histogram = requireNonNull(histogram, "histogram is null");
     }
 
@@ -95,6 +98,12 @@ public final class ColumnStatistics
     }
 
     @JsonProperty
+    public Optional<StringRange> getStringRange()
+    {
+        return stringRange;
+    }
+
+    @JsonProperty
     public Optional<ConnectorHistogram> getHistogram()
     {
         return histogram;
@@ -114,13 +123,14 @@ public final class ColumnStatistics
                 Objects.equals(distinctValuesCount, that.distinctValuesCount) &&
                 Objects.equals(dataSize, that.dataSize) &&
                 Objects.equals(range, that.range) &&
+                Objects.equals(stringRange, that.stringRange) &&
                 Objects.equals(histogram, that.histogram);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range, histogram);
+        return Objects.hash(nullsFraction, distinctValuesCount, dataSize, range, stringRange, histogram);
     }
 
     @Override
@@ -131,6 +141,7 @@ public final class ColumnStatistics
                 ", distinctValuesCount=" + distinctValuesCount +
                 ", dataSize=" + dataSize +
                 ", range=" + range +
+                ", stringRange=" + stringRange +
                 ", histogram=" + histogram +
                 '}';
     }
@@ -147,7 +158,8 @@ public final class ColumnStatistics
                 .setDataSize(statistics.getDataSize())
                 .setNullsFraction(statistics.getNullsFraction())
                 .setDistinctValuesCount(statistics.getDistinctValuesCount())
-                .setHistogram(statistics.getHistogram());
+                .setHistogram(statistics.getHistogram())
+                .setStringRange(statistics.getStringRange());
     }
 
     public long getEstimatedSize()
@@ -155,8 +167,10 @@ public final class ColumnStatistics
         return COLUMN_STATISTICS_SIZE +
                 3 * ESTIMATE_SIZE +
                 2 * OPTION_SIZE +
+                (histogram.isPresent() ? OPTION_SIZE : 0L) +
                 histogram.map(ConnectorHistogram::getEstimatedSize).orElse(0L) +
-                range.map(unused -> RANGE_SIZE).orElse(0L);
+                range.map(unused -> RANGE_SIZE).orElse(0L) +
+                stringRange.map(stringRange -> STRING_RANGE_SIZE + stringRange.getMax().length() * 8L + stringRange.getMin().length() * 8L).orElse(0L);
     }
 
     /**
@@ -172,7 +186,7 @@ public final class ColumnStatistics
         private Estimate distinctValuesCount = Estimate.unknown();
         private Estimate dataSize = Estimate.unknown();
         private Optional<DoubleRange> range = Optional.empty();
-
+        private Optional<StringRange> stringRange = Optional.empty();
         private Optional<ConnectorHistogram> histogram = Optional.empty();
 
         public Builder setNullsFraction(Estimate nullsFraction)
@@ -214,6 +228,18 @@ public final class ColumnStatistics
             return this;
         }
 
+        public Builder setStringRange(StringRange stringRange)
+        {
+            this.stringRange = Optional.of(requireNonNull(stringRange, "stringRange is null"));
+            return this;
+        }
+
+        public Builder setStringRange(Optional<StringRange> stringRange)
+        {
+            this.stringRange = requireNonNull(stringRange, "stringRange is null");
+            return this;
+        }
+
         public Builder setRange(Optional<DoubleRange> range)
         {
             this.range = requireNonNull(range, "range is null");
@@ -249,6 +275,10 @@ public final class ColumnStatistics
                 this.range = other.range;
             }
 
+            if (!stringRange.isPresent()) {
+                this.stringRange = other.stringRange;
+            }
+
             if (!histogram.isPresent()) {
                 this.histogram = other.histogram;
             }
@@ -256,9 +286,17 @@ public final class ColumnStatistics
             return this;
         }
 
+        private void validate()
+        {
+            if (stringRange.isPresent() && range.isPresent()) {
+                throw new IllegalArgumentException("Both StringRange and Range cannot be defined simultaneously on a column.");
+            }
+        }
+
         public ColumnStatistics build()
         {
-            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, histogram);
+            validate();
+            return new ColumnStatistics(nullsFraction, distinctValuesCount, dataSize, range, stringRange, histogram);
         }
     }
 }
