@@ -1955,20 +1955,20 @@ public class Analysis
     public static final class CreateVectorIndexAnalysis
     {
         private final QualifiedObjectName sourceTableName;
-        private final QualifiedObjectName targetTableName;
+        private final QualifiedObjectName indexName;
         private final List<Identifier> columns;
         private final Map<String, Expression> properties;
         private final Optional<Expression> updatingFor;
 
         public CreateVectorIndexAnalysis(
                 QualifiedObjectName sourceTableName,
-                QualifiedObjectName targetTableName,
+                QualifiedObjectName indexName,
                 List<Identifier> columns,
                 Map<String, Expression> properties,
                 Optional<Expression> updatingFor)
         {
             this.sourceTableName = requireNonNull(sourceTableName, "sourceTableName is null");
-            this.targetTableName = requireNonNull(targetTableName, "targetTableName is null");
+            this.indexName = requireNonNull(indexName, "indexName is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
             this.updatingFor = requireNonNull(updatingFor, "updatingFor is null");
@@ -1979,9 +1979,9 @@ public class Analysis
             return sourceTableName;
         }
 
-        public QualifiedObjectName getTargetTableName()
+        public QualifiedObjectName getIndexName()
         {
-            return targetTableName;
+            return indexName;
         }
 
         public List<Identifier> getColumns()
