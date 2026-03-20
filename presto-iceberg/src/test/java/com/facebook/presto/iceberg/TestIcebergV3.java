@@ -44,6 +44,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -279,10 +280,10 @@ public class TestIcebergV3
     }
 
     @Test
-    public void testPuffinDeletionVectorsNotSupported()
+    public void testPuffinDeletionVectorsAccepted()
             throws Exception
     {
-        String tableName = "test_puffin_deletion_vectors_not_supported";
+        String tableName = "test_puffin_deletion_vectors_accepted";
         try {
             assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
@@ -309,7 +310,20 @@ public class TestIcebergV3
                         .commit();
             }
 
-            assertQueryFails("SELECT * FROM " + tableName, "Iceberg deletion vectors.*PUFFIN.*not supported");
+            // The PUFFIN delete file is now accepted by the split source (no longer
+            // throws NOT_SUPPORTED). The query will fail downstream because the fake
+            // .puffin file doesn't exist on disk, but the important thing is that the
+            // coordinator no longer rejects it at split enumeration time.
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                // Verify the error is NOT the old "PUFFIN not supported" rejection.
+                // Other failures (e.g., fake .puffin file not on disk) are acceptable.
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "PUFFIN deletion vectors should be accepted, not rejected: " + e.getMessage());
+            }
         }
         finally {
             dropTable(tableName);
