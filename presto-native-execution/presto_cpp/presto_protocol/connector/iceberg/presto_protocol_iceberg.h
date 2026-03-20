@@ -78,7 +78,11 @@ void to_json(json& j, const ChangelogSplitInfo& p);
 void from_json(const json& j, ChangelogSplitInfo& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileContent { DATA, POSITION_DELETES, EQUALITY_DELETES };
+enum class FileContent {
+  DATA,
+  POSITION_DELETES,
+  EQUALITY_DELETES,
+};
 extern void to_json(json& j, const FileContent& e);
 extern void from_json(const json& j, FileContent& e);
 } // namespace facebook::presto::protocol::iceberg
@@ -97,6 +101,7 @@ struct DeleteFile {
   List<Integer> equalityFieldIds = {};
   Map<Integer, String> lowerBounds = {};
   Map<Integer, String> upperBounds = {};
+  int64_t dataSequenceNumber = {};
 };
 void to_json(json& j, const DeleteFile& p);
 void from_json(const json& j, DeleteFile& p);
