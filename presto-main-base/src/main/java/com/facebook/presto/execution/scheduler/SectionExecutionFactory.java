@@ -62,6 +62,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -88,7 +89,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -293,18 +293,48 @@ public class SectionExecutionFactory
         Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
             // nodes are selected dynamically based on the constraints of the splits and the system load
-            Map.Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
+            Map.Entry<PlanNodeId, SplitSource> entry = splitSources.entrySet().stream().findFirst().orElseThrow(IllegalStateException::new);
             PlanNodeId planNodeId = entry.getKey();
             SplitSource splitSource = entry.getValue();
             ConnectorId connectorId = splitSource.getConnectorId();
             if (isInternalSystemConnector(connectorId)) {
                 connectorId = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
-            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
+            if (splitSources.size() == 1) {
+                // Single split source - use the optimized path
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
+                SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
-            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
+                checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
+                return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
+            }
+            else {
+                // Multiple split sources (e.g., UNION ALL of table functions) - use FixedSourcePartitionedScheduler
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, nodePredicate);
+                List<InternalNode> nodes = nodeSelector.selectRandomNodes(maxTasksPerStage);
+                checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
+
+                // Use a round-robin bucket function to distribute splits evenly across nodes
+                // This ensures load balancing for splits that have no inherent partitioning
+                AtomicInteger splitCounter = new AtomicInteger(0);
+                BucketNodeMap bucketNodeMap = new DynamicBucketNodeMap(
+                        (split) -> splitCounter.getAndIncrement() % nodes.size(),
+                        nodes.size(),
+                        nodes);
+
+                return new FixedSourcePartitionedScheduler(
+                        stageExecution,
+                        splitSources,
+                        plan.getFragment().getStageExecutionDescriptor(),
+                        plan.getFragment().getTableScanSchedulingOrder(),
+                        nodes,
+                        bucketNodeMap,
+                        splitBatchSize,
+                        getConcurrentLifespansPerNode(session),
+                        nodeSelector,
+                        ImmutableList.of(NOT_PARTITIONED),
+                        cteMaterializationTracker);
+            }
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
