@@ -16,6 +16,10 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -24,6 +28,7 @@ import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -71,8 +76,10 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -85,11 +92,13 @@ public class SplitSourceFactory
 
     private final SplitSourceProvider splitSourceProvider;
     private final WarningCollector warningCollector;
+    private final Metadata metadata;
 
-    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector)
+    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, Metadata metadata)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
@@ -210,7 +219,54 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Context context)
         {
-            return node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> probeSplits = node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> indexSplits = node.getIndexSource().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(probeSplits)
+                    .putAll(indexSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitIndexSource(IndexSourceNode node, Context context)
+        {
+            // Only create split sources when native execution is enabled (Java
+            // execution uses the Index SPI at runtime) AND the table is bucketed
+            // (non-bucketed tables like SequenceStorage handle data internally).
+            if (!isNativeExecutionEnabled(session)) {
+                return ImmutableMap.of();
+            }
+
+            boolean hasPartitioning = metadata.getLayout(session, node.getTableHandle())
+                    .getTablePartitioning()
+                    .isPresent();
+            if (!hasPartitioning) {
+                return ImmutableMap.of();
+            }
+
+            TableHandle table = node.getTableHandle();
+            SplitSchedulingStrategy strategy = getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId());
+
+            // If the layout is missing (can happen if PickTableLayout didn't run for the
+            // index side, e.g., LEFT JOIN doesn't push partition predicates), compute it
+            // from the IndexSourceNode's currentConstraint so the split manager can find
+            // the correct partitions.
+            TableHandle finalTable = table;
+            if (!table.getLayout().isPresent()) {
+                Constraint<ColumnHandle> constraint = new Constraint<>(node.getCurrentConstraint());
+                TableLayout tableLayout = metadata.getLayout(session, table, constraint, Optional.empty()).getLayout();
+                finalTable = tableLayout.getNewTableHandle();
+            }
+
+            SplitSource splitSource = splitSourceProvider.getSplits(
+                    session,
+                    finalTable,
+                    strategy,
+                    warningCollector);
+
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override
