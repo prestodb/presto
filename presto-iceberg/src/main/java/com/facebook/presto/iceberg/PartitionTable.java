@@ -303,6 +303,9 @@ public class PartitionTable
                 return MICROSECONDS.toMillis((long) value);
             }
         }
+        if (type instanceof Types.TimestampNanoType) {
+            return Math.floorDiv((long) value, 1000L);
+        }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);
         }
