@@ -3,7 +3,8 @@
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(__user_t1))",
       "paramTypes": [
         "array(__user_t1)",
@@ -17,19 +18,20 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"__user_t1",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "__user_t1",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(date))",
       "paramTypes": [
         "array(date)",
@@ -41,13 +43,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(timestamp))",
       "paramTypes": [
         "array(timestamp)",
@@ -59,13 +62,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(varchar))",
       "paramTypes": [
         "array(varchar)",
@@ -77,13 +81,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(boolean))",
       "paramTypes": [
         "array(boolean)",
@@ -95,13 +100,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(double))",
       "paramTypes": [
         "array(double)",
@@ -113,13 +119,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(real))",
       "paramTypes": [
         "array(real)",
@@ -131,13 +138,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(tinyint))",
       "paramTypes": [
         "array(tinyint)",
@@ -149,13 +157,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(bigint))",
       "paramTypes": [
         "array(bigint)",
@@ -167,13 +176,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(integer))",
       "paramTypes": [
         "array(integer)",
@@ -185,13 +195,14 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     },
     {
       "docString": "presto.default.combinations",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(array(smallint))",
       "paramTypes": [
         "array(smallint)",
@@ -203,8 +214,8 @@
         "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
       },
       "schema": "default",
-      "typeVariableConstraints":[],
-      "variableArity":false
+      "typeVariableConstraints": [],
+      "variableArity": false
     }
   ]
 }

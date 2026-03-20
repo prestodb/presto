@@ -218,11 +218,13 @@ import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherMana
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.PrestoDataDefBindingHelper;
 import com.facebook.presto.version.EmbedVersion;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.MapBinder;
+import com.google.inject.name.Names;
 import jakarta.inject.Singleton;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
@@ -230,9 +232,11 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import javax.management.MBeanServer;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -476,6 +480,10 @@ public class PrestoSparkModule
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
+        // RPC functions are not supported in Presto-on-Spark; bind empty set.
+        binder.bind(new TypeLiteral<Supplier<Set<String>>>() {})
+                .annotatedWith(Names.named("rpcFunctionNames"))
+                .toInstance(ImmutableSet::of);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);

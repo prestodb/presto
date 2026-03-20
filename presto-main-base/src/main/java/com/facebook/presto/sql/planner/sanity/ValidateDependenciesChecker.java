@@ -69,6 +69,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -786,6 +787,21 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
+            return null;
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundSymbols); // visit child
+
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundSymbols);
+            for (RowExpression arg : node.getArguments()) {
+                Set<VariableReferenceExpression> dependencies = VariablesExtractor.extractUnique(arg);
+                checkDependencies(inputs, dependencies, "Invalid node. RPCNode argument dependencies (%s) not in source plan output (%s)", dependencies, inputs);
+            }
+
             return null;
         }
 

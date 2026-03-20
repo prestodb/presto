@@ -255,6 +255,7 @@ import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -267,6 +268,7 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
 import io.netty.buffer.PooledByteBufAllocator;
 import jakarta.annotation.PreDestroy;
+import jakarta.inject.Named;
 import jakarta.inject.Singleton;
 import jakarta.servlet.Filter;
 import jakarta.servlet.Servlet;
@@ -274,10 +276,12 @@ import jakarta.servlet.Servlet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.ConcurrentScheduledExecutor.createConcurrentScheduledExecutor;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -954,6 +958,19 @@ public class ServerMainModule
                 nodeManager,
                 config.getNativeSidecarRegistryToolNumRetries(),
                 config.getNativeSidecarRegistryToolRetryDelayMs());
+    }
+
+    @Provides
+    @Singleton
+    @Named("rpcFunctionNames")
+    public Supplier<Set<String>> provideRpcFunctionNames(
+            FeaturesConfig featuresConfig,
+            WorkerFunctionRegistryTool registryTool)
+    {
+        if (featuresConfig.isBuiltInSidecarFunctionsEnabled()) {
+            return registryTool::getRpcFunctionNames;
+        }
+        return ImmutableSet::of;
     }
 
     public static class ExecutorCleanup
