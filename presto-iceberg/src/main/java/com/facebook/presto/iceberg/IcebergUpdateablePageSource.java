@@ -21,8 +21,8 @@ import com.facebook.presto.common.block.RowBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
-import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -71,8 +71,8 @@ public class IcebergUpdateablePageSource
         implements UpdatablePageSource
 {
     private final ConnectorPageSource delegate;
-    private final Supplier<IcebergDeletePageSink> deleteSinkSupplier;
-    private IcebergDeletePageSink positionDeleteSink;
+    private final Supplier<ConnectorPageSink> deleteSinkSupplier;
+    private ConnectorPageSink positionDeleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
     private final Supplier<List<DeleteFilter>> deleteFilters;
 
@@ -107,7 +107,7 @@ public class IcebergUpdateablePageSource
             ConnectorPageSource delegate,
             // represents the columns output by the delegate page source
             List<IcebergColumnHandle> delegateColumns,
-            Supplier<IcebergDeletePageSink> deleteSinkSupplier,
+            Supplier<ConnectorPageSink> deleteSinkSupplier,
             Supplier<Optional<RowPredicate>> deletePredicate,
             Supplier<List<DeleteFilter>> deleteFilters,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
@@ -295,7 +295,7 @@ public class IcebergUpdateablePageSource
     public CompletableFuture<Collection<Slice>> finish()
     {
         return Optional.ofNullable(positionDeleteSink)
-                .map(IcebergDeletePageSink::finish)
+                .map(ConnectorPageSink::finish)
                 .orElseGet(() -> completedFuture(ImmutableList.of()))
                 .thenCombine(
                         Optional.ofNullable(updatedRowPageSink).map(IcebergPageSink::finish)
