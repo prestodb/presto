@@ -23,6 +23,7 @@
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/serializers/RegisterAllVectorSerdes.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -80,6 +81,7 @@ class PlanConverterTest : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    registerAllNamedVectorSerdes();
   }
 
   void SetUp() override {

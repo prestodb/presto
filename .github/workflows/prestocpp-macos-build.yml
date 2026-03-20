@@ -93,6 +93,16 @@ jobs:
           install_re2
           install_fbthrift
 
+          # Apache Thrift is required by Velox parquet writer's thrift types.
+          # Set PATH so install_thrift uses homebrew's bison 3.x instead of
+          # macOS system bison 2.3 which doesn't support the %code directive.
+          # Set USE_CLANG so thrift builds with clang warning suppressions.
+          export PATH=$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:${PATH}
+          USE_CLANG=true install_thrift
+
+          # Arrow is required for Parquet support in Velox iceberg connector.
+          install_arrow
+
           # Now install the presto dependencies.
           install_presto_deps
 

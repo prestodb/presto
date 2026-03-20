@@ -25,6 +25,7 @@ target_link_libraries(
   presto_protocol
   velox_dwio_common
   velox_dwio_orc_reader
+  velox_dwio_parquet_writer
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_tpch_connector
@@ -70,6 +71,7 @@ target_link_libraries(
   velox_exec_test_lib
   velox_functions_prestosql
   velox_presto_type_parser
+  velox_dwio_parquet_writer
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_tpch_connector
@@ -95,6 +97,7 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_dwio_common
+  velox_dwio_parquet_writer
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_tpch_connector
@@ -123,6 +126,7 @@ target_link_libraries(
   presto_type_converter
   presto_types
   velox_dwio_common
+  velox_dwio_parquet_writer
   velox_exec_test_lib
   velox_hive_connector
   velox_hive_iceberg_splitreader

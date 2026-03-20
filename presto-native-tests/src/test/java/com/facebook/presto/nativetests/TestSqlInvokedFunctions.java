@@ -67,6 +67,54 @@ public class TestSqlInvokedFunctions
         NativeTestsUtils.createTables(storageFormat);
     }
 
+    /// Velox native `array_split_into_chunks` does not support untyped NULL input resolution.
+    /// The sql-invoked version handled this via `calledOnNullInput = false` which short-circuits
+    /// before type resolution. Override to cast NULL to a typed array.
+    @Override
+    @Test
+    public void testArraySplitIntoChunks()
+    {
+        @Language("SQL") String sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5, 6], 2)";
+        assertQuery(sql, "values array[array[1, 2], array[3, 4], array[5, 6]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3, 4, 5], 3)";
+        assertQuery(sql, "values array[array[1, 2, 3], array[4, 5]]");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 5)";
+        assertQuery(sql, "values array[array[1, 2, 3]]");
+
+        // native velox function requires typed null — untyped null can't resolve array(T)
+        sql = "select array_split_into_chunks(cast(null as array(integer)), 2)";
+        assertQuery(sql, "values null");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[1, 2, 3], -1)";
+        assertQueryFails(sql, ".*Invalid slice size: -1. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[1, null, 3, null, 5], 2)";
+        assertQuery(sql, "values array[array[1, null], array[3, null], array[5]]");
+
+        sql = "select array_split_into_chunks(array['a', 'b', 'c', 'd'], 2)";
+        assertQuery(sql, "values array[array['a', 'b'], array['c', 'd']]");
+
+        sql = "select array_split_into_chunks(array[1.1, 2.2, 3.3, 4.4, 5.5], 2)";
+        assertQuery(sql, "values array[array[1.1, 2.2], array[3.3, 4.4], array[5.5]]");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(array[null, null, null], 2)";
+        assertQuery(sql, "values array[array[null, null], array[null]]");
+
+        sql = "select array_split_into_chunks(array[null, 1, 2], 5)";
+        assertQuery(sql, "values array[array[null, 1, 2]]");
+
+        sql = "select array_split_into_chunks(array[], 0)";
+        assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+    }
+
     /// Default implementation of Sql invoked function `map_keys_by_top_n_values` is not compatible with Velox. Sidecar
     /// should be enabled to use the native compatible Sql invoked function from `native-sql-invoked-functions-plugin`.
     @Override
