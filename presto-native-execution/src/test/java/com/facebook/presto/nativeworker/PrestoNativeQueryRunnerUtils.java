@@ -67,6 +67,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeS
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerTpcdsProperties;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.setupNativeSidecarPlugin;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.createSymlinkManifest;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -126,6 +127,7 @@ public class PrestoNativeQueryRunnerUtils
         private Map<String, String> extraCoordinatorProperties = new HashMap<>();
         private Map<String, String> hiveProperties = new HashMap<>();
         private Map<String, String> tpcdsProperties = new HashMap<>();
+        private Map<String, String> sidecarPluginConfig = new HashMap<>();
         private Optional<String> pluginDirectory = Optional.empty();
         private String security;
         private boolean addStorageFormatToPath;
@@ -235,6 +237,12 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public HiveQueryRunnerBuilder setSidecarPluginConfig(Map<String, String> sidecarPluginConfig)
+        {
+            this.sidecarPluginConfig.putAll(sidecarPluginConfig);
+            return this;
+        }
+
         public HiveQueryRunnerBuilder setBuiltInWorkerFunctionsEnabled(boolean builtInWorkerFunctionsEnabled)
         {
             this.builtInWorkerFunctionsEnabled = builtInWorkerFunctionsEnabled;
@@ -296,7 +304,7 @@ public class PrestoNativeQueryRunnerUtils
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled, enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar);
             }
-            return HiveQueryRunner.createQueryRunner(
+            QueryRunner queryRunner = HiveQueryRunner.createQueryRunner(
                     ImmutableList.of(),
                     ImmutableList.of(),
                     extraProperties,
@@ -307,6 +315,10 @@ public class PrestoNativeQueryRunnerUtils
                     Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString())),
                     externalWorkerLauncher,
                     tpcdsProperties);
+            if (coordinatorSidecarEnabled) {
+                setupNativeSidecarPlugin(queryRunner, sidecarPluginConfig);
+            }
+            return queryRunner;
         }
     }
 

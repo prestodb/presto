@@ -14,9 +14,16 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.scalar.sql.NativeSqlInvokedFunctionsPlugin;
+import com.facebook.presto.sidecar.NativeSidecarPlugin;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizerFactory;
+import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
+import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -486,5 +493,45 @@ public class NativeQueryRunnerUtils
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-20' FROM tpch.tiny.orders");
             queryRunner.execute("INSERT INTO orders_bucketed SELECT orderkey, custkey, orderstatus, '2021-12-21' FROM tpch.tiny.orders");
         }
+    }
+
+    public static void setupNativeSidecarPlugin(QueryRunner queryRunner)
+    {
+        setupNativeSidecarPlugin(queryRunner, ImmutableMap.of());
+    }
+
+    public static void setupNativeSidecarPlugin(QueryRunner queryRunner, Map<String, String> sidecarPluginConfig)
+    {
+        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
+        queryRunner.loadSessionPropertyProvider(
+                NativeSystemSessionPropertyProviderFactory.NAME,
+                ImmutableMap.copyOf(sidecarPluginConfig));
+
+        // Register native catalog for built-in functions
+        Map<String, String> nativeConfig = new HashMap<>(ImmutableMap.of(
+                "supported-function-languages", "CPP",
+                "function-implementation-type", "CPP"));
+        nativeConfig.putAll(sidecarPluginConfig);
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "native",
+                ImmutableMap.copyOf(nativeConfig));
+
+        // Register hive catalog for hive-specific functions.
+        // Note: The C++ PrestoServer registers hive functions only when a hive connector is present.
+        // Since tests always setup the hive connector, hive functions will be available.
+        Map<String, String> hiveConfig = new HashMap<>(ImmutableMap.of(
+                "supported-function-languages", "CPP",
+                "function-implementation-type", "CPP"));
+        hiveConfig.putAll(sidecarPluginConfig);
+        queryRunner.loadFunctionNamespaceManager(
+                NativeFunctionNamespaceManagerFactory.NAME,
+                "hive",
+                ImmutableMap.copyOf(hiveConfig));
+
+        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
+        queryRunner.loadPlanCheckerProviderManager("native", ImmutableMap.of());
+        queryRunner.getExpressionManager().loadExpressionOptimizerFactory(NativeExpressionOptimizerFactory.NAME, "native", ImmutableMap.of());
+        queryRunner.installPlugin(new NativeSqlInvokedFunctionsPlugin());
     }
 }

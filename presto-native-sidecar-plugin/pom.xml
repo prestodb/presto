@@ -56,11 +56,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
             <version>${project.version}</version>
@@ -201,14 +196,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-native-execution</artifactId>
-            <scope>test</scope>
-            <type>test-jar</type>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
             <scope>test</scope>
             <type>test-jar</type>
@@ -256,12 +243,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>compile</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-built-in-worker-function-tools</artifactId>
             <version>${project.version}</version>
@@ -305,29 +286,6 @@
 
     <build>
         <plugins>
-            <!-- TODO: this is needed here because of the dependency on presto-native-execution -->
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredResourcePatterns>
-                    <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
-                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
-                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
-                        <ignoredResourcePattern>org.apache.avro.data/Json.avsc</ignoredResourcePattern>
-                    </ignoredResourcePatterns>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>com.esotericsoftware.kryo.*</ignoredClassPattern>
-                        <ignoredClassPattern>com.esotericsoftware.minlog.Log</ignoredClassPattern>
-                        <ignoredClassPattern>com.esotericsoftware.reflectasm.*</ignoredClassPattern>
-                        <ignoredClassPattern>module-info</ignoredClassPattern>
-                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                        <ignoredClassPattern>org.apache.avro.*</ignoredClassPattern>
-                        <ignoredClassPattern>org.roaringbitmap.*</ignoredClassPattern>
-                    </ignoredClassPatterns>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>

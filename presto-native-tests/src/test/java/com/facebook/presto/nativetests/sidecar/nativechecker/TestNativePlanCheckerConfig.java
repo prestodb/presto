@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar.functionNamespace;
+package com.facebook.presto.sidecar.nativechecker;
 
-import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -22,29 +21,26 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestNativeFunctionNamespaceManagerConfig
+@Test(groups = "sidecar")
+public class TestNativePlanCheckerConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(NativeFunctionNamespaceManagerConfig.class)
-                .setSidecarNumRetries(8)
-                .setSidecarRetryDelay(new Duration(1, MINUTES)));
+        assertRecordedDefaults(recordDefaults(NativePlanCheckerConfig.class)
+                .setPlanValidationEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("sidecar.num-retries", "15")
-                .put("sidecar.retry-delay", "5m")
+                .put("plan-validation-enabled", "false")
                 .build();
 
-        NativeFunctionNamespaceManagerConfig expected = new NativeFunctionNamespaceManagerConfig()
-                .setSidecarNumRetries(15)
-                .setSidecarRetryDelay(new Duration(5, MINUTES));
+        NativePlanCheckerConfig expected = new NativePlanCheckerConfig()
+                .setPlanValidationEnabled(false);
 
         assertFullMapping(properties, expected);
     }

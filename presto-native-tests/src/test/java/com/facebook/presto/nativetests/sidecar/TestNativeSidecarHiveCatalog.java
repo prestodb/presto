@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
-import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
@@ -27,6 +24,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
 
+@Test(groups = "sidecar")
 public class TestNativeSidecarHiveCatalog
         extends AbstractTestQueryFramework
 {
@@ -45,19 +43,10 @@ public class TestNativeSidecarHiveCatalog
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        TestNativeSidecarPlugin.setupNativeSidecarPlugin(queryRunner);
-        queryRunner.loadFunctionNamespaceManager(
-                NativeFunctionNamespaceManagerFactory.NAME,
-                "hive",
-                ImmutableMap.of(
-                        "supported-function-languages", "CPP",
-                        "function-implementation-type", "CPP"));
-
-        return queryRunner;
     }
 
     @Override

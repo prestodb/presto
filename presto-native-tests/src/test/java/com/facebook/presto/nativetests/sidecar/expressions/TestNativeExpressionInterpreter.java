@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar.expressions;
+package com.facebook.presto.nativetests.sidecar.expressions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
@@ -27,9 +27,11 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nativeworker.NativeSidecarPluginQueryRunner;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.sidecar.ForSidecarInfo;
-import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.expressions.NativeSidecarExpressionInterpreter;
+import com.facebook.presto.sidecar.expressions.RowExpressionOptimizationResult;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -98,7 +100,7 @@ public class TestNativeExpressionInterpreter
         closeAllRuntimeException(queryRunner);
     }
 
-    @Test
+    @Test(groups = "sidecar")
     public void testLambda()
     {
         optimize("array_sort(ARRAY['apple', 'banana', 'pear'], x -> IF(x = 'banana', NULL, length(x)))");
@@ -107,7 +109,7 @@ public class TestNativeExpressionInterpreter
 
     ///  Velox permits Bigint to Varchar cast but Presto does not.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testCastBigintToBoundedVarchar()
     {
         assertEvaluatedEquals("CAST(12300000000 AS varchar)", "'12300000000'");
@@ -119,7 +121,7 @@ public class TestNativeExpressionInterpreter
 
     /// Sidecar returns a ConstantExpression for random() when evaluated.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testNonDeterministicFunctionCall()
     {
         // optimize should do nothing
@@ -136,7 +138,7 @@ public class TestNativeExpressionInterpreter
     /// containing one or more `fail` subexpressions should not be optimized in Velox. The string representation of
     /// RowExpression is used to validate `fail` expression replaces all failing subexpressions.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testFailedExpressionOptimization()
     {
         // TODO: Velox COALESCE rewrite should be enhanced to deduplicate fail expressions.
@@ -187,7 +189,7 @@ public class TestNativeExpressionInterpreter
     /// Sidecar will return an ExecutionFailure when an expression throws during evaluation. The caller of expression
     /// optimization endpoint on the sidecar should throw a PrestoException.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testOptimizeDivideByZero()
     {
         assertEvaluateFails("1 / 0", "division by zero");
@@ -196,14 +198,14 @@ public class TestNativeExpressionInterpreter
     /// Sidecar will return an ExecutionFailure when an expression throws during evaluation. The caller of expression
     /// optimization endpoint on the sidecar should throw a PrestoException.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testArraySubscriptConstantNegativeIndex()
     {
         assertEvaluateFails("ARRAY [1, 2, 3][-1]", "Array subscript index cannot be negative");
     }
 
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testArraySubscriptConstantZeroIndex()
     {
         assertEvaluateFails("ARRAY [1, 2, 3][0]", "SQL array indices start at 1. Got 0.");
@@ -211,7 +213,7 @@ public class TestNativeExpressionInterpreter
 
     /// TODO: Optimization of `'a' LIKE unbound_string ESCAPE null` to `null` is not supported in Velox.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testLikeNullOptimization()
     {
         assertOptimizedEquals("null LIKE '%'", "null");
@@ -222,7 +224,7 @@ public class TestNativeExpressionInterpreter
 
     /// TODO: Certain tests are pending on IN-rewrite in Velox: https://github.com/facebookincubator/velox/pull/15663.
     @Override
-    @Test
+    @Test(groups = "sidecar")
     public void testIn()
     {
         assertOptimizedEquals("3 in (2, 4, 3, 5)", "true");
@@ -268,7 +270,7 @@ public class TestNativeExpressionInterpreter
 
     /// Velox only supports legacy map subscript and returns NULL for missing keys instead of an exception.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testMapSubscriptMissingKey() {}
 
     /// TODO: Fix result mismatch between Presto and Velox for VARBINARY literals.
@@ -276,49 +278,49 @@ public class TestNativeExpressionInterpreter
     /// Expected :Slice{base=[B@771ede0d, address=16, length=2}
     /// Actual   :Slice{base=[B@1fd73dcb, address=47, length=2}
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testVarbinaryLiteral() {}
 
     // TODO: current timestamp returns the session timestamp and this should be evaluated on the sidecar plugin.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testCurrentTimestamp() {}
 
     /// TODO: current_user should be evaluated in the sidecar plugin and not in the sidecar.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testCurrentUser() {}
 
     /// This test is disabled because these optimizations for LIKE function are not yet supported in Velox.
     /// TODO: LIKE function with field references should be optimized with a rewrite in Velox.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testLikeOptimization() {}
 
     /// LIKE function with unbound_string will not be optimized/constant-folded in Velox.
     /// TODO: LIKE function with field references should be optimized with a rewrite in Velox.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testInvalidLike() {}
 
     /// TODO: NULL_IF special form is unsupported in Presto C++.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testNullIf() {}
 
     /// TODO: Json based UDFs are not supported by the native expression optimizer.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testCppFunctionCall() {}
 
     /// TODO: Json based UDFs are not supported by the native expression optimizer.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testCppAggregateFunctionCall() {}
 
     /// TODO: Dereference expressions are not supported by Velox expression optimizer.
     @Override
-    @Test(enabled = false)
+    @Test(groups = "sidecar", enabled = false)
     public void testRowSubscript() {}
 
     @Override

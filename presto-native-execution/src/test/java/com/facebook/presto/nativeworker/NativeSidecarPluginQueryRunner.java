@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativeworker;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
 public class NativeSidecarPluginQueryRunner
 {
@@ -51,10 +47,8 @@ public class NativeSidecarPluginQueryRunner
             throws Exception
     {
         // Launch distributed runner.
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        return (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
-        return queryRunner;
     }
 }
