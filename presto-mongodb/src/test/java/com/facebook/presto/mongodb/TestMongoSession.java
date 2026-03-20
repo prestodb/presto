@@ -16,11 +16,24 @@ package com.facebook.presto.mongodb;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
+import com.mongodb.ServerAddress;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import de.bwaldvogel.mongo.MongoServer;
 import org.bson.Document;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.net.InetSocketAddress;
+import java.util.Set;
 
 import static com.facebook.presto.common.predicate.Range.equal;
 import static com.facebook.presto.common.predicate.Range.greaterThan;
@@ -35,12 +48,19 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestMongoSession
 {
     private static final MongoColumnHandle COL1 = new MongoColumnHandle("col1", BIGINT, false);
     private static final MongoColumnHandle COL2 = new MongoColumnHandle("col2", createUnboundedVarcharType(), false);
     private static final MongoColumnHandle COL3 = new MongoColumnHandle("col3", VARBINARY, false);
+
+    private MongoServer server;
+    private MongoClient client;
+    private MongoSession session;
+    private TypeManager typeManager;
 
     @Test
     public void testBuildQuery()
@@ -118,4 +138,80 @@ public class TestMongoSession
                 new Document(COL1.getName(), new Document("$exists", true).append("$eq", null))));
         assertEquals(query, expected);
     }
+
+    @BeforeClass
+    public void setupMongoServer()
+    {
+        server = new MongoServer(new SyncMemoryBackend());
+        InetSocketAddress address = server.bind();
+        client = new MongoClient(new ServerAddress(address));
+        typeManager = FunctionAndTypeManager.createTestFunctionAndTypeManager();
+
+        MongoClientConfig config = new MongoClientConfig();
+        session = new MongoSession(typeManager, client, config);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownMongoServer()
+    {
+        if (session != null) {
+            session.shutdown();
+        }
+        if (server != null) {
+            server.shutdown();
+        }
+    }
+
+    @Test
+    public void testGetAllTablesAfterTableRename()
+    {
+        String schemaName = "test_table_rename";
+        MongoDatabase database = client.getDatabase(schemaName);
+
+        // Create table A with data
+        database.getCollection("table_a").insertOne(new Document("field1", "value1"));
+
+        // Create metadata for table A
+        MongoCollection<Document> schemaCollection = database.getCollection("_schema");
+        schemaCollection.insertOne(new Document("table", "table_a")
+                .append("fields", ImmutableList.of(
+                        new Document("name", "field1").append("type", "varchar").append("hidden", false))));
+
+        // Verify table A exists
+        Set<String> tablesBeforeRename = session.getAllTables(schemaName);
+        assertEquals(tablesBeforeRename.size(), 1);
+        assertTrue(tablesBeforeRename.contains("table_a"));
+        assertFalse(tablesBeforeRename.contains("table_b"));
+
+        // Rename collection from table_a to table_b in MongoDB backend
+        database.getCollection("table_a").renameCollection(new com.mongodb.MongoNamespace(schemaName, "table_b"));
+
+        // Update metadata to reflect the rename
+        schemaCollection.updateOne(
+                new Document("table", "table_a"),
+                new Document("$set", new Document("table", "table_b")));
+
+        // Get all tables after rename - should return table_b only
+        Set<String> tablesAfterRename = session.getAllTables(schemaName);
+
+        // Verify only table_b is returned
+        assertEquals(tablesAfterRename.size(), 1);
+        assertTrue(tablesAfterRename.contains("table_b"));
+        assertFalse(tablesAfterRename.contains("table_a"));
+
+        // Verify metadata reflects the new table name
+        Document metadata = schemaCollection.find(new Document("table", "table_b")).first();
+        assertTrue(metadata != null, "Metadata for table_b should exist");
+        assertEquals(metadata.getString("table"), "table_b");
+
+        // Verify old table name metadata doesn't exist
+        Document oldMetadata = schemaCollection.find(new Document("table", "table_a")).first();
+        assertEquals(oldMetadata, null, "Metadata for table_a should not exist");
+
+        // Cleanup
+        database.drop();
+    }
+
+   
 }
+
