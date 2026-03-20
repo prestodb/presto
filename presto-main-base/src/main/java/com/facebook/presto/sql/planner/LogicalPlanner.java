@@ -420,7 +420,7 @@ public class LogicalPlanner
         Analysis.CreateVectorIndexAnalysis vectorIndexAnalysis = analysis.getCreateVectorIndexAnalysis().get();
 
         QualifiedObjectName sourceTableName = vectorIndexAnalysis.getSourceTableName();
-        QualifiedObjectName targetTableName = vectorIndexAnalysis.getTargetTableName();
+        QualifiedObjectName indexName = vectorIndexAnalysis.getIndexName();
 
         // Resolve source table handle and metadata
         TableHandle sourceTableHandle = metadata.getHandleVersion(session, sourceTableName, Optional.empty())
@@ -536,7 +536,7 @@ public class LogicalPlanner
                 Optional.empty());
 
         // Build target table metadata with properties
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, targetTableName.getCatalogName());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, indexName.getCatalogName());
 
         // Vector index properties are not registered with TablePropertyManager, so we evaluate
         // them directly. The connector's plan optimizer is responsible for validating these properties
@@ -553,7 +553,7 @@ public class LogicalPlanner
                 ColumnMetadata.builder().setName("result").setType(VARCHAR).build());
 
         ConnectorTableMetadata targetTableMetadata = new ConnectorTableMetadata(
-                toSchemaTableName(targetTableName),
+                toSchemaTableName(indexName),
                 targetColumns,
                 properties,
                 Optional.empty());
