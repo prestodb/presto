@@ -186,7 +186,9 @@ Hive Connector
 ^^^^^^^^^^^^^^
 
 * ``com.facebook.presto.hive:name=*``: Hive metastore and file system metrics
+
 Example -
+
 * com.facebook.presto.hive:name=hive,type=cachingdirectorylister
 
 Iceberg Connector
