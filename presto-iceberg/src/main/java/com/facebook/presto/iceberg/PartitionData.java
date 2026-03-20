@@ -176,6 +176,7 @@ public class PartitionData
                 }
                 return partitionValue.doubleValue();
             case STRING:
+            case VARIANT:
                 return partitionValue.asText();
             case FIXED:
             case BINARY:
