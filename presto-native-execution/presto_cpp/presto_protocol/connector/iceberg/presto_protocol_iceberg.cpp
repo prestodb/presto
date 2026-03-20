@@ -306,7 +306,8 @@ static const std::pair<FileFormat, json> FileFormat_enum_table[] =
         {FileFormat::ORC, "ORC"},
         {FileFormat::PARQUET, "PARQUET"},
         {FileFormat::AVRO, "AVRO"},
-        {FileFormat::METADATA, "METADATA"}};
+        {FileFormat::METADATA, "METADATA"},
+        {FileFormat::PUFFIN, "PUFFIN"}};
 void to_json(json& j, const FileFormat& e) {
   static_assert(std::is_enum<FileFormat>::value, "FileFormat must be an enum!");
   const auto* it = std::find_if(
@@ -371,6 +372,13 @@ void to_json(json& j, const DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+    to_json_key(
+        j,
+        "dataSequenceNumber",
+        p.dataSequenceNumber,
+        "DeleteFile",
+        "int64_t",
+        "dataSequenceNumber");
 }
 
 void from_json(const json& j, DeleteFile& p) {
@@ -408,6 +416,13 @@ void from_json(const json& j, DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+    from_json_key(
+        j,
+        "dataSequenceNumber",
+        p.dataSequenceNumber,
+        "DeleteFile",
+        "int64_t",
+        "dataSequenceNumber");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
