@@ -574,6 +574,14 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitSetTimeZone(SetTimeZone node, C context)
+    {
+        node.getTimeZone().ifPresent(timeZone -> process(timeZone, context));
+
+        return null;
+    }
+
+    @Override
     protected R visitAddColumn(AddColumn node, C context)
     {
         process(node.getColumn(), context);

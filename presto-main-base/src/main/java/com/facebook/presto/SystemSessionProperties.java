@@ -388,6 +388,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
+    public static final String TIME_ZONE_ID = "time_zone_id";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -921,6 +922,11 @@ public final class SystemSessionProperties
                         "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
                         functionsConfig.isLegacyTimestamp(),
                         true),
+                stringProperty(
+                        TIME_ZONE_ID,
+                        "Time zone for the session",
+                        null,
+                        false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
