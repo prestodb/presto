@@ -527,6 +527,8 @@ struct SessionRepresentation {
   21: map<string, SelectedRole> roles;
   22: map<string, string> preparedStatements;
   23: map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
+  24: optional string selectedUser;
+  25: optional string reasonForSelect;
 }
 struct SelectedRole {
   1: Type type;
