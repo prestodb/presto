@@ -16,6 +16,7 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +61,14 @@ public class TpchColumnHandle
     public Type getType()
     {
         return type;
+    }
+
+    public ColumnMetadata getColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(type)
+                .build();
     }
 
     @Override
