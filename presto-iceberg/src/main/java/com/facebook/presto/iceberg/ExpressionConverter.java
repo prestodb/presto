@@ -201,7 +201,16 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType) {
+            TimestampType tsType = (TimestampType) type;
+            long value = (Long) marker.getValue();
+            if (tsType.getPrecision() == MILLISECONDS) {
+                return MILLISECONDS.toMicros(value);
+            }
+            return value;
+        }
+
+        if (type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
