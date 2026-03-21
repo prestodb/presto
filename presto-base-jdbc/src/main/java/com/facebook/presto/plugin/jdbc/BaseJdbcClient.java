@@ -315,6 +315,21 @@ public class BaseJdbcClient
     }
 
     @Override
+    public Connection getConnection(JdbcIdentity identity)
+            throws SQLException
+    {
+        Connection connection = connectionFactory.openConnection(identity);
+        try {
+            connection.setReadOnly(true);
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
+        return connection;
+    }
+
+    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
