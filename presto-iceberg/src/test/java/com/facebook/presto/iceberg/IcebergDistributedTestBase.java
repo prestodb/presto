@@ -356,6 +356,108 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testAddColumnWithDefault()
+    {
+        testWithAllFileFormats(getSession(), this::testAddColumnWithDefault);
+    }
+
+    private void testAddColumnWithDefault(Session session, FileFormat fileFormat)
+    {
+        String tableName = "test_add_column_with_default_" + randomTableSuffix();
+        // Test varchar default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int, name varchar) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1, 'Alice'), (2, 'Bob')", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'IN'");
+        Table icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("country").initialDefault(), "IN");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test integer default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1), (2)", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN priority integer DEFAULT 5");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("priority").initialDefault(), 5);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test double default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN score double DEFAULT 0.0E0");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("score").initialDefault(), 0.0);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test boolean default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN is_active boolean DEFAULT true");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("is_active").initialDefault(), true);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test NOT NULL with default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("status").initialDefault(), "ACTIVE");
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test date default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN creation_date date DEFAULT DATE '2023-01-01'");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("creation_date").initialDefault(), 19358);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test timestamp default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN creation_time timestamp DEFAULT TIMESTAMP '2023-01-01 11:00:00.000000'");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("creation_time").initialDefault(), 1672570800000000L);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test bigint default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN long_val bigint DEFAULT 10000000000");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("long_val").initialDefault(), 10000000000L);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test real default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN real_val real DEFAULT 10.5");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("real_val").initialDefault(), 10.5f);
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test decimal default
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1)", 1);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN decimal_val decimal(10,2) DEFAULT DECIMAL '10.55'");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("decimal_val").initialDefault(), new java.math.BigDecimal("10.55"));
+        assertUpdate(session, "DROP TABLE " + tableName);
+
+        // Test multiple columns with defaults
+        assertUpdate(session, "CREATE TABLE " + tableName + "(id int) with (\"format-version\" = '3', \"write.format.default\" = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES(1), (2)", 2);
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'US'");
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN priority integer DEFAULT 10");
+        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN is_enabled boolean DEFAULT false");
+        icebergTable = loadTable(tableName);
+        assertEquals(icebergTable.schema().findField("country").initialDefault(), "US");
+        assertEquals(icebergTable.schema().findField("priority").initialDefault(), 10);
+        assertEquals(icebergTable.schema().findField("is_enabled").initialDefault(), false);
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
     @DataProvider(name = "transforms")
     public String[][] transforms()
     {

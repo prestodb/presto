@@ -174,6 +174,13 @@ void to_json(json& j, const IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "List<Subfield>",
       "requiredSubfields");
+  to_json_key(
+      j,
+      "initialDefaultValue",
+      p.initialDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "initialDefaultValue");
 }
 
 void from_json(const json& j, IcebergColumnHandle& p) {
@@ -202,6 +209,13 @@ void from_json(const json& j, IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "List<Subfield>",
       "requiredSubfields");
+  from_json_key(
+      j,
+      "initialDefaultValue",
+      p.initialDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "initialDefaultValue");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {

@@ -2303,12 +2303,18 @@ class AstBuilder
 
         boolean nullable = context.NOT() == null;
 
+        Optional<Expression> defaultExpression = Optional.empty();
+        if (context.DEFAULT() != null && context.expression() != null) {
+            defaultExpression = Optional.of((Expression) visit(context.expression()));
+        }
+
         return new ColumnDefinition(
                 getLocation(context),
                 (Identifier) visit(context.identifier()),
                 getType(context.type()),
                 nullable, properties,
-                comment);
+                comment,
+                defaultExpression);
     }
 
     @Override
