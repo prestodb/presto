@@ -365,7 +365,7 @@ TEST_F(PrestoToVeloxConnectorTest, ctasPassesNimbleSerdeParameters) {
   hiveOutputTableHandle->locationHandle.tableType =
       protocol::hive::TableType::NEW;
   hiveOutputTableHandle->additionalTableParameters = {
-      {"nimble.enable.vectorized.stats", "true"},
+      {"nimble.stats.enable_vectorized", "true"},
       {"nimble.index.columns", "id"},
       {"alpha.encodingselection.read.factors",
        "Constant=1.0;Trivial=0.7;FixedBitWidth=0.7;MainlyConstant=1.0;"
@@ -390,7 +390,7 @@ TEST_F(PrestoToVeloxConnectorTest, ctasPassesNimbleSerdeParameters) {
 
   const auto& serdeParams = hiveInsert->serdeParameters();
   EXPECT_EQ(serdeParams.size(), 3);
-  EXPECT_EQ(serdeParams.at("nimble.enable.vectorized.stats"), "true");
+  EXPECT_EQ(serdeParams.at("nimble.stats.enable_vectorized"), "true");
   EXPECT_EQ(serdeParams.at("nimble.index.columns"), "id");
   EXPECT_EQ(
       serdeParams.at("alpha.encodingselection.read.factors"),
