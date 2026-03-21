@@ -287,7 +287,7 @@ public class PartitionTable
         if (value == null) {
             return null;
         }
-        if (type instanceof Types.StringType) {
+        if (type instanceof Types.StringType || type.isVariantType()) {
             return value.toString();
         }
         if (type instanceof Types.BinaryType) {
@@ -302,6 +302,9 @@ public class PartitionTable
             if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
                 return MICROSECONDS.toMillis((long) value);
             }
+        }
+        if (type instanceof Types.TimestampNanoType) {
+            return Math.floorDiv((long) value, 1000L);
         }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);

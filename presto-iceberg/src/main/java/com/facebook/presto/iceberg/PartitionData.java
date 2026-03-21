@@ -150,6 +150,7 @@ public class PartitionData
                 return partitionValue.asInt();
             case LONG:
             case TIMESTAMP:
+            case TIMESTAMP_NANO:
             case TIME:
                 return partitionValue.asLong();
             case FLOAT:
@@ -175,6 +176,7 @@ public class PartitionData
                 }
                 return partitionValue.doubleValue();
             case STRING:
+            case VARIANT:
                 return partitionValue.asText();
             case FIXED:
             case BINARY:
