@@ -44,6 +44,8 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+#include "presto_cpp/main/tvf/exec/TableFunctionTranslator.h"
+#include "presto_cpp/main/tvf/functions/TableFunctionsRegistration.h"
 #include "presto_cpp/main/types/ExpressionOptimizer.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/types/VeloxPlanConversion.h"
@@ -534,6 +536,37 @@ void PrestoServer::registerHttpEndpoints() {
                 proxygen::HTTP_HEADER_CONTENT_TYPE,
                 http::kMimeTypeApplicationJson)
             .sendWithEOM();
+      });
+  httpServer_->registerGet(
+      "/v1/functions/tvf",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(downstream, getTableValuedFunctionsMetadata());
+      });
+  httpServer_->registerPost(
+      "/v1/tvf/analyze",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream,
+            getAnalyzedTableValueFunction(
+                util::extractMessageBody(body),
+                server->nativeWorkerPool_.get()));
+      });
+  httpServer_->registerPost(
+      "/v1/tvf/splits",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        http::sendOkResponse(
+            downstream,
+            getSplits(
+                util::extractMessageBody(body),
+                server->nativeWorkerPool_.get()));
       });
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
@@ -1483,6 +1516,10 @@ void PrestoServer::registerCustomOperators() {
   // which will allow server specific operator registration.
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::BroadcastWriteTranslator>());
+
+  // Table functions translator.
+  velox::exec::Operator::registerOperator(
+      std::make_unique<tvf::TableFunctionTranslator>());
 }
 
 void PrestoServer::registerFunctions() {
@@ -1503,6 +1540,7 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+  tvf::registerAllTableFunctions(prestoBuiltinFunctionPrefix_);
 }
 
 void PrestoServer::registerRemoteFunctions() {
