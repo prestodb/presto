@@ -1,6 +1,6 @@
-=========================
+========================
 Deploying Custom Plugins
-=========================
+========================
 
 Presto has a plugin-based architecture. Connectors, functions, access control
 implementations, and other features are provided by plugins that are loaded at
