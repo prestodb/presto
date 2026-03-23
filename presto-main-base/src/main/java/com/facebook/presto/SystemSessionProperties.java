@@ -364,6 +364,7 @@ public final class SystemSessionProperties
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
+    public static final String MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS = "merge_max_by_and_min_by_aggregations";
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String PUSHDOWN_SUBFIELDS_FOR_CARDINALITY = "pushdown_subfields_for_cardinality";
@@ -2180,6 +2181,10 @@ public final class SystemSessionProperties
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
                         false),
+                booleanProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS,
+                        "Merge multiple max_by or min_by aggregations with the same comparison key into a single aggregation with ROW argument",
+                        featuresConfig.isMergeMaxByMinByAggregationsEnabled(),
+                        false),
                 stringProperty(
                         TRY_FUNCTION_CATCHABLE_ERRORS,
                         "Comma-separated list of error code names that TRY function should catch (such as 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS')",
@@ -3667,6 +3672,11 @@ public final class SystemSessionProperties
     public static boolean isAddDistinctBelowSemiJoinBuildEnabled(Session session)
     {
         return session.getSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, Boolean.class);
+    }
+
+    public static boolean isMergeMaxByMinByAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS, Boolean.class);
     }
 
     public static boolean isCanonicalizedJsonExtract(Session session)

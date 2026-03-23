@@ -63,6 +63,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.MergeMinMaxByAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.MinMaxByToWindowFunction;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
@@ -602,6 +603,13 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new CombineApproxDistinctFunctions(metadata.getFunctionAndTypeManager()))));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new MergeMinMaxByAggregations(metadata.getFunctionAndTypeManager()))));
 
         // In RewriteIfOverAggregation, we can only optimize when the aggregation output is used in only one IF expression, and not used in any other expressions (excluding
         // identity assignments). Hence we need to simplify projection assignments to combine/inline expressions in assignments so as to identify the candidate IF expressions.

@@ -65,6 +65,7 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_S
 import static com.facebook.presto.SystemSessionProperties.LEGACY_UNNEST;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
@@ -8451,6 +8452,64 @@ public abstract class AbstractTestQueries
         // JOIN USING produces COALESCE automatically
         assertQueryWithSameQueryRunner(enabledSession,
                 "SELECT regionkey FROM nation LEFT JOIN region USING (regionkey)",
+                disabledSession);
+    }
+
+    @Test
+    public void testMergeMinMaxByAggregations()
+    {
+        Session enabledSession = Session.builder(getSession())
+                .setSystemProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS, "true")
+                .build();
+        Session disabledSession = Session.builder(getSession())
+                .setSystemProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS, "false")
+                .build();
+
+        // max_by: global aggregation (orderkey is unique — no tie-breaking ambiguity)
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT max_by(totalprice, orderkey), max_by(orderstatus, orderkey) FROM orders",
+                disabledSession);
+
+        // max_by: with GROUP BY
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT orderstatus, max_by(totalprice, orderkey), max_by(custkey, orderkey) FROM orders GROUP BY orderstatus",
+                disabledSession);
+
+        // max_by: three aggregations
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT max_by(totalprice, orderkey), max_by(custkey, orderkey), max_by(orderstatus, orderkey) FROM orders",
+                disabledSession);
+
+        // min_by: global aggregation
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT min_by(totalprice, orderkey), min_by(orderstatus, orderkey) FROM orders",
+                disabledSession);
+
+        // min_by: with GROUP BY
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT orderstatus, min_by(totalprice, orderkey), min_by(custkey, orderkey) FROM orders GROUP BY orderstatus",
+                disabledSession);
+
+        // mixed max_by and min_by with same key — merged separately
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT max_by(totalprice, orderkey), max_by(custkey, orderkey), " +
+                        "min_by(totalprice, orderkey), min_by(custkey, orderkey) FROM orders",
+                disabledSession);
+
+        // max_by with other aggregations
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT max_by(totalprice, orderkey), max_by(custkey, orderkey), sum(totalprice), count(*) FROM orders",
+                disabledSession);
+
+        // max_by with GROUP BY and HAVING
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT orderstatus, max_by(totalprice, orderkey), max_by(custkey, orderkey) " +
+                        "FROM orders GROUP BY orderstatus HAVING count(*) > 1",
+                disabledSession);
+
+        // Single max_by — should NOT be rewritten (optimization doesn't apply)
+        assertQueryWithSameQueryRunner(enabledSession,
+                "SELECT max_by(totalprice, orderkey) FROM orders",
                 disabledSession);
     }
 }
