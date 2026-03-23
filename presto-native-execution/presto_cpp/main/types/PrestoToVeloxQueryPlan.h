@@ -11,19 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include <stdexcept>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 #include <vector>
+
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/types/PrestoTaskId.h"
+#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/PlanNode.h"
 #include "velox/type/Variant.h"
-
-#include "presto_cpp/main/types/PrestoTaskId.h"
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "presto_cpp/main/types/TypeParser.h"
 
 namespace facebook::presto {
 

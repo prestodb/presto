@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/core/QueryCtx.h"
@@ -47,7 +47,7 @@ enum class OptimizerLevel {
 /// @param pool Memory pool, required for expression evaluation.
 std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
     const std::vector<RowExpressionPtr>& input,
-    OptimizerLevel& optimizerLevel,
+    const OptimizerLevel& optimizerLevel,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool);
 } // namespace facebook::presto::expression
