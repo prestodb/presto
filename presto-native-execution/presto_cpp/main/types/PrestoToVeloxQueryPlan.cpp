@@ -1851,7 +1851,7 @@ core::TopNRowNumberNode::RankFunction prestoToVeloxRankFunction(
       VELOX_UNREACHABLE();
   }
 }
-}; // namespace
+} // namespace
 
 std::shared_ptr<const core::PlanNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(

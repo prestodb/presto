@@ -16,14 +16,14 @@
 #include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
-bool planHasNestedJoinLoop(const velox::core::PlanNodePtr planNode) {
+bool planHasNestedJoinLoop(const velox::core::PlanNodePtr& planNode) {
   if (auto joinNode =
           std::dynamic_pointer_cast<const velox::core::NestedLoopJoinNode>(
               planNode)) {
     return true;
   }
 
-  for (auto plan : planNode->sources()) {
+  for (const auto& plan : planNode->sources()) {
     if (planHasNestedJoinLoop(plan)) {
       return true;
     }

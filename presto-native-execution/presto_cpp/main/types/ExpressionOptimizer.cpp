@@ -63,7 +63,7 @@ velox::VectorPtr tryEvaluateToConstant(
 
 protocol::RowExpressionOptimizationResult optimizeExpression(
     const RowExpressionPtr& input,
-    OptimizerLevel& optimizerLevel,
+    const OptimizerLevel& optimizerLevel,
     const VeloxExprConverter& prestoToVeloxConverter,
     const expression::VeloxToPrestoExprConverter& veloxToPrestoConverter,
     velox::core::QueryCtx* queryCtx,
@@ -99,7 +99,7 @@ protocol::RowExpressionOptimizationResult optimizeExpression(
 
 std::vector<protocol::RowExpressionOptimizationResult> optimizeExpressions(
     const std::vector<RowExpressionPtr>& input,
-    OptimizerLevel& optimizerLevel,
+    const OptimizerLevel& optimizerLevel,
     velox::core::QueryCtx* queryCtx,
     velox::memory::MemoryPool* pool) {
   TypeParser typeParser;

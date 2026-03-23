@@ -19,7 +19,7 @@
 
 namespace facebook::presto {
 
-const std::unordered_map<std::string, std::string> prestoOperatorMap();
+std::unordered_map<std::string, std::string> prestoOperatorMap();
 
 class VeloxExprConverter {
  public:
@@ -55,7 +55,7 @@ class VeloxExprConverter {
 
  private:
   std::vector<velox::core::TypedExprPtr> toVeloxExpr(
-      std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const;
+      const std::vector<std::shared_ptr<protocol::RowExpression>>& pexpr) const;
 
   std::optional<velox::core::TypedExprPtr> tryConvertLike(
       const protocol::CallExpression& pexpr) const;
