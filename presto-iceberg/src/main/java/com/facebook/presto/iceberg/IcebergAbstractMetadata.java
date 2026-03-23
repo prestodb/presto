@@ -834,6 +834,16 @@ public abstract class IcebergAbstractMetadata
             deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
         }
 
+        // For PUFFIN deletion vectors: set content offset, content size, record count,
+        // and referenced data file path. These fields enable the Iceberg library to
+        // correctly read the DV blob from the PUFFIN container file.
+        if (task.getFileFormat() == FileFormat.PUFFIN) {
+            task.getContentOffset().ifPresent(deleteBuilder::withContentOffset);
+            task.getContentSizeInBytes().ifPresent(deleteBuilder::withContentSizeInBytes);
+            task.getRecordCount().ifPresent(deleteBuilder::withRecordCount);
+            task.getReferencedDataFile().ifPresent(deleteBuilder::withReferencedDataFile);
+        }
+
         rowDelta.addDeletes(deleteBuilder.build());
         writtenFiles.add(task.getPath());
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
@@ -900,12 +910,19 @@ public abstract class IcebergAbstractMetadata
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
 
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    "Iceberg table updates require at least format version 2");
+        }
+
+        // V3+ tables use deletion vectors natively (inherently merge-on-read).
+        // V2 tables require explicit merge-on-read mode configuration.
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
-                    "Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+                    "Iceberg V2 table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
 
@@ -924,7 +941,7 @@ public abstract class IcebergAbstractMetadata
 
         Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = transformValues(icebergTable.specs(), partitionSpec -> toPrestoPartitionSpec(partitionSpec, typeManager));
 
-        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle, partitionSpecs);
+        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle, partitionSpecs, formatVersion);
     }
 
     @Override
@@ -1489,7 +1506,8 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED,
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
-        if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
+        // V3+ tables use deletion vectors natively; V2 requires explicit merge-on-read mode.
+        if (formatVersion < 3 && getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.");
         }
         validateTableMode(session, icebergTable);
@@ -1770,11 +1788,17 @@ public abstract class IcebergAbstractMetadata
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
 
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        // V3+ tables use deletion vectors natively (inherently merge-on-read).
+        // V2 tables require explicit merge-on-read mode configuration.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new RuntimeException("Iceberg table updates require at least format version 2");
+        }
+
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
-            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+            throw new RuntimeException("Iceberg V2 table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
         return handle

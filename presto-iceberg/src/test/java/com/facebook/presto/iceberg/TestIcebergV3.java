@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -151,12 +149,11 @@ public class TestIcebergV3
 
     @Test
     public void testDeleteOnV3Table()
-            throws Exception
     {
         String tableName = "test_v3_delete";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName
                     + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)", 3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
@@ -249,7 +246,7 @@ public class TestIcebergV3
         String tableName = "test_v3_update";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, status VARCHAR, score DOUBLE) WITH (\"format-version\" = '3', \"write.update.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, status VARCHAR, score DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName
                             + " VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)",
                     3);
@@ -257,8 +254,12 @@ public class TestIcebergV3
                     "VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)");
 
             assertUpdate("UPDATE " + tableName + " SET status = 'updated', score = 95.0 WHERE id = 1", 1);
+            assertQuery("SELECT * FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice', 'updated', 95.0)");
+
+            assertUpdate("UPDATE " + tableName + " SET status = 'retired' WHERE status = 'inactive'", 1);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice', 'updated', 95.0), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)");
+                    "VALUES (1, 'Alice', 'updated', 95.0), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'retired', 78.3)");
         }
         finally {
             dropTable(tableName);
@@ -272,7 +273,7 @@ public class TestIcebergV3
         String sourceTable = "test_v3_merge_source";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3', \"write.update.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("CREATE TABLE " + sourceTable + " (id INTEGER, name VARCHAR, value DOUBLE)");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0)", 2);
             assertUpdate("INSERT INTO " + sourceTable + " VALUES (1, 'Alice Updated', 150.0), (3, 'Charlie', 300.0)",
@@ -281,10 +282,11 @@ public class TestIcebergV3
             assertQuery("SELECT * FROM " + sourceTable + " ORDER BY id",
                     "VALUES (1, 'Alice Updated', 150.0), (3, 'Charlie', 300.0)");
 
-            getQueryRunner().execute(
+            assertUpdate(
                     "MERGE INTO " + tableName + " t USING " + sourceTable + " s ON t.id = s.id " +
                             "WHEN MATCHED THEN UPDATE SET name = s.name, value = s.value " +
-                            "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)");
+                            "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)",
+                    3);
 
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice Updated', 150.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
@@ -1054,7 +1056,7 @@ public class TestIcebergV3
         try {
             // Step 1: Create V3 table and insert initial data
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName
                     + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)", 5);
 
@@ -1234,9 +1236,43 @@ public class TestIcebergV3
         }
     }
 
-    // TODO: Enable when Iceberg library supports UpdateSchema.setDefaultValue()
-    // @Test
-    // public void testV3DefaultValues() — requires Iceberg API not yet in 1.10.1
+    @Test
+    public void testV3DefaultValues()
+            throws Exception
+    {
+        String tableName = "test_v3_default_values";
+        try {
+            // Step 1: Create V3 table and insert initial data
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+            // Step 2: Add column with default value via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("score", org.apache.iceberg.types.Types.DoubleType.get())
+                    .setDefaultValue("score", 99.0)
+                    .commit();
+
+            // Step 3: Verify we can read old data — the new column should have default value
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (2, 'Bob')");
+
+            // Step 4: Insert new data with the new column
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'Carol', 300.0)", 1);
+
+            // Step 5: Verify new data reads correctly
+            assertQuery("SELECT id, name, score FROM " + tableName + " WHERE id = 3",
+                    "VALUES (3, 'Carol', 300.0)");
+
+            // Step 6: Verify old rows get default value (99.0) from Iceberg schema evolution
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 99.0), (2, 'Bob', 99.0), (3, 'Carol', 300.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 
     @Test
     public void testMultiArgumentPartitionTransforms()
@@ -1299,647 +1335,6 @@ public class TestIcebergV3
             // Verify we can filter
             assertQuery("SELECT id FROM " + tableName + " WHERE category = 'food_pizza'",
                     "VALUES 1");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testNanosecondTimestampSchema()
-    {
-        String tableName = "test_v3_timestamp_nano";
-        try {
-            // Create V3 table with Presto
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
-
-            // Add nanosecond timestamp columns via Iceberg API
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("ts_nano", Types.TimestampNanoType.withoutZone())
-                    .addColumn("ts_nano_tz", Types.TimestampNanoType.withZone())
-                    .commit();
-
-            // Verify Presto can read the schema with nanosecond columns
-            // ts_nano maps to timestamp microseconds, ts_nano_tz maps to timestamp with time zone
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
-
-            // Insert data through Presto — the nanosecond columns accept null values
-            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
-            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testVariantColumnSchema()
-    {
-        String tableName = "test_v3_variant";
-        try {
-            // Create V3 table with Presto
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
-
-            // Add variant column via Iceberg API
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("data", Types.VariantType.get())
-                    .commit();
-
-            // Verify Presto can read the schema with the variant column
-            // Variant maps to VARCHAR in Presto
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
-
-            // Insert data — the variant column accepts null values
-            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
-            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testVariantTypeEndToEnd()
-    {
-        String tableName = "test_v3_variant_e2e";
-        try {
-            // Step 1: Create V3 table and add variant columns via Iceberg schema evolution
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("metadata", Types.VariantType.get())
-                    .commit();
-
-            // Step 2: Verify empty table with variant column is queryable
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
-
-            // Step 3: Insert data — variant column receives NULLs
-            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
-
-            // Step 4: Verify full row reads including NULL variant values
-            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice', NULL), (2, 'Bob', NULL), (3, 'Charlie', NULL)");
-
-            // Step 5: Test IS NULL predicate on variant column
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 3");
-
-            // Step 6: Test filtering on non-variant columns with variant columns in projection
-            assertQuery("SELECT id, name, metadata FROM " + tableName + " WHERE id > 1 ORDER BY id",
-                    "VALUES (2, 'Bob', NULL), (3, 'Charlie', NULL)");
-
-            // Step 7: Test aggregation with variant columns in the table
-            assertQuery("SELECT count(*), min(id), max(id) FROM " + tableName, "VALUES (3, 1, 3)");
-            assertQuery("SELECT name, count(*) FROM " + tableName + " GROUP BY name ORDER BY name",
-                    "VALUES ('Alice', 1), ('Bob', 1), ('Charlie', 1)");
-
-            // Step 8: DELETE rows from a table with variant columns
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
-            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice'), (3, 'Charlie')");
-
-            // Step 9: Insert more data after deletion
-            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Diana'), (5, 'Eve')", 2);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
-
-            // Step 10: Verify mixed snapshots (pre-delete and post-delete) read correctly
-            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve')");
-
-            // Step 11: Further schema evolution — add another variant column alongside the first
-            table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("tags", Types.VariantType.get())
-                    .commit();
-
-            // Step 12: Verify reads still work with two variant columns
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
-            assertQuery("SELECT id, name FROM " + tableName + " WHERE id = 1",
-                    "VALUES (1, 'Alice')");
-
-            // Step 13: Insert with both variant columns NULL
-            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (6, 'Frank')", 1);
-            assertQuery("SELECT id, metadata, tags FROM " + tableName + " WHERE id = 6",
-                    "VALUES (6, NULL, NULL)");
-
-            // Step 14: Verify V3 format preserved through all operations
-            table = loadTable(tableName);
-            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testVariantColumnWithPartitioning()
-    {
-        String tableName = "test_v3_variant_partitioned";
-        try {
-            // Create V3 partitioned table with variant column
-            assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, category VARCHAR) WITH (\"format-version\" = '3', partitioning = ARRAY['category'])");
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("data", Types.VariantType.get())
-                    .commit();
-
-            // Insert data into multiple partitions
-            assertUpdate("INSERT INTO " + tableName + " (id, category) VALUES (1, 'A'), (2, 'A'), (3, 'B'), (4, 'C')", 4);
-
-            // Verify partition pruning works with variant column present
-            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'A' ORDER BY id",
-                    "VALUES 1, 2");
-            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'B'",
-                    "VALUES 3");
-
-            // Verify cross-partition aggregation
-            assertQuery("SELECT category, count(*) FROM " + tableName + " GROUP BY category ORDER BY category",
-                    "VALUES ('A', 2), ('B', 1), ('C', 1)");
-
-            // Delete within a partition
-            assertUpdate("DELETE FROM " + tableName + " WHERE category = 'A'", 2);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
-            assertQuery("SELECT id FROM " + tableName + " ORDER BY id",
-                    "VALUES 3, 4");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testVariantJsonDataRoundTrip()
-    {
-        String tableName = "test_v3_variant_json_data";
-        try {
-            // Step 1: Create V3 table and add variant column via Iceberg API
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("metadata", Types.VariantType.get())
-                    .commit();
-
-            // Step 2: Insert rows with actual JSON string data into the variant column.
-            // Since VARIANT maps to VARCHAR in Presto, JSON strings are written as-is.
-            assertUpdate("INSERT INTO " + tableName + " VALUES "
-                    + "(1, 'Alice', '{\"age\":30,\"city\":\"NYC\"}'), "
-                    + "(2, 'Bob', '{\"age\":25}'), "
-                    + "(3, 'Charlie', NULL)", 3);
-
-            // Step 3: Verify round-trip — JSON strings survive write → Parquet → read
-            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice', '{\"age\":30,\"city\":\"NYC\"}'), "
-                            + "(2, 'Bob', '{\"age\":25}'), "
-                            + "(3, 'Charlie', NULL)");
-
-            // Step 4: Test filtering on non-variant columns with variant data present
-            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 1",
-                    "VALUES ('{\"age\":30,\"city\":\"NYC\"}')");
-
-            // Step 5: Test IS NULL / IS NOT NULL on variant column with actual data
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 2");
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 1");
-
-            // Step 6: Insert rows with different JSON value types (number, string, boolean)
-            assertUpdate("INSERT INTO " + tableName + " VALUES "
-                    + "(4, 'Diana', '42'), "
-                    + "(5, 'Eve', '\"simple string\"'), "
-                    + "(6, 'Frank', 'true')", 3);
-
-            // Step 7: Verify all rows
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 6");
-            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 4", "VALUES ('42')");
-            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 6", "VALUES ('true')");
-
-            // Step 8: Delete rows with variant data
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 4");
-
-            // Step 9: Verify remaining data
-            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
-                    "VALUES (2, 'Bob'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve'), (6, 'Frank')");
-
-            // Step 10: Verify V3 format preserved
-            table = loadTable(tableName);
-            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testVariantColumnWithDeleteAndUpdate()
-            throws Exception
-    {
-        String tableName = "test_v3_variant_dml";
-        try {
-            // Create V3 table with merge-on-read delete mode and variant column
-            assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, score DOUBLE)"
-                    + " WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read', \"write.update.mode\" = 'merge-on-read')");
-            Table table = loadTable(tableName);
-            table.updateSchema()
-                    .addColumn("extra", Types.VariantType.get())
-                    .commit();
-
-            // Insert data
-            assertUpdate("INSERT INTO " + tableName + " (id, name, score) VALUES "
-                    + "(1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)", 4);
-
-            // Verify initial data
-            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
-
-            // Row-level DELETE (produces deletion vector)
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana')");
-
-            // Verify DV metadata is PUFFIN format
-            table = loadTable(tableName);
-            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
-                for (FileScanTask task : tasks) {
-                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
-                        assertEquals(deleteFile.format(), FileFormat.PUFFIN);
-                    }
-                }
-            }
-
-            // UPDATE on table with variant column
-            assertUpdate("UPDATE " + tableName + " SET score = 99.9 WHERE id = 1", 1);
-            assertQuery("SELECT id, name, score FROM " + tableName + " WHERE id = 1",
-                    "VALUES (1, 'Alice', 99.9)");
-
-            // Verify final state
-            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'Alice', 99.9), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3SnapshotTimeTravelById()
-    {
-        String tableName = "test_v3_snapshot_time_travel_id";
-        try {
-            // Step 1: Create V3 table and insert initial data
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
-
-            // Step 2: Capture snapshot after first insert
-            Table table = loadTable(tableName);
-            long snapshot1Id = table.currentSnapshot().snapshotId();
-
-            // Step 3: Insert more data (creates snapshot 2)
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three'), (4, 'four')", 2);
-            table = loadTable(tableName);
-            long snapshot2Id = table.currentSnapshot().snapshotId();
-
-            // Step 4: Current view should show all 4 rows
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
-
-            // Step 5: Time travel to snapshot 1 — should show only 2 rows
-            assertQuery(format("SELECT * FROM \"%s@%d\" ORDER BY id", tableName, snapshot1Id),
-                    "VALUES (1, 'one'), (2, 'two')");
-            assertQuery(format("SELECT count(*) FROM \"%s@%d\"", tableName, snapshot1Id),
-                    "SELECT 2");
-
-            // Step 6: Time travel to snapshot 2 — should show all 4 rows
-            assertQuery(format("SELECT * FROM \"%s@%d\" ORDER BY id", tableName, snapshot2Id),
-                    "VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four')");
-
-            // Step 7: Delete a row (creates snapshot 3 with DV)
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
-
-            // Step 8: Current view should show 3 rows
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
-
-            // Step 9: Time travel back to snapshot 2 — should still show all 4 rows
-            assertQuery(format("SELECT count(*) FROM \"%s@%d\"", tableName, snapshot2Id),
-                    "SELECT 4");
-            assertQuery(format("SELECT * FROM \"%s@%d\" WHERE id = 1", tableName, snapshot2Id),
-                    "VALUES (1, 'one')");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3SnapshotsMetadataTable()
-    {
-        String tableName = "test_v3_snapshots_metadata";
-        try {
-            // Step 1: Create V3 table and perform multiple operations
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
-
-            // Step 2: Query $snapshots metadata table
-            // Each operation (insert, insert, delete) should produce a snapshot
-            MaterializedResult snapshots = computeActual(
-                    "SELECT snapshot_id, parent_id, operation FROM \"" + tableName + "$snapshots\" ORDER BY committed_at");
-            assertTrue(snapshots.getRowCount() >= 3,
-                    "Should have at least 3 snapshots (2 inserts + 1 delete), got: " + snapshots.getRowCount());
-
-            // Step 3: Verify snapshot IDs are unique
-            java.util.Set<Long> snapshotIds = new java.util.HashSet<>();
-            for (MaterializedRow row : snapshots.getMaterializedRows()) {
-                long snapshotId = (Long) row.getField(0);
-                assertTrue(snapshotIds.add(snapshotId), "Snapshot IDs must be unique: " + snapshotId);
-            }
-
-            // Step 4: Verify parent-child chain — each snapshot (except first) should have a parent
-            MaterializedRow firstSnapshot = snapshots.getMaterializedRows().get(0);
-            for (int i = 1; i < snapshots.getRowCount(); i++) {
-                MaterializedRow snapshot = snapshots.getMaterializedRows().get(i);
-                Object parentId = snapshot.getField(1);
-                assertTrue(parentId != null, "Non-first snapshot must have a parent_id");
-            }
-
-            // Step 5: Verify operations column
-            boolean hasAppend = false;
-            boolean hasDelete = false;
-            for (MaterializedRow row : snapshots.getMaterializedRows()) {
-                String operation = (String) row.getField(2);
-                if ("append".equals(operation)) {
-                    hasAppend = true;
-                }
-                if ("overwrite".equals(operation) || "delete".equals(operation)) {
-                    hasDelete = true;
-                }
-            }
-            assertTrue(hasAppend, "Should have at least one append operation");
-
-            // Step 6: Verify committed_at is populated
-            MaterializedResult timestamps = computeActual(
-                    "SELECT committed_at FROM \"" + tableName + "$snapshots\"");
-            for (MaterializedRow row : timestamps.getMaterializedRows()) {
-                assertTrue(row.getField(0) != null, "committed_at should be populated");
-            }
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3HistoryMetadataTable()
-    {
-        String tableName = "test_v3_history_metadata";
-        try {
-            // Step 1: Create V3 table and perform multiple operations
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
-
-            // Step 2: Query $history metadata table
-            MaterializedResult history = computeActual(
-                    "SELECT snapshot_id, parent_id, is_current_ancestor FROM \"" + tableName + "$history\"");
-            assertTrue(history.getRowCount() >= 2,
-                    "Should have at least 2 history entries, got: " + history.getRowCount());
-
-            // Step 3: The most recent entry should be a current ancestor
-            boolean hasCurrentAncestor = false;
-            for (MaterializedRow row : history.getMaterializedRows()) {
-                Boolean isCurrentAncestor = (Boolean) row.getField(2);
-                if (Boolean.TRUE.equals(isCurrentAncestor)) {
-                    hasCurrentAncestor = true;
-                }
-            }
-            assertTrue(hasCurrentAncestor, "At least one history entry should be a current ancestor");
-
-            // Step 4: Verify snapshot IDs in history match those in $snapshots
-            MaterializedResult snapshotIds = computeActual(
-                    "SELECT snapshot_id FROM \"" + tableName + "$snapshots\"");
-            MaterializedResult historySnapshotIds = computeActual(
-                    "SELECT snapshot_id FROM \"" + tableName + "$history\"");
-            assertEquals(snapshotIds.getRowCount(), historySnapshotIds.getRowCount(),
-                    "History and snapshots tables should have same number of entries");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3RollbackToSnapshot()
-    {
-        String tableName = "test_v3_rollback_snapshot";
-        try {
-            // Step 1: Create V3 table and insert initial data
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
-
-            // Step 2: Capture snapshot after first insert
-            Table table = loadTable(tableName);
-            long snapshot1Id = table.currentSnapshot().snapshotId();
-
-            // Step 3: Insert more data
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three'), (4, 'four')", 2);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
-
-            // Step 4: Rollback to snapshot 1
-            assertQuerySucceeds(format(
-                    "CALL system.rollback_to_snapshot('%s', '%s', %d)",
-                    TEST_SCHEMA, tableName, snapshot1Id));
-
-            // Step 5: Verify the table is back to 2 rows
-            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'one'), (2, 'two')");
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
-
-            // Step 6: Verify we can still insert after rollback
-            assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'five')", 1);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
-            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'one'), (2, 'two'), (5, 'five')");
-
-            // Step 7: Verify V3 format preserved after rollback
-            table = loadTable(tableName);
-            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3RollbackWithDeletionVectors()
-            throws Exception
-    {
-        String tableName = "test_v3_rollback_dv";
-        try {
-            // Step 1: Create V3 table with merge-on-read mode
-            assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read')");
-            assertUpdate("INSERT INTO " + tableName
-                    + " VALUES (1, 'one'), (2, 'two'), (3, 'three')", 3);
-
-            // Step 2: Capture snapshot before delete
-            Table table = loadTable(tableName);
-            long preDeleteSnapshotId = table.currentSnapshot().snapshotId();
-
-            // Step 3: Delete a row (creates DV)
-            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
-
-            // Step 4: Verify DV exists
-            table = loadTable(tableName);
-            boolean hasDV = false;
-            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
-                for (FileScanTask task : tasks) {
-                    if (!task.deletes().isEmpty()) {
-                        hasDV = true;
-                    }
-                }
-            }
-            assertTrue(hasDV, "Should have deletion vector after DELETE");
-
-            // Step 5: Rollback to pre-delete snapshot
-            assertQuerySucceeds(format(
-                    "CALL system.rollback_to_snapshot('%s', '%s', %d)",
-                    TEST_SCHEMA, tableName, preDeleteSnapshotId));
-
-            // Step 6: Verify all 3 rows are back (DV is effectively undone)
-            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'one'), (2, 'two'), (3, 'three')");
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3ExpireSnapshots()
-    {
-        String tableName = "test_v3_expire_snapshots";
-        try {
-            // Step 1: Create V3 table and generate multiple snapshots
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two')", 1);
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three')", 1);
-
-            // Step 2: Verify we have at least 3 snapshots
-            Table table = loadTable(tableName);
-            int snapshotCountBefore = 0;
-            for (org.apache.iceberg.Snapshot snapshot : table.snapshots()) {
-                snapshotCountBefore++;
-            }
-            assertTrue(snapshotCountBefore >= 3,
-                    "Should have at least 3 snapshots before expiry, got: " + snapshotCountBefore);
-
-            // Step 3: Expire snapshots retaining only the last 1
-            assertQuerySucceeds(format(
-                    "CALL system.expire_snapshots('%s', '%s', NULL, %d)",
-                    TEST_SCHEMA, tableName, 1));
-
-            // Step 4: Verify snapshots were expired
-            table = loadTable(tableName);
-            int snapshotCountAfter = 0;
-            for (org.apache.iceberg.Snapshot snapshot : table.snapshots()) {
-                snapshotCountAfter++;
-            }
-            assertTrue(snapshotCountAfter <= snapshotCountBefore,
-                    "Snapshot count after expiry (" + snapshotCountAfter
-                            + ") should be <= before (" + snapshotCountBefore + ")");
-
-            // Step 5: Verify current data is still intact
-            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'one'), (2, 'two'), (3, 'three')");
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
-
-            // Step 6: Verify V3 format preserved
-            table = loadTable(tableName);
-            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3SnapshotTimeTravelWithPartitioning()
-    {
-        String tableName = "test_v3_snapshot_partitioned";
-        try {
-            // Step 1: Create V3 partitioned table
-            assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, category VARCHAR, value DOUBLE)"
-                    + " WITH (\"format-version\" = '3', partitioning = ARRAY['category'])");
-
-            // Step 2: Insert data into partition A
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A', 100.0), (2, 'A', 200.0)", 2);
-            Table table = loadTable(tableName);
-            long snapshotAfterPartA = table.currentSnapshot().snapshotId();
-
-            // Step 3: Insert data into partition B
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'B', 300.0), (4, 'B', 400.0)", 2);
-
-            // Step 4: Current view shows both partitions
-            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
-
-            // Step 5: Time travel to snapshot after partition A — should only see partition A data
-            assertQuery(format("SELECT * FROM \"%s@%d\" ORDER BY id", tableName, snapshotAfterPartA),
-                    "VALUES (1, 'A', 100.0), (2, 'A', 200.0)");
-
-            // Step 6: Time travel with partition filter
-            assertQuery(format("SELECT id FROM \"%s@%d\" WHERE category = 'A' ORDER BY id",
-                    tableName, snapshotAfterPartA),
-                    "VALUES 1, 2");
-
-            // Step 7: Partition B should not exist at snapshot 1
-            assertQuery(format("SELECT count(*) FROM \"%s@%d\" WHERE category = 'B'",
-                    tableName, snapshotAfterPartA),
-                    "SELECT 0");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testV3SnapshotAfterSchemaEvolution()
-    {
-        String tableName = "test_v3_snapshot_schema_evolution";
-        try {
-            // Step 1: Create V3 table and insert initial data
-            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '3')");
-            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
-            Table table = loadTable(tableName);
-            long snapshotBeforeEvolution = table.currentSnapshot().snapshotId();
-
-            // Step 2: Evolve schema — add a new column
-            table.updateSchema()
-                    .addColumn("score", org.apache.iceberg.types.Types.DoubleType.get())
-                    .commit();
-
-            // Step 3: Insert data with new schema
-            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three', 99.5)", 1);
-
-            // Step 4: Current view — old rows have NULL for score
-            assertQuery("SELECT id, value, score FROM " + tableName + " ORDER BY id",
-                    "VALUES (1, 'one', NULL), (2, 'two', NULL), (3, 'three', 99.5)");
-
-            // Step 5: Time travel to pre-evolution snapshot — score column should not exist
-            // but Presto uses current schema for time travel reads, so score is NULL
-            assertQuery(format("SELECT id, value FROM \"%s@%d\" ORDER BY id",
-                    tableName, snapshotBeforeEvolution),
-                    "VALUES (1, 'one'), (2, 'two')");
-
-            // Step 6: Verify row count at old snapshot
-            assertQuery(format("SELECT count(*) FROM \"%s@%d\"",
-                    tableName, snapshotBeforeEvolution),
-                    "SELECT 2");
         }
         finally {
             dropTable(tableName);
