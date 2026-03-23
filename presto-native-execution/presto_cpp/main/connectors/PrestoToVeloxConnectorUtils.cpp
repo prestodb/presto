@@ -811,8 +811,10 @@ void extractNimbleSerdeParameters(
     const std::map<std::string, std::string>& tableParameters,
     std::unordered_map<std::string, std::string>& serdeParameters) {
   static constexpr std::string_view kNimblePrefix{"nimble."};
+  static constexpr std::string_view kAlphaPrefix{"alpha."};
   for (const auto& [key, value] : tableParameters) {
-    if (key.compare(0, kNimblePrefix.size(), kNimblePrefix) == 0) {
+    if (key.compare(0, kNimblePrefix.size(), kNimblePrefix) == 0 ||
+        key.starts_with(kAlphaPrefix)) {
       serdeParameters[key] = value;
     }
   }
