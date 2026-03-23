@@ -16,11 +16,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.testing.TestingSession;
@@ -43,6 +43,10 @@ import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT;
 import static com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy.ALL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
@@ -60,10 +64,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.single
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static org.testng.Assert.assertEquals;
 
 /**

@@ -31,7 +31,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.google.common.collect.ImmutableList;
 
@@ -48,8 +47,9 @@ import static com.facebook.presto.SystemSessionProperties.isPreAggregateBeforeGr
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.partitionedExchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.Aggregation.step;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -216,7 +216,7 @@ public class PreAggregateBeforeGroupId
                 Optional.empty());
 
         // Step 2: Create Exchange (hash partitioned by grouping keys) to shuffle partial states
-        PlanNode exchange = ExchangeNode.partitionedExchange(
+        PlanNode exchange = partitionedExchange(
                 context.getIdAllocator().getNextId(),
                 REMOTE_STREAMING,
                 newPartialAggregation,

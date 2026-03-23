@@ -14,10 +14,10 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.Plan;
-import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;

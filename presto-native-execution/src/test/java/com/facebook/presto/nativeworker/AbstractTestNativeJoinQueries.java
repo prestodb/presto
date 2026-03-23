@@ -30,13 +30,13 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrde
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartitionedNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
+import static com.facebook.presto.spi.plan.ExchangeNode.Scope.REMOTE_STREAMING;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.spi.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
-import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 
 public abstract class AbstractTestNativeJoinQueries
         extends AbstractTestQueryFramework
