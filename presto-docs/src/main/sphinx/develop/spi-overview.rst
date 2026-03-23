@@ -90,10 +90,21 @@ plugin directory and add the relevant jars to that directory.
 
 By default, the plugin directory is the ``plugin`` directory relative to the
 directory in which Presto is installed, but it is configurable using the
-configuration variable ``catalog.config-dir``. In order for Presto to pick up
+configuration variable ``plugin.dir``. In order for Presto to pick up
 the new plugin, you must restart Presto.
 
-Plugins must be installed on all nodes in the Presto cluster (coordinator and workers).
+Plugins must be installed on all nodes in the Presto cluster
+(coordinator and workers).
+
+.. note::
+
+    If a catalog configuration references a connector whose plugin has not
+    been deployed, Presto will fail to start with an error such as
+    ``No factory for connector <name>``.
+
+For step-by-step instructions on deploying plugins, including how to verify
+that a plugin has been loaded and how to troubleshoot common errors, see
+:doc:`/installation/deploy-custom-plugins`.
 
 Coordinator Plugin
 ------------------
