@@ -2144,6 +2144,20 @@ void to_json(json& j, const SessionRepresentation& p) {
       "SessionRepresentation",
       "Map<SqlFunctionId, SqlInvokedFunction>",
       "sessionFunctions");
+  to_json_key(
+      j,
+      "selectedUser",
+      p.selectedUser,
+      "SessionRepresentation",
+      "String",
+      "selectedUser");
+  to_json_key(
+      j,
+      "reasonForSelect",
+      p.reasonForSelect,
+      "SessionRepresentation",
+      "String",
+      "reasonForSelect");
 }
 
 void from_json(const json& j, SessionRepresentation& p) {
@@ -2277,6 +2291,20 @@ void from_json(const json& j, SessionRepresentation& p) {
       "SessionRepresentation",
       "Map<SqlFunctionId, SqlInvokedFunction>",
       "sessionFunctions");
+  from_json_key(
+      j,
+      "selectedUser",
+      p.selectedUser,
+      "SessionRepresentation",
+      "String",
+      "selectedUser");
+  from_json_key(
+      j,
+      "reasonForSelect",
+      p.reasonForSelect,
+      "SessionRepresentation",
+      "String",
+      "reasonForSelect");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

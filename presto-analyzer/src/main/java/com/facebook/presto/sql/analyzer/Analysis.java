@@ -186,6 +186,9 @@ public class Analysis
     private Optional<TableHandle> callTarget = Optional.empty();
     private Optional<QuerySpecification> targetQuery = Optional.empty();
 
+    // for create vector index
+    private Optional<CreateVectorIndexAnalysis> createVectorIndexAnalysis = Optional.empty();
+
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
     private Map<String, Expression> createTableProperties = ImmutableMap.of();
@@ -698,6 +701,16 @@ public class Analysis
     public Optional<QualifiedObjectName> getCreateTableDestination()
     {
         return createTableDestination;
+    }
+
+    public void setCreateVectorIndexAnalysis(CreateVectorIndexAnalysis analysis)
+    {
+        this.createVectorIndexAnalysis = Optional.of(analysis);
+    }
+
+    public Optional<CreateVectorIndexAnalysis> getCreateVectorIndexAnalysis()
+    {
+        return createVectorIndexAnalysis;
     }
 
     public Optional<QualifiedObjectName> getProcedureName()
@@ -1935,6 +1948,55 @@ public class Analysis
         public Scope getTargetTableScope()
         {
             return targetTableScope;
+        }
+    }
+
+    @Immutable
+    public static final class CreateVectorIndexAnalysis
+    {
+        private final QualifiedObjectName sourceTableName;
+        private final QualifiedObjectName indexName;
+        private final List<Identifier> columns;
+        private final Map<String, Expression> properties;
+        private final Optional<Expression> updatingFor;
+
+        public CreateVectorIndexAnalysis(
+                QualifiedObjectName sourceTableName,
+                QualifiedObjectName indexName,
+                List<Identifier> columns,
+                Map<String, Expression> properties,
+                Optional<Expression> updatingFor)
+        {
+            this.sourceTableName = requireNonNull(sourceTableName, "sourceTableName is null");
+            this.indexName = requireNonNull(indexName, "indexName is null");
+            this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+            this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
+            this.updatingFor = requireNonNull(updatingFor, "updatingFor is null");
+        }
+
+        public QualifiedObjectName getSourceTableName()
+        {
+            return sourceTableName;
+        }
+
+        public QualifiedObjectName getIndexName()
+        {
+            return indexName;
+        }
+
+        public List<Identifier> getColumns()
+        {
+            return columns;
+        }
+
+        public Map<String, Expression> getProperties()
+        {
+            return properties;
+        }
+
+        public Optional<Expression> getUpdatingFor()
+        {
+            return updatingFor;
         }
     }
 }

@@ -193,6 +193,14 @@ Use this threshold to manage memory usage more efficiently during `ORDER BY` ope
 
 Native Execution only. Enable row number spilling on native engine.
 
+``native_mark_distinct_spill_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. Enable mark distinct spilling on native engine.
+
 ``native_simplified_expression_evaluation_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -590,7 +598,7 @@ compaction. The value is in the range of [0, 1). Currently only applies to
 approx_most_frequent aggregate with StringView type during global aggregation.
 
 ``native_aggregation_memory_compaction_reclaim_enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``

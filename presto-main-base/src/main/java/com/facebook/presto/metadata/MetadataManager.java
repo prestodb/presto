@@ -958,6 +958,27 @@ public class MetadataManager
     }
 
     @Override
+    public OutputTableHandle beginCreateVectorIndex(Session session, String catalogName, ConnectorTableMetadata indexMetadata, Optional<NewTableLayout> layout, SchemaTableName sourceTableName)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
+        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorOutputTableHandle handle = metadata.beginCreateVectorIndex(connectorSession, indexMetadata, layout.map(NewTableLayout::getLayout), sourceTableName);
+        return new OutputTableHandle(connectorId, transactionHandle, handle);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishCreateVectorIndex(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        return metadata.finishCreateVectorIndex(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+    }
+
+    @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

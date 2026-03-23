@@ -103,6 +103,11 @@
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.testng</groupId>

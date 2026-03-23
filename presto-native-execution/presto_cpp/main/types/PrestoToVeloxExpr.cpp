@@ -40,8 +40,10 @@ std::string toJsonString(const T& value) {
 
 std::string mapScalarFunction(const std::string& name) {
   std::string lowerCaseName = boost::to_lower_copy(name);
-  if (prestoOperatorMap().find(lowerCaseName) != prestoOperatorMap().end()) {
-    return prestoOperatorMap().at(lowerCaseName);
+  const auto& opMap = prestoOperatorMap();
+  auto mapIter = opMap.find(lowerCaseName);
+  if (mapIter != opMap.end()) {
+    return mapIter->second;
   }
 
   return lowerCaseName;
@@ -133,10 +135,10 @@ velox::variant VeloxExprConverter::getConstantValue(
 }
 
 std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
-    std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const {
+    const std::vector<std::shared_ptr<protocol::RowExpression>>& pexpr) const {
   std::vector<TypedExprPtr> reply;
   reply.reserve(pexpr.size());
-  for (auto arg : pexpr) {
+  for (const auto& arg : pexpr) {
     reply.emplace_back(toVeloxExpr(arg));
   }
 
@@ -181,7 +183,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
       std::vector<TypedExprPtr>{
           arg,
           std::make_shared<ConstantTypedExpr>(velox::BIGINT(), 1LL),
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
+          std::make_shared<ConstantTypedExpr>(
+              velox::BIGINT(), static_cast<int64_t>(length)),
       },
       util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "substr"));
 }
@@ -220,14 +223,13 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   bool nullOnFailure;
-  if (signature.name.compare(kCast) == 0) {
+  if (signature.name == kCast) {
     nullOnFailure = false;
-  } else if (signature.name.compare(kTryCast) == 0) {
+  } else if (signature.name == kTryCast) {
     nullOnFailure = true;
   } else if (
-      signature.name.compare(kJsonToArrayCast) == 0 ||
-      signature.name.compare(kJsonToMapCast) == 0 ||
-      signature.name.compare(kJsonToRowCast) == 0) {
+      signature.name == kJsonToArrayCast || signature.name == kJsonToMapCast ||
+      signature.name == kJsonToRowCast) {
     auto type = typeParser->parse(returnType);
     return std::make_shared<CastTypedExpr>(
         type,
@@ -276,7 +278,7 @@ std::optional<TypedExprPtr> tryConvertTry(
     return std::nullopt;
   }
 
-  if (signature.name.compare(kTry) != 0) {
+  if (signature.name != kTry) {
     return std::nullopt;
   }
 
@@ -340,7 +342,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
 }
 } // namespace
 
-const std::unordered_map<std::string, std::string> prestoOperatorMap() {
+std::unordered_map<std::string, std::string> prestoOperatorMap() {
   static const std::string prestoDefaultNamespacePrefix =
       SystemConfig::instance()->prestoDefaultNamespacePrefix();
   static const std::unordered_map<std::string, std::string> kPrestoOperatorMap =

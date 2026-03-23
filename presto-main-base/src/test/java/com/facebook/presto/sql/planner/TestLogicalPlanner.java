@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestProcedureRegistry;
 import com.facebook.presto.testing.TestingHandleResolver;
@@ -106,7 +107,9 @@ import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
@@ -143,6 +146,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.mergeJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.nullExpression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.rowNumber;
@@ -1807,6 +1811,18 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testVarbinaryExpression()
+    {
+        assertPlan("select X'abc4', cast ('hello' as varbinary), cast(null as varbinary)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", expression("X'ab c4'"),
+                                "col_2", expression("X'68 65 6c 6c 6f'"),
+                                "col_3", expression(new NullLiteral())),
+                        values())));
+    }
+
+    @Test
     public void testRewriteExcludeColumnsFunctionToProjection()
     {
         assertPlan("SELECT *\n" +
@@ -1814,6 +1830,26 @@ public class TestLogicalPlanner
                         "    INPUT => TABLE(orders),\n" +
                         "    COLUMNS => DESCRIPTOR(comment)))\n",
                 output(tableScan("orders")));
+    }
+
+    @Test
+    public void testNullExpression()
+    {
+        assertPlan("select null, IF(true, NULL, 1), null, cast(null as bigint), cast (null as Integer)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", nullExpression(UNKNOWN),
+                                "col_2", nullExpression(INTEGER),
+                                "col_3", nullExpression(BIGINT)),
+                        values())));
+
+        assertPlan("select null, cast (null as Integer), null, cast(null as bigint), cast (null as Integer)",
+                anyTree(strictProject(
+                        ImmutableMap.of(
+                                "col_1", nullExpression(UNKNOWN),
+                                "col_2", nullExpression(INTEGER),
+                                "col_3", nullExpression(BIGINT)),
+                        values())));
     }
 
     @Test

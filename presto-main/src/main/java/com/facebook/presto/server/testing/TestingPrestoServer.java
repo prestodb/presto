@@ -28,6 +28,7 @@ import com.facebook.airlift.jaxrs.JaxrsModule;
 import com.facebook.airlift.jmx.testing.TestingJmxModule;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
@@ -35,6 +36,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.builtin.tools.WorkerFunctionRegistryTool;
+import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -59,6 +61,7 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.GracefulShutdownHandler;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
@@ -127,6 +130,7 @@ import java.util.concurrent.CountDownLatch;
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.presto.server.PrestoServer.createAuthClientConfigs;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -186,6 +190,7 @@ public class TestingPrestoServer
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final AuthClientConfigs authClientConfigs;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -414,6 +419,10 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         expressionManager = injector.getInstance(ExpressionOptimizerManager.class);
+        authClientConfigs =
+                createAuthClientConfigs(
+                        injector.getInstance(InternalCommunicationConfig.class),
+                        injector.getInstance(NodeInfo.class));
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -431,7 +440,7 @@ public class TestingPrestoServer
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
             clusterStateProvider = null;
             planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
-            expressionManager.loadExpressionOptimizerFactories();
+            expressionManager.loadExpressionOptimizerFactories(authClientConfigs);
         }
         else if (resourceManager) {
             dispatchManager = null;
@@ -561,6 +570,11 @@ public class TestingPrestoServer
                 deleteRecursively(dataDirectory, ALLOW_INSECURE);
             }
         }
+    }
+
+    public AuthClientConfigs getAuthClientConfigs()
+    {
+        return authClientConfigs;
     }
 
     public PluginManager getPluginManager()

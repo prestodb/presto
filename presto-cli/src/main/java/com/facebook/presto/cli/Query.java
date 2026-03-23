@@ -154,6 +154,7 @@ public class Query
             statusPrinter.printInitialStatusUpdates();
         }
         else {
+            errorChannel.printf("Running %s ...%n", client.currentStatusInfo().getId());
             processInitialStatusUpdates(warningsPrinter);
         }
 

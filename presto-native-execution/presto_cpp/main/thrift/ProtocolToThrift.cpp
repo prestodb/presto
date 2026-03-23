@@ -1455,6 +1455,8 @@ void toThrift(
   toThrift(proto.roles, *thrift.roles_ref());
   toThrift(proto.preparedStatements, *thrift.preparedStatements_ref());
   toThrift(proto.sessionFunctions, *thrift.sessionFunctions_ref());
+  toThrift(proto.selectedUser, thrift.selectedUser_ref());
+  toThrift(proto.reasonForSelect, thrift.reasonForSelect_ref());
 }
 void fromThrift(
     const SessionRepresentation& thrift,
@@ -1485,6 +1487,8 @@ void fromThrift(
   fromThrift(*thrift.roles_ref(), proto.roles);
   fromThrift(*thrift.preparedStatements_ref(), proto.preparedStatements);
   fromThrift(*thrift.sessionFunctions_ref(), proto.sessionFunctions);
+  fromThrift(thrift.selectedUser_ref(), proto.selectedUser);
+  fromThrift(thrift.reasonForSelect_ref(), proto.reasonForSelect);
 }
 
 void toThrift(

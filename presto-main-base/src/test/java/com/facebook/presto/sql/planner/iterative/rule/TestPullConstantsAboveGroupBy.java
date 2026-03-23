@@ -89,7 +89,7 @@ public class TestPullConstantsAboveGroupBy
                                     p.values(p.variable("COL"))))
                     .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL)"))
                     .singleGroupingSet(p.variable("CONST_COL"), p.variable("COL"))))
-            .doesNotFire();
+                .doesNotFire();
     }
 
     @Test

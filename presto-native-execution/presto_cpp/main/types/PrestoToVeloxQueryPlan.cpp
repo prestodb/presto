@@ -28,13 +28,13 @@
 #include "velox/core/Expressions.h"
 // clang-format on
 
-#include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
 
@@ -1851,7 +1851,7 @@ core::TopNRowNumberNode::RankFunction prestoToVeloxRankFunction(
       VELOX_UNREACHABLE();
   }
 }
-}; // namespace
+} // namespace
 
 std::shared_ptr<const core::PlanNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(

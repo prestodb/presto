@@ -12,7 +12,9 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/VeloxToPrestoExpr.h"
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/erase.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "velox/core/ITypedExpr.h"
@@ -361,9 +363,10 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   result["@type"] = kCall;
   protocol::Signature signature;
   std::string exprName = expr->name();
-  if (veloxToPrestoOperatorMap().find(exprName) !=
-      veloxToPrestoOperatorMap().end()) {
-    exprName = veloxToPrestoOperatorMap().at(exprName);
+  const auto& opMap = veloxToPrestoOperatorMap();
+  auto mapIter = opMap.find(exprName);
+  if (mapIter != opMap.end()) {
+    exprName = mapIter->second;
   }
   signature.name = exprName;
   result["displayName"] = exprName;

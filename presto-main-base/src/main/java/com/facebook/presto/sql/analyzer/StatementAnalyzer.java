@@ -36,7 +36,6 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.metadata.TableFunctionMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -62,6 +61,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.DescribedTableReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.Descriptor;
 import com.facebook.presto.spi.function.table.DescriptorArgument;
 import com.facebook.presto.spi.function.table.DescriptorArgumentSpecification;
@@ -71,6 +71,7 @@ import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgument;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -109,6 +110,7 @@ import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Deallocate;
@@ -268,7 +270,7 @@ import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionTyp
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
-import static com.facebook.presto.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -1144,6 +1146,71 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitCreateVectorIndex(CreateVectorIndex node, Optional<Scope> scope)
+        {
+            QualifiedObjectName sourceTableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            if (!metadataResolver.tableExists(sourceTableName)) {
+                throw new SemanticException(MISSING_TABLE, node, "Source table '%s' does not exist", sourceTableName);
+            }
+
+            QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getIndexName(), metadata);
+            if (metadataResolver.tableExists(targetTable)) {
+                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+            }
+
+            // Analyze the source table to build a proper scope with typed columns
+            // Use AllowAllAccessControl since we check permissions separately below
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector);
+
+            Table sourceTable = new Table(node.getTableName());
+            Scope tableScope = analyzer.analyze(sourceTable, scope);
+
+            // Validate that specified columns exist in the source table
+            TableHandle sourceTableHandle = metadataResolver.getTableHandle(sourceTableName).get();
+            Map<String, ColumnHandle> sourceColumns = metadataResolver.getColumnHandles(sourceTableHandle);
+            for (Identifier column : node.getColumns()) {
+                if (!sourceColumns.containsKey(column.getValue())) {
+                    throw new SemanticException(MISSING_COLUMN, column, "Column '%s' does not exist in source table '%s'", column.getValue(), sourceTableName);
+                }
+            }
+
+            // Analyze UPDATING FOR predicate (validates column references, types, etc.)
+            node.getUpdatingFor().ifPresent(where -> analyzeWhere(node, tableScope, where));
+
+            validateProperties(node.getProperties(), scope);
+
+            Map<String, Expression> allProperties = mapFromProperties(node.getProperties());
+
+            // user must have read permission on the source table to create a vector index
+            Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                    .putAll(sourceTableName, sourceColumns.keySet().stream()
+                            .map(column -> new Subfield(column, ImmutableList.of()))
+                            .collect(toImmutableSet()))
+                    .build();
+            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(),
+                    session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
+
+            analysis.addAccessControlCheckForTable(TABLE_CREATE,
+                    new AccessControlInfoForTable(accessControl, session.getIdentity(),
+                            session.getTransactionId(), session.getAccessControlContext(), targetTable));
+
+            analysis.setCreateVectorIndexAnalysis(new Analysis.CreateVectorIndexAnalysis(
+                    sourceTableName,
+                    targetTable,
+                    node.getColumns(),
+                    allProperties,
+                    node.getUpdatingFor()));
+
+            return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "result", VARCHAR));
+        }
+
+        @Override
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
@@ -1666,7 +1733,7 @@ class StatementAnalyzer
         private Descriptor verifyProperColumnsDescriptor(TableFunctionInvocation node, ConnectorTableFunction function, ReturnTypeSpecification returnTypeSpecification, Optional<Descriptor> analyzedProperColumnsDescriptor)
         {
             switch (returnTypeSpecification.getReturnType()) {
-                case ReturnTypeSpecification.OnlyPassThrough.returnType:
+                case "PASSTHROUGH":
                     if (analysis.isAliased(node)) {
                         // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                         // table alias is prohibited for a table function with ONLY PASS THROUGH returned type.
@@ -1688,7 +1755,7 @@ class StatementAnalyzer
                         throw new SemanticException(TABLE_FUNCTION_IMPLEMENTATION_ERROR, "A table function with ONLY_PASS_THROUGH return type must have a table argument with pass-through columns.");
                     }
                     return null;
-                case ReturnTypeSpecification.GenericTable.returnType:
+                case "GENERIC":
                     // According to SQL standard ISO/IEC 9075-2, 7.6 <table reference>, p. 409,
                     // table alias is mandatory for a polymorphic table function invocation which produces proper columns.
                     // We don't enforce this requirement.
@@ -1704,7 +1771,7 @@ class StatementAnalyzer
                         // so the function's analyze() method should not return the proper columns descriptor.
                         throw new SemanticException(TABLE_FUNCTION_AMBIGUOUS_RETURN_TYPE, node, "Returned relation type for table function %s is ambiguous", node.getName());
                     }
-                    return ((ReturnTypeSpecification.DescribedTable) returnTypeSpecification).getDescriptor();
+                    return ((DescribedTableReturnTypeSpecification) returnTypeSpecification).getDescriptor();
             }
         }
 
@@ -2967,10 +3034,7 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
-            // Use the rewritten HAVING expression (to resolve SELECT alias references)
-            if (node.getHaving().isPresent()) {
-                sourceExpressions.add(analysis.getHaving(node));
-            }
+            node.getHaving().ifPresent(sourceExpressions::add);
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
             List<FunctionCall> aggregates = analyzeAggregations(node, sourceExpressions, orderByExpressions);
@@ -3823,12 +3887,7 @@ class StatementAnalyzer
             if (node.getHaving().isPresent()) {
                 Expression predicate = node.getHaving().get();
 
-                // Reuse OrderByExpressionRewriter to resolve SELECT aliases in HAVING
-                Multimap<QualifiedName, Expression> namedOutputExpressions = extractNamedOutputExpressions(node.getSelect());
-                Expression rewrittenPredicate = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(namedOutputExpressions, "HAVING"), predicate);
-
-                // Analyze the rewritten expression
-                ExpressionAnalysis expressionAnalysis = analyzeExpression(rewrittenPredicate, scope);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
                 expressionAnalysis.getWindowFunctions().stream()
                         .findFirst()
@@ -3838,12 +3897,12 @@ class StatementAnalyzer
 
                 analysis.recordSubqueries(node, expressionAnalysis);
 
-                Type predicateType = expressionAnalysis.getType(rewrittenPredicate);
+                Type predicateType = expressionAnalysis.getType(predicate);
                 if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, rewrittenPredicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
+                    throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
                 }
 
-                analysis.setHaving(node, rewrittenPredicate);
+                analysis.setHaving(node, predicate);
             }
         }
 
@@ -3894,17 +3953,10 @@ class StatementAnalyzer
                 extends ExpressionRewriter<Void>
         {
             private final Multimap<QualifiedName, Expression> assignments;
-            private final String clauseName;
 
             public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
             {
-                this(assignments, "ORDER BY");
-            }
-
-            public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments, String clauseName)
-            {
                 this.assignments = assignments;
-                this.clauseName = clauseName;
             }
 
             @Override
@@ -3917,7 +3969,7 @@ class StatementAnalyzer
                         .collect(Collectors.toSet());
 
                 if (expressions.size() > 1) {
-                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in '%s' is ambiguous", name, clauseName);
+                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
                 }
 
                 if (expressions.size() == 1) {

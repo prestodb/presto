@@ -72,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_C
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
+import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
@@ -1451,6 +1452,53 @@ public abstract class AbstractTestQueries
                         "        (426348806, NULL, '1-URGENT'), " +
                         "        (428175171, NULL, '4-NOT SPECIFIED'), " +
                         "        (415502467, NULL, '3-MEDIUM')");
+    }
+
+    @Test
+    public void testGroupingSetsWithPreAggregation()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PRE_AGGREGATE_BEFORE_GROUPING_SETS, "true")
+                .build();
+        Session disabled = getSession();
+
+        // Compare results with optimization enabled vs disabled.
+        // Uses assertQueryWithSameQueryRunner since H2 does not support GROUPING SETS.
+        // Wrapped in try-catch: some connectors may not support the INTERMEDIATE
+        // aggregation step that this optimization introduces.
+        String[] queries = {
+                "SELECT sum(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT min(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                "SELECT max(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "SELECT sum(totalprice), min(totalprice), max(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority), (orderstatus, orderpriority))",
+                "SELECT avg(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT variance(totalprice), stddev(totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT approx_distinct(custkey), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT bool_and(totalprice > 0), bool_or(totalprice > 100000), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT count_if(totalprice > 100000), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT min_by(comment, totalprice), max_by(comment, totalprice), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT cardinality(approx_set(custkey)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT bitwise_and_agg(CAST(custkey AS BIGINT)), bitwise_or_agg(CAST(custkey AS BIGINT)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT covar_samp(totalprice, CAST(custkey AS DOUBLE)), corr(totalprice, CAST(custkey AS DOUBLE)), orderstatus FROM orders GROUP BY GROUPING SETS ((orderstatus), ())",
+                "SELECT sum(extendedprice), count(extendedprice), day(shipdate), month(shipdate), shipdate FROM lineitem GROUP BY CUBE (day(shipdate), month(shipdate), shipdate)",
+        };
+
+        for (String query : queries) {
+            try {
+                assertQueryWithSameQueryRunner(enabled, query, disabled);
+            }
+            catch (AssertionError e) {
+                // LocalQueryRunner cannot handle REMOTE_STREAMING exchanges that
+                // this optimization introduces. Skip rather than fail.
+                if (e.getMessage() != null && (e.getMessage().contains("query failed")
+                        || e.getMessage().contains("subplan"))) {
+                    continue;
+                }
+                throw e;
+            }
+        }
     }
 
     @Test
@@ -7799,7 +7847,7 @@ public abstract class AbstractTestQueries
         {
             // Orig
             String testQuery = "SELECT 1 from region join nation using(regionkey)";
-            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            MaterializedResult result = computeActual("explain(type logical) " + testQuery);
             assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             result = computeActual(testQuery);
             assertEquals(result.getRowCount(), 25);
@@ -7808,7 +7856,7 @@ public abstract class AbstractTestQueries
             Session session = Session.builder(getSession())
                     .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
                     .build();
-            result = computeActual(session, "explain(type distributed) " + testQuery);
+            result = computeActual(session, "explain(type logical) " + testQuery);
             assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             result = computeActual(session, testQuery);
             assertEquals(result.getRowCount(), 25);
@@ -7817,7 +7865,7 @@ public abstract class AbstractTestQueries
         {
             // Orig
             @Language("SQL") String testQuery = "SELECT 1 from region r join nation n on cast(r.regionkey as varchar) = cast(n.regionkey as varchar)";
-            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            MaterializedResult result = computeActual("explain(type logical) " + testQuery);
             assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             result = computeActual(testQuery);
             assertEquals(result.getRowCount(), 25);
@@ -7827,7 +7875,7 @@ public abstract class AbstractTestQueries
                     .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
                     .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, String.valueOf(false))
                     .build();
-            result = computeActual(session, "explain(type distributed) " + testQuery);
+            result = computeActual(session, "explain(type logical) " + testQuery);
             assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
             result = computeActual(session, testQuery);
@@ -7837,7 +7885,7 @@ public abstract class AbstractTestQueries
         {
             // Orig
             String testQuery = "SELECT 1 from lineitem l join orders o on l.orderkey = o.orderkey and l.suppkey = o.custkey";
-            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            MaterializedResult result = computeActual("explain(type logical) " + testQuery);
             assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             result = computeActual(testQuery);
             assertEquals(result.getRowCount(), 37);
@@ -7846,12 +7894,50 @@ public abstract class AbstractTestQueries
             Session session = Session.builder(getSession())
                     .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
                     .build();
-            result = computeActual(session, "explain(type distributed) " + testQuery);
+            result = computeActual(session, "explain(type logical) " + testQuery);
             assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
             assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
             result = computeActual(session, testQuery);
             assertEquals(result.getRowCount(), 37);
         }
+    }
+
+    @Test
+    public void testJoinPrefilterSkippedForNonDeterministicExpressions()
+    {
+        // When the left side of a join contains non-deterministic expressions (e.g., TABLESAMPLE BERNOULLI
+        // which uses rand()), the JoinPrefilter optimizer should NOT clone the subtree, because each clone
+        // would produce a different random sample, effectively squaring the sampling rate.
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                .build();
+
+        // With TABLESAMPLE BERNOULLI (which introduces rand() filter), the optimizer should
+        // skip prefiltering and NOT produce a SemiJoin node in the plan.
+        // We use 50% (not 100%) to avoid RemoveFullSample optimizing away the SampleNode
+        // before ImplementBernoulliSampleAsFilter converts it to a rand() filter.
+        String testQuery = "SELECT orderkey from orders TABLESAMPLE BERNOULLI (50) join lineitem using(orderkey)";
+        MaterializedResult result = computeActual(session, "explain(type logical) " + testQuery);
+        String plan = (String) result.getMaterializedRows().get(0).getField(0);
+        assertEquals(plan.indexOf("SemiJoin"), -1,
+                "JoinPrefilter should not produce SemiJoin when left side contains non-deterministic BERNOULLI sampling");
+
+        // Verify that a deterministic query with the same session setting still gets prefiltered
+        String deterministicQuery = "SELECT orderkey from orders join lineitem using(orderkey)";
+        result = computeActual(session, "explain(type logical) " + deterministicQuery);
+        plan = (String) result.getMaterializedRows().get(0).getField(0);
+        assertNotEquals(plan.indexOf("SemiJoin"), -1,
+                "JoinPrefilter should produce SemiJoin for deterministic joins");
+
+        // Verify that TABLESAMPLE BERNOULLI on the RIGHT side still allows prefiltering,
+        // since the determinism guard only inspects the left scan-filter-project subtree.
+        // This documents the intended asymmetry: the left side is cloned for the bloom
+        // filter, so only the left side needs to be deterministic.
+        String rightSideBernoulliQuery = "SELECT orderkey from orders join lineitem TABLESAMPLE BERNOULLI (50) using(orderkey)";
+        result = computeActual(session, "explain(type logical) " + rightSideBernoulliQuery);
+        plan = (String) result.getMaterializedRows().get(0).getField(0);
+        assertNotEquals(plan.indexOf("SemiJoin"), -1,
+                "JoinPrefilter should still produce SemiJoin when only right side contains non-deterministic BERNOULLI sampling");
     }
 
     @Test

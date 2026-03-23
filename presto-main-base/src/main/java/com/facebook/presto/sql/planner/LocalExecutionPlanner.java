@@ -3648,7 +3648,7 @@ public class LocalExecutionPlanner
             AggregationNode.Step step,
             Session session)
     {
-        if (maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
+        if (maxPartialAggregationMemorySize.isPresent() && step.isInputRaw() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
             return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.get(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
         }
         return Optional.empty();

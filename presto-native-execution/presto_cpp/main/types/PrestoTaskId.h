@@ -71,7 +71,7 @@ class PrestoTaskId {
 
  private:
   std::string queryId_;
-  // Also known as fregment id.
+  // Also known as fragment id.
   int32_t stageId_{0};
   int32_t stageExecutionId_{0};
   // Also known as shard id.

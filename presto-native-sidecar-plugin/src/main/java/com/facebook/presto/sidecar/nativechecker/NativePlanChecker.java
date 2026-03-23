@@ -39,6 +39,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 
 import java.net.URI;
@@ -98,6 +99,12 @@ public final class NativePlanChecker
             return;
         }
         runValidation(removeTableWriter(planFragment));
+    }
+
+    @VisibleForTesting
+    public HttpClient getHttpClient()
+    {
+        return httpClient;
     }
 
     /**

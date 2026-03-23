@@ -50,6 +50,12 @@ public class TableArgument
     }
 
     @JsonProperty
+    public List<RowType.Field> getFields()
+    {
+        return rowType.getFields();
+    }
+
+    @JsonProperty
     public List<String> getPartitionBy()
     {
         return partitionBy;

@@ -807,4 +807,35 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       columnHandles);
 }
 
+void extractNimbleSerdeParameters(
+    const std::map<std::string, std::string>& tableParameters,
+    std::unordered_map<std::string, std::string>& serdeParameters) {
+  static constexpr std::string_view kNimblePrefix{"nimble."};
+  for (const auto& [key, value] : tableParameters) {
+    if (key.compare(0, kNimblePrefix.size(), kNimblePrefix) == 0) {
+      serdeParameters[key] = value;
+    }
+  }
+}
+
+std::unordered_map<std::string, std::string> extractSerdeParameters(
+    const std::map<std::string, std::string>& tableParameters) {
+  static const std::unordered_set<std::string> kSerdeKeys = {
+      "field.delim",
+      "escape.delim",
+      "collection.delim",
+      "mapkey.delim",
+      "serialization.format",
+  };
+
+  std::unordered_map<std::string, std::string> serdeParameters;
+  for (const auto& [key, value] : tableParameters) {
+    if (kSerdeKeys.count(key) > 0) {
+      serdeParameters[key] = value;
+    }
+  }
+  extractNimbleSerdeParameters(tableParameters, serdeParameters);
+  return serdeParameters;
+}
+
 } // namespace facebook::presto

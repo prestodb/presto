@@ -225,7 +225,7 @@ TEST_F(ConfigTest, optionalNodeConfigs) {
 TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(config.maxDriversPerTask(), folly::hardware_concurrency());
+  ASSERT_EQ(config.maxDriversPerTask(), folly::available_concurrency());
   init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "1024"}});
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }
