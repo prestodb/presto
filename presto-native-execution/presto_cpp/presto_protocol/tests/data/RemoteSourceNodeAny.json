@@ -14,5 +14,5 @@
   "ensureSourceOrdering": false,
   "exchangeType": "REPARTITION",
   "encoding": "COLUMNAR",
-  "transportType": "UCX"
+  "transportType": "ANY"
 }

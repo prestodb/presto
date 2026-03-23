@@ -348,13 +348,13 @@ public abstract class BasePlanFragmenter
 
         setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
-        // Determine transport type: UCX for worker-to-worker exchanges.
+        // Determine transport type: ANY for worker-to-worker exchanges.
         // Must verify that the child fragment won't run on the coordinator
         // (e.g., information_schema scans, system table scans, ExplainAnalyze).
         //
         // Note: the root fragment (stage 0) also runs on a worker, not on the
         // coordinator.  Its RemoteSourceNode (MergeExchange / Exchange) pulls
-        // data from other worker stages, so it should use UCX.  Only the root
+        // data from other worker stages, so it should use ANY.  Only the root
         // fragment's own PartitionedOutput sends to the coordinator via HTTP,
         // and that is controlled by the fragment's outputTransportType (which
         // defaults to HTTP and is never overridden here for the root).
@@ -362,9 +362,9 @@ public abstract class BasePlanFragmenter
         boolean anyChildOnCoordinator = exchange.getSources().stream()
                 .anyMatch(BasePlanFragmenter::childMayRunOnCoordinator);
         if (!anyChildOnCoordinator) {
-            transportType = TransportType.UCX;
+            transportType = TransportType.ANY;
         }
-        log.debug("[UCX_EXCHANGE] exchange=%s isRoot=%s transport=%s partitioning=%s",
+        log.debug("[ANY_EXCHANGE] exchange=%s isRoot=%s transport=%s partitioning=%s",
                 exchange.getId(),
                 context.get().isRootFragment(),
                 transportType,

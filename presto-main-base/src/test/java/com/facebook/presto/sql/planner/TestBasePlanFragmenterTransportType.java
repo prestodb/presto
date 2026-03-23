@@ -188,8 +188,8 @@ public class TestBasePlanFragmenterTransportType
                                 SystemPartitioningHandle.SINGLE_DISTRIBUTION,
                                 ImmutableList.of()),
                         ImmutableList.of(col)));
-        props.setOutputTransportType(TransportType.UCX);
-        assertEquals(props.getOutputTransportType(), TransportType.UCX);
+        props.setOutputTransportType(TransportType.ANY);
+        assertEquals(props.getOutputTransportType(), TransportType.ANY);
     }
 
     @Test
@@ -232,7 +232,7 @@ public class TestBasePlanFragmenterTransportType
     }
 
     @Test
-    public void testPlanFragmentFullConstructorPreservesUcx()
+    public void testPlanFragmentFullConstructorPreservesAny()
     {
         PlanFragment fragment = new PlanFragment(
                 new com.facebook.presto.spi.plan.PlanFragmentId(1),
@@ -248,10 +248,10 @@ public class TestBasePlanFragmenterTransportType
                 Optional.empty(),
                 com.facebook.presto.spi.plan.StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                TransportType.UCX,
+                TransportType.ANY,
                 Optional.empty(),
                 Optional.empty());
-        assertEquals(fragment.getOutputTransportType(), TransportType.UCX);
+        assertEquals(fragment.getOutputTransportType(), TransportType.ANY);
     }
 
     @Test

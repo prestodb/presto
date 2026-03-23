@@ -9186,7 +9186,7 @@ namespace facebook::presto::protocol {
 static const std::pair<TransportType, json> TransportType_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {TransportType::HTTP, "HTTP"},
-        {TransportType::UCX, "UCX"}};
+        {TransportType::ANY, "ANY"}};
 void to_json(json& j, const TransportType& e) {
   static_assert(
       std::is_enum<TransportType>::value, "TransportType must be an enum!");

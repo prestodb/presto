@@ -15,11 +15,12 @@ package com.facebook.presto.sql.planner.plan;
 
 /**
  * Transport mechanism used for inter-node data exchange.
- * HTTP is the default; UCX is used for worker-to-worker exchanges
- * when UCX support is available.
+ * HTTP is the default; ANY is used for worker-to-worker exchanges
+ * to indicate that ANY supported transport type supported by the
+ * workers may be used.
  */
 public enum TransportType
 {
     HTTP,
-    UCX
+    ANY
 }

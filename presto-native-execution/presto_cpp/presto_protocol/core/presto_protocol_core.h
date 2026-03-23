@@ -2102,7 +2102,7 @@ void to_json(json& j, const StatsAndCosts& p);
 void from_json(const json& j, StatsAndCosts& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-enum class TransportType { HTTP, UCX };
+enum class TransportType { HTTP, ANY };
 extern void to_json(json& j, const TransportType& e);
 extern void from_json(const json& j, TransportType& e);
 } // namespace facebook::presto::protocol

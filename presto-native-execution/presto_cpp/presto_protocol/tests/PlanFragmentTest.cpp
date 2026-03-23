@@ -57,19 +57,19 @@ TEST_F(TestPlanNodes, TestValuesNode) {
   testJsonRoundTripFile<protocol::ValuesNode>("ValuesNode.json");
 }
 
-TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeUcx) {
+TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeAny) {
   std::string str = slurp(getDataPath(
       "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
-      "RemoteSourceNodeUcx.json"));
+      "RemoteSourceNodeAny.json"));
   json j = json::parse(str);
   protocol::RemoteSourceNode node = j;
 
   ASSERT_NE(node.transportType, nullptr);
-  ASSERT_EQ(*node.transportType, protocol::TransportType::UCX);
+  ASSERT_EQ(*node.transportType, protocol::TransportType::ANY);
 
   // Round-trip: serialize back to JSON and verify transportType is preserved.
   json r = node;
-  ASSERT_EQ(r["transportType"], "UCX");
+  ASSERT_EQ(r["transportType"], "ANY");
   testJsonRoundtrip(j, node);
 }
 
@@ -107,19 +107,19 @@ TEST_F(TestPlanNodes, TestRemoteSourceNodeTransportTypeAbsent) {
   ASSERT_EQ(node.transportType, nullptr);
 }
 
-TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeUcx) {
+TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeAny) {
   std::string str = slurp(getDataPath(
       "/github/presto-trunk/presto-native-execution/presto_cpp/presto_protocol/tests/data/",
       "PlanFragmentWithRemoteSource.json"));
   json j = json::parse(str);
-  j["outputTransportType"] = "UCX";
+  j["outputTransportType"] = "ANY";
 
   protocol::PlanFragment fragment = j;
   ASSERT_NE(fragment.outputTransportType, nullptr);
-  ASSERT_EQ(*fragment.outputTransportType, protocol::TransportType::UCX);
+  ASSERT_EQ(*fragment.outputTransportType, protocol::TransportType::ANY);
 
   json r = fragment;
-  ASSERT_EQ(r["outputTransportType"], "UCX");
+  ASSERT_EQ(r["outputTransportType"], "ANY");
 }
 
 TEST_F(TestPlanNodes, TestPlanFragmentOutputTransportTypeHttp) {
