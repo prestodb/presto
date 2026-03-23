@@ -12,9 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
-#include <folly/json.h>
 #include <presto_cpp/main/common/Exception.h>
-#include <fstream>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -25,6 +23,9 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/PlanConsistencyChecker.h"
 #include "velox/core/PlanNode.h"
+#include <cctype>
+#include <folly/json.h>
+#include <fstream>
 #if __has_include("filesystem")
 #include <filesystem>
 #else
@@ -33,21 +34,21 @@
 
 namespace facebook::presto {
 
-namespace {
-
-// Sanitize taskId into a filesystem-safe string.
-std::string sanitizeTaskId(const protocol::TaskId& taskId) {
+// Preserve readability while replacing separators that are unsafe in filenames.
+std::string sanitizeTaskIdForPlanDumpFile(const std::string& taskId) {
   std::string safeId;
   safeId.reserve(taskId.size());
   for (char c : taskId) {
-    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') {
+    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-') {
       safeId.push_back(c);
-    } else if (c == '.' || c == ':' || c == '/') {
+    } else {
       safeId.push_back('_');
     }
   }
   return safeId.empty() ? std::string("task") : safeId;
 }
+
+namespace {
 
 void maybeDumpVeloxPlan(
     const protocol::TaskId& taskId,
@@ -57,7 +58,7 @@ void maybeDumpVeloxPlan(
     return;
   }
   const std::string& dir = dirOpt.value();
-  const std::string safeId = sanitizeTaskId(taskId);
+  const std::string safeId = sanitizeTaskIdForPlanDumpFile(taskId);
   const std::string path = dir + "/" + safeId + ".json";
   try {
 #if __has_include("filesystem")
@@ -66,8 +67,11 @@ void maybeDumpVeloxPlan(
     std::experimental::filesystem::create_directories(dir);
 #endif
     folly::dynamic json = planNode->serialize();
-    std::ofstream outFile(path);
+    std::ofstream outFile;
+    outFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    outFile.open(path);
     outFile << folly::toPrettyJson(json);
+    outFile.close();
   } catch (const std::exception& e) {
     LOG(WARNING) << "Failed to dump plan to " << path << ": " << e.what();
   }
@@ -95,7 +99,7 @@ void maybeDumpSplits(
     return;
   }
   const std::string& dir = dirOpt.value();
-  const std::string safeId = sanitizeTaskId(taskId);
+  const std::string safeId = sanitizeTaskIdForPlanDumpFile(taskId);
   const std::string path = dir + "/" + safeId + ".splits.json";
   try {
 #if __has_include("filesystem")
@@ -128,8 +132,11 @@ void maybeDumpSplits(
         existing[source.planNodeId].push_back(sjson);
       }
     }
-    std::ofstream outFile(path);
+    std::ofstream outFile;
+    outFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    outFile.open(path);
     outFile << existing.dump(2);
+    outFile.close();
   } catch (const std::exception& e) {
     LOG(WARNING) << "Failed to dump splits to " << path << ": " << e.what();
   }
