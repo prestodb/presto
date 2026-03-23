@@ -29,6 +29,8 @@ using namespace facebook::velox;
 
 namespace facebook::presto {
 
+std::string sanitizeTaskIdForPlanDumpFile(const std::string& taskId);
+
 class ServerOperationTest : public exec::test::OperatorTestBase {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
@@ -108,6 +110,23 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   EXPECT_THROW(
       ServerOperation::actionFromString("UNKNOWN_ACTION"),
       velox::VeloxUserError);
+}
+
+TEST_F(
+    ServerOperationTest,
+    sanitizeTaskIdForPlanDumpFilePreservesHyphensAndReplacesSeparators) {
+  EXPECT_EQ(
+      sanitizeTaskIdForPlanDumpFile("error-task.0.0.0.0"),
+      "error-task_0_0_0_0");
+  EXPECT_EQ(
+      sanitizeTaskIdForPlanDumpFile("error:task/0.0.0.0"),
+      "error_task_0_0_0_0");
+  EXPECT_EQ(
+      sanitizeTaskIdForPlanDumpFile("errortask.0.0.0.0"),
+      "errortask_0_0_0_0");
+  EXPECT_NE(
+      sanitizeTaskIdForPlanDumpFile("error-task.0.0.0.0"),
+      sanitizeTaskIdForPlanDumpFile("errortask.0.0.0.0"));
 }
 
 TEST_F(ServerOperationTest, buildServerOp) {
