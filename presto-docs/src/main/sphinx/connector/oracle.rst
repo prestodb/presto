@@ -120,36 +120,26 @@ The connector maps Oracle types to the corresponding PrestoDB types:
 
   * - Oracle type
     - PrestoDB type
-  * - ``BOOLEAN``, ``BIT``
-    - ``BOOLEAN``
-  * - ``TINYINT``
-    - ``TINYINT``
-  * - ``SMALLINT``
-    - ``SMALLINT``
-  * - ``INTEGER``
-    - ``INTEGER``
-  * - ``BIGINT``
-    - ``BIGINT``
-  * - ``REAL``
-    - ``REAL``
-  * - ``FLOAT``, ``DOUBLE``
+  * - ``NUMBER(p, s)``
+    - ``DECIMAL(p, s)`` (or ``BIGINT`` if ``s = 0`` and within range)
+  * - ``FLOAT``
     - ``DOUBLE``
-  * - ``NUMERIC(p, s)``, ``DECIMAL(p, s)``
-    - ``BIGINT`` (if ``s = 0``), otherwise ``DECIMAL(p, s)``
+  * - ``BINARY_FLOAT``
+    - ``REAL``
+  * - ``BINARY_DOUBLE``
+    - ``DOUBLE``
   * - ``CHAR(n)``, ``NCHAR(n)``
     - ``CHAR(n)``
-  * - ``VARCHAR(n)``, ``NVARCHAR(n)``, ``LONGVARCHAR``
-    - ``VARCHAR``
-  * - ``BINARY``, ``VARBINARY``, ``LONGVARBINARY``
-    - ``VARBINARY``
-  * - ``CLOB``
+  * - ``VARCHAR2(n)``, ``NVARCHAR2(n)``
+    - ``VARCHAR(n)``
+  * - ``CLOB``, ``NCLOB``
     - ``VARCHAR``
   * - ``BLOB``
     - ``VARBINARY``
+  * - ``RAW(n)``, ``LONG RAW``
+    - ``VARBINARY``
   * - ``DATE``
-    - ``DATE``
-  * - ``TIME``
-    - ``TIME``
+    - ``TIMESTAMP``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
 
@@ -167,29 +157,23 @@ The connector maps PrestoDB types to the corresponding Oracle types:
   * - PrestoDB type
     - Oracle type
   * - ``BOOLEAN``
-    - ``NUMBER``
-  * - ``TINYINT``
-    - ``NUMBER``
-  * - ``SMALLINT``
-    - ``NUMBER``
-  * - ``INTEGER``
-    - ``NUMBER``
-  * - ``BIGINT``
+    - ``NUMBER(1)``
+  * - ``TINYINT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``
     - ``NUMBER``
   * - ``REAL``
-    - ``FLOAT``
+    - ``BINARY_FLOAT``
   * - ``DOUBLE``
-    - ``DOUBLE PRECISION``
+    - ``BINARY_DOUBLE``
   * - ``DECIMAL(p, s)``
     - ``NUMBER(p, s)``
-  * - ``CHAR(n)``, ``VARCHAR(n)``
-    - ``VARCHAR2``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR2(n)``
   * - ``VARBINARY``
     - ``BLOB``
   * - ``DATE``
     - ``DATE``
-  * - ``TIME``
-    - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
 
