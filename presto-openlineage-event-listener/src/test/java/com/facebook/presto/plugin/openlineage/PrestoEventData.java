@@ -98,6 +98,7 @@ public final class PrestoEventData
                 Duration.ofSeconds(0), // planningTime
                 Optional.empty(), // analysisTime
                 Duration.ofSeconds(1), // executionTime
+                Duration.ofSeconds(0), // finishingTime
                 0, // peakRunningTasks
                 0L, // peakUserMemoryBytes
                 0L, // peakTotalNonRevocableMemoryBytes
