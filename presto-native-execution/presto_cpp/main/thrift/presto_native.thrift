@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 
+package "facebook.com/presto/thrift"
+
 namespace cpp2 facebook.presto.thrift
 
 struct BroadcastFileFooter {
