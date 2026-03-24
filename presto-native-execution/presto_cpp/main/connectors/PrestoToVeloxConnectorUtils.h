@@ -64,13 +64,14 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser);
 
-/// Extracts nimble serde parameters (nimble.*) from table parameters.
+/// Extracts nimble serde parameters (nimble.* and alpha.*) from table
+/// parameters.
 void extractNimbleSerdeParameters(
     const std::map<std::string, std::string>& tableParameters,
     std::unordered_map<std::string, std::string>& serdeParameters);
 
-/// Extracts serde parameters (textfile delimiters and nimble.* config) from
-/// additionalTableParameters during CTAS.
+/// Extracts serde parameters (textfile delimiters, nimble.* and alpha.* config)
+/// from additionalTableParameters during CTAS.
 /// Mirrors Java's HiveMetadata.extractSerdeParameters().
 std::unordered_map<std::string, std::string> extractSerdeParameters(
     const std::map<std::string, std::string>& tableParameters);
