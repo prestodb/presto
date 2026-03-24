@@ -415,8 +415,7 @@ final class DistinguishedNameParser
             }
             if (chars[pos] == ',' || chars[pos] == ';') {
                 //Do nothing
-            }
-            else if (chars[pos] != '+') {
+            } else if (chars[pos] != '+') {
                 throw new IllegalStateException("Malformed DN: " + dn);
             }
             pos++;

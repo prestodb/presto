@@ -151,8 +151,7 @@ public class TestInternalAuthenticationFilter
                     try {
                         method = clazz.getMethod(methodName, parameterTypes);
                     }
-                    catch (NoSuchMethodException e) {
-                    }
+                    catch (NoSuchMethodException e) { }
                     return method;
                 }
 
