@@ -106,6 +106,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushOffsetThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughCrossJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
@@ -362,6 +363,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushProjectionThroughUnion(),
                         new PushProjectionThroughExchange(),
+                        new PushProjectionThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                         new PushdownThroughUnnest(metadata.getFunctionAndTypeManager())));
 
         IterativeOptimizer simplifyRowExpressionOptimizer = new IterativeOptimizer(
