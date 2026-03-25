@@ -15,6 +15,7 @@ package com.facebook.presto.lance;
 
 import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -23,10 +24,14 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +71,22 @@ public class LancePageSourceProvider
 
         String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
 
+        // Build filter from predicate pushdown
+        TupleDomain<ColumnHandle> predicate = layoutHandle.getTupleDomain();
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(predicate);
+
+        // Determine filter projection columns (needed for filter but not in output)
+        Set<String> outputColumnNames = lanceColumns.stream()
+                .map(LanceColumnHandle::getColumnName)
+                .collect(Collectors.toSet());
+        List<String> filterProjectionColumns = predicate.getDomains()
+                .map(domains -> domains.keySet().stream()
+                        .map(LanceColumnHandle.class::cast)
+                        .map(LanceColumnHandle::getColumnName)
+                        .filter(name -> !outputColumnNames.contains(name))
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.of());
+
         return new LanceFragmentPageSource(
                 tableHandle,
                 lanceColumns,
@@ -73,6 +94,8 @@ public class LancePageSourceProvider
                 tablePath,
                 config.getReadBatchSize(),
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator());
+                namespaceHolder.getAllocator(),
+                filter,
+                filterProjectionColumns);
     }
 }

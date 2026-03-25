@@ -23,6 +23,7 @@ import org.lance.ipc.LanceScanner;
 import org.lance.ipc.ScanOptions;
 
 import java.util.List;
+import java.util.Optional;
 
 public class LanceFragmentPageSource
         extends LanceBasePageSource
@@ -36,9 +37,11 @@ public class LanceFragmentPageSource
             String tablePath,
             int readBatchSize,
             ArrowBlockBuilder arrowBlockBuilder,
-            BufferAllocator parentAllocator)
+            BufferAllocator parentAllocator,
+            Optional<String> filter,
+            List<String> filterProjectionColumns)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize), arrowBlockBuilder, parentAllocator);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
     }
 
     private static class FragmentScannerFactory
@@ -47,25 +50,35 @@ public class LanceFragmentPageSource
         private final List<Integer> fragmentIds;
         private final String tablePath;
         private final int readBatchSize;
+        private final List<String> filterProjectionColumns;
         private Dataset dataset;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, List<String> filterProjectionColumns)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = tablePath;
             this.readBatchSize = readBatchSize;
+            this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
         }
 
         @Override
-        public LanceScanner open(BufferAllocator allocator, List<String> columns)
+        public LanceScanner open(BufferAllocator allocator, List<String> columns, Optional<String> filter)
         {
             ScanOptions.Builder optionsBuilder = new ScanOptions.Builder();
-            if (!columns.isEmpty()) {
-                optionsBuilder.columns(columns);
+
+            // Combine output columns with filter projection columns
+            List<String> allColumns = ImmutableList.<String>builder()
+                    .addAll(columns)
+                    .addAll(filterProjectionColumns)
+                    .build();
+
+            if (!allColumns.isEmpty()) {
+                optionsBuilder.columns(allColumns);
             }
             optionsBuilder.batchSize(readBatchSize);
             optionsBuilder.fragmentIds(fragmentIds);
+            filter.ifPresent(optionsBuilder::filter);
 
             this.dataset = Dataset.open(tablePath, new ReadOptions.Builder().build());
             this.scanner = dataset.newScan(optionsBuilder.build());
