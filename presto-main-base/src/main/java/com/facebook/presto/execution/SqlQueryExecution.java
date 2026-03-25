@@ -87,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.isEagerPlanValidationE
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.ANALYZE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.CHECK_ACCESS_PERMISSIONS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.CREATE_SCHEDULER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
@@ -223,7 +224,12 @@ public class SqlQueryExecution
             stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), query, getSession().getPreparedStatements(), getSession().getIdentity(), accessControl, getSession().getAccessControlContext());
+            getSession().getRuntimeStats().recordWallAndCpuTime(
+                    CHECK_ACCESS_PERMISSIONS_TIME_NANOS,
+                    () -> {
+                        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), query, getSession().getPreparedStatements(), getSession().getIdentity(), accessControl, getSession().getAccessControlContext());
+                        return null;
+                    });
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage

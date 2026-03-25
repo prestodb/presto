@@ -118,6 +118,7 @@ import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculato
 import static com.facebook.presto.common.RuntimeMetricName.GET_IDENTIFIER_NORMALIZATION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_LAYOUT_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_STATISTICS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -587,7 +588,9 @@ public class MetadataManager
         try {
             ConnectorId connectorId = tableHandle.getConnectorId();
             ConnectorMetadata metadata = getMetadata(session, connectorId);
-            return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+            return session.getRuntimeStats().recordWallTime(
+                    GET_TABLE_STATISTICS_TIME_NANOS,
+                    () -> metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint));
         }
         catch (RuntimeException e) {
             if (isIgnoreStatsCalculatorFailures(session)) {
