@@ -1470,6 +1470,152 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
+    @Test
+    public void testPayloadJoinSkipsNullChecksForNonNullKeys()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        // Queries with WHERE key IS NOT NULL on the base table — the rejoin
+        // predicate should use direct equality instead of IS_NULL + COALESCE
+        String[] queries = {
+                // Both join keys are non-null
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL AND partkey IS NOT NULL) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                // Only one join key is non-null
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                // IS NOT NULL combined with other filter predicates
+                "SELECT l.* FROM (select * from lineitem where orderkey IS NOT NULL AND partkey IS NOT NULL AND quantity > 1) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+        };
+
+        for (String query : queries) {
+            // Verify plan is optimized (structurally different from unoptimized)
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+
+            // Verify correctness
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
+    @Test
+    public void testPayloadJoinWithInterveningProjectionsAndCrossJoins()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        String[] queries = {
+                // Intervening identity projection from subquery wrapping inner LOJs
+                "SELECT sub.*, s.name as s_name FROM (SELECT l.orderkey, l.partkey, l.suppkey, o.orderstatus " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey) sub " +
+                        "LEFT JOIN supplier s ON sub.suppkey = s.suppkey",
+                // Cross join between LOJs: t LOJ r1 CROSS JOIN c LOJ r2
+                "SELECT l.orderkey, l.partkey, o.orderstatus, n.name as nation_name, p.brand " +
+                        "FROM lineitem l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT name FROM nation WHERE name = 'JAPAN') n " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+                // Both: subquery with identity projection AND cross join
+                "SELECT sub.*, p.brand FROM (" +
+                        "SELECT l.orderkey, l.partkey, o.orderstatus, n.name as nation_name " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT name FROM nation WHERE name = 'JAPAN') n) sub " +
+                        "LEFT JOIN part p ON sub.partkey = p.partkey",
+                // Intervening projection computes a field used as a later join key
+                "SELECT sub.*, s.name as s_name FROM (SELECT l.orderkey, l.partkey, l.suppkey + 0 as sk, o.orderstatus " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey) sub " +
+                        "LEFT JOIN supplier s ON sub.sk = s.suppkey",
+        };
+
+        for (String query : queries) {
+            // Verify plan is optimized
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+
+            // Verify correctness
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+
+        // Queries where cross join columns are used as subsequent LOJ keys.
+        // The optimizer cannot handle these (keys not from the base table),
+        // but we verify correctness is preserved.
+        String[] crossJoinKeyQueries = {
+                // Cross join column used as a join key in a later LOJ
+                "SELECT l.orderkey, o.orderstatus, n.nationkey, s.name as s_name " +
+                        "FROM lineitem l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT nationkey FROM nation WHERE name = 'JAPAN') n " +
+                        "LEFT JOIN supplier s ON n.nationkey = s.nationkey",
+                // Cross join column used as join key combined with identity projection
+                "SELECT sub.*, s.name as s_name FROM (" +
+                        "SELECT l.orderkey, l.partkey, o.orderstatus, n.nationkey " +
+                        "FROM lineitem l LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "CROSS JOIN (SELECT nationkey FROM nation WHERE name = 'JAPAN') n) sub " +
+                        "LEFT JOIN supplier s ON sub.nationkey = s.nationkey",
+        };
+
+        for (String query : crossJoinKeyQueries) {
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
+    @Test
+    public void testPayloadJoinInnerRejoinWithNonNullKeys()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "false")
+                .build();
+
+        // When all join keys are guaranteed non-null, the optimizer uses INNER join
+        // for the payload rejoin instead of LEFT join
+        String[] queries = {
+                // Both keys non-null — should use INNER rejoin
+                "SELECT l.* FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+                // All three keys non-null
+                "SELECT l.orderkey, l.partkey, l.suppkey, o.orderstatus, p.brand, s.name " +
+                        "FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL AND suppkey IS NOT NULL) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey " +
+                        "LEFT JOIN supplier s ON l.suppkey = s.suppkey",
+                // Non-null with additional filter predicates
+                "SELECT l.* FROM (SELECT * FROM lineitem WHERE orderkey IS NOT NULL AND partkey IS NOT NULL AND quantity > 1) l " +
+                        "LEFT JOIN orders o ON l.orderkey = o.orderkey " +
+                        "LEFT JOIN part p ON l.partkey = p.partkey",
+        };
+
+        for (String query : queries) {
+            // Verify correctness: results should match between optimized and non-optimized
+            assertQueryWithSameQueryRunner(session, query, sessionNoOpt);
+        }
+    }
+
     private static List<String> getPayloadQueries(String tableName)
     {
         String[] queries = {
