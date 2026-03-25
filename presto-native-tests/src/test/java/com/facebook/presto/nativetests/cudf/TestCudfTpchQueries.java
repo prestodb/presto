@@ -18,7 +18,8 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 
-public class TestCudfTpchQueries extends AbstractTestNativeTpchQueries
+public class TestCudfTpchQueries
+        extends AbstractTestNativeTpchQueries
 {
     private static final String DEFAULT_STORAGE_FORMAT = "PARQUET";
 
