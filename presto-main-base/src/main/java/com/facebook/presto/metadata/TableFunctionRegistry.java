@@ -37,12 +37,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SESSION_CATALOG_NOT_SET;
 import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +54,8 @@ public class TableFunctionRegistry
 {
     // catalog name in the original case; schema and function name in lowercase
     private final Map<ConnectorId, Map<SchemaFunctionName, TableFunctionMetadata>> tableFunctions = new ConcurrentHashMap<>();
+    private final AtomicBoolean tvfProviderFunctionsLoaded = new AtomicBoolean(false);
+
 
     public void addTableFunctions(ConnectorId catalogName, Collection<ConnectorTableFunction> functions)
     {
@@ -75,6 +80,16 @@ public class TableFunctionRegistry
     public void removeTableFunctions(ConnectorId catalogName)
     {
         tableFunctions.remove(catalogName);
+    }
+
+    public boolean areTvfProviderFunctionsLoaded()
+    {
+        return tvfProviderFunctionsLoaded.get();
+    }
+
+    public void updateTvfProviderFunctionsLoaded()
+    {
+        tvfProviderFunctionsLoaded.compareAndSet(false, true);
     }
 
     public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
@@ -112,7 +127,7 @@ public class TableFunctionRegistry
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
      */
-    public Optional<TableFunctionMetadata> resolve(Session session, QualifiedName qualifiedName)
+    public TableFunctionMetadata resolve(Session session, QualifiedName qualifiedName)
     {
         for (CatalogSchemaFunctionName name : toPath(session, qualifiedName)) {
             ConnectorId connectorId = new ConnectorId(name.getCatalogName());
@@ -122,12 +137,27 @@ public class TableFunctionRegistry
                 String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
                 TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
                 if (function != null) {
-                    return Optional.of(function);
+                    return function;
                 }
             }
         }
 
-        return Optional.empty();
+        return null;
+    }
+
+    public TableFunctionMetadata resolve(ConnectorId connectorId, CatalogSchemaFunctionName name)
+    {
+        Map<SchemaFunctionName, TableFunctionMetadata> catalogFunctions = tableFunctions.get(connectorId);
+        if (catalogFunctions != null) {
+            String lowercasedSchemaName = name.getSchemaFunctionName().getSchemaName().toLowerCase(ENGLISH);
+            String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
+            TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
+            if (function != null) {
+                return function;
+            }
+        }
+
+        throw new PrestoException(GENERIC_USER_ERROR, format("Table functions for catalog %s could not be resolved.", connectorId.getCatalogName()));
     }
 
     private static void validateTableFunction(ConnectorTableFunction tableFunction)
