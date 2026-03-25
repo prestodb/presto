@@ -301,9 +301,16 @@ public final class FunctionResolution
         return functionAndTypeResolver.lookupFunction("$internal$try", fromTypes(returnType));
     }
 
+    @Override
     public boolean isTryFunction(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equals("$internal$try");
+    }
+
+    @Override
+    public boolean isFailFunction(FunctionHandle functionHandle)
+    {
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().getObjectName().equalsIgnoreCase("fail");
     }
 
     public boolean isJavaBuiltInFailFunction(FunctionHandle functionHandle)

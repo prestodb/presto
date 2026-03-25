@@ -777,6 +777,26 @@ public class TestNativeSidecarPlugin
         assertQueryWithSameQueryRunner(session,
                 "SELECT IF (0 = 0, NULL, ROW(regionkey, 1)) FROM region",
                 "VALUES (NULL), (NULL), (NULL), (NULL), (NULL)");
+
+        // Verify try(failing_function()) returns NULL with try and try_cast.
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(abs(-1234567890) AS TINYINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY_CAST(abs(-1234567890) AS TINYINT)", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(abs(-1234567890) AS TINYINT)), 0)", "SELECT 0");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY_CAST(abs(-1234567890) AS TINYINT), 0)", "SELECT 0");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(fail(VARCHAR 'error message'))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(fail(VARCHAR 'error message')), 1)", "SELECT 1");
+        assertQueryWithSameQueryRunner(session, "SELECT TRY(CAST(TRY(fail(VARCHAR 'error message')) AS BIGINT))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session, "SELECT COALESCE(TRY(CAST(TRY(fail(VARCHAR 'error message')) AS INTEGER)), 2)", "SELECT 2");
+        /// TODO: Enable test once Varchar(N) is supported in Velox.
+        // assertQueryWithSameQueryRunner(session, "SELECT coalesce(try_cast(clerk AS BIGINT), 456) FROM orders", "SELECT 456 FROM orders");
+
+        // Test TRY with CAST expression.
+        assertQuerySucceeds(session, "SELECT TRY(CAST(orderkey AS TINYINT)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY(CAST(comment AS BIGINT)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY(CAST(orderkey AS DOUBLE)) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS TINYINT) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(comment AS BIGINT) FROM orders");
+        assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS DOUBLE) FROM orders");
     }
 
     @Test
