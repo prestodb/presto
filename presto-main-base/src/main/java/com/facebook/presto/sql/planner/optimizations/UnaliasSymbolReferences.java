@@ -871,7 +871,7 @@ public class UnaliasSymbolReferences
                         // If we haven't seen the expression before in this projection, record it
                         computedExpressions.put(expression, entry.getKey());
                     }
-                    else {
+                    else if (!wouldCreateCycle(entry.getKey().getName(), computedVariable.getName())) {
                         // If we have seen the expression before and if it is deterministic
                         // then we can rewrite references to the current symbol in terms of the parallel computedVariable in the projection
                         map(entry.getKey(), computedVariable);
@@ -887,10 +887,27 @@ public class UnaliasSymbolReferences
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
         {
             String canonical = variable.getName();
-            while (mapping.containsKey(canonical)) {
+            Set<String> visited = new HashSet<>();
+            while (mapping.containsKey(canonical) && visited.add(canonical)) {
                 canonical = mapping.get(canonical);
             }
             return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
+        }
+
+        /**
+         * Check if adding a mapping from sourceName to targetName would create a cycle.
+         * A cycle exists if following the mapping chain from targetName leads back to sourceName.
+         */
+        private boolean wouldCreateCycle(String sourceName, String targetName)
+        {
+            String current = targetName;
+            while (mapping.containsKey(current)) {
+                current = mapping.get(current);
+                if (current.equals(sourceName)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private Optional<VariableReferenceExpression> canonicalize(Optional<VariableReferenceExpression> variable)

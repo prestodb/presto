@@ -8453,4 +8453,54 @@ public abstract class AbstractTestQueries
                 "SELECT regionkey FROM nation LEFT JOIN region USING (regionkey)",
                 disabledSession);
     }
+
+    @Test(timeOut = 60_000)
+    public void testDuplicateConstantsAcrossNestedProjections()
+    {
+        // Regression test: duplicate constant assignments across nested projections
+        // could cause an infinite loop in UnaliasSymbolReferences due to a mapping cycle.
+        assertQuerySucceeds(
+                "SELECT report_date, revenue_a, revenue_b, total_revenue, item_count, " +
+                        "  qualified_count, converted_count, qualified_revenue_a, qualified_revenue, " +
+                        "  '1995-01-01' AS ds " +
+                        "FROM (" +
+                        "  SELECT ds, report_date, " +
+                        "    sum(revenue_a) AS revenue_a, sum(revenue_b) AS revenue_b, " +
+                        "    sum(total_revenue) AS total_revenue, sum(item_count) AS item_count, " +
+                        "    sum(qualified_count) AS qualified_count, sum(converted_count) AS converted_count, " +
+                        "    sum(qualified_revenue_a) AS qualified_revenue_a, " +
+                        "    sum(qualified_revenue) AS qualified_revenue " +
+                        "  FROM (" +
+                        "    SELECT revenue_a, qualified_revenue_a, total_revenue, revenue_b, " +
+                        "      qualified_revenue, ds, report_date, converted_count, " +
+                        "      qualified_count, item_count " +
+                        "    FROM (" +
+                        "      WITH item_rollup AS (" +
+                        "        SELECT '1995-01-01' AS report_date, " +
+                        "          element_at(split(p.name, ' '), 1) AS item_brand, " +
+                        "          max(p.size > 10) AS is_qualified, " +
+                        "          sum(if(p.size > 10, l.extendedprice * (1 - l.discount), 0)) AS qualified_revenue_a, " +
+                        "          sum(if(p.size > 10, l.extendedprice, 0)) AS qualified_revenue, " +
+                        "          sum(l.extendedprice * (1 - l.discount)) AS revenue_a, " +
+                        "          sum(l.extendedprice * l.tax) AS revenue_b, " +
+                        "          sum(l.extendedprice) AS total_revenue, " +
+                        "          sum(l.extendedprice * (1 - l.discount)) * 1.0 / " +
+                        "            sum(l.extendedprice) FILTER (WHERE p.size > 10) > 0.999 AS is_converted " +
+                        "        FROM lineitem l JOIN part p ON l.partkey = p.partkey " +
+                        "        WHERE l.shipdate <= DATE '1995-01-01' " +
+                        "        GROUP BY 1, 2" +
+                        "      )" +
+                        "      SELECT report_date, '1995-01-01' AS ds, " +
+                        "        sum(revenue_a) AS revenue_a, sum(revenue_b) AS revenue_b, " +
+                        "        sum(total_revenue) AS total_revenue, " +
+                        "        count(1) AS item_count, " +
+                        "        count_if(is_qualified) AS qualified_count, " +
+                        "        count_if(is_converted) AS converted_count, " +
+                        "        sum(qualified_revenue_a) AS qualified_revenue_a, " +
+                        "        sum(qualified_revenue) AS qualified_revenue " +
+                        "      FROM item_rollup GROUP BY 1, 2" +
+                        "    )" +
+                        "  ) GROUP BY ds, report_date" +
+                        ")");
+    }
 }

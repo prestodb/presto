@@ -47,6 +47,31 @@ public class TestUnaliasSymbolReferences
                                 .withExactOutputs("LEFT_BAR", "RIGHT_BAR")));
     }
 
+    @Test(timeOut = 30_000)
+    public void testDuplicateConstantsAcrossNestedProjectionsDontHang()
+    {
+        // Regression test: when the same constant (e.g., '2026-02-04') is assigned to multiple
+        // variables across nested subquery levels, UnaliasSymbolReferences could create a cycle
+        // in its variable mapping (A -> B -> A) causing an infinite loop. This happens when:
+        //   1. A child ProjectNode deduplicates two constant assignments, mapping $b -> $a
+        //   2. A parent ProjectNode also has both $a and $b assigned to the same constant
+        //   3. The parent stores $b in computedExpressions (original key, not canonical)
+        //   4. Processing $a finds $b and calls map($a, $b), completing the cycle
+        assertPlan(
+                "SELECT metric_ds, ds " +
+                        "FROM (" +
+                        "  SELECT metric_ds, calls, '2026-02-04' AS ds " +
+                        "  FROM (" +
+                        "    SELECT ds, metric_ds, sum(calls) AS calls " +
+                        "    FROM (" +
+                        "      SELECT '2026-02-04' AS metric_ds, '2026-02-04' AS ds, 1 AS calls " +
+                        "      FROM (VALUES 1) t(x)" +
+                        "    ) GROUP BY ds, metric_ds" +
+                        "  )" +
+                        ")",
+                anyTree(values()));
+    }
+
     @Test
     public void testIdenticalValuesCollapseAssignments()
     {
