@@ -1,4 +1,4 @@
 [submodule "presto-native-execution/velox"]
 	path = presto-native-execution/velox
 	url = https://github.com/wongquijote/oss-velox.git
-	branch = kyle_gpu_decimal
+	branch = kyle-gpu-decimal
