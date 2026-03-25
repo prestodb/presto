@@ -87,7 +87,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 6;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
 
     @Override
     protected void createTables()
@@ -579,6 +579,7 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT array_has_duplicates(ARRAY[custkey]) from orders");
         assertQuery("SELECT array_max_by(ARRAY[comment], x -> length(x)) from orders");
         assertQuery("SELECT array_min_by(ARRAY[ROW('USA', 1), ROW('INDIA', 2), ROW('UK', 3)], x -> x[2])");
+        assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
         assertQuery("SELECT array_sort_desc(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
         assertQuery("SELECT remove_nulls(ARRAY[CAST(regionkey AS VARCHAR), comment, NULL]) from nation");
         assertQuery("SELECT array_top_n(ARRAY[CAST(nationkey AS VARCHAR)], 3) from nation");
@@ -607,7 +608,6 @@ public class TestNativeSidecarPlugin
     public void testNonOverriddenInlinedSqlInvokedFunctionsWhenConfigEnabled()
     {
         // Array functions
-        assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
         assertQuery("SELECT array_least_frequent(quantities) from orders_ex");
         assertQuery("SELECT array_least_frequent(split(comment, ''), 5) from nation");
         assertQuerySucceeds("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders");
@@ -636,9 +636,6 @@ public class TestNativeSidecarPlugin
                 .build();
 
         // Array functions
-        assertQueryFails(session,
-                "SELECT array_split_into_chunks(split(comment, ''), 2) from nation",
-                ".*Scalar function name not registered: native.default.array_split_into_chunks.*");
         assertQueryFails(session,
                 "SELECT array_least_frequent(quantities) from orders_ex",
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");

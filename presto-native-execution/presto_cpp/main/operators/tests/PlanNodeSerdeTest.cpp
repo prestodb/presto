@@ -21,6 +21,7 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/serializers/RegisterAllVectorSerdes.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::presto::operators;
@@ -31,6 +32,7 @@ class PlanNodeSerdeTest : public testing::Test,
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+    velox::registerAllNamedVectorSerdes();
   }
 
   PlanNodeSerdeTest() {

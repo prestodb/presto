@@ -20,6 +20,7 @@ target_link_libraries(
   velox_core
   velox_exec
   velox_exec_test_lib
+  velox_dwio_parquet_writer
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_query_trace_replayer_base
