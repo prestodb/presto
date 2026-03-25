@@ -87,4 +87,9 @@ public class RuntimeMetricName
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
     public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
     public static final String FILES_READ_COUNT = "filesReadCount";
+    public static final String METASTORE_ADD_PARTITIONS_TIME_NANOS = "metastoreAddPartitionsTimeNanos";
+    public static final String METASTORE_ALTER_PARTITION_TIME_NANOS = "metastoreAlterPartitionTimeNanos";
+    public static final String METASTORE_ALTER_PARTITIONS_TIME_NANOS = "metastoreAlterPartitionsTimeNanos";
+    public static final String METASTORE_UPDATE_PARTITION_STATISTICS_TIME_NANOS = "metastoreUpdatePartitionStatisticsTimeNanos";
+    public static final String METASTORE_UPDATE_TABLE_STATISTICS_TIME_NANOS = "metastoreUpdateTableStatisticsTimeNanos";
 }

@@ -1739,6 +1739,7 @@ public class HiveMetadata
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         verifyJvmTimeZone();
+        metastore.setQueryRuntimeStats(session.getRuntimeStats());
 
         if (getExternalLocation(tableMetadata.getProperties()) != null) {
             throw new PrestoException(NOT_SUPPORTED, "External tables cannot be created using CREATE TABLE AS");
@@ -2084,6 +2085,7 @@ public class HiveMetadata
     private HiveInsertTableHandle beginInsertInternal(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         verifyJvmTimeZone();
+        metastore.setQueryRuntimeStats(session.getRuntimeStats());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
 

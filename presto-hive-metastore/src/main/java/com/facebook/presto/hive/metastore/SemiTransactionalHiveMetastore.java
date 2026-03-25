@@ -70,6 +70,10 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.common.ErrorType.USER_ERROR;
 import static com.facebook.presto.common.RuntimeMetricName.GET_PARTITIONS_BY_NAMES_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.METASTORE_ADD_PARTITIONS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.METASTORE_ALTER_PARTITION_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.METASTORE_UPDATE_PARTITION_STATISTICS_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.METASTORE_UPDATE_TABLE_STATISTICS_TIME_NANOS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -146,6 +150,11 @@ public class SemiTransactionalHiveMetastore
     private State state = State.EMPTY;
     private boolean throwOnCleanupFailure;
 
+    // RuntimeStats from the original coordinator session, set during beginInsert/beginCreateTable.
+    // Used during commit to record partition registration metrics on the correct instance,
+    // since the session stored in HdfsContext may be a serialized/reconstructed copy with a different RuntimeStats.
+    private volatile RuntimeStats queryRuntimeStats = new RuntimeStats();
+
     public SemiTransactionalHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             ExtendedHiveMetastore delegate,
@@ -162,6 +171,11 @@ public class SemiTransactionalHiveMetastore
         this.skipDeletionForAlter = skipDeletionForAlter;
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         this.undoMetastoreOperationsEnabled = undoMetastoreOperationsEnabled;
+    }
+
+    public void setQueryRuntimeStats(RuntimeStats runtimeStats)
+    {
+        this.queryRuntimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
     }
 
     public ColumnConverterProvider getColumnConverterProvider()
@@ -1178,7 +1192,7 @@ public class SemiTransactionalHiveMetastore
                         hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
                         columnConverterProvider,
                         hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
-                        hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElseGet(RuntimeStats::new));
+                        queryRuntimeStats);
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1212,7 +1226,7 @@ public class SemiTransactionalHiveMetastore
                             hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
                             columnConverterProvider,
                             hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
-                            hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElseGet(RuntimeStats::new));
+                            queryRuntimeStats);
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);
@@ -2912,11 +2926,13 @@ public class SemiTransactionalHiveMetastore
         public void run(ExtendedHiveMetastore metastore)
         {
             undo = true;
-            operationResult = Optional.of(metastore.alterPartition(
-                    metastoreContext,
-                    newPartition.getPartition().getDatabaseName(),
-                    newPartition.getPartition().getTableName(),
-                    newPartition));
+            operationResult = Optional.of(metastoreContext.getRuntimeStats().recordWallTime(
+                    METASTORE_ALTER_PARTITION_TIME_NANOS,
+                    () -> metastore.alterPartition(
+                            metastoreContext,
+                            newPartition.getPartition().getDatabaseName(),
+                            newPartition.getPartition().getTableName(),
+                            newPartition)));
         }
 
         public void undo(ExtendedHiveMetastore metastore)
@@ -2951,10 +2967,14 @@ public class SemiTransactionalHiveMetastore
         public void run(ExtendedHiveMetastore metastore)
         {
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
+                metastoreContext.getRuntimeStats().recordWallTime(
+                        METASTORE_UPDATE_PARTITION_STATISTICS_TIME_NANOS,
+                        () -> metastore.updatePartitionStatistics(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics));
             }
             else {
-                metastore.updateTableStatistics(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), this::updateStatistics);
+                metastoreContext.getRuntimeStats().recordWallTime(
+                        METASTORE_UPDATE_TABLE_STATISTICS_TIME_NANOS,
+                        () -> metastore.updateTableStatistics(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), this::updateStatistics));
             }
             done = true;
         }
@@ -3039,7 +3059,9 @@ public class SemiTransactionalHiveMetastore
             List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, batchSize);
             for (List<PartitionWithStatistics> batch : batchedPartitions) {
                 try {
-                    operationResults.add(metastore.addPartitions(metastoreContext, schemaName, tableName, batch));
+                    operationResults.add(metastoreContext.getRuntimeStats().recordWallTime(
+                            METASTORE_ADD_PARTITIONS_TIME_NANOS,
+                            () -> metastore.addPartitions(metastoreContext, schemaName, tableName, batch)));
                     for (PartitionWithStatistics partition : batch) {
                         createdPartitionValues.add(partition.getPartition().getValues());
                     }
