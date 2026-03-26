@@ -124,7 +124,7 @@ public class ApplyConnectorOptimization
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
+        boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session) || SystemSessionProperties.isVerbosePlannerRuntimeStatsEnabled(session);
         Map<ConnectorId, Set<ConnectorPlanOptimizer>> connectorOptimizers = connectorOptimizersSupplier.get();
         if (connectorOptimizers.isEmpty()) {
             return PlanOptimizerResult.optimizerResult(plan, false);

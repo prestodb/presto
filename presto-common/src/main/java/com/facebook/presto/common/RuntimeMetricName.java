@@ -40,6 +40,7 @@ public class RuntimeMetricName
     public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
     public static final String GET_PARTITIONS_BY_NAMES_TIME_NANOS = "getPartitionsByNamesTimeNanos";
     public static final String GET_TABLE_TIME_NANOS = "getTableTimeNanos";
+    public static final String GET_TABLE_STATISTICS_TIME_NANOS = "getTableStatisticsTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
     // CPU time taken to schedule a given stage
     public static final String SCHEDULER_CPU_TIME_NANOS = "schedulerCpuTimeNanos";
@@ -92,4 +93,5 @@ public class RuntimeMetricName
     public static final String METASTORE_ALTER_PARTITIONS_TIME_NANOS = "metastoreAlterPartitionsTimeNanos";
     public static final String METASTORE_UPDATE_PARTITION_STATISTICS_TIME_NANOS = "metastoreUpdatePartitionStatisticsTimeNanos";
     public static final String METASTORE_UPDATE_TABLE_STATISTICS_TIME_NANOS = "metastoreUpdateTableStatisticsTimeNanos";
+    public static final String CHECK_ACCESS_PERMISSIONS_TIME_NANOS = "checkAccessPermissionsTimeNanos";
 }

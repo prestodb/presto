@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.RuntimeMetricName;
 import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.function.OperatorType;
@@ -745,7 +746,9 @@ class StatementAnalyzer
 
             // user must have read and insert permission in order to analyze stats of a table
             Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                    .putAll(tableName, metadataResolver.getColumnHandles(tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
+                    .putAll(tableName, session.getRuntimeStats().recordWallTime(
+                            RuntimeMetricName.GET_COLUMN_HANDLE_TIME_NANOS,
+                            () -> metadataResolver.getColumnHandles(tableHandle)).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
                     .build();
             analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableColumnMap, tableColumnMap);
             analysis.addAccessControlCheckForTable(TABLE_INSERT, new AccessControlInfoForTable(accessControl, session.getIdentity(), session.getTransactionId(), session.getAccessControlContext(), tableName));
@@ -944,7 +947,9 @@ class StatementAnalyzer
                 RefreshMaterializedView node,
                 QualifiedObjectName viewName)
         {
-            MaterializedViewStatus viewStatus = metadataResolver.getMaterializedViewStatus(viewName, TupleDomain.all());
+            MaterializedViewStatus viewStatus = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                    () -> metadataResolver.getMaterializedViewStatus(viewName, TupleDomain.all()));
             Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> missingPartitionsPerTable =
                     viewStatus.getPartitionsFromBaseTables();
 
@@ -1172,8 +1177,12 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyze(sourceTable, scope);
 
             // Validate that specified columns exist in the source table
-            TableHandle sourceTableHandle = metadataResolver.getTableHandle(sourceTableName).get();
-            Map<String, ColumnHandle> sourceColumns = metadataResolver.getColumnHandles(sourceTableHandle);
+            TableHandle sourceTableHandle = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS,
+                    () -> metadataResolver.getTableHandle(sourceTableName)).get();
+            Map<String, ColumnHandle> sourceColumns = session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_COLUMN_HANDLE_TIME_NANOS,
+                    () -> metadataResolver.getColumnHandles(sourceTableHandle));
             for (Identifier column : node.getColumns()) {
                 if (!sourceColumns.containsKey(column.getValue())) {
                     throw new SemanticException(MISSING_COLUMN, column, "Column '%s' does not exist in source table '%s'", column.getValue(), sourceTableName);
@@ -2710,7 +2719,9 @@ class StatementAnalyzer
                 Optional<MaterializedViewDefinition> materializedViewDefinition = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
-                    return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
+                    return session.getRuntimeStats().recordWallTime(
+                            RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                            () -> metadataResolver.getMaterializedViewStatus(materializedViewName, TupleDomain.all()));
                 }
 
                 Scope sourceScope = getScopeFromTable(table, scope);
@@ -2780,7 +2791,10 @@ class StatementAnalyzer
                 }
             }
 
-            return metadataResolver.getMaterializedViewStatus(materializedViewName, baseQueryDomain);
+            TupleDomain<String> finalBaseQueryDomain = baseQueryDomain;
+            return session.getRuntimeStats().recordWallTime(
+                    RuntimeMetricName.GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
+                    () -> metadataResolver.getMaterializedViewStatus(materializedViewName, finalBaseQueryDomain));
         }
 
         @Override
