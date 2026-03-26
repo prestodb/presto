@@ -102,7 +102,7 @@ public class TestLanceSqlFilterBuilder
 
         Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
         assertTrue(filter.isPresent());
-        assertEquals(filter.get(), "`value` > 10 AND `value` < 20");
+        assertEquals(filter.get(), "(`value` > 10 AND `value` < 20)");
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TestLanceSqlFilterBuilder
 
         Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
         assertTrue(filter.isPresent());
-        assertEquals(filter.get(), "`value` >= 10 AND `value` <= 20");
+        assertEquals(filter.get(), "(`value` >= 10 AND `value` <= 20)");
     }
 
     @Test
