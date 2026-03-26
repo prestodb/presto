@@ -11,19 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.UUID;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
+import static java.lang.String.format;
 
-public class TestNativeSidecarPluginWithoutLoadingFunctionalities
+@Test(singleThreaded = true, groups = "sidecar")
+public class TestNativeSidecarPlanChecker
         extends AbstractTestQueryFramework
 {
     @Override
@@ -33,6 +41,7 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
         createLineitem(queryRunner);
         createNation(queryRunner);
         createOrders(queryRunner);
+        createOrdersEx(queryRunner);
     }
 
     @Override
@@ -40,11 +49,10 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
             throws Exception
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setAddStorageFormatToPath(true)
+                .setCoordinatorSidecarEnabled(true)
+                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8089"))
                 .build();
-        // Installing the native sidecar plugin on a native cluster does not load the plugin functionalities because
-        // we aren't loading the individual functionalities.
-        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
+        queryRunner.getCoordinator().createCatalog("hive2", "hive");
         return queryRunner;
     }
 
@@ -52,28 +60,26 @@ public class TestNativeSidecarPluginWithoutLoadingFunctionalities
     protected QueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setAddStorageFormatToPath(true)
-                .build();
-        // Installing the native sidecar plugin on a Java cluster, does not load the plugin functionalities because
-        // we aren't loading the individual functionalities.
-        queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
-        return queryRunner;
+        return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder().build();
     }
 
     @Test
-    public void testBasicQueries()
+    public void createAndInsertUnbucketedTable()
     {
-        assertQuery("SELECT ARRAY['abc']");
-        assertQuery("SELECT ARRAY[1, 2, 3]");
-        assertQuery("SELECT substr(comment, 1, 10), length(comment), trim(comment) FROM orders");
-        assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
-        assertQuery("select lower(comment) from nation");
-        assertQuery("SELECT mod(orderkey, linenumber) FROM lineitem");
-        assertQuery("select corr(nationkey, nationkey) from nation");
-        assertQuery("select count(comment) from orders");
-        assertQuery("select count(*) from nation");
-        assertQuery("select count(abs(orderkey) between 1 and 60000) from orders group by orderkey");
-        assertQuery("SELECT count(orderkey) FROM orders WHERE orderkey < 0 GROUP BY GROUPING SETS (())");
+        String tableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        try {
+            assertUpdate(format("CREATE TABLE %s AS SELECT orderkey key1, comment value1 FROM orders", tableName), 15000);
+            assertUpdate(format("INSERT INTO %s SELECT orderkey key1, comment value1 FROM orders", tableName), 15000);
+        }
+        finally {
+            // Clean up the temporary tables
+            getExpectedQueryRunner().execute(getSession(), format("DROP TABLE IF EXISTS %s", tableName), ImmutableList.of(BIGINT));
+        }
+    }
+
+    @Test
+    public void selectFromUnbucketedTable()
+    {
+        assertQuery(format("SELECT orderkey key1, comment value1 FROM orders"));
     }
 }
