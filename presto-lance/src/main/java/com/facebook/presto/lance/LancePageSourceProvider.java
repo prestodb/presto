@@ -31,9 +31,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LancePageSourceProvider
@@ -78,14 +78,10 @@ public class LancePageSourceProvider
         // Determine filter projection columns (needed for filter but not in output)
         Set<String> outputColumnNames = lanceColumns.stream()
                 .map(LanceColumnHandle::getColumnName)
-                .collect(Collectors.toSet());
-        List<String> filterProjectionColumns = predicate.getDomains()
-                .map(domains -> domains.keySet().stream()
-                        .map(LanceColumnHandle.class::cast)
-                        .map(LanceColumnHandle::getColumnName)
-                        .filter(name -> !outputColumnNames.contains(name))
-                        .collect(toImmutableList()))
-                .orElse(ImmutableList.of());
+                .collect(toImmutableSet());
+        List<String> filterProjectionColumns = LanceSqlFilterBuilder.extractFilterColumnNames(predicate).stream()
+                .filter(name -> !outputColumnNames.contains(name))
+                .collect(toImmutableList());
 
         return new LanceFragmentPageSource(
                 tableHandle,

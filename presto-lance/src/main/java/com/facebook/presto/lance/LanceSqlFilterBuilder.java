@@ -30,18 +30,18 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 
 public final class LanceSqlFilterBuilder
@@ -62,7 +62,7 @@ public final class LanceSqlFilterBuilder
         }
 
         Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().get();
-        List<String> conjuncts = new ArrayList<>();
+        ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
 
         for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
             LanceColumnHandle column = (LanceColumnHandle) entry.getKey();
@@ -71,10 +71,27 @@ public final class LanceSqlFilterBuilder
             predicate.ifPresent(conjuncts::add);
         }
 
-        if (conjuncts.isEmpty()) {
+        List<String> parts = conjuncts.build();
+        if (parts.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(String.join(" AND ", conjuncts));
+        return Optional.of(String.join(" AND ", parts));
+    }
+
+    /**
+     * Extract column names referenced by the filter predicates.
+     * Used to determine filter projection columns (columns needed for
+     * filter evaluation but not in query output).
+     */
+    public static List<String> extractFilterColumnNames(TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (tupleDomain.isAll() || tupleDomain.isNone()) {
+            return ImmutableList.of();
+        }
+        return tupleDomain.getDomains().get().keySet().stream()
+                .map(LanceColumnHandle.class::cast)
+                .map(LanceColumnHandle::getColumnName)
+                .collect(toImmutableList());
     }
 
     private static Optional<String> buildColumnPredicate(LanceColumnHandle column, Domain domain)
@@ -90,7 +107,8 @@ public final class LanceSqlFilterBuilder
             if (domain.isNullAllowed()) {
                 return Optional.of(quotedName + " IS NULL");
             }
-            return Optional.empty();
+            // Domain matches nothing — return "false" to filter all rows
+            return Optional.of("false");
         }
 
         SortedRangeSet rangeSet = (SortedRangeSet) domain.getValues();
@@ -100,13 +118,13 @@ public final class LanceSqlFilterBuilder
             return Optional.empty();
         }
 
-        List<String> disjuncts = new ArrayList<>();
+        ImmutableList.Builder<String> disjuncts = ImmutableList.builder();
 
         // Check if all ranges are single values for IN optimization
         boolean allSingleValues = ranges.stream().allMatch(Range::isSingleValue);
 
         if (allSingleValues && ranges.size() > 1) {
-            List<String> values = new ArrayList<>();
+            ImmutableList.Builder<String> values = ImmutableList.builder();
             for (Range range : ranges) {
                 Optional<String> literal = toLiteral(type, range.getSingleValue());
                 if (!literal.isPresent()) {
@@ -114,7 +132,7 @@ public final class LanceSqlFilterBuilder
                 }
                 values.add(literal.get());
             }
-            disjuncts.add(quotedName + " IN (" + String.join(", ", values) + ")");
+            disjuncts.add(quotedName + " IN (" + String.join(", ", values.build()) + ")");
         }
         else {
             for (Range range : ranges) {
@@ -126,12 +144,13 @@ public final class LanceSqlFilterBuilder
             }
         }
 
+        List<String> disjunctList = disjuncts.build();
         String valuesPredicate;
-        if (disjuncts.size() == 1) {
-            valuesPredicate = disjuncts.get(0);
+        if (disjunctList.size() == 1) {
+            valuesPredicate = disjunctList.get(0);
         }
         else {
-            valuesPredicate = "(" + String.join(" OR ", disjuncts) + ")";
+            valuesPredicate = "(" + String.join(" OR ", disjunctList) + ")";
         }
 
         if (domain.isNullAllowed()) {
@@ -147,7 +166,7 @@ public final class LanceSqlFilterBuilder
             return literal.map(l -> quotedName + " = " + l);
         }
 
-        List<String> parts = new ArrayList<>();
+        ImmutableList.Builder<String> parts = ImmutableList.builder();
 
         if (!range.getLow().isLowerUnbounded()) {
             Optional<String> literal = toLiteral(type, range.getLow().getValue());
@@ -167,11 +186,16 @@ public final class LanceSqlFilterBuilder
             parts.add(quotedName + op + literal.get());
         }
 
-        if (parts.isEmpty()) {
+        List<String> partList = parts.build();
+        if (partList.isEmpty()) {
             return Optional.of("true");
         }
 
-        return Optional.of(String.join(" AND ", parts));
+        // Parenthesize multi-part range expressions for unambiguous precedence
+        if (partList.size() > 1) {
+            return Optional.of("(" + String.join(" AND ", partList) + ")");
+        }
+        return Optional.of(partList.get(0));
     }
 
     private static Optional<String> toLiteral(Type type, Object value)
@@ -179,8 +203,8 @@ public final class LanceSqlFilterBuilder
         if (type instanceof BooleanType) {
             return Optional.of(((Boolean) value) ? "true" : "false");
         }
-        if (type instanceof TinyintType || type instanceof SmallintType ||
-                type instanceof IntegerType || type instanceof BigintType) {
+        if (type instanceof TinyintType || type instanceof SmallintType
+                || type instanceof IntegerType || type instanceof BigintType) {
             return Optional.of(String.valueOf((long) value));
         }
         if (type instanceof RealType) {
@@ -207,24 +231,12 @@ public final class LanceSqlFilterBuilder
             String formatted = TIMESTAMP_FORMATTER.format(instant.atOffset(ZoneOffset.UTC));
             return Optional.of("timestamp '" + formatted + "'");
         }
-        // Unsupported type
+        // Unsupported type — skip pushdown for this column
         return Optional.empty();
     }
 
     private static String quoteColumnName(String columnName)
     {
         return "`" + columnName + "`";
-    }
-
-    // Visible for testing
-    static List<String> extractFilterColumnNames(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        if (tupleDomain.isAll() || tupleDomain.isNone()) {
-            return new ArrayList<>();
-        }
-        return tupleDomain.getDomains().get().keySet().stream()
-                .map(LanceColumnHandle.class::cast)
-                .map(LanceColumnHandle::getColumnName)
-                .collect(Collectors.toList());
     }
 }

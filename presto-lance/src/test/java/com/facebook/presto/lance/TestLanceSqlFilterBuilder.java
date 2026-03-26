@@ -17,6 +17,8 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +32,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -293,6 +296,47 @@ public class TestLanceSqlFilterBuilder
 
         Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
         assertTrue(filter.isPresent());
-        assertEquals(filter.get(), "(`value` >= 1 AND `value` <= 5 OR `value` >= 10 AND `value` <= 20)");
+        assertEquals(filter.get(), "((`value` >= 1 AND `value` <= 5) OR (`value` >= 10 AND `value` <= 20))");
+    }
+
+    @Test
+    public void testValuesNoneNotNullable()
+    {
+        // #2: values.isNone() + !isNullAllowed() should produce "false", not empty
+        LanceColumnHandle column = new LanceColumnHandle("col", BIGINT);
+        Domain domain = Domain.none(BIGINT);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, domain));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertTrue(filter.isPresent());
+        assertEquals(filter.get(), "false");
+    }
+
+    @Test
+    public void testRealEquality()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("score", RealType.REAL);
+        long floatBits = floatToIntBits(3.14f);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(RealType.REAL, floatBits)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertTrue(filter.isPresent());
+        assertEquals(filter.get(), "`score` = 3.14");
+    }
+
+    @Test
+    public void testTimestampEquality()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("ts", TimestampType.TIMESTAMP);
+        // 2024-01-15 10:30:00 UTC in microseconds since epoch
+        long micros = 1705314600000000L;
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(TimestampType.TIMESTAMP, micros)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertTrue(filter.isPresent());
+        assertEquals(filter.get(), "`ts` = timestamp '2024-01-15 10:30:00.000000'");
     }
 }
