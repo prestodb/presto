@@ -50,6 +50,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getOptimizersToEnableVerboseRuntimeStats;
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerbosePlannerRuntimeStatsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
@@ -242,7 +243,7 @@ public class IterativeOptimizer
             throw e;
         }
         stats.record(rule, duration, !result.isEmpty());
-        if (isVerboseRuntimeStatsEnabled(context.session) || trackOptimizerRuntime(context.session, rule)) {
+        if (isVerboseRuntimeStatsEnabled(context.session) || isVerbosePlannerRuntimeStatsEnabled(context.session) || trackOptimizerRuntime(context.session, rule)) {
             context.session.getRuntimeStats().addMetricValue(String.format("rule%sTimeNanos", getNameOfOptimizerRule(rule)), NANO, duration);
         }
 
