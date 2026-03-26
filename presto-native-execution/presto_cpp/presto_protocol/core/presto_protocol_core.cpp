@@ -5654,6 +5654,43 @@ void from_json(const json& j, ExecutionFailureInfo& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const ExpressionOptimizationRequest& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "expressions",
+      p.expressions,
+      "ExpressionOptimizationRequest",
+      "List<std::shared_ptr<RowExpression>>",
+      "expressions");
+  to_json_key(
+      j,
+      "sessionProperties",
+      p.sessionProperties,
+      "ExpressionOptimizationRequest",
+      "Map<String, String>",
+      "sessionProperties");
+}
+
+void from_json(const json& j, ExpressionOptimizationRequest& p) {
+  from_json_key(
+      j,
+      "expressions",
+      p.expressions,
+      "ExpressionOptimizationRequest",
+      "List<std::shared_ptr<RowExpression>>",
+      "expressions");
+  from_json_key(
+      j,
+      "sessionProperties",
+      p.sessionProperties,
+      "ExpressionOptimizationRequest",
+      "Map<String, String>",
+      "sessionProperties");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 FilterNode::FilterNode() noexcept {
   _type = ".FilterNode";
 }

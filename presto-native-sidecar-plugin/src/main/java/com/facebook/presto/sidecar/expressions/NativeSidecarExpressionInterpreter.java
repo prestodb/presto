@@ -57,7 +57,7 @@ public class NativeSidecarExpressionInterpreter
 
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private final JsonCodec<List<RowExpression>> rowExpressionCodec;
+    private final JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec;
     private final JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec;
 
     @Inject
@@ -65,12 +65,12 @@ public class NativeSidecarExpressionInterpreter
             @ForSidecarInfo HttpClient httpClient,
             NodeManager nodeManager,
             JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec,
-            JsonCodec<List<RowExpression>> rowExpressionCodec)
+            JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionOptimizationResultJsonCodec = requireNonNull(rowExpressionOptimizationResultJsonCodec, "rowExpressionOptimizationResultJsonCodec is null");
-        this.rowExpressionCodec = requireNonNull(rowExpressionCodec, "rowExpressionCodec is null");
+        this.expressionOptimizationRequestCodec = requireNonNull(expressionOptimizationRequestCodec, "expressionOptimizationRequestCodec is null");
     }
 
     public Map<RowExpression, RowExpression> optimizeBatch(ConnectorSession session, Map<RowExpression, RowExpression> expressions, ExpressionOptimizer.Level level)
@@ -120,9 +120,12 @@ public class NativeSidecarExpressionInterpreter
 
     private Request getSidecarRequest(ConnectorSession session, Level level, List<RowExpression> resolvedExpressions)
     {
+        ExpressionOptimizationRequest expressionOptimizationRequest
+                = new ExpressionOptimizationRequest(resolvedExpressions, session.getSystemProperties());
+
         return preparePost()
                 .setUri(getSidecarLocation())
-                .setBodyGenerator(jsonBodyGenerator(rowExpressionCodec, resolvedExpressions))
+                .setBodyGenerator(jsonBodyGenerator(expressionOptimizationRequestCodec, expressionOptimizationRequest))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .setHeader(PRESTO_TIME_ZONE_HEADER, session.getSqlFunctionProperties().getTimeZoneKey().getId())

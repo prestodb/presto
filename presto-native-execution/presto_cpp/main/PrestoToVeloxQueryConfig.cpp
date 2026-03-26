@@ -44,12 +44,12 @@ void updateVeloxConfigsWithSpecialCases(
 }
 
 void updateFromSessionConfigs(
-    const protocol::SessionRepresentation& session,
+    const std::map<std::string, std::string>& systemProperties,
     std::unordered_map<std::string, std::string>& queryConfigs) {
   auto* sessionProperties = SessionProperties::instance();
   std::optional<std::string> traceFragmentId;
   std::optional<std::string> traceShardId;
-  for (const auto& it : session.systemProperties) {
+  for (const auto& it : systemProperties) {
     if (it.first == SessionProperties::kQueryTraceFragmentId) {
       traceFragmentId = it.second;
     } else if (it.first == SessionProperties::kQueryTraceShardId) {
@@ -72,6 +72,20 @@ void updateFromSessionConfigs(
     }
   }
 
+  // Construct query tracing regex and pass to Velox config.
+  // It replaces the given native_query_trace_task_reg_exp if also set.
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    queryConfigs[velox::core::QueryConfig::kQueryTraceTaskRegExp] = ".*\\." +
+        traceFragmentId.value_or(".*") + "\\..*\\." +
+        traceShardId.value_or(".*") + "\\..*";
+  }
+}
+
+void updateFromSessionConfigs(
+    const protocol::SessionRepresentation& session,
+    std::unordered_map<std::string, std::string>& queryConfigs) {
+  updateFromSessionConfigs(session.systemProperties, queryConfigs);
+
   if (session.startTime) {
     queryConfigs[velox::core::QueryConfig::kSessionStartTime] =
         std::to_string(session.startTime);
@@ -91,15 +105,6 @@ void updateFromSessionConfigs(
     queryConfigs.emplace(
         velox::core::QueryConfig::kSessionTimezone,
         velox::tz::getTimeZoneName(session.timeZoneKey));
-  }
-
-  // Construct query tracing regex and pass to Velox config.
-  // It replaces the given native_query_trace_task_reg_exp if also set.
-  if (traceFragmentId.has_value() || traceShardId.has_value()) {
-    queryConfigs.emplace(
-        velox::core::QueryConfig::kQueryTraceTaskRegExp,
-        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
-            traceShardId.value_or(".*") + "\\..*");
   }
 }
 
@@ -240,6 +245,14 @@ void updateFromSystemConfigs(
   }
 }
 } // namespace
+
+std::unordered_map<std::string, std::string>
+toVeloxConfigsFromSessionProperties(
+    const std::map<std::string, std::string>& sessionProperties) {
+  std::unordered_map<std::string, std::string> configs;
+  updateFromSessionConfigs(sessionProperties, configs);
+  return configs;
+}
 
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session) {
