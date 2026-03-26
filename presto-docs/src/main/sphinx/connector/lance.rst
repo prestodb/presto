@@ -190,6 +190,52 @@ of columns only read those columns from disk:
 
     SELECT id, name FROM lance.default.my_table;
 
+Predicate Pushdown
+^^^^^^^^^^^^^^^^^^
+
+The Lance connector supports predicate pushdown for ``WHERE`` clauses.
+Filter predicates are converted to Lance SQL filter strings and evaluated
+natively by Lance during scan, reducing data read from disk.
+
+.. code-block:: sql
+
+    SELECT * FROM lance.default.my_table
+    WHERE age > 30 AND status = 'active';
+
+The following predicate types are pushed down:
+
+- **Equality**: ``col = value``
+- **Comparisons**: ``col > value``, ``col >= value``, ``col < value``, ``col <= value``
+- **IN lists**: ``col IN (v1, v2, v3)``
+- **NULL checks**: ``col IS NULL``
+- **Range**: ``col >= low AND col < high``
+- **Multiple columns**: predicates on different columns are combined with ``AND``
+
+The following data types are supported in pushed-down predicates:
+
+========================= ======================================
+Presto Type               Lance Filter Literal
+========================= ======================================
+``BOOLEAN``               ``true`` / ``false``
+``TINYINT``               Integer literal
+``SMALLINT``              Integer literal
+``INTEGER``               Integer literal
+``BIGINT``                Integer literal
+``REAL``                  Float literal
+``DOUBLE``                Double literal
+``VARCHAR``               ``'string'`` (single quotes escaped)
+``DATE``                  ``date '2024-01-15'``
+``TIMESTAMP``             ``timestamp '2024-01-15 10:30:00.000000'``
+========================= ======================================
+
+.. note::
+
+    Predicates on unsupported types (e.g., ``VARBINARY``, ``ARRAY``) and
+    complex predicates with more than 100 ranges per column are not pushed
+    down. In these cases, Presto evaluates the filter at the executor level.
+    Correctness is always guaranteed because Presto re-evaluates all
+    predicates regardless of pushdown.
+
 DROP TABLE
 ^^^^^^^^^^
 
@@ -228,8 +274,8 @@ Limitations
   * :doc:`/sql/delete`
   * :doc:`/sql/update`
 
-* Predicate pushdown is not supported. Only column projection is pushed down
-  to the Lance reader.
+* Predicate pushdown is not supported for ``VARBINARY`` and ``ARRAY`` types.
+  Only column projection is pushed down for these types.
 * ``ARRAY`` types are supported for reads but cannot be written.
 * Only local filesystem paths are supported in the current ``dir`` implementation.
 * Data written by one Presto cluster is not visible to another cluster until the
