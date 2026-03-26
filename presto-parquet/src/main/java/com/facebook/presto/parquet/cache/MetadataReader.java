@@ -431,6 +431,9 @@ public final class MetadataReader
         if (type.isSetSTRING()) {
             return Optional.of(LogicalTypeAnnotation.stringType());
         }
+        if (type.isSetVARIANT()) {
+            return Optional.of(LogicalTypeAnnotation.variantType(type.getVARIANT().getSpecification_version()));
+        }
         return Optional.empty();
     }
 

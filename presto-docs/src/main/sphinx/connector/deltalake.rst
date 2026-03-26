@@ -177,3 +177,5 @@ Map of Delta Lake types to the relevant PrestoDB types:
     - ``MAP``
   * - ``STRUCT``
     - ``ROW``
+  * - ``VARIANT``
+    - ``JSON``
