@@ -91,10 +91,9 @@ public class ColumnMetadata
         return properties;
     }
 
-    public Optional<String> getDefaultValue()
+    public Optional<Object> getDefaultValue()
     {
-        Object value = properties.get(DEFAULT_VALUE_PROPERTY);
-        return value != null ? Optional.of(value.toString()) : Optional.empty();
+        return Optional.ofNullable(properties.get(DEFAULT_VALUE_PROPERTY));
     }
 
     public Builder toBuilder()

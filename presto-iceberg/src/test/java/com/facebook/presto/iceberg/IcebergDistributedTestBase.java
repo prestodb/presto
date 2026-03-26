@@ -359,7 +359,10 @@ public abstract class IcebergDistributedTestBase
     @Test
     public void testAddColumnWithDefault()
     {
-        testWithAllFileFormats(getSession(), this::testAddColumnWithDefault);
+        Session session = Session.builder(getSession())
+                .setSystemProperty(LEGACY_TIMESTAMP, "false")
+                .build();
+        testWithAllFileFormats(session, this::testAddColumnWithDefault);
     }
 
     private void testAddColumnWithDefault(Session session, FileFormat fileFormat)

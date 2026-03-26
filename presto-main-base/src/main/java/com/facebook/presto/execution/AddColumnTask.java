@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -26,11 +27,13 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
+import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
@@ -121,10 +124,17 @@ public class AddColumnTask
 
         // Handle default expression if present
         if (element.getDefaultExpression().isPresent()) {
+            if (!isIcebergTable(metadata, session, tableName)) {
+                String catalogName = tableName.getCatalogName();
+                String connectorName = getConnectorName(metadata, session, tableName);
+                throw new SemanticException(NOT_SUPPORTED, element,
+                        "Catalog '%s' (connector: %s) does not support ADD COLUMN with DEFAULT values. This feature is currently only supported for Iceberg v3 tables.", catalogName, connectorName);
+            }
+
             Expression defaultExpr = element.getDefaultExpression().get();
-            // Store the default expression as a string in column properties
+            Object defaultValue = ExpressionInterpreter.evaluateConstantExpression(defaultExpr, type, metadata, session, ImmutableMap.of());
             Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
-            updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultExpr.toString());
+            updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultValue);
             columnProperties = updatedProperties;
         }
 
@@ -139,5 +149,17 @@ public class AddColumnTask
         metadata.addColumn(session, tableHandle.get(), column);
 
         return immediateFuture(null);
+    }
+
+    private static String getConnectorName(Metadata metadata, Session session, QualifiedObjectName tableName)
+    {
+        String catalogName = tableName.getCatalogName();
+        CatalogContext catalogContext = metadata.getCatalogNamesWithConnectorContext(session).get(catalogName);
+        return catalogContext != null ? catalogContext.getConnectorName() : "unknown";
+    }
+
+    private static boolean isIcebergTable(Metadata metadata, Session session, QualifiedObjectName tableName)
+    {
+        return "iceberg".equalsIgnoreCase(getConnectorName(metadata, session, tableName));
     }
 }

@@ -225,6 +225,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateBranchExists;
+import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersion;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchInBaseTables;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchSpecified;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
@@ -1239,8 +1240,10 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         UpdateSchema updateSchema = icebergTable.updateSchema();
         if (column.getDefaultValue().isPresent()) {
-            String defaultValueStr = column.getDefaultValue().get();
-            Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValueStr, columnType);
+            validateMinimumFormatVersion(icebergTable, 3, format("ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher. " +
+                       "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion(), handle.getSchemaTableName()));
+            Object defaultValue = column.getDefaultValue().get();
+            Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, columnType);
             updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral).commit();
         }
         else {

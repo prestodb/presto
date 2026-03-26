@@ -442,6 +442,35 @@ public class TestIcebergV3
         }
     }
 
+    @Test
+    public void testAddColumnWithDefaultRequiresV3()
+    {
+        String tableName = "test_add_column_default_v2";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '2')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 2);
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN'",
+                    "ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher.*");
+
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position",
+                    "VALUES ('id'), ('name')");
+
+            BaseTable baseTable = (BaseTable) table;
+            TableOperations operations = baseTable.operations();
+            TableMetadata currentMetadata = operations.current();
+            operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(3));
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN'");
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position",
+                    "VALUES ('id'), ('name'), ('country')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(
