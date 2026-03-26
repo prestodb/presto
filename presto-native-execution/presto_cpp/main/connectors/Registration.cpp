@@ -21,6 +21,11 @@
 #include "presto_cpp/main/connectors/arrow_flight/ArrowPrestoToVeloxConnector.h"
 #endif
 
+#ifdef PRESTO_ENABLE_LANCE
+#include "presto_cpp/main/connectors/LancePrestoToVeloxConnector.h"
+#include "velox/connectors/lance/LanceConnector.h"
+#endif
+
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/iceberg/IcebergConnector.h"
 #include "velox/connectors/tpcds/TpcdsConnector.h"
@@ -35,6 +40,9 @@ namespace {
 
 constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
 constexpr char const* kIcebergConnectorName = "iceberg";
+#ifdef PRESTO_ENABLE_LANCE
+constexpr char const* kLanceConnectorName = "lance";
+#endif
 
 } // namespace
 
@@ -81,6 +89,11 @@ void registerConnectors() {
   registerPrestoToVeloxConnector(
       std::make_unique<ArrowPrestoToVeloxConnector>(
           ArrowFlightConnectorFactory::kArrowFlightConnectorName));
+#endif
+
+#ifdef PRESTO_ENABLE_LANCE
+  registerPrestoToVeloxConnector(
+      std::make_unique<LancePrestoToVeloxConnector>(kLanceConnectorName));
 #endif
 }
 
@@ -134,6 +147,12 @@ void registerConnectorFactories() {
   // namespace For now, keep the Velox version
   facebook::presto::registerConnectorFactory(
       std::make_shared<ArrowFlightConnectorFactory>());
+#endif
+
+#ifdef PRESTO_ENABLE_LANCE
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<
+          facebook::velox::connector::lance::LanceConnectorFactory>());
 #endif
 }
 
