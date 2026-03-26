@@ -212,11 +212,13 @@ jobs:
           GPG_TTY: $(tty)
           GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
           GPG_KEY_FILE: /tmp/gpg-key.txt
+          GPG_SECRET: ${{ secrets.GPG_SECRET }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          echo "${{ secrets.GPG_SECRET }}" > ${{ env.GPG_KEY_FILE }}
+          echo "${GPG_SECRET}" > ${{ env.GPG_KEY_FILE }}
           chmod 600 ${{ env.GPG_KEY_FILE }}
           gpg --import --batch ${{ env.GPG_KEY_FILE }}
-          gpg --batch --yes --pinentry-mode loopback --passphrase "${{ secrets.GPG_PASSPHRASE }}" --sign ${{ env.GPG_KEY_FILE }}
+          gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE}" --sign ${{ env.GPG_KEY_FILE }}
           df -h
 
       - name: Release Maven Artifacts
@@ -226,13 +228,14 @@ jobs:
           GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
           MAVEN_AUTO_PUBLISH: "${{ env.MAVEN_AUTO_PUBLISH }}"
           RELEASE_TAG: "${{ env.RELEASE_TAG }}"
+          MAVEN_STAGING_PROFILE_ID: ${{ secrets.MAVEN_STAGING_PROFILE_ID }}
         run: |
           unset MAVEN_CONFIG
           ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
             -Dgpg.passphrase="$GPG_PASSPHRASE" \
             -Dmaven.wagon.http.retryHandler.count=8 \
             -DskipTests \
-            -DstagingProfileId="${{ secrets.MAVEN_STAGING_PROFILE_ID }}" \
+            -DstagingProfileId="${MAVEN_STAGING_PROFILE_ID}" \
             -DkeepStagingRepositoryOnFailure=true \
             -DkeepStagingRepositoryOnCloseRuleFailure=true \
             -DautoReleaseAfterClose=true \

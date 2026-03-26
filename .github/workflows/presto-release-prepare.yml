@@ -156,6 +156,7 @@ jobs:
       - name: Create release notes pull request
         env:
           JVM_OPTS: ${{ env.MAVEN_OPTS }}
+          PRESTODB_CI_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
         run: |
           echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
-          ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}
+          ./src/release/release-notes.sh ${{ github.repository_owner }} ${PRESTODB_CI_TOKEN}
