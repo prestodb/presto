@@ -29,8 +29,7 @@ struct LanceColumnHandle : public ColumnHandle {
   LanceColumnHandle() noexcept;
 
   bool operator<(const ColumnHandle& o) const override {
-    return columnName <
-        dynamic_cast<const LanceColumnHandle&>(o).columnName;
+    return columnName < dynamic_cast<const LanceColumnHandle&>(o).columnName;
   }
 };
 

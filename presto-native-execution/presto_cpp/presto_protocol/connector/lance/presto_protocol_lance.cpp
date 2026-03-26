@@ -33,19 +33,9 @@ void to_json(json& j, const LanceColumnHandle& p) {
       "String",
       "columnName");
   to_json_key(
-      j,
-      "columnType",
-      p.columnType,
-      "LanceColumnHandle",
-      "Type",
-      "columnType");
+      j, "columnType", p.columnType, "LanceColumnHandle", "Type", "columnType");
   to_json_key(
-      j,
-      "nullable",
-      p.nullable,
-      "LanceColumnHandle",
-      "boolean",
-      "nullable");
+      j, "nullable", p.nullable, "LanceColumnHandle", "boolean", "nullable");
 }
 
 void from_json(const json& j, LanceColumnHandle& p) {
@@ -57,19 +47,9 @@ void from_json(const json& j, LanceColumnHandle& p) {
       "String",
       "columnName");
   from_json_key(
-      j,
-      "columnType",
-      p.columnType,
-      "LanceColumnHandle",
-      "Type",
-      "columnType");
+      j, "columnType", p.columnType, "LanceColumnHandle", "Type", "columnType");
   from_json_key(
-      j,
-      "nullable",
-      p.nullable,
-      "LanceColumnHandle",
-      "boolean",
-      "nullable");
+      j, "nullable", p.nullable, "LanceColumnHandle", "boolean", "nullable");
 }
 
 // LanceTableHandle
@@ -89,12 +69,7 @@ void to_json(json& j, const LanceTableHandle& p) {
       "String",
       "schemaName");
   to_json_key(
-      j,
-      "tableName",
-      p.tableName,
-      "LanceTableHandle",
-      "String",
-      "tableName");
+      j, "tableName", p.tableName, "LanceTableHandle", "String", "tableName");
 }
 
 void from_json(const json& j, LanceTableHandle& p) {
@@ -106,12 +81,7 @@ void from_json(const json& j, LanceTableHandle& p) {
       "String",
       "schemaName");
   from_json_key(
-      j,
-      "tableName",
-      p.tableName,
-      "LanceTableHandle",
-      "String",
-      "tableName");
+      j, "tableName", p.tableName, "LanceTableHandle", "String", "tableName");
 }
 
 // LanceTableLayoutHandle
@@ -166,36 +136,16 @@ void to_json(json& j, const LanceSplit& p) {
   j = json::object();
   j["@type"] = "lance";
   to_json_key(
-      j,
-      "datasetPath",
-      p.datasetPath,
-      "LanceSplit",
-      "String",
-      "datasetPath");
+      j, "datasetPath", p.datasetPath, "LanceSplit", "String", "datasetPath");
   to_json_key(
-      j,
-      "fragments",
-      p.fragments,
-      "LanceSplit",
-      "List<int>",
-      "fragments");
+      j, "fragments", p.fragments, "LanceSplit", "List<int>", "fragments");
 }
 
 void from_json(const json& j, LanceSplit& p) {
   from_json_key(
-      j,
-      "datasetPath",
-      p.datasetPath,
-      "LanceSplit",
-      "String",
-      "datasetPath");
+      j, "datasetPath", p.datasetPath, "LanceSplit", "String", "datasetPath");
   from_json_key(
-      j,
-      "fragments",
-      p.fragments,
-      "LanceSplit",
-      "List<int>",
-      "fragments");
+      j, "fragments", p.fragments, "LanceSplit", "List<int>", "fragments");
 }
 
 // LanceTransactionHandle
