@@ -17,10 +17,12 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.VariantField;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -29,6 +31,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
@@ -92,6 +95,18 @@ public class ColumnIOConverter
             }
             Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+        }
+        else if (JSON.equals(type.getTypeSignature().getBase())) {
+            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+            Optional<Field> value = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(0));
+            if (!value.isPresent()) {
+                throw new IllegalArgumentException("Value field is missing for variant type: " + type);
+            }
+            Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(1));
+            if (!metadata.isPresent()) {
+                throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
+            }
+            return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, value.get(), metadata.get()));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
