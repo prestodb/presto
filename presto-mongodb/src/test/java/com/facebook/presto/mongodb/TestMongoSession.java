@@ -255,6 +255,43 @@ public class TestMongoSession
     }
 
     @Test
+    public void testGetAllTablesWithCollectionWithoutMetadata()
+    {
+        String schemaName = "test_collection_without_metadata";
+        MongoDatabase database = client.getDatabase(schemaName);
+
+        // Create a collection with data and corresponding _schema metadata
+        MongoCollection<Document> activeTable = database.getCollection("active_table");
+        activeTable.insertOne(new Document("field1", "value1"));
+
+        MongoCollection<Document> schemaCollection = database.getCollection("_schema");
+        schemaCollection.insertOne(new Document("table", "active_table")
+                .append("fields", ImmutableList.of(
+                        new Document("name", "field1").append("type", "varchar").append("hidden", false))));
+
+        // Create a collection that has no _schema metadata at all
+        MongoCollection<Document> collectionOnlyTable = database.getCollection("collection_only_table");
+        collectionOnlyTable.insertOne(new Document("field1", "value1"));
+
+        // Get all tables - should return both tables even though one has no metadata
+        Set<String> tables = session.getAllTables(schemaName);
+
+        // Verify both tables are returned
+        assertEquals(tables.size(), 2, "Should return exactly two tables");
+        assertTrue(tables.contains("active_table"), "Should include active_table with metadata");
+        assertTrue(tables.contains("collection_only_table"), "Should include collection_only_table even without metadata");
+
+        // Verify that only active_table has metadata in _schema
+        Document activeMetadata = schemaCollection.find(new Document("table", "active_table")).first();
+        assertTrue(activeMetadata != null, "Active table should have metadata");
+
+        Document collectionOnlyMetadata = schemaCollection.find(new Document("table", "collection_only_table")).first();
+        assertNull(collectionOnlyMetadata, "Collection-only table should not have metadata");
+
+        database.drop();
+    }
+
+    @Test
     public void testGetAllTablesWithStaleMetadataAfterDirectRename()
     {
         String schemaName = "test_direct_rename_stale_metadata";
