@@ -30,16 +30,20 @@ import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.optimizations.ExternalCallExpressionChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -58,6 +62,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjectio
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPlanRemoteProjections
 {
@@ -313,6 +318,46 @@ public class TestPlanRemoteProjections
                             p.values(p.variable("x", INTEGER)));
                 })
                 .matches(anyTree());
+    }
+
+    @Test
+    void testExternalCallExpressionCheckerDetectsRemoteFunctionInLambda()
+    {
+        FunctionAndTypeManager functionAndTypeManager = getFunctionAndTypeManager();
+        ExternalCallExpressionChecker checker = new ExternalCallExpressionChecker(functionAndTypeManager);
+
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        // A remote function call directly should be detected
+        RowExpression remoteCall = planBuilder.rowExpression("unittest.memory.remote_foo(x)");
+        assertTrue(remoteCall.accept(checker, null));
+
+        // A remote function call inside a lambda should be detected
+        LambdaDefinitionExpression lambdaWithRemote = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                remoteCall);
+        assertTrue(lambdaWithRemote.accept(checker, null));
+
+        // A local function call inside a lambda should not be flagged
+        RowExpression localCall = planBuilder.rowExpression("abs(x)");
+        LambdaDefinitionExpression lambdaWithLocal = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                localCall);
+        assertFalse(lambdaWithLocal.accept(checker, null));
+
+        // A remote function nested inside a local function inside a lambda should be detected
+        RowExpression nestedRemoteCall = planBuilder.rowExpression("abs(unittest.memory.remote_foo(x))");
+        LambdaDefinitionExpression lambdaWithNestedRemote = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                nestedRemoteCall);
+        assertTrue(lambdaWithNestedRemote.accept(checker, null));
     }
 
     private Metadata getMetadata()

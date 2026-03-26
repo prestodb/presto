@@ -1458,6 +1458,7 @@ public class ExpressionAnalyzer
         public Type visitTryExpression(TryExpression node, StackableAstVisitorContext<Context> context)
         {
             Type type = process(node.getInnerExpression(), context);
+            verifyNoExternalFunctions(resolvedFunctions, functionAndTypeResolver, node.getInnerExpression(), "TRY expression");
             return setExpressionType(node, type);
         }
 

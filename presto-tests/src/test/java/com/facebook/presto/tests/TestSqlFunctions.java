@@ -536,6 +536,15 @@ public class TestSqlFunctions
     {
         assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
         assertQueryFails("SELECT reduce(a, '', (s, x) -> s || testing.test.foo(x), s -> s) from (VALUES (array['a', 'b'])) t(a)", ".*External functions in Lambda expression is not supported:.*");
+
+        // TRY with local functions should still work
+        assertQuerySucceeds("SELECT TRY(upper(a)) from (VALUES 'abc') t(a)");
+
+        // Remote functions in TRY expression should be disallowed
+        assertQueryFails("SELECT TRY(testing.test.foo(a)) from (VALUES 'abc') t(a)", ".*External functions in TRY expression is not supported:.*");
+
+        // Remote functions nested inside local functions within TRY should also be disallowed
+        assertQueryFails("SELECT TRY(upper(testing.test.foo(a))) from (VALUES 'abc') t(a)", ".*External functions in TRY expression is not supported:.*");
     }
 
     @Test
