@@ -65,12 +65,11 @@ LancePrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& /*exprConverter*/,
     const TypeParser& /*typeParser*/) const {
-  auto lanceLayout = std::dynamic_pointer_cast<
-      const protocol::lance::LanceTableLayoutHandle>(
-      tableHandle.connectorTableLayout);
+  auto lanceLayout =
+      std::dynamic_pointer_cast<const protocol::lance::LanceTableLayoutHandle>(
+          tableHandle.connectorTableLayout);
   VELOX_CHECK_NOT_NULL(
-      lanceLayout,
-      "Unexpected table layout type for Lance connector");
+      lanceLayout, "Unexpected table layout type for Lance connector");
 
   auto lanceTable = lanceLayout->table;
   VELOX_CHECK_NOT_NULL(lanceTable, "LanceTableHandle is null in layout");
