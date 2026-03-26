@@ -51,12 +51,15 @@ public class LanceSplitManager
         LanceTableLayoutHandle layoutHandle = (LanceTableLayoutHandle) layout;
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
+        String datasetPath = namespaceHolder.getTablePath(tableHandle.getTableName());
+
         List<Fragment> fragments = namespaceHolder.getFragments(
                 tableHandle.getTableName(),
                 tableHandle.getDatasetVersion());
 
         List<ConnectorSplit> splits = fragments.stream()
                 .map(fragment -> (ConnectorSplit) new LanceSplit(
+                        datasetPath,
                         ImmutableList.of(fragment.getId())))
                 .collect(toImmutableList());
 
