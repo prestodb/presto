@@ -29,6 +29,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.QueryAssertions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -42,6 +43,7 @@ import static com.facebook.presto.SystemSessionProperties.CONSIDER_QUERY_FILTERS
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
@@ -3444,6 +3446,142 @@ public class TestHiveMaterializedViewLogicalPlanner
         finally {
             assertUpdate("DROP TABLE base_table");
             assertUpdate("DROP MATERIALIZED VIEW simple_mv");
+        }
+    }
+
+    @Test
+    public void testCostBasedMVSelectionWithMultipleCandidates()
+    {
+        Session costBasedMVSession = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_cost_based";
+        String wideView = "orders_wide_mv";
+        String narrowView = "orders_narrow_mv";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            // Wide MV: all columns
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, orderdate, totalprice, ds FROM %s", wideView, table));
+            // Narrow MV: only orderkey + totalprice (fewer columns, should be cheaper for queries needing only these)
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, totalprice, ds FROM %s", narrowView, table));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(wideView, narrowView));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", wideView), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", wideView), 14745);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", narrowView), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", narrowView), 14745);
+
+            // Query needs orderkey + totalprice: both MVs are compatible, optimizer should pick one
+            String baseQuery = format("SELECT orderkey, totalprice FROM %s WHERE orderkey < 1000", table);
+
+            // Verify correctness: optimized results match non-optimized
+            QueryAssertions.assertQuery(queryRunner, costBasedMVSession, baseQuery, queryRunner, getSession(), baseQuery, false, false);
+
+            // Should rewrite to use the narrow MV (fewer columns, cheaper)
+            assertPlan(costBasedMVSession, baseQuery, anyTree(
+                    filter("orderkey_0 < BIGINT'1000'", constrainedTableScan(narrowView,
+                            ImmutableMap.of(),
+                            ImmutableMap.of("orderkey_0", "orderkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + wideView);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + narrowView);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCostBasedMVSelectionSingleCandidate()
+    {
+        Session costBasedMVSession = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_cost_single";
+        String view = "orders_single_mv";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderdate, ds FROM %s", view, table));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 14745);
+
+            String baseQuery = format("SELECT orderkey, orderdate FROM %s WHERE orderkey < 1000", table);
+
+            // Verify correctness: optimized results match non-optimized
+            QueryAssertions.assertQuery(queryRunner, costBasedMVSession, baseQuery, queryRunner, getSession(), baseQuery, false, false);
+
+            // Should rewrite to use the single compatible MV
+            assertPlan(costBasedMVSession, baseQuery, anyTree(
+                    filter("orderkey_0 < BIGINT'1000'", constrainedTableScan(view,
+                            ImmutableMap.of(),
+                            ImmutableMap.of("orderkey_0", "orderkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCostBasedMVSelectionNoCompatibleCandidates()
+    {
+        Session costBasedMVSession = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED, "true")
+                .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "false")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_cost_nocompat";
+        String view = "orders_nocompat_mv";
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, orderdate, totalprice, '2020-01-02' as ds FROM orders WHERE orderkey > 1000", table));
+
+            // MV has orderpriority but query needs orderdate — incompatible
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                    "AS SELECT orderkey, orderpriority, ds FROM %s", view, table));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 14745);
+
+            // Query needs orderdate which the MV doesn't have — should fall back to base table
+            String baseQuery = format("SELECT orderkey, orderdate FROM %s WHERE orderkey < 1000", table);
+
+            assertPlan(costBasedMVSession, baseQuery, anyTree(
+                    filter("orderkey < BIGINT'1000'", constrainedTableScan(table,
+                            ImmutableMap.of(),
+                            ImmutableMap.of("orderkey", "orderkey")))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
 
