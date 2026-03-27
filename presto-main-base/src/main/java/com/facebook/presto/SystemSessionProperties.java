@@ -179,6 +179,7 @@ public final class SystemSessionProperties
     public static final String SIMPLIFY_AGGREGATIONS_OVER_CONSTANT = "simplify_aggregations_over_constant";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PRE_AGGREGATE_BEFORE_GROUPING_SETS = "pre_aggregate_before_grouping_sets";
+    public static final String PUSH_PROJECTION_THROUGH_CROSS_JOIN = "push_projection_through_cross_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
@@ -962,6 +963,11 @@ public final class SystemSessionProperties
                         PRE_AGGREGATE_BEFORE_GROUPING_SETS,
                         "Pre-aggregate data before GroupId node to reduce row multiplication in grouping sets queries",
                         featuresConfig.isPreAggregateBeforeGroupingSets(),
+                        false),
+                booleanProperty(
+                        PUSH_PROJECTION_THROUGH_CROSS_JOIN,
+                        "Push projections that reference only one side of a cross join below the join to evaluate on fewer rows",
+                        featuresConfig.isPushProjectionThroughCrossJoin(),
                         false),
                 booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
@@ -2698,6 +2704,11 @@ public final class SystemSessionProperties
     public static boolean isPreAggregateBeforeGroupingSets(Session session)
     {
         return session.getSystemProperty(PRE_AGGREGATE_BEFORE_GROUPING_SETS, Boolean.class);
+    }
+
+    public static boolean isPushProjectionThroughCrossJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_PROJECTION_THROUGH_CROSS_JOIN, Boolean.class);
     }
 
     public static boolean isParseDecimalLiteralsAsDouble(Session session)

@@ -161,6 +161,7 @@ public class FeaturesConfig
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
     private boolean preAggregateBeforeGroupingSets;
+    private boolean pushProjectionThroughCrossJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
@@ -1755,6 +1756,18 @@ public class FeaturesConfig
     public FeaturesConfig setPreAggregateBeforeGroupingSets(boolean preAggregateBeforeGroupingSets)
     {
         this.preAggregateBeforeGroupingSets = preAggregateBeforeGroupingSets;
+        return this;
+    }
+
+    public boolean isPushProjectionThroughCrossJoin()
+    {
+        return pushProjectionThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-projection-through-cross-join")
+    public FeaturesConfig setPushProjectionThroughCrossJoin(boolean pushProjectionThroughCrossJoin)
+    {
+        this.pushProjectionThroughCrossJoin = pushProjectionThroughCrossJoin;
         return this;
     }
 
