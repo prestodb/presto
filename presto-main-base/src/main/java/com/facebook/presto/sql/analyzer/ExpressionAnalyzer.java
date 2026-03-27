@@ -1080,32 +1080,38 @@ public class ExpressionAnalyzer
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
-                                ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        functionAndTypeResolver,
-                                        statementAnalyzerFactory,
-                                        sessionFunctions,
-                                        transactionId,
-                                        sqlFunctionProperties,
-                                        symbolTypes,
-                                        parameters,
-                                        warningCollector,
-                                        isDescribe,
-                                        outerScopeSymbolTypes);
-                                if (context.getContext().isInLambda()) {
-                                    for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
-                                        innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
-                                    }
-                                }
-                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types, ImmutableMap.of()));
-                                if (expression instanceof LambdaExpression) {
-                                    verifyNoAggregateWindowOrGroupingFunctions(
-                                            innerExpressionAnalyzer.getResolvedFunctions(),
+                                try {
+                                    ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                             functionAndTypeResolver,
-                                            ((LambdaExpression) expression).getBody(),
-                                            "Lambda expression");
-                                    verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeResolver, ((LambdaExpression) expression).getBody(), "Lambda expression");
+                                            statementAnalyzerFactory,
+                                            sessionFunctions,
+                                            transactionId,
+                                            sqlFunctionProperties,
+                                            symbolTypes,
+                                            parameters,
+                                            warningCollector,
+                                            isDescribe,
+                                            outerScopeSymbolTypes);
+                                    if (context.getContext().isInLambda()) {
+                                        for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
+                                            innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
+                                        }
+                                    }
+                                    Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types, ImmutableMap.of()));
+                                    if (expression instanceof LambdaExpression) {
+                                        verifyNoAggregateWindowOrGroupingFunctions(
+                                                innerExpressionAnalyzer.getResolvedFunctions(),
+                                                functionAndTypeResolver,
+                                                ((LambdaExpression) expression).getBody(),
+                                                "Lambda expression");
+                                        verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeResolver, ((LambdaExpression) expression).getBody(), "Lambda expression");
+                                    }
+                                    return type.getTypeSignature();
                                 }
-                                return type.getTypeSignature();
+                                catch (LambdaArgumentCountMismatchException e) {
+                                    // Return non-function type for SignatureBinder to skip invalid lambda function signatures
+                                    return new TypeSignature("unknown");
+                                }
                             }));
                 }
                 else {
@@ -1171,7 +1177,26 @@ public class ExpressionAnalyzer
                 }
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
-                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes(), resolvedLambdaArguments)));
+                    Type actualLambdaType = process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes(), resolvedLambdaArguments)));
+
+                    // Apply coercion to lambda return type if needed
+                    if (actualLambdaType instanceof FunctionType) {
+                        FunctionType actualFunctionType = (FunctionType) actualLambdaType;
+                        Type actualReturnType = actualFunctionType.getReturnType();
+                        Type expectedReturnType = expectedFunctionType.getReturnType();
+
+                        if (!actualReturnType.equals(expectedReturnType) && functionAndTypeResolver.canCoerce(actualReturnType, expectedReturnType)) {
+                            // We need to coerce the lambda's return type
+                            // The lambda body expression needs coercion
+                            if (expression instanceof LambdaExpression) {
+                                LambdaExpression lambda = (LambdaExpression) expression;
+                                addOrReplaceExpressionCoercion(lambda.getBody(), actualReturnType, expectedReturnType);
+
+                                // Update the lambda's type to match the expected type
+                                setExpressionType(expression, expectedFunctionType);
+                            }
+                        }
+                    }
                 }
                 else {
                     Type actualType = functionAndTypeResolver.getType(argumentTypes.get(i).getTypeSignature());
@@ -1619,8 +1644,7 @@ public class ExpressionAnalyzer
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
-                throw new SemanticException(INVALID_PARAMETER_USAGE, node,
-                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
+                throw new LambdaArgumentCountMismatchException(node, types.size(), lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
