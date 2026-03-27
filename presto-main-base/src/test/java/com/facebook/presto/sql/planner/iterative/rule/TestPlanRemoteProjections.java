@@ -24,22 +24,36 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.DesugarTryExpressionRewriter;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.planner.optimizations.ExternalCallExpressionChecker;
+import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -51,6 +65,7 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
@@ -58,6 +73,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjectio
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestPlanRemoteProjections
 {
@@ -287,6 +303,290 @@ public class TestPlanRemoteProjections
                                                         values(ImmutableMap.of("x", 0, "y", 1)))))));
     }
 
+    @Test
+    void testTryWithRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(remote_foo(x)) should extract the remote function from the lambda body
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(unittest.memory.remote_foo(x))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Expect: local(args) -> remote(remote_foo) -> local($internal$try)
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithNoRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(abs(x)) has no remote functions, should be fully local
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(abs(x))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 1);
+        assertFalse(rewritten.get(0).isRemote());
+    }
+
+    @Test
+    void testTryWithLocalWrappingRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(abs(remote_foo(x))): local function wrapping remote function inside TRY
+        // The local function should stay inside the lambda, only the remote function is extracted
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(abs(unittest.memory.remote_foo(x)))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Expect: local(args) -> remote(remote_foo) -> local($internal$try(() -> abs(v)))
+        // The local abs() is merged into the lambda, avoiding two consecutive local projections
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithRemoteWrappingLocalFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(remote_foo(abs(x))): remote function wrapping local function inside TRY
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(unittest.memory.remote_foo(abs(x)))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Expect: local(abs(x)) -> remote(remote_foo(v)) -> local($internal$try(() -> v))
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithLocalRemoteLocalNesting()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(abs(remote_foo(abs(x)))): local(remote(local(x))) nesting
+        // local_func2 is extracted as remote arg, local_func stays inside the lambda
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(abs(unittest.memory.remote_foo(abs(x))))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Expect: local(abs(x)) -> remote(remote_foo(v)) -> local($internal$try(() -> abs(v)))
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithRemoteFunctionMixed()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+        planBuilder.variable("y", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // Mix of TRY with remote function and regular remote function
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(unittest.memory.remote_foo(x))"))
+                .put(planBuilder.variable("b"), planBuilder.rowExpression("unittest.memory.remote_foo(y)"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Both should produce remote projections
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithRemoteFunctionAndArithmetic()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(remote_foo(x) + 3): remote function with local arithmetic inside TRY
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(unittest.memory.remote_foo(x) + 3)"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Expect: local(args) -> remote(remote_foo) -> local($internal$try(() -> add(v, 3)))
+        // The local add is folded into the lambda body
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithNestedTryAndRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(TRY(remote_foo(x))): nested TRY with remote function
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(TRY(unittest.memory.remote_foo(x)))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithCaseAndRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(CASE WHEN x > 0 THEN remote_foo(x) ELSE 0 END)
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(CASE WHEN x > 0 THEN unittest.memory.remote_foo(x) ELSE 0 END)"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithIfAndRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(IF(x > 0, remote_foo(x), -1))
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(IF(x > 0, unittest.memory.remote_foo(x), -1))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+    }
+
+    @Test
+    void testTryWithDeeplyNestedRemoteFunctions()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // TRY(abs(remote_foo(abs(remote_foo(x))))): two remote calls nested with local functions
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "TRY(abs(unittest.memory.remote_foo(abs(unittest.memory.remote_foo(x)))))"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 5);
+        assertFalse(rewritten.get(0).isRemote());
+        assertEquals(rewritten.get(1).isRemote(), true);
+        assertFalse(rewritten.get(2).isRemote());
+        assertEquals(rewritten.get(3).isRemote(), true);
+        assertFalse(rewritten.get(4).isRemote());
+    }
+
+    @Test
+    void testExternalCallExpressionCheckerDetectsRemoteInLambda()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        ExternalCallExpressionChecker checker = new ExternalCallExpressionChecker(getFunctionAndTypeManager());
+
+        // TRY(remote_foo(x)) produces $internal$try(BIND(x, (x_bind) -> remote_foo(x_bind)))
+        // The checker should detect the remote function inside the lambda body
+        RowExpression tryWithRemote = desugaredRowExpression(planBuilder, "TRY(unittest.memory.remote_foo(x))");
+        assertTrue(tryWithRemote.accept(checker, null));
+    }
+
+    @Test
+    void testExternalCallExpressionCheckerLocalOnlyLambda()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        ExternalCallExpressionChecker checker = new ExternalCallExpressionChecker(getFunctionAndTypeManager());
+
+        // TRY(abs(x)) produces $internal$try(BIND(x, (x_bind) -> abs(x_bind)))
+        // The checker should not flag a lambda with only local functions
+        RowExpression tryWithLocal = desugaredRowExpression(planBuilder, "TRY(abs(x))");
+        assertFalse(tryWithLocal.accept(checker, null));
+    }
+
+    @Test
+    void testNullIfWithTryAndRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // NULLIF(TRY(remote_foo(x)), 0) compiles to SWITCH($internal$try(BIND(...)), WHEN(0, NULL), $internal$try(BIND(...)))
+        // The WHEN clause must be kept inline, not extracted as a standalone variable
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "NULLIF(TRY(unittest.memory.remote_foo(x)), 0)"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        // Should not crash and should produce valid projections
+        assertFalse(rewritten.isEmpty());
+        // Verify no WHEN clause was extracted as a standalone projection
+        for (ProjectionContext context : rewritten) {
+            for (RowExpression expr : context.getProjections().values()) {
+                if (expr instanceof SpecialFormExpression) {
+                    SpecialFormExpression sf = (SpecialFormExpression) expr;
+                    assertFalse(sf.getForm() == SpecialFormExpression.Form.WHEN,
+                            "WHEN clause should not be a standalone projection value");
+                }
+            }
+        }
+    }
+
+    @Test
+    void testCaseWhenWithVariableAndTryRemoteFunction()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
+        planBuilder.variable("x", INTEGER);
+        planBuilder.variable("y", INTEGER);
+
+        PlanRemoteProjections rule = new PlanRemoteProjections(getFunctionAndTypeManager());
+        // CASE WHEN y > 0 THEN 0 ELSE TRY(remote_foo(x)) END
+        // Compiles to SWITCH(true, WHEN(y > 0, 0), $internal$try(BIND(x, (p) -> remote_foo(p))))
+        // The WHEN clause references 'y', which must be tracked through projection layers
+        List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
+                .put(planBuilder.variable("a"), desugaredRowExpression(planBuilder, "CASE WHEN y > 0 THEN 0 ELSE TRY(unittest.memory.remote_foo(x)) END"))
+                .build(), new VariableAllocator(planBuilder.getTypes().allVariables()));
+        assertEquals(rewritten.size(), 3);
+        assertFalse(rewritten.get(0).isRemote());
+        assertTrue(rewritten.get(1).isRemote());
+        assertFalse(rewritten.get(2).isRemote());
+
+        // Verify 'y' is not directly referenced in the final local projection.
+        // It should be available through an intermediate variable allocated in the first local projection.
+        Set<String> firstLocalOutputNames = rewritten.get(0).getProjections().keySet().stream()
+                .map(VariableReferenceExpression::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        // The first local projection should have extracted 'y > 0' into a variable
+        boolean hasYDerivedVar = rewritten.get(0).getProjections().values().stream()
+                .anyMatch(expr -> !(expr instanceof VariableReferenceExpression) && VariablesExtractor.extractAll(expr).stream()
+                        .anyMatch(v -> v.getName().equals("y")));
+        assertTrue(hasYDerivedVar, "First local projection should contain an expression referencing y");
+    }
+
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Remote functions are not enabled")
     public void testRemoteFunctionDisabled()
     {
@@ -323,5 +623,32 @@ public class TestPlanRemoteProjections
     private FunctionAndTypeManager getFunctionAndTypeManager()
     {
         return getMetadata().getFunctionAndTypeManager();
+    }
+
+    /**
+     * Translates a SQL expression to a RowExpression with TRY desugaring and lambda capture
+     * desugaring applied, matching the real query execution path where $internal$try arguments
+     * are wrapped in BIND rather than being raw LambdaDefinitionExpressions.
+     */
+    private RowExpression desugaredRowExpression(PlanBuilder planBuilder, String sql)
+    {
+        Expression expression = PlanBuilder.expression(sql);
+        expression = DesugarTryExpressionRewriter.rewrite(expression);
+        TypeProvider types = planBuilder.getTypes();
+        expression = LambdaCaptureDesugaringRewriter.rewrite(expression, new VariableAllocator(types.allVariables()));
+        Map<NodeRef<Expression>, com.facebook.presto.common.type.Type> expressionTypes = getExpressionTypes(
+                TEST_SESSION,
+                getMetadata(),
+                new SqlParser(),
+                types,
+                expression,
+                ImmutableMap.of(),
+                WarningCollector.NOOP);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionTypes,
+                ImmutableMap.of(),
+                getFunctionAndTypeManager(),
+                TEST_SESSION);
     }
 }

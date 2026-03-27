@@ -13,10 +13,13 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.Assignments;
@@ -30,6 +33,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.ExternalCallExpressionChecker;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
@@ -40,6 +44,7 @@ import com.google.common.collect.ImmutableMultimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isRemoteFunctionsEnabled;
@@ -250,6 +255,15 @@ public class PlanRemoteProjections
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             boolean local = !functionMetadata.getImplementationType().isExternalExecution();
 
+            // Special handling for $internal$try: extract remote functions from the lambda body.
+            // The argument is either a LambdaDefinitionExpression directly or a BIND(captured_vars..., lambda)
+            // after lambda capture desugaring.
+            if (local && functionMetadata.getName().getObjectName().equals("$internal$try")
+                    && call.getArguments().size() == 1
+                    && isLambdaOrBindWithLambda(call.getArguments().get(0))) {
+                return processInternalTry(call);
+            }
+
             // Break function arguments into local and remote projections first
             ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
             List<ProjectionContext> processedArguments = processArguments(call.getArguments(), newArgumentsBuilder, local);
@@ -370,6 +384,141 @@ public class PlanRemoteProjections
             }
         }
 
+        private static boolean isLambdaOrBindWithLambda(RowExpression expression)
+        {
+            if (expression instanceof LambdaDefinitionExpression) {
+                return true;
+            }
+            if (expression instanceof SpecialFormExpression
+                    && ((SpecialFormExpression) expression).getForm() == SpecialFormExpression.Form.BIND) {
+                List<RowExpression> bindArgs = ((SpecialFormExpression) expression).getArguments();
+                return bindArgs.get(bindArgs.size() - 1) instanceof LambdaDefinitionExpression;
+            }
+            return false;
+        }
+
+        private List<ProjectionContext> processInternalTry(CallExpression call)
+        {
+            RowExpression tryArgument = call.getArguments().get(0);
+            LambdaDefinitionExpression lambda;
+            List<RowExpression> bindVariables;
+
+            if (tryArgument instanceof LambdaDefinitionExpression) {
+                lambda = (LambdaDefinitionExpression) tryArgument;
+                bindVariables = ImmutableList.of();
+            }
+            else {
+                // BIND(captured_var1, ..., captured_varN, (param1, ..., paramN) -> body)
+                SpecialFormExpression bind = (SpecialFormExpression) tryArgument;
+                List<RowExpression> bindArgs = bind.getArguments();
+                lambda = (LambdaDefinitionExpression) bindArgs.get(bindArgs.size() - 1);
+                bindVariables = bindArgs.subList(0, bindArgs.size() - 1);
+            }
+
+            // Substitute lambda parameters with captured variables in the body so that
+            // the visitor sees plan-level variables instead of lambda-scoped parameters
+            RowExpression body = lambda.getBody();
+            if (!bindVariables.isEmpty()) {
+                List<String> lambdaParams = lambda.getArguments();
+                checkState(bindVariables.size() == lambdaParams.size(),
+                        "BIND variable count doesn't match lambda parameter count");
+                ImmutableMap.Builder<String, RowExpression> substitutions = ImmutableMap.builder();
+                for (int i = 0; i < lambdaParams.size(); i++) {
+                    substitutions.put(lambdaParams.get(i), bindVariables.get(i));
+                }
+                body = VariableSubstitutor.substitute(body, substitutions.build());
+            }
+
+            // Visit the substituted body to extract remote function projections
+            List<ProjectionContext> bodyProjections = body.accept(this, null);
+
+            if (bodyProjections.isEmpty()) {
+                // No remote functions in the lambda body
+                return ImmutableList.of();
+            }
+
+            ProjectionContext lastBodyProjection = bodyProjections.get(bodyProjections.size() - 1);
+            checkState(lastBodyProjection.getProjections().size() == 1,
+                    "Expected single projection in last body projection");
+
+            // Get the result expression for the new lambda body
+            RowExpression newBody;
+            List<ProjectionContext> priorProjections;
+            if (!lastBodyProjection.isRemote()) {
+                // Fold the local expression into the lambda body to avoid consecutive local projections
+                newBody = getOnlyElement(lastBodyProjection.getProjections().values());
+                priorProjections = bodyProjections.subList(0, bodyProjections.size() - 1);
+            }
+            else {
+                // Use the result variable as the lambda body
+                newBody = getOnlyElement(lastBodyProjection.getProjections().keySet());
+                priorProjections = bodyProjections;
+            }
+
+            // Build the new $internal$try argument: wrap the result in a lambda with BIND
+            // to capture any referenced variables from prior projections
+            RowExpression newTryArgument = buildLambdaWithBind(lambda.getSourceLocation(), newBody);
+
+            CallExpression newCall = new CallExpression(
+                    call.getSourceLocation(),
+                    call.getDisplayName(),
+                    call.getFunctionHandle(),
+                    call.getType(),
+                    ImmutableList.of(newTryArgument));
+
+            ImmutableList.Builder<ProjectionContext> projectionContextBuilder = ImmutableList.builder();
+            projectionContextBuilder.addAll(priorProjections);
+            projectionContextBuilder.add(new ProjectionContext(
+                    ImmutableMap.of(variableAllocator.newVariable(newCall), newCall), false));
+            return projectionContextBuilder.build();
+        }
+
+        private RowExpression buildLambdaWithBind(Optional<SourceLocation> sourceLocation, RowExpression body)
+        {
+            List<VariableReferenceExpression> capturedVariables = VariablesExtractor.extractAll(body).stream()
+                    .distinct()
+                    .collect(toImmutableList());
+
+            if (capturedVariables.isEmpty()) {
+                // No captured variables, return a simple lambda
+                return new LambdaDefinitionExpression(
+                        sourceLocation,
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        body);
+            }
+
+            // Create lambda parameters for each captured variable and substitute in the body
+            ImmutableList.Builder<Type> paramTypes = ImmutableList.builder();
+            ImmutableList.Builder<String> paramNames = ImmutableList.builder();
+            ImmutableMap.Builder<String, RowExpression> reverseSubstitutions = ImmutableMap.builder();
+            ImmutableList.Builder<RowExpression> bindArgs = ImmutableList.builder();
+
+            for (VariableReferenceExpression captured : capturedVariables) {
+                VariableReferenceExpression param = variableAllocator.newVariable(captured);
+                paramTypes.add(captured.getType());
+                paramNames.add(param.getName());
+                reverseSubstitutions.put(captured.getName(), param);
+                bindArgs.add(captured);
+            }
+
+            RowExpression lambdaBody = VariableSubstitutor.substitute(body, reverseSubstitutions.build());
+            LambdaDefinitionExpression newLambda = new LambdaDefinitionExpression(
+                    sourceLocation,
+                    paramTypes.build(),
+                    paramNames.build(),
+                    lambdaBody);
+
+            bindArgs.add(newLambda);
+            // BIND's return type is the bound function type: () -> returnType
+            Type bindReturnType = new FunctionType(ImmutableList.of(), body.getType());
+            return new SpecialFormExpression(
+                    sourceLocation,
+                    SpecialFormExpression.Form.BIND,
+                    bindReturnType,
+                    bindArgs.build());
+        }
+
         private List<ProjectionContext> processArguments(List<RowExpression> arguments, ImmutableList.Builder<RowExpression> newArguments, boolean local)
         {
             // Break function arguments into local and remote projections first
@@ -386,6 +535,21 @@ public class PlanRemoteProjections
                             // JsonPath type is not serializable and cannot be an output of a ProjectNode.
                             // Keep it inline when the parent function is local.
                             newArguments.add(argument);
+                            continue;
+                        }
+                        // WHEN clauses are structural parts of SWITCH expressions and cannot be
+                        // standalone variables. Process their sub-arguments to ensure referenced
+                        // variables are tracked through projection layers, then reconstruct the WHEN.
+                        if (local && argument instanceof SpecialFormExpression
+                                && ((SpecialFormExpression) argument).getForm() == SpecialFormExpression.Form.WHEN) {
+                            SpecialFormExpression when = (SpecialFormExpression) argument;
+                            ImmutableList.Builder<RowExpression> whenSubArgs = ImmutableList.builder();
+                            List<ProjectionContext> whenSubProjections = processArguments(when.getArguments(), whenSubArgs, true);
+                            newArguments.add(new SpecialFormExpression(
+                                    when.getForm(), when.getType(), whenSubArgs.build()));
+                            if (!whenSubProjections.isEmpty()) {
+                                argumentProjections.add(whenSubProjections);
+                            }
                             continue;
                         }
                         VariableReferenceExpression variable = variableAllocator.newVariable(argument);
@@ -418,6 +582,92 @@ public class PlanRemoteProjections
         public boolean isRemote()
         {
             return remote;
+        }
+    }
+
+    /**
+     * Substitutes {@link VariableReferenceExpression} instances in a {@link RowExpression} tree
+     * based on a name-to-expression mapping.
+     */
+    private static class VariableSubstitutor
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        private final Map<String, RowExpression> substitutions;
+
+        VariableSubstitutor(Map<String, RowExpression> substitutions)
+        {
+            this.substitutions = substitutions;
+        }
+
+        static RowExpression substitute(RowExpression expression, Map<String, RowExpression> substitutions)
+        {
+            return expression.accept(new VariableSubstitutor(substitutions), null);
+        }
+
+        @Override
+        public RowExpression visitCall(CallExpression call, Void context)
+        {
+            List<RowExpression> newArguments = call.getArguments().stream()
+                    .map(arg -> arg.accept(this, null))
+                    .collect(toImmutableList());
+            if (newArguments.equals(call.getArguments())) {
+                return call;
+            }
+            return new CallExpression(
+                    call.getSourceLocation(),
+                    call.getDisplayName(),
+                    call.getFunctionHandle(),
+                    call.getType(),
+                    newArguments);
+        }
+
+        @Override
+        public RowExpression visitInputReference(InputReferenceExpression reference, Void context)
+        {
+            return reference;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression literal, Void context)
+        {
+            return literal;
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            RowExpression newBody = lambda.getBody().accept(this, null);
+            if (newBody.equals(lambda.getBody())) {
+                return lambda;
+            }
+            return new LambdaDefinitionExpression(
+                    lambda.getSourceLocation(),
+                    lambda.getArgumentTypes(),
+                    lambda.getArguments(),
+                    newBody);
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression reference, Void context)
+        {
+            RowExpression replacement = substitutions.get(reference.getName());
+            return replacement != null ? replacement : reference;
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            List<RowExpression> newArguments = specialForm.getArguments().stream()
+                    .map(arg -> arg.accept(this, null))
+                    .collect(toImmutableList());
+            if (newArguments.equals(specialForm.getArguments())) {
+                return specialForm;
+            }
+            return new SpecialFormExpression(
+                    specialForm.getSourceLocation(),
+                    specialForm.getForm(),
+                    specialForm.getType(),
+                    newArguments);
         }
     }
 }
