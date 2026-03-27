@@ -22,6 +22,7 @@
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include "presto_cpp/main/PeriodicTaskManager.h"
+#include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
 #include "presto_cpp/main/SignalHandler.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -221,19 +222,24 @@ json::array_t getOptimizedExpressions(
 
   static constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
   const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
-  std::unordered_map<std::string, std::string> config(
-      {{velox::core::QueryConfig::kSessionTimezone, timezone},
-       {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"}});
-  auto queryConfig = velox::core::QueryConfig{std::move(config)};
+
+  protocol::ExpressionOptimizationRequest request =
+      json::parse(util::extractMessageBody(body));
+
+  const std::map<std::string, std::string> sessionProperties =
+      request.sessionProperties;
+  auto configs = toVeloxConfigsFromSessionProperties(sessionProperties);
+  configs.insert({velox::core::QueryConfig::kSessionTimezone, timezone});
+  configs.insert(
+      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"});
+
+  auto queryConfig = velox::core::QueryConfig{std::move(configs)};
   auto queryCtx =
       velox::core::QueryCtx::create(executor, std::move(queryConfig));
 
-  json input = json::parse(util::extractMessageBody(body));
-  VELOX_USER_CHECK(input.is_array(), "Body of request should be a JSON array.");
-  const json::array_t expressionList = static_cast<json::array_t>(input);
   std::vector<RowExpressionPtr> expressions;
-  for (const auto& j : expressionList) {
-    expressions.push_back(j);
+  for (const auto& expr : request.expressions) {
+    expressions.push_back(expr);
   }
   const auto optimizedList = expression::optimizeExpressions(
       expressions, optimizerLevel, queryCtx.get(), pool);

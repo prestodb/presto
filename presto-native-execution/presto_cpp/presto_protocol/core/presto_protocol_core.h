@@ -1351,6 +1351,14 @@ void to_json(json& j, const ExecutionFailureInfo& p);
 void from_json(const json& j, ExecutionFailureInfo& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct ExpressionOptimizationRequest {
+  List<std::shared_ptr<RowExpression>> expressions = {};
+  Map<String, String> sessionProperties = {};
+};
+void to_json(json& j, const ExpressionOptimizationRequest& p);
+void from_json(const json& j, ExpressionOptimizationRequest& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct FilterNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   std::shared_ptr<RowExpression> predicate = {};
