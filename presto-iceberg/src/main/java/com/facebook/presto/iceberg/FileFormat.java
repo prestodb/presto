@@ -27,7 +27,8 @@ public enum FileFormat
     PARQUET("parquet", true),
     AVRO("avro", true),
     METADATA("metadata.json", false),
-    PUFFIN("puffin", false);
+    PUFFIN("puffin", false),
+    DWRF("dwrf", true);
 
     private final String ext;
     private final boolean splittable;
