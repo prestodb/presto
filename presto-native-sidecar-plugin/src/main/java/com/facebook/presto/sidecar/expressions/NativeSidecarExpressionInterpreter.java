@@ -27,10 +27,10 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import java.net.URI;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class NativeSidecarExpressionInterpreter
@@ -97,11 +98,11 @@ public class NativeSidecarExpressionInterpreter
                 resolvedExpressions.size(),
                 rowExpressionOptimizationResults.size());
 
-        ImmutableMap.Builder<RowExpression, RowExpression> result = ImmutableMap.builder();
+        Map<RowExpression, RowExpression> result = new IdentityHashMap<>();
         for (int i = 0; i < rowExpressionOptimizationResults.size(); i++) {
             result.put(originalExpressions.get(i), rowExpressionOptimizationResults.get(i).getOptimizedExpression());
         }
-        return result.build();
+        return unmodifiableMap(result);
     }
 
     public List<RowExpressionOptimizationResult> optimize(ConnectorSession session, ExpressionOptimizer.Level level, List<RowExpression> resolvedExpressions)
