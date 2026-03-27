@@ -15,12 +15,18 @@
         <shadeBase>com.facebook.presto.spark.launcher.internal</shadeBase>
         <main-class>com.facebook.presto.spark.launcher.PrestoSparkLauncher</main-class>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
+        <dep.pos.classloader.module-name.suffix>2</dep.pos.classloader.module-name.suffix>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</artifactId>
         </dependency>
 
         <dependency>
@@ -61,6 +67,10 @@
                     <value>3</value>
                 </property>
             </activation>
+
+            <properties>
+                <dep.pos.classloader.module-name.suffix>3</dep.pos.classloader.module-name.suffix>
+            </properties>
 
             <dependencies>
                 <dependency>
@@ -135,6 +145,16 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <!-- ignore presto-spark-classloader-spark* -->
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.facebook.presto:presto-spark-classloader-spark${dep.pos.classloader.module-name.suffix}</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
             </plugin>
         </plugins>
     </build>
