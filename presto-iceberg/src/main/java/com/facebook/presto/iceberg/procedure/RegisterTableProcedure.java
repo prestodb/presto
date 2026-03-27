@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.procedure;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
@@ -52,6 +53,8 @@ import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 public class RegisterTableProcedure
         implements Provider<Procedure>
 {
+    private static final Logger log = Logger.get(RegisterTableProcedure.class);
+    public static final String DELAY_TABLE_PREFIX_FOR_TEST = "delay_table_for_test_";
     private static final MethodHandle REGISTER_TABLE = methodHandle(
             RegisterTableProcedure.class,
             "registerTable",
@@ -105,7 +108,18 @@ public class RegisterTableProcedure
         if (!metadata.schemaExists(clientSession, schemaTableName.getSchemaName())) {
             throw new SchemaNotFoundException(schemaTableName.getSchemaName());
         }
+        log.info("====> doRegisterTable: complete the pre-check of schema existence......");
 
+        if (schemaTableName.getTableName().startsWith(DELAY_TABLE_PREFIX_FOR_TEST)) {
+            try {
+                Thread.sleep(2000);
+            }
+            catch (Exception e) {
+                // ignored
+            }
+        }
+
+        log.info("====> doRegisterTable: begin to execute table registering for %s.%s......", schemaTableName.getSchemaName(), schemaTableName.getTableName());
         metadataLocation = stripTrailingSlash(metadataLocation);
         Path metadataDirectory = metadataLocation.endsWith(METADATA_FOLDER_NAME) ?
                 new Path(metadataLocation) : new Path(metadataLocation, METADATA_FOLDER_NAME);
@@ -117,6 +131,7 @@ public class RegisterTableProcedure
                         metadataDirectory));
 
         metadata.registerTable(clientSession, schemaTableName, metadataPath);
+        log.info("====> doRegisterTable: complete table register for %s.%s!", schemaTableName.getSchemaName(), schemaTableName.getTableName());
     }
 
     public static FileSystem getFileSystem(ConnectorSession clientSession, HdfsEnvironment hdfsEnvironment, SchemaTableName schemaTableName, Path location)
