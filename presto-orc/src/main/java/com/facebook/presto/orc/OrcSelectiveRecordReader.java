@@ -94,7 +94,7 @@ public class OrcSelectiveRecordReader
     // Marks a SQL null when occurring in constantValues.
     public static final byte[] NULL_MARKER = new byte[0];
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcSelectiveRecordReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(OrcSelectiveRecordReader.class).instanceSize();
 
     private static final Page EMPTY_PAGE = new Page(0);
 

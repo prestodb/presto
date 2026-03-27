@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkBufferedSerializedPage
         implements PrestoSparkBufferedResult
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkBufferedSerializedPage.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PrestoSparkBufferedSerializedPage.class).instanceSize();
 
     private final SerializedPage serializedPage;
     private final long deserializedRetainedSizeInBytes;
