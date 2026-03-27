@@ -332,6 +332,7 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean mergeMaxByMinByAggregationsEnabled;
     private boolean pushdownSubfieldForMapFunctions = true;
     private boolean pushdownSubfieldForCardinality;
     private long maxSerializableObjectSize = 1000;
@@ -3373,6 +3374,19 @@ public class FeaturesConfig
     public boolean isAddDistinctBelowSemiJoinBuild()
     {
         return addDistinctBelowSemiJoinBuild;
+    }
+
+    @Config("optimizer.merge-max-by-and-min-by-aggregations")
+    @ConfigDescription("Merge multiple max_by or min_by aggregations with the same comparison key into a single aggregation with ROW argument")
+    public FeaturesConfig setMergeMaxByMinByAggregationsEnabled(boolean mergeMaxByMinByAggregationsEnabled)
+    {
+        this.mergeMaxByMinByAggregationsEnabled = mergeMaxByMinByAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeMaxByMinByAggregationsEnabled()
+    {
+        return mergeMaxByMinByAggregationsEnabled;
     }
 
     @Config("optimizer.pushdown-subfield-for-map-functions")
