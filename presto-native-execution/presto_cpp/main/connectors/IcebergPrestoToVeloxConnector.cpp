@@ -30,6 +30,8 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     return velox::connector::hive::iceberg::FileContent::kData;
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+  } else if (content == protocol::iceberg::FileContent::EQUALITY_DELETES) {
+    return velox::connector::hive::iceberg::FileContent::kEqualityDeletes;
   }
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
@@ -176,6 +178,9 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   VELOX_CHECK_NOT_NULL(
       icebergSplit, "Unexpected split type {}", connectorSplit->_type);
 
+  const int64_t dataSequenceNumber =
+      icebergSplit->dataSequenceNumber; // NOLINT(facebook-bugprone-unchecked-pointer-access)
+
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
   for (const auto& entry : icebergSplit->partitionKeys) {
     partitionKeys.emplace(
@@ -205,14 +210,16 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
         deleteFile.fileSizeInBytes,
         std::vector(deleteFile.equalityFieldIds),
         lowerBounds,
-        upperBounds);
+        upperBounds,
+        deleteFile.dataSequenceNumber);
 
     deletes.emplace_back(icebergDeleteFile);
   }
 
+
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
+       std::to_string(dataSequenceNumber)},
       {"$path", icebergSplit->path}};
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
@@ -227,7 +234,9 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       nullptr,
       splitContext->cacheable,
       deletes,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      dataSequenceNumber);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
