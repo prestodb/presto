@@ -1364,4 +1364,253 @@ public class TestIcebergV3
             dropTable(tableName);
         }
     }
+
+    @Test
+    public void testVariantColumnSchema()
+    {
+        String tableName = "test_v3_variant";
+        try {
+            // Create V3 table with Presto
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+
+            // Add variant column via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("data", Types.VariantType.get())
+                    .commit();
+
+            // Verify Presto can read the schema with the variant column
+            // Variant maps to VARCHAR in Presto
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Insert data — the variant column accepts null values
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantTypeEndToEnd()
+    {
+        String tableName = "test_v3_variant_e2e";
+        try {
+            // Step 1: Create V3 table and add variant columns via Iceberg schema evolution
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("metadata", Types.VariantType.get())
+                    .commit();
+
+            // Step 2: Verify empty table with variant column is queryable
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Step 3: Insert data — variant column receives NULLs
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
+
+            // Step 4: Verify full row reads including NULL variant values
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', NULL), (2, 'Bob', NULL), (3, 'Charlie', NULL)");
+
+            // Step 5: Test IS NULL predicate on variant column
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 3");
+
+            // Step 6: Test filtering on non-variant columns with variant columns in projection
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " WHERE id > 1 ORDER BY id",
+                    "VALUES (2, 'Bob', NULL), (3, 'Charlie', NULL)");
+
+            // Step 7: Test aggregation with variant columns in the table
+            assertQuery("SELECT count(*), min(id), max(id) FROM " + tableName, "VALUES (3, 1, 3)");
+            assertQuery("SELECT name, count(*) FROM " + tableName + " GROUP BY name ORDER BY name",
+                    "VALUES ('Alice', 1), ('Bob', 1), ('Charlie', 1)");
+
+            // Step 8: DELETE rows from a table with variant columns
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie')");
+
+            // Step 9: Insert more data after deletion
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Diana'), (5, 'Eve')", 2);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+
+            // Step 10: Verify mixed snapshots (pre-delete and post-delete) read correctly
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve')");
+
+            // Step 11: Further schema evolution — add another variant column alongside the first
+            table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("tags", Types.VariantType.get())
+                    .commit();
+
+            // Step 12: Verify reads still work with two variant columns
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+            assertQuery("SELECT id, name FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice')");
+
+            // Step 13: Insert with both variant columns NULL
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (6, 'Frank')", 1);
+            assertQuery("SELECT id, metadata, tags FROM " + tableName + " WHERE id = 6",
+                    "VALUES (6, NULL, NULL)");
+
+            // Step 14: Verify V3 format preserved through all operations
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantColumnWithPartitioning()
+    {
+        String tableName = "test_v3_variant_partitioned";
+        try {
+            // Create V3 partitioned table with variant column
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, category VARCHAR) WITH (\"format-version\" = '3', partitioning = ARRAY['category'])");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("data", Types.VariantType.get())
+                    .commit();
+
+            // Insert data into multiple partitions
+            assertUpdate("INSERT INTO " + tableName + " (id, category) VALUES (1, 'A'), (2, 'A'), (3, 'B'), (4, 'C')", 4);
+
+            // Verify partition pruning works with variant column present
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'A' ORDER BY id",
+                    "VALUES 1, 2");
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'B'",
+                    "VALUES 3");
+
+            // Verify cross-partition aggregation
+            assertQuery("SELECT category, count(*) FROM " + tableName + " GROUP BY category ORDER BY category",
+                    "VALUES ('A', 2), ('B', 1), ('C', 1)");
+
+            // Delete within a partition
+            assertUpdate("DELETE FROM " + tableName + " WHERE category = 'A'", 2);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
+            assertQuery("SELECT id FROM " + tableName + " ORDER BY id",
+                    "VALUES 3, 4");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantJsonDataRoundTrip()
+    {
+        String tableName = "test_v3_variant_json_data";
+        try {
+            // Step 1: Create V3 table and add variant column via Iceberg API
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("metadata", Types.VariantType.get())
+                    .commit();
+
+            // Step 2: Insert rows with actual JSON string data into the variant column.
+            // Since VARIANT maps to VARCHAR in Presto, JSON strings are written as-is.
+            assertUpdate("INSERT INTO " + tableName + " VALUES "
+                    + "(1, 'Alice', '{\"age\":30,\"city\":\"NYC\"}'), "
+                    + "(2, 'Bob', '{\"age\":25}'), "
+                    + "(3, 'Charlie', NULL)", 3);
+
+            // Step 3: Verify round-trip — JSON strings survive write → Parquet → read
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', '{\"age\":30,\"city\":\"NYC\"}'), "
+                            + "(2, 'Bob', '{\"age\":25}'), "
+                            + "(3, 'Charlie', NULL)");
+
+            // Step 4: Test filtering on non-variant columns with variant data present
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 1",
+                    "VALUES ('{\"age\":30,\"city\":\"NYC\"}')");
+
+            // Step 5: Test IS NULL / IS NOT NULL on variant column with actual data
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 2");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 1");
+
+            // Step 6: Insert rows with different JSON value types (number, string, boolean)
+            assertUpdate("INSERT INTO " + tableName + " VALUES "
+                    + "(4, 'Diana', '42'), "
+                    + "(5, 'Eve', '\"simple string\"'), "
+                    + "(6, 'Frank', 'true')", 3);
+
+            // Step 7: Verify all rows
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 6");
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 4", "VALUES ('42')");
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 6", "VALUES ('true')");
+
+            // Step 8: Delete rows with variant data
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 4");
+
+            // Step 9: Verify remaining data
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve'), (6, 'Frank')");
+
+            // Step 10: Verify V3 format preserved
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantColumnWithDeleteAndUpdate()
+    {
+        String tableName = "test_v3_variant_dml";
+        try {
+            // Create V3 table with merge-on-read delete mode and variant column
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR, score DOUBLE)"
+                    + " WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read', \"write.update.mode\" = 'merge-on-read')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("extra", Types.VariantType.get())
+                    .commit();
+
+            // Insert data
+            assertUpdate("INSERT INTO " + tableName + " (id, name, score) VALUES "
+                    + "(1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)", 4);
+
+            // Verify initial data
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
+
+            // Row-level DELETE (produces deletion vector)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana')");
+
+            // Verify DV metadata is PUFFIN format
+            table = loadTable(tableName);
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+                        assertEquals(deleteFile.format(), FileFormat.PUFFIN);
+                    }
+                }
+            }
+
+            // UPDATE on table with variant column
+            assertUpdate("UPDATE " + tableName + " SET score = 99.9 WHERE id = 1", 1);
+            assertQuery("SELECT id, name, score FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice', 99.9)");
+
+            // Verify final state
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 99.9), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 }
