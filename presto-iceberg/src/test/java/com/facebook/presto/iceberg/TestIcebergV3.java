@@ -1336,4 +1336,32 @@ public class TestIcebergV3
             dropTable(tableName);
         }
     }
+
+    @Test
+    public void testNanosecondTimestampSchema()
+    {
+        String tableName = "test_v3_timestamp_nano";
+        try {
+            // Create V3 table with Presto
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+
+            // Add nanosecond timestamp columns via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("ts_nano", Types.TimestampNanoType.withoutZone())
+                    .addColumn("ts_nano_tz", Types.TimestampNanoType.withZone())
+                    .commit();
+
+            // Verify Presto can read the schema with nanosecond columns
+            // ts_nano maps to timestamp microseconds, ts_nano_tz maps to timestamp with time zone
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Insert data through Presto — the nanosecond columns accept null values
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
 }
