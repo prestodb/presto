@@ -27,6 +27,7 @@ import com.facebook.presto.spi.plan.CteReferenceNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
+import com.facebook.presto.spi.plan.ExchangeNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
@@ -102,6 +103,7 @@ public class ApplyConnectorOptimization
             UnnestNode.class,
             TableWriterNode.class,
             TableFinishNode.class,
+            ExchangeNode.class,
             DeleteNode.class,
             TopNRowNumberNode.class);
 

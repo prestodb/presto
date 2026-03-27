@@ -676,7 +676,7 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<EnforceSingleRowNode>(p);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.ExchangeNode") {
+  if (type == ".ExchangeNode") {
     j = *std::static_pointer_cast<ExchangeNode>(p);
     return;
   }
@@ -825,7 +825,7 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-  if (type == "com.facebook.presto.sql.planner.plan.ExchangeNode") {
+  if (type == ".ExchangeNode") {
     std::shared_ptr<ExchangeNode> k = std::make_shared<ExchangeNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
@@ -5367,12 +5367,12 @@ void from_json(const json& j, ExchangeNodeType& e) {
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 ExchangeNode::ExchangeNode() noexcept {
-  _type = "com.facebook.presto.sql.planner.plan.ExchangeNode";
+  _type = ".ExchangeNode";
 }
 
 void to_json(json& j, const ExchangeNode& p) {
   j = json::object();
-  j["@type"] = "com.facebook.presto.sql.planner.plan.ExchangeNode";
+  j["@type"] = ".ExchangeNode";
   to_json_key(j, "id", p.id, "ExchangeNode", "PlanNodeId", "id");
   to_json_key(j, "type", p.type, "ExchangeNode", "ExchangeNodeType", "type");
   to_json_key(
