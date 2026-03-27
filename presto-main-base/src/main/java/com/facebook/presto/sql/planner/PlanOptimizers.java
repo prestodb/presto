@@ -779,8 +779,6 @@ public class PlanOptimizers
                                 .addAll(new InlineSqlFunctions(metadata).rules())
                                 .build()));
 
-        builder.add(new JoinPrefilter(metadata));
-
         builder.add(
                 new IterativeOptimizer(
                         metadata,
@@ -836,6 +834,8 @@ public class PlanOptimizers
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
+
+        builder.add(new JoinPrefilter(metadata));
 
         builder.add(new IterativeOptimizer(
                         metadata,
