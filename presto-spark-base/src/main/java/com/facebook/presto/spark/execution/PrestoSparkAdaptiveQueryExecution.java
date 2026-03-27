@@ -337,7 +337,7 @@ public class PrestoSparkAdaptiveQueryExecution
                 throw new UncheckedExecutionException(failureEvent.getExecutionError());
             }
 
-            verify(fragmentEvent instanceof FragmentCompletionSuccessEvent, String.format("Unexpected FragmentCompletionEvent type: %s", fragmentEvent.getClass().getSimpleName()));
+            verify(fragmentEvent instanceof FragmentCompletionSuccessEvent, "Unexpected FragmentCompletionEvent type: %s", fragmentEvent.getClass().getSimpleName());
             FragmentCompletionSuccessEvent successEvent = (FragmentCompletionSuccessEvent) fragmentEvent;
             executedFragments.add(successEvent.getFragmentId());
 
