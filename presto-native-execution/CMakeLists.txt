@@ -14,10 +14,16 @@ cmake_minimum_required(VERSION 3.10)
 # Use rapids-cmake to configure CUDA architectures
 if(PRESTO_ENABLE_CUDF)
   set(rapids-cmake-version 26.04)
-  set(rapids-cmake-url "https://github.com/rapidsai/rapids-cmake/archive/7ece71c2f94fb0ed402d567b457ce54ecb859695.tar.gz")
+  set(
+    rapids-cmake-url
+    "https://github.com/rapidsai/rapids-cmake/archive/935fccbe19a292e22a19a4632f121c18f0ef21e8.tar.gz"
+  )
   if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
-    file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/refs/tags/v26.04.00a/RAPIDS.cmake
-      ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
+    file(
+      DOWNLOAD
+        https://raw.githubusercontent.com/rapidsai/rapids-cmake/refs/tags/v26.04.00a/RAPIDS.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake
+    )
   endif()
   include(${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
   include(rapids-cuda)
