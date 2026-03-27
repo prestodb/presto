@@ -45,6 +45,7 @@ import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
+import com.facebook.presto.iceberg.delete.IcebergDeletionVectorPageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -70,6 +71,7 @@ import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -95,7 +97,11 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.puffin.BlobMetadata;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -113,6 +119,7 @@ import org.roaringbitmap.longlong.Roaring64Bitmap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -863,17 +870,33 @@ public class IcebergPageSourceProvider
         verify(storageProperties.isPresent(), "storageProperties are null");
 
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
-        Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
-                partitionSpec,
-                split.getPartitionDataJson(),
-                locationProvider,
-                fileWriterFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                jsonCodec,
-                session,
-                split.getPath(),
-                split.getFileFormat());
+        int tableFormatVersion = Integer.parseInt(
+                storageProperties.get().getOrDefault("format-version", "2"));
+        Supplier<ConnectorPageSink> deleteSinkSupplier;
+        if (tableFormatVersion >= 3) {
+            deleteSinkSupplier = () -> new IcebergDeletionVectorPageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath());
+        }
+        else {
+            deleteSinkSupplier = () -> new IcebergDeletePageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    fileWriterFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath(),
+                    split.getFileFormat());
+        }
         boolean storeDeleteFilePath = icebergColumns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
         Supplier<List<DeleteFilter>> deleteFilters = memoize(() -> {
             // If equality deletes are optimized into a join they don't need to be applied here
@@ -980,30 +1003,35 @@ public class IcebergPageSourceProvider
 
         for (DeleteFile delete : deleteFiles) {
             if (delete.content() == POSITION_DELETES) {
-                if (startRowPosition.isPresent()) {
-                    byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+                if (delete.format() == FileFormat.PUFFIN) {
+                    readDeletionVector(session, delete, deletedRows);
+                }
+                else {
+                    if (startRowPosition.isPresent()) {
+                        byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
+                        Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
+                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-                    byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+                        byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
+                        Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
+                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-                    if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
-                            (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
-                        continue;
+                        if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
+                                (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
+                            continue;
+                        }
                     }
-                }
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
-                    readPositionDeletes(pageSource, targetPath, deletedRows);
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
+                    try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
+                        readPositionDeletes(pageSource, targetPath, deletedRows);
+                    }
+                    catch (IOException e) {
+                        throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
+                    }
                 }
                 if (storeDeleteFilePath) {
                     filters.add(new PositionDeleteFilter(deletedRows, delete.path()));
-                    deletedRows = new Roaring64Bitmap(); // Reset the deleted rows for the next file
+                    deletedRows = new Roaring64Bitmap();
                 }
             }
             else if (delete.content() == EQUALITY_DELETES) {
@@ -1030,6 +1058,75 @@ public class IcebergPageSourceProvider
         }
 
         return filters;
+    }
+
+    private void readDeletionVector(
+            ConnectorSession session,
+            DeleteFile delete,
+            LongBitmapDataProvider deletedRows)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session);
+        InputFile inputFile = new HdfsInputFile(new Path(delete.path()), hdfsEnvironment, hdfsContext);
+        try (PuffinReader reader = hdfsEnvironment.doAs(session.getUser(), () -> Puffin.read(inputFile).build())) {
+            List<BlobMetadata> blobMetadataList = reader.fileMetadata().blobs();
+            if (blobMetadataList.isEmpty()) {
+                return;
+            }
+            for (org.apache.iceberg.util.Pair<BlobMetadata, ByteBuffer> pair : reader.readAll(blobMetadataList)) {
+                deserializeDeletionVector(pair.second(), deletedRows);
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg deletion vector file: %s", delete.path()), e);
+        }
+    }
+
+    private static void deserializeDeletionVector(ByteBuffer buffer, LongBitmapDataProvider deletedRows)
+    {
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        ByteBuffer buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+
+        int cookie = buf.getInt();
+        boolean isRunContainer = (cookie & 0xFFFF) == 12347;
+        int numContainers;
+        if (isRunContainer) {
+            numContainers = (cookie >>> 16) + 1;
+            int runBitmapBytes = (numContainers + 7) / 8;
+            buf.position(buf.position() + runBitmapBytes);
+        }
+        else if ((cookie & 0xFFFF) == 12346) {
+            numContainers = (cookie >>> 16) + 1;
+        }
+        else {
+            return;
+        }
+
+        int[] keys = new int[numContainers];
+        int[] cardinalities = new int[numContainers];
+        for (int i = 0; i < numContainers; i++) {
+            keys[i] = Short.toUnsignedInt(buf.getShort());
+            cardinalities[i] = Short.toUnsignedInt(buf.getShort()) + 1;
+        }
+
+        for (int i = 0; i < numContainers; i++) {
+            long highBits = ((long) keys[i]) << 16;
+            if (cardinalities[i] <= 4096) {
+                for (int j = 0; j < cardinalities[i]; j++) {
+                    deletedRows.addLong(highBits | Short.toUnsignedInt(buf.getShort()));
+                }
+            }
+            else {
+                for (int wordIdx = 0; wordIdx < 1024; wordIdx++) {
+                    long word = buf.getLong();
+                    while (word != 0) {
+                        int bit = Long.numberOfTrailingZeros(word);
+                        deletedRows.addLong(highBits | (wordIdx * 64 + bit));
+                        word &= word - 1;
+                    }
+                }
+            }
+        }
     }
 
     private ConnectorPageSource openDeletes(

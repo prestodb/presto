@@ -221,7 +221,7 @@ public final class IcebergUtil
 {
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
-    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
+    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
@@ -550,7 +550,16 @@ public final class IcebergUtil
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {
-            return Optional.ofNullable(table.properties());
+            Map<String, String> properties = table.properties();
+            if (properties != null && table instanceof BaseTable) {
+                int formatVersion = ((BaseTable) table).operations().current().formatVersion();
+                if (!properties.containsKey("format-version")) {
+                    Map<String, String> enhanced = new HashMap<>(properties);
+                    enhanced.put("format-version", String.valueOf(formatVersion));
+                    return Optional.of(enhanced);
+                }
+            }
+            return Optional.ofNullable(properties);
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch properties for table %s: %s", table.name(), e.getMessage()));
