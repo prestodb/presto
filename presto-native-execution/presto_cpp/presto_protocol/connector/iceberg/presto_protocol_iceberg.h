@@ -87,7 +87,7 @@ extern void to_json(json& j, const FileContent& e);
 extern void from_json(const json& j, FileContent& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileFormat { ORC, PARQUET, AVRO, METADATA };
+enum class FileFormat { ORC, PARQUET, AVRO, METADATA, PUFFIN };
 extern void to_json(json& j, const FileFormat& e);
 extern void from_json(const json& j, FileFormat& e);
 } // namespace facebook::presto::protocol::iceberg
