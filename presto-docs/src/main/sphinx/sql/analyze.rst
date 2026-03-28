@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    ANALYZE table_name [ WITH ( property_name = expression [, ...] ) ]
+    ANALYZE table_name [ WITH ( property_name = expression [, ...] [,] ) ]
 
 Description
 -----------
