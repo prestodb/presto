@@ -105,6 +105,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
@@ -209,7 +210,8 @@ public final class SqlToRowExpressionTranslator
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
-                context);
+                context,
+                isNativeExecutionEnabled(session));
     }
 
     public static RowExpression translate(
@@ -223,6 +225,31 @@ public final class SqlToRowExpressionTranslator
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Context context)
     {
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                user,
+                transactionId,
+                sqlFunctionProperties,
+                sessionFunctions,
+                context,
+                false);
+    }
+
+    private static RowExpression translate(
+            Expression expression,
+            Map<NodeRef<Expression>, Type> types,
+            Map<VariableReferenceExpression, Integer> layout,
+            FunctionAndTypeManager functionAndTypeManager,
+            Optional<String> user,
+            Optional<TransactionId> transactionId,
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            Context context,
+            boolean nativeExecutionEnabled)
+    {
         Visitor visitor = new Visitor(
                 types,
                 layout,
@@ -230,7 +257,8 @@ public final class SqlToRowExpressionTranslator
                 user,
                 transactionId,
                 sqlFunctionProperties,
-                sessionFunctions);
+                sessionFunctions,
+                nativeExecutionEnabled);
         RowExpression result = visitor.process(expression, context);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -272,6 +300,7 @@ public final class SqlToRowExpressionTranslator
         private final SqlFunctionProperties sqlFunctionProperties;
         private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
+        private final boolean nativeExecutionEnabled;
 
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
@@ -280,7 +309,8 @@ public final class SqlToRowExpressionTranslator
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties,
-                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+                boolean nativeExecutionEnabled)
         {
             this.types = requireNonNull(types, "types is null");
             this.layout = requireNonNull(layout);
@@ -291,6 +321,7 @@ public final class SqlToRowExpressionTranslator
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties);
             this.functionResolution = new FunctionResolution(functionAndTypeResolver);
             this.sessionFunctions = requireNonNull(sessionFunctions);
+            this.nativeExecutionEnabled = nativeExecutionEnabled;
         }
 
         private Type getType(Expression node)
@@ -927,9 +958,11 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
-            if (prefixOrSuffixMatch != null) {
-                return prefixOrSuffixMatch;
+            if (!nativeExecutionEnabled) {
+                RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
+                if (prefixOrSuffixMatch != null) {
+                    return prefixOrSuffixMatch;
+                }
             }
 
             if (!functionResolution.supportsLikePatternFunction()) {

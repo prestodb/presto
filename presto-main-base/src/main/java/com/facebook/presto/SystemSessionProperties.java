@@ -179,6 +179,7 @@ public final class SystemSessionProperties
     public static final String SIMPLIFY_AGGREGATIONS_OVER_CONSTANT = "simplify_aggregations_over_constant";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
     public static final String PRE_AGGREGATE_BEFORE_GROUPING_SETS = "pre_aggregate_before_grouping_sets";
+    public static final String PUSH_PROJECTION_THROUGH_CROSS_JOIN = "push_projection_through_cross_join";
     public static final String PARSE_DECIMAL_LITERALS_AS_DOUBLE = "parse_decimal_literals_as_double";
     public static final String FORCE_SINGLE_NODE_OUTPUT = "force_single_node_output";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
@@ -257,6 +258,7 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED = "materialized_view_data_consistency_enabled";
     public static final String CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS = "consider-query-filters-for-materialized-view-partitions";
     public static final String QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED = "query_optimization_with_materialized_view_enabled";
+    public static final String MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED = "materialized_view_query_rewrite_cost_based_selection_enabled";
     public static final String LEGACY_MATERIALIZED_VIEWS = "legacy_materialized_views";
     public static final String MATERIALIZED_VIEW_ALLOW_FULL_REFRESH_ENABLED = "materialized_view_allow_full_refresh_enabled";
     public static final String MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "materialized_view_stale_read_behavior";
@@ -270,6 +272,7 @@ public final class SystemSessionProperties
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
     public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
+    public static final String VERBOSE_PLANNER_RUNTIME_STATS_ENABLED = "verbose_planner_runtime_stats_enabled";
     public static final String OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS = "optimizers_to_enable_verbose_runtime_stats";
     public static final String VERBOSE_OPTIMIZER_INFO_ENABLED = "verbose_optimizer_info_enabled";
     public static final String VERBOSE_OPTIMIZER_RESULTS = "verbose_optimizer_results";
@@ -364,6 +367,7 @@ public final class SystemSessionProperties
     public static final String QUERY_CLIENT_TIMEOUT = "query_client_timeout";
     public static final String REWRITE_MIN_MAX_BY_TO_TOP_N = "rewrite_min_max_by_to_top_n";
     public static final String ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD = "add_distinct_below_semi_join_build";
+    public static final String MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS = "merge_max_by_and_min_by_aggregations";
     public static final String UTILIZE_UNIQUE_PROPERTY_IN_QUERY_PLANNING = "utilize_unique_property_in_query_planning";
     public static final String PUSHDOWN_SUBFIELDS_FOR_MAP_FUNCTIONS = "pushdown_subfields_for_map_functions";
     public static final String PUSHDOWN_SUBFIELDS_FOR_CARDINALITY = "pushdown_subfields_for_cardinality";
@@ -962,6 +966,11 @@ public final class SystemSessionProperties
                         featuresConfig.isPreAggregateBeforeGroupingSets(),
                         false),
                 booleanProperty(
+                        PUSH_PROJECTION_THROUGH_CROSS_JOIN,
+                        "Push projections that reference only one side of a cross join below the join to evaluate on fewer rows",
+                        featuresConfig.isPushProjectionThroughCrossJoin(),
+                        false),
+                booleanProperty(
                         PARSE_DECIMAL_LITERALS_AS_DOUBLE,
                         "Parse decimal literals as DOUBLE instead of DECIMAL",
                         functionsConfig.isParseDecimalLiteralsAsDouble(),
@@ -1434,6 +1443,11 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
+                booleanProperty(
+                        MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED,
+                        "When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV",
+                        featuresConfig.isMaterializedViewQueryRewriteCostBasedSelectionEnabled(),
+                        false),
                 new PropertyMetadata<>(
                         LEGACY_MATERIALIZED_VIEWS,
                         "Experimental: Use legacy materialized views.  This feature is under active development and may change " +
@@ -1492,6 +1506,11 @@ public final class SystemSessionProperties
                         VERBOSE_RUNTIME_STATS_ENABLED,
                         "Enable logging all runtime stats",
                         featuresConfig.isVerboseRuntimeStatsEnabled(),
+                        false),
+                booleanProperty(
+                        VERBOSE_PLANNER_RUNTIME_STATS_ENABLED,
+                        "Enable verbose runtime stats for analyzer, logical planner, and optimizer phases only",
+                        false,
                         false),
                 stringProperty(
                         OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS,
@@ -2180,6 +2199,10 @@ public final class SystemSessionProperties
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
                         false),
+                booleanProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS,
+                        "Merge multiple max_by or min_by aggregations with the same comparison key into a single aggregation with ROW argument",
+                        featuresConfig.isMergeMaxByMinByAggregationsEnabled(),
+                        false),
                 stringProperty(
                         TRY_FUNCTION_CATCHABLE_ERRORS,
                         "Comma-separated list of error code names that TRY function should catch (such as 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS')",
@@ -2689,6 +2712,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PRE_AGGREGATE_BEFORE_GROUPING_SETS, Boolean.class);
     }
 
+    public static boolean isPushProjectionThroughCrossJoin(Session session)
+    {
+        return session.getSystemProperty(PUSH_PROJECTION_THROUGH_CROSS_JOIN, Boolean.class);
+    }
+
     public static boolean isParseDecimalLiteralsAsDouble(Session session)
     {
         return session.getSystemProperty(PARSE_DECIMAL_LITERALS_AS_DOUBLE, Boolean.class);
@@ -3126,6 +3154,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 
+    public static boolean isMaterializedViewQueryRewriteCostBasedSelectionEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED, Boolean.class);
+    }
+
     public static boolean isLegacyMaterializedViews(Session session)
     {
         return session.getSystemProperty(LEGACY_MATERIALIZED_VIEWS, Boolean.class);
@@ -3154,6 +3187,11 @@ public final class SystemSessionProperties
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
     {
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isVerbosePlannerRuntimeStatsEnabled(Session session)
+    {
+        return session.getSystemProperty(VERBOSE_PLANNER_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 
     public static String getOptimizersToEnableVerboseRuntimeStats(Session session)
@@ -3667,6 +3705,11 @@ public final class SystemSessionProperties
     public static boolean isAddDistinctBelowSemiJoinBuildEnabled(Session session)
     {
         return session.getSystemProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD, Boolean.class);
+    }
+
+    public static boolean isMergeMaxByMinByAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS, Boolean.class);
     }
 
     public static boolean isCanonicalizedJsonExtract(Session session)

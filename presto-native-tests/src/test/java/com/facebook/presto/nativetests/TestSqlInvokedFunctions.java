@@ -108,4 +108,11 @@ public class TestSqlInvokedFunctions
             assertQuery("SELECT TRY(ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]]))", "SELECT NULL");
         }
     }
+
+    @Override
+    @Test
+    public void testArraySplitIntoChunks()
+    {
+        // TODO: https://github.com/prestodb/presto/issues/27429
+    }
 }

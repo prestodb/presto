@@ -63,6 +63,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
+import com.facebook.presto.sql.planner.iterative.rule.MergeMinMaxByAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.MinMaxByToWindowFunction;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
@@ -106,6 +107,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushOffsetThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughCrossJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
@@ -147,6 +149,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.ScaledWriterRule;
+import com.facebook.presto.sql.planner.iterative.rule.SelectLowestCostMVRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyAggregationsOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCardinalityMap;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCoalesceOverJoinKeys;
@@ -344,6 +347,14 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new MaterializedViewRewrite(metadata, accessControl))));
 
+        // Cost-based MV selection: selects the lowest-cost plan from MV candidates
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new SelectLowestCostMVRewrite(costComparator))));
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 metadata,
                 ruleStats,
@@ -362,6 +373,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new PushProjectionThroughUnion(),
                         new PushProjectionThroughExchange(),
+                        new PushProjectionThroughCrossJoin(metadata.getFunctionAndTypeManager()),
                         new PushdownThroughUnnest(metadata.getFunctionAndTypeManager())));
 
         IterativeOptimizer simplifyRowExpressionOptimizer = new IterativeOptimizer(
@@ -602,6 +614,13 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(new CombineApproxDistinctFunctions(metadata.getFunctionAndTypeManager()))));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.of(new MergeMinMaxByAggregations(metadata.getFunctionAndTypeManager()))));
 
         // In RewriteIfOverAggregation, we can only optimize when the aggregation output is used in only one IF expression, and not used in any other expressions (excluding
         // identity assignments). Hence we need to simplify projection assignments to combine/inline expressions in assignments so as to identify the candidate IF expressions.

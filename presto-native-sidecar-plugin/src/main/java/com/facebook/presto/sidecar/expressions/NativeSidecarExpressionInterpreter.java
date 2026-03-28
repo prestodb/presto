@@ -27,10 +27,10 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 
 import java.net.URI;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.ACCEPT;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class NativeSidecarExpressionInterpreter
@@ -57,7 +58,7 @@ public class NativeSidecarExpressionInterpreter
 
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
-    private final JsonCodec<List<RowExpression>> rowExpressionCodec;
+    private final JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec;
     private final JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec;
 
     @Inject
@@ -65,12 +66,12 @@ public class NativeSidecarExpressionInterpreter
             @ForSidecarInfo HttpClient httpClient,
             NodeManager nodeManager,
             JsonCodec<List<RowExpressionOptimizationResult>> rowExpressionOptimizationResultJsonCodec,
-            JsonCodec<List<RowExpression>> rowExpressionCodec)
+            JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.rowExpressionOptimizationResultJsonCodec = requireNonNull(rowExpressionOptimizationResultJsonCodec, "rowExpressionOptimizationResultJsonCodec is null");
-        this.rowExpressionCodec = requireNonNull(rowExpressionCodec, "rowExpressionCodec is null");
+        this.expressionOptimizationRequestCodec = requireNonNull(expressionOptimizationRequestCodec, "expressionOptimizationRequestCodec is null");
     }
 
     public Map<RowExpression, RowExpression> optimizeBatch(ConnectorSession session, Map<RowExpression, RowExpression> expressions, ExpressionOptimizer.Level level)
@@ -97,11 +98,11 @@ public class NativeSidecarExpressionInterpreter
                 resolvedExpressions.size(),
                 rowExpressionOptimizationResults.size());
 
-        ImmutableMap.Builder<RowExpression, RowExpression> result = ImmutableMap.builder();
+        Map<RowExpression, RowExpression> result = new IdentityHashMap<>();
         for (int i = 0; i < rowExpressionOptimizationResults.size(); i++) {
             result.put(originalExpressions.get(i), rowExpressionOptimizationResults.get(i).getOptimizedExpression());
         }
-        return result.build();
+        return unmodifiableMap(result);
     }
 
     public List<RowExpressionOptimizationResult> optimize(ConnectorSession session, ExpressionOptimizer.Level level, List<RowExpression> resolvedExpressions)
@@ -120,9 +121,12 @@ public class NativeSidecarExpressionInterpreter
 
     private Request getSidecarRequest(ConnectorSession session, Level level, List<RowExpression> resolvedExpressions)
     {
+        ExpressionOptimizationRequest expressionOptimizationRequest
+                = new ExpressionOptimizationRequest(resolvedExpressions, session.getSystemProperties());
+
         return preparePost()
                 .setUri(getSidecarLocation())
-                .setBodyGenerator(jsonBodyGenerator(rowExpressionCodec, resolvedExpressions))
+                .setBodyGenerator(jsonBodyGenerator(expressionOptimizationRequestCodec, expressionOptimizationRequest))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .setHeader(PRESTO_TIME_ZONE_HEADER, session.getSqlFunctionProperties().getTimeZoneKey().getId())

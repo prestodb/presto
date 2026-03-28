@@ -14,6 +14,10 @@ Polymorphic table functions allow you to dynamically invoke custom logic from wi
 the SQL query. They can be used for working with external systems as well as for 
 enhancing Presto with capabilities going beyond the SQL standard.
 
+Presto supports adding custom table functions. They are declared by connectors 
+through implementing dedicated interfaces. To add new table functions, see 
+:doc:`/develop/table-functions`.  
+
 Built-in table functions
 ========================
 
@@ -22,6 +26,7 @@ Built-in table functions
 
 Use the ``exclude_columns`` table function to return a new table based on an input table 
 ``table``, with the exclusion of all columns specified in ``descriptor``:
+
 ::
     exclude_columns(input => table, columns => descriptor) → table
 
@@ -53,7 +58,7 @@ Use the ``sequence`` table function to return a table with a single column ``seq
 * ``start`` is the first element in the sequence. The default value is ``0``.
 
 * ``stop`` is the end of the range, inclusive. The last element in the sequence is 
-equal to ``stop``, or it is the last value within range, reachable by steps.
+  equal to ``stop``, or it is the last value within range, reachable by steps.
 
 * ``step`` is the difference between subsequent values. The default value is ``1``.
 

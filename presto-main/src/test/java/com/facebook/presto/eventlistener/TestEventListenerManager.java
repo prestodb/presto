@@ -272,6 +272,7 @@ public class TestEventListenerManager
                 planningTime,
                 analysisTime,
                 executionTime,
+                Duration.ofMillis(500),
                 peakRunningTasks,
                 peakUserMemoryBytes,
                 peakTotalNonRevocableMemoryBytes,

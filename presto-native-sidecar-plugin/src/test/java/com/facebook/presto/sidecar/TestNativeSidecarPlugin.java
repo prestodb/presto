@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_NAME;
+import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
@@ -87,7 +88,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 6;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
 
     @Override
     protected void createTables()
@@ -600,7 +601,12 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT any_values_match(MAP(ARRAY[orderkey], ARRAY[totalprice]), k -> abs(k) > 20) from orders");
         assertQuery("SELECT no_values_match(MAP(ARRAY[orderkey], ARRAY[comment]), k -> length(k) > 2) from orders");
         assertQuery("SELECT no_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> ends_with(k, 'a')) from orders");
+
+        // Key_sampling function
         assertQuery("select count(1) FROM lineitem l left JOIN orders o ON l.orderkey = o.orderkey JOIN customer c ON o.custkey = c.custkey");
+
+        // Array functions
+        assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
     }
 
     @Test
@@ -636,9 +642,6 @@ public class TestNativeSidecarPlugin
                 .build();
 
         // Array functions
-        assertQueryFails(session,
-                "SELECT array_split_into_chunks(split(comment, ''), 2) from nation",
-                ".*Scalar function name not registered: native.default.array_split_into_chunks.*");
         assertQueryFails(session,
                 "SELECT array_least_frequent(quantities) from orders_ex",
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");
@@ -688,6 +691,7 @@ public class TestNativeSidecarPlugin
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
                 .build();
 
         // When using the native expression optimizer, the resolved optimized expression may contain a FunctionHandle. It is important that the correct type of function handle is constructed.
@@ -734,6 +738,26 @@ public class TestNativeSidecarPlugin
         // Test dereference expression with SQL invoked function, array_least_frequent.
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(orderkey)) from orders");
         assertQuerySucceeds(session, "SELECT array_least_frequent(array_agg(nationkey)) from nation");
+
+        // Test session properties propagating through the optimizer
+        assertEquals(
+                computeActual(session, "SELECT JSON_FORMAT(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS JSON))"),
+                computeActual("select '{\"\":3,\"\":\"ab\"}'"));
+        assertEquals(
+                computeActual(session, "SELECT JSON_FORMAT(CAST(CAST(ROW(1 + 2, CONCAT('a', 'b')) AS ROW(id BIGINT, name VARCHAR)) AS JSON))"),
+                computeActual("select '{\"id\":3,\"name\":\"ab\"}'"));
+
+        // equal lambda expressions in args
+        assertEquals(
+                computeActual(session, "SELECT REDUCE_AGG((x,y), (0,0), (x, y)->(x[1],y[1]), (x,y)->(x[1],y[1]))[1] FROM (SELECT 1 x, 2 y)"),
+                computeActual(session, "SELECT 0"));
+        assertEquals(
+                computeActual(session, "select reduce_agg(x, array[], (x, y)->array[element_at(x, 2)],  (x, y)->array[element_at(x, 2)]) from (select array[array[1]]) T(x)"),
+                computeActual(session, "select array[null]"));
+        assertQueryFails(session, "select reduce_agg(x, null, (x,y)->try(x+y), (x,y)->try(x+y)) from (select 1 union all select 10) T(x)", "(?s).*Initial value in reduce_agg cannot be null.*");
+        // here some reduce_aggs coalesce overflow/zero-divide errors to null in the input/combine functions
+        assertQueryFails(session, "select reduce_agg(x, 0, (x,y)->try(1/x+1/y), (x,y)->try(1/x+1/y)) from ((select 0) union all select 10.) T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
+        assertQueryFails(session, "select reduce_agg(x, 0, (x, y)->try(x+y), (x, y)->try(x+y)) from (values 2817, 9223372036854775807) AS T(x)", "!states->isNullAt\\(i\\) Lambda expressions in reduce_agg should not return null for non-null inputs", true);
     }
 
     @Test

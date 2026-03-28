@@ -161,6 +161,7 @@ public class FeaturesConfig
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
     private boolean preAggregateBeforeGroupingSets;
+    private boolean pushProjectionThroughCrossJoin;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
     private boolean useMarkDistinct = true;
@@ -237,6 +238,7 @@ public class FeaturesConfig
     private boolean materializedViewDataConsistencyEnabled = true;
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
+    private boolean materializedViewQueryRewriteCostBasedSelectionEnabled;
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
@@ -332,6 +334,7 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean mergeMaxByMinByAggregationsEnabled;
     private boolean pushdownSubfieldForMapFunctions = true;
     private boolean pushdownSubfieldForCardinality;
     private long maxSerializableObjectSize = 1000;
@@ -1757,6 +1760,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isPushProjectionThroughCrossJoin()
+    {
+        return pushProjectionThroughCrossJoin;
+    }
+
+    @Config("optimizer.push-projection-through-cross-join")
+    public FeaturesConfig setPushProjectionThroughCrossJoin(boolean pushProjectionThroughCrossJoin)
+    {
+        this.pushProjectionThroughCrossJoin = pushProjectionThroughCrossJoin;
+        return this;
+    }
+
     public boolean isForceSingleNodeOutput()
     {
         return forceSingleNodeOutput;
@@ -2316,6 +2331,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryOptimizationWithMaterializedViewEnabled(boolean value)
     {
         this.queryOptimizationWithMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewQueryRewriteCostBasedSelectionEnabled()
+    {
+        return materializedViewQueryRewriteCostBasedSelectionEnabled;
+    }
+
+    @Config("materialized-view-query-rewrite-cost-based-selection-enabled")
+    @ConfigDescription("When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV")
+    public FeaturesConfig setMaterializedViewQueryRewriteCostBasedSelectionEnabled(boolean value)
+    {
+        this.materializedViewQueryRewriteCostBasedSelectionEnabled = value;
         return this;
     }
 
@@ -3373,6 +3401,19 @@ public class FeaturesConfig
     public boolean isAddDistinctBelowSemiJoinBuild()
     {
         return addDistinctBelowSemiJoinBuild;
+    }
+
+    @Config("optimizer.merge-max-by-and-min-by-aggregations")
+    @ConfigDescription("Merge multiple max_by or min_by aggregations with the same comparison key into a single aggregation with ROW argument")
+    public FeaturesConfig setMergeMaxByMinByAggregationsEnabled(boolean mergeMaxByMinByAggregationsEnabled)
+    {
+        this.mergeMaxByMinByAggregationsEnabled = mergeMaxByMinByAggregationsEnabled;
+        return this;
+    }
+
+    public boolean isMergeMaxByMinByAggregationsEnabled()
+    {
+        return mergeMaxByMinByAggregationsEnabled;
     }
 
     @Config("optimizer.pushdown-subfield-for-map-functions")

@@ -969,6 +969,22 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding session property is :ref:`admin/properties-session:\`\`push_partial_aggregation_through_join\`\``.
 
+``optimizer.push-projection-through-cross-join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes projection expressions through cross join nodes so that each
+expression is evaluated only on the side of the cross join that provides its input
+variables. This reduces the number of columns flowing through the cross join and
+avoids recomputing expressions on the multiplied output rows.
+
+Only deterministic expressions are pushed. Expressions that reference variables from
+both sides of the cross join, or constant expressions, remain above the join.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`push_projection_through_cross_join\`\``.
+
 ``optimizer.push-table-write-through-union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1524,6 +1540,20 @@ migration purposes only.
 
     This should only be enabled in non-production environments.
 
+``materialized-view-query-rewrite-cost-based-selection-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable cost-based selection when multiple materialized views are available for query
+rewriting. When enabled, the optimizer evaluates all compatible materialized view rewrites
+and selects the plan with the lowest estimated cost, instead of using the first compatible
+view.
+
+The corresponding session property is
+:ref:`admin/properties-session:\`\`materialized_view_query_rewrite_cost_based_selection_enabled\`\``.
+
 ``materialized-view-stale-read-behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1534,3 +1564,36 @@ Controls behavior when a materialized view is stale and no per-view staleness co
 Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tables instead).
 
 The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.
+
+Resource Manager Properties
+---------------------------
+
+``resource-manager-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Set to true when a resource manager exists in the cluster.
+
+``resource-manager.http-server-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Controls whether the resource manager's REST server is turned on. This will enable
+nodes to communicate with the resource manager using HTTP/S.
+
+``internal-communication.resource-manager-communication-protocol``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``THRIFT``, ``HTTP``
+* **Default value:** ``THRIFT``
+
+Controls whether the node will communicate with the resource manager using Thrift,
+or HTTP/S. HTTPS are supported using the same internal communication HTTPS
+configs.
+
+To enable SSL/TLS, see :doc:`/security/internal-communication`.

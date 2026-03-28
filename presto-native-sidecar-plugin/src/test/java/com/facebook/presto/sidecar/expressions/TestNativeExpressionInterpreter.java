@@ -434,7 +434,7 @@ public class TestNativeExpressionInterpreter
             newSetBinder(binder, BlockEncoding.class);
             jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
             jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
-            jsonCodecBinder(binder).bindListJsonCodec(RowExpression.class);
+            jsonCodecBinder(binder).bindJsonCodec(ExpressionOptimizationRequest.class);
             jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
             httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);

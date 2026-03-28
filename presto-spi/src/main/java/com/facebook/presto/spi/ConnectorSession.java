@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Collections.emptyMap;
+
 public interface ConnectorSession
 {
     String getQueryId();
@@ -79,5 +81,10 @@ public interface ConnectorSession
     default Optional<ConnectorId> getConnectorId()
     {
         return Optional.empty();
+    }
+
+    default Map<String, String> getSystemProperties()
+    {
+        return emptyMap();
     }
 }

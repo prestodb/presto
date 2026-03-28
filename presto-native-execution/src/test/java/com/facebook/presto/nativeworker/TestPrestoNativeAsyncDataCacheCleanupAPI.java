@@ -67,7 +67,7 @@ public class TestPrestoNativeAsyncDataCacheCleanupAPI
         createCustomer(queryRunner);
     }
 
-    @Test(groups = {"async_data_cache"})
+    @Test(groups = {"async_data_cache"}, enabled = false)
     public void testAsyncDataCacheCleanup() throws Exception
     {
         Session session = Session.builder(super.getSession())

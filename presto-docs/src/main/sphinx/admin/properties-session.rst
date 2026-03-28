@@ -401,6 +401,22 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
 
+``push_projection_through_cross_join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes projection expressions through cross join nodes so that each
+expression is evaluated only on the side of the cross join that provides its input
+variables. This reduces the number of columns flowing through the cross join and
+avoids recomputing expressions on the multiplied output rows.
+
+Only deterministic expressions are pushed. Expressions that reference variables from
+both sides of the cross join, or constant expressions, remain above the join.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-projection-through-cross-join\`\``.
+
 ``push_table_write_through_union``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -738,6 +754,20 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_query_rewrite_cost_based_selection_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable cost-based selection when multiple materialized views are available for query
+rewriting. When enabled, the optimizer evaluates all compatible materialized view rewrites
+and selects the plan with the lowest estimated cost, instead of using the first compatible
+view.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`materialized-view-query-rewrite-cost-based-selection-enabled\`\``.
+
 ``materialized_view_stale_read_behavior``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -761,3 +791,21 @@ The corresponding configuration property is :ref:`admin/properties:\`\`materiali
 
 Enable optimization to combine multiple :func:`!approx_distinct` function calls on expressions
 of the same type into a single aggregation using ``set_agg`` with array operations (``array_constructor``, ``array_transpose``).
+
+``optimizer.merge_max_by_and_min_by_aggregations``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable optimization to merge multiple ``max_by`` or ``min_by`` aggregations that share the same
+comparison key into a single aggregation with a ``ROW`` argument. This reduces computational
+overhead by performing only one comparison operation per row instead of N comparisons, and
+improves memory efficiency by maintaining a single aggregation state instead of N separate states.
+
+For example, when enabled, the following query::
+
+    SELECT max_by(v1, k), max_by(v2, k), max_by(v3, k) FROM table
+
+is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
+reducing both CPU and memory usage.
