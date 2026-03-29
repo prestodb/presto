@@ -49,7 +49,7 @@
     "@prestodb/presto-js-client": "^1.0.1",
     "antlr4": "^4.13.1-patch-1",
     "clsx": "^2.1.0",
-    "copy-webpack-plugin": "^12.0.2",
+    "copy-webpack-plugin": "^14.0.0",
     "d3": "^7.9.0",
     "dagre-d3-es": "7.0.13",
     "prismjs": "^1.30.0",
