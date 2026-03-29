@@ -32,14 +32,37 @@ type SessionValues = {
     [key: string]: string;
 };
 
+interface SQLClientState {
+    view: string;
+    catalog?: string;
+    schema?: string;
+    sql: string;
+    running: boolean;
+    queryId?: string;
+    queryStats?: any;
+    results?: any;
+}
+
+const parsePrestoResponse = async (response: Response) => {
+    // @ts-expect-error JSON.parse with a 3 argument reviver is a stage 3 proposal
+    return JSON.parse(await response.text(), (key, value, context) => {
+        if (
+            context &&
+            context.source &&
+            typeof value === "number" &&
+            !Number.isSafeInteger(value) &&
+            Number.isInteger(value)
+        )
+            return BigInt(context.source);
+        return value;
+    });
+};
+
 const SQLClientView = () => {
-    const [values, setValues] = React.useState<any>({
+    const [values, setValues] = React.useState<SQLClientState>({
+        view: "SQL",
         sql: "",
         running: false,
-        results: undefined,
-        view: "SQL",
-        queryId: undefined,
-        queryStats: undefined,
     });
     const sessions: React.RefObject<SessionValues> = React.useRef({});
     const views = [
@@ -47,7 +70,16 @@ const SQLClientView = () => {
         { name: "Session", label: "Session Properties" },
     ];
 
-    const executeSQL = async (sql, catalog, schema) => {
+    const executeSQL = async (sql: string, catalog?: string, schema?: string) => {
+        let isMounted = true;
+        const cleanup = () => { isMounted = false; };
+        
+        const setSafeValues = (updater: (v: SQLClientState) => SQLClientState) => {
+            if (isMounted) {
+                setValues(updater);
+            }
+        };
+
         const headers: Record<string, string> = {
             "X-Presto-User": "prestoui",
             "X-Presto-Source": "presto-js-client",
@@ -60,14 +92,10 @@ const SQLClientView = () => {
             .join(", ");
         if (sessionsStr) headers["X-Presto-Session"] = sessionsStr;
 
-        setValues({ ...values, running: true, results: undefined, queryId: undefined, queryStats: undefined });
+        setSafeValues((v) => ({ ...v, running: true, results: undefined, queryId: undefined, queryStats: undefined }));
 
         try {
-            const host = window.location.protocol + "//" + window.location.hostname;
-            const port = Number(window.location.port) || (window.location.protocol === "https:" ? 443 : 80);
-            const baseUrl = `${host}:${port}`;
-
-            const firstResponse = await fetch(`${baseUrl}/v1/statement`, {
+            const firstResponse = await fetch("/v1/statement", {
                 method: "POST",
                 body: sql,
                 headers,
@@ -75,32 +103,20 @@ const SQLClientView = () => {
 
             if (firstResponse.status !== 200) {
                 const text = await firstResponse.text();
-                setValues((v) => ({ ...v, running: false, results: { error: { message: `Query failed: ${text}` } } }));
+                setSafeValues((v) => ({ ...v, running: false, results: { error: { message: `Query failed: ${text}` } } }));
                 return;
             }
 
-            // @ts-expect-error JSON.parse with a 3 argument reviver is a stage 3 proposal
-            let prestoResponse = JSON.parse(await firstResponse.text(), (key, value, context) => {
-                if (
-                    context &&
-                    context.source &&
-                    typeof value === "number" &&
-                    !Number.isSafeInteger(value) &&
-                    Number.isInteger(value)
-                )
-                    return BigInt(context.source);
-                return value;
-            });
-
+            let prestoResponse = await parsePrestoResponse(firstResponse);
             let nextUri = prestoResponse.nextUri;
             let queryId = prestoResponse.id;
 
-            setValues((v) => ({ ...v, queryId, queryStats: prestoResponse.stats }));
+            setSafeValues((v) => ({ ...v, queryId, queryStats: prestoResponse.stats }));
 
             const columns = [];
             const data = [];
 
-            while (nextUri !== undefined) {
+            while (nextUri !== undefined && isMounted) {
                 const response = await fetch(nextUri, { method: "GET", headers });
 
                 if (response.status === 503) {
@@ -110,7 +126,7 @@ const SQLClientView = () => {
 
                 if (response.status !== 200) {
                     const text = await response.text();
-                    setValues((v) => ({
+                    setSafeValues((v) => ({
                         ...v,
                         running: false,
                         results: { error: { message: `Query failed: ${text}` } },
@@ -119,21 +135,10 @@ const SQLClientView = () => {
                     return;
                 }
 
-                // @ts-expect-error JSON.parse with a 3 argument reviver is a stage 3 proposal
-                prestoResponse = JSON.parse(await response.text(), (key, value, context) => {
-                    if (
-                        context &&
-                        context.source &&
-                        typeof value === "number" &&
-                        !Number.isSafeInteger(value) &&
-                        Number.isInteger(value)
-                    )
-                        return BigInt(context.source);
-                    return value;
-                });
+                prestoResponse = await parsePrestoResponse(response);
 
                 if (prestoResponse.error) {
-                    setValues((v) => ({
+                    setSafeValues((v) => ({
                         ...v,
                         running: false,
                         results: { error: prestoResponse.error },
@@ -157,24 +162,26 @@ const SQLClientView = () => {
                     data.push(...prestoResponse.data);
                 }
 
-                setValues((v) => ({ ...v, queryId, queryStats: prestoResponse.stats }));
+                setSafeValues((v) => ({ ...v, queryId, queryStats: prestoResponse.stats }));
 
-                if (nextUri) {
+                if (nextUri && isMounted) {
                     await new Promise((resolve) => setTimeout(resolve, 50));
                 }
             }
 
-            setValues((v) => ({ ...v, running: false, results: { columns, data, queryId } }));
+            setSafeValues((v) => ({ ...v, running: false, results: { columns, data, queryId } }));
         } catch (e: any) {
-            setValues((v) => ({
+            setSafeValues((v) => ({
                 ...v,
                 running: false,
                 results: { error: { message: e.message || e.toString() } },
             }));
+        } finally {
+            cleanup();
         }
     };
 
-    const switchView = (view) => {
+    const switchView = (view: any) => {
         if (view.name === values.view) return;
         setValues({ ...values, view: view.name });
     };
