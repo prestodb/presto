@@ -25,7 +25,10 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
@@ -110,7 +113,11 @@ public class FlightShimProducer
             List<ColumnMetadata> columnsMetadata = columnHandles.stream()
                     .map(connectorHolder::getColumnMetadata).collect(toImmutableList());
 
-            ConnectorTransactionHandle transactionHandle = connector.beginTransaction(IsolationLevel.READ_UNCOMMITTED, true);
+            ConnectorTableHandle connectorTableHandle = connectorHolder.getCodecTableHandle().fromJson(request.getTableHandleBytes());
+            ConnectorTransactionHandle transactionHandle = connectorHolder.getCodecTransactionHandle().fromJson(request.getTransactionHandleBytes());
+            Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle =
+                    request.getTableLayoutHandleBytes().map( tableLayoutHandleBytes -> connectorHolder.getCodecTableLayoutHandle().fromJson(tableLayoutHandleBytes));
+            TableHandle tableHandle = new TableHandle(new ConnectorId(request.getConnectorId()), connectorTableHandle, transactionHandle, connectorTableLayoutHandle);
 
             // Create a dummy session to load the connector
             QueryIdGenerator queryIdGenerator = new QueryIdGenerator();

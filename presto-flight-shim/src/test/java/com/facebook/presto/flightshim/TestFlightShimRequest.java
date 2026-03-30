@@ -16,7 +16,10 @@ package com.facebook.presto.flightshim;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTransactionHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -25,6 +28,8 @@ import java.sql.Types;
 import java.util.Optional;
 
 import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.COLUMN_HANDLE_JSON_CODEC;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.TABLE_HANDLE_JSON_CODEC;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.TRANSACTION_HANDLE_JSON_CODEC;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.createJdbcSplit;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimPlugins.LINESTATUS_COLUMN;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimPlugins.ORDERKEY_COLUMN;
@@ -43,6 +48,9 @@ public class TestFlightShimRequest
         assertEquals(copy.getConnectorId(), expected.getConnectorId());
         assertEquals(copy.getSplitBytes(), expected.getSplitBytes());
         assertArrayEquals(copy.getColumnHandlesBytes().toArray(), expected.getColumnHandlesBytes().toArray());
+        assertEquals(copy.getTableHandleBytes(), expected.getTableHandleBytes());
+        assertEquals(copy.getTableLayoutHandleBytes(), expected.getTableLayoutHandleBytes());
+        assertEquals(copy.getTransactionHandleBytes(), expected.getTransactionHandleBytes());
     }
 
     FlightShimRequest createTpchCustomerRequest()
@@ -68,9 +76,19 @@ public class TestFlightShimRequest
                 Optional.empty());
         byte[] nameBytes = COLUMN_HANDLE_JSON_CODEC.toJsonBytes(nameHandle);
 
+        JdbcTableHandle tableHandle = new JdbcTableHandle("postgresql", new SchemaTableName("tpch", TPCH_TABLE), "postgresql", "tpch", TPCH_TABLE);
+        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+
+        JdbcTransactionHandle transactionHandle = new JdbcTransactionHandle();
+        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(transactionHandle);
+
         return new FlightShimRequest(
                 "postgresql",
                 splitBytes,
-                ImmutableList.of(custkeyBytes, nameBytes));
+                ImmutableList.of(custkeyBytes, nameBytes),
+                tableHandleBytes,
+                Optional.empty(),
+                transactionHandleBytes
+                );
     }
 }

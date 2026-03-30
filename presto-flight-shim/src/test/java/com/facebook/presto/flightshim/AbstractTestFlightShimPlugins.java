@@ -41,6 +41,9 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
+import com.facebook.presto.tpch.TpchTableLayoutHandle;
+import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -71,6 +74,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
@@ -85,6 +89,9 @@ public abstract class AbstractTestFlightShimPlugins
 {
     public static final JsonCodec<FlightShimRequest> REQUEST_JSON_CODEC = jsonCodec(FlightShimRequest.class);
     public static final JsonCodec<TpchColumnHandle> TPCH_COLUMN_JSON_CODEC = jsonCodec(TpchColumnHandle.class);
+    public static final JsonCodec<TpchTableHandle> TPCH_TABLE_HANDLE_JSON_CODEC = jsonCodec(TpchTableHandle.class);
+    public static final JsonCodec<TpchTableLayoutHandle> TPCH_TABLE_LAYOUT_HANDLE_JSON_CODEC = jsonCodec(TpchTableLayoutHandle.class);
+    public static final JsonCodec<TpchTransactionHandle> TPCH_TRANSACTION_HANDLE_JSON_CODEC = jsonCodec(TpchTransactionHandle.class);
     public static final String TPCH_TABLE = "lineitem";
     public static final String ORDERKEY_COLUMN = "orderkey";
     public static final String LINENUMBER_COLUMN = "linenumber";
@@ -504,7 +511,12 @@ public abstract class AbstractTestFlightShimPlugins
             columnBuilder.add(TPCH_COLUMN_JSON_CODEC.toJsonBytes(columnHandle));
         }
 
-        return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build());
+        TpchTableHandle tableHandle = new TpchTableHandle(TPCH_TABLE, 1.0);
+        byte[] tableHandleBytes = TPCH_TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+
+        byte[] transactionHandleBytes = TPCH_TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(TpchTransactionHandle.INSTANCE);
+
+        return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build(), tableHandleBytes, Optional.empty(), transactionHandleBytes);
     }
 
     protected static String createTpchSplit(String tableName, int partNumber, int totalParts)

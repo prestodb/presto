@@ -41,6 +41,8 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
@@ -48,6 +50,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -374,6 +377,9 @@ public class FlightShimPluginManager
         private final Connector connector;
         private final JsonCodec<? extends ConnectorSplit> codecSplit;
         private final JsonCodec<? extends ColumnHandle> codecColumnHandle;
+        private final JsonCodec<? extends ConnectorTableHandle> codecTableHandle;
+        private final JsonCodec<? extends ConnectorTableLayoutHandle> codecTableLayoutHandle;
+        private final JsonCodec<? extends ConnectorTransactionHandle> codecTransactionHandle;
         private final Method getColumnMetadataMethod;
 
         ConnectorHolder(Connector connector, ConnectorHandleResolver resolver, TypeDeserializer typeDeserializer, BlockEncodingManager blockEncodingManager)
@@ -399,6 +405,9 @@ public class FlightShimPluginManager
 
             this.codecSplit = jsonCodecFactory.jsonCodec(resolver.getSplitClass());
             this.codecColumnHandle = jsonCodecFactory.jsonCodec(resolver.getColumnHandleClass());
+            this.codecTableHandle = jsonCodecFactory.jsonCodec(resolver.getTableHandleClass());
+            this.codecTableLayoutHandle = jsonCodecFactory.jsonCodec(resolver.getTableLayoutHandleClass());
+            this.codecTransactionHandle = jsonCodecFactory.jsonCodec(resolver.getTransactionHandleClass());
             this.getColumnMetadataMethod = reflectGetColumnMetadata(resolver);
         }
 
@@ -415,6 +424,21 @@ public class FlightShimPluginManager
         JsonCodec<? extends ColumnHandle> getCodecColumnHandle()
         {
             return codecColumnHandle;
+        }
+
+        JsonCodec<? extends ConnectorTableHandle> getCodecTableHandle()
+        {
+            return codecTableHandle;
+        }
+
+        JsonCodec<? extends ConnectorTableLayoutHandle> getCodecTableLayoutHandle()
+        {
+            return codecTableLayoutHandle;
+        }
+
+        JsonCodec<? extends ConnectorTransactionHandle> getCodecTransactionHandle()
+        {
+            return codecTransactionHandle;
         }
 
         ColumnMetadata getColumnMetadata(ColumnHandle handle)

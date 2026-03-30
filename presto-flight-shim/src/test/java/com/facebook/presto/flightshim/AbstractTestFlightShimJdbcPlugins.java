@@ -20,7 +20,10 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTransactionHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tpch.TpchColumnHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +67,8 @@ public abstract class AbstractTestFlightShimJdbcPlugins
         extends AbstractTestFlightShimPlugins
 {
     public static final JsonCodec<JdbcColumnHandle> COLUMN_HANDLE_JSON_CODEC = jsonCodec(JdbcColumnHandle.class);
+    public static final JsonCodec<JdbcTableHandle> TABLE_HANDLE_JSON_CODEC = jsonCodec(JdbcTableHandle.class);
+    public static final JsonCodec<JdbcTransactionHandle> TRANSACTION_HANDLE_JSON_CODEC = jsonCodec(JdbcTransactionHandle.class);
 
     protected abstract String getConnectionUrl();
 
@@ -153,7 +158,11 @@ public abstract class AbstractTestFlightShimJdbcPlugins
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(convertToJdbcColumnHandle(columnHandle)));
         }
 
-        return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build());
+        JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
+        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+
+        return new FlightShimRequest(getConnectorId(), splitBytes, columnBuilder.build(), tableHandleBytes, Optional.empty(), transactionHandleBytes);
     }
 
     protected FlightShimRequest createTpchTableRequestWithTupleDomain() throws Exception
@@ -167,10 +176,17 @@ public abstract class AbstractTestFlightShimJdbcPlugins
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
         }
 
+        JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
+        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+
         return new FlightShimRequest(
                 getConnectorId(),
                 splitBytes,
-                columnBuilder.build());
+                columnBuilder.build(),
+                tableHandleBytes,
+                Optional.empty(),
+                transactionHandleBytes);
     }
 
     protected FlightShimRequest createTpchTableRequestWithAdditionalPredicate()
@@ -186,10 +202,17 @@ public abstract class AbstractTestFlightShimJdbcPlugins
             columnBuilder.add(COLUMN_HANDLE_JSON_CODEC.toJsonBytes(columnHandle));
         }
 
+        JdbcTableHandle tableHandle = new JdbcTableHandle(getConnectorId(), new SchemaTableName("tpch", TPCH_TABLE), getConnectorId(), "tpch", TPCH_TABLE);
+        byte[] tableHandleBytes = TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+        byte[] transactionHandleBytes = TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(new JdbcTransactionHandle());
+
         return new FlightShimRequest(
                 getConnectorId(),
                 splitBytes,
-                columnBuilder.build());
+                columnBuilder.build(),
+                tableHandleBytes,
+                Optional.empty(),
+                transactionHandleBytes);
     }
 
     protected static String removeDatabaseFromJdbcUrl(String jdbcUrl)
