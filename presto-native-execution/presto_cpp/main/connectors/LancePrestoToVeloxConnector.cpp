@@ -78,7 +78,7 @@ LancePrestoToVeloxConnector::toVeloxTableHandle(
 
   // Pass the logical table name to LanceTableHandle. The physical dataset path
   // is carried by the split and used by LanceDataSource to open the dataset;
-  // LanceTableHandle.tableName() is not read during scans.
+  // LanceTableHandle.datasetPath() / name() is not read during scans.
   return std::make_unique<velox::connector::lance::LanceTableHandle>(
       tableHandle.connectorId, lanceTable->tableName);
 }
