@@ -92,7 +92,7 @@ public class TestWideTypesTable
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
         tableHandle = new LanceTableHandle("default", "wide_types_table");
         tablePath = namespaceHolder.getTablePath("wide_types_table");
-        fragments = namespaceHolder.getFragments("wide_types_table");
+        fragments = namespaceHolder.getFragments("wide_types_table", Optional.empty());
         LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class));
         columnHandles = metadata.getColumnHandles(null, tableHandle);
     }
@@ -260,6 +260,8 @@ public class TestWideTypesTable
                     ImmutableList.of(fragments.get(0).getId()),
                     tablePath,
                     8192,
+                    namespaceHolder,
+                    Optional.empty(),
                     arrowBlockBuilder,
                     namespaceHolder.getAllocator(),
                     Optional.empty(),
