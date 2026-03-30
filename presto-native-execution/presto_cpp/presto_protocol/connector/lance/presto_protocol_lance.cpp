@@ -39,6 +39,7 @@ void to_json(json& j, const LanceColumnHandle& p) {
 }
 
 void from_json(const json& j, LanceColumnHandle& p) {
+  p._type = j["@type"];
   from_json_key(
       j,
       "columnName",
@@ -73,6 +74,7 @@ void to_json(json& j, const LanceTableHandle& p) {
 }
 
 void from_json(const json& j, LanceTableHandle& p) {
+  p._type = j["@type"];
   from_json_key(
       j,
       "schemaName",
@@ -110,6 +112,7 @@ void to_json(json& j, const LanceTableLayoutHandle& p) {
 }
 
 void from_json(const json& j, LanceTableLayoutHandle& p) {
+  p._type = j["@type"];
   from_json_key(
       j,
       "table",
@@ -142,6 +145,7 @@ void to_json(json& j, const LanceSplit& p) {
 }
 
 void from_json(const json& j, LanceSplit& p) {
+  p._type = j["@type"];
   from_json_key(
       j, "datasetPath", p.datasetPath, "LanceSplit", "String", "datasetPath");
   from_json_key(
@@ -159,7 +163,7 @@ void to_json(json& j, const LanceTransactionHandle& p) {
   j["@type"] = "lance";
 }
 
-void from_json(const json& j, LanceTransactionHandle& p) {
+void from_json(const json& /*j*/, LanceTransactionHandle& /*p*/) {
   // No fields to deserialize
 }
 

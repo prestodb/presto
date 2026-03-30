@@ -36,6 +36,7 @@ LancePrestoToVeloxConnector::toVeloxSplit(
   std::vector<uint64_t> fragmentIds;
   fragmentIds.reserve(lanceSplit->fragments.size());
   for (const auto& id : lanceSplit->fragments) {
+    VELOX_CHECK_GE(id, 0, "Lance fragment ID must be non-negative, got: {}", id);
     fragmentIds.push_back(static_cast<uint64_t>(id));
   }
 
@@ -74,10 +75,9 @@ LancePrestoToVeloxConnector::toVeloxTableHandle(
   auto lanceTable = lanceLayout->table;
   VELOX_CHECK_NOT_NULL(lanceTable, "LanceTableHandle is null in layout");
 
-  // The dataset path will come from the split. For the table handle,
-  // we use the table name as the dataset path identifier. The actual
-  // filesystem path resolution happens on the coordinator when creating
-  // splits.
+  // Pass the logical table name to LanceTableHandle. The physical dataset path
+  // is carried by the split and used by LanceDataSource to open the dataset;
+  // LanceTableHandle.tableName() is not read during scans.
   return std::make_unique<velox::connector::lance::LanceTableHandle>(
       tableHandle.connectorId, lanceTable->tableName);
 }
