@@ -627,12 +627,12 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
   // value expression. We must detect this and avoid erasing valid WHEN clauses.
   static constexpr const char* kWhen = "when";
   bool isWhenClause = velox::expression::utils::isCall(*args.begin(), kWhen);
-  TypedExprPtr valueExpr = nullptr;
+  TypedExprPtr simpleFormValue = nullptr;
   bool valueIsTrue = false;
   if (!isWhenClause) {
-    valueExpr = args.front();
+    simpleFormValue = args.front();
     args.erase(args.begin());
-    valueIsTrue = isTrueConstant(valueExpr);
+    valueIsTrue = isTrueConstant(simpleFormValue);
   }
 
   std::vector<TypedExprPtr> inputs;
@@ -645,11 +645,12 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
       if (valueIsTrue) {
         inputs.emplace_back(condition);
       } else {
-        if (condition->type()->kindEquals(valueExpr->type())) {
-          inputs.emplace_back(makeEqualsExpr(condition, valueExpr));
+        if (condition->type()->kindEquals(simpleFormValue->type())) {
+          inputs.emplace_back(makeEqualsExpr(condition, simpleFormValue));
         } else {
           inputs.emplace_back(makeEqualsExpr(
-              makeCastExpr(condition, valueExpr->type()), valueExpr));
+              makeCastExpr(condition, simpleFormValue->type()),
+              simpleFormValue));
         }
       }
       inputs.emplace_back(call->inputs()[1]);
