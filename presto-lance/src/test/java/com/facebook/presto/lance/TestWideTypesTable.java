@@ -28,6 +28,7 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -91,7 +92,7 @@ public class TestWideTypesTable
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
         tableHandle = new LanceTableHandle("default", "wide_types_table");
         tablePath = namespaceHolder.getTablePath("wide_types_table");
-        fragments = namespaceHolder.getFragments("wide_types_table");
+        fragments = namespaceHolder.getFragments("wide_types_table", Optional.empty());
         LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class));
         columnHandles = metadata.getColumnHandles(null, tableHandle);
     }
@@ -259,6 +260,8 @@ public class TestWideTypesTable
                     ImmutableList.of(fragments.get(0).getId()),
                     tablePath,
                     8192,
+                    namespaceHolder,
+                    Optional.empty(),
                     arrowBlockBuilder,
                     namespaceHolder.getAllocator());
             try {
