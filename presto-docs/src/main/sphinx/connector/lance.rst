@@ -263,6 +263,22 @@ Show the columns and types of a Lance table:
 
     DESCRIBE lance.default.my_table;
 
+Session Properties
+------------------
+
+The following session properties can be set per-query using ``SET SESSION``:
+
+.. code-block:: sql
+
+    SET SESSION lance.filter_pushdown_enabled = false;
+
+================================================= ================================================================ =========
+Property Name                                     Description                                                      Default
+================================================= ================================================================ =========
+``filter_pushdown_enabled``                        Enable SQL predicate pushdown to the Lance scanner. Disable     ``true``
+                                                   to fall back to executor-level filtering only.
+================================================= ================================================================ =========
+
 Limitations
 -----------
 

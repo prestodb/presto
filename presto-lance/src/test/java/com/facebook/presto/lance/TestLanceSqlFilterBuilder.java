@@ -366,8 +366,12 @@ public class TestLanceSqlFilterBuilder
     @Test
     public void testNonOrderableTypeSkipsPushdown()
     {
-        // Domain.all() returns empty regardless of type; for non-orderable types,
-        // the instanceof SortedRangeSet guard also catches any non-all/none domains.
+        // This test exercises the domain.isAll() early-return path, not the instanceof
+        // SortedRangeSet guard. Domain.all(arrayType) returns empty immediately at line 102.
+        // The instanceof guard protects against hypothetical future comparable-but-not-orderable
+        // types whose non-all/non-none domains would be EquatableValueSet; Presto's current type
+        // system does not produce such domains for ARRAY, so the guard is not directly testable
+        // via public API.
         ArrayType arrayType = new ArrayType(BIGINT);
         LanceColumnHandle column = new LanceColumnHandle("tags", arrayType);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(

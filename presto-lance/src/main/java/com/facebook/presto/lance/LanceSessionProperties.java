@@ -35,7 +35,7 @@ public final class LanceSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(booleanProperty(
                         FILTER_PUSHDOWN_ENABLED,
-                        "Enable SQL predicate pushdown to Lance DataFusion scanner",
+                        "Enable SQL predicate pushdown to the Lance scanner",
                         true,
                         false))
                 .build();

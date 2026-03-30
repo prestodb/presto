@@ -80,6 +80,10 @@ public class LancePageSourceProvider
 
         // Determine filter projection columns (needed for filter but not in output).
         // Only add extra columns when a filter was actually pushed down.
+        // TODO: extractFilterColumnNames returns all TupleDomain columns, but buildFilter
+        //   silently skips unsupported types (e.g. VARBINARY). In mixed queries this may
+        //   add skipped columns to filterProjectionColumns, causing unnecessary I/O.
+        //   Fix: have buildFilter also return the set of successfully pushed column names.
         Set<String> outputColumnNames = lanceColumns.stream()
                 .map(LanceColumnHandle::getColumnName)
                 .collect(toImmutableSet());
