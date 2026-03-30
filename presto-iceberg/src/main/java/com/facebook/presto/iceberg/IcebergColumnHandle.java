@@ -60,6 +60,7 @@ public class IcebergColumnHandle
 
     private final ColumnIdentity columnIdentity;
     private final Type type;
+    private final Optional<String> defaultValue;
 
     @JsonCreator
     public IcebergColumnHandle(
@@ -67,17 +68,24 @@ public class IcebergColumnHandle
             @JsonProperty("type") Type type,
             @JsonProperty("comment") Optional<String> comment,
             @JsonProperty("columnType") ColumnType columnType,
-            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
+            @JsonProperty("defaultValue") Optional<String> defaultValue)
     {
         super(columnIdentity.getName(), comment, columnType, requiredSubfields);
 
         this.columnIdentity = requireNonNull(columnIdentity, "columnIdentity is null");
         this.type = requireNonNull(type, "type is null");
+        this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
     }
 
     public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType)
     {
-        this(columnIdentity, type, comment, columnType, ImmutableList.of());
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), Optional.empty());
+    }
+
+    public IcebergColumnHandle(ColumnIdentity columnIdentity, Type type, Optional<String> comment, ColumnType columnType, Optional<String> defaultValue)
+    {
+        this(columnIdentity, type, comment, columnType, ImmutableList.of(), defaultValue);
     }
 
     @JsonProperty
@@ -96,6 +104,12 @@ public class IcebergColumnHandle
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public Optional<String> getDefaultValue()
+    {
+        return defaultValue;
     }
 
     @JsonIgnore
@@ -124,13 +138,13 @@ public class IcebergColumnHandle
             return this;
         }
 
-        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields);
+        return new IcebergColumnHandle(columnIdentity, type, getComment(), getColumnType(), subfields, defaultValue);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields());
+        return Objects.hash(columnIdentity, type, getComment(), getColumnType(), getRequiredSubfields(), defaultValue);
     }
 
     @Override
@@ -147,7 +161,8 @@ public class IcebergColumnHandle
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.getComment(), other.getComment()) &&
                 Objects.equals(this.getColumnType(), other.getColumnType()) &&
-                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields());
+                Objects.equals(this.getRequiredSubfields(), other.getRequiredSubfields()) &&
+                Objects.equals(this.defaultValue, other.defaultValue);
     }
 
     @Override
@@ -240,6 +255,7 @@ public class IcebergColumnHandle
                 pushdownColumnType,
                 Optional.of("nested column pushdown"),
                 SYNTHESIZED,
-                requiredSubfields);
+                requiredSubfields,
+                Optional.empty());
     }
 }

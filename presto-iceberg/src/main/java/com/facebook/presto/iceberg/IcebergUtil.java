@@ -52,6 +52,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.slice.Slice;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
@@ -78,6 +79,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -181,6 +183,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -303,6 +306,14 @@ public final class IcebergUtil
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported Table type: " + table.getClass().getName());
+        }
+    }
+
+    public static void validateMinimumFormatVersion(Table table, int minVersion, String errorMessage)
+    {
+        int formatVersion = opsFromTable(table).current().formatVersion();
+        if (formatVersion < minVersion) {
+            throw new PrestoException(NOT_SUPPORTED, errorMessage);
         }
     }
 
@@ -1427,5 +1438,39 @@ public final class IcebergUtil
         sb.append(identifier.name());
 
         return sb.toString();
+    }
+
+    /**
+     * Convert a Presto internal representation default value to an Iceberg Literal based on the column type.
+     * This is used to set initial-default and write-default values in Iceberg V3 schemas.
+     */
+    public static Literal<?> convertToIcebergLiteral(Object defaultValue, org.apache.iceberg.types.Type icebergType)
+    {
+        switch (icebergType.typeId()) {
+            case STRING:
+                return Literal.of(((Slice) defaultValue).toStringUtf8());
+            case INTEGER:
+                return Literal.of((long) defaultValue);
+            case LONG:
+                return Literal.of((long) defaultValue);
+            case FLOAT:
+                return Literal.of(intBitsToFloat(((Long) defaultValue).intValue()));
+            case DOUBLE:
+                return Literal.of((double) defaultValue);
+            case BOOLEAN:
+                return Literal.of((boolean) defaultValue);
+            case DATE:
+                return Literal.of((long) defaultValue);
+            case TIMESTAMP:
+                return Literal.of(MILLISECONDS.toMicros((long) defaultValue));
+            case DECIMAL:
+                int scale = ((Types.DecimalType) icebergType).scale();
+                return Literal.of(new BigDecimal(new BigInteger(defaultValue.toString()), scale));
+            case BINARY:
+            case FIXED:
+                return Literal.of(ByteBuffer.wrap(((Slice) defaultValue).getBytes()));
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
+        }
     }
 }

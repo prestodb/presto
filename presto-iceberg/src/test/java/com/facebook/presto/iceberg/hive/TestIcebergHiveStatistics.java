@@ -537,7 +537,8 @@ public class TestIcebergHiveStatistics
                         ((IcebergColumnHandle) handle).getType(),
                         ((IcebergColumnHandle) handle).getComment(),
                         REGULAR,
-                        handle.getRequiredSubfields());
+                        handle.getRequiredSubfields(),
+                        Optional.empty());
             }
             ColumnStatistics actual = actualStats.get(handle);
             assertEquals(actual.getRange(), expected.getRange(), "range for col: " + handle);
