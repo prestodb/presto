@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -171,7 +172,7 @@ public class IcebergSplitSource
     private boolean inlineFilterActive;
 
     // Warmup state
-    private final long warmupMaxWeight;
+    private OptionalInt warmupMaxWeight;
     private final double warmupWeightPerTask;
     private Set<SplitKey> dispatchedSplitKeys;
     private long warmupWeightDispatched;
@@ -216,15 +217,9 @@ public class IcebergSplitSource
             this.relevantFilterColumns = Optional.empty();
         }
 
-        // Compute warmup budget: weightPerTask * taskCount * UNIT_VALUE
-        // e.g., weightPerTask=1.0, taskCount=4 → budget = 400 raw units = 4 standard splits
-        int taskCountHint = dynamicFilter.getTaskCountHint();
-        if (warmupEnabled && warmupWeightPerTask > 0 && taskCountHint > 0) {
-            this.warmupMaxWeight = Math.round(warmupWeightPerTask * SplitWeight.rawValueForStandardSplitCount(taskCountHint));
-        }
-        else {
-            this.warmupMaxWeight = 0;
-        }
+        // Defer warmup budget computation until first getNextBatch() call.
+        // At construction time, taskCountHint is often 0 because the scheduler hasn't set it yet.
+        this.warmupMaxWeight = OptionalInt.empty();
 
         if (dynamicFilter.isComplete()) {
             // Filter already resolved at construction — apply it to the scan upfront
@@ -237,8 +232,8 @@ public class IcebergSplitSource
             initializeScan();
             state = State.SCANNING_FILTERED;
         }
-        else if (warmupEnabled && warmupMaxWeight > 0) {
-            // Warmup mode: dispatch limited initial batch, then pause for filter
+        else if (warmupEnabled && warmupWeightPerTask > 0) {
+            // Warmup mode with lazy initialization of warmupMaxWeight
             initializeScan();
             this.dispatchedSplitKeys = new HashSet<>();
             filterWaitStartNanos = System.nanoTime();
@@ -246,12 +241,11 @@ public class IcebergSplitSource
             state = State.WARMUP_SCANNING;
         }
         else if (warmupEnabled) {
-            // warmupEnabled but no budget (warmupWeightPerTask=0 or taskCountHint=0)
-            // Fall back to full eager dispatch (existing SCANNING_UNFILTERED behavior)
-            initializeScan();
+            // warmupEnabled but warmupWeightPerTask=0
+            // Should wait for filter before scanning
             filterWaitStartNanos = System.nanoTime();
             dynamicFilter.isBlocked(relevantFilterColumns);
-            state = State.SCANNING_UNFILTERED;
+            state = State.WAITING_FOR_FILTER;
         }
         else {
             // Don't start scan yet — wait for filter so Iceberg can skip manifests
@@ -285,10 +279,19 @@ public class IcebergSplitSource
             }
         }
         else if (state == State.WARMUP_SCANNING) {
+            // Lazy initialization of warmupMaxWeight when taskCountHint becomes available
+            if (!warmupMaxWeight.isPresent() && warmupEnabled && warmupWeightPerTask > 0) {
+                int taskCountHint = dynamicFilter.getTaskCountHint();
+                if (taskCountHint > 0) {
+                    int maxWeight = (int) Math.round(warmupWeightPerTask * SplitWeight.rawValueForStandardSplitCount(taskCountHint));
+                    this.warmupMaxWeight = OptionalInt.of(maxWeight);
+                }
+            }
+
             if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
                 transitionToFilteredReScan();
             }
-            else if (warmupWeightDispatched >= warmupMaxWeight) {
+            else if (warmupMaxWeight.isPresent() && warmupWeightDispatched >= warmupMaxWeight.getAsInt()) {
                 // Budget exhausted — pause and wait for filter
                 warmupPauseStartNanos = System.nanoTime();
                 state = State.WARMUP_PAUSED;
@@ -643,7 +646,7 @@ public class IcebergSplitSource
             }
 
             // Check warmup budget after adding the split (don't break mid-batch for partial weight)
-            if (state == State.WARMUP_SCANNING && warmupWeightDispatched >= warmupMaxWeight) {
+            if (state == State.WARMUP_SCANNING && warmupMaxWeight.isPresent() && warmupWeightDispatched >= warmupMaxWeight.getAsInt()) {
                 break;
             }
         }
