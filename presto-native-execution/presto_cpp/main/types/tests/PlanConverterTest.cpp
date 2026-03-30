@@ -29,12 +29,10 @@ using namespace facebook::velox;
 
 namespace {
 
-core::PlanFragment assertToVeloxFragment(
-    const std::string& fileName,
+core::PlanFragment convertToVeloxFragment(
+    const json& j,
     memory::MemoryPool* pool = nullptr) {
-  std::string fragment = slurp(test::utils::getDataPath(fileName));
-
-  protocol::PlanFragment prestoPlan = json::parse(fragment);
+  protocol::PlanFragment prestoPlan = j;
   std::shared_ptr<memory::MemoryPool> poolPtr;
   if (pool == nullptr) {
     poolPtr = memory::deprecatedAddDefaultLeafMemoryPool();
@@ -45,6 +43,13 @@ core::PlanFragment assertToVeloxFragment(
   VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
   return converter.toVeloxQueryPlan(
       prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+}
+
+core::PlanFragment assertToVeloxFragment(
+    const std::string& fileName,
+    memory::MemoryPool* pool = nullptr) {
+  std::string fragment = slurp(test::utils::getDataPath(fileName));
+  return convertToVeloxFragment(json::parse(fragment), pool);
 }
 
 std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
@@ -209,6 +214,93 @@ TEST_F(PlanConverterTest, indexSource) {
       tableScan->tableHandle().get());
   ASSERT_NE(tableHandle, nullptr);
   ASSERT_EQ(tableHandle->tableName(), "tpch.nation");
+}
+
+// Recursively find the first ExchangeNode in the plan tree.
+const core::ExchangeNode* findExchangeNode(
+    const std::shared_ptr<const core::PlanNode>& node) {
+  if (auto* exchange = dynamic_cast<const core::ExchangeNode*>(node.get())) {
+    return exchange;
+  }
+  for (const auto& source : node->sources()) {
+    if (auto* found = findExchangeNode(source)) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
+// Verify that absent transportType on RemoteSourceNode defaults to kHttp
+// and absent outputTransportType on PlanFragment defaults to kHttp.
+TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToHttp) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  // Ensure transportType and outputTransportType are NOT in the JSON.
+  ASSERT_FALSE(j.count("outputTransportType"));
+  ASSERT_FALSE(j["root"]["source"]["sources"][0].count("transportType"));
+
+  auto veloxFragment = convertToVeloxFragment(j);
+
+  // PartitionedOutputNode is the root.
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      partitionedOutput->transportType(),
+      core::PartitionedOutputNode::TransportType::kHttp);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(
+      exchange->transportType(), core::ExchangeNode::TransportType::kHttp);
+}
+
+// Verify that ANY transportType on RemoteSourceNode and outputTransportType
+// on PlanFragment are correctly propagated (maps to Velox kUcx).
+TEST_F(PlanConverterTest, transportTypeAny) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  // Inject ANY transport types (protocol layer).
+  j["outputTransportType"] = "ANY";
+  j["root"]["source"]["sources"][0]["transportType"] = "ANY";
+
+  auto veloxFragment = convertToVeloxFragment(j);
+
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      partitionedOutput->transportType(),
+      core::PartitionedOutputNode::TransportType::kUcx);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(exchange->transportType(), core::ExchangeNode::TransportType::kUcx);
+}
+
+// Verify that HTTP transportType is explicitly propagated.
+TEST_F(PlanConverterTest, transportTypeHttp) {
+  std::string fragment = slurp(test::utils::getDataPath("FinalAgg.json"));
+  json j = json::parse(fragment);
+
+  j["outputTransportType"] = "HTTP";
+  j["root"]["source"]["sources"][0]["transportType"] = "HTTP";
+
+  auto veloxFragment = convertToVeloxFragment(j);
+
+  auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
+      veloxFragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(
+      partitionedOutput->transportType(),
+      core::PartitionedOutputNode::TransportType::kHttp);
+
+  auto* exchange = findExchangeNode(veloxFragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(
+      exchange->transportType(), core::ExchangeNode::TransportType::kHttp);
 }
 
 TEST_F(PlanConverterTest, batchPlanConversion) {
