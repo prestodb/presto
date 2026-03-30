@@ -29,6 +29,7 @@ import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
@@ -324,31 +325,12 @@ public class MySqlClient
                         ResultSet resultSet = statement.executeQuery(sql)) {
                     while (resultSet.next()) {
                         // StatementAnalyzer can't parse sql with back ticks, so we replace them here
-                        String viewSql = resultSet.getString("view_definition").replace('`', '"');
-                        String owner = session.getUser();
-
-                        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
-                                connectorId,
-                                schemaTableName,
-                                schemaName,
-                                null,
-                                tableName));
-
-                        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
-                                .map(MySqlClient::toViewColumn)
-                                .collect(toImmutableList());
-
-                        ViewDefinition viewDefinition = new ViewDefinition(
-                                viewSql,
-                                Optional.of(connectorId),
-                                Optional.of(schemaName),
-                                columns,
-                                Optional.of(owner),
-                                false);
+                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, schemaName, tableName);
 
                         SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
                         String viewData = VIEW_CODEC.toJson(viewDefinition);
 
+                        String owner = session.getUser();
                         views.put(viewName, new ConnectorViewDefinition(
                                 viewName,
                                 Optional.of(owner),
@@ -361,6 +343,32 @@ public class MySqlClient
             throw new PrestoException(JDBC_ERROR, e);
         }
         return views.build();
+    }
+
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String schemaName, String tableName)
+            throws SQLException
+    {
+        String owner = session.getUser();
+        String viewSql = resultSet.getString("view_definition").replace('`', '"');
+
+        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
+                connectorId,
+                schemaTableName,
+                schemaName,
+                null,
+                tableName));
+
+        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
+                .map(MySqlClient::toViewColumn)
+                .collect(toImmutableList());
+
+        return new ViewDefinition(
+                viewSql,
+                Optional.of(connectorId),
+                Optional.of(schemaName),
+                columns,
+                Optional.of(owner),
+                false);
     }
 
     private static ViewDefinition.ViewColumn toViewColumn(JdbcColumnHandle jdbcColumn)
