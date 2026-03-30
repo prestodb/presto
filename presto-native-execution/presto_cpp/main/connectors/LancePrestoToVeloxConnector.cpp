@@ -36,7 +36,8 @@ LancePrestoToVeloxConnector::toVeloxSplit(
   std::vector<uint64_t> fragmentIds;
   fragmentIds.reserve(lanceSplit->fragments.size());
   for (const auto& id : lanceSplit->fragments) {
-    VELOX_CHECK_GE(id, 0, "Lance fragment ID must be non-negative, got: {}", id);
+    VELOX_CHECK_GE(
+        id, 0, "Lance fragment ID must be non-negative, got: {}", id);
     fragmentIds.push_back(static_cast<uint64_t>(id));
   }
 
