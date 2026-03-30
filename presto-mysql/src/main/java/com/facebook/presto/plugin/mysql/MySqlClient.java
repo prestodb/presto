@@ -29,7 +29,6 @@ import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
