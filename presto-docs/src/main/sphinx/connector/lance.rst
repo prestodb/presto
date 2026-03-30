@@ -230,7 +230,7 @@ Presto Type               Lance Filter Literal
 
 .. note::
 
-    Predicates on unsupported types (e.g., ``VARBINARY``, ``ARRAY``) and
+    Predicates on unsupported types such as ``VARBINARY``, ``ARRAY``, and
     complex predicates with more than 100 ranges per column are not pushed
     down. In these cases, Presto evaluates the filter at the executor level.
     Correctness is always guaranteed because Presto re-evaluates all
