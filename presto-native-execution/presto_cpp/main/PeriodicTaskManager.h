@@ -14,7 +14,7 @@
 #pragma once
 
 #include <folly/executors/ThreadedRepeatingFunctionRunner.h>
-#include <folly/experimental/FunctionScheduler.h>
+#include <folly/executors/FunctionScheduler.h>
 #include "velox/common/memory/Memory.h"
 
 namespace folly {
