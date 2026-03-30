@@ -33,7 +33,7 @@ type SessionValues = {
 };
 
 interface SQLClientState {
-    view: string;
+    view: "SQL" | "Session";
     catalog?: string;
     schema?: string;
     sql: string;
@@ -43,12 +43,60 @@ interface SQLClientState {
     results?: any;
 }
 
-const parsePrestoResponse = async (response: Response) => {
-    const text = await response.text();
-    // Protect large integers by wrapping them in strings before parsing
-    // This is safer than the Stage 3 reviver for older browsers
-    const sanitizedText = text.replace(/:\s*(\d{16,})/g, ': "$1"');
-    return JSON.parse(sanitizedText);
+const QueryStatus = ({ queryId, queryStats, running }: { queryId?: string; queryStats?: any; running: boolean }) => {
+    if (!queryId || (!running && (!queryStats || !["FAILED", "CANCELED", "KILLED"].includes(queryStats.state)))) {
+        return null;
+    }
+
+    const progress = queryStats ? getProgressBarPercentage(queryStats.progressPercentage, queryStats.state) : 0;
+    const bgColor = queryStats ? getQueryStateColor(
+        queryStats.state,
+        queryStats.fullyBlocked,
+        queryStats.errorType,
+        queryStats.errorName
+    ) : "#1b8f72";
+    const title = queryStats ? getProgressBarTitle(
+        queryStats.progressPercentage,
+        queryStats.state,
+        getHumanReadableState(
+            queryStats.state,
+            queryStats.scheduled,
+            queryStats.fullyBlocked,
+            [],
+            "",
+            "",
+            ""
+        )
+    ) : "QUEUED";
+
+    return (
+        <div className="query-status-info text-light mb-3">
+            <hr className="h3-hr" />
+            <div className="mb-2">
+                <span className="text-secondary small">QUERY ID:</span>&nbsp;
+                <a href={"query.html?" + queryId} target="_blank" rel="noreferrer" className="font-monospace">
+                    {queryId}
+                </a>
+            </div>
+            <div className="query-progress-container">
+                <div className="progress rounded-0">
+                    <div
+                        className="progress-bar progress-bar-info"
+                        role="progressbar"
+                        aria-valuenow={progress}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        style={{
+                            width: progress + "%",
+                            backgroundColor: bgColor,
+                        }}
+                    >
+                        {title}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 export const SQLClient = () => {
@@ -57,29 +105,32 @@ export const SQLClient = () => {
         sql: "",
         running: false,
     });
-    const isMounted = React.useRef(true);
+    
+    const abortControllerRef = React.useRef<AbortController | null>(null);
 
     React.useEffect(() => {
-        isMounted.current = true;
         return () => {
-            isMounted.current = false;
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
         };
     }, []);
 
     const setSafeValues = React.useCallback((updater: (v: SQLClientState) => SQLClientState) => {
-        if (isMounted.current) {
-            setValues(updater);
-        }
+        setValues((v) => (abortControllerRef.current?.signal.aborted ? v : updater(v)));
     }, []);
 
     const sessions: React.RefObject<SessionValues> = React.useRef({});
-    const views = [
+    const views: { name: "SQL" | "Session"; label: string }[] = [
         { name: "SQL", label: "SQL" },
         { name: "Session", label: "Session Properties" },
     ];
 
     const executeSQL = async (sql: string, catalog?: string, schema?: string) => {
         if (!sql.trim()) return;
+
+        if (abortControllerRef.current) abortControllerRef.current.abort();
+        abortControllerRef.current = new AbortController();
 
         setSafeValues((v) => ({ ...v, running: true, results: undefined, queryId: undefined, queryStats: undefined }));
 
@@ -100,13 +151,14 @@ export const SQLClient = () => {
                 method: "POST",
                 body: sql,
                 headers,
+                signal: abortControllerRef.current.signal,
             });
 
             let queryId: string | undefined;
             const columns: any[] = [];
             const data: any[] = [];
 
-            while (response && isMounted.current) {
+            while (response && !abortControllerRef.current.signal.aborted) {
                 if (response.status !== 200) {
                     const text = await response.text();
                     setSafeValues((v) => ({
@@ -118,7 +170,7 @@ export const SQLClient = () => {
                     return;
                 }
 
-                const prestoResponse = await parsePrestoResponse(response);
+                const prestoResponse = await response.json();
 
                 if (prestoResponse.error) {
                     setSafeValues((v) => ({
@@ -150,10 +202,14 @@ export const SQLClient = () => {
                     queryStats: prestoResponse.stats ?? v.queryStats,
                 }));
 
-                if (prestoResponse.nextUri && isMounted.current) {
+                if (prestoResponse.nextUri && !abortControllerRef.current.signal.aborted) {
                     await new Promise((resolve) => setTimeout(resolve, 50));
-                    if (isMounted.current) {
-                        response = await fetch(prestoResponse.nextUri, { method: "GET", headers });
+                    if (!abortControllerRef.current.signal.aborted) {
+                        response = await fetch(prestoResponse.nextUri, { 
+                            method: "GET", 
+                            headers,
+                            signal: abortControllerRef.current.signal
+                        });
                     }
                 } else {
                     break;
@@ -166,6 +222,7 @@ export const SQLClient = () => {
                 results: columns.length ? { columns, data, queryId } : v.results,
             }));
         } catch (error: any) {
+            if (error.name === "AbortError") return;
             setSafeValues((v) => ({
                 ...v,
                 running: false,
@@ -175,7 +232,7 @@ export const SQLClient = () => {
         }
     };
 
-    const switchView = (view: any) => {
+    const switchView = (view: (typeof views)[number]) => {
         if (view.name === values.view) return;
         setValues({ ...values, view: view.name });
     };
@@ -213,59 +270,7 @@ export const SQLClient = () => {
                         <SessionProps show={values.view === "Session"} changeHandler={sessionHandler} />
                     </div>
                     <div className="col-12 mt-3">
-                        {values.queryId && (values.running || (values.queryStats && (values.queryStats.state === "FAILED" || values.queryStats.state === "CANCELED" || values.queryStats.state === "KILLED"))) ? (() => {
-                            const progress = values.queryStats ? getProgressBarPercentage(values.queryStats.progressPercentage, values.queryStats.state) : 0;
-                            const bgColor = values.queryStats ? getQueryStateColor(
-                                values.queryStats.state,
-                                values.queryStats.fullyBlocked,
-                                values.queryStats.errorType,
-                                values.queryStats.errorName
-                            ) : "#1b8f72";
-                            const title = values.queryStats ? getProgressBarTitle(
-                                values.queryStats.progressPercentage,
-                                values.queryStats.state,
-                                getHumanReadableState(
-                                    values.queryStats.state,
-                                    values.queryStats.scheduled,
-                                    values.queryStats.fullyBlocked,
-                                    [],
-                                    "",
-                                    "",
-                                    ""
-                                )
-                            ) : "QUEUED";
-
-                            return (
-                                <div className="query-status-info text-light mb-3">
-                                    <hr className="h3-hr" />
-                                    <div className="mb-2">
-                                        <span className="text-secondary small">QUERY ID:</span>&nbsp;
-                                        <a href={"query.html?" + values.queryId} target="_blank" rel="noreferrer" className="font-monospace">
-                                            {values.queryId}
-                                        </a>
-                                    </div>
-                                    <div className="query-progress-container">
-                                        <div className="progress rounded-0">
-                                            <div
-                                                className="progress-bar progress-bar-info"
-                                                role="progressbar"
-                                                aria-valuenow={progress}
-                                                aria-valuemin={0}
-                                                aria-valuemax={100}
-                                                style={{
-                                                    width: progress + "%",
-                                                    backgroundColor: bgColor,
-                                                }}
-                                            >
-                                                {title}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })() : values.running ? (
-                            <div className="loader mt-3">Loading...</div>
-                        ) : null}
+                        <QueryStatus queryId={values.queryId} queryStats={values.queryStats} running={values.running} />
                     </div>
                     <div className="col-12">{values.results && <QueryResults results={values.results} />}</div>
                 </div>
