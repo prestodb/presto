@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.VarcharType;
@@ -300,9 +301,9 @@ public class TestLanceSqlFilterBuilder
     }
 
     @Test
-    public void testValuesNoneNotNullable()
+    public void testTupleDomainNone()
     {
-        // #2: values.isNone() + !isNullAllowed() should produce "false", not empty
+        // TupleDomain.withColumnDomains with a Domain.none entry collapses to TupleDomain.none()
         LanceColumnHandle column = new LanceColumnHandle("col", BIGINT);
         Domain domain = Domain.none(BIGINT);
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
@@ -311,6 +312,81 @@ public class TestLanceSqlFilterBuilder
         Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
         assertTrue(filter.isPresent());
         assertEquals(filter.get(), "false");
+    }
+
+    @Test
+    public void testIsNotNull()
+    {
+        // Domain.notNull(type) => values.isAll() && !isNullAllowed() => IS NOT NULL
+        LanceColumnHandle column = new LanceColumnHandle("col", BIGINT);
+        Domain domain = Domain.notNull(BIGINT);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, domain));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertTrue(filter.isPresent());
+        assertEquals(filter.get(), "`col` IS NOT NULL");
+    }
+
+    @Test
+    public void testFloatNanSkipsPushdown()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("score", RealType.REAL);
+        long nanBits = floatToIntBits(Float.NaN);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(RealType.REAL, nanBits)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertFalse(filter.isPresent());
+    }
+
+    @Test
+    public void testFloatInfinitySkipsPushdown()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("score", RealType.REAL);
+        long infBits = floatToIntBits(Float.POSITIVE_INFINITY);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(RealType.REAL, infBits)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertFalse(filter.isPresent());
+    }
+
+    @Test
+    public void testDoubleNanSkipsPushdown()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("price", DOUBLE);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(DOUBLE, Double.NaN)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertFalse(filter.isPresent());
+    }
+
+    @Test
+    public void testNonOrderableTypeSkipsPushdown()
+    {
+        // Domain.all() returns empty regardless of type; for non-orderable types,
+        // the instanceof SortedRangeSet guard also catches any non-all/none domains.
+        ArrayType arrayType = new ArrayType(BIGINT);
+        LanceColumnHandle column = new LanceColumnHandle("tags", arrayType);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.all(arrayType)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertFalse(filter.isPresent());
+    }
+
+    @Test
+    public void testColumnNameWithBacktick()
+    {
+        LanceColumnHandle column = new LanceColumnHandle("col`name", BIGINT);
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(column, Domain.singleValue(BIGINT, 1L)));
+
+        Optional<String> filter = LanceSqlFilterBuilder.buildFilter(tupleDomain);
+        assertTrue(filter.isPresent());
+        assertEquals(filter.get(), "`col``name` = 1");
     }
 
     @Test

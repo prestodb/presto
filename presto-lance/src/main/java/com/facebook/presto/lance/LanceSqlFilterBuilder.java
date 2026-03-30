@@ -103,6 +103,12 @@ public final class LanceSqlFilterBuilder
             return Optional.empty();
         }
 
+        if (domain.getValues().isAll()) {
+            // values.isAll() && !isNullAllowed() => IS NOT NULL
+            // (values.isAll() && isNullAllowed() is caught by domain.isAll() above)
+            return Optional.of(quotedName + " IS NOT NULL");
+        }
+
         if (domain.getValues().isNone()) {
             if (domain.isNullAllowed()) {
                 return Optional.of(quotedName + " IS NULL");
@@ -111,6 +117,10 @@ public final class LanceSqlFilterBuilder
             return Optional.of("false");
         }
 
+        if (!(domain.getValues() instanceof SortedRangeSet)) {
+            // Non-orderable types (e.g., ARRAY, JSON) use EquatableValueSet — skip pushdown
+            return Optional.empty();
+        }
         SortedRangeSet rangeSet = (SortedRangeSet) domain.getValues();
         List<Range> ranges = rangeSet.getOrderedRanges();
 
@@ -209,10 +219,17 @@ public final class LanceSqlFilterBuilder
         }
         if (type instanceof RealType) {
             float floatVal = Float.intBitsToFloat(toIntExact((long) value));
+            if (Float.isNaN(floatVal) || Float.isInfinite(floatVal)) {
+                return Optional.empty();
+            }
             return Optional.of(String.valueOf(floatVal));
         }
         if (type instanceof DoubleType) {
-            return Optional.of(String.valueOf((double) value));
+            double doubleVal = (double) value;
+            if (Double.isNaN(doubleVal) || Double.isInfinite(doubleVal)) {
+                return Optional.empty();
+            }
+            return Optional.of(String.valueOf(doubleVal));
         }
         if (type instanceof VarcharType) {
             String strVal = ((Slice) value).toStringUtf8();
@@ -237,6 +254,6 @@ public final class LanceSqlFilterBuilder
 
     private static String quoteColumnName(String columnName)
     {
-        return "`" + columnName + "`";
+        return "`" + columnName.replace("`", "``") + "`";
     }
 }

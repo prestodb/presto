@@ -34,6 +34,7 @@ public class LanceModule
         binder.bind(LanceNamespaceHolder.class).in(Scopes.SINGLETON);
         binder.bind(LanceConnector.class).in(Scopes.SINGLETON);
         binder.bind(LanceMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(LanceSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(ArrowBlockBuilder.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(LanceSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(LancePageSourceProvider.class).in(Scopes.SINGLETON);
