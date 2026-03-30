@@ -628,11 +628,11 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
   static constexpr const char* kWhen = "when";
   bool isWhenClause = velox::expression::utils::isCall(*args.begin(), kWhen);
   TypedExprPtr simpleFormValue = nullptr;
-  bool valueIsTrue = false;
-  if (!isWhenClause) {
+  bool isSimpleForm = !isWhenClause;
+  if (isSimpleForm) {
     simpleFormValue = args.front();
     args.erase(args.begin());
-    valueIsTrue = isTrueConstant(simpleFormValue);
+    isSimpleForm = !isTrueConstant(simpleFormValue);
   }
 
   std::vector<TypedExprPtr> inputs;
@@ -642,7 +642,7 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     if (velox::expression::utils::isCall(arg, kWhen)) {
       auto call = std::dynamic_pointer_cast<const CallTypedExpr>(arg);
       auto& condition = call->inputs()[0];
-      if (valueIsTrue) {
+      if (!isSimpleForm) {
         inputs.emplace_back(condition);
       } else {
         if (condition->type()->kindEquals(simpleFormValue->type())) {
