@@ -83,7 +83,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
-#include "velox/experimental/cudf-exchange/Communicator.h"
+#include "velox/experimental/ucx-exchange/Communicator.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -191,12 +191,12 @@ std::shared_ptr<std::thread> registerVeloxCudf() {
       velox::cudf_velox::registerCudf();
       if (velox::cudf_velox::CudfConfig::getInstance().exchange) {
         PRESTO_STARTUP_LOG(INFO) << "cuDF exchange server started";
-        auto server = facebook::velox::cudf_exchange::Communicator::initAndGet(
+        auto server = facebook::velox::ucx_exchange::Communicator::initAndGet(
             SystemConfig::instance()->cudfServerPort(),
             SystemConfig::instance()->discoveryUri().value());
         if (server) {
           serverThread = std::make_shared<std::thread>(
-              &velox::cudf_exchange::Communicator::run, server.get());
+              &velox::ucx_exchange::Communicator::run, server.get());
         }
       }
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
@@ -215,10 +215,11 @@ void unregisterVeloxCudf(std::shared_ptr<std::thread> serverThread) {
     velox::cudf_velox::unregisterCudf();
     PRESTO_SHUTDOWN_LOG(INFO) << "cuDF is unregistered.";
     if (serverThread) {
-      auto server = facebook::velox::cudf_exchange::Communicator::getInstance();
+      auto server = facebook::velox::ucx_exchange::Communicator::getInstance();
       server->stop();
-      server.reset();      
-      PRESTO_SHUTDOWN_LOG(INFO) << "Joining UCX Communicator thread for shutdown.";
+      server.reset();
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Joining UCX Communicator thread for shutdown.";
       serverThread->join();
     }
   }
@@ -890,7 +891,8 @@ void PrestoServer::joinExecutors() {
   }
 }
 
-void PrestoServer::shutdownServer(std::shared_ptr<std::thread> communicatorThread) {
+void PrestoServer::shutdownServer(
+    std::shared_ptr<std::thread> communicatorThread) {
   stopAnnouncer();
 
   PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
