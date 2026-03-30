@@ -557,6 +557,7 @@ mergeCase
     : WHEN MATCHED THEN
         UPDATE SET targetColumns+=identifier EQ values+=expression
           (',' targetColumns+=identifier EQ values+=expression)*            #mergeUpdate
+    | WHEN MATCHED THEN DELETE                                              #mergeDelete
     | WHEN NOT MATCHED THEN
         INSERT ('(' columns+=identifier (',' columns+=identifier)* ')')?
         VALUES '(' values+=expression (',' values+=expression)* ')'         #mergeInsert

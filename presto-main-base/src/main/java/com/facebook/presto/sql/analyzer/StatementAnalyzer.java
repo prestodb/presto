@@ -157,6 +157,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -3544,6 +3545,13 @@ class StatementAnalyzer
                     .filter(mergeCase -> mergeCase instanceof MergeInsert)
                     .findFirst()
                     .ifPresent(mergeCase -> accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(),
+                            session.getIdentity(), session.getAccessControlContext(), targetTableQualifiedName));
+
+            // Check if the user has permission to delete from the target table
+            merge.getMergeCases().stream()
+                    .filter(mergeCase -> mergeCase instanceof MergeDelete)
+                    .findFirst()
+                    .ifPresent(mergeCase -> accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(),
                             session.getIdentity(), session.getAccessControlContext(), targetTableQualifiedName));
 
             // If there are any columns to update then verify the user has permission to update these columns.

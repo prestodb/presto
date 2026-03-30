@@ -99,6 +99,7 @@ import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -1849,6 +1850,31 @@ public class TestSqlParser
                                                 new Identifier("current_price")),
                                         ImmutableList.of(nameReference("ms", "product_id"), nameReference("ms", "sales"),
                                                 nameReference("ms", "sale_date"), nameReference("ms", "price"))))));
+    }
+
+    @Test
+    public void testMergeDelete()
+    {
+        NodeLocation location = new NodeLocation(1, 1);
+        assertStatement("" +
+                        "MERGE INTO product_sales AS s\n" +
+                        "  USING monthly_sales AS ms\n" +
+                        "  ON s.product_id = ms.product_id\n" +
+                        "WHEN MATCHED THEN\n" +
+                        "  DELETE\n" +
+                        "WHEN NOT MATCHED THEN\n" +
+                        "  INSERT (product_id, sales)\n" +
+                        "  VALUES (ms.product_id, ms.sales)",
+                new Merge(
+                        location,
+                        new AliasedRelation(location, table(QualifiedName.of("product_sales")), new Identifier("s"), null),
+                        aliased(table(QualifiedName.of("monthly_sales")), "ms"),
+                        equal(nameReference("s", "product_id"), nameReference("ms", "product_id")),
+                        ImmutableList.of(
+                                new MergeDelete(),
+                                new MergeInsert(
+                                        ImmutableList.of(new Identifier("product_id"), new Identifier("sales")),
+                                        ImmutableList.of(nameReference("ms", "product_id"), nameReference("ms", "sales"))))));
     }
 
     @Test

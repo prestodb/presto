@@ -117,6 +117,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -553,6 +554,12 @@ class AstBuilder
         }
 
         return new MergeUpdate(getLocation(context), assignments.build());
+    }
+
+    @Override
+    public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
+    {
+        return new MergeDelete(getLocation(context));
     }
 
     @Override
