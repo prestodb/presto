@@ -64,7 +64,7 @@ public class JdbcConnector
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
 
-    protected final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
     private final RowExpressionService rowExpressionService;
