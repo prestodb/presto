@@ -110,7 +110,8 @@ void ArrowFederationDataSource::addSplit(
   request["transactionHandleBytes"] =
       federationTableHandle->transactionHandleBytes();
 
-  arrow::flight::FlightEndpoint flightEndpoint{request.dump()};
+  arrow::flight::FlightEndpoint flightEndpoint{
+      request.dump(), {}, std::nullopt, ""};
 
   std::string flightEndpointBytes;
   AFC_ASSIGN_OR_RAISE(flightEndpointBytes, flightEndpoint.SerializeToString());
