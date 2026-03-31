@@ -20,6 +20,7 @@ env:
   MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.14' }}
 
 jobs:
   prepare-release-branch:
@@ -66,6 +67,71 @@ jobs:
           git config --global user.name "$GIT_CI_USER"
           git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
           git config pull.rebase false
+
+      - name: Validate Maven publishing requirements
+        run: |
+          echo "=== Validating Maven plugins ==="
+
+          ERROR_FILE=$(mktemp)
+          MISSING_NAME_COUNT=0
+          EMPTY_PLUGIN_COUNT=0
+          TOTAL_POM_COUNT=0
+          TOTAL_PLUGIN_COUNT=0
+
+          echo "Checking all pom.xml files for <name> field..."
+
+          POM_FILES=$(find . -name "pom.xml" -type f \
+              | grep -v "target/" \
+              | grep -v "node_modules" \
+              | grep -v ".vscode" \
+              | sort)
+
+          for POM_FILE in $POM_FILES; do
+              TOTAL_POM_COUNT=$((TOTAL_POM_COUNT + 1))
+              if ! grep -q "<name>[^<]" "$POM_FILE"; then
+                  echo "ERROR: $POM_FILE is missing <name> field or has empty <name>" | tee -a "$ERROR_FILE"
+                  MISSING_NAME_COUNT=$((MISSING_NAME_COUNT + 1))
+              fi
+          done
+
+          echo "Found $TOTAL_POM_COUNT pom.xml files, $MISSING_NAME_COUNT missing <name> field"
+
+          echo "Checking all plugins for Java files..."
+
+          PLUGIN_DIRS=$(find . -name "pom.xml" -type f -exec \
+              grep -l "<packaging>presto-plugin</packaging>" {} \; \
+              | xargs -I{} dirname {})
+
+          for PLUGIN_DIR in $PLUGIN_DIRS; do
+              TOTAL_PLUGIN_COUNT=$((TOTAL_PLUGIN_COUNT + 1))
+
+              JAVA_FILES=$(find "$PLUGIN_DIR/src/main/java" -name "*.java" -type f 2>/dev/null | wc -l)
+
+              if [ "$JAVA_FILES" -eq 0 ]; then
+                  echo "ERROR: Plugin $PLUGIN_DIR has no Java files in src/main/java" | tee -a "$ERROR_FILE"
+                  EMPTY_PLUGIN_COUNT=$((EMPTY_PLUGIN_COUNT + 1))
+              else
+                  echo "Plugin $PLUGIN_DIR has $JAVA_FILES Java files"
+              fi
+          done
+
+          echo "Found $TOTAL_PLUGIN_COUNT Maven plugins, $EMPTY_PLUGIN_COUNT without Java files"
+
+          if [ -s "$ERROR_FILE" ]; then
+              echo "=== Validation failed! ==="
+              echo "Summary:"
+              echo "- $MISSING_NAME_COUNT/$TOTAL_POM_COUNT pom.xml files missing <name> field"
+              echo "- $EMPTY_PLUGIN_COUNT/$TOTAL_PLUGIN_COUNT plugins without Java files"
+              echo ""
+              echo "Errors:"
+              cat "$ERROR_FILE"
+              exit 1
+          else
+              echo "=== All validations passed! ==="
+              echo "Summary:"
+              echo "- All $TOTAL_POM_COUNT pom.xml files have <name>"
+              echo "- All $TOTAL_PLUGIN_COUNT plugins have Java files"
+          fi
 
       - name: Set presto release version
         run: |
@@ -156,6 +222,8 @@ jobs:
       - name: Create release notes pull request
         env:
           JVM_OPTS: ${{ env.MAVEN_OPTS }}
+          RELEASE_TOOLS_VERSION: ${{ env.RELEASE_TOOLS_VERSION }}
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
           echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
           ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}

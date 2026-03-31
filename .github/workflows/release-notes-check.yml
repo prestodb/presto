@@ -5,7 +5,7 @@ on:
     types: [opened, edited, reopened]
 
 env:
-  RELEASE_TOOLS_VERSION: "0.11"
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.14' }}
 
 jobs:
   check_release_note:
@@ -28,36 +28,32 @@ jobs:
           cache: maven
       - name: Get presto-release-tools
         run: |
-          ./mvnw \
-            -B \
-            -DgroupId=com.facebook.presto \
-            -DartifactId=presto-release-tools -Dversion=${RELEASE_TOOLS_VERSION} \
-            -Dpackaging=jar \
-            -Dclassifier=executable \
-            dependency:get
+          curl -L -o /tmp/presto_release "https://github.com/${{ github.repository_owner }}/presto-release-tools/releases/download/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar"
+          chmod 755 /tmp/presto_release
       - name: Get PR body from GraphQL API
         id: graphql_query
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           echo "pr_bodytext<<EOF" >> $GITHUB_OUTPUT
           gh api graphql -f query='
-              query {
-                repository(owner: "prestodb", name: "presto") {
-                                      pullRequest(number: ${{ github.event.pull_request.number }}) {
-                                        bodyText
-                                      }
+              query($owner: String!, $name: String!, $number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $number) {
+                    bodyText
+                  }
                 }
               }
-            ' --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
+            ' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$PR_NUMBER" --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
       - name: Echo PR Text
         env:
           PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
         run: echo "${PR_BODY}"
-      - name: Set presto-release-tools as executable
-        run: chmod +x ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar
       - name: Check release notes
         env:
           PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
-        run: echo "${PR_BODY}" | ~/.m2/repository/com/facebook/presto/presto-release-tools/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar check-release-notes
+        run: echo "${PR_BODY}" | /tmp/presto_release check-release-notes
