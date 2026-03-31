@@ -87,7 +87,7 @@ jobs:
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*,!TestArrowFederationNativeQueries*"
 
   arrowflight-shim-tests:
     runs-on: ubuntu-latest
