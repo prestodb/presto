@@ -514,6 +514,12 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitMergeDelete(MergeDelete node, C context)
+    {
+        return null;
+    }
+
+    @Override
     protected R visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);

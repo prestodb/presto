@@ -552,6 +552,11 @@ public abstract class AstVisitor<R, C>
         return visitMergeCase(node, context);
     }
 
+    protected R visitMergeDelete(MergeDelete node, C context)
+    {
+        return visitMergeCase(node, context);
+    }
+
     protected R visitTableElement(TableElement node, C context)
     {
         return visitNode(node, context);

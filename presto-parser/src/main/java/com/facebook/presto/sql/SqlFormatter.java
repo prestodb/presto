@@ -74,6 +74,7 @@ import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -756,6 +757,14 @@ public final class SqlFormatter
                 first = false;
             }
 
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeDelete(MergeDelete node, Integer indent)
+        {
+            appendMergeCaseWhen(true);
+            append(indent + 1, "DELETE");
             return null;
         }
 

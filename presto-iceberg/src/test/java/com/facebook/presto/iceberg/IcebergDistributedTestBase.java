@@ -3316,6 +3316,85 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testMergeDeleteWithInsert()
+    {
+        String targetTable = "merge_delete_insert_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable));
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+            @Language("SQL") String sqlMergeCommand =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')) AS s(customer, purchases, address) " +
+                            "ON (t.customer = s.customer) " +
+                            "WHEN MATCHED THEN" +
+                            "    DELETE " +
+                            "WHEN NOT MATCHED THEN" +
+                            "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+            assertUpdate(sqlMergeCommand, 3);
+
+            assertQuery("SELECT * FROM " + targetTable,
+                    "VALUES ('Bill', 7, 'Buena'), ('Dave', 11, 'Devon'), ('Ed', 7, 'Etherville')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeDeleteOnly()
+    {
+        String targetTable = "merge_delete_only_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)", targetTable));
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+            @Language("SQL") String sqlMergeCommand =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville')) AS s(customer, purchases, address) " +
+                            "ON (t.customer = s.customer) " +
+                            "WHEN MATCHED THEN" +
+                            "    DELETE";
+
+            assertUpdate(sqlMergeCommand, 2);
+
+            assertQuery("SELECT * FROM " + targetTable,
+                    "VALUES ('Bill', 7, 'Buena'), ('Dave', 11, 'Devon')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test(dataProvider = "partitionedProvider")
+    public void testMergeDeletePartitioned(String partitioning)
+    {
+        String targetTable = "merge_delete_partitioned_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) %s", targetTable, partitioning));
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+            @Language("SQL") String sqlMergeCommand =
+                    format("MERGE INTO %s t USING ", targetTable) +
+                            "(VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')) AS s(customer, purchases, address) " +
+                            "ON (t.customer = s.customer) " +
+                            "WHEN MATCHED THEN" +
+                            "    DELETE " +
+                            "WHEN NOT MATCHED THEN" +
+                            "    INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+            assertUpdate(sqlMergeCommand, 3);
+
+            assertQuery("SELECT * FROM " + targetTable,
+                    "VALUES ('Bill', 7, 'Buena'), ('Dave', 11, 'Devon'), ('Ed', 7, 'Etherville')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
     public void testMergeSimpleQueryPartitioned()
     {
         String targetTable = "merge_simple_" + randomTableSuffix();

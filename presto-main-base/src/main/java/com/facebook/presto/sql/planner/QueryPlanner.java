@@ -88,6 +88,7 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeDelete;
 import com.facebook.presto.sql.tree.MergeInsert;
 import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.Node;
@@ -135,6 +136,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
 import static com.facebook.presto.spi.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static com.facebook.presto.spi.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
@@ -727,6 +729,9 @@ public class QueryPlanner
 
     private static int getMergeCaseOperationNumber(MergeCase mergeCase)
     {
+        if (mergeCase instanceof MergeDelete) {
+            return DELETE_OPERATION_NUMBER;
+        }
         if (mergeCase instanceof MergeInsert) {
             return INSERT_OPERATION_NUMBER;
         }
