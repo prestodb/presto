@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcConnector;
-import com.facebook.presto.plugin.jdbc.JdbcConnectorFactory;
+import com.facebook.presto.plugin.jdbc.JdbcHandleResolver;
 import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
 import com.facebook.presto.plugin.jdbc.JdbcModule;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -33,18 +35,38 @@ import com.google.inject.util.Modules;
 
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class MySqlConnectorFactory
-        extends JdbcConnectorFactory
+        implements ConnectorFactory
 {
+    private final String name;
+    private final Module module;
+    private final ClassLoader classLoader;
+
     public MySqlConnectorFactory(String name, Module module, ClassLoader classLoader)
     {
-        super(name, module, classLoader);
+        checkArgument(!isNullOrEmpty(name), "name is null or empty");
+        this.name = name;
+        this.module = requireNonNull(module, "module is null");
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
 
     @Override
+    public String getName()
+    {
+        return name;
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new JdbcHandleResolver();
+    }
+
     public Connector create(String catalogName, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
@@ -57,16 +79,18 @@ public class MySqlConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    Modules.override(new JdbcModule(catalogName)).with(
-                            module,
-                            new Module()
-                            {
-                                @Override
-                                public void configure(Binder binder)
-                                {
-                                    binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
-                                }
-                            }));
+                    new JdbcModule(catalogName),
+                    module);
+//                    Modules.override(new JdbcModule(catalogName)).with(
+//                            module,
+//                            new Module()
+//                            {
+//                                @Override
+//                                public void configure(Binder binder)
+//                                {
+//                                    binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
+//                                }
+//                            }));
 
             Injector injector = app
                     .doNotInitializeLogging()
