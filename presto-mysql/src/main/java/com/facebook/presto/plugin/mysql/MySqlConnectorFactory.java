@@ -17,7 +17,6 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcConnector;
 import com.facebook.presto.plugin.jdbc.JdbcHandleResolver;
-import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
 import com.facebook.presto.plugin.jdbc.JdbcModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
@@ -27,11 +26,8 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
-import com.google.inject.Scopes;
-import com.google.inject.util.Modules;
 
 import java.util.Map;
 
