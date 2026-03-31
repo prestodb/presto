@@ -26,6 +26,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Optional;
+import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +44,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static java.lang.String.format;
 
 public class TestArrowFederationNativeQueriesMySql
         extends AbstractTestArrowFederationNativeQueries
@@ -51,10 +53,12 @@ public class TestArrowFederationNativeQueriesMySql
     private static final String TEST_PASSWORD = "testpass";
     private static final String CONNECTOR_ID = "mysql";
     private static final String PLUGIN_BUNDLES = "../presto-mysql/pom.xml";
+    private static final String TMP_TIMESTAMP_TABLE_NAME = "test_events";
 
     private final MySQLContainer<?> mysqlContainer;
     private final List<AutoCloseable> closeables = new ArrayList<>();
     private FlightServer server;
+    private String tmpTimeStampTableName;
 
     public TestArrowFederationNativeQueriesMySql()
     {
@@ -73,7 +77,8 @@ public class TestArrowFederationNativeQueriesMySql
         if (server != null) {
             return;
         }
-        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID, getConnectionUrl(mysqlContainer.getJdbcUrl())), PLUGIN_BUNDLES, closeables);
+        server = setUpFlightServer(ImmutableMap.of(CONNECTOR_ID,
+                getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl()))), PLUGIN_BUNDLES, closeables);
     }
 
     @AfterClass(alwaysRun = true)
@@ -94,6 +99,7 @@ public class TestArrowFederationNativeQueriesMySql
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
             createTpchTables(queryRunner);
+            createTestTimestampColumnTables(getSession(), queryRunner);
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -139,6 +145,16 @@ public class TestArrowFederationNativeQueriesMySql
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Test
+    public void testTablesHavingTimestampColumn()
+    {
+        assertQuery(
+                format("select * from %s", TMP_TIMESTAMP_TABLE_NAME),
+                "VALUES (1, TIMESTAMP '2038-01-19 03:14:07')," +
+                        "(2, TIMESTAMP '2001-08-22 03:04:05.321')," +
+                        "(3, TIMESTAMP '1970-01-24T08:17:12.649')");
     }
 
     @Override
@@ -228,7 +244,7 @@ public class TestArrowFederationNativeQueriesMySql
                 TEST_PASSWORD);
     }
 
-    public static void createTpchTables(QueryRunner queryRunner)
+    static void createTpchTables(QueryRunner queryRunner)
     {
         copyTpchTables(
                 queryRunner,
@@ -239,5 +255,21 @@ public class TestArrowFederationNativeQueriesMySql
                         .setSchema("tpch")
                         .build(),
                 TpchTable.getTables());
+    }
+
+    private void createTestTimestampColumnTables(Session session, QueryRunner queryRunner)
+    {
+        queryRunner.execute(session, format("CREATE TABLE %s (id INT, event_time TIMESTAMP)", TMP_TIMESTAMP_TABLE_NAME));
+        String[] values = {
+                "1, TIMESTAMP '2038-01-19 03:14:07'",
+                "2, TIMESTAMP '2001-08-22 03:04:05.321'",
+                "3, TIMESTAMP '1970-01-24 08:17:12.649'"
+        };
+
+        for (String value : values) {
+            queryRunner.execute(
+                    session,
+                    format("INSERT INTO %s (id, event_time) VALUES (%s)", TMP_TIMESTAMP_TABLE_NAME, value));
+        }
     }
 }

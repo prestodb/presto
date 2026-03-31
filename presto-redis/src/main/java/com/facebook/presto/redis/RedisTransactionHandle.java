@@ -14,9 +14,16 @@
 package com.facebook.presto.redis;
 
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum RedisTransactionHandle
         implements ConnectorTransactionHandle
 {
-    INSTANCE
+    INSTANCE;
+
+    @JsonCreator
+    public static RedisTransactionHandle fromJson(String dummy)
+    {
+        return INSTANCE;
+    }
 }

@@ -34,7 +34,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
@@ -116,7 +115,7 @@ public class FlightShimProducer
             ConnectorTableHandle connectorTableHandle = connectorHolder.getCodecTableHandle().fromJson(request.getTableHandleBytes());
             ConnectorTransactionHandle transactionHandle = connectorHolder.getCodecTransactionHandle().fromJson(request.getTransactionHandleBytes());
             Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle =
-                    request.getTableLayoutHandleBytes().map( tableLayoutHandleBytes -> connectorHolder.getCodecTableLayoutHandle().fromJson(tableLayoutHandleBytes));
+                    request.getTableLayoutHandleBytes().map(tableLayoutHandleBytes -> connectorHolder.getCodecTableLayoutHandle().fromJson(tableLayoutHandleBytes));
             TableHandle tableHandle = new TableHandle(new ConnectorId(request.getConnectorId()), connectorTableHandle, transactionHandle, connectorTableLayoutHandle);
 
             // Create a dummy session to load the connector

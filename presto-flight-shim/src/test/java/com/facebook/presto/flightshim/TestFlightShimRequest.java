@@ -88,7 +88,6 @@ public class TestFlightShimRequest
                 ImmutableList.of(custkeyBytes, nameBytes),
                 tableHandleBytes,
                 Optional.empty(),
-                transactionHandleBytes
-                );
+                transactionHandleBytes);
     }
 }

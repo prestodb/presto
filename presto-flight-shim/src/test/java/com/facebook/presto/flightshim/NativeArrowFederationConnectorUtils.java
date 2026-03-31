@@ -232,7 +232,7 @@ public class NativeArrowFederationConnectorUtils
     }
 
     public static FlightServer setUpFlightServer(
-            Map<String, String> connectorIdAndUrls,
+            Map<String, Map<String, String>> connectorIdAndProperties,
             String pluginBundles,
             List<AutoCloseable> closables)
             throws Exception
@@ -244,8 +244,8 @@ public class NativeArrowFederationConnectorUtils
 
         // Set test properties after catalogs have been loaded
         FlightShimPluginManager pluginManager = injector.getInstance(FlightShimPluginManager.class);
-        connectorIdAndUrls.forEach((connectorId, connectorUrl) -> {
-            pluginManager.setCatalogProperties(connectorId, connectorId, getConnectorProperties(connectorUrl));
+        connectorIdAndProperties.forEach((connectorId, properties) -> {
+            pluginManager.setCatalogProperties(connectorId, connectorId, properties);
         });
 
         // Make sure these resources close properly
