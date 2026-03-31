@@ -94,7 +94,7 @@ public class DeltaClient
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 tableLocation,
-                Optional.of(snapshot.getVersion(deltaEngine.get())), // lock the snapshot version
+                Optional.of(snapshot.getVersion()), // lock the snapshot version
                 getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
     }
 
@@ -162,7 +162,7 @@ public class DeltaClient
 
         try {
             return sourceTable.getSnapshotAsOfVersion(deltaEngine.get(),
-                            deltaTable.getSnapshotId().get()).getScanBuilder(deltaEngine.get()).build()
+                            deltaTable.getSnapshotId().get()).getScanBuilder().build()
                     .getScanFiles(deltaEngine.get());
         }
         catch (TableNotFoundException e) {
@@ -245,7 +245,7 @@ public class DeltaClient
     private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
                                                Snapshot snapshot)
     {
-        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder(deltaEngine).build()
+        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder().build()
                     .getScanFiles(deltaEngine)) {
             Row row = null;
             while (columnBatches.hasNext()) {
@@ -257,7 +257,7 @@ public class DeltaClient
             }
             Map<String, String> partitionValues = row != null ?
                     InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            return snapshot.getSchema(deltaEngine).fields().stream()
+            return snapshot.getSchema().fields().stream()
                     .map(field -> {
                         String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
                                 field.getName().toLowerCase(US);
