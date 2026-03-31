@@ -216,4 +216,58 @@ public class TestCassandraIntergrationMixedCase
             session.execute("DROP KEYSPACE keyspace_1");
         }
     }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+    {
+        Session testSession = testSessionBuilder()
+                .setCatalog("cassandra")
+                .setSchema(KEYSPACE)
+                .build();
+        try {
+            session.execute("CREATE TABLE " + KEYSPACE + ".case_sensitive_test (user_id int PRIMARY KEY, \"Age\" int, \"Name\" text, age int, city text)");
+            session.execute("INSERT INTO " + KEYSPACE + ".case_sensitive_test (user_id, \"Age\", \"Name\", age, city) VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertContainsEventually(() -> getQueryRunner().execute("SHOW TABLES FROM cassandra." + KEYSPACE),
+                    resultBuilder(getSession(), createUnboundedVarcharType())
+                            .row("case_sensitive_test")
+                            .build(), new Duration(1, MINUTES));
+            assertQuery(testSession, "SELECT * FROM cassandra." + KEYSPACE + ".case_sensitive_test",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(testSession, "SELECT \"Age\" FROM cassandra." + KEYSPACE + ".case_sensitive_test", "VALUES 39");
+            assertQuery(testSession, "SELECT age FROM cassandra." + KEYSPACE + ".case_sensitive_test", "VALUES 29");
+            assertQuery(testSession, "SELECT * FROM cassandra." + KEYSPACE + ".case_sensitive_test WHERE \"Age\" > 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(testSession, "SELECT * FROM cassandra." + KEYSPACE + ".case_sensitive_test WHERE age < 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(testSession, "SELECT \"Age\", age FROM cassandra." + KEYSPACE + ".case_sensitive_test",
+                    "VALUES (39, 29)");
+        }
+        finally {
+            session.execute("DROP TABLE IF EXISTS " + KEYSPACE + ".case_sensitive_test");
+        }
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+    {
+        Session testSession = testSessionBuilder()
+                .setCatalog("cassandra")
+                .setSchema(KEYSPACE)
+                .build();
+        try {
+            session.execute("CREATE TABLE " + KEYSPACE + ".case_sensitive_error_test (user_id int PRIMARY KEY, \"Age\" int, \"Name\" text, age int, city text)");
+            session.execute("INSERT INTO " + KEYSPACE + ".case_sensitive_error_test (user_id, \"Age\", \"Name\", age, city) VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertContainsEventually(() -> getQueryRunner().execute("SHOW TABLES FROM cassandra." + KEYSPACE),
+                    resultBuilder(getSession(), createUnboundedVarcharType())
+                            .row("case_sensitive_error_test")
+                            .build(), new Duration(1, MINUTES));
+            assertQueryFails(testSession, "SELECT * FROM cassandra." + KEYSPACE + ".case_sensitive_error_test WHERE name = 'Alice'",
+                    ".*Column 'name' cannot be resolved.*");
+            assertQueryFails(testSession, "SELECT \"NAME\" FROM cassandra." + KEYSPACE + ".case_sensitive_error_test",
+                    ".*Column 'NAME' cannot be resolved.*");
+        }
+        finally {
+            session.execute("DROP TABLE IF EXISTS " + KEYSPACE + ".case_sensitive_error_test");
+        }
+    }
 }
