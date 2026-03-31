@@ -81,16 +81,6 @@ public class MySqlConnectorFactory
                     },
                     new JdbcModule(catalogName),
                     module);
-//                    Modules.override(new JdbcModule(catalogName)).with(
-//                            module,
-//                            new Module()
-//                            {
-//                                @Override
-//                                public void configure(Binder binder)
-//                                {
-//                                    binder.bind(JdbcMetadataFactory.class).to(MySqlMetadataFactory.class).in(Scopes.SINGLETON);
-//                                }
-//                            }));
 
             Injector injector = app
                     .doNotInitializeLogging()
