@@ -36,9 +36,9 @@ import static java.util.Objects.requireNonNull;
 public class JdbcConnectorFactory
         implements ConnectorFactory
 {
-    protected final String name;
-    protected final Module module;
-    protected final ClassLoader classLoader;
+    private final String name;
+    private final Module module;
+    private final ClassLoader classLoader;
 
     public JdbcConnectorFactory(String name, Module module, ClassLoader classLoader)
     {
