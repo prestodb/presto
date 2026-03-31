@@ -55,6 +55,25 @@ set(presto_native_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(presto_native-cpp2 PUBLIC ${presto_native_INCLUDES} ${GLOG_INCLUDE_DIR})
 target_include_directories(presto_native-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})
 
+thrift_library(
+  presto_jdbc
+  ""
+  cpp2
+  ""
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
+  ".."
+  THRIFT_INCLUDE_DIRECTORIES
+  ${THRIFT_INCLUDES}
+)
+target_link_libraries(presto_jdbc-cpp2 ${presto_thrift_library_dependencies})
+set(presto_jdbc_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(presto_jdbc-cpp2 PUBLIC ${presto_jdbc_INCLUDES} ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_jdbc-cpp2-obj PUBLIC ${THRIFT_INCLUDES} ${GLOG_INCLUDE_DIR})
+
+add_library(presto_jdbc_thrift JdbcThriftToJson.cpp)
+target_link_libraries(presto_jdbc_thrift PUBLIC presto_jdbc-cpp2)
+
 add_library(presto_thrift_extra ProtocolToThrift.cpp)
 target_include_directories(
   presto_thrift_extra
