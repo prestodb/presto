@@ -22,8 +22,8 @@ class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
 } // namespace folly
 
-namespace facebook::velox::connector {
-class Connector;
+namespace facebook::velox::connector::hive {
+class HiveConnector;
 }
 
 namespace facebook::velox::cache {
@@ -50,9 +50,8 @@ class PeriodicTaskManager {
       TaskManager* taskManager,
       const velox::memory::MemoryAllocator* memoryAllocator,
       const velox::cache::AsyncDataCache* asyncDataCache,
-      const std::unordered_map<
-          std::string,
-          std::shared_ptr<velox::connector::Connector>>& connectors,
+      std::vector<std::shared_ptr<velox::connector::hive::HiveConnector>>
+          hiveConnectors,
       PrestoServer* server);
 
   /// Invoked to start all registered, and fundamental periodic tasks running at
@@ -137,9 +136,8 @@ class PeriodicTaskManager {
   const velox::memory::MemoryAllocator* memoryAllocator_;
   const velox::cache::AsyncDataCache* asyncDataCache_;
   const velox::memory::MemoryArbitrator* arbitrator_;
-  const std::unordered_map<
-      std::string,
-      std::shared_ptr<velox::connector::Connector>>& connectors_;
+  std::vector<std::shared_ptr<velox::connector::hive::HiveConnector>>
+      hiveConnectors_;
   PrestoServer* server_;
 
   int64_t lastHttpClientNumConnectionsCreated_{0};
