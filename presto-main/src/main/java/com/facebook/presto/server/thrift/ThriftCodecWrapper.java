@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.thrift.ThriftProtocolUtils;
 import com.facebook.airlift.json.Codec;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
@@ -56,6 +57,9 @@ public class ThriftCodecWrapper<T>
     {
         try {
             SliceOutput sliceOutput = new DynamicSliceOutput(1024);
+            if (instance instanceof TaskUpdateRequest) {
+                instance.toString();
+            }
             ThriftProtocolUtils.write(instance, thriftCodec, Protocol.BINARY, sliceOutput);
             return sliceOutput.slice().getBytes();
         }

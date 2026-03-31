@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftUnion;
+import com.facebook.drift.annotations.ThriftUnionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -168,4 +172,93 @@ public interface ValueSet
      * All types and bounds information is preserved.
      */
     ValueSet canonicalize(boolean removeSafeConstants);
+
+    /*
+        For Thrift serialization ONLY
+     */
+    @ThriftUnion
+    class ThriftValueSet
+    {
+        private EquatableValueSet equatableValueSet;
+        private SortedRangeSet sortedRangeSet;
+        private AllOrNoneValueSet allOrNoneValueSet;
+
+        @ThriftUnionId
+        public short getSetField()
+        {
+            if (equatableValueSet != null) {
+                return 1;
+            }
+            if (sortedRangeSet != null) {
+                return 2;
+            }
+            if (allOrNoneValueSet != null) {
+                return 3;
+            }
+            throw new IllegalStateException("No value set in ThriftValueSet");
+        }
+
+        @ThriftField(1)
+        public EquatableValueSet getEquatableValueSet()
+        {
+            return equatableValueSet;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(EquatableValueSet equatableValueSet)
+        {
+            this.equatableValueSet = equatableValueSet;
+        }
+
+        @ThriftField(2)
+        public SortedRangeSet getSortedRangeSet()
+        {
+            return sortedRangeSet;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(SortedRangeSet sortedRangeSet)
+        {
+            this.sortedRangeSet = sortedRangeSet;
+        }
+
+        @ThriftField(3)
+        public AllOrNoneValueSet getAllOrNoneValueSet()
+        {
+            return allOrNoneValueSet;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(AllOrNoneValueSet allOrNoneValueSet)
+        {
+            this.allOrNoneValueSet = allOrNoneValueSet;
+        }
+
+        public ThriftValueSet(ValueSet valueSet)
+        {
+            if (valueSet instanceof EquatableValueSet) {
+                this.equatableValueSet = (EquatableValueSet) valueSet;
+            }
+            else if (valueSet instanceof SortedRangeSet) {
+                this.sortedRangeSet = (SortedRangeSet) valueSet;
+            }
+            else if (valueSet instanceof AllOrNoneValueSet) {
+                this.allOrNoneValueSet = (AllOrNoneValueSet) valueSet;
+            }
+        }
+
+        public ValueSet getValueSet()
+        {
+            if (equatableValueSet != null) {
+                return equatableValueSet;
+            }
+            if (sortedRangeSet != null) {
+                return sortedRangeSet;
+            }
+            if (allOrNoneValueSet != null) {
+                return allOrNoneValueSet;
+            }
+            throw new IllegalStateException("No value set in ThriftValueSet");
+        }
+    }
 }
