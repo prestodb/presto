@@ -1,0 +1,43 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// dependency String
+
+namespace facebook::presto::protocol::arrow_federation {
+
+struct ArrowFederationTableHandle : public ConnectorTableHandle {
+  String connectorId = {};
+  String tableHandleBytes = {};
+};
+void to_json(json& j, const ArrowFederationTableHandle& p) {
+  j = json::object();
+  j["@type"] = "arrow-federation";
+  to_json_key(
+      j,
+      "connectorId",
+      p.connectorId,
+      "ArrowFederationTableHandle",
+      "ConnectorId",
+      "connectorId");
+  auto tableHandle = folly::base64Decode(p.tableHandleBytes);
+  j = json::parse(tableHandle);
+}
+
+void from_json(const json& j, ArrowFederationTableHandle& p) {
+  p._type = j["@type"];
+  p.connectorId = j["@type"];
+  p.tableHandleBytes = folly::base64Encode(j.dump());
+}
+
+} // namespace facebook::presto::protocol::arrow_federation

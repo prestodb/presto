@@ -60,15 +60,38 @@ class ArrowFederationColumnHandle : public velox::connector::ColumnHandle {
 class ArrowFederationTableHandle
     : public velox::connector::ConnectorTableHandle {
  public:
-  explicit ArrowFederationTableHandle(const std::string& connectorId)
-      : ConnectorTableHandle(connectorId), name_("arrow_federation") {}
+  explicit ArrowFederationTableHandle(
+      const std::string& connectorId,
+      const std::string& tableHandleBytes,
+      const std::string& tableLayoutHandleBytes,
+      const std::string& transactionHandleBytes)
+      : ConnectorTableHandle(connectorId),
+        name_("arrow_federation"),
+        tableHandleBytes_(tableHandleBytes),
+        tableLayoutHandleBytes_(tableLayoutHandleBytes),
+        transactionHandleBytes_(transactionHandleBytes) {}
 
   const std::string& name() const override {
     return name_;
   }
 
+  const std::string& tableHandleBytes() const {
+    return tableHandleBytes_;
+  }
+
+  const std::string& tableLayoutHandleBytes() const {
+    return tableLayoutHandleBytes_;
+  }
+
+  const std::string& transactionHandleBytes() const {
+    return transactionHandleBytes_;
+  }
+
  private:
   const std::string name_;
+  const std::string tableHandleBytes_;
+  const std::string tableLayoutHandleBytes_;
+  const std::string transactionHandleBytes_;
 };
 
 class ArrowFederationDataSource : public ArrowFlightDataSource {
@@ -79,7 +102,8 @@ class ArrowFederationDataSource : public ArrowFlightDataSource {
       std::shared_ptr<Authenticator> authenticator,
       const velox::connector::ConnectorQueryCtx* connectorQueryCtx,
       const std::shared_ptr<ArrowFlightConfig>& flightConfig,
-      const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts);
+      const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts,
+      const velox::connector::ConnectorTableHandlePtr& tableHandle);
 
   void addSplit(
       std::shared_ptr<velox::connector::ConnectorSplit> split) override;
@@ -90,6 +114,7 @@ class ArrowFederationDataSource : public ArrowFlightDataSource {
 
  private:
   const velox::connector::ColumnHandleMap columnHandles_;
+  const velox::connector::ConnectorTableHandlePtr& tableHandle_;
 };
 
 class ArrowFederationConnector : public ArrowFlightConnector {

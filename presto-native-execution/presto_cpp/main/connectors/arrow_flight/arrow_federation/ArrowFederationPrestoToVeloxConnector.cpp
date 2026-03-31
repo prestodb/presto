@@ -49,8 +49,35 @@ ArrowFederationPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& /*exprConverter*/,
     const TypeParser& /*typeParser*/) const {
+  auto arrowTable = std::dynamic_pointer_cast<
+      const protocol::arrow_federation::ArrowFederationTableHandle>(
+      tableHandle.connectorHandle);
+  VELOX_CHECK_NOT_NULL(
+      arrowTable,
+      "Unexpected table handle type {}",
+      tableHandle.connectorHandle->_type);
+
+  auto arrowLayout = std::dynamic_pointer_cast<
+      const protocol::arrow_federation::ArrowFederationTableLayoutHandle>(
+      tableHandle.connectorTableLayout);
+  VELOX_CHECK_NOT_NULL(
+      arrowLayout,
+      "Unexpected layout handle type {}",
+      tableHandle.connectorTableLayout->_type);
+
+  auto arrowTransaction = std::dynamic_pointer_cast<
+      const protocol::arrow_federation::ArrowFederationTransactionHandle>(
+      tableHandle.transaction);
+  VELOX_CHECK_NOT_NULL(
+      arrowTransaction,
+      "Unexpected transaction handle type {}",
+      tableHandle.transaction->_type);
+
   return std::make_unique<presto::ArrowFederationTableHandle>(
-      tableHandle.connectorId);
+      tableHandle.connectorId,
+      arrowTable->tableHandleBytes,
+      arrowLayout->tableLayoutHandleBytes,
+      arrowTransaction->transactionHandleBytes);
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>

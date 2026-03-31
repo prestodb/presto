@@ -32,8 +32,8 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.addDatabaseCredentialsToJdbcUrl;
-import static com.facebook.presto.flightshim.AbstractTestFlightShimBase.removeDatabaseFromJdbcUrl;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.addDatabaseCredentialsToJdbcUrl;
+import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getConnectorProperties;

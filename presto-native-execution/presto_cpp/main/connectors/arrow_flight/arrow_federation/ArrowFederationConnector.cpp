@@ -47,12 +47,22 @@ const std::vector<std::string>& toArrowFederationColumnHandleList(
     auto federationColumnHandle =
         std::dynamic_pointer_cast<const ArrowFederationColumnHandle>(handle);
     VELOX_CHECK(
-        handle,
+        federationColumnHandle,
         "ArrowFederationDataSource received wrong type of column handle");
     arrowFederationColumnHandles.push_back(
         federationColumnHandle->columnHandleBytes());
   }
   return arrowFederationColumnHandles;
+}
+
+const std::string toArrowFederationTableHandle(
+    const velox::connector::ConnectorTableHandlePtr& tableHandle) {
+  auto federationTableHandle =
+      std::dynamic_pointer_cast<const ArrowFederationTableHandle>(tableHandle);
+  VELOX_CHECK(
+      federationTableHandle,
+      "ArrowFederationDataSource received wrong type of table handle");
+  return federationTableHandle->tableHandleBytes();
 }
 } // namespace
 
@@ -62,7 +72,8 @@ ArrowFederationDataSource::ArrowFederationDataSource(
     std::shared_ptr<Authenticator> authenticator,
     const ConnectorQueryCtx* connectorQueryCtx,
     const std::shared_ptr<ArrowFlightConfig>& flightConfig,
-    const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts)
+    const std::shared_ptr<arrow::flight::FlightClientOptions>& clientOpts,
+    const velox::connector::ConnectorTableHandlePtr& tableHandle)
     : ArrowFlightDataSource(
           outputType,
           toArrowFlightColumnHandleMap(columnHandles),
@@ -70,7 +81,8 @@ ArrowFederationDataSource::ArrowFederationDataSource(
           connectorQueryCtx,
           flightConfig,
           clientOpts),
-      columnHandles_(columnHandles) {}
+      columnHandles_(columnHandles),
+      tableHandle_(tableHandle) {}
 
 void ArrowFederationDataSource::addSplit(
     std::shared_ptr<ConnectorSplit> split) {
@@ -85,6 +97,18 @@ void ArrowFederationDataSource::addSplit(
   std::vector<std::string> arrowFederationColumnHandles;
   request["columnHandlesBytes"] = toArrowFederationColumnHandleList(
       columnHandles_, arrowFederationColumnHandles);
+
+  auto federationTableHandle =
+      std::dynamic_pointer_cast<const ArrowFederationTableHandle>(tableHandle_);
+  VELOX_CHECK(
+      federationTableHandle,
+      "ArrowFederationDataSource received wrong type of table handle");
+
+  request["tableHandleBytes"] = federationTableHandle->tableHandleBytes();
+  request["tableLayoutHandleBytes"] =
+      federationTableHandle->tableLayoutHandleBytes();
+  request["transactionHandleBytes"] =
+      federationTableHandle->transactionHandleBytes();
 
   arrow::flight::FlightEndpoint flightEndpoint{request.dump()};
 
@@ -115,7 +139,8 @@ ArrowFederationConnector::createDataSource(
       authenticator_,
       connectorQueryCtx,
       flightConfig_,
-      clientOpts_);
+      clientOpts_,
+      tableHandle);
 }
 
 } // namespace facebook::presto
