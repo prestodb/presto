@@ -40,20 +40,17 @@ _______________
 * Add comprehensive JMX metrics for metadata operations. `#26875 <https://github.com/prestodb/presto/pull/26875>`_
 * Add configurable freshness thresholds for materialized views using :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\`` session property and :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\`` configuration property. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add cost-based selection for materialized view query rewriting. When multiple materialized views exist for the same base table, the optimizer now evaluates all compatible rewrites and selects the lowest-cost plan. This can be enabled with the ``materialized_view_query_rewrite_cost_based_selection_enabled`` session property. `#27222 <https://github.com/prestodb/presto/pull/27222>`_
-* Add developer documentation for :doc:`/develop/table-functions`. `#27367 <https://github.com/prestodb/presto/pull/27367>`_
-* Add documentation for :doc:`/functions/table`. `#27333 <https://github.com/prestodb/presto/pull/27333>`_
-* Add documentation for Presto queries to run in Presto C++ to :doc:`/presto_cpp/limitations`. `#27120 <https://github.com/prestodb/presto/pull/27120>`_
 * Add expression simplification rule to flatten nested ``IF`` expressions: ``IF(x, IF(y, v, E), E)`` is rewritten to ``IF(x AND y, v, E)`` when the outer and inner else branches are identical. Handles arbitrary nesting depth and both null and non-null else branches. `#27267 <https://github.com/prestodb/presto/pull/27267>`_
 * Add materialized CTE support for single node execution. `#26794 <https://github.com/prestodb/presto/pull/26794>`_
 * Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over equi-join key pairs based on join type, enabling bucketed join optimizations for tool-generated queries. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
-* Add optimizer rule to pre-aggregate data before GroupId node in grouping sets queries, reducing row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. (:pr:`27290`). `#27290 <https://github.com/prestodb/presto/pull/27290>`_
+* Add optimizer rule to pre-aggregate data before GroupId node in grouping sets queries, reducing row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
 * Add options to control the number of tasks for remote project node. `#27044 <https://github.com/prestodb/presto/pull/27044>`_
 * Add options to force shuffle table scan input if the number of files to be scanned is small. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
 * Add options to skip projection pushdown through exchange rule. `#26943 <https://github.com/prestodb/presto/pull/26943>`_
-* Add support for America/Coyhaique timezone (Chile's Aysén Region). `#26981 <https://github.com/prestodb/presto/pull/26981>`_
-* Add support for CTAS and INSERT from materialized views. `#27227 <https://github.com/prestodb/presto/pull/27227>`_
-* Add support for SELECT alias references in HAVING clause. `#27199 <https://github.com/prestodb/presto/pull/27199>`_
-* Add support for :doc:`sql/create-vector-index`, which creates vector search indexes on table columns with configurable index properties and partition filtering using an ``UPDATING FOR`` clause. `#27307 <https://github.com/prestodb/presto/pull/27307>`_
+* Add support for ``America/Coyhaique`` timezone (Chile's Aysén Region). `#26981 <https://github.com/prestodb/presto/pull/26981>`_
+* Add support for ``CREATE TABLE AS SELECT`` and ``INSERT`` from materialized views. `#27227 <https://github.com/prestodb/presto/pull/27227>`_
+* Add support for ``SELECT`` alias references in a ``HAVING`` clause. `#27199 <https://github.com/prestodb/presto/pull/27199>`_
+* Add support for :doc:`/sql/create-vector-index`, which creates vector search indexes on table columns with configurable index properties and partition filtering using an ``UPDATING FOR`` clause. `#27307 <https://github.com/prestodb/presto/pull/27307>`_
 * Add the ``materialized_views`` table to the information schema. `#26688 <https://github.com/prestodb/presto/pull/26688>`_
 * Add warning message on ``CREATE TABLE AS SELECT`` with ``IF NOT EXISTS``. `#27083 <https://github.com/prestodb/presto/pull/27083>`_
 * Add SQL Support for ``ADD COLUMN DEFAULT``. `#27353 <https://github.com/prestodb/presto/pull/27353>`_
@@ -149,7 +146,7 @@ _________________________
 * Add support for ``MERGE`` command in the Iceberg connector. `#25470 <https://github.com/prestodb/presto/pull/25470>`_
 * Add support for :ref:`connector/iceberg:materialized views` in Iceberg catalog. `#26958 <https://github.com/prestodb/presto/pull/26958>`_
 * Add support for ``SMALLINT`` and ``TINYINT`` columns in presto-iceberg by mapping them to Iceberg ``INTEGER`` type. `#27461 <https://github.com/prestodb/presto/pull/27461>`_
-* Add support for configuring access control in Iceberg using the ``iceberg.security`` property in the Iceberg catalog properties file. The supported types are ``allow-all`` and ``file``. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
+* Add support for configuring access control in Iceberg using the ``iceberg.security`` property in the Iceberg catalog properties file. The supported types are ``allow-all`` and ``file``. See :ref:`connector/iceberg:authorization`. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for creating Iceberg tables with format-version = ``3``. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
 * Add support for dropping a branch from an Iceberg table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
 * Add support for dropping a tag from an Iceberg table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
@@ -168,10 +165,6 @@ _______________________
 * Fix ClassCastException when reading Float16 columns by widening to Float32. `#27324 <https://github.com/prestodb/presto/pull/27324>`_
 * Add :doc:`/connector/lance` for reading and writing LanceDB datasets. `#27185 <https://github.com/prestodb/presto/pull/27185>`_
 
-Oracle Connector Changes
-________________________
-* Update Oracle test classes to re-enable them. `#25762 <https://github.com/prestodb/presto/pull/25762>`_
-
 Pinot Connector Changes
 _______________________
 * Add TLS support for self-signed certificate. `#26151 <https://github.com/prestodb/presto/pull/26151>`_
@@ -184,6 +177,9 @@ ___________
 Documentation Changes
 _____________________
 * Improve documentation of plugin loaded functions by grouping them in :ref:`functions/plugin-loaded-functions:array functions`. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
+* Add developer documentation for :doc:`/develop/table-functions`. `#27367 <https://github.com/prestodb/presto/pull/27367>`_
+* Add documentation for :doc:`/functions/table`. `#27333 <https://github.com/prestodb/presto/pull/27333>`_
+* Add documentation for Presto queries to run in Presto C++ to :doc:`/presto_cpp/limitations`. `#27120 <https://github.com/prestodb/presto/pull/27120>`_
 
 **Credits**
 ===========
