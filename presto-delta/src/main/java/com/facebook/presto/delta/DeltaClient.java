@@ -264,6 +264,8 @@ public class DeltaClient
                         TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
                                 columnName, field.getDataType());
                         return new DeltaColumn(
+                                DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
+                                DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
                                 columnName,
                                 prestoType,
                                 field.isNullable(),
