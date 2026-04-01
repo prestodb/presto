@@ -112,7 +112,7 @@ public class LanceTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tablePath, datasetVersion, limit);
+        return Objects.hash(schemaName, tableName, tablePath, tableId, datasetVersion, limit);
     }
 
     @Override
@@ -128,6 +128,7 @@ public class LanceTableHandle
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.tablePath, other.tablePath) &&
+                Objects.equals(this.tableId, other.tableId) &&
                 Objects.equals(this.datasetVersion, other.datasetVersion) &&
                 Objects.equals(this.limit, other.limit);
     }

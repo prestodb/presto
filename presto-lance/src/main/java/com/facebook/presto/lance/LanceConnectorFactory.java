@@ -33,8 +33,12 @@ import java.util.Set;
 public class LanceConnectorFactory
         implements ConnectorFactory
 {
-    // Properties that are handled by LanceConfig via @Config annotations.
-    // All other lance.* properties are passed through to the namespace implementation.
+    // Properties handled by LanceConfig via @Config annotations.
+    // All other properties (including free-form lance.* namespace properties like
+    // lance.root, lance.uri, lance.storage.*) are passed through to the namespace
+    // implementation via @LanceNamespaceProperties and must NOT be listed here.
+    // Note: connector.name is stripped by the Presto framework before reaching create().
+    // IMPORTANT: When adding new @Config properties to LanceConfig, update this set.
     private static final Set<String> KNOWN_CONFIG_PROPERTIES = ImmutableSet.of(
             "lance.impl",
             "lance.single-level-ns",

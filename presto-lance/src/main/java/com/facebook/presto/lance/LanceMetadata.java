@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -52,6 +53,8 @@ import static java.util.Objects.requireNonNull;
 public class LanceMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(LanceMetadata.class);
+
     private final LanceNamespaceHolder namespaceHolder;
     private final JsonCodec<LanceCommitTaskData> commitTaskDataCodec;
 
@@ -117,6 +120,7 @@ public class LanceMetadata
             return new ConnectorTableMetadata(schemaTableName, columnsMetadata.build());
         }
         catch (Exception e) {
+            log.warn(e, "Failed to get metadata for %s.%s", lanceTable.getSchemaName(), lanceTable.getTableName());
             return null;
         }
     }
@@ -151,6 +155,7 @@ public class LanceMetadata
             return columnHandles.build();
         }
         catch (Exception e) {
+            log.warn(e, "Failed to get column handles for %s.%s", lanceTable.getSchemaName(), lanceTable.getTableName());
             return ImmutableMap.of();
         }
     }
