@@ -2554,6 +2554,10 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``BOOLEAN``
   * - ``INTEGER``
     - ``INTEGER``
+  * - ``TINYINT``
+    - ``INTEGER``
+  * - ``SMALLINT``
+    - ``INTEGER``
   * - ``BIGINT``
     - ``LONG``
   * - ``REAL``

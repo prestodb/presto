@@ -172,6 +172,9 @@ public final class TypeConverter
         if (type instanceof IntegerType) {
             return Types.IntegerType.get();
         }
+        if (type.equals(SMALLINT) || type.equals(TINYINT)) {
+            return Types.IntegerType.get();
+        }
         if (type instanceof BigintType) {
             return Types.LongType.get();
         }
