@@ -74,7 +74,35 @@ Property Name                                      Description                  
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
+
+``jdbc-fetch-size``                                Number of rows to fetch from the database at a time. Higher          ``20000``
+                                                   values can improve performance for large result sets but may
+                                                   increase memory usage.
+
+``oracle.tls.enabled``                             Enable TLS/SSL for secure connections to the Oracle database.        ``false``
+
+``oracle.tls.truststore-path``                     Path to the truststore file containing trusted certificates for
+                                                   TLS/SSL connections. Required when ``oracle.tls.enabled`` is
+                                                   ``true``.
+
+``oracle.tls.truststore-password``                 Password for the truststore file. Required when
+                                                   ``oracle.tls.truststore-path`` is specified.
 ================================================== ==================================================================== ===========
+
+TLS Configuration
+-----------------
+
+The Oracle connector supports secure connections to Oracle databases using TLS/SSL.
+To enable TLS, configure the following properties in your catalog properties file:
+
+.. code-block:: none
+
+    oracle.tls.enabled=true
+    oracle.tls.truststore-path=/path/to/truststore.jks
+    oracle.tls.truststore-password=truststore-password
+
+The truststore file should contain the trusted certificates for your Oracle database server.
+When TLS is enabled, the connector will establish secure encrypted connections to the database.
 
 Querying Oracle
 ---------------
