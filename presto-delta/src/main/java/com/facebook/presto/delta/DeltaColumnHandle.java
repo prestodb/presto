@@ -49,7 +49,7 @@ public final class DeltaColumnHandle
     @JsonCreator
     public DeltaColumnHandle(
             @JsonProperty("id") Long id,
-            @JsonProperty("phyicalName") String physicalName,
+            @JsonProperty("physicalName") String physicalName,
             @JsonProperty("columnName") String logicalName,
             @JsonProperty("dataType") TypeSignature dataType,
             @JsonProperty("columnType") ColumnType columnType,
@@ -115,7 +115,7 @@ public final class DeltaColumnHandle
         ToStringHelper stringHelper = toStringHelper(this)
                 .add("id", this.id)
                 .add("physicalName", this.physicalName)
-                .add("logicalNmae", this.logicalName)
+                .add("logicalName", this.logicalName)
                 .add("dataType", dataType)
                 .add("columnType", columnType);
 
