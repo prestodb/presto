@@ -74,7 +74,7 @@ public class MySqlConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    new MySqlClientModule(),
+                    new MySqlClientModule(catalogName),
                     module);
 
             Injector injector = app
