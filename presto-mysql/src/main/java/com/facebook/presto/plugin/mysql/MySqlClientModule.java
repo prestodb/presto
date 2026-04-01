@@ -16,7 +16,6 @@ package com.facebook.presto.plugin.mysql;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
-import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.mysql.cj.conf.ConnectionUrl;

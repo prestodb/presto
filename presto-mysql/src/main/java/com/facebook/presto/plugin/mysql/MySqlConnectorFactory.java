@@ -17,7 +17,6 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcConnector;
 import com.facebook.presto.plugin.jdbc.JdbcHandleResolver;
-import com.facebook.presto.plugin.jdbc.JdbcModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -75,7 +74,7 @@ public class MySqlConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    new JdbcModule(catalogName),
+                    new MySqlClientModule(),
                     module);
 
             Injector injector = app
