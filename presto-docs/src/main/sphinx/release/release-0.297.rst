@@ -125,7 +125,7 @@ ___________________________
 * Drop stale tables if table creation process fails. `#27100 <https://github.com/prestodb/presto/pull/27100>`_
 
 Delta Lake Connector Changes
-_______________________
+____________________________
 * Add support to show the external table location of Delta tables when running the ``SHOW CREATE TABLE`` command. `#26986 <https://github.com/prestodb/presto/pull/26986>`_
 * Upgrade AWS Glue Client to AWS SDK v2. `#26670 <https://github.com/prestodb/presto/pull/26670>`_
 
