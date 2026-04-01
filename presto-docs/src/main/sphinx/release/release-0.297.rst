@@ -29,7 +29,7 @@ _______________
 * Fix a bug where queries could get permanently stuck in resource groups when coordinator task-based throttling (``experimental.max-total-running-task-count-to-not-execute-new-query``) is enabled. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
 * Fix infinite loop in ``UnaliasSymbolReferences`` when alias mapping contains a cycle caused by multiple variables mapped to the same constant expression across different ProjectNodes. `#27428 <https://github.com/prestodb/presto/pull/27428>`_
 * Fix to modify the Content-Type of endpoint ``/v1/info/metrics`` to ``application/json`` or ``text/plain`` based on the request's ``ACCEPT`` header. `#26639 <https://github.com/prestodb/presto/pull/26639>`_
-* Improve ``LIKE '%substring%'`` pattern matching by rewriting to ``STRPOS`` instead of ``CARDINALITY(SPLIT(...))``, improving CPU and memory efficiency. :pr:`27311`. `#27311 <https://github.com/prestodb/presto/pull/27311>`_
+* Improve ``LIKE '%substring%'`` pattern matching by rewriting to ``STRPOS`` instead of ``CARDINALITY(SPLIT(...))``, improving CPU and memory efficiency. `#27311 <https://github.com/prestodb/presto/pull/27311>`_
 * Improves size estimates for constant variables. `#27188 <https://github.com/prestodb/presto/pull/27188>`_
 * Add DDL statements for ``CREATE BRANCH``. `#26898 <https://github.com/prestodb/presto/pull/26898>`_
 * Add DDL support for dropping a branch from a table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
@@ -76,7 +76,7 @@ _______________
 * Upgrade airbase version to 108. `#26807 <https://github.com/prestodb/presto/pull/26807>`_
 * Upgrade com.facebook.airlift version to 225. `#26768 <https://github.com/prestodb/presto/pull/26768>`_
 
-Prestissimo (native Execution) Changes
+Prestissimo (Native Execution) Changes
 ______________________________________
 * Add Window filter pushdown in native engine for rank and dense_rank functions. Use session property ``optimizer.optimize-top-n-rank`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
 * Add TextReader support for tables in ``TEXTFILE`` format. `#25995 <https://github.com/prestodb/presto/pull/25995>`_
@@ -89,10 +89,10 @@ ______________________________________
 
 Security Changes
 ________________
-* Remove ``http: https:`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#26790 <https://github.com/prestodb/presto/pull/26790>`_
 * Add a temporary configuration property ``hive.restrict-procedure-call`` for ranger and sql-standard access control. It defaults to ``true``, meaning procedure calls are restricted. To allow procedure calls, set this configuration property to ``false``. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add fine-grained access control for procedure calls in the file-based access control system. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for procedure calls in access control. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
+* Remove ``http: https:`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#26790 <https://github.com/prestodb/presto/pull/26790>`_
 * Update aircompressor dependency from 0.27 to version 2.0.2 to fix `CVE-2025-67721 <https://www.cve.org/CVERecord?id=CVE-2025-67721>`_. `#27152 <https://github.com/prestodb/presto/pull/27152>`_
 * Upgrade  surefire-testng to version  3.5.4. `#26571 <https://github.com/prestodb/presto/pull/26571>`_
 * Upgrade Druid to version 35.0.1 to address `CVE-2024-53990 <https://github.com/advisories/GHSA-mfj5-cf8g-g2fv>`_ and `CVE-2025-12183 <https://github.com/advisories/GHSA-vqf4-7m7x-wgfc>`_. `#26820 <https://github.com/prestodb/presto/pull/26820>`_
@@ -109,12 +109,12 @@ ________________
 * Upgrade lz4-java  to version 1.10.2  to address `CVE-2025-66566 <https://nvd.nist.gov/vuln/detail/CVE-2025-66566>`_. `#26684 <https://github.com/prestodb/presto/pull/26684>`_
 * Upgrade lz4-java to 1.10.2 in response to `CVE-2025-12183 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-12183>`_. `#26931 <https://github.com/prestodb/presto/pull/26931>`_
 * Upgrade lz4-java to version 1.10.2 to address `CVE-2025-66566 <https://github.com/advisories/GHSA-cmp6-m4wj-q63q>`_. `#26820 <https://github.com/prestodb/presto/pull/26820>`_
-* Upgrade mssql-jdbc to 13.2.1.jre11 in response to `CVE-2025-59250<https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-59250>`_. `#26674 <https://github.com/prestodb/presto/pull/26674>`_
+* Upgrade mssql-jdbc to 13.2.1.jre11 in response to `CVE-2025-59250 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-59250>`_. `#26674 <https://github.com/prestodb/presto/pull/26674>`_
 * Upgrade node-forge from 1.3.1 to 1.4.0 in response to multiple security advisories including `CVE-2026-33891 <https://www.cve.org/CVERecord?id=CVE-2026-33891>`_ (DoS in BigInteger.modInverse), `CVE-2026-33894 <https://www.cve.org/CVERecord?id=CVE-2026-33894>`_ (RSA-PKCS signature forgery), `CVE-2026-33895 <https://www.cve.org/CVERecord?id=CVE-2026-33895>`_ (Ed25519 signature forgery), and `CVE-2026-33896 <https://www.cve.org/CVERecord?id=CVE-2026-33896>`_ (basicConstraints bypass in certificate chain verification). This dependency is used by ``webpack-dev-server`` for development and does not affect production runtime. `#27448 <https://github.com/prestodb/presto/pull/27448>`_
 * Upgrade org.apache.logging.log4j:log4j-core from from 2.24.3 to 2.25.3 to address `CVE-2025-68161 <https://nvd.nist.gov/vuln/detail/CVE-2025-68161>`_. `#26885 <https://github.com/prestodb/presto/pull/26885>`_
 * Upgrade transitive dependency org.apache.logging.log4j:log4j-core to 2.25.3 to fix `CVE-2025-68161 <https://nvd.nist.gov/vuln/detail/CVE-2025-68161>`_. `#26906 <https://github.com/prestodb/presto/pull/26906>`_
 * Upgrade webpack-dev-server from 5.2.0 to 5.2.1 to address security vulnerabilities in cross-origin request handling and WebSocket connections. The update enforces proper ``Access-Control-Allow-Origin`` header validation for cross-origin requests and restricts WebSocket connections from IP addresses in the ``Origin`` header unless explicitly configured via ``allowedHosts``. This dependency is used for local development only and does not affect production runtime. `#26275 <https://github.com/prestodb/presto/pull/26275>`_
-* Upgrade zookeeper to version 3.9.5 in response to `CVE-2026-24281 <https://github.com/advisories/GHSA-7xrh-hqfc-g7qr>`,`CVE-2026-24308 <https://github.com/advisories/GHSA-crhr-qqj8-rpxc>`. `#27319 <https://github.com/prestodb/presto/pull/27319>`_
+* Upgrade zookeeper to version 3.9.5 in response to `CVE-2026-24281 <https://github.com/advisories/GHSA-7xrh-hqfc-g7qr>`_, `CVE-2026-24308 <https://github.com/advisories/GHSA-crhr-qqj8-rpxc>`_. `#27319 <https://github.com/prestodb/presto/pull/27319>`_
 
 Web UI Changes
 ______________
@@ -124,7 +124,7 @@ Cassandra Connector Changes
 ___________________________
 * Drop stale tables if table creation process fails. `#27100 <https://github.com/prestodb/presto/pull/27100>`_
 
-Delta Connector Changes
+Delta Lake Connector Changes
 _______________________
 * Add support to show the external table location of Delta tables when running the ``SHOW CREATE TABLE`` command. `#26986 <https://github.com/prestodb/presto/pull/26986>`_
 * Upgrade AWS Glue Client to AWS SDK v2. `#26670 <https://github.com/prestodb/presto/pull/26670>`_
