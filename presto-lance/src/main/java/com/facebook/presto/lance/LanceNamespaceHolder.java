@@ -18,8 +18,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -30,19 +28,30 @@ import org.lance.FragmentMetadata;
 import org.lance.FragmentOperation;
 import org.lance.ReadOptions;
 import org.lance.WriteParams;
+import org.lance.namespace.LanceNamespace;
+import org.lance.namespace.model.CreateEmptyTableRequest;
+import org.lance.namespace.model.CreateEmptyTableResponse;
+import org.lance.namespace.model.DescribeTableRequest;
+import org.lance.namespace.model.DescribeTableResponse;
+import org.lance.namespace.model.DropTableRequest;
+import org.lance.namespace.model.ListNamespacesRequest;
+import org.lance.namespace.model.ListNamespacesResponse;
+import org.lance.namespace.model.ListTablesRequest;
+import org.lance.namespace.model.ListTablesResponse;
+import org.lance.namespace.model.NamespaceExistsRequest;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.Closeable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,27 +60,27 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * Holds the Lance namespace configuration and provides table management operations.
- * For the "dir" implementation, directly manages a directory-based table store.
- * All tables live under a single "default" schema mapped to the root directory.
+ * Holds the Lance namespace and provides table management operations.
+ * Delegates to the LanceNamespace API for table discovery and lifecycle,
+ * supporting pluggable namespace implementations (dir, rest, etc.).
  */
 public class LanceNamespaceHolder
 {
     private static final Logger log = Logger.get(LanceNamespaceHolder.class);
     public static final String DEFAULT_SCHEMA = "default";
-    public static final String TABLE_PATH_SUFFIX = ".lance";
 
     private final BufferAllocator allocator;
-    private final String root;
+    private final LanceNamespace namespace;
     private final boolean singleLevelNs;
+    private final Optional<List<String>> parentPrefix;
+    private final Map<String, String> namespaceStorageOptions;
     private final ReadOptions readOptions;
     private final Cache<DatasetCacheKey, Dataset> datasetCache;
 
     @Inject
-    public LanceNamespaceHolder(LanceConfig config)
+    public LanceNamespaceHolder(LanceConfig config, @LanceNamespaceProperties Map<String, String> namespaceProperties)
     {
-        this.root = requireNonNull(config.getRootUrl(), "root is null");
-        this.singleLevelNs = config.isSingleLevelNs();
+        this.allocator = new RootAllocator(Long.MAX_VALUE);
         this.readOptions = new ReadOptions.Builder()
                 .setIndexCacheSizeBytes(config.getIndexCacheSize().toBytes())
                 .setMetadataCacheSizeBytes(config.getMetadataCacheSize().toBytes())
@@ -88,13 +97,56 @@ public class LanceNamespaceHolder
                     }
                 })
                 .build();
-        this.allocator = new RootAllocator(Long.MAX_VALUE);
-        log.debug("LanceNamespaceHolder initialized: root=%s, singleLevelNs=%s", root, singleLevelNs);
+
+        // Parse namespace properties from catalog config
+        String impl = config.getImpl();
+        Map<String, String> properties = new HashMap<>();
+        Map<String, String> storageOpts = new HashMap<>();
+        for (Map.Entry<String, String> entry : namespaceProperties.entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith("lance.")) {
+                String strippedKey = key.substring(6);
+                properties.put(strippedKey, entry.getValue());
+                if (strippedKey.startsWith("storage.")) {
+                    storageOpts.put(strippedKey.substring(8), entry.getValue());
+                }
+            }
+        }
+        this.namespaceStorageOptions = storageOpts;
+
+        // For DirectoryNamespace, ensure default settings are applied
+        if ("dir".equals(impl)) {
+            properties.putIfAbsent("manifest_enabled", "true");
+            properties.putIfAbsent("dir_listing_enabled", "true");
+        }
+
+        // Initialize namespace
+        this.namespace = LanceNamespace.connect(impl, properties, allocator);
+
+        // Initialize namespace level handling
+        this.singleLevelNs = config.isSingleLevelNs();
+        String parent = config.getParent();
+        if (parent != null && !parent.isEmpty()) {
+            this.parentPrefix = Optional.of(Arrays.asList(parent.split("\\$")));
+        }
+        else {
+            this.parentPrefix = Optional.empty();
+        }
+
+        log.debug("LanceNamespaceHolder initialized: impl=%s, singleLevelNs=%s", impl, singleLevelNs);
     }
 
     public void shutdown()
     {
         datasetCache.invalidateAll();
+        if (namespace instanceof Closeable) {
+            try {
+                ((Closeable) namespace).close();
+            }
+            catch (Exception e) {
+                log.warn(e, "Error closing namespace");
+            }
+        }
         try {
             allocator.close();
         }
@@ -108,9 +160,9 @@ public class LanceNamespaceHolder
         return allocator;
     }
 
-    public String getRoot()
+    public LanceNamespace getNamespace()
     {
-        return root;
+        return namespace;
     }
 
     public boolean isSingleLevelNs()
@@ -118,24 +170,11 @@ public class LanceNamespaceHolder
         return singleLevelNs;
     }
 
-    /**
-     * Get ReadOptions with configured cache sizes.
-     */
-    private ReadOptions getReadOptions()
-    {
-        return readOptions;
-    }
+    // ================== Namespace Utilities ==================
 
     /**
      * Get a cached or newly opened Dataset for the given table path with optional version.
      * The returned Dataset is managed by the cache — callers must NOT close it.
-     *
-     * <p>Thread safety: Lance Dataset objects use an internal LockManager for
-     * concurrent access. Multiple threads may safely call getFragments(),
-     * getSchema(), and newScan() on the same cached Dataset instance.
-     *
-     * @param tablePath the full table path (URI)
-     * @param version the dataset version to open (empty for latest)
      */
     Dataset getCachedDataset(String tablePath, Optional<Long> version)
     {
@@ -164,110 +203,220 @@ public class LanceNamespaceHolder
     /**
      * Get the latest version of a dataset. Opens a fresh Dataset each time
      * (bypasses cache) to ensure the returned version is never stale.
-     * The pinned version is then used for all subsequent cached reads.
      */
-    public long getLatestVersion(String tableName)
+    public long getLatestVersion(String tablePath)
     {
-        String tablePath = getTablePath(tableName);
         try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
             return dataset.version();
         }
     }
 
     /**
-     * Get the filesystem path for a table.
+     * Transform Presto schema name to Lance namespace identifier.
+     * In single-level mode, maps to empty (root).
+     * Otherwise, adds parent prefix if configured.
      */
-    public String getTablePath(String tableName)
+    public List<String> prestoSchemaToLanceNamespace(String schema)
     {
-        return Paths.get(root, tableName + TABLE_PATH_SUFFIX).toUri().toString();
+        if (singleLevelNs) {
+            return Collections.emptyList();
+        }
+        List<String> namespaceId = Collections.singletonList(schema);
+        return addParentPrefix(namespaceId);
     }
 
     /**
-     * Check if a table exists on the filesystem.
+     * Add parent prefix for 3+ level namespaces.
      */
-    public boolean tableExists(String tableName)
+    public List<String> addParentPrefix(List<String> namespaceId)
     {
+        if (!parentPrefix.isPresent()) {
+            return namespaceId;
+        }
+        List<String> result = new ArrayList<>(parentPrefix.get());
+        result.addAll(namespaceId);
+        return result;
+    }
+
+    /**
+     * Convert a Presto SchemaTableName to a Lance table identifier.
+     */
+    public List<String> getTableId(String schemaName, String tableName)
+    {
+        List<String> tableId = new ArrayList<>();
+        if (parentPrefix.isPresent()) {
+            tableId.addAll(parentPrefix.get());
+        }
+        if (!singleLevelNs) {
+            tableId.add(schemaName);
+        }
+        tableId.add(tableName);
+        return tableId;
+    }
+
+    // ================== Schema/Namespace Operations ==================
+
+    /**
+     * List schema names (namespaces).
+     */
+    public List<String> listSchemaNames()
+    {
+        if (singleLevelNs) {
+            return Collections.singletonList(DEFAULT_SCHEMA);
+        }
+
+        ListNamespacesRequest request = new ListNamespacesRequest();
+        if (parentPrefix.isPresent()) {
+            request.setId(parentPrefix.get());
+        }
+        ListNamespacesResponse response = namespace.listNamespaces(request);
+        Set<String> namespaces = response.getNamespaces();
+        if (namespaces == null || namespaces.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return namespaces.stream().collect(toImmutableList());
+    }
+
+    /**
+     * Check if a schema (namespace) exists.
+     */
+    public boolean schemaExists(String schema)
+    {
+        if (singleLevelNs && DEFAULT_SCHEMA.equals(schema)) {
+            return true;
+        }
+        if (singleLevelNs) {
+            return false;
+        }
         try {
-            Path path = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
-            return Files.isDirectory(path);
+            NamespaceExistsRequest request = new NamespaceExistsRequest();
+            request.setId(prestoSchemaToLanceNamespace(schema));
+            namespace.namespaceExists(request);
+            return true;
         }
         catch (Exception e) {
             return false;
         }
     }
 
+    // ================== Table Operations ==================
+
+    /**
+     * Get the storage path for a table via namespace API.
+     * Returns null if table does not exist.
+     */
+    public String getTablePath(String schemaName, String tableName)
+    {
+        if (singleLevelNs && !DEFAULT_SCHEMA.equals(schemaName)) {
+            return null;
+        }
+        try {
+            List<String> tableId = getTableId(schemaName, tableName);
+            DescribeTableRequest request = new DescribeTableRequest()
+                    .id(tableId);
+            DescribeTableResponse response = namespace.describeTable(request);
+            return response.getLocation();
+        }
+        catch (Exception e) {
+            log.debug("Failed to describe table %s.%s: %s", schemaName, tableName, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Check if a table exists.
+     */
+    public boolean tableExists(String schemaName, String tableName)
+    {
+        return getTablePath(schemaName, tableName) != null;
+    }
+
+    /**
+     * Get storage options for a table.
+     */
+    public Map<String, String> getStorageOptionsForTable(List<String> tableId)
+    {
+        try {
+            DescribeTableRequest request = new DescribeTableRequest().id(tableId);
+            DescribeTableResponse response = namespace.describeTable(request);
+            Map<String, String> storageOptions = response.getStorageOptions();
+            if (storageOptions != null && !storageOptions.isEmpty()) {
+                return storageOptions;
+            }
+        }
+        catch (Exception e) {
+            log.debug("Failed to get storage options from describeTable for %s: %s", tableId, e.getMessage());
+        }
+
+        if (!namespaceStorageOptions.isEmpty()) {
+            return new HashMap<>(namespaceStorageOptions);
+        }
+
+        return new HashMap<>();
+    }
+
     /**
      * Get the Arrow schema for a table at an optional version.
      */
-    public Schema describeTable(String tableName, Optional<Long> version)
+    public Schema describeTable(String tablePath, Optional<Long> version)
     {
-        String tablePath = getTablePath(tableName);
         return getCachedDataset(tablePath, version).getSchema();
     }
 
     /**
      * List all tables in a schema.
      */
-    public List<String> listTables()
+    public List<String> listTables(String schemaName)
     {
-        Path rootPath = Paths.get(root);
-        if (!Files.isDirectory(rootPath)) {
+        List<String> namespaceId = prestoSchemaToLanceNamespace(schemaName);
+        ListTablesRequest request = new ListTablesRequest();
+        request.setId(namespaceId);
+
+        ListTablesResponse response = namespace.listTables(request);
+        Set<String> tables = response.getTables();
+        if (tables == null || tables.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> tables = new ArrayList<>();
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(rootPath, "*" + TABLE_PATH_SUFFIX)) {
-            for (Path entry : stream) {
-                if (Files.isDirectory(entry)) {
-                    String fileName = entry.getFileName().toString();
-                    tables.add(fileName.substring(0, fileName.length() - TABLE_PATH_SUFFIX.length()));
-                }
-            }
-        }
-        catch (IOException e) {
-            log.warn(e, "Failed to list tables in %s", root);
-        }
-        return tables;
+        return tables.stream().collect(toImmutableList());
     }
 
     /**
      * Create an empty table with the given schema.
+     * Returns the table path assigned by the namespace.
      */
-    public void createTable(String tableName, Schema arrowSchema)
+    public String createTable(String schemaName, String tableName, Schema arrowSchema)
     {
-        String tablePath = getTablePath(tableName);
+        List<String> tableId = getTableId(schemaName, tableName);
+        CreateEmptyTableRequest createRequest = new CreateEmptyTableRequest()
+                .id(tableId);
+        CreateEmptyTableResponse createResponse = namespace.createEmptyTable(createRequest);
+        String tablePath = createResponse.getLocation();
+
         WriteParams params = new WriteParams.Builder().build();
         Dataset.create(allocator, tablePath, arrowSchema, params).close();
+
+        return tablePath;
     }
 
     /**
      * Drop a table.
      */
-    public void dropTable(String tableName)
+    public void dropTable(List<String> tableId)
     {
-        String tablePath = getTablePath(tableName);
-        invalidateByTablePath(tablePath);
-        Path fsPath = Paths.get(root, tableName + TABLE_PATH_SUFFIX);
-        if (Files.exists(fsPath)) {
-            try {
-                MoreFiles.deleteRecursively(fsPath, RecursiveDeleteOption.ALLOW_INSECURE);
-            }
-            catch (IOException e) {
-                throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to delete table " + tableName, e);
-            }
-        }
+        DropTableRequest dropRequest = new DropTableRequest()
+                .id(tableId);
+        namespace.dropTable(dropRequest);
     }
 
     /**
      * Commit fragments to a table (append operation).
      */
-    public void commitAppend(String tableName, List<FragmentMetadata> fragments)
+    public void commitAppend(String tablePath, List<FragmentMetadata> fragments)
     {
-        String tablePath = getTablePath(tableName);
-        try (Dataset dataset = Dataset.open(tablePath, getReadOptions())) {
+        try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
             FragmentOperation.Append appendOp = new FragmentOperation.Append(fragments);
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
-        // Invalidate all cache entries for this table path
         invalidateByTablePath(tablePath);
     }
 
@@ -282,9 +431,8 @@ public class LanceNamespaceHolder
     /**
      * Get fragments for a table at an optional version.
      */
-    public List<Fragment> getFragments(String tableName, Optional<Long> version)
+    public List<Fragment> getFragments(String tablePath, Optional<Long> version)
     {
-        String tablePath = getTablePath(tableName);
         return getCachedDataset(tablePath, version).getFragments();
     }
 

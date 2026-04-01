@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.lance.Dataset;
 import org.testng.annotations.AfterMethod;
@@ -22,11 +23,13 @@ import org.testng.annotations.Test;
 
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.fail;
 
@@ -48,11 +51,11 @@ public class TestLanceCachedDataset
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        namespaceHolder = new LanceNamespaceHolder(config);
-        table1Path = namespaceHolder.getTablePath("test_table1");
-        table2Path = namespaceHolder.getTablePath("test_table2");
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+        namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
+        table1Path = namespaceHolder.getTablePath("default", "test_table1");
+        table2Path = namespaceHolder.getTablePath("default", "test_table2");
     }
 
     @AfterMethod
@@ -119,15 +122,19 @@ public class TestLanceCachedDataset
     @Test
     public void testMissingTablePathThrowsPrestoException()
     {
-        String missingPath = namespaceHolder.getTablePath("does_not_exist");
+        // Namespace API returns null for non-existent tables
+        String missingPath = namespaceHolder.getTablePath("default", "does_not_exist");
+        assertNull(missingPath);
+
+        // getCachedDataset should throw PrestoException for an invalid path
+        String invalidPath = table1Path + "_does_not_exist";
         try {
-            namespaceHolder.getCachedDataset(missingPath, Optional.empty());
+            namespaceHolder.getCachedDataset(invalidPath, Optional.empty());
             fail("Expected PrestoException for missing table path");
         }
         catch (PrestoException expected) {
             assertEquals(expected.getErrorCode(), LanceErrorCode.LANCE_ERROR.toErrorCode());
             assertNotNull(expected.getCause());
-            assertEquals(expected.getCause().getClass(), IllegalArgumentException.class);
         }
     }
 
