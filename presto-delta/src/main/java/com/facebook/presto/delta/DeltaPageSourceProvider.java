@@ -188,14 +188,14 @@ public class DeltaPageSourceProvider
         return allColumns.stream()
                 .filter(columnHandle -> columnHandle.getColumnType() == PARTITION)
                 .collect(toMap(
-                        DeltaColumnHandle::getName,
+                        DeltaColumnHandle::getLogicalName,
                         columnHandle -> {
                             Type columnType = typeManager.getType(columnHandle.getDataType());
                             return Utils.nativeValueToBlock(
                                     columnType,
                                     convertPartitionValue(
-                                            columnHandle.getName(),
-                                            partitionValues.get(columnHandle.getName()),
+                                            columnHandle.getLogicalName(),
+                                            partitionValues.get(columnHandle.getLogicalName()),
                                             columnType));
                         }));
     }
@@ -300,7 +300,7 @@ public class DeltaPageSourceProvider
                 checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SUBFIELD,
                         "column type must be regular or subfield column");
 
-                String name = column.getName();
+                String name = column.getSourceName();
                 Type type = typeManager.getType(column.getDataType());
 
                 namesBuilder.add(name);
@@ -372,7 +372,7 @@ public class DeltaPageSourceProvider
                 descriptor = descriptorsByPath.get(subfieldPath);
             }
             else {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getSourceName()));
             }
 
             if (descriptor != null) {
@@ -389,7 +389,7 @@ public class DeltaPageSourceProvider
             SchemaTableName tableName,
             Path path)
     {
-        org.apache.parquet.schema.Type type = getParquetTypeByName(column.getName(), messageType);
+        org.apache.parquet.schema.Type type = getParquetTypeByName(column.getSourceName(), messageType);
         if (type == null) {
             return Optional.empty();
         }
@@ -408,7 +408,7 @@ public class DeltaPageSourceProvider
             throw new PrestoException(
                     DELTA_PARQUET_SCHEMA_MISMATCH,
                     format("The column %s of table %s is declared as type %s, but the Parquet file (%s) declares the column as type %s",
-                            column.getName(),
+                            column.getSourceName(),
                             tableName.toString(),
                             column.getDataType(),
                             path.toString(),
