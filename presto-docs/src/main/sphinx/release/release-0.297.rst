@@ -29,7 +29,6 @@ _______________
 * Add DDL support for dropping a tag from a table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
 * Add HTTP support to the resource manager. See :ref:`admin/properties:\`\`resource-manager.http-server-enabled\`\`` and :ref:`admin/properties:\`\`internal-communication.resource-manager-communication-protocol\`\``. `#26635 <https://github.com/prestodb/presto/pull/26635>`_
 * Add OpenLineage event listener plugin for emitting query lifecycle events in the OpenLineage format. The plugin supports console and HTTP transports, configurable query type filtering, and column-level lineage tracking. See :doc:`/develop/openlineage-event-listener` for configuration details. `#27249 <https://github.com/prestodb/presto/pull/27249>`_
-* Add Window filter pushdown in native engine for rank and dense_rank functions. Use session property ``optimizer.optimize-top-n-rank`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
 * Add ``PushdownThroughUnnest`` optimizer rule that pushes projections and filter conjuncts not dependent on unnest output variables below the UnnestNode, gated by the ``pushdown_through_unnest`` session property (default enabled). `#27125 <https://github.com/prestodb/presto/pull/27125>`_
 * Add ``USE_STITCHING`` mode for ``materialized_view_stale_read_behavior`` session property to selectively recompute stale data instead of full recomputation. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
 * Add ``materialized_view_force_stale`` session property for testing stale read behavior. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
@@ -39,7 +38,7 @@ _______________
 * Add ability to disable the UI. `#26682 <https://github.com/prestodb/presto/pull/26682>`_
 * Add an optimizer which can do function rewrite. `#26859 <https://github.com/prestodb/presto/pull/26859>`_
 * Add comprehensive JMX metrics for metadata operations. `#26875 <https://github.com/prestodb/presto/pull/26875>`_
-* Add configurable freshness thresholds for materialized views using ``materialized_view_stale_read_behavior`` session property and ``materialized-view-stale-read-behavior`` configuration property. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
+* Add configurable freshness thresholds for materialized views using :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\`` session property and :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\`` configuration property. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add cost-based selection for materialized view query rewriting. When multiple materialized views exist for the same base table, the optimizer now evaluates all compatible rewrites and selects the lowest-cost plan. This can be enabled with the ``materialized_view_query_rewrite_cost_based_selection_enabled`` session property. `#27222 <https://github.com/prestodb/presto/pull/27222>`_
 * Add developer documentation for :doc:`/develop/table-functions`. `#27367 <https://github.com/prestodb/presto/pull/27367>`_
 * Add documentation for :doc:`/functions/table`. `#27333 <https://github.com/prestodb/presto/pull/27333>`_
@@ -57,9 +56,9 @@ _______________
 * Add support for :doc:`sql/create-vector-index`, which creates vector search indexes on table columns with configurable index properties and partition filtering using an ``UPDATING FOR`` clause. `#27307 <https://github.com/prestodb/presto/pull/27307>`_
 * Add the ``materialized_views`` table to the information schema. `#26688 <https://github.com/prestodb/presto/pull/26688>`_
 * Add warning message on ``CREATE TABLE AS SELECT`` with ``IF NOT EXISTS``. `#27083 <https://github.com/prestodb/presto/pull/27083>`_
-* Replace ``experimental.max-total-running-task-count-to-not-execute-new-query`` with ``max-total-running-task-count-to-not-execute-new-query``. This is backwards compatible. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
-* Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
 * Add SQL Support for ``ADD COLUMN DEFAULT``. `#27353 <https://github.com/prestodb/presto/pull/27353>`_
+* Replace ``experimental.max-total-running-task-count-to-not-execute-new-query`` with :ref:`admin/properties:\`\`max-total-running-task-count-to-not-execute-new-query\`\``. This is backwards compatible. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
+* Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
 * Update Maven wrapper distribution from version 3.8.8 to 3.9.12. `#27030 <https://github.com/prestodb/presto/pull/27030>`_
 * Update Session to serialize and deserialize selectedUser and reasonForSelect to SessionRepresentation, allowing ``INSERT`` and ``DELETE`` query sessions to contain these fields. `#27360 <https://github.com/prestodb/presto/pull/27360>`_
 * Update netty from version 4.1.130.Final to 4.2.10.Final. `#27277 <https://github.com/prestodb/presto/pull/27277>`_
@@ -72,8 +71,9 @@ _______________
 
 Prestissimo (native Execution) Changes
 ______________________________________
+* Add Window filter pushdown in native engine for rank and dense_rank functions. Use session property ``optimizer.optimize-top-n-rank`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
 * Add TextReader support for tables in ``TEXTFILE`` format. `#25995 <https://github.com/prestodb/presto/pull/25995>`_
-* Add ``native_max_target_file_size`` session property to control the maximum target file size for writers. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. `#27054 <https://github.com/prestodb/presto/pull/27054>`_
+* Add ``native_max_target_file_size`` session property to control the maximum target file size for writers. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. See :ref:`connector/hive:hive session properties`. `#27054 <https://github.com/prestodb/presto/pull/27054>`_
 * Add a native expression optimizer for optimizing expressions in the sidecar. `#24602 <https://github.com/prestodb/presto/pull/24602>`_
 * Add support for ``NativeFunctionHandle`` parsing. `#26948 <https://github.com/prestodb/presto/pull/26948>`_
 * Add worker uptime metric `presto_cpp.worker_runtime_uptime_secs` to track worker process runtime. `#26979 <https://github.com/prestodb/presto/pull/26979>`_
@@ -128,7 +128,7 @@ Hive Connector Changes
 ______________________
 * Add support for custom TEXTFILE SerDe parameters ``textfile_field_delim``, ``textfile_escape_delim``, ``textfile_collection_delim``, and ``textfile_mapkey_delim``. `#27167 <https://github.com/prestodb/presto/pull/27167>`_
 * Add support for fine-grained configuration of Hive metastore caches. `#26918 <https://github.com/prestodb/presto/pull/26918>`_
-* Add support for ``skip_header_line_count`` and ``skip_footer_line_count``. `#26446 <https://github.com/prestodb/presto/pull/26446>`_
+* Add support for ``skip_header_line_count`` and ``skip_footer_line_count``. See :ref:`connector/hive:avro configuration properties`. `#26446 <https://github.com/prestodb/presto/pull/26446>`_
 * Upgrade AWS Glue Client to AWS SDK v2. `#26670 <https://github.com/prestodb/presto/pull/26670>`_
 
 Hudi Connector Changes
@@ -142,12 +142,12 @@ _________________________
 * Add Iceberg metadata table ``$metadata_log_entries``. `#24302 <https://github.com/prestodb/presto/pull/24302>`_
 * Add ``CREATE BRANCH`` support for Iceberg. `#26898 <https://github.com/prestodb/presto/pull/26898>`_
 * Add ``iceberg.materialized-view-max-changed-partitions`` config property (default: 100) to limit partition tracking for predicate stitching. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
-* Add ``stale_read_behavior`` and ``staleness_window`` table properties for materialized views. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
+* Add ``stale_read_behavior`` and ``staleness_window`` table properties for materialized views. See :ref:`connector/iceberg:table properties`.   `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add reading from Iceberg V3 tables, including partitioned tables. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
-* Add ``rewrite_manifests`` procedure for iceberg. `#26888 <https://github.com/prestodb/presto/pull/26888>`_
+* Add :ref:`connector/iceberg:rewrite manifests` procedure for Iceberg. `#26888 <https://github.com/prestodb/presto/pull/26888>`_
 * Add single-table multi-statement writes transaction on snapshot isolation level. `#25003 <https://github.com/prestodb/presto/pull/25003>`_
 * Add support for ``MERGE`` command in the Iceberg connector. `#25470 <https://github.com/prestodb/presto/pull/25470>`_
-* Add support for Materialized Views in Iceberg catalog. `#26958 <https://github.com/prestodb/presto/pull/26958>`_
+* Add support for :ref:`connector/iceberg:materialized views` in Iceberg catalog. `#26958 <https://github.com/prestodb/presto/pull/26958>`_
 * Add support for ``SMALLINT`` and ``TINYINT`` columns in presto-iceberg by mapping them to Iceberg ``INTEGER`` type. `#27461 <https://github.com/prestodb/presto/pull/27461>`_
 * Add support for configuring access control in Iceberg using the ``iceberg.security`` property in the Iceberg catalog properties file. The supported types are ``allow-all`` and ``file``. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for creating Iceberg tables with format-version = ``3``. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
