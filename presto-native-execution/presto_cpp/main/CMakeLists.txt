@@ -88,6 +88,7 @@ target_link_libraries(
   velox_functions_prestosql
   velox_gcs
   velox_hdfs
+  velox_connector_registry
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_hive_partition_function

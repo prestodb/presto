@@ -56,6 +56,7 @@
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/ConnectorRegistry.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
@@ -340,7 +341,8 @@ void PrestoServer::run() {
       taskManager_.get(),
       memoryAllocator,
       asyncDataCache,
-      velox::connector::getAllConnectors(),
+      velox::connector::ConnectorRegistry::findAll<
+          velox::connector::hive::HiveConnector>(),
       this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
@@ -1448,27 +1450,8 @@ void PrestoServer::registerSystemConnector() {
 
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
-  auto connectors = velox::connector::getAllConnectors();
-  if (connectors.empty()) {
-    PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
-    return;
-  }
-
-  PRESTO_SHUTDOWN_LOG(INFO)
-      << "Unregistering " << connectors.size() << " connectors";
-  for (const auto& connectorEntry : connectors) {
-    if (velox::connector::unregisterConnector(connectorEntry.first)) {
-      PRESTO_SHUTDOWN_LOG(INFO)
-          << "Unregistered connector: " << connectorEntry.first;
-    } else {
-      PRESTO_SHUTDOWN_LOG(INFO)
-          << "Unable to unregister connector: " << connectorEntry.first;
-    }
-  }
-
-  velox::connector::unregisterConnector("$system@system");
-  PRESTO_SHUTDOWN_LOG(INFO)
-      << "Unregistered " << connectors.size() << " connectors";
+  velox::connector::ConnectorRegistry::unregisterAll();
+  PRESTO_SHUTDOWN_LOG(INFO) << "Unregistered all connectors";
 }
 
 void PrestoServer::registerShuffleInterfaceFactories() {

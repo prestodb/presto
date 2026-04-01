@@ -240,9 +240,8 @@ PeriodicTaskManager::PeriodicTaskManager(
     TaskManager* taskManager,
     const velox::memory::MemoryAllocator* memoryAllocator,
     const velox::cache::AsyncDataCache* asyncDataCache,
-    const std::unordered_map<
-        std::string,
-        std::shared_ptr<velox::connector::Connector>>& connectors,
+    std::vector<std::shared_ptr<velox::connector::hive::HiveConnector>>
+        hiveConnectors,
     PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
       spillerExecutor_(spillerExecutor),
@@ -254,7 +253,7 @@ PeriodicTaskManager::PeriodicTaskManager(
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
       arbitrator_(velox::memory::memoryManager()->arbitrator()),
-      connectors_(connectors),
+      hiveConnectors_(std::move(hiveConnectors)),
       server_(server) {}
 
 void PeriodicTaskManager::start() {
@@ -416,12 +415,8 @@ void PeriodicTaskManager::addPrestoExchangeSourceMemoryStatsTask() {
 
 void PeriodicTaskManager::addConnectorStatsTask() {
   std::vector<HiveConnectorStatsReporter> reporters;
-  for (const auto& itr : connectors_) {
-    if (auto hiveConnector =
-            std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
-                itr.second)) {
-      reporters.emplace_back(std::move(hiveConnector));
-    }
+  for (const auto& hiveConnector : hiveConnectors_) {
+    reporters.emplace_back(hiveConnector);
   }
   addTask(
       [reporters = std::move(reporters)]() mutable {
