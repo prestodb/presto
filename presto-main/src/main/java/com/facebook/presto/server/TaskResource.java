@@ -78,6 +78,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 @Path("/v1/task")
 @RolesAllowed(INTERNAL)
+@Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
+@Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);
@@ -104,7 +106,6 @@ public class TaskResource
     }
 
     @GET
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
     {
         List<TaskInfo> allTaskInfo = taskManager.getAllTaskInfo();
@@ -116,8 +117,6 @@ public class TaskResource
 
     @POST
     @Path("{taskId}")
-    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId,
             TaskUpdateRequest taskUpdateRequest,
             @Context UriInfo uriInfo)
@@ -140,7 +139,6 @@ public class TaskResource
 
     @GET
     @Path("{taskId}")
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public void getTaskInfo(
             @PathParam("taskId") final TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -179,7 +177,6 @@ public class TaskResource
 
     @GET
     @Path("{taskId}/status")
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -213,7 +210,6 @@ public class TaskResource
 
     @DELETE
     @Path("{taskId}")
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public TaskInfo deleteTask(
             @PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
@@ -252,7 +248,6 @@ public class TaskResource
 
     @HEAD
     @Path("{taskId}/results/{bufferId}")
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public Response taskResultsHeaders(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId)
@@ -278,7 +273,6 @@ public class TaskResource
 
     @HEAD
     @Path("{taskId}/results/{bufferId}/{token}")
-    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
     public Response taskResultsHeaders(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
