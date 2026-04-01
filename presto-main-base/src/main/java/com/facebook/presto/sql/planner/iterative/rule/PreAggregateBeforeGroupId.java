@@ -36,8 +36,8 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -161,9 +161,13 @@ public class PreAggregateBeforeGroupId
         // 1. PARTIAL: raw values → partialVar (intermediate type)
         // 2. INTERMEDIATE below GroupId: partialVar → preGroupIdVar (intermediate type)
         // 3. INTERMEDIATE above GroupId: preGroupIdVar → originalOutputVar (intermediate type)
-        Map<VariableReferenceExpression, VariableReferenceExpression> outputToPartialVarMap = new HashMap<>();
-        Map<VariableReferenceExpression, VariableReferenceExpression> outputToPreGroupIdVarMap = new HashMap<>();
-        Map<VariableReferenceExpression, Aggregation> newPartialAggregations = new HashMap<>();
+        // Use LinkedHashMap with pre-sizing to preserve deterministic iteration order
+        // matching AggregationNode.getAggregations() and avoid type mismatches at native
+        // execution boundaries (see issue #27492).
+        int aggregationCount = node.getAggregations().size();
+        Map<VariableReferenceExpression, VariableReferenceExpression> outputToPartialVarMap = new LinkedHashMap<>(aggregationCount);
+        Map<VariableReferenceExpression, VariableReferenceExpression> outputToPreGroupIdVarMap = new LinkedHashMap<>(aggregationCount);
+        Map<VariableReferenceExpression, Aggregation> newPartialAggregations = new LinkedHashMap<>(aggregationCount);
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation originalAggregation = entry.getValue();
@@ -225,7 +229,7 @@ public class PreAggregateBeforeGroupId
                         newPartialAggregation.getOutputVariables()));
 
         // Step 3: Create INTERMEDIATE AggregationNode below GroupId to merge partial states after shuffle
-        Map<VariableReferenceExpression, Aggregation> preGroupIdIntermediateAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> preGroupIdIntermediateAggregations = new LinkedHashMap<>(aggregationCount);
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
@@ -281,7 +285,7 @@ public class PreAggregateBeforeGroupId
         // Step 5: Change the original PARTIAL aggregation above GroupId to INTERMEDIATE.
         // It takes intermediate state (passed through GroupId) and produces intermediate
         // state for the existing FINAL above.
-        Map<VariableReferenceExpression, Aggregation> aboveGroupIdIntermediateAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> aboveGroupIdIntermediateAggregations = new LinkedHashMap<>(aggregationCount);
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();

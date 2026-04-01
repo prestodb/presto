@@ -29,6 +29,7 @@ import com.google.common.collect.Iterables;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -114,7 +115,7 @@ public class MultipleDistinctAggregationToMarkDistinct
         // the distinct marker for the given set of input columns
         Map<Set<VariableReferenceExpression>, VariableReferenceExpression> markers = new HashMap<>();
 
-        Map<VariableReferenceExpression, Aggregation> newAggregations = new HashMap<>();
+        Map<VariableReferenceExpression, Aggregation> newAggregations = new LinkedHashMap<>();
         PlanNode subPlan = parent.getSource();
 
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : parent.getAggregations().entrySet()) {
