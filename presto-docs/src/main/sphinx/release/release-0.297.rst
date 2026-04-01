@@ -4,9 +4,16 @@ Release 0.297
 
 **Breaking Changes**
 ====================
+* Add support for procedure calls in access control. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
+* Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
 
 **Highlights**
 ==============
+* Add support for predicate stitching in MaterializedViewRewrite. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
+* Add single-table multi-statement writes :ref:`transaction <connector/iceberg:Transaction support>` on snapshot isolation level. `#25003 <https://github.com/prestodb/presto/pull/25003>`_
+* Add support for ``MERGE`` command in the Iceberg connector. `#25470 <https://github.com/prestodb/presto/pull/25470>`_
+* Add :doc:`/connector/lance` for reading and writing LanceDB datasets. `#27185 <https://github.com/prestodb/presto/pull/27185>`_
+* Upgrade Iceberg version to 1.10.0. `#26879 <https://github.com/prestodb/presto/pull/26879>`_
 
 **Details**
 ===========
@@ -54,6 +61,9 @@ _______________
 * Add the ``materialized_views`` table to the information schema. `#26688 <https://github.com/prestodb/presto/pull/26688>`_
 * Add warning message on ``CREATE TABLE AS SELECT`` with ``IF NOT EXISTS``. `#27083 <https://github.com/prestodb/presto/pull/27083>`_
 * Add SQL Support for ``ADD COLUMN DEFAULT``. `#27353 <https://github.com/prestodb/presto/pull/27353>`_
+* Add support for ``WHEN MATCHED THEN DELETE`` clause in ``MERGE INTO`` statements, completing the SQL:2011 MERGE specification. `#27409 <https://github.com/prestodb/presto/pull/27409>`_
+* Add MV data consistency support for ``CTAS`` and ``INSERT`` statements. `#27302 <https://github.com/prestodb/presto/pull/27302>`_
+* Add DDL statements for ``CREATE TAG``. `#27113 <https://github.com/prestodb/presto/pull/27113>`_
 * Replace ``experimental.max-total-running-task-count-to-not-execute-new-query`` with :ref:`admin/properties:\`\`max-total-running-task-count-to-not-execute-new-query\`\``. This is backwards compatible. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
 * Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
 * Update Maven wrapper distribution from version 3.8.8 to 3.9.12. `#27030 <https://github.com/prestodb/presto/pull/27030>`_
@@ -74,6 +84,8 @@ ______________________________________
 * Add a native expression optimizer for optimizing expressions in the sidecar. `#24602 <https://github.com/prestodb/presto/pull/24602>`_
 * Add support for ``NativeFunctionHandle`` parsing. `#26948 <https://github.com/prestodb/presto/pull/26948>`_
 * Add worker uptime metric `presto_cpp.worker_runtime_uptime_secs` to track worker process runtime. `#26979 <https://github.com/prestodb/presto/pull/26979>`_
+* Add http endpoint `v1/expressions` in sidecar for expression optimization. See :doc:`/presto_cpp/sidecar`. `#26475 <https://github.com/prestodb/presto/pull/26475>`_
+* Add ``ssd-cache-max-entries`` config to limit SSD cache entries and prevent unbounded metadata memory growth (default value: 10M entries, ~500MB metadata). `#26795 <https://github.com/prestodb/presto/pull/26795>`_
 
 Security Changes
 ________________
@@ -142,7 +154,7 @@ _________________________
 * Add ``stale_read_behavior`` and ``staleness_window`` table properties for materialized views. See :ref:`connector/iceberg:table properties`.   `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add reading from Iceberg V3 tables, including partitioned tables. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
 * Add :ref:`connector/iceberg:rewrite manifests` procedure for Iceberg. `#26888 <https://github.com/prestodb/presto/pull/26888>`_
-* Add single-table multi-statement writes transaction on snapshot isolation level. `#25003 <https://github.com/prestodb/presto/pull/25003>`_
+* Add single-table multi-statement writes :ref:`transaction <connector/iceberg:Transaction support>` on snapshot isolation level. `#25003 <https://github.com/prestodb/presto/pull/25003>`_
 * Add support for ``MERGE`` command in the Iceberg connector. `#25470 <https://github.com/prestodb/presto/pull/25470>`_
 * Add support for :ref:`connector/iceberg:materialized views` in Iceberg catalog. `#26958 <https://github.com/prestodb/presto/pull/26958>`_
 * Add support for ``SMALLINT`` and ``TINYINT`` columns in presto-iceberg by mapping them to Iceberg ``INTEGER`` type. `#27461 <https://github.com/prestodb/presto/pull/27461>`_
@@ -155,6 +167,9 @@ _________________________
 * Add support for tracking changed partitions in materialized views to enable predicate stitching optimization. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
 * Add support for upgrading existing V2 tables to V3 using the Iceberg API. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
 * Add SQL support for ``ADD COLUMN DEFAULT``. `#27353 <https://github.com/prestodb/presto/pull/27353>`_
+* Add support for calling distributed procedure in Iceberg connector. `#26374 <https://github.com/prestodb/presto/pull/26374>`_
+* Add :ref:`rewrite_data_files <connector/iceberg:Rewrite Data Files>` procedure in Iceberg connector. `#26374 <https://github.com/prestodb/presto/pull/26374>`_
+* Add ``CREATE TAG`` support for Iceberg. `#27113 <https://github.com/prestodb/presto/pull/27113>`_
 * Upgrade AWS Glue Client to AWS SDK v2. `#26670 <https://github.com/prestodb/presto/pull/26670>`_
 * Upgrade Avro version to 1.12.0. `#26879 <https://github.com/prestodb/presto/pull/26879>`_
 * Upgrade Iceberg version to 1.10.0. `#26879 <https://github.com/prestodb/presto/pull/26879>`_
