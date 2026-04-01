@@ -42,7 +42,7 @@ public class TestLancePlugin
         try {
             factory.create(
                     "test",
-                    ImmutableMap.of("lance.root-url", tempDir.toString()),
+                    ImmutableMap.of("lance.root", tempDir.toString()),
                     new TestingConnectorContext())
                     .shutdown();
         }

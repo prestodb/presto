@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.lance.Fragment;
 import org.testng.annotations.BeforeMethod;
@@ -54,13 +55,18 @@ public class TestLanceFragmentPageSource
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        namespaceHolder = new LanceNamespaceHolder(config);
+
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+        namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
-        tableHandle = new LanceTableHandle("default", "test_table1");
-        tablePath = namespaceHolder.getTablePath("test_table1");
-        fragments = namespaceHolder.getFragments("test_table1");
+
+        // Resolve the table handle through the namespace API
+        tablePath = namespaceHolder.getTablePath("default", "test_table1");
+        assertNotNull(tablePath);
+        List<String> tableId = namespaceHolder.getTableId("default", "test_table1");
+        tableHandle = new LanceTableHandle("default", "test_table1", tablePath, tableId);
+        fragments = namespaceHolder.getFragments(tablePath);
     }
 
     @Test

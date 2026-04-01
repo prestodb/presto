@@ -19,11 +19,34 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+/**
+ * Configuration for Lance connector.
+ * <p>
+ * This class contains only the connector-specific configuration properties.
+ * All other properties (e.g., lance.root, lance.uri, etc.) are passed through
+ * to the LanceNamespace implementation via the catalog properties map.
+ * <p>
+ * Directory namespace example:
+ * <pre>
+ * connector.name=lance
+ * lance.impl=dir
+ * lance.root=/path/to/warehouse
+ * </pre>
+ * <p>
+ * REST namespace example:
+ * <pre>
+ * connector.name=lance
+ * lance.impl=rest
+ * lance.uri=https://api.lancedb.com
+ * </pre>
+ * <p>
+ * All properties prefixed with "lance." are passed to the namespace implementation.
+ */
 public class LanceConfig
 {
     private String impl = "dir";
-    private String rootUrl = "";
     private boolean singleLevelNs = true;
+    private String parent;
     private int readBatchSize = 8192;
     private int maxRowsPerFile = 1_000_000;
     private int maxRowsPerGroup = 100_000;
@@ -36,24 +59,10 @@ public class LanceConfig
     }
 
     @Config("lance.impl")
-    @ConfigDescription("Namespace implementation: 'dir' or full class name")
+    @ConfigDescription("Namespace implementation: 'dir', 'rest', or full class name")
     public LanceConfig setImpl(String impl)
     {
         this.impl = impl;
-        return this;
-    }
-
-    @NotNull
-    public String getRootUrl()
-    {
-        return rootUrl;
-    }
-
-    @Config("lance.root-url")
-    @ConfigDescription("Lance root storage path")
-    public LanceConfig setRootUrl(String rootUrl)
-    {
-        this.rootUrl = rootUrl;
         return this;
     }
 
@@ -63,10 +72,23 @@ public class LanceConfig
     }
 
     @Config("lance.single-level-ns")
-    @ConfigDescription("Access 1st level namespace with virtual 'default' schema")
+    @ConfigDescription("Access 1st level namespace with virtual 'default' schema (no CREATE SCHEMA)")
     public LanceConfig setSingleLevelNs(boolean singleLevelNs)
     {
         this.singleLevelNs = singleLevelNs;
+        return this;
+    }
+
+    public String getParent()
+    {
+        return parent;
+    }
+
+    @Config("lance.parent")
+    @ConfigDescription("Parent namespace prefix for 3+ level namespaces (use $ as delimiter)")
+    public LanceConfig setParent(String parent)
+    {
+        this.parent = parent;
         return this;
     }
 

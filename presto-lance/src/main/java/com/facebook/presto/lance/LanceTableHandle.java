@@ -16,7 +16,9 @@ package com.facebook.presto.lance;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -27,14 +29,20 @@ public class LanceTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final String tablePath;
+    private final List<String> tableId;
 
     @JsonCreator
     public LanceTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("tablePath") String tablePath,
+            @JsonProperty("tableId") List<String> tableId)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
+        this.tableId = ImmutableList.copyOf(requireNonNull(tableId, "tableId is null"));
     }
 
     @JsonProperty
@@ -49,10 +57,22 @@ public class LanceTableHandle
         return tableName;
     }
 
+    @JsonProperty
+    public String getTablePath()
+    {
+        return tablePath;
+    }
+
+    @JsonProperty
+    public List<String> getTableId()
+    {
+        return tableId;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, tablePath);
     }
 
     @Override
@@ -66,7 +86,8 @@ public class LanceTableHandle
         }
         LanceTableHandle other = (LanceTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.tablePath, other.tablePath);
     }
 
     @Override
@@ -75,6 +96,7 @@ public class LanceTableHandle
         return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("tablePath", tablePath)
                 .toString();
     }
 }

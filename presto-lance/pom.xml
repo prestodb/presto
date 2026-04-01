@@ -117,11 +117,19 @@
                     <groupId>com.fasterxml.jackson.datatype</groupId>
                     <artifactId>jackson-datatype-jsr310</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>org.lance</groupId>
-                    <artifactId>lance-namespace-apache-client</artifactId>
-                </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.lance</groupId>
+            <artifactId>lance-namespace-core</artifactId>
+            <version>0.6.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.lance</groupId>
+            <artifactId>lance-namespace-apache-client</artifactId>
+            <version>0.6.1</version>
         </dependency>
 
         <dependency>

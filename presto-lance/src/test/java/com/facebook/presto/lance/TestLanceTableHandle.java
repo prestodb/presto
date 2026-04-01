@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -21,7 +22,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLanceTableHandle
 {
-    private final LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table");
+    private final LanceTableHandle tableHandle = new LanceTableHandle(
+            "default",
+            "test_table",
+            "file:///tmp/lance/test_table.lance",
+            ImmutableList.of("test_table"));
 
     @Test
     public void testJsonRoundTrip()
