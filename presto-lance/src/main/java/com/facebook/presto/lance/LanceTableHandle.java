@@ -72,7 +72,7 @@ public class LanceTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tablePath);
+        return Objects.hash(schemaName, tableName, tablePath, tableId);
     }
 
     @Override
@@ -87,7 +87,8 @@ public class LanceTableHandle
         LanceTableHandle other = (LanceTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
-                Objects.equals(this.tablePath, other.tablePath);
+                Objects.equals(this.tablePath, other.tablePath) &&
+                Objects.equals(this.tableId, other.tableId);
     }
 
     @Override

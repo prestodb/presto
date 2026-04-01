@@ -14,6 +14,8 @@
 package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -59,6 +61,9 @@ public class LanceNamespaceHolder
     private static final Logger log = Logger.get(LanceNamespaceHolder.class);
     public static final String DEFAULT_SCHEMA = "default";
 
+    // Default max allocation: 8 GB. Can be tuned via lance.allocator-max-bytes if needed.
+    private static final long DEFAULT_ALLOCATOR_MAX_BYTES = 8L * 1024 * 1024 * 1024;
+
     private final BufferAllocator allocator;
     private final LanceNamespace namespace;
     private final boolean singleLevelNs;
@@ -68,7 +73,7 @@ public class LanceNamespaceHolder
     @Inject
     public LanceNamespaceHolder(LanceConfig config, @LanceNamespaceProperties Map<String, String> namespaceProperties)
     {
-        this.allocator = new RootAllocator(Long.MAX_VALUE);
+        this.allocator = new RootAllocator(DEFAULT_ALLOCATOR_MAX_BYTES);
 
         // Parse namespace properties from catalog config
         String impl = config.getImpl();
@@ -84,7 +89,13 @@ public class LanceNamespaceHolder
                 }
             }
         }
-        this.namespaceStorageOptions = storageOpts;
+        this.namespaceStorageOptions = ImmutableMap.copyOf(storageOpts);
+
+        // Validate that 'root' is set for directory namespace
+        if ("dir".equals(impl) && !properties.containsKey("root")) {
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    "lance.root must be set when using lance.impl=dir");
+        }
 
         // For DirectoryNamespace, ensure default settings are applied
         if ("dir".equals(impl)) {
@@ -99,6 +110,8 @@ public class LanceNamespaceHolder
         this.singleLevelNs = config.isSingleLevelNs();
         String parent = config.getParent();
         if (parent != null && !parent.isEmpty()) {
+            // Parent uses '$' as delimiter to avoid conflicts with common path separators ('/' and '.')
+            // and namespace-level separators. Example: "org$warehouse" -> ["org", "warehouse"]
             this.parentPrefix = Optional.of(Arrays.asList(parent.split("\\$")));
         }
         else {
@@ -148,7 +161,7 @@ public class LanceNamespaceHolder
      * In single-level mode, maps to empty (root).
      * Otherwise, adds parent prefix if configured.
      */
-    public List<String> prestoSchemaToLanceNamespace(String schema)
+    List<String> prestoSchemaToLanceNamespace(String schema)
     {
         if (singleLevelNs) {
             return Collections.emptyList();
@@ -160,7 +173,7 @@ public class LanceNamespaceHolder
     /**
      * Add parent prefix for 3+ level namespaces.
      */
-    public List<String> addParentPrefix(List<String> namespaceId)
+    List<String> addParentPrefix(List<String> namespaceId)
     {
         if (!parentPrefix.isPresent()) {
             return namespaceId;
@@ -273,7 +286,7 @@ public class LanceNamespaceHolder
             DescribeTableResponse response = namespace.describeTable(request);
             Map<String, String> storageOptions = response.getStorageOptions();
             if (storageOptions != null && !storageOptions.isEmpty()) {
-                return storageOptions;
+                return ImmutableMap.copyOf(storageOptions);
             }
         }
         catch (Exception e) {
@@ -281,10 +294,10 @@ public class LanceNamespaceHolder
         }
 
         if (!namespaceStorageOptions.isEmpty()) {
-            return new HashMap<>(namespaceStorageOptions);
+            return namespaceStorageOptions;
         }
 
-        return new HashMap<>();
+        return ImmutableMap.of();
     }
 
     /**
@@ -326,8 +339,21 @@ public class LanceNamespaceHolder
         CreateEmptyTableResponse createResponse = namespace.createEmptyTable(createRequest);
         String tablePath = createResponse.getLocation();
 
-        WriteParams params = new WriteParams.Builder().build();
-        Dataset.create(allocator, tablePath, arrowSchema, params).close();
+        try {
+            WriteParams params = new WriteParams.Builder().build();
+            Dataset.create(allocator, tablePath, arrowSchema, params).close();
+        }
+        catch (Exception e) {
+            // Clean up the namespace entry if physical dataset creation fails
+            try {
+                dropTable(tableId);
+            }
+            catch (Exception dropException) {
+                log.warn(dropException, "Failed to clean up namespace entry for %s after Dataset.create failure", tableId);
+            }
+            throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                    "Failed to create dataset at " + tablePath + ": " + e.getMessage(), e);
+        }
 
         return tablePath;
     }
