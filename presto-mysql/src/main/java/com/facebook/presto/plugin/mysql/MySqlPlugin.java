@@ -25,7 +25,7 @@ public class MySqlPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new MySqlConnectorFactory("mysql", new MySqlClientModule(""), getClassLoader()));
+        return ImmutableList.of(new MySqlConnectorFactory("mysql", binder -> {}, getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()
