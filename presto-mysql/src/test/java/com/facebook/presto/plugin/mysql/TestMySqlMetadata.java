@@ -35,7 +35,6 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestMySqlMetadata
         extends AbstractTestQueryFramework
 {
