@@ -1,6 +1,6 @@
-******************************
+**************************
 Presto C++ Table Functions
-******************************
+**************************
 
 Table functions return tables and are invoked in the ``FROM`` clause of a
 query. For the SQL syntax and user-facing semantics, see :doc:`/functions/table`.

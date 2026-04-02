@@ -2,7 +2,7 @@
 Function Plugin
 ===============
 
-This page covers dynamically loaded scalar UDFs. For native table-valued
+This page covers dynamically loaded scalar UDFs. For Presto C++ table value
 function development, see :doc:`/presto_cpp/functions/table-functions`.
 
 Creating a Shared Library for UDFs
