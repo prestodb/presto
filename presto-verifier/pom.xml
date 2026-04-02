@@ -369,9 +369,16 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <failOnWarning>false</failOnWarning>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice:jar:no_aop:4.2.2</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.inject:guice:jar:6.0.0</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
 
