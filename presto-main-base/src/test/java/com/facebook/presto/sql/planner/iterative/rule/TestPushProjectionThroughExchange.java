@@ -77,6 +77,8 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testSimpleMultipleInputs()
     {
+        // Identity + constant projections are not pushed through exchange
+        // to prevent infinite loops with PullConstantProjectionAboveExchange
         tester().assertThat(new PushProjectionThroughExchange())
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
@@ -97,17 +99,7 @@ public class TestPushProjectionThroughExchange
                                     .addInputsSet(b)
                                     .singleDistributionPartitioningScheme(c)));
                 })
-                .matches(
-                        exchange(
-                                project(
-                                        values(ImmutableList.of("a")))
-                                        .withAlias("x1", expression("3")),
-                                project(
-                                        values(ImmutableList.of("b")))
-                                        .withAlias("x2", expression("3")))
-                                // verify that data originally on symbols aliased as x1 and x2 is part of exchange output
-                                .withAlias("x1")
-                                .withAlias("x2"));
+                .doesNotFire();
     }
 
     @Test

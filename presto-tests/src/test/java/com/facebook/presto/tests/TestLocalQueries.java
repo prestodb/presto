@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -188,5 +189,30 @@ public class TestLocalQueries
                 .build();
 
         assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testPullConstantProjectionAboveExchange()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "false")
+                .build();
+
+        // Basic constant projection
+        assertQuery(enabled, "SELECT nationkey, 'constant' AS label FROM nation",
+                disabled, "SELECT nationkey, 'constant' AS label FROM nation");
+
+        // Constant with join (triggers exchange in distributed mode)
+        assertQuery(enabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey",
+                disabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey");
+
+        // Multiple constants with filter
+        assertQuery(enabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1",
+                disabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1");
     }
 }
