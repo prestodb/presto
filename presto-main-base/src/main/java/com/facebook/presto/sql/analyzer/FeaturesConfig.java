@@ -343,6 +343,7 @@ public class FeaturesConfig
     private double tableScanShuffleParallelismThreshold = 0.1;
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
+    private boolean pullConstantProjectionAboveExchange;
     private String remoteFunctionNamesForFixedParallelism = "";
     private int remoteFunctionFixedParallelismTaskCount = 10;
 
@@ -3517,6 +3518,19 @@ public class FeaturesConfig
     public FeaturesConfig setSkipPushdownThroughExchangeForRemoteProjection(boolean skipPushdownThroughExchangeForRemoteProjection)
     {
         this.skipPushdownThroughExchangeForRemoteProjection = skipPushdownThroughExchangeForRemoteProjection;
+        return this;
+    }
+
+    public boolean isPullConstantProjectionAboveExchange()
+    {
+        return pullConstantProjectionAboveExchange;
+    }
+
+    @Config("optimizer.pull-constant-projection-above-exchange")
+    @ConfigDescription("Pull constant assignments in projections above remote exchanges to reduce network I/O")
+    public FeaturesConfig setPullConstantProjectionAboveExchange(boolean pullConstantProjectionAboveExchange)
+    {
+        this.pullConstantProjectionAboveExchange = pullConstantProjectionAboveExchange;
         return this;
     }
 

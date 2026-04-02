@@ -93,6 +93,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PullConstantProjectionAboveExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.PullUpExpressionInLambdaRules;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -1006,6 +1007,14 @@ public class PlanOptimizers
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
+        // Pull constant projections above remote exchanges after all other optimizers
+        // have had a chance to generate constants below exchanges
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PullConstantProjectionAboveExchange())));
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
