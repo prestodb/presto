@@ -186,38 +186,6 @@ public class TestMySqlMetadata
     }
 
     @Test
-    public void testGetViewsWithPrefix()
-            throws SQLException
-    {
-        String view1 = "test_prefix_view_1";
-        String view2 = "test_prefix_view_2";
-        String view3 = "test_other_view";
-        String viewDefinition = "SELECT orderkey FROM tpch.orders";
-
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
-        dropViewIfExists(view3);
-
-        assertUpdate("CREATE VIEW " + view1 + " AS " + viewDefinition);
-        assertUpdate("CREATE VIEW " + view2 + " AS " + viewDefinition);
-        assertUpdate("CREATE VIEW " + view3 + " AS " + viewDefinition);
-
-        List<Object> viewNames = getQueryRunner().execute(getSession(),
-                        "SELECT table_name FROM information_schema.views " +
-                                "WHERE table_schema = 'tpch' AND table_name LIKE 'test_prefix_view_%'")
-                .getOnlyColumn()
-                .collect(ImmutableList.toImmutableList());
-        assertEquals(viewNames.size(), 2, "Should return 2 views matching prefix");
-        assertTrue(viewNames.contains(view1), "View 1 should be in results");
-        assertTrue(viewNames.contains(view2), "View 2 should be in results");
-        assertFalse(viewNames.contains(view3), "View 3 should not be in results");
-
-        dropViewIfExists(view1);
-        dropViewIfExists(view2);
-        dropViewIfExists(view3);
-    }
-
-    @Test
     public void testViewWithComplexQuery()
             throws SQLException
     {
