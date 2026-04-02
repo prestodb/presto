@@ -14,6 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
@@ -53,6 +54,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -75,6 +77,7 @@ import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableSca
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithExchanges;
 import static com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsCoordinatorOnlyNode;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -99,6 +102,8 @@ import static java.util.Objects.requireNonNull;
 public abstract class BasePlanFragmenter
         extends SimplePlanRewriter<FragmentProperties>
 {
+    private static final Logger log = Logger.get(BasePlanFragmenter.class);
+
     private final Session session;
     private final Metadata metadata;
     private final PlanNodeIdAllocator idAllocator;
@@ -167,6 +172,7 @@ public abstract class BasePlanFragmenter
                 properties.getOutputOrderingScheme(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
+                properties.getOutputTransportType(),
                 Optional.of(statsAndCosts.getForSubplan(root)),
                 Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
@@ -342,10 +348,24 @@ public abstract class BasePlanFragmenter
 
         setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
+        // Use ANY (e.g. UCX) for worker-to-worker exchanges, but fall back to
+        // HTTP when a child fragment runs on the coordinator (which only speaks HTTP).
+        TransportType transportType = TransportType.HTTP;
+        boolean anyChildOnCoordinator = exchange.getSources().stream()
+                .anyMatch(PlannerUtils::containsCoordinatorOnlyNode);
+        if (!anyChildOnCoordinator) {
+            transportType = TransportType.ANY;
+        }
+        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s",
+                exchange.getId(),
+                transportType,
+                context.get().getPartitioningHandle());
+
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
             PartitioningScheme childPartitioningScheme = translateOutputLayout(partitioningScheme, exchange.getInputs().get(sourceIndex));
             FragmentProperties childProperties = new FragmentProperties(childPartitioningScheme);
+            childProperties.setOutputTransportType(transportType);
 
             // If the exchange has ordering requirements, translate them for the child fragment
             Optional<OrderingScheme> childOutputOrderingScheme = Optional.empty();
@@ -375,7 +395,8 @@ public abstract class BasePlanFragmenter
                 exchange.isEnsureSourceOrdering(),
                 exchange.getOrderingScheme(),
                 exchange.getType(),
-                exchange.getPartitioningScheme().getEncoding());
+                exchange.getPartitioningScheme().getEncoding(),
+                transportType);
     }
 
     protected void setDistributionForExchange(ExchangeNode.Type exchangeType, PartitioningScheme partitioningScheme, RewriteContext<FragmentProperties> context)
@@ -388,6 +409,8 @@ public abstract class BasePlanFragmenter
         }
     }
 
+    // Materialized exchanges write to temporary tables and are read back via table scans,
+    // so network transport type is irrelevant (defaults to HTTP).
     private PlanNode createRemoteMaterializedExchange(Metadata metadata, Session session, ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
@@ -492,9 +515,21 @@ public abstract class BasePlanFragmenter
         // Output ordering scheme for the fragment - this gets transferred to the PlanFragment
         private Optional<OrderingScheme> outputOrderingScheme = Optional.empty();
 
+        private TransportType outputTransportType = TransportType.HTTP;
+
         public FragmentProperties(PartitioningScheme partitioningScheme)
         {
             this.partitioningScheme = partitioningScheme;
+        }
+
+        public void setOutputTransportType(TransportType outputTransportType)
+        {
+            this.outputTransportType = requireNonNull(outputTransportType, "outputTransportType is null");
+        }
+
+        public TransportType getOutputTransportType()
+        {
+            return outputTransportType;
         }
 
         public void setOutputOrderingScheme(Optional<OrderingScheme> outputOrderingScheme)

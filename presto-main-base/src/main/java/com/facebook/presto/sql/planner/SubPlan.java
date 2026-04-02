@@ -15,15 +15,18 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.errorprone.annotations.Immutable;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 @Immutable
 public class SubPlan
@@ -78,6 +81,23 @@ public class SubPlan
                 .collect(toImmutableMultiset());
 
         checkState(childrenIds.containsAll(remoteSourceIds), "child fragments must include all remote source fragments (%s vs %s)", remoteSourceIds, childrenIds);
+
+        // Verify that each child fragment's outputTransportType matches the
+        // transportType on the RemoteSourceNode that pulls data from it.
+        Map<PlanFragmentId, TransportType> childOutputTransport = children.stream()
+                .collect(toMap(
+                        child -> child.getFragment().getId(),
+                        child -> child.getFragment().getOutputTransportType()));
+        for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
+            for (PlanFragmentId sourceId : remoteSource.getSourceFragmentIds()) {
+                TransportType expected = remoteSource.getTransportType();
+                TransportType actual = childOutputTransport.get(sourceId);
+                checkState(
+                        actual == null || actual == expected,
+                        "transport type mismatch for fragment %s: RemoteSourceNode says %s but child fragment says %s",
+                        sourceId, expected, actual);
+            }
+        }
 
         for (SubPlan child : children) {
             child.sanityCheck();
