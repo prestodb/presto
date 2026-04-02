@@ -141,7 +141,8 @@ public class FunctionResource
                 Optional.of("1"),
                 Optional.of(function.getSignature().getTypeVariableConstraints()),
                 Optional.ofNullable(function.getSignature().getLongVariableConstraints()),
-                Optional.empty());
+                Optional.empty(),
+                false);
     }
 
     @GET

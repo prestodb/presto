@@ -1714,6 +1714,7 @@ struct JsonBasedUdfFunctionMetadata {
   std::shared_ptr<List<TypeVariableConstraint>> typeVariableConstraints = {};
   std::shared_ptr<List<LongVariableConstraint>> longVariableConstraints = {};
   std::shared_ptr<URI> executionEndpoint = {};
+  bool isRpcFunction = {};
 };
 void to_json(json& j, const JsonBasedUdfFunctionMetadata& p);
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p);
@@ -2132,6 +2133,26 @@ struct ProjectNode : public PlanNode {
 };
 void to_json(json& j, const ProjectNode& p);
 void from_json(const json& j, ProjectNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+enum class RPCNodeStreamingMode { PER_ROW, BATCH };
+extern void to_json(json& j, const RPCNodeStreamingMode& e);
+extern void from_json(const json& j, RPCNodeStreamingMode& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct RPCNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  String functionName = {};
+  List<std::shared_ptr<RowExpression>> arguments = {};
+  List<String> argumentColumns = {};
+  VariableReferenceExpression outputVariable = {};
+  RPCNodeStreamingMode streamingMode = {};
+  Integer dispatchBatchSize = {};
+
+  RPCNode() noexcept;
+};
+void to_json(json& j, const RPCNode& p);
+void from_json(const json& j, RPCNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct Range {

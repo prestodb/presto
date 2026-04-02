@@ -3,7 +3,8 @@
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "t",
       "paramTypes": [
         "array(t)",
@@ -17,19 +18,20 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     },
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "t",
       "paramTypes": [
         "array(t)",
@@ -43,19 +45,20 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     },
     {
       "docString": "presto.default.element_at",
       "functionKind": "SCALAR",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "v",
       "paramTypes": [
         "map(k,v)",
@@ -69,21 +72,21 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"v",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "v",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         },
         {
-          "comparableRequired":false,
-          "name":"k",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "k",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     }
   ]
 }

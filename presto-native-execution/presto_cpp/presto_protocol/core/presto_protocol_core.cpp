@@ -781,6 +781,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<CallDistributedProcedureNode>(p);
     return;
   }
+  if (type == "com.facebook.presto.sql.planner.plan.RPCNode") {
+    j = *std::static_pointer_cast<RPCNode>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type PlanNode ");
 }
@@ -981,6 +985,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
       "com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode") {
     std::shared_ptr<CallDistributedProcedureNode> k =
         std::make_shared<CallDistributedProcedureNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.RPCNode") {
+    std::shared_ptr<RPCNode> k = std::make_shared<RPCNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -6841,6 +6851,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "URI",
       "executionEndpoint");
+  to_json_key(
+      j,
+      "isRpcFunction",
+      p.isRpcFunction,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "isRpcFunction");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -6935,6 +6952,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "URI",
       "executionEndpoint");
+  from_json_key(
+      j,
+      "isRpcFunction",
+      p.isRpcFunction,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "isRpcFunction");
 }
 } // namespace facebook::presto::protocol
 // dependency KeyedSubclass
@@ -9371,6 +9395,138 @@ void from_json(const json& j, ProjectNode& p) {
       "assignments");
   from_json_key(
       j, "locality", p.locality, "ProjectNode", "Locality", "locality");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<RPCNodeStreamingMode, json>
+    RPCNodeStreamingMode_enum_table[] =
+        { // NOLINT: cert-err58-cpp
+            {RPCNodeStreamingMode::PER_ROW, "PER_ROW"},
+            {RPCNodeStreamingMode::BATCH, "BATCH"}};
+void to_json(json& j, const RPCNodeStreamingMode& e) {
+  static_assert(
+      std::is_enum<RPCNodeStreamingMode>::value,
+      "RPCNodeStreamingMode must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RPCNodeStreamingMode_enum_table),
+      std::end(RPCNodeStreamingMode_enum_table),
+      [e](const std::pair<RPCNodeStreamingMode, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(RPCNodeStreamingMode_enum_table))
+           ? it
+           : std::begin(RPCNodeStreamingMode_enum_table))
+          ->second;
+}
+void from_json(const json& j, RPCNodeStreamingMode& e) {
+  static_assert(
+      std::is_enum<RPCNodeStreamingMode>::value,
+      "RPCNodeStreamingMode must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RPCNodeStreamingMode_enum_table),
+      std::end(RPCNodeStreamingMode_enum_table),
+      [&j](const std::pair<RPCNodeStreamingMode, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(RPCNodeStreamingMode_enum_table))
+           ? it
+           : std::begin(RPCNodeStreamingMode_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+RPCNode::RPCNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.RPCNode";
+}
+
+void to_json(json& j, const RPCNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.RPCNode";
+  to_json_key(j, "id", p.id, "RPCNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "RPCNode", "PlanNode", "source");
+  to_json_key(
+      j, "functionName", p.functionName, "RPCNode", "String", "functionName");
+  to_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "RPCNode",
+      "List<std::shared_ptr<RowExpression>>",
+      "arguments");
+  to_json_key(
+      j,
+      "argumentColumns",
+      p.argumentColumns,
+      "RPCNode",
+      "List<String>",
+      "argumentColumns");
+  to_json_key(
+      j,
+      "outputVariable",
+      p.outputVariable,
+      "RPCNode",
+      "VariableReferenceExpression",
+      "outputVariable");
+  to_json_key(
+      j,
+      "streamingMode",
+      p.streamingMode,
+      "RPCNode",
+      "RPCNodeStreamingMode",
+      "streamingMode");
+  to_json_key(
+      j,
+      "dispatchBatchSize",
+      p.dispatchBatchSize,
+      "RPCNode",
+      "Integer",
+      "dispatchBatchSize");
+}
+
+void from_json(const json& j, RPCNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "RPCNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "RPCNode", "PlanNode", "source");
+  from_json_key(
+      j, "functionName", p.functionName, "RPCNode", "String", "functionName");
+  from_json_key(
+      j,
+      "arguments",
+      p.arguments,
+      "RPCNode",
+      "List<std::shared_ptr<RowExpression>>",
+      "arguments");
+  from_json_key(
+      j,
+      "argumentColumns",
+      p.argumentColumns,
+      "RPCNode",
+      "List<String>",
+      "argumentColumns");
+  from_json_key(
+      j,
+      "outputVariable",
+      p.outputVariable,
+      "RPCNode",
+      "VariableReferenceExpression",
+      "outputVariable");
+  from_json_key(
+      j,
+      "streamingMode",
+      p.streamingMode,
+      "RPCNode",
+      "RPCNodeStreamingMode",
+      "streamingMode");
+  from_json_key(
+      j,
+      "dispatchBatchSize",
+      p.dispatchBatchSize,
+      "RPCNode",
+      "Integer",
+      "dispatchBatchSize");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

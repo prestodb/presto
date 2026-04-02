@@ -167,6 +167,7 @@ AbstractClasses:
       - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
       - { name: MergeJoinNode,            key: .MergeJoinNode }
       - { name: WindowNode,               key: .WindowNode }
+      - { name: RPCNode,              key: com.facebook.presto.sql.planner.plan.RPCNode }
 
   RowExpression:
     super: JsonEncodedSubclass
