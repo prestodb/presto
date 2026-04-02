@@ -32,6 +32,7 @@ import java.util.List;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.tpch.TpchTable.ORDERS;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -193,17 +194,27 @@ public class TestMySqlMetadata
         String view3 = "test_other_view";
         String viewDefinition = "SELECT orderkey FROM tpch.orders";
 
-        dropViewIfExists(new String[]{view1, view2, view3});
+        dropViewIfExists(view1);
+        dropViewIfExists(view2);
+        dropViewIfExists(view3);
 
         assertUpdate("CREATE VIEW " + view1 + " AS " + viewDefinition);
         assertUpdate("CREATE VIEW " + view2 + " AS " + viewDefinition);
         assertUpdate("CREATE VIEW " + view3 + " AS " + viewDefinition);
 
-        assertTrue(viewExistsInMySQL(view1), "View 1 should be in results");
-        assertTrue(viewExistsInMySQL(view2), "View 2 should be in results");
-        assertTrue(viewExistsInMySQL(view3), "View 3 should exist");
+        List<Object> viewNames = getQueryRunner().execute(getSession(),
+                        "SELECT table_name FROM information_schema.views " +
+                                "WHERE table_schema = 'tpch' AND table_name LIKE 'test_prefix_view_%'")
+                .getOnlyColumn()
+                .collect(ImmutableList.toImmutableList());
+        assertEquals(viewNames.size(), 2, "Should return 2 views matching prefix");
+        assertTrue(viewNames.contains(view1), "View 1 should be in results");
+        assertTrue(viewNames.contains(view2), "View 2 should be in results");
+        assertFalse(viewNames.contains(view3), "View 3 should not be in results");
 
-        dropViewIfExists(new String[]{view1, view2, view3});
+        dropViewIfExists(view1);
+        dropViewIfExists(view2);
+        dropViewIfExists(view3);
     }
 
     @Test
