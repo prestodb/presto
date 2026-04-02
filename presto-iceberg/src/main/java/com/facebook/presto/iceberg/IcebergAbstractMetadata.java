@@ -1507,7 +1507,7 @@ public abstract class IcebergAbstractMetadata
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
         if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.");
+            throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.");
         }
         validateTableMode(session, icebergTable);
 
