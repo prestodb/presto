@@ -186,8 +186,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.github.imsayari404.resolver</groupId>
             <artifactId>resolver</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- test dependencies-->
