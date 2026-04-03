@@ -27,9 +27,11 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.NotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
@@ -48,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -329,5 +332,44 @@ public class MongoMetadata
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return mongoClientConfig.isCaseSensitiveNameMatchingEnabled() ? identifier : identifier.toLowerCase(ROOT);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        // Presto-style SQL views are not supported, MongoDB views require an
+        // aggregation pipeline which can't be derived from Presto's SQL string
+        throw new PrestoException(NOT_SUPPORTED,
+                "Creating views via SQL is not supported by the MongoDB connector. " +
+                        "Create the view natively in MongoDB and it will " +
+                        "be automatically discoverable as a table in Presto.");
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        mongoSession.dropView(viewName);
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        mongoSession.renameView(viewName, newViewName);
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
+        for (String schema : schemaName.map(ImmutableList::of).orElseGet(() -> (ImmutableList<String>) listSchemaNames(session))) {
+            views.addAll(mongoSession.listViews(schema));
+        }
+        return views.build();
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return ImmutableMap.of();
     }
 }
