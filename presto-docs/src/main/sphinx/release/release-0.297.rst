@@ -4,7 +4,7 @@ Release 0.297
 
 **Breaking Changes**
 ====================
-* Add support for procedure calls in access control. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
+* Add support for procedure calls in access control. For existing access controls (file-based, ranger, and sql-standard), procedure calls are restricted by default. See :doc:`/connector/hive-security` for details on how to allow them. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
 
 **Highlights**
