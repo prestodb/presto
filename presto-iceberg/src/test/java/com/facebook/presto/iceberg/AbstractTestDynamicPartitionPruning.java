@@ -934,17 +934,14 @@ public abstract class AbstractTestDynamicPartitionPruning
 
             RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
 
-            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 0,
-                    "Non-partitioned probe: no discriminating columns, filter not waited for");
+            // All columns are now relevant for file-level min/max filtering,
+            // so the filter is waited for and pushed into the Iceberg scan.
+            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                    "Non-partitioned probe: filter should be pushed for file-level min/max filtering");
             long dppSplitsProcessed = getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_PROCESSED);
-            assertEquals(dppSplitsProcessed, unpartitionedTotalFiles,
-                    format("Non-partitioned probe: should process all files without filter: %d (DPP) vs %d (total)",
+            assertTrue(dppSplitsProcessed <= unpartitionedTotalFiles,
+                    format("Non-partitioned probe: should process at most all files: %d (DPP) vs %d (total)",
                             dppSplitsProcessed, unpartitionedTotalFiles));
-            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER), 0,
-                    "Non-partitioned probe: dynamicFilterApplied is true (empty relevant set completes immediately)");
-
-            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_WAIT_TIME_NANOS), 0,
-                    "Non-partitioned probe: wait time should be 0 (no relevant filters)");
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_orders_unpartitioned");
@@ -1534,8 +1531,8 @@ public abstract class AbstractTestDynamicPartitionPruning
             assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
                     "Unpartitioned no-SC: short-circuit should NOT fire (no partition-level domain)");
 
-            assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN), 0,
-                    "Unpartitioned no-SC: no discriminating columns, filter not waited for");
+            assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                    "Unpartitioned no-SC: filter should be pushed for file-level min/max filtering");
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_unpart_sc");
@@ -1562,14 +1559,19 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertTrue(hasFavorableRatio,
                 format("Cost-based extended metrics should emit PLAN_CREATED_FAVORABLE_RATIO for customer_id. All metric keys: %s",
                         runtimeStats.getMetrics().keySet()));
-        assertEquals(runtimeStats.getMetrics().get(metricKey).getSum(), 1,
-                format("Plan decision metric %s should have value 1", metricKey));
+        // Iterative optimizer rules (DetermineJoinDistributionType, ReorderJoins) may
+        // both emit this metric, so allow sum >= 1 rather than exactly 1.
+        assertTrue(runtimeStats.getMetrics().get(metricKey).getSum() >= 1,
+                format("Plan decision metric %s should have value >= 1, got %d", metricKey,
+                        (long) runtimeStats.getMetrics().get(metricKey).getSum()));
 
         assertEquals(getMetricValue(runtimeStats, DYNAMIC_FILTER_SHORT_CIRCUITED), 0,
                 "Selective filter should NOT trigger short-circuit");
 
+        // Match exact column name with brackets to avoid matching renamed
+        // variables like customer_id_0 from ReorderJoins.
         boolean hasSkipped = runtimeStats.getMetrics().keySet().stream()
-                .anyMatch(k -> k.contains("customer_id") && k.contains("Skipped"));
+                .anyMatch(k -> k.contains("[customer_id]") && k.contains("Skipped"));
         assertFalse(hasSkipped,
                 format("No PLAN_SKIPPED metrics should be emitted for customer_id when filter is created. Keys: %s",
                         runtimeStats.getMetrics().keySet()));
@@ -1670,20 +1672,12 @@ public abstract class AbstractTestDynamicPartitionPruning
                     "Non-discriminating column: DPP results must match no-DPP results");
 
             long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
-            assertTrue(skipped >= 1,
-                    format("Column selectivity: status column should be skipped, got skipped=%d", skipped));
+            assertEquals(skipped, 0,
+                    format("Column selectivity: all columns are relevant for file-level filtering, got skipped=%d", skipped));
 
             long relevant = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_RELEVANT);
-            assertEquals(relevant, 0,
-                    format("Column selectivity: no columns should be relevant when join is on non-partition column, got relevant=%d", relevant));
-
-            long waitTimeNanos = getMetricValue(runtimeStats, DYNAMIC_FILTER_WAIT_TIME_NANOS);
-            assertEquals(waitTimeNanos, 0,
-                    format("Non-discriminating column: wait time should be 0 (no relevant filters to wait for), got %d ns", waitTimeNanos));
-
-            long splitsBeforeFilter = getMetricValue(runtimeStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER);
-            assertEquals(splitsBeforeFilter, 0,
-                    format("Non-discriminating column: splitsBeforeFilter should be 0, got %d", splitsBeforeFilter));
+            assertTrue(relevant >= 1,
+                    format("Column selectivity: status column should be relevant for file-level min/max filtering, got relevant=%d", relevant));
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_enriched");
@@ -1753,8 +1747,8 @@ public abstract class AbstractTestDynamicPartitionPruning
             long skipped = getMetricValue(runtimeStats, DYNAMIC_FILTER_COLUMNS_SKIPPED);
             assertTrue(relevant >= 1,
                     format("Mixed: customer_id should be relevant, got relevant=%d", relevant));
-            assertTrue(skipped >= 1,
-                    format("Mixed: status should be skipped, got skipped=%d", skipped));
+            assertEquals(skipped, 0,
+                    format("Mixed: all columns are relevant for file-level filtering, got skipped=%d", skipped));
         }
         finally {
             executeTableDdl("DROP TABLE IF EXISTS fact_mixed");
@@ -1762,6 +1756,7 @@ public abstract class AbstractTestDynamicPartitionPruning
             executeTableDdl("DROP TABLE IF EXISTS dim_mixed_status");
         }
     }
+
     @Test(invocationCount = 10)
     public void testWarmupScanBehavior()
     {

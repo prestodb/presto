@@ -34,12 +34,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SortField;
-import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
@@ -210,7 +207,7 @@ public class IcebergSplitSource
 
         if (dynamicFilterActive && !dynamicFilter.isComplete()) {
             Set<ColumnHandle> relevant = computeRelevantFilterColumns(
-                    dynamicFilter.getPendingFilterColumns(), tableScan);
+                    dynamicFilter.getPendingFilterColumns());
             this.relevantFilterColumns = Optional.of(relevant);
         }
         else {
@@ -508,53 +505,24 @@ public class IcebergSplitSource
     }
 
     /**
-     * Determines which pending dynamic filter columns are discriminating for this table.
-     * A column is discriminating if it is a partition column (any transform) or a sort column
-     * in the table's sort order.
+     * Determines which pending dynamic filter columns are relevant for this table.
+     * All columns with pending dynamic filters are considered relevant because
+     * Iceberg's InclusiveMetricsEvaluator can prune data files using file-level
+     * column statistics (min/max bounds) for any column, not just partition or
+     * sort columns.
      */
     private Set<ColumnHandle> computeRelevantFilterColumns(
-            Set<ColumnHandle> pendingFilterColumns,
-            TableScan scan)
+            Set<ColumnHandle> pendingFilterColumns)
     {
         if (pendingFilterColumns.isEmpty()) {
             return ImmutableSet.of();
         }
 
-        ImmutableSet.Builder<Integer> discriminatingFieldIds = ImmutableSet.builder();
-
-        // All partition columns (any transform: identity, bucket, truncate, year, etc.)
-        for (PartitionSpec spec : scan.table().specs().values()) {
-            for (PartitionField field : spec.fields()) {
-                discriminatingFieldIds.add(field.sourceId());
-            }
-        }
-
-        // Sort columns
-        SortOrder sortOrder = scan.table().sortOrder();
-        if (sortOrder != null && !sortOrder.isUnsorted()) {
-            for (SortField field : sortOrder.fields()) {
-                discriminatingFieldIds.add(field.sourceId());
-            }
-        }
-
-        Set<Integer> discriminatingIds = discriminatingFieldIds.build();
-        int totalPending = pendingFilterColumns.size();
-
-        ImmutableSet.Builder<ColumnHandle> relevant = ImmutableSet.builder();
-        for (ColumnHandle handle : pendingFilterColumns) {
-            if (handle instanceof IcebergColumnHandle) {
-                IcebergColumnHandle icebergHandle = (IcebergColumnHandle) handle;
-                if (discriminatingIds.contains(icebergHandle.getId())) {
-                    relevant.add(handle);
-                }
-            }
-        }
-
-        Set<ColumnHandle> result = relevant.build();
+        Set<ColumnHandle> result = ImmutableSet.copyOf(pendingFilterColumns);
 
         if (extendedMetrics) {
             runtimeStats.addMetricValue(DYNAMIC_FILTER_COLUMNS_RELEVANT, NONE, result.size());
-            runtimeStats.addMetricValue(DYNAMIC_FILTER_COLUMNS_SKIPPED, NONE, totalPending - result.size());
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_COLUMNS_SKIPPED, NONE, 0);
         }
 
         return result;
