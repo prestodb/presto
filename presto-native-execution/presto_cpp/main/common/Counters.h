@@ -133,6 +133,8 @@ constexpr std::string_view kCounterNumBlockedYieldDrivers{
     "presto_cpp.num_blocked_yield_drivers"};
 constexpr std::string_view kCounterNumStuckDrivers{
     "presto_cpp.num_stuck_drivers"};
+constexpr std::string_view kCounterNumDriverThreads{
+    "presto_cpp.num_driver_threads"};
 
 /// Export 100 if worker is overloaded in terms of memory, 0 otherwise.
 constexpr std::string_view kCounterOverloadedMem{"presto_cpp.overloaded_mem"};

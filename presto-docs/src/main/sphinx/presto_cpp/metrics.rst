@@ -10,8 +10,8 @@ Presto C++ Runtime Metrics
 Overview
 ========
 
-Presto C++ workers expose various runtime metrics that can be collected and monitored when 
-``runtime-metrics-collection-enabled`` is set to true. These metrics are available through the 
+Presto C++ workers expose various runtime metrics that can be collected and monitored when
+``runtime-metrics-collection-enabled`` is set to true. These metrics are available through the
 ``GET /v1/info/metrics`` endpoint in Prometheus data format.
 
 For information on enabling metrics collection, see :doc:`features`.
@@ -368,6 +368,12 @@ Driver Blocking Reasons
 * **Type:** gauge
 * **Description:** Number of drivers that appear to be stuck and not making progress.
 
+``presto_cpp.num_driver_threads``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** gauge
+* **Description:** Number of driver CPU threads in the executor thread pool.
+
 Worker Overload Metrics
 =======================
 
@@ -488,7 +494,7 @@ Context Switch Metrics
 Hive Connector Metrics
 ======================
 
-These metrics track the performance of the Hive connector's file handle cache. The metrics include 
+These metrics track the performance of the Hive connector's file handle cache. The metrics include
 a placeholder ``{}`` in their name which is replaced with the connector name at runtime.
 
 File Handle Cache Metrics
@@ -541,7 +547,7 @@ File Handle Cache Metrics
 Thread Pool Metrics
 ===================
 
-These metrics track the state of various thread pools. The metrics include a placeholder ``{}`` 
+These metrics track the state of various thread pools. The metrics include a placeholder ``{}``
 in their name which is replaced with the thread pool name at runtime.
 
 ``presto_cpp.{pool}.num_threads``
