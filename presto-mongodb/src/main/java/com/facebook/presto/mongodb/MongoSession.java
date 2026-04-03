@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -669,5 +670,30 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void createView()
+    {
+
+    }
+
+    public void renameView()
+    {
+
+    }
+
+    public void dropView()
+    {
+
+    }
+
+    public List<SchemaTableName> listViews()
+    {
+        return null;
+    }
+
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews()
+    {
+        return null;
     }
 }
