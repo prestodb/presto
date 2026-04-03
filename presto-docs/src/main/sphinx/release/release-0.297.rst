@@ -51,6 +51,8 @@ _______________
 * Add materialized CTE support for single node execution. `#26794 <https://github.com/prestodb/presto/pull/26794>`_
 * Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over equi-join key pairs based on join type, enabling bucketed join optimizations for tool-generated queries. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
 * Add optimizer rule to pre-aggregate data before GroupId node in grouping sets queries, reducing row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
+* Add optimizer rule ``SimplifyAggregationsOverConstant`` that simplifies aggregations over constant inputs (MIN, MAX, ARBITRARY, APPROX_DISTINCT) to constants. Controlled by the ``simplify_aggregations_over_constant`` session property (disabled by default). `#27246 <https://github.com/prestodb/presto/pull/27246>`_
+* Add optimizer rule ``PushSemiJoinThroughUnion`` that pushes a ``SemiJoinNode``, along with the underlying ``ProjectNode``, through a ``UnionNode``. Controlled by the ``optimizer.push-semi-join-through-union`` configuration property or the ``push_semi_join_through_union`` session property (disabled by default). `#27176 <https://github.com/prestodb/presto/pull/27176>`_
 * Add options to control the number of tasks for remote project node. `#27044 <https://github.com/prestodb/presto/pull/27044>`_
 * Add options to force shuffle table scan input if the number of files to be scanned is small. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
 * Add options to skip projection pushdown through exchange rule. `#26943 <https://github.com/prestodb/presto/pull/26943>`_
@@ -73,6 +75,8 @@ ______________________________________
 * Add Window filter pushdown in native engine for ``rank`` and ``dense_rank`` functions. Use session property ``optimizer.optimize-top-n-rank`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
 * Add TextReader support for tables in ``TEXTFILE`` format. `#25995 <https://github.com/prestodb/presto/pull/25995>`_
 * Add ``native_max_target_file_size`` session property to control the maximum target file size for writers. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. See :ref:`connector/hive:hive session properties`. `#27054 <https://github.com/prestodb/presto/pull/27054>`_
+* Add ``native_aggregation_compaction_bytes_threshold`` and ``native_aggregation_compaction_unused_memory_ratio`` session properties to control string compaction during global aggregation. `#26874 <https://github.com/prestodb/presto/pull/26874>`_
+* Add ``native_merge_join_output_batch_start_size`` session property to control the initial output batch size for merge joins, with optional dynamic adjustment based on observed row sizes (disabled by default). `#27086 <https://github.com/prestodb/presto/pull/27086>`_
 * Add a native expression optimizer for optimizing expressions in the sidecar. `#24602 <https://github.com/prestodb/presto/pull/24602>`_
 * Add support for ``NativeFunctionHandle`` parsing. `#26948 <https://github.com/prestodb/presto/pull/26948>`_
 * Add worker uptime metric ``presto_cpp.worker_runtime_uptime_secs`` to track worker process runtime. `#26979 <https://github.com/prestodb/presto/pull/26979>`_
