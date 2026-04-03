@@ -20,7 +20,6 @@ import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -63,21 +62,17 @@ public class DynamicFilterPusher
             String filterId,
             PlanNodeId scanNodeId,
             JoinDynamicFilter joinFilter,
-            SqlStageExecution probeStageExecution,
-            Optional<String> columnNameOverride)
+            SqlStageExecution probeStageExecution)
     {
         String resolvedKey = filterId + ":" + scanNodeId;
 
         joinFilter.onFullyResolved((resolvedFilterId, constraint) -> {
-            TupleDomain<String> pushConstraint = columnNameOverride
-                    .map(override -> translateConstraintColumn(constraint, joinFilter.getColumnName(), override))
-                    .orElse(constraint);
-            if (pushConstraint.isAll()) {
+            if (constraint.isAll()) {
                 return;
             }
-            resolvedFilters.put(resolvedKey, new ResolvedFilter(scanNodeId, pushConstraint));
+            resolvedFilters.put(resolvedKey, new ResolvedFilter(scanNodeId, constraint));
             for (RemoteTask task : probeStageExecution.getAllTasks()) {
-                pushToTask(task, scanNodeId, resolvedFilterId, pushConstraint);
+                pushToTask(task, scanNodeId, resolvedFilterId, constraint);
             }
         });
 
@@ -87,14 +82,6 @@ public class DynamicFilterPusher
                 pushToTask(task, resolved.scanNodeId, filterId, resolved.constraint);
             }
         });
-    }
-
-    private static TupleDomain<String> translateConstraintColumn(
-            TupleDomain<String> constraint,
-            String fromColumn,
-            String toColumn)
-    {
-        return constraint.transform(col -> col.equals(fromColumn) ? toColumn : col);
     }
 
     private void pushToTask(RemoteTask task, PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint)

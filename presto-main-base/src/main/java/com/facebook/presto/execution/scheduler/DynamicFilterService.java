@@ -42,11 +42,6 @@ public class DynamicFilterService
     // fragment via cross-fragment matching. Registered by parent fragments when their JoinNode's
     // probe child is a RemoteSourceNode pointing to the target fragment.
     private final ConcurrentMap<QueryId, ConcurrentMap<PlanFragmentId, Set<String>>> probeFragmentFilters = new ConcurrentHashMap<>();
-    // queryId -> fragmentId -> filterId -> translated column name (for transitive propagation across fragments)
-    private final ConcurrentMap<QueryId, ConcurrentMap<PlanFragmentId, ConcurrentMap<String, String>>> fragmentFilterColumnTranslations = new ConcurrentHashMap<>();
-    // queryId -> scanNodeId -> filterId -> local column name (for transitive propagation within a fragment)
-    private final ConcurrentMap<QueryId, ConcurrentMap<PlanNodeId, ConcurrentMap<String, String>>> scanFilterColumnOverrides = new ConcurrentHashMap<>();
-
     private final DynamicFilterStats stats;
 
     public DynamicFilterService()
@@ -88,8 +83,6 @@ public class DynamicFilterService
         filters.remove(queryId);
         scanToFilterIds.remove(queryId);
         probeFragmentFilters.remove(queryId);
-        scanFilterColumnOverrides.remove(queryId);
-        fragmentFilterColumnTranslations.remove(queryId);
     }
 
     public void registerScanFilterMapping(QueryId queryId, PlanNodeId scanNodeId, Set<String> filterIds)
@@ -166,66 +159,6 @@ public class DynamicFilterService
         }
         Set<String> filterIds = queryProbeFilters.get(fragmentId);
         return filterIds != null ? filterIds : ImmutableSet.of();
-    }
-
-    public void registerScanFilterColumnOverride(QueryId queryId, PlanNodeId scanNodeId, String filterId, String localColumnName)
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(scanNodeId, "scanNodeId is null");
-        requireNonNull(filterId, "filterId is null");
-        requireNonNull(localColumnName, "localColumnName is null");
-
-        scanFilterColumnOverrides
-                .computeIfAbsent(queryId, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(scanNodeId, k -> new ConcurrentHashMap<>())
-                .putIfAbsent(filterId, localColumnName);
-    }
-
-    public Optional<String> getScanFilterColumnOverride(QueryId queryId, PlanNodeId scanNodeId, String filterId)
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(scanNodeId, "scanNodeId is null");
-        requireNonNull(filterId, "filterId is null");
-
-        ConcurrentMap<PlanNodeId, ConcurrentMap<String, String>> queryScanOverrides = scanFilterColumnOverrides.get(queryId);
-        if (queryScanOverrides == null) {
-            return Optional.empty();
-        }
-        ConcurrentMap<String, String> scanOverrides = queryScanOverrides.get(scanNodeId);
-        if (scanOverrides == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(scanOverrides.get(filterId));
-    }
-
-    public void registerFragmentFilterColumnTranslation(QueryId queryId, PlanFragmentId fragmentId, String filterId, String translatedColumnName)
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(fragmentId, "fragmentId is null");
-        requireNonNull(filterId, "filterId is null");
-        requireNonNull(translatedColumnName, "translatedColumnName is null");
-
-        fragmentFilterColumnTranslations
-                .computeIfAbsent(queryId, k -> new ConcurrentHashMap<>())
-                .computeIfAbsent(fragmentId, k -> new ConcurrentHashMap<>())
-                .putIfAbsent(filterId, translatedColumnName);
-    }
-
-    public Optional<String> getFragmentFilterColumnTranslation(QueryId queryId, PlanFragmentId fragmentId, String filterId)
-    {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(fragmentId, "fragmentId is null");
-        requireNonNull(filterId, "filterId is null");
-
-        ConcurrentMap<PlanFragmentId, ConcurrentMap<String, String>> queryTranslations = fragmentFilterColumnTranslations.get(queryId);
-        if (queryTranslations == null) {
-            return Optional.empty();
-        }
-        ConcurrentMap<String, String> fragmentTranslations = queryTranslations.get(fragmentId);
-        if (fragmentTranslations == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(fragmentTranslations.get(filterId));
     }
 
     public DynamicFilterStats getStats()

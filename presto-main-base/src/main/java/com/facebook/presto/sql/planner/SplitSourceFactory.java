@@ -93,7 +93,6 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxSize;
 import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxWaitTime;
 import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
@@ -215,11 +214,8 @@ public class SplitSourceFactory
         Set<String> crossFragmentFilterIds = dynamicFilterService.getProbeFragmentFilterIds(queryId, fragment.getId());
         for (String filterId : crossFragmentFilterIds) {
             dynamicFilterService.getFilter(queryId, filterId).ifPresent(joinFilter -> {
-                String probeColumn = dynamicFilterService.getFragmentFilterColumnTranslation(
-                        queryId, fragment.getId(), filterId)
-                        .orElse(joinFilter.getColumnName());
-                if (!probeColumn.isEmpty()) {
-                    crossFragmentFilterColumns.computeIfAbsent(probeColumn, k -> new HashSet<>()).add(filterId);
+                if (!joinFilter.getColumnName().isEmpty()) {
+                    crossFragmentFilterColumns.computeIfAbsent(joinFilter.getColumnName(), k -> new HashSet<>()).add(filterId);
                 }
             });
         }
@@ -234,11 +230,6 @@ public class SplitSourceFactory
             for (PlanFragmentId probeChildFragId : probeChildFragmentIds) {
                 dynamicFilterService.registerProbeFragmentFilter(queryId, probeChildFragId, crossFragmentFilterIds);
             }
-        }
-
-        // Step 3b: Propagate filters transitively through INNER join equi-clauses.
-        if (!crossFragmentFilterColumns.isEmpty()) {
-            propagateFiltersThroughInnerJoins(fragment.getRoot(), crossFragmentFilterColumns, queryId);
         }
 
         if (!crossFragmentFilterColumns.isEmpty()) {
@@ -268,63 +259,6 @@ public class SplitSourceFactory
             PlanNodeId scanNodeId = entry.getKey();
             Map<String, String> filterIdToLocalColumn = entry.getValue();
             dynamicFilterService.registerScanFilterMapping(queryId, scanNodeId, filterIdToLocalColumn.keySet());
-
-            for (Map.Entry<String, String> filterEntry : filterIdToLocalColumn.entrySet()) {
-                String filterId = filterEntry.getKey();
-                String localColumnName = filterEntry.getValue();
-                dynamicFilterService.getFilter(queryId, filterId).ifPresent(joinFilter -> {
-                    if (!localColumnName.equals(joinFilter.getColumnName())) {
-                        dynamicFilterService.registerScanFilterColumnOverride(queryId, scanNodeId, filterId, localColumnName);
-                    }
-                });
-            }
-        }
-    }
-
-    /**
-     * Propagates cross-fragment filters transitively through INNER join equi-clauses
-     * to child fragments on the other side of each matching clause.
-     */
-    private void propagateFiltersThroughInnerJoins(PlanNode node, Map<String, Set<String>> filterColumns, QueryId queryId)
-    {
-        if (node instanceof JoinNode) {
-            JoinNode joinNode = (JoinNode) node;
-            if (joinNode.getType() == INNER) {
-                for (EquiJoinClause clause : joinNode.getCriteria()) {
-                    String leftName = clause.getLeft().getName();
-                    String rightName = clause.getRight().getName();
-
-                    Set<String> leftFilterIds = filterColumns.get(leftName);
-                    if (leftFilterIds != null && !leftFilterIds.isEmpty()) {
-                        propagateToChildFragments(joinNode.getRight(), leftFilterIds, rightName, queryId);
-                    }
-
-                    Set<String> rightFilterIds = filterColumns.get(rightName);
-                    if (rightFilterIds != null && !rightFilterIds.isEmpty()) {
-                        propagateToChildFragments(joinNode.getLeft(), rightFilterIds, leftName, queryId);
-                    }
-                }
-            }
-        }
-        for (PlanNode child : node.getSources()) {
-            propagateFiltersThroughInnerJoins(child, filterColumns, queryId);
-        }
-    }
-
-    private void propagateToChildFragments(PlanNode node, Set<String> filterIds, String translatedColumnName, QueryId queryId)
-    {
-        if (node instanceof RemoteSourceNode) {
-            RemoteSourceNode remoteSource = (RemoteSourceNode) node;
-            for (PlanFragmentId fragmentId : remoteSource.getSourceFragmentIds()) {
-                dynamicFilterService.registerProbeFragmentFilter(queryId, fragmentId, filterIds);
-                for (String filterId : filterIds) {
-                    dynamicFilterService.registerFragmentFilterColumnTranslation(queryId, fragmentId, filterId, translatedColumnName);
-                }
-            }
-            return;
-        }
-        for (PlanNode child : node.getSources()) {
-            propagateToChildFragments(child, filterIds, translatedColumnName, queryId);
         }
     }
 
@@ -456,10 +390,7 @@ public class SplitSourceFactory
                     Map<String, ColumnHandle> columnNameToHandle = new HashMap<>();
                     for (String filterId : filterIds) {
                         dynamicFilterService.getFilter(session.getQueryId(), filterId).ifPresent(joinFilter -> {
-                            String localColumn = dynamicFilterService.getScanFilterColumnOverride(
-                                    session.getQueryId(), node.getId(), filterId)
-                                    .orElse(joinFilter.getColumnName());
-                            ColumnHandle handle = variableNameToHandle.get(localColumn);
+                            ColumnHandle handle = variableNameToHandle.get(joinFilter.getColumnName());
                             if (handle != null) {
                                 matchingFilters.add(joinFilter);
                                 columnNameToHandle.put(joinFilter.getColumnName(), handle);
@@ -795,8 +726,7 @@ public class SplitSourceFactory
 
     /**
      * Matches dynamic filter IDs to table scans by tracing filter column names through the plan tree.
-     * Returns {@code scanNodeId -> (filterId -> localColumnName)}. For INNER joins, expands filter
-     * targets transitively through equi-join clauses.
+     * Returns {@code scanNodeId -> (filterId -> localColumnName)}.
      */
     private static class FilterToScanMatcher
             extends InternalPlanVisitor<Map<PlanNodeId, Map<String, String>>, Map<String, Set<String>>>
@@ -832,31 +762,6 @@ public class SplitSourceFactory
                 }
             }
             return node.getSource().accept(this, childContext);
-        }
-
-        @Override
-        public Map<PlanNodeId, Map<String, String>> visitJoin(JoinNode node, Map<String, Set<String>> filterColumnToFilterIds)
-        {
-            Map<String, Set<String>> expandedFilters = new HashMap<>(filterColumnToFilterIds);
-            if (node.getType() == INNER) {
-                for (EquiJoinClause clause : node.getCriteria()) {
-                    String leftName = clause.getLeft().getName();
-                    String rightName = clause.getRight().getName();
-                    Set<String> leftFilters = filterColumnToFilterIds.get(leftName);
-                    Set<String> rightFilters = filterColumnToFilterIds.get(rightName);
-                    if (leftFilters != null) {
-                        expandedFilters.computeIfAbsent(rightName, k -> new HashSet<>()).addAll(leftFilters);
-                    }
-                    if (rightFilters != null) {
-                        expandedFilters.computeIfAbsent(leftName, k -> new HashSet<>()).addAll(rightFilters);
-                    }
-                }
-            }
-
-            ImmutableMap.Builder<PlanNodeId, Map<String, String>> result = ImmutableMap.builder();
-            result.putAll(node.getLeft().accept(this, expandedFilters));
-            result.putAll(node.getRight().accept(this, expandedFilters));
-            return result.build();
         }
 
         @Override

@@ -215,8 +215,7 @@ public class SectionExecutionFactory
                     for (String filterId : filterIds) {
                         dynamicFilterService.getFilter(queryId, filterId)
                                 .ifPresent(joinFilter -> {
-                                    java.util.Optional<String> columnOverride = dynamicFilterService.getScanFilterColumnOverride(queryId, scanNodeId, filterId);
-                                    pusher.startPushing(filterId, scanNodeId, joinFilter, stageExecution, columnOverride);
+                                    pusher.startPushing(filterId, scanNodeId, joinFilter, stageExecution);
                                 });
                     }
                 }
