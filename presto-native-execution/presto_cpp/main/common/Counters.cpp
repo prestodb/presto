@@ -105,6 +105,7 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterOverloadedCpu, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOverloaded, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumDriverThreads, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterTaskPlannedTimeMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterOverloadedDurationSec, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
