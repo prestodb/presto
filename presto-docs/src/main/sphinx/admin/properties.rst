@@ -100,6 +100,17 @@ To avoid these problems:
 
 The corresponding session property is :ref:`admin/properties-session:\`\`check_access_control_on_utilized_columns_only\`\``.
 
+``always-analyze-create-table-query-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, ``CREATE TABLE AS SELECT IF NOT EXISTS`` statements that target an existing table will still
+analyze the inner ``SELECT`` query.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`always_analyze_create_table_query_enabled\`\``.
+
 ``eager-plan-validation-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

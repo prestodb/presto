@@ -243,6 +243,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
+import static com.facebook.presto.SystemSessionProperties.isAlwaysAnalyzeCreateTableQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
@@ -774,6 +775,10 @@ class StatementAnalyzer
                     warningCollector.add(new PrestoWarning(
                             StandardWarningCode.SEMANTIC_WARNING,
                             format("Table '%s' already exists, skipping table creation", targetTable)));
+                    // Analyze the inner query to populate view definitions for access control checks
+                    if (isAlwaysAnalyzeCreateTableQueryEnabled(session)) {
+                        process(node.getQuery(), scope);
+                    }
                     return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
                 }
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
