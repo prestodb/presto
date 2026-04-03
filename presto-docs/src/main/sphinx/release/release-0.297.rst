@@ -72,7 +72,7 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
-* Add Window filter pushdown in native engine for ``rank`` and ``dense_rank`` functions. Use session property ``optimizer.optimize-top-n-rank`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
+* Add Window filter pushdown in native engine for ``rank`` and ``dense_rank`` functions. Use session property :ref:`presto_cpp/properties-session:\`\`optimizer.optimize_top_n_rank\`\`` to enable the rewrite. `#24138 <https://github.com/prestodb/presto/pull/24138>`_
 * Add TextReader support for tables in ``TEXTFILE`` format. `#25995 <https://github.com/prestodb/presto/pull/25995>`_
 * Add ``native_max_target_file_size`` session property to control the maximum target file size for writers. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. See :ref:`connector/hive:hive session properties`. `#27054 <https://github.com/prestodb/presto/pull/27054>`_
 * Add :ref:`presto_cpp/properties-session:\`\`native_aggregation_compaction_bytes_threshold\`\`` and :ref:`presto_cpp/properties-session:\`\`native_aggregation_compaction_unused_memory_ratio\`\`` session properties to control string compaction during global aggregation. `#26874 <https://github.com/prestodb/presto/pull/26874>`_
@@ -81,7 +81,7 @@ ______________________________________
 * Add support for ``NativeFunctionHandle`` parsing. `#26948 <https://github.com/prestodb/presto/pull/26948>`_
 * Add worker uptime metric ``presto_cpp.worker_runtime_uptime_secs`` to track worker process runtime. `#26979 <https://github.com/prestodb/presto/pull/26979>`_
 * Add http endpoint ``v1/expressions`` in sidecar for expression optimization. See :doc:`/presto_cpp/sidecar`. `#26475 <https://github.com/prestodb/presto/pull/26475>`_
-* Add ``ssd-cache-max-entries`` config to limit SSD cache entries and prevent unbounded metadata memory growth (default value: 10M entries, ~500MB metadata). `#26795 <https://github.com/prestodb/presto/pull/26795>`_
+* Add :ref:`presto_cpp/properties:\`\`ssd-cache-max-entries\`\`` configuration property to limit SSD cache entries and prevent unbounded metadata memory growth (default value: 10M entries, ~500MB metadata). `#26795 <https://github.com/prestodb/presto/pull/26795>`_
 
 Security Changes
 ________________
