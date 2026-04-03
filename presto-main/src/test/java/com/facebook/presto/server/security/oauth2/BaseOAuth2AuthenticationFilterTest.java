@@ -316,7 +316,9 @@ public abstract class BaseOAuth2AuthenticationFilterTest
 
     protected void validateAccessToken(String cookieValue)
     {
-        Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + cookieValue).build();
+        // Extract access token from cookie value in base64-encoded JSON format
+        String accessToken = extractAccessToken(cookieValue);
+        Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + accessToken).build();
         try (Response response = httpClient.newCall(request).execute()) {
             assertThat(response.body()).isNotNull();
             DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().bytes()));
@@ -325,6 +327,19 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         catch (IOException e) {
             fail("Exception while calling /userinfo", e);
         }
+    }
+
+    private String extractAccessToken(String cookieValue)
+    {
+        // Decode Base64-encoded JSON to extract access token
+        byte[] decodedBytes = java.util.Base64.getDecoder().decode(cookieValue);
+        String decodedJson = new String(decodedBytes, java.nio.charset.StandardCharsets.UTF_8);
+        java.util.Map<String, Object> data = JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(decodedJson);
+        String accessToken = (String) data.get("accessToken");
+        if (accessToken == null) {
+            throw new IllegalStateException("Cookie value does not contain 'accessToken' field: " + decodedJson);
+        }
+        return accessToken;
     }
 
     private void assertUICallWithCookie(String cookieValue)
