@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.NotFoundException;
@@ -329,5 +330,34 @@ public class MongoMetadata
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return mongoClientConfig.isCaseSensitiveNameMatchingEnabled() ? identifier : identifier.toLowerCase(ROOT);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return null;
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return null;
     }
 }
