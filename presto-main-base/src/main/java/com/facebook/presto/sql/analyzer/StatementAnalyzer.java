@@ -1161,9 +1161,6 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getIndexName(), metadata);
-            if (metadataResolver.tableExists(targetTable)) {
-                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
-            }
 
             // Analyze the source table to build a proper scope with typed columns
             // Use AllowAllAccessControl since we check permissions separately below
