@@ -56,6 +56,7 @@ import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -109,6 +110,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -495,18 +497,38 @@ public class MaterializedViewQueryOptimizer
                 removablePrefix = Optional.of(new Identifier(baseTable.getName().toString()));
             }
             if (node.getGroupBy().isPresent()) {
+                List<SelectItem> selectItems = node.getSelect().getSelectItems();
                 ImmutableSet.Builder<Expression> expressionsInGroupByBuilder = ImmutableSet.builder();
                 for (GroupingElement element : node.getGroupBy().get().getGroupingElements()) {
                     element = removeGroupingElementPrefix(element, removablePrefix);
                     Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
                     if (groupByOfMaterializedView.isPresent()) {
                         for (Expression expression : element.getExpressions()) {
-                            if (!groupByOfMaterializedView.get().contains(expression) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
+                            // Resolve ordinal references (e.g. GROUP BY 1) to the corresponding SELECT expression
+                            Expression resolved = expression;
+                            if (expression instanceof LongLiteral) {
+                                int ordinal = toIntExact(((LongLiteral) expression).getValue());
+                                if (ordinal < 1 || ordinal > selectItems.size()) {
+                                    throw new SemanticException(NOT_SUPPORTED, expression, "GROUP BY ordinal %d is out of range (1 to %d)", ordinal, selectItems.size());
+                                }
+                                SelectItem selectItem = selectItems.get(ordinal - 1);
+                                if (selectItem instanceof SingleColumn) {
+                                    resolved = removeExpressionPrefix(((SingleColumn) selectItem).getExpression(), removablePrefix);
+                                }
+                                else {
+                                    throw new IllegalStateException("GROUP BY ordinal references non-single-column select item");
+                                }
+                            }
+                            if (!groupByOfMaterializedView.get().contains(resolved) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(resolved)) {
                                 throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
                             }
+                            // Store the resolved expression so visitSingleColumn can match against it
+                            expressionsInGroupByBuilder.add(resolved);
                         }
                     }
-                    expressionsInGroupByBuilder.addAll(element.getExpressions());
+                    else {
+                        expressionsInGroupByBuilder.addAll(element.getExpressions());
+                    }
                 }
                 expressionsInGroupBy = Optional.of(expressionsInGroupByBuilder.build());
             }
@@ -715,8 +737,11 @@ public class MaterializedViewQueryOptimizer
             ImmutableList.Builder<SortItem> rewrittenOrderBy = ImmutableList.builder();
             for (SortItem sortItem : node.getSortItems()) {
                 sortItem = removeSortItemPrefix(sortItem, removablePrefix);
-                if (!materializedViewInfo.getBaseToViewColumnMap().containsKey(sortItem.getSortKey())) {
-                    throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortItem.getSortKey()));
+                // Ordinal references (e.g. ORDER BY 3) refer to SELECT items which are already validated
+                Expression sortKey = sortItem.getSortKey();
+                if (!(sortKey instanceof LongLiteral)
+                        && !materializedViewInfo.getBaseToViewColumnMap().containsKey(sortKey)) {
+                    throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortKey));
                 }
                 rewrittenOrderBy.add((SortItem) process(sortItem, context));
             }
