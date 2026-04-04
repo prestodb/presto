@@ -57,7 +57,12 @@ public final class EncryptionUtil
 
     public static boolean doesBCryptPasswordMatch(String inputPassword, String hashedPassword)
     {
-        return BCrypt.verifyer().verify(inputPassword.toCharArray(), hashedPassword).verified;
+        try {
+            return BCrypt.verifyer().verify(inputPassword.toCharArray(), hashedPassword).verified;
+        }
+        catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**
