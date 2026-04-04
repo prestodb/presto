@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
@@ -415,13 +416,15 @@ public class PlanPrinter
             boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]%n",
-                fragment.getId(),
-                fragment.getPartitioning()));
-
         if (stageInfo.isPresent()) {
-            StageExecutionStats stageExecutionStats = stageInfo.get().getLatestAttemptExecutionInfo().getStats();
-            List<TaskInfo> tasks = stageInfo.get().getLatestAttemptExecutionInfo().getTasks();
+            StageExecutionInfo latestAttempt = stageInfo.get().getLatestAttemptExecutionInfo();
+            builder.append(format("Fragment %s [%s] [%s]%n",
+                    fragment.getId(),
+                    fragment.getPartitioning(),
+                    latestAttempt.getState()));
+
+            StageExecutionStats stageExecutionStats = latestAttempt.getStats();
+            List<TaskInfo> tasks = latestAttempt.getTasks();
 
             double avgPositionsPerTask = tasks.stream().mapToLong(task -> task.getStats().getProcessedInputPositions()).average().orElse(Double.NaN);
             double squaredDifferences = tasks.stream().mapToDouble(task -> Math.pow(task.getStats().getProcessedInputPositions() - avgPositionsPerTask, 2)).sum();
@@ -429,6 +432,11 @@ public class PlanPrinter
 
             builder.append(indentString(1))
                     .append(formattedFragmentString(stageExecutionStats, avgPositionsPerTask, sdAmongTasks, tasks.size()));
+        }
+        else {
+            builder.append(format("Fragment %s [%s]%n",
+                    fragment.getId(),
+                    fragment.getPartitioning()));
         }
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
