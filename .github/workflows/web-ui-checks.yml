@@ -1,6 +1,9 @@
 name: web ui checks
 
-on: pull_request
+on:
+  pull_request:
+    paths:
+      - presto-ui/**
 
 env:
   # An envar that signals to tests we are executing in the CI environment
@@ -8,29 +11,10 @@ env:
   RETRY: .github/bin/retry
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    # Required permissions
-    permissions:
-      pull-requests: read
-    # Set job outputs to values from filter step
-    outputs:
-      codechange: ${{ steps.filter.outputs.codechange }}
-    steps:
-      # For pull requests it's not necessary to checkout the code
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: filter
-        with:
-          filters: |
-            codechange:
-              - '!presto-docs/**'
-              - 'presto-ui/**'
   web-ui-checks:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: changes
-    if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 30
     concurrency:
       group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}
