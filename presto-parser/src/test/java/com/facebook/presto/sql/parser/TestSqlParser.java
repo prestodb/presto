@@ -137,6 +137,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.SetTimeZone;
 import com.facebook.presto.sql.tree.ShowCatalogs;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.ShowCreate;
@@ -738,6 +739,23 @@ public class TestSqlParser
     {
         assertStatement("RESET SESSION foo.bar", new ResetSession(QualifiedName.of("foo", "bar")));
         assertStatement("RESET SESSION foo", new ResetSession(QualifiedName.of("foo")));
+    }
+
+    @Test
+    public void testSetTimeZone()
+    {
+        assertStatement("SET TIME ZONE LOCAL",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.empty()));
+        assertStatement("SET TIME ZONE 'America/Los_Angeles'",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.of(new StringLiteral("America/Los_Angeles"))));
+        assertStatement("SET TIME ZONE INTERVAL '10' HOUR",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.of(new IntervalLiteral("10", Sign.POSITIVE, IntervalField.HOUR, Optional.empty()))));
+        assertStatement("SET TIME ZONE INTERVAL -'10' HOUR",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.of(new IntervalLiteral("10", Sign.NEGATIVE, IntervalField.HOUR, Optional.empty()))));
+        assertStatement("SET TIME ZONE INTERVAL '10:00' HOUR TO MINUTE",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.of(new IntervalLiteral("10:00", Sign.POSITIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)))));
+        assertStatement("SET TIME ZONE INTERVAL -'10:00' HOUR TO MINUTE",
+                new SetTimeZone(new NodeLocation(1, 1), Optional.of(new IntervalLiteral("10:00", Sign.NEGATIVE, IntervalField.HOUR, Optional.of(IntervalField.MINUTE)))));
     }
 
     @Test

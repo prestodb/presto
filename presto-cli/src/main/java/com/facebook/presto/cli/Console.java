@@ -47,6 +47,7 @@ import static com.facebook.presto.cli.Completion.lowerCaseCommandCompleter;
 import static com.facebook.presto.cli.Help.getHelpText;
 import static com.facebook.presto.cli.QueryPreprocessor.preprocessQuery;
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.sql.parser.StatementSplitter.Statement;
 import static com.facebook.presto.sql.parser.StatementSplitter.isEmptyStatement;
 import static com.facebook.presto.sql.parser.StatementSplitter.squeezeStatement;
@@ -343,6 +344,13 @@ public class Console
                 Map<String, String> sessionProperties = new HashMap<>(session.getProperties());
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
+
+                // Handle time_zone_id specially - it needs to update the session's timeZone field
+                if (sessionProperties.containsKey("time_zone_id")) {
+                    String timeZoneId = sessionProperties.get("time_zone_id");
+                    builder = builder.withTimeZone(getTimeZoneKey(timeZoneId));
+                }
+
                 builder = builder.withProperties(sessionProperties);
             }
 

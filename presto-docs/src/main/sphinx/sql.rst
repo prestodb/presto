@@ -49,6 +49,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/select
     sql/set-role
     sql/set-session
+    sql/set-time-zone
     sql/show-catalogs
     sql/show-columns
     sql/show-create-function
