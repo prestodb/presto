@@ -97,19 +97,38 @@ Data Consistency Modes
 Materialized views support three data consistency modes that control how queries are optimized
 when the view's data may be stale:
 
+.. important::
+
+    Materialized views do NOT automatically refresh when base tables change. The storage table
+    remains unchanged until you explicitly run ``REFRESH MATERIALIZED VIEW``. The
+    ``stale_read_behavior`` setting controls how queries are handled when the storage
+    is stale.
+
 **USE_STITCHING** (default)
   Reads fresh data from storage, recomputes stale data from base tables,
   and combines results via UNION.
 
+  - Provides up-to-date results without refreshing the storage
+  - The materialized view itself is not updated
+
 **FAIL**
   Fails the query if the materialized view is stale.
 
+  - Requires the materialized view to be refreshed before querying
+  - Useful when you want to ensure queries only use pre-computed results
+
 **USE_VIEW_QUERY**
   Executes the view query against base tables. Always fresh but highest cost.
+  
+  - The materialized view storage is ignored
+  - The materialized view remains stale internally
 
-Set via session property::
+To update the storage table with fresh data, you must explicitly run ``REFRESH MATERIALIZED VIEW``.
+
+Set with session property::
 
     SET SESSION materialized_view_skip_storage = 'USE_STITCHING';
+
 
 Predicate Stitching (USE_STITCHING Mode)
 ----------------------------------------
