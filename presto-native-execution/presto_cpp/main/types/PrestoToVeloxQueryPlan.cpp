@@ -1605,7 +1605,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   if (!connectorInsertHandle) {
     VELOX_UNSUPPORTED(
-        "Unsupported execute procedure handle: {}",
+        "Connector '{}' does not support execute procedure handle of type '{}' for writer target: {}",
+        connectorId,
+        executeProcedureHandle->handle.connectorHandle->_type,
         toJsonString(tableWriteInfo->writerTarget));
   }
 

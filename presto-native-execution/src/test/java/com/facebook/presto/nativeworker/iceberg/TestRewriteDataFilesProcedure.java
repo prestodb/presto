@@ -79,7 +79,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
             assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
-            //The number of data files is 5，and the number of delete files is 0
+            //The number of data files is 5, and the number of delete files is 0
             MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 5L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -90,7 +90,7 @@ public class TestRewriteDataFilesProcedure
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 in (9, 10)", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
 
-            //The number of data files is 5，and the number of delete files is 2
+            //The number of data files is 5, and the number of delete files is 2
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 5L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -103,7 +103,7 @@ public class TestRewriteDataFilesProcedure
 
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
 
-            //The number of data files is 1，and the number of delete files is 0
+            //The number of data files is 1, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -135,7 +135,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
             assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
-            //The number of data files is 5，and the number of delete files is 0
+            //The number of data files is 5, and the number of delete files is 0
             MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 5L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -147,7 +147,7 @@ public class TestRewriteDataFilesProcedure
             // the filter is `true` means select all files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1')", tableName, schemaName), 10);
 
-            //The number of data files is 1，and the number of delete files is 0
+            //The number of data files is 1, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -180,7 +180,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
             assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
-            //The number of data files is 5，and the number of delete files is 0
+            //The number of data files is 5, and the number of delete files is 0
             MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 5L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -189,7 +189,7 @@ public class TestRewriteDataFilesProcedure
             // the filter is `false` means select no file to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 0')", tableName, schemaName), 0);
 
-            //The number of data files is still 5，and the number of delete files is 0
+            //The number of data files is still 5, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 5L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -244,7 +244,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
             assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
-            //The number of data files is 10，and the number of delete files is 0
+            //The number of data files is 10, and the number of delete files is 0
             MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 10L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -255,7 +255,7 @@ public class TestRewriteDataFilesProcedure
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 in (8, 10)", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
 
-            //The number of data files is 10，and the number of delete files is 3
+            //The number of data files is 10, and the number of delete files is 3
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 10L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -268,7 +268,7 @@ public class TestRewriteDataFilesProcedure
 
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
 
-            //The number of data files is 2，and the number of delete files is 0
+            //The number of data files is 2, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -299,7 +299,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
             assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
-            //The number of data files is 10，and the number of delete files is 0
+            //The number of data files is 10, and the number of delete files is 0
             MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 10L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -310,7 +310,7 @@ public class TestRewriteDataFilesProcedure
 
             // select 5 files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName), 5);
-            //The number of data files is 6，and the number of delete files is 0
+            //The number of data files is 6, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 6L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -340,7 +340,7 @@ public class TestRewriteDataFilesProcedure
             assertEquals(result.getOnlyValue(), 1L);
             assertQuery("select * from " + tableName, "values(2, '1002')");
 
-            //The number of data files is 1，and the number of delete files is 1
+            //The number of data files is 1, and the number of delete files is 1
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -352,7 +352,7 @@ public class TestRewriteDataFilesProcedure
             assertEquals(result.getOnlyValue(), 1L);
             assertQuery("select * from " + tableName, "values(2, '1002', NULL), (5, '1005', 5), (7, '1007', 7)");
 
-            //The number of data files is 4，and the number of delete files is 2
+            //The number of data files is 4, and the number of delete files is 2
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 4L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -362,7 +362,7 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, schemaName), ".*");
 
             assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 3);
-            //The number of data files is 3，and the number of delete files is 0
+            //The number of data files is 3, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 3L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -371,14 +371,14 @@ public class TestRewriteDataFilesProcedure
 
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE b = '1002'", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
-            //The number of data files is 3，and the number of delete files is 1
+            //The number of data files is 3, and the number of delete files is 1
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 3L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null')", tableName, schemaName), 0);
 
-            //The number of data files is 2，and the number of delete files is 0
+            //The number of data files is 2, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
@@ -388,7 +388,7 @@ public class TestRewriteDataFilesProcedure
             // This is a metadata delete
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c = 7", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
-            //The number of data files is 1，and the number of delete files is 0
+            //The number of data files is 1, and the number of delete files is 0
             result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
