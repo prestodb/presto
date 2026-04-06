@@ -51,6 +51,7 @@ public class IcebergSplit
     private final List<DeleteFile> deletes;
     private final Optional<ChangelogSplitInfo> changelogSplitInfo;
     private final long dataSequenceNumber;
+    private final long firstRowId;
     private final long affinitySchedulingFileSectionSize;
     private final long affinitySchedulingFileSectionIndex;
 
@@ -69,6 +70,7 @@ public class IcebergSplit
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("changelogSplitInfo") Optional<ChangelogSplitInfo> changelogSplitInfo,
             @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("firstRowId") long firstRowId,
             @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
@@ -85,6 +87,7 @@ public class IcebergSplit
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.changelogSplitInfo = requireNonNull(changelogSplitInfo, "changelogSplitInfo is null");
         this.dataSequenceNumber = dataSequenceNumber;
+        this.firstRowId = firstRowId;
         this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
         this.affinitySchedulingFileSectionIndex = start / affinitySchedulingFileSectionSize;
     }
@@ -176,6 +179,12 @@ public class IcebergSplit
     public long getDataSequenceNumber()
     {
         return dataSequenceNumber;
+    }
+
+    @JsonProperty
+    public long getFirstRowId()
+    {
+        return firstRowId;
     }
 
     @JsonProperty

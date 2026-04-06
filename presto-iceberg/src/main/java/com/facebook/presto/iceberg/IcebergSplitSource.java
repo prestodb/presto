@@ -43,6 +43,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
+import static com.facebook.presto.iceberg.IcebergUtil.getFirstRowId;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
@@ -152,6 +153,7 @@ public class IcebergSplitSource
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()),
+                getFirstRowId(task.file()),
                 affinitySchedulingFileSectionSize);
     }
 }

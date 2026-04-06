@@ -1720,6 +1720,8 @@ void to_json(json& j, const IcebergSplit& p) {
       "int64_t",
       "dataSequenceNumber");
   to_json_key(
+      j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
+  to_json_key(
       j,
       "affinitySchedulingSectionSize",
       p.affinitySchedulingSectionSize,
@@ -1798,6 +1800,8 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "dataSequenceNumber");
+  from_json_key(
+      j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
   from_json_key(
       j,
       "affinitySchedulingSectionSize",
