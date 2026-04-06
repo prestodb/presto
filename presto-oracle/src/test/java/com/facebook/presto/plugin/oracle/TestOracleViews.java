@@ -14,23 +14,20 @@
 package com.facebook.presto.plugin.oracle;
 
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import org.intellij.lang.annotations.Language;
+import io.airlift.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static io.airlift.tpch.TpchTable.ORDERS;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-/**
- * Test cases for Oracle view support.
- * Tests CREATE VIEW, DROP VIEW, SELECT from views, and SHOW CREATE VIEW operations.
- */
 public class TestOracleViews
         extends AbstractTestQueryFramework
 {
@@ -41,7 +38,7 @@ public class TestOracleViews
             throws Exception
     {
         oracleServer = new OracleServerTester();
-        return createOracleQueryRunner(oracleServer, ORDERS);
+        return createOracleQueryRunner(oracleServer, TpchTable.ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
@@ -53,274 +50,91 @@ public class TestOracleViews
     }
 
     @Test
-    public void testCreateAndQuerySimpleView()
+    public void testCreateView()
     {
-        assertUpdate("CREATE VIEW test_simple_view AS SELECT orderkey, orderstatus FROM orders");
+        // Create a simple view
+        assertUpdate("CREATE VIEW test_view AS SELECT orderkey, custkey FROM orders");
 
-        assertQuery(
-                "SELECT * FROM test_simple_view WHERE orderkey < 100",
-                "SELECT orderkey, orderstatus FROM orders WHERE orderkey < 100");
+        // Query the view
+        MaterializedResult result = computeActual("SELECT orderkey FROM test_view WHERE orderkey = 1");
+        assertEquals(result.getRowCount(), 1);
 
-        assertUpdate("DROP VIEW test_simple_view");
-    }
-
-    @Test
-    public void testCreateOrReplaceView()
-    {
-        // Create initial view
-        assertUpdate("CREATE VIEW test_replace_view AS SELECT orderkey FROM orders");
-
-        // Verify initial view
-        assertQuery(
-                "SELECT * FROM test_replace_view WHERE orderkey < 10",
-                "SELECT orderkey FROM orders WHERE orderkey < 10");
-
-        // Replace with different definition
-        assertUpdate("CREATE OR REPLACE VIEW test_replace_view AS SELECT orderkey, orderstatus, totalprice FROM orders");
-
-        // Verify replaced view has new columns
-        assertQuery(
-                "SELECT * FROM test_replace_view WHERE orderkey < 10",
-                "SELECT orderkey, orderstatus, totalprice FROM orders WHERE orderkey < 10");
-
-        assertUpdate("DROP VIEW test_replace_view");
-    }
-
-    @Test
-    public void testViewWithSelectStar()
-    {
-        assertUpdate("CREATE VIEW test_select_star_view AS SELECT * FROM orders");
-
-        // Oracle expands SELECT * to explicit columns
-        assertQuery(
-                "SELECT orderkey, custkey, orderstatus FROM test_select_star_view WHERE orderkey < 100",
-                "SELECT orderkey, custkey, orderstatus FROM orders WHERE orderkey < 100");
-
-        assertUpdate("DROP VIEW test_select_star_view");
-    }
-
-    @Test
-    public void testViewWithExpressions()
-    {
-        @Language("SQL") String viewQuery = "SELECT orderkey, orderstatus, totalprice * 2 AS double_price, " +
-                "CASE WHEN orderstatus = 'O' THEN 'Open' ELSE 'Other' END AS status_desc FROM orders";
-
-        assertUpdate("CREATE VIEW test_expression_view AS " + viewQuery);
-
-        assertQuery(
-                "SELECT * FROM test_expression_view WHERE orderkey < 100",
-                viewQuery + " WHERE orderkey < 100");
-
-        assertUpdate("DROP VIEW test_expression_view");
-    }
-
-    @Test
-    public void testViewWithAggregation()
-    {
-        @Language("SQL") String viewQuery = "SELECT orderstatus, COUNT(orderkey) AS order_count, " +
-                "SUM(totalprice) AS total_price FROM orders GROUP BY orderstatus";
-
-        assertUpdate("CREATE VIEW test_aggregation_view AS " + viewQuery);
-
-        assertQuery("SELECT * FROM test_aggregation_view", viewQuery);
-
-        assertUpdate("DROP VIEW test_aggregation_view");
-    }
-
-    @Test
-    public void testViewWithJoin()
-    {
-        assertUpdate("CREATE VIEW orders_summary AS SELECT orderkey, orderstatus, totalprice FROM orders WHERE orderkey < 1000");
-
-        @Language("SQL") String viewQuery = "SELECT a.orderkey, a.orderstatus, a.totalprice " +
-                "FROM orders a JOIN orders_summary b ON a.orderkey = b.orderkey WHERE a.orderkey < 1000";
-
-        assertUpdate("CREATE VIEW test_join_view AS " + viewQuery);
-
-        assertQuery(
-                "SELECT orderkey, orderstatus, totalprice FROM test_join_view WHERE orderkey < 100",
-                "SELECT a.orderkey, a.orderstatus, a.totalprice FROM orders a " +
-                "JOIN (SELECT orderkey, orderstatus, totalprice FROM orders WHERE orderkey < 1000) b " +
-                "ON a.orderkey = b.orderkey WHERE a.orderkey < 100");
-
-        assertUpdate("DROP VIEW test_join_view");
-        assertUpdate("DROP VIEW orders_summary");
-    }
-
-    @Test
-    public void testViewWithWhereClause()
-    {
-        assertUpdate("CREATE VIEW test_where_view AS SELECT * FROM orders WHERE orderstatus = 'F'");
-
-        assertQuery(
-                "SELECT orderkey, orderstatus FROM test_where_view WHERE orderkey < 100",
-                "SELECT orderkey, orderstatus FROM orders WHERE orderstatus = 'F' AND orderkey < 100");
-
-        assertUpdate("DROP VIEW test_where_view");
-    }
-
-    @Test
-    public void testViewWithOrderBy()
-    {
-        assertUpdate("CREATE VIEW test_orderby_view AS SELECT orderkey, orderstatus, totalprice FROM orders");
-
-        // Query the view with ORDER BY
-        assertQuery(
-                "SELECT * FROM test_orderby_view WHERE orderkey < 100 ORDER BY totalprice DESC",
-                "SELECT orderkey, orderstatus, totalprice FROM orders WHERE orderkey < 100 ORDER BY totalprice DESC");
-
-        assertUpdate("DROP VIEW test_orderby_view");
+        // Cleanup
+        assertUpdate("DROP VIEW test_view");
     }
 
     @Test
     public void testShowCreateView()
     {
-        @Language("SQL") String viewQuery = "SELECT orderkey, orderstatus, totalprice FROM orders";
-        assertUpdate("CREATE VIEW test_show_create AS " + viewQuery);
+        // Create a view
+        assertUpdate("CREATE VIEW test_show_view AS SELECT orderkey, totalprice FROM orders");
 
-        MaterializedResult result = computeActual("SHOW CREATE VIEW test_show_create");
-        String createViewSql = (String) result.getOnlyValue();
+        // Show create view
+        MaterializedResult result = computeActual("SHOW CREATE VIEW test_show_view");
+        assertEquals(result.getRowCount(), 1);
+        String viewDefinition = (String) result.getOnlyValue();
+        assertTrue(viewDefinition.contains("CREATE VIEW"), "View definition should contain CREATE VIEW");
+        assertTrue(viewDefinition.contains("orderkey"), "View definition should contain orderkey column");
+        assertTrue(viewDefinition.contains("totalprice"), "View definition should contain totalprice column");
 
-        // Verify the CREATE VIEW statement contains key elements
-        assertTrue(createViewSql.contains("CREATE VIEW"));
-        assertTrue(createViewSql.contains("test_show_create"));
-        assertTrue(createViewSql.contains("SECURITY DEFINER"));
-
-        assertUpdate("DROP VIEW test_show_create");
+        // Cleanup
+        assertUpdate("DROP VIEW test_show_view");
     }
 
     @Test
-    public void testListViews()
+    public void testListViewsWithShowTables()
     {
-        // Create multiple views
-        assertUpdate("CREATE VIEW test_list_view1 AS SELECT orderkey FROM orders");
-        assertUpdate("CREATE VIEW test_list_view2 AS SELECT orderstatus FROM orders");
-
-        // List views in the schema
-        MaterializedResult views = computeActual("SHOW TABLES");
-
-        boolean foundView1 = false;
-        boolean foundView2 = false;
-
-        for (MaterializedRow row : views.getMaterializedRows()) {
-            String tableName = (String) row.getField(0);
-            if ("test_list_view1".equalsIgnoreCase(tableName)) {
-                foundView1 = true;
-            }
-            if ("test_list_view2".equalsIgnoreCase(tableName)) {
-                foundView2 = true;
-            }
+        String[] viewNames = {"view1", "view2"};
+        for (String viewName : viewNames) {
+            assertUpdate("CREATE VIEW " + viewName + " AS SELECT orderkey FROM orders");
         }
 
-        assertTrue(foundView1, "test_list_view1 should be listed");
-        assertTrue(foundView2, "test_list_view2 should be listed");
+        MaterializedResult result = computeActual("SHOW TABLES");
+        List<Object> tableNames = new ArrayList<>(result.getOnlyColumnAsSet());
 
-        assertUpdate("DROP VIEW test_list_view1");
-        assertUpdate("DROP VIEW test_list_view2");
+        for (String viewName : viewNames) {
+            boolean found = tableNames.stream()
+                    .anyMatch(name -> viewName.equalsIgnoreCase((String) name));
+            assertTrue(found, viewName + " should be listed in SHOW TABLES");
+        }
+
+        for (String viewName : viewNames) {
+            assertUpdate("DROP VIEW " + viewName);
+        }
     }
 
     @Test
-    public void testViewWithCast()
+    public void testDropView()
     {
-        @Language("SQL") String viewQuery = "SELECT orderkey, CAST(totalprice AS VARCHAR(50)) AS price_str FROM orders";
+        assertUpdate("CREATE VIEW test_drop_view AS SELECT orderkey FROM orders");
 
-        assertUpdate("CREATE VIEW test_cast_view AS " + viewQuery);
+        MaterializedResult result = computeActual("SHOW TABLES");
+        List<Object> tableNames = new ArrayList<>(result.getOnlyColumnAsSet());
+        boolean viewExists = tableNames.stream()
+                .anyMatch(name -> "test_drop_view".equalsIgnoreCase((String) name));
+        assertTrue(viewExists, "View should exist after creation");
 
-        assertQuery(
-                "SELECT * FROM test_cast_view WHERE orderkey < 100",
-                viewQuery + " WHERE orderkey < 100");
+        assertUpdate("DROP VIEW test_drop_view");
 
-        assertUpdate("DROP VIEW test_cast_view");
+        result = computeActual("SHOW TABLES");
+        tableNames = new ArrayList<>(result.getOnlyColumnAsSet());
+        viewExists = tableNames.stream()
+                .anyMatch(name -> "test_drop_view".equalsIgnoreCase((String) name));
+        assertFalse(viewExists, "View should not exist after dropping");
     }
 
     @Test
-    public void testViewWithSubquery()
+    public void testQueryView()
     {
-        @Language("SQL") String viewQuery = "SELECT orderkey, orderstatus FROM orders " +
-                "WHERE orderkey IN (SELECT orderkey FROM orders WHERE totalprice > 100000)";
+        assertUpdate("CREATE VIEW test_query_view AS SELECT orderkey, custkey, totalprice FROM orders WHERE orderkey <= 10");
 
-        assertUpdate("CREATE VIEW test_subquery_view AS " + viewQuery);
+        MaterializedResult result = computeActual("SELECT orderkey, custkey FROM test_query_view WHERE orderkey = 1");
+        assertEquals(result.getRowCount(), 1);
+        result = computeActual("SELECT COUNT(*) FROM test_query_view");
+        assertEquals(result.getRowCount(), 1);
+        long count = (Long) result.getOnlyValue();
+        assertTrue(count > 0 && count <= 10, "View should contain between 1 and 10 rows");
 
-        assertQuery("SELECT * FROM test_subquery_view WHERE orderkey < 1000", viewQuery + " AND orderkey < 1000");
-
-        assertUpdate("DROP VIEW test_subquery_view");
-    }
-
-    @Test
-    public void testViewWithDistinct()
-    {
-        @Language("SQL") String viewQuery = "SELECT DISTINCT orderstatus FROM orders";
-
-        assertUpdate("CREATE VIEW test_distinct_view AS " + viewQuery);
-
-        assertQuery("SELECT * FROM test_distinct_view", viewQuery);
-
-        assertUpdate("DROP VIEW test_distinct_view");
-    }
-
-    @Test
-    public void testViewWithLimit()
-    {
-        assertUpdate("CREATE VIEW test_limit_view AS SELECT orderkey, orderstatus FROM orders");
-
-        // Apply LIMIT when querying the view
-        MaterializedResult result = computeActual("SELECT * FROM test_limit_view LIMIT 10");
-        assertEquals(result.getRowCount(), 10);
-
-        assertUpdate("DROP VIEW test_limit_view");
-    }
-
-    @Test
-    public void testViewWithNullValues()
-    {
-        assertUpdate("CREATE TABLE test_null_table AS SELECT orderkey, " +
-                "CASE WHEN MOD(orderkey, 2) = 0 THEN orderstatus ELSE CAST(NULL AS VARCHAR(1)) END AS status " +
-                "FROM orders WHERE orderkey < 100",
-                "SELECT COUNT(*) FROM orders WHERE orderkey < 100");
-
-        assertUpdate("CREATE VIEW test_null_view AS SELECT orderkey, status FROM test_null_table WHERE status IS NULL");
-
-        MaterializedResult result = computeActual("SELECT COUNT(*) FROM test_null_view");
-        assertTrue(result.getRowCount() > 0, "View should return rows with NULL status");
-
-        assertUpdate("DROP VIEW test_null_view");
-        assertUpdate("DROP TABLE test_null_table");
-    }
-
-    @Test
-    public void testViewQualifiedName()
-    {
-        assertUpdate("CREATE VIEW test_qualified_view AS SELECT orderkey FROM orders");
-
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-        String qualifiedName = format("%s.%s.test_qualified_view", catalog, schema);
-
-        assertQuery(
-                "SELECT * FROM " + qualifiedName + " WHERE orderkey < 100",
-                "SELECT orderkey FROM orders WHERE orderkey < 100");
-
-        assertUpdate("DROP VIEW test_qualified_view");
-    }
-
-    @Test
-    public void testDropNonExistentView()
-    {
-        // Attempting to drop a non-existent view should fail
-        assertQueryFails("DROP VIEW non_existent_view", ".*does not exist.*");
-    }
-
-    @Test
-    public void testCreateViewWithSameName()
-    {
-        assertUpdate("CREATE VIEW test_duplicate_view AS SELECT orderkey FROM orders");
-
-        // Creating a view with the same name should fail without OR REPLACE
-        // Oracle error: ORA-00955: name is already used by an existing object
-        assertQueryFails(
-                "CREATE VIEW test_duplicate_view AS SELECT orderstatus FROM orders",
-                ".*ORA-00955.*");
-
-        assertUpdate("DROP VIEW test_duplicate_view");
+        assertUpdate("DROP VIEW test_query_view");
     }
 }

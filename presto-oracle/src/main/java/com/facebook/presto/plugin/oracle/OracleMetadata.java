@@ -24,17 +24,11 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Oracle-specific metadata implementation that adds view support.
- * This class extends JdbcMetadata to provide Oracle-specific view operations
- * including listing views and retrieving view definitions from ALL_VIEWS.
- */
 public class OracleMetadata
         extends JdbcMetadata
 {
@@ -56,26 +50,17 @@ public class OracleMetadata
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
 
-        // Determine which views to retrieve based on the prefix
         List<SchemaTableName> viewNames;
         if (prefix.getSchemaName() != null && prefix.getTableName() != null) {
-            // Specific view requested
             viewNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else if (prefix.getSchemaName() != null) {
-            // All views in a specific schema
             viewNames = oracleClient.listViews(session, identity, Optional.of(prefix.getSchemaName()));
         }
         else {
-            // All views in all schemas
             viewNames = oracleClient.listSchemasForViews(session, identity);
         }
 
-        if (viewNames.isEmpty()) {
-            return ImmutableMap.of();
-        }
-
-        // Retrieve view definitions for the identified views
         return oracleClient.getViews(session, identity, viewNames);
     }
 
