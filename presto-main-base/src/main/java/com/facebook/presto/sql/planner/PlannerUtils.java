@@ -84,6 +84,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.getSourceLocation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -576,6 +577,42 @@ public class PlannerUtils
             }
         }
         return false;
+    }
+
+    /**
+     * Checks whether a plan subtree contains any node that requires coordinator execution.
+     * Walks the tree stopping at remote/materialized exchange boundaries (which become
+     * separate fragments). Returns true if any node indicates coordinator execution:
+     * system connector table scans (information_schema, $system) or coordinator-only
+     * plan nodes (ExplainAnalyze, StatisticsWriter, TableFinish, MetadataDelete).
+     */
+    public static boolean containsCoordinatorOnlyNode(PlanNode plan)
+    {
+        return containsCoordinatorOnlyNode(plan, noLookup());
+    }
+
+    private static boolean containsCoordinatorOnlyNode(PlanNode plan, Lookup lookup)
+    {
+        return searchFrom(plan, lookup)
+                .where(PlannerUtils::isCoordinatorRequiredNode)
+                .recurseOnlyWhen(PlannerUtils::isNotRemoteExchange)
+                .matches();
+    }
+
+    private static boolean isCoordinatorRequiredNode(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return isInternalSystemConnector(((TableScanNode) node).getTable().getConnectorId());
+        }
+        return isCoordinatorOnlyDistribution(node);
+    }
+
+    private static boolean isNotRemoteExchange(PlanNode node)
+    {
+        if (node instanceof ExchangeNode) {
+            return ((ExchangeNode) node).getScope() == ExchangeNode.Scope.LOCAL;
+        }
+        return true;
     }
 
     public static boolean isConstant(RowExpression expression, Type type, Object value)

@@ -26,12 +26,14 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +63,7 @@ public class PlanFragment
 
     // Only true for output table writer and false for temporary table writers
     private final boolean outputTableWriterFragment;
+    private final TransportType outputTransportType;
     private final Optional<StatsAndCosts> statsAndCosts;
     private final Optional<String> jsonRepresentation;
 
@@ -69,6 +72,25 @@ public class PlanFragment
     private byte[] cachedSerialization;
     @GuardedBy("this")
     private Codec<PlanFragment> lastUsedCodec;
+
+    public PlanFragment(
+            PlanFragmentId id,
+            PlanNode root,
+            Set<VariableReferenceExpression> variables,
+            PartitioningHandle partitioning,
+            List<PlanNodeId> tableScanSchedulingOrder,
+            PartitioningScheme partitioningScheme,
+            Optional<OrderingScheme> outputOrderingScheme,
+            StageExecutionDescriptor stageExecutionDescriptor,
+            boolean outputTableWriterFragment,
+            Optional<StatsAndCosts> statsAndCosts,
+            Optional<String> jsonRepresentation)
+    {
+        this(id, root, variables, partitioning, tableScanSchedulingOrder,
+                partitioningScheme, outputOrderingScheme, stageExecutionDescriptor,
+                outputTableWriterFragment, TransportType.HTTP,
+                statsAndCosts, jsonRepresentation);
+    }
 
     @JsonCreator
     public PlanFragment(
@@ -81,6 +103,7 @@ public class PlanFragment
             @JsonProperty("outputOrderingScheme") Optional<OrderingScheme> outputOrderingScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
             @JsonProperty("outputTableWriterFragment") boolean outputTableWriterFragment,
+            @JsonProperty("outputTransportType") @Nullable TransportType outputTransportType,
             @JsonProperty("statsAndCosts") Optional<StatsAndCosts> statsAndCosts,
             @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
@@ -92,6 +115,7 @@ public class PlanFragment
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.outputOrderingScheme = requireNonNull(outputOrderingScheme, "outputOrderingScheme is null");
         this.outputTableWriterFragment = outputTableWriterFragment;
+        this.outputTransportType = outputTransportType != null ? outputTransportType : TransportType.HTTP;
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
@@ -158,6 +182,12 @@ public class PlanFragment
     }
 
     @JsonProperty
+    public TransportType getOutputTransportType()
+    {
+        return outputTransportType;
+    }
+
+    @JsonProperty
     public Optional<StatsAndCosts> getStatsAndCosts()
     {
         return statsAndCosts;
@@ -203,6 +233,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
+                outputTransportType,
                 Optional.empty(),
                 Optional.empty());
     }
@@ -263,6 +294,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
+                outputTransportType,
                 statsAndCosts,
                 jsonRepresentation);
     }
@@ -279,6 +311,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
+                outputTransportType,
                 statsAndCosts,
                 jsonRepresentation);
     }
@@ -295,6 +328,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
+                outputTransportType,
                 statsAndCosts,
                 jsonRepresentation);
     }
@@ -311,6 +345,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
                 outputTableWriterFragment,
+                outputTransportType,
                 statsAndCosts,
                 jsonRepresentation);
     }
@@ -327,6 +362,7 @@ public class PlanFragment
                 outputOrderingScheme,
                 stageExecutionDescriptor,
                 outputTableWriterFragment,
+                outputTransportType,
                 statsAndCosts,
                 jsonRepresentation);
     }

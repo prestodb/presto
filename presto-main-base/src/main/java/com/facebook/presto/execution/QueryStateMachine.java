@@ -1255,6 +1255,7 @@ public class QueryStateMachine
                         plan.getOutputOrderingScheme(),
                         plan.getStageExecutionDescriptor(),
                         plan.isOutputTableWriterFragment(),
+                        plan.getOutputTransportType(),
                         plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
                         plan.getJsonRepresentation())), // Remove the plan
                 stage.getLatestAttemptExecutionInfo(),

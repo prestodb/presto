@@ -110,6 +110,7 @@ import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
+import com.facebook.presto.sql.planner.plan.TransportType;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -495,6 +496,7 @@ public class PlanPrinter
                 Optional.empty(),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
+                TransportType.HTTP,
                 Optional.of(estimatedStatsAndCosts),
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment), functionAndTypeManager, session);

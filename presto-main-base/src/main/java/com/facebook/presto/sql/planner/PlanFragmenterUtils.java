@@ -236,6 +236,7 @@ public class PlanFragmenterUtils
                 fragment.getOutputOrderingScheme(),
                 fragment.getStageExecutionDescriptor(),
                 fragment.isOutputTableWriterFragment(),
+                fragment.getOutputTransportType(),
                 fragment.getStatsAndCosts(),
                 fragment.getJsonRepresentation());
 

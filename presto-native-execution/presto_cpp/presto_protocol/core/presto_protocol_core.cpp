@@ -9180,6 +9180,43 @@ void from_json(const json& j, StatsAndCosts& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<TransportType, json> TransportType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {TransportType::HTTP, "HTTP"},
+        {TransportType::ANY, "ANY"}};
+void to_json(json& j, const TransportType& e) {
+  static_assert(
+      std::is_enum<TransportType>::value, "TransportType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(TransportType_enum_table),
+      std::end(TransportType_enum_table),
+      [e](const std::pair<TransportType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(TransportType_enum_table))
+           ? it
+           : std::begin(TransportType_enum_table))
+          ->second;
+}
+void from_json(const json& j, TransportType& e) {
+  static_assert(
+      std::is_enum<TransportType>::value, "TransportType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(TransportType_enum_table),
+      std::end(TransportType_enum_table),
+      [&j](const std::pair<TransportType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(TransportType_enum_table))
+           ? it
+           : std::begin(TransportType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 
 void to_json(json& j, const PlanFragment& p) {
   j = json::object();
@@ -9234,6 +9271,13 @@ void to_json(json& j, const PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
+  to_json_key(
+      j,
+      "outputTransportType",
+      p.outputTransportType,
+      "PlanFragment",
+      "TransportType",
+      "outputTransportType");
   to_json_key(
       j,
       "jsonRepresentation",
@@ -9295,6 +9339,13 @@ void from_json(const json& j, PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
+  from_json_key(
+      j,
+      "outputTransportType",
+      p.outputTransportType,
+      "PlanFragment",
+      "TransportType",
+      "outputTransportType");
   from_json_key(
       j,
       "jsonRepresentation",
@@ -9474,6 +9525,13 @@ void to_json(json& j, const RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeEncoding",
       "encoding");
+  to_json_key(
+      j,
+      "transportType",
+      p.transportType,
+      "RemoteSourceNode",
+      "std::shared_ptr<TransportType>",
+      "transportType");
 }
 
 void from_json(const json& j, RemoteSourceNode& p) {
@@ -9521,6 +9579,13 @@ void from_json(const json& j, RemoteSourceNode& p) {
       "RemoteSourceNode",
       "ExchangeEncoding",
       "encoding");
+  from_json_key(
+      j,
+      "transportType",
+      p.transportType,
+      "RemoteSourceNode",
+      "std::shared_ptr<TransportType>",
+      "transportType");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
