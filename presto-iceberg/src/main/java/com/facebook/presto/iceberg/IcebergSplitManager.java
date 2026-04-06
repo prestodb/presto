@@ -36,6 +36,7 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -75,6 +76,15 @@ public class IcebergSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
+
+        // Get min-input-files option from procedure context via metadata
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) transactionManager.get(transaction);
+        Optional<IcebergProcedureContext> procedureContext = metadata.getProcedureContext();
+
+        int minInputFiles = procedureContext
+                .map(ctx -> IcebergUtil.parseMinInputFiles(ctx.getOptions()))
+                .orElse(1);
+
         IcebergTableHandle table = layoutHandle.getTable();
 
         if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
@@ -119,7 +129,8 @@ public class IcebergSplitManager
             IcebergSplitSource splitSource = new IcebergSplitSource(
                     session,
                     tableScan,
-                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
+                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()),
+                    minInputFiles);
             return splitSource;
         }
     }

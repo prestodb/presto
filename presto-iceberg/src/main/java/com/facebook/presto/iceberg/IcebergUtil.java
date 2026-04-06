@@ -1473,4 +1473,58 @@ public final class IcebergUtil
                 throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
         }
     }
+
+    /**
+     * Gets a partition key string for a FileScanTask using the task's spec.
+     * Returns "unpartitioned" for unpartitioned tables, otherwise returns the partition data as a string.
+     */
+    public static String getPartitionKey(FileScanTask task)
+    {
+        org.apache.iceberg.PartitionSpec spec = task.spec();
+        if (spec.isUnpartitioned()) {
+            return "unpartitioned";
+        }
+        return task.file().partition().toString();
+    }
+
+    /**
+     * Gets a partition key string for a FileScanTask using the table's specs.
+     * Returns "unpartitioned" for unpartitioned tables, otherwise returns the partition data as a string.
+     * This version is useful when you need to look up the spec from the table.
+     */
+    public static String getPartitionKey(FileScanTask task, Table table)
+    {
+        org.apache.iceberg.PartitionSpec spec = table.specs().get(task.file().specId());
+        if (spec.isUnpartitioned()) {
+            return "unpartitioned";
+        }
+        return task.file().partition().toString();
+    }
+
+    /**
+     * Parses and validates the min-input-files option value.
+     * Returns the parsed integer value, or 1 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static int parseMinInputFiles(Map<String, String> options)
+    {
+        String minInputFilesStr = options.get("min-input-files");
+        if (minInputFilesStr == null) {
+            return 1;
+        }
+
+        try {
+            int minInputFiles = Integer.parseInt(minInputFilesStr);
+            if (minInputFiles < 1) {
+                throw new IllegalArgumentException(
+                    String.format("min-input-files must be at least 1, got: %s", minInputFiles));
+            }
+            return minInputFiles;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("min-input-files must be a valid integer, got: %s", minInputFilesStr), e);
+        }
+    }
 }

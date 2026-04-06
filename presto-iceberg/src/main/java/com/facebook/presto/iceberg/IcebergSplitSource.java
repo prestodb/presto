@@ -33,8 +33,10 @@ import org.apache.iceberg.io.CloseableIterator;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -57,20 +59,19 @@ import static org.apache.iceberg.util.TableScanUtil.splitFiles;
 public class IcebergSplitSource
         implements ConnectorSplitSource
 {
-    private CloseableIterator<FileScanTask> fileScanTaskIterator;
-
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
     private final long targetSplitSize;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final long affinitySchedulingFileSectionSize;
-
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
+    private Iterator<FileScanTask> taskIterator;
 
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
-            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
+            int minInputFiles)
     {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
@@ -78,11 +79,41 @@ public class IcebergSplitSource
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
-        this.fileScanTaskIterator = closer.register(
+
+        CloseableIterator<FileScanTask> fileScanIterator = closer.register(
                 splitFiles(
                         closer.register(tableScan.planFiles()),
                         targetSplitSize)
                         .iterator());
+
+        // Apply min-input-files filtering if needed
+        if (minInputFiles > 1) {
+            this.taskIterator = applyMinInputFilesFilter(fileScanIterator, minInputFiles);
+        }
+        else {
+            this.taskIterator = fileScanIterator;
+        }
+    }
+
+    private Iterator<FileScanTask> applyMinInputFilesFilter(Iterator<FileScanTask> tasks, int minInputFiles)
+    {
+        // Group files by partition
+        Map<String, List<FileScanTask>> partitionGroups = new HashMap<>();
+        while (tasks.hasNext()) {
+            FileScanTask task = tasks.next();
+            String partitionKey = IcebergUtil.getPartitionKey(task);
+            partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
+        }
+
+        // Collect tasks from partitions that meet the threshold
+        List<FileScanTask> filteredTasks = new ArrayList<>();
+        for (List<FileScanTask> group : partitionGroups.values()) {
+            if (group.size() >= minInputFiles) {
+                filteredTasks.addAll(group);
+            }
+        }
+
+        return filteredTasks.iterator();
     }
 
     @Override
@@ -90,7 +121,7 @@ public class IcebergSplitSource
     {
         // TODO: move this to a background thread
         List<ConnectorSplit> splits = new ArrayList<>();
-        Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
+        Iterator<FileScanTask> iterator = limit(taskIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
             IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
@@ -104,7 +135,7 @@ public class IcebergSplitSource
     @Override
     public boolean isFinished()
     {
-        return !fileScanTaskIterator.hasNext();
+        return !taskIterator.hasNext();
     }
 
     @Override
@@ -114,7 +145,7 @@ public class IcebergSplitSource
             closer.close();
             // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
             //  correct release resources holds by iterator.
-            fileScanTaskIterator = CloseableIterator.empty();
+            taskIterator = CloseableIterator.empty();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

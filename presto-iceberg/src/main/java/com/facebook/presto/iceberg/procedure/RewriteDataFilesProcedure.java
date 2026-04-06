@@ -22,6 +22,7 @@ import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
 import com.facebook.presto.iceberg.IcebergProcedureContext;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
+import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
@@ -57,9 +58,12 @@ import javax.inject.Provider;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -71,6 +75,8 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSo
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKey;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMinInputFiles;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
@@ -112,10 +118,31 @@ public class RewriteDataFilesProcedure
                 (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
                 ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
-                    checkArgument(arguments.length == 2, format("invalid number of arguments: %s (should have %s)", arguments.length, 2));
+                    // Context provider receives [Table, Transaction, procedureArguments]
+                    checkArgument(arguments.length >= 2, format("invalid number of arguments: %s (should have at least %s)", arguments.length, 2));
                     checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
-                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1]);
+
+                    // Extract and validate options from procedure arguments if present
+                    Map<String, String> options = extractAndValidateOptions(arguments);
+
+                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1], options);
                 });
+    }
+
+    private static Map<String, String> extractAndValidateOptions(Object[] contextProviderArgs)
+    {
+        Map<String, String> options = ImmutableMap.of();
+        if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
+            Object[] procedureArgs = (Object[]) contextProviderArgs[2];
+            // Options is the 5th procedure parameter (index 4)
+            if (procedureArgs.length > 4 && procedureArgs[4] != null && procedureArgs[4] instanceof Map) {
+                options = (Map<String, String>) procedureArgs[4];
+
+                // Validate min-input-files option if present using utility method
+                parseMinInputFiles(options);
+            }
+        }
+        return options;
     }
 
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
@@ -201,13 +228,22 @@ public class RewriteDataFilesProcedure
 
             IcebergTableLayoutHandle layoutHandle = handle.getTableLayoutHandle();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
+
+            // Get min-input-files option from procedure context
+            int minInputFiles = IcebergUtil.parseMinInputFiles(procedureContext.getOptions());
+
             final Set<DataFile> scannedDataFiles = new HashSet<>();
             final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
             if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
+                // First, collect all files grouped by partition
+                final Map<String, List<DataFile>> partitionedFiles = new HashMap<>();
+                final Map<String, List<DeleteFile>> partitionedDeleteFiles = new HashMap<>();
                 Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                    scannedDataFiles.add(task.file());
+                    DataFile file = task.file();
+                    String partitionKey = getPartitionKey(task, icebergTable);
+                    partitionedFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(file);
                     if (!task.deletes().isEmpty()) {
                         task.deletes().forEach(deleteFile -> {
                             if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
@@ -217,7 +253,7 @@ public class RewriteDataFilesProcedure
                                 //  So they should not be cleaned up unless the whole table is optimized
                                 return;
                             }
-                            fullyAppliedDeleteFiles.add(deleteFile);
+                            partitionedDeleteFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(deleteFile);
                         });
                     }
                 };
@@ -239,11 +275,30 @@ public class RewriteDataFilesProcedure
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
+
+                // Apply min-input-files filtering: only include files and delete files from partitions that meet the threshold
+                for (Map.Entry<String, List<DataFile>> entry : partitionedFiles.entrySet()) {
+                    if (entry.getValue().size() >= minInputFiles) {
+                        scannedDataFiles.addAll(entry.getValue());
+                        // Also include delete files for this partition
+                        List<DeleteFile> deleteFilesForPartition = partitionedDeleteFiles.get(entry.getKey());
+                        if (deleteFilesForPartition != null) {
+                            fullyAppliedDeleteFiles.addAll(deleteFilesForPartition);
+                        }
+                    }
+                }
             }
 
+            // Skip commit if no work was done
             if (fragments.isEmpty() &&
                     scannedDataFiles.isEmpty() &&
                     fullyAppliedDeleteFiles.isEmpty()) {
+                return;
+            }
+
+            // Skip commit if no new files were created and no delete files to clean up
+            // This happens when min-input-files filtering prevents rewrite
+            if (fragments.isEmpty() && fullyAppliedDeleteFiles.isEmpty()) {
                 return;
             }
 
