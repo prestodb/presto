@@ -45,6 +45,11 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
+      const protocol::ExecuteProcedureHandle* executeProcedureHandle,
+      const TypeParser& typeParser) const final;
+
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const final;
 
