@@ -325,6 +325,20 @@ public class TestIcebergTableVersion
             assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + timestampWithoutTZ2 + "'", "VALUES 'aaa', 'bbb'");
             assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + timestampWithoutTZ3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
             assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + timestampWithoutTZ3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
+
+            // BIGINT epoch millis time travel
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF CAST(" + timestampMillis1 + " AS BIGINT)", "VALUES 'aaa'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF CAST(" + timestampMillis2 + " AS BIGINT)", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF CAST(" + timestampMillis3 + " AS BIGINT)", "VALUES 'aaa', 'bbb', 'ccc'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE CAST(" + timestampMillis2 + " AS BIGINT)", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE CAST(" + timestampMillis3 + " AS BIGINT)", "VALUES 'aaa', 'bbb', 'ccc'");
+
+            // VARCHAR epoch millis time travel
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF '" + timestampMillis1 + "'", "VALUES 'aaa'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF '" + timestampMillis2 + "'", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP AS OF '" + timestampMillis3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE '" + timestampMillis2 + "'", "VALUES 'aaa', 'bbb'");
+            assertQuery(session, "SELECT desc FROM " + tableName + " FOR TIMESTAMP BEFORE '" + timestampMillis3 + "'", "VALUES 'aaa', 'bbb', 'ccc'");
         }
         finally {
             assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
@@ -344,23 +358,23 @@ public class TestIcebergTableVersion
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF " + tab2VersionId1 + " - " + tab2VersionId1, "Iceberg snapshot ID does not exists: 0");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION AS OF CAST (100 AS BIGINT)", "Iceberg snapshot ID does not exists: 100");
 
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is Timestamp, Timestamp with Time Zone, BIGINT, or VARCHAR.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF 'bad'", "VARCHAR value for time travel must be a numeric epoch millisecond timestamp, got: bad");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF id", ".* cannot be resolved");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF (SELECT CURRENT_TIMESTAMP)", ".* Constant expression cannot contain a subquery");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP " + "'" + tab2Timestamp1 + "' - INTERVAL '1' MONTH", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab2");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS TIMESTAMP WITH TIME ZONE)", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab2");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS TIMESTAMP)", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab2");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS DATE)", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CAST ('2023-01-01' AS DATE)", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp, Timestamp with Time Zone, BIGINT, or VARCHAR.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF CURRENT_DATE", ".* Type date is invalid. Supported table version AS OF/BEFORE expression type is Timestamp, Timestamp with Time Zone, BIGINT, or VARCHAR.");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP AS OF TIMESTAMP '2023-01-01 00:00:00.000'", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab2");
 
         assertQueryFails("SELECT desc FROM " + tableName1 + " FOR VERSION BEFORE " + tab1VersionId1 + " ORDER BY 1", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab1");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE TIMESTAMP " + "'" + tab2Timestamp1 + "' - INTERVAL '1' MONTH", "No history found based on timestamp for table iceberg.test_tt_schema.test_table_version_tab2");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE 100", ".* Type integer is invalid. Supported table version AS OF/BEFORE expression type is BIGINT or VARCHAR");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR VERSION BEFORE " + tab2VersionId1 + " - " + tab2VersionId1, "Iceberg snapshot ID does not exists: 0");
-        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE 'bad'", ".* Type varchar\\(3\\) is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.");
+        assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE 'bad'", "VARCHAR value for time travel must be a numeric epoch millisecond timestamp, got: bad");
         assertQueryFails("SELECT desc FROM " + tableName2 + " FOR TIMESTAMP BEFORE NULL", "Table version AS OF/BEFORE expression cannot be NULL for .*");
     }
 

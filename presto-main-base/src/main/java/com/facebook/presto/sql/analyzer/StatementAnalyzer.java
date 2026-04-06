@@ -2439,9 +2439,10 @@ class StatementAnalyzer
             }
             Object evalStateExpr = evaluateConstantExpression(stateExpr, stateExprType, metadata, session, analysis.getParameters());
             if (tableVersionType == TIMESTAMP) {
-                if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType)) {
+                if (!(stateExprType instanceof TimestampWithTimeZoneType || stateExprType instanceof TimestampType
+                        || stateExprType instanceof BigintType || stateExprType instanceof VarcharType)) {
                     throw new SemanticException(TYPE_MISMATCH, stateExpr,
-                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp or Timestamp with Time Zone.",
+                            "Type %s is invalid. Supported table version AS OF/BEFORE expression type is Timestamp, Timestamp with Time Zone, BIGINT, or VARCHAR.",
                             stateExprType.getDisplayName());
                 }
             }

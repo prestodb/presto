@@ -1713,6 +1713,20 @@ public abstract class IcebergAbstractMetadata
                 long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
+            else if (tableVersion.getVersionExpressionType() instanceof BigintType) {
+                return getSnapshotIdTimeOperator(table, (long) tableVersion.getTableVersion(), tableVersion.getVersionOperator());
+            }
+            else if (tableVersion.getVersionExpressionType() instanceof VarcharType) {
+                try {
+                    long millisUtc = Long.parseLong(((Slice) tableVersion.getTableVersion()).toStringUtf8());
+                    return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
+                }
+                catch (NumberFormatException e) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            "VARCHAR value for time travel must be a numeric epoch millisecond timestamp, got: " +
+                                    ((Slice) tableVersion.getTableVersion()).toStringUtf8());
+                }
+            }
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
         }
         if (tableVersion.getVersionType() == VersionType.VERSION) {
