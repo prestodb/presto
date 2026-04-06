@@ -200,8 +200,7 @@ TEST_F(ConfigTest, planDumpDirIsRegistered) {
   init(config, {{std::string(SystemConfig::kPlanDumpDir), "/tmp/plans"}});
   ASSERT_EQ(config.planDumpDir(), "/tmp/plans");
   ASSERT_EQ(
-      config
-          .setValue(std::string(SystemConfig::kPlanDumpDir), "/tmp/updated")
+      config.setValue(std::string(SystemConfig::kPlanDumpDir), "/tmp/updated")
           .value(),
       "/tmp/plans");
   ASSERT_EQ(config.planDumpDir(), "/tmp/updated");

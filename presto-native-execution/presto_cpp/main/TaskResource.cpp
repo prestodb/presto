@@ -12,7 +12,13 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <folly/json.h>
 #include <presto_cpp/main/common/Exception.h>
+#include <cctype>
+#include <fstream>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -23,9 +29,6 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/PlanConsistencyChecker.h"
 #include "velox/core/PlanNode.h"
-#include <cctype>
-#include <folly/json.h>
-#include <fstream>
 #if __has_include("filesystem")
 #include <filesystem>
 #else
@@ -50,22 +53,47 @@ std::string sanitizeTaskIdForPlanDumpFile(const std::string& taskId) {
 
 namespace {
 
+// Returns the dump file path for taskId with the given suffix, creating the
+// dump directory if needed. Returns nullopt when plan-dump-dir is not set.
+// May throw on filesystem errors.
+std::optional<std::string> prepareDumpPath(
+    const protocol::TaskId& taskId,
+    const std::string& suffix) {
+  auto dirOpt = SystemConfig::instance()->planDumpDir();
+  if (!dirOpt.has_value() || dirOpt->empty()) {
+    return std::nullopt;
+  }
+  const std::string& dir = dirOpt.value();
+#if __has_include("filesystem")
+  std::filesystem::create_directories(dir);
+#else
+  std::experimental::filesystem::create_directories(dir);
+#endif
+  return dir + "/" + sanitizeTaskIdForPlanDumpFile(taskId) + suffix;
+}
+
+// Returns a stable per-path mutex so callers can serialize file updates for
+// the same path across concurrent threads.
+std::shared_ptr<std::mutex> getSplitsFileMutex(const std::string& path) {
+  static std::mutex mapMutex;
+  static std::unordered_map<std::string, std::shared_ptr<std::mutex>> mutexMap;
+  std::lock_guard<std::mutex> lock(mapMutex);
+  auto& ptr = mutexMap[path];
+  if (!ptr) {
+    ptr = std::make_shared<std::mutex>();
+  }
+  return ptr;
+}
+
 void maybeDumpVeloxPlan(
     const protocol::TaskId& taskId,
     const velox::core::PlanNodePtr& planNode) {
-  auto dirOpt = SystemConfig::instance()->planDumpDir();
-  if (!dirOpt.has_value() || dirOpt->empty()) {
-    return;
-  }
-  const std::string& dir = dirOpt.value();
-  const std::string safeId = sanitizeTaskIdForPlanDumpFile(taskId);
-  const std::string path = dir + "/" + safeId + ".json";
   try {
-#if __has_include("filesystem")
-    std::filesystem::create_directories(dir);
-#else
-    std::experimental::filesystem::create_directories(dir);
-#endif
+    auto pathOpt = prepareDumpPath(taskId, ".json");
+    if (!pathOpt) {
+      return;
+    }
+    const std::string& path = *pathOpt;
     folly::dynamic json = planNode->serialize();
     std::ofstream outFile;
     outFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
@@ -73,7 +101,8 @@ void maybeDumpVeloxPlan(
     outFile << folly::toPrettyJson(json);
     outFile.close();
   } catch (const std::exception& e) {
-    LOG(WARNING) << "Failed to dump plan to " << path << ": " << e.what();
+    LOG(WARNING) << "Failed to dump plan for task " << taskId << ": "
+                 << e.what();
   }
 }
 
@@ -83,10 +112,6 @@ void maybeDumpVeloxPlan(
 void maybeDumpSplits(
     const protocol::TaskId& taskId,
     const std::vector<protocol::TaskSource>& sources) {
-  auto dirOpt = SystemConfig::instance()->planDumpDir();
-  if (!dirOpt.has_value() || dirOpt->empty()) {
-    return;
-  }
   // Only dump sources that actually contain splits.
   bool hasSplits = false;
   for (const auto& source : sources) {
@@ -98,15 +123,18 @@ void maybeDumpSplits(
   if (!hasSplits) {
     return;
   }
-  const std::string& dir = dirOpt.value();
-  const std::string safeId = sanitizeTaskIdForPlanDumpFile(taskId);
-  const std::string path = dir + "/" + safeId + ".splits.json";
   try {
-#if __has_include("filesystem")
-    std::filesystem::create_directories(dir);
-#else
-    std::experimental::filesystem::create_directories(dir);
-#endif
+    auto pathOpt = prepareDumpPath(taskId, ".splits.json");
+    if (!pathOpt) {
+      return;
+    }
+    const std::string path = *pathOpt;
+
+    // Serialize all updates to the same file to prevent lost writes when
+    // multiple createOrUpdate*Task calls run concurrently for the same task.
+    auto fileMutex = getSplitsFileMutex(path);
+    std::lock_guard<std::mutex> fileLock(*fileMutex);
+
     // Read existing accumulated splits (if any) so we can merge.
     nlohmann::json existing = nlohmann::json::object();
     {
@@ -138,7 +166,8 @@ void maybeDumpSplits(
     outFile << existing.dump(2);
     outFile.close();
   } catch (const std::exception& e) {
-    LOG(WARNING) << "Failed to dump splits to " << path << ": " << e.what();
+    LOG(WARNING) << "Failed to dump splits for task " << taskId << ": "
+                 << e.what();
   }
 }
 
