@@ -39,7 +39,6 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.Maps;
 import jakarta.inject.Inject;
-import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleTypes;
 
 import java.sql.Connection;
@@ -116,10 +115,6 @@ public class OracleClient
     protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        if (connection.isWrapperFor(OracleConnection.class)) {
-            OracleConnection oracleConnection = connection.unwrap(OracleConnection.class);
-            oracleConnection.setDefaultRowPrefetch(fetchSize);
-        }
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
         ResultSet resultSet = metadata.getTables(
@@ -127,6 +122,7 @@ public class OracleClient
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
+        resultSet.setFetchSize(fetchSize);
         return resultSet;
     }
 
@@ -134,11 +130,9 @@ public class OracleClient
     public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException
     {
-        if (connection.isWrapperFor(OracleConnection.class)) {
-            OracleConnection oracleConnection = connection.unwrap(OracleConnection.class);
-            oracleConnection.setDefaultRowPrefetch(fetchSize);
-        }
-        return connection.prepareStatement(sql);
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(fetchSize);
+        return statement;
     }
 
     @Override

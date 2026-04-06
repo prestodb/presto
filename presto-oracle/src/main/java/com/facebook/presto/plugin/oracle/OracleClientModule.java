@@ -22,7 +22,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
 import java.sql.SQLException;
@@ -31,6 +30,7 @@ import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS;
 
 public class OracleClientModule
         implements Module
@@ -58,14 +58,11 @@ public class OracleClientModule
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
         if (oracleConfig.isTlsEnabled()) {
-            if (oracleConfig.getTrustStorePath() != null) {
-                connectionProperties.setProperty("javax.net.ssl.trustStore", oracleConfig.getTrustStorePath());
-            }
-            if (oracleConfig.getTruststorePassword() != null) {
-                connectionProperties.setProperty("javax.net.ssl.trustStorePassword", oracleConfig.getTruststorePassword());
-            }
+            requireNonNull(oracleConfig.getTrustStorePath(), "oracle.tls.truststore-path is null");
+            connectionProperties.setProperty("javax.net.ssl.trustStore", oracleConfig.getTrustStorePath());
+            connectionProperties.setProperty("javax.net.ssl.trustStorePassword", oracleConfig.getTruststorePassword());
         }
-        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
+        connectionProperties.setProperty(CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
         return new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
