@@ -256,6 +256,66 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithGroupByOrdinals()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a * b), MAX(a + b), c FROM %s GROUP BY 3", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a * b), MAX(mv_a + b), mv_c as c FROM %s GROUP BY 3", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithOrderByOrdinals()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, c as mv_c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b, c FROM %s ORDER BY 3 ASC, 2 DESC, 1", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT mv_a as a, b, mv_c as c FROM %s ORDER BY 3 ASC, 2 DESC, 1", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithGroupByAndOrderByOrdinals()
+    {
+        String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY 2 ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY 2 ORDER BY 1 DESC, 2 ASC", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithGroupByCubeAndOrderByOrdinals()
+    {
+        String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY cube(b)", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY cube(2) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY cube(2) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithGroupByRollupAndOrderByOrdinals()
+    {
+        String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY rollup(b)", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY rollup(2) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY rollup(2) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithGroupByGroupingSetsAndOrderByOrdinals()
+    {
+        String originalViewSql = format("SELECT MAX(a) as mv_max_a, b FROM %s GROUP BY grouping sets((b))", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT MAX(a), b FROM %s GROUP BY grouping sets((2)) ORDER BY 1 DESC, 2 ASC", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT MAX(mv_max_a), b FROM %s GROUP BY grouping sets((2)) ORDER BY 1 DESC, 2 ASC", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithNoMatchingBaseTable()
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_2);
