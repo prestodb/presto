@@ -1159,6 +1159,79 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
+    @Test
+    public void testPartitionedCTASWithLargeAmountOfPartitions()
+    {
+        String tableName = "test_partitioned_ctas_with_many_partitions";
+        try {
+            // 4 worker nodes, default `max_partitions_per_writer` is 100.
+            // Creating a table with data from 1000 partitions would fail.
+            assertQueryFails(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 100 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 200, which is insufficient for 1000 partitions.
+            // Creating a table with data from 1000 partitions would fail as well.
+            Session sessionWithInsufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "200")
+                    .build();
+            assertQueryFails(sessionWithInsufficientPartitionsPerWriter, format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 200 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 300, which is sufficient for 1000 partitions.
+            // Creating a table with data from 1000 partitions would succeed.
+            Session sessionWithSufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "300")
+                    .build();
+            assertUpdate(sessionWithSufficientPartitionsPerWriter,
+                    format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM tpch.tiny.lineitem", tableName), 60175);
+
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 60175");
+            assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1000");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionedInsertIntoTableWithLargeAmountOfPartitions()
+    {
+        String tableName = "test_partitioned_insert_with_many_partitions";
+        try {
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['partkey']) AS SELECT * FROM tpch.tiny.lineitem WITH NO DATA", tableName), 0);
+
+            // 4 worker nodes, default `max_partitions_per_writer` is 100.
+            // Inserting into a table with data from 2000 partitions would fail.
+            assertQueryFails(format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 100 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 400, which is insufficient for 2000 partitions.
+            // Inserting into a table with data from 2000 partitions would fail as well.
+            Session sessionWithInsufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100kB")
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "10kB")
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "400")
+                    .build();
+            assertQueryFails(sessionWithInsufficientPartitionsPerWriter, format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName),
+                    "Exceeded limit of 400 open writers for partitions");
+
+            // 4 worker nodes, set `max_partitions_per_writer` to 600, which is sufficient for 2000 partitions.
+            // Inserting into a table with data from 2000 partitions would succeed.
+            Session sessionWithSufficientPartitionsPerWriter = Session.builder(getSession())
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100kB")
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "10kB")
+                    .setCatalogSessionProperty("iceberg", "max_partitions_per_writer", "600")
+                    .build();
+            assertUpdate(sessionWithSufficientPartitionsPerWriter,
+                    format("INSERT INTO %s SELECT * FROM tpch.tiny.lineitem", tableName), 60175);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 60175");
+            assertQuery(format("SELECT count(*) from \"%s$partitions\"", tableName), "SELECT 2000");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] compressionCodecTestData()
     {
