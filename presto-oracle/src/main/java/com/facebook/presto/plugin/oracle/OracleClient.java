@@ -397,94 +397,89 @@ public class OracleClient
             StringBuilder sql = new StringBuilder(
                     "SELECT OWNER, VIEW_NAME, TEXT FROM ALL_VIEWS WHERE (OWNER, VIEW_NAME) IN (");
 
-            List<String> placeholders = new ArrayList<>();
-            for (int i = 0; i < tableNames.size(); i++) {
-                placeholders.add("(?, ?)");
+            List<String> tableNamePairs = new ArrayList<>();
+            for (SchemaTableName tableName : tableNames) {
+                String remoteSchema = toRemoteSchemaName(session, identity, connection, tableName.getSchemaName());
+                String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, tableName.getTableName());
+                tableNamePairs.add(String.format("('%s', '%s')",
+                        remoteSchema.toUpperCase(ENGLISH).replace("'", "''"),
+                        remoteTable.toUpperCase(ENGLISH).replace("'", "''")));
             }
-            sql.append(String.join(", ", placeholders));
+            sql.append(String.join(", ", tableNamePairs));
             sql.append(")");
 
-            try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-                int paramIndex = 1;
-                for (SchemaTableName tableName : tableNames) {
-                    String remoteSchema = toRemoteSchemaName(session, identity, connection, tableName.getSchemaName());
-                    String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, tableName.getTableName());
-                    statement.setString(paramIndex++, remoteSchema.toUpperCase(ENGLISH));
-                    statement.setString(paramIndex++, remoteTable.toUpperCase(ENGLISH));
-                }
+            try (PreparedStatement statement = connection.prepareStatement(sql.toString());
+                    ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    String schemaName = resultSet.getString("OWNER");
+                    String tableName = resultSet.getString("VIEW_NAME");
+                    String oracleViewSql = resultSet.getString("TEXT");
 
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    while (resultSet.next()) {
-                        String schemaName = resultSet.getString("OWNER");
-                        String tableName = resultSet.getString("VIEW_NAME");
-                        String oracleViewSql = resultSet.getString("TEXT");
+                    // Fetch column metadata for the view
+                    List<String> columnJsonList = new ArrayList<>();
+                    try (ResultSet columnsResultSet = connection.getMetaData().getColumns(
+                            null,
+                            schemaName,
+                            tableName,
+                            null)) {
+                        while (columnsResultSet.next()) {
+                            String columnName = columnsResultSet.getString("COLUMN_NAME");
+                            JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                                    columnsResultSet.getInt("DATA_TYPE"),
+                                    columnsResultSet.getString("TYPE_NAME"),
+                                    columnsResultSet.getInt("COLUMN_SIZE"),
+                                    columnsResultSet.getInt("DECIMAL_DIGITS"));
 
-                        // Fetch column metadata for the view
-                        List<String> columnJsonList = new ArrayList<>();
-                        try (ResultSet columnsResultSet = connection.getMetaData().getColumns(
-                                null,
-                                schemaName,
-                                tableName,
-                                null)) {
-                            while (columnsResultSet.next()) {
-                                String columnName = columnsResultSet.getString("COLUMN_NAME");
-                                JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                                        columnsResultSet.getInt("DATA_TYPE"),
-                                        columnsResultSet.getString("TYPE_NAME"),
-                                        columnsResultSet.getInt("COLUMN_SIZE"),
-                                        columnsResultSet.getInt("DECIMAL_DIGITS"));
-
-                                Optional<ReadMapping> readMapping = toPrestoType(session, typeHandle);
-                                if (readMapping.isPresent()) {
-                                    Type prestoType = readMapping.get().getType();
-                                    // Normalize column name
-                                    String normalizedColumnName = normalizeIdentifier(session, columnName);
-                                    // Escape for JSON
-                                    String escapedColumnName = normalizedColumnName
-                                            .replace("\\", "\\\\")
-                                            .replace("\"", "\\\"");
-                                    String escapedTypeName = prestoType.getDisplayName()
-                                            .replace("\\", "\\\\")
-                                            .replace("\"", "\\\"");
-                                    columnJsonList.add(String.format(
-                                            "{\"name\":\"%s\",\"type\":\"%s\"}",
-                                            escapedColumnName,
-                                            escapedTypeName));
-                                }
+                            Optional<ReadMapping> readMapping = toPrestoType(session, typeHandle);
+                            if (readMapping.isPresent()) {
+                                Type prestoType = readMapping.get().getType();
+                                // Normalize column name
+                                String normalizedColumnName = normalizeIdentifier(session, columnName);
+                                // Escape for JSON
+                                String escapedColumnName = normalizedColumnName
+                                        .replace("\\", "\\\\")
+                                        .replace("\"", "\\\"");
+                                String escapedTypeName = prestoType.getDisplayName()
+                                        .replace("\\", "\\\\")
+                                        .replace("\"", "\\\"");
+                                columnJsonList.add(String.format(
+                                        "{\"name\":\"%s\",\"type\":\"%s\"}",
+                                        escapedColumnName,
+                                        escapedTypeName));
                             }
                         }
-
-                        // Normalize identifiers according to Oracle rules
-                        schemaName = normalizeIdentifier(session, schemaName);
-                        tableName = normalizeIdentifier(session, tableName);
-
-                        SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
-
-                        // Use session user as the view owner
-                        String owner = session.getUser();
-
-                        // Create a proper ViewDefinition JSON with all required fields including columns
-                        String escapedSql = oracleViewSql
-                                .replace("\\", "\\\\")
-                                .replace("\"", "\\\"")
-                                .replace("\n", "\\n")
-                                .replace("\r", "\\r");
-
-                        String columnsJson = String.join(",", columnJsonList);
-
-                        String prestoViewData = String.format(
-                                "{\"originalSql\":\"%s\",\"catalog\":\"%s\",\"schema\":\"%s\",\"columns\":[%s],\"owner\":\"%s\",\"runAsInvoker\":false}",
-                                escapedSql,
-                                connectorId,  // Use connector ID as catalog
-                                schemaName,
-                                columnsJson,
-                                owner);
-
-                        views.put(viewName, new ConnectorViewDefinition(
-                                viewName,
-                                Optional.of(owner),
-                                prestoViewData));
                     }
+
+                    // Normalize identifiers according to Oracle rules
+                    schemaName = normalizeIdentifier(session, schemaName);
+                    tableName = normalizeIdentifier(session, tableName);
+
+                    SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
+
+                    // Use session user as the view owner
+                    String owner = session.getUser();
+
+                    // Create a proper ViewDefinition JSON with all required fields including columns
+                    String escapedSql = oracleViewSql
+                            .replace("\\", "\\\\")
+                            .replace("\"", "\\\"")
+                            .replace("\n", "\\n")
+                            .replace("\r", "\\r");
+
+                    String columnsJson = String.join(",", columnJsonList);
+
+                    String prestoViewData = String.format(
+                            "{\"originalSql\":\"%s\",\"catalog\":\"%s\",\"schema\":\"%s\",\"columns\":[%s],\"owner\":\"%s\",\"runAsInvoker\":false}",
+                            escapedSql,
+                            connectorId,  // Use connector ID as catalog
+                            schemaName,
+                            columnsJson,
+                            owner);
+
+                    views.put(viewName, new ConnectorViewDefinition(
+                            viewName,
+                            Optional.of(owner),
+                            prestoViewData));
                 }
             }
 
@@ -552,6 +547,10 @@ public class OracleClient
             // Remove catalog prefix from table references (oracle.schema.table -> schema.table)
             viewSql = removeCatalogPrefix(viewSql);
 
+            // To remove double quotes around identifiers that Presto adds
+            // This handles cases like "sum"(totalprice) -> sum(totalprice)
+            viewSql = removeQuotes(viewSql);
+
             String remoteSchema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
             String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, viewName.getTableName());
 
@@ -578,12 +577,25 @@ public class OracleClient
 
     /**
      * Remove catalog prefix from table references in SQL.
+     * Matches patterns like: catalog.schema.table but not function calls like SUM(column)
      */
     private String removeCatalogPrefix(String sql)
     {
         // Pattern to match: word.word.word (catalog.schema.table)
+        // But not followed by '(' to avoid matching function calls
         // Replace with: word.word (schema.table)
-        return sql.replaceAll("\\b\\w+\\.(\\w+\\.\\w+)\\b", "$1");
+        return sql.replaceAll("\\b(\\w+)\\.(\\w+\\.\\w+)\\b(?!\\s*\\()", "$2");
+    }
+
+    /**
+     * Remove double quotes around identifiers that Presto adds.
+     * This handles cases like "sum"(totalprice) -> sum(totalprice), "count"(orderkey) -> count(orderkey)
+     */
+    private String removeQuotes(String sql)
+    {
+        // Remove double quotes around identifiers
+        // This handles cases like "count"(1) -> count(1), "avg"(age) -> avg(age)
+        return sql.replaceAll("\"([a-zA-Z_][a-zA-Z0-9_]*)\"", "$1");
     }
 
     /**

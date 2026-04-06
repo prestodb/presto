@@ -13,19 +13,23 @@
  */
 package com.facebook.presto.plugin.oracle;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
 /**
- * Initialize OraclePlugin class for prestoDB
+ * Override module for Oracle metadata factory binding.
+ * This module overrides the default JdbcMetadataFactory binding from JdbcModule
+ * to use OracleMetadataFactory instead.
  */
-public class OraclePlugin
-        implements Plugin
+public class OracleMetadataOverrideModule
+        implements Module
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public void configure(Binder binder)
     {
-        return ImmutableList.of(new OracleConnectorFactory());
+        // Override the JdbcMetadataFactory binding from JdbcModule
+        binder.bind(JdbcMetadataFactory.class).to(OracleMetadataFactory.class).in(Scopes.SINGLETON);
     }
 }
