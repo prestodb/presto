@@ -82,7 +82,6 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_DUPLICATE_RANGE_VARIABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_FUNCTION_IMPLEMENTATION_ERROR;
@@ -2395,9 +2394,8 @@ public class TestAnalyzer
         assertFails(MISSING_TABLE, ".*Source table '.*' does not exist",
                 "CREATE VECTOR INDEX test_index ON nonexistent_table(a, b)");
 
-        // destination table already exists (using an existing table name as the index name)
-        assertFails(TABLE_ALREADY_EXISTS, ".*already exists",
-                "CREATE VECTOR INDEX t1 ON t2(a, b)");
+        // destination table already exists — allowed (connector decides how to handle)
+        analyze("CREATE VECTOR INDEX t1 ON t2(a, b)");
 
         // column does not exist in source table
         assertFails(MISSING_COLUMN, ".*Column 'unknown' does not exist in source table '.*'",
