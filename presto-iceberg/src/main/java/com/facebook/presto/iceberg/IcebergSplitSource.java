@@ -70,6 +70,14 @@ public class IcebergSplitSource
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
+        this(session, tableScan, metadataColumnConstraints, 1);
+    }
+
+    public IcebergSplitSource(
+            ConnectorSession session,
+            TableScan tableScan,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
             int minInputFiles)
     {

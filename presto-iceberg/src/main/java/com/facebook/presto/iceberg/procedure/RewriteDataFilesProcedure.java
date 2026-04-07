@@ -19,13 +19,13 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.CommitTaskData;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
-import com.facebook.presto.iceberg.IcebergProcedureContext;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
+import com.facebook.presto.iceberg.procedure.context.IcebergRewriteDataFilesProcedureContext;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -115,8 +115,8 @@ public class RewriteDataFilesProcedure
                         new Argument("filter", VARCHAR, false, "TRUE"),
                         new Argument("sorted_by", "array(varchar)", false, null),
                         new Argument("options", "map(varchar, varchar)", false, null)),
-                (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
-                ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
+                (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
+                ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
                     // Context provider receives [Table, Transaction, procedureArguments]
                     checkArgument(arguments.length >= 2, format("invalid number of arguments: %s (should have at least %s)", arguments.length, 2));
@@ -125,7 +125,7 @@ public class RewriteDataFilesProcedure
                     // Extract and validate options from procedure arguments if present
                     Map<String, String> options = extractAndValidateOptions(arguments);
 
-                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1], options);
+                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (Transaction) arguments[1], options);
                 });
     }
 
@@ -145,7 +145,7 @@ public class RewriteDataFilesProcedure
         return options;
     }
 
-    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
+    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
@@ -195,7 +195,7 @@ public class RewriteDataFilesProcedure
         }
     }
 
-    private void finishCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+    private void finishCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             IcebergDistributedProcedureHandle handle = (IcebergDistributedProcedureHandle) procedureHandle;
