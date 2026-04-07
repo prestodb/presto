@@ -236,6 +236,30 @@ VeloxToPrestoExprConverter::getInSpecialFormExpressionArgs(
   return result;
 }
 
+SpecialFormExpressionPtr
+VeloxToPrestoExprConverter::convertToNestedBinaryOperations(
+    const std::vector<velox::core::TypedExprPtr>& inputs,
+    protocol::Form form,
+    const protocol::TypeSignature& returnType) const {
+  // Convert N-argument AND/OR (N > 2) to nested binary operations
+  // For AND(A, B, C, D), create AND(AND(AND(A, B), C), D)
+  auto currentExpr = getRowExpression(inputs[0]);
+  for (size_t i = 1; i < inputs.size(); ++i) {
+    protocol::SpecialFormExpression nestedExpr;
+    nestedExpr.form = form;
+    nestedExpr.returnType = returnType;
+    nestedExpr.arguments.push_back(currentExpr);
+    nestedExpr.arguments.push_back(getRowExpression(inputs[i]));
+    currentExpr = std::make_shared<protocol::SpecialFormExpression>(nestedExpr);
+  }
+  auto result =
+      std::dynamic_pointer_cast<protocol::SpecialFormExpression>(currentExpr);
+  VELOX_CHECK_NOT_NULL(
+      result,
+      "Failed to convert flattened SpecialFormExpression expression to nested binary operations");
+  return result;
+}
+
 SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
     const velox::core::CallTypedExpr* expr) const {
   VELOX_CHECK(
@@ -257,16 +281,25 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getSpecialFormExpression(
   // so they are constructed separately.
   static constexpr char const* kSwitch = "SWITCH";
   static constexpr char const* kIn = "IN";
+  static constexpr char const* kAnd = "AND";
+  static constexpr char const* kOr = "OR";
+
+  auto exprInputs = expr->inputs();
   if (name == kSwitch) {
     result.arguments = getSwitchSpecialFormExpressionArgs(expr);
   } else if (name == kIn) {
     result.arguments = getInSpecialFormExpressionArgs(expr);
+  } else if ((name == kAnd || name == kOr) && exprInputs.size() > 2) {
+    // Presto AND/OR are binary operations (2 arguments only).
+    // If Velox has optimized to N-argument AND/OR (N > 2), we need to
+    // convert back to nested binary operations for Presto compatibility.
+    // Binary or unary case (N <= 2) will be handled normally.
+    return convertToNestedBinaryOperations(exprInputs, form, result.returnType);
   } else {
-    // Presto special form expressions that are not of type `SWITCH` and `IN`,
-    // such as `AND`, `OR`, are handled in this clause. The list of Presto
-    // special form expressions can be found in `kPrestoSpecialForms` in the
-    // helper function `isPrestoSpecialForm`.
-    auto exprInputs = expr->inputs();
+    // Presto special form expressions that are not of type `SWITCH`, `IN`
+    // and (N <= 2) arguments `AND`, `OR` are handled in this clause. The list
+    // of Presto special form expressions can be found in `kPrestoSpecialForms`
+    // in the helper function `isPrestoSpecialForm`.
     for (const auto& input : exprInputs) {
       result.arguments.push_back(getRowExpression(input));
     }
