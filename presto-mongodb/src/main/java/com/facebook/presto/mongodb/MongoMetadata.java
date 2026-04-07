@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.NotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
@@ -335,29 +336,46 @@ public class MongoMetadata
     @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
+        if (replace) {
+            try {
+                dropView(session, viewMetadata.getTable());
+            }
+            catch (PrestoException ignored) {
+                // view may not exist yet
+            }
+        }
+        mongoSession.createView(viewMetadata.getTable(), viewData);
     }
 
     @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
-
+        mongoSession.renameView(viewName, newViewName);
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-
+        mongoSession.dropView(viewName);
     }
 
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return null;
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
+        for (String schema : schemaName.map(ImmutableList::of).orElseGet(() -> (ImmutableList<String>) listSchemaNames(session))) {
+            views.addAll(mongoSession.listViews(schema));
+        }
+        return views.build();
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return null;
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        for (String schema : listSchemas(session, prefix.getSchemaName())) {
+            views.putAll(mongoSession.getViews(schema, prefix.getTableName()));
+        }
+        return views.build();
     }
 }

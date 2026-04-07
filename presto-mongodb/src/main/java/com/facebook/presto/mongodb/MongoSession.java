@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.mongodb.Block;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
@@ -672,28 +673,108 @@ public class MongoSession
         tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void createView()
+    public void createView(SchemaTableName viewName, String viewData)
     {
+        // viewData is the pipeline JSON; parse it as a BSON document list
+        List<Document> pipeline = Document.parse("{\"pipeline\":" + viewData + "}")
+                .getList("pipeline", Document.class);
 
+        String schemaName = viewName.getSchemaName();
+        String tableName  = viewName.getTableName();
+
+        // Register in schema collection with type = "view"
+        MongoDatabase db = client.getDatabase(schemaName);
+        Document metadata = new Document(TABLE_NAME_KEY, tableName)
+                .append(FIELDS_KEY, ImmutableList.of())
+                .append(TYPE_KEY, VIEW_TYPE_NAME);
+
+        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+        schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+        schema.insertOne(metadata);
+
+        // Create the native MongoDB view — requires a source collection name.
+        // viewData is expected to be JSON: {"on": "sourceCollection", "pipeline": [...]}
+        Document viewDef = Document.parse(viewData);
+        String sourceCollection = viewDef.getString("on");
+        db.createView(tableName, sourceCollection, pipeline);
+
+        tableCache.invalidate(viewName);
     }
 
-    public void renameView()
+    public void renameView(SchemaTableName viewName, SchemaTableName newViewName)
     {
+        // MongoDB doesn't support renaming views natively — drop and recreate.
+        // We can reconstruct the definition from listCollections.
+        String schemaName = viewName.getSchemaName();
+        String tableName  = viewName.getTableName();
+        MongoDatabase db = client.getDatabase(schemaName);
 
+        // Fetch the current view definition from listCollections
+        Document viewInfo = db.listCollections()
+                .filter(new Document(NAME_KEY, tableName))
+                .first();
+        requireNonNull(viewInfo, "View definition not found: " + viewName);
+
+        Document options = viewInfo.get("options", Document.class);
+        String sourceCollection = options.getString("viewOn");
+        List<Document> pipeline = options.getList("pipeline", Document.class);
+
+        // Drop old, recreate under new name in target schema
+        dropView(viewName);
+        String newSchemaName = newViewName.getSchemaName();
+        String newTableName  = newViewName.getTableName();
+        MongoDatabase newDb = client.getDatabase(newSchemaName);
+
+        Document newMetadata = new Document(TABLE_NAME_KEY, newTableName)
+                .append(FIELDS_KEY, ImmutableList.of())
+                .append(TYPE_KEY, VIEW_TYPE_NAME);
+        newDb.getCollection(schemaCollection)
+                .createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+        newDb.getCollection(schemaCollection).insertOne(newMetadata);
+        newDb.createView(newTableName, sourceCollection, pipeline);
+
+        tableCache.invalidate(viewName);
+        tableCache.invalidate(newViewName);
     }
 
-    public void dropView()
+    public void dropView(SchemaTableName viewName)
     {
-
+        deleteTableMetadata(viewName);          // reuses existing helper
+        getCollection(viewName).drop();         // drops the underlying view collection
+        tableCache.invalidate(viewName);
     }
 
-    public List<SchemaTableName> listViews()
+    public List<SchemaTableName> listViews(String schemaName)
     {
-        return null;
+        MongoDatabase db = client.getDatabase(schemaName);
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
+
+        db.listCollections()
+                .filter(new Document(TYPE_KEY, VIEW_TYPE_NAME))
+                .forEach((Block<Document>) doc ->
+                        views.add(new SchemaTableName(schemaName, doc.getString(NAME_KEY))));
+
+        return views.build();
     }
 
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews()
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(String schemaName, String tableNameOrNull)
     {
-        return null;
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        List<SchemaTableName> viewNames = tableNameOrNull != null
+                ? ImmutableList.of(new SchemaTableName(schemaName, tableNameOrNull))
+                : listViews(schemaName);
+
+        for (SchemaTableName viewName : viewNames) {
+            try {
+                Document tableMeta = getTableMetadata(viewName);
+                if (isView(tableMeta)) {
+                    String viewData = tableMeta.toJson();
+                    views.put(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewData));
+                }
+            }
+            catch (TableNotFoundException ignored) {
+            }
+        }
+        return views.build();
     }
 }
