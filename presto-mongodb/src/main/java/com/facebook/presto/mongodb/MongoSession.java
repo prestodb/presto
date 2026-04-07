@@ -192,9 +192,11 @@ public class MongoSession
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
-        for (Document columnMetadata : getColumnMetadata(tableMeta)) {
-            MongoColumnHandle columnHandle = buildColumnHandle(columnMetadata);
-            columnHandles.add(columnHandle);
+        // skip column loading for views
+        if (!isView(tableMeta)) {
+            for (Document columnMetadata : getColumnMetadata(tableMeta)) {
+                columnHandles.add(buildColumnHandle(columnMetadata));
+            }
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(tableName);
@@ -675,28 +677,19 @@ public class MongoSession
 
     public void createView(SchemaTableName viewName, String viewData)
     {
-        // viewData is the pipeline JSON; parse it as a BSON document list
-        List<Document> pipeline = Document.parse("{\"pipeline\":" + viewData + "}")
-                .getList("pipeline", Document.class);
-
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
 
-        // Register in schema collection with type = "view"
         MongoDatabase db = client.getDatabase(schemaName);
-        Document metadata = new Document(TABLE_NAME_KEY, tableName)
-                .append(FIELDS_KEY, ImmutableList.of())
-                .append(TYPE_KEY, VIEW_TYPE_NAME);
-
         MongoCollection<Document> schema = db.getCollection(schemaCollection);
+
+        Document metadata = new Document(TABLE_NAME_KEY, tableName)
+                .append(FIELDS_KEY, new ArrayList<>())   // <-- must be a List, not a Document
+                .append(TYPE_KEY, VIEW_TYPE_NAME)
+                .append("data", viewData);               // store the SQL string opaquely
+
         schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
         schema.insertOne(metadata);
-
-        // Create the native MongoDB view — requires a source collection name.
-        // viewData is expected to be JSON: {"on": "sourceCollection", "pipeline": [...]}
-        Document viewDef = Document.parse(viewData);
-        String sourceCollection = viewDef.getString("on");
-        db.createView(tableName, sourceCollection, pipeline);
 
         tableCache.invalidate(viewName);
     }
@@ -760,21 +753,21 @@ public class MongoSession
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(String schemaName, String tableNameOrNull)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
-        List<SchemaTableName> viewNames = tableNameOrNull != null
-                ? ImmutableList.of(new SchemaTableName(schemaName, tableNameOrNull))
-                : listViews(schemaName);
 
-        for (SchemaTableName viewName : viewNames) {
-            try {
-                Document tableMeta = getTableMetadata(viewName);
-                if (isView(tableMeta)) {
-                    String viewData = tableMeta.toJson();
-                    views.put(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewData));
-                }
-            }
-            catch (TableNotFoundException ignored) {
-            }
+        MongoDatabase db = client.getDatabase(schemaName);
+        Document filter = new Document(TYPE_KEY, VIEW_TYPE_NAME);
+        if (tableNameOrNull != null) {
+            filter.append(TABLE_NAME_KEY, tableNameOrNull);
         }
+
+        db.getCollection(schemaCollection).find(filter).forEach((Block<Document>) doc -> {
+            SchemaTableName viewName = new SchemaTableName(schemaName, doc.getString(TABLE_NAME_KEY));
+            String viewData = doc.getString("data");
+            if (viewData != null) {
+                views.put(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewData));
+            }
+        });
+
         return views.build();
     }
 }
