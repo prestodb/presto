@@ -680,7 +680,7 @@ public class MongoSession
                 .getList("pipeline", Document.class);
 
         String schemaName = viewName.getSchemaName();
-        String tableName  = viewName.getTableName();
+        String tableName = viewName.getTableName();
 
         // Register in schema collection with type = "view"
         MongoDatabase db = client.getDatabase(schemaName);
@@ -706,7 +706,7 @@ public class MongoSession
         // MongoDB doesn't support renaming views natively — drop and recreate.
         // We can reconstruct the definition from listCollections.
         String schemaName = viewName.getSchemaName();
-        String tableName  = viewName.getTableName();
+        String tableName = viewName.getTableName();
         MongoDatabase db = client.getDatabase(schemaName);
 
         // Fetch the current view definition from listCollections
@@ -722,7 +722,7 @@ public class MongoSession
         // Drop old, recreate under new name in target schema
         dropView(viewName);
         String newSchemaName = newViewName.getSchemaName();
-        String newTableName  = newViewName.getTableName();
+        String newTableName = newViewName.getTableName();
         MongoDatabase newDb = client.getDatabase(newSchemaName);
 
         Document newMetadata = new Document(TABLE_NAME_KEY, newTableName)
