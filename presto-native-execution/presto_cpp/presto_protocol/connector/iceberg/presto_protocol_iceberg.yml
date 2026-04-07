@@ -20,7 +20,7 @@ AbstractClasses:
   ConnectorPartitioningHandle:
     super: JsonEncodedSubclass
     subclasses:
-      - { name: HivePartitioningHandle,   key: hive }
+      - { name: IcebergPartitioningHandle,   key: hive }
 
   ConnectorTableHandle:
     super: JsonEncodedSubclass
@@ -78,3 +78,5 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/SortField.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/partitioning/IcebergPartitioningHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/partitioning/IcebergPartitionFieldHandle.java

@@ -25,7 +25,7 @@ using IcebergConnectorProtocol = ConnectorProtocolTemplate<
     IcebergInsertTableHandle,
     IcebergOutputTableHandle,
     IcebergSplit,
-    NotImplemented,
+    IcebergPartitioningHandle,
     hive::HiveTransactionHandle,
     NotImplemented,
     NotImplemented,

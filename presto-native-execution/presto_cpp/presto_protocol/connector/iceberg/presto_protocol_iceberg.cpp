@@ -1644,6 +1644,91 @@ void from_json(const json& j, IcebergOutputTableHandle& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+
+void to_json(json& j, const IcebergPartitionFieldHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "sourceColumnChannel",
+      p.sourceColumnChannel,
+      "IcebergPartitionFieldHandle",
+      "int",
+      "sourceColumnChannel");
+  to_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionFieldHandle",
+      "PartitionTransformType",
+      "transform");
+  to_json_key(
+      j,
+      "partitionFieldMessage",
+      p.partitionFieldMessage,
+      "IcebergPartitionFieldHandle",
+      "String",
+      "partitionFieldMessage");
+  to_json_key(j, "type", p.type, "IcebergPartitionFieldHandle", "Type", "type");
+  to_json_key(j, "size", p.size, "IcebergPartitionFieldHandle", "int", "size");
+}
+
+void from_json(const json& j, IcebergPartitionFieldHandle& p) {
+  from_json_key(
+      j,
+      "sourceColumnChannel",
+      p.sourceColumnChannel,
+      "IcebergPartitionFieldHandle",
+      "int",
+      "sourceColumnChannel");
+  from_json_key(
+      j,
+      "transform",
+      p.transform,
+      "IcebergPartitionFieldHandle",
+      "PartitionTransformType",
+      "transform");
+  from_json_key(
+      j,
+      "partitionFieldMessage",
+      p.partitionFieldMessage,
+      "IcebergPartitionFieldHandle",
+      "String",
+      "partitionFieldMessage");
+  from_json_key(
+      j, "type", p.type, "IcebergPartitionFieldHandle", "Type", "type");
+  from_json_key(
+      j, "size", p.size, "IcebergPartitionFieldHandle", "int", "size");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+IcebergPartitioningHandle::IcebergPartitioningHandle() noexcept {
+  _type = "hive";
+}
+
+void to_json(json& j, const IcebergPartitioningHandle& p) {
+  j = json::object();
+  j["@type"] = "hive";
+  to_json_key(
+      j,
+      "partitionFieldHandles",
+      p.partitionFieldHandles,
+      "IcebergPartitioningHandle",
+      "List<IcebergPartitionFieldHandle>",
+      "partitionFieldHandles");
+}
+
+void from_json(const json& j, IcebergPartitioningHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "partitionFieldHandles",
+      p.partitionFieldHandles,
+      "IcebergPartitioningHandle",
+      "List<IcebergPartitionFieldHandle>",
+      "partitionFieldHandles");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 IcebergSplit::IcebergSplit() noexcept {
   _type = "hive-iceberg";
 }

@@ -297,6 +297,26 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
 void to_json(json& j, const IcebergOutputTableHandle& p);
 void from_json(const json& j, IcebergOutputTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergPartitionFieldHandle {
+  int sourceColumnChannel = {};
+  PartitionTransformType transform = {};
+  String partitionFieldMessage = {};
+  Type type = {};
+  std::shared_ptr<int> size = {};
+};
+void to_json(json& j, const IcebergPartitionFieldHandle& p);
+void from_json(const json& j, IcebergPartitionFieldHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergPartitioningHandle : public ConnectorPartitioningHandle {
+  List<IcebergPartitionFieldHandle> partitionFieldHandles = {};
+
+  IcebergPartitioningHandle() noexcept;
+};
+void to_json(json& j, const IcebergPartitioningHandle& p);
+void from_json(const json& j, IcebergPartitioningHandle& p);
+} // namespace facebook::presto::protocol::iceberg
 // IcebergSplit is special since it needs an usage of
 // hive::.
 
