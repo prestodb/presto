@@ -20,6 +20,7 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -32,6 +33,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertSame;
 
 public class TestRowExpressionVariableInliner
 {
@@ -74,6 +76,41 @@ public class TestRowExpressionVariableInliner
                         variable("b")),
                 variable("a")),
                 variable("b"));
+    }
+
+    @Test
+    public void testIdentityMappingPreservesReference()
+    {
+        // When a variable maps to itself, the inliner should preserve the original expression reference
+        VariableReferenceExpression a = variable("a");
+        RowExpression result = RowExpressionVariableInliner.inlineVariables(v -> v, a);
+        assertSame(result, a, "Identity mapping should return the exact same object");
+    }
+
+    @Test
+    public void testIdentityMappingInComplexExpression()
+    {
+        // In a complex expression where variables map to themselves, the original tree should be preserved
+        VariableReferenceExpression a = variable("a");
+        VariableReferenceExpression b = variable("b");
+        CallExpression expression = new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(a, b));
+        RowExpression result = RowExpressionVariableInliner.inlineVariables(v -> v, expression);
+        assertSame(result, expression, "Identity mapping on complex expression should preserve the original tree");
+    }
+
+    @Test
+    public void testPartialIdentityMapping()
+    {
+        // When some variables are mapped and others are identity, the mapped ones should change
+        VariableReferenceExpression a = variable("a");
+        VariableReferenceExpression b = variable("b");
+        VariableReferenceExpression c = variable("c");
+        CallExpression expression = new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(a, b));
+        RowExpression result = RowExpressionVariableInliner.inlineVariables(
+                ImmutableMap.of(a, c, b, b),
+                expression);
+        // a -> c, b -> b (identity), so expression should change
+        assertEquals(result, new CallExpression("add", TEST_FUNCTION, BIGINT, ImmutableList.of(c, b)));
     }
 
     @Test

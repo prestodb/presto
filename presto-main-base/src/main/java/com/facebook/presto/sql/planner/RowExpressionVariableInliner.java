@@ -54,6 +54,11 @@ public final class RowExpressionVariableInliner
         if (!excludedNames.contains(node.getName())) {
             RowExpression result = mapping.apply(node);
             checkState(result != null, "Cannot resolve symbol %s", node.getName());
+            // Return null to signal "no change" to RowExpressionTreeRewriter,
+            // preserving reference identity and avoiding unnecessary parent rebuilds
+            if (result == node) {
+                return null;
+            }
             return result;
         }
         return null;

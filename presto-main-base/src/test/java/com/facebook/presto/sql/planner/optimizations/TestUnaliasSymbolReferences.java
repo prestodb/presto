@@ -21,6 +21,7 @@ import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestUnaliasSymbolReferences
@@ -45,6 +46,25 @@ public class TestUnaliasSymbolReferences
                                 anyTree(values("RIGHT_BAR")))
                                 .withNumberOfOutputColumns(2)
                                 .withExactOutputs("LEFT_BAR", "RIGHT_BAR")));
+    }
+
+    @Test
+    public void testWideProjectionNoAliasPassthrough()
+    {
+        // Verify that wide projections with passthrough columns (no aliasing)
+        // produce valid plans. The fast-path in canonicalize should return original
+        // variables when no mapping exists, avoiding unnecessary allocation.
+        StringBuilder columns = new StringBuilder();
+        for (int i = 1; i <= 50; i++) {
+            if (i > 1) {
+                columns.append(", ");
+            }
+            columns.append(String.format("nationkey + %d AS col_%d", i, i));
+        }
+        assertPlan(
+                String.format("SELECT %s FROM nation", columns),
+                anyTree(
+                        output(anyTree(values()))));
     }
 
     @Test
