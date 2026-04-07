@@ -60,6 +60,8 @@ public abstract class TestIcebergDistributedQueries
         return IcebergQueryRunner.builder()
                 .setCatalogType(catalogType)
                 .setExtraConnectorProperties(extraConnectorProperties)
+                .setExtraProperties(ImmutableMap.of("query.max-age", "10s",
+                        "query.max-history", "10"))
                 .build().getQueryRunner();
     }
 

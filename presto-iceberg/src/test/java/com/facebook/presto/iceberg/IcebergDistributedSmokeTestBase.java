@@ -106,7 +106,12 @@ public abstract class IcebergDistributedSmokeTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder().setCatalogType(catalogType).build().getQueryRunner();
+        return IcebergQueryRunner.builder()
+                .setCatalogType(catalogType)
+                .setExtraProperties(ImmutableMap.of("query.max-age", "10s",
+                        "query.max-history", "10"))
+                .build()
+                .getQueryRunner();
     }
 
     @Test
