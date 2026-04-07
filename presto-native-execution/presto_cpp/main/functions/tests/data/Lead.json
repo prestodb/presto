@@ -3,7 +3,8 @@
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "t",
       "paramTypes": [
         "t"
@@ -16,19 +17,20 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     },
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "t",
       "paramTypes": [
         "t",
@@ -42,19 +44,20 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     },
     {
       "docString": "presto.default.lead",
       "functionKind": "WINDOW",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "t",
       "paramTypes": [
         "t",
@@ -69,14 +72,14 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     }
   ]
 }

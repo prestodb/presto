@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -278,6 +279,12 @@ public abstract class BasePlanFragmenter
 
     @Override
     public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
+    {
+        return context.defaultRewrite(node, context.get());
+    }
+
+    @Override
+    public PlanNode visitRPC(RPCNode node, RewriteContext<FragmentProperties> context)
     {
         return context.defaultRewrite(node, context.get());
     }

@@ -81,6 +81,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
@@ -862,6 +863,13 @@ public class AddExchanges
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, PreferredProperties preferredProperties)
         {
             return getTableWriterPlanWithProperties(node, preferredProperties, Optional.empty(), false);
+        }
+
+        @Override
+        public PlanWithProperties visitRPC(RPCNode node, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties source = accept(node.getSource(), preferredProperties);
+            return rebaseAndDeriveProperties(node, source);
         }
 
         @Override

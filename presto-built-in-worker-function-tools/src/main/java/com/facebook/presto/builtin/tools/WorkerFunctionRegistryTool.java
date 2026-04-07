@@ -14,10 +14,17 @@
 package com.facebook.presto.builtin.tools;
 
 import com.facebook.presto.spi.function.SqlFunction;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Set;
 
 public interface WorkerFunctionRegistryTool
 {
     List<? extends SqlFunction> getWorkerFunctions();
+
+    default Set<String> getRpcFunctionNames()
+    {
+        return ImmutableSet.of();
+    }
 }
