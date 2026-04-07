@@ -221,14 +221,23 @@ public class MongoSession
 
         return new MongoColumnHandle(name, type, hidden);
     }
-
+//
+//    private List<Document> getColumnMetadata(Document doc)
+//    {
+//        if (!doc.containsKey(FIELDS_KEY)) {
+//            return ImmutableList.of();
+//        }
+//
+//        return (List<Document>) doc.get(FIELDS_KEY);
+//    }
+//
     private List<Document> getColumnMetadata(Document doc)
     {
-        if (!doc.containsKey(FIELDS_KEY)) {
-            return ImmutableList.of();
+        Object fields = doc.get(FIELDS_KEY);
+        if (fields instanceof List) {
+            return (List<Document>) fields;
         }
-
-        return (List<Document>) doc.get(FIELDS_KEY);
+        return ImmutableList.of();
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
