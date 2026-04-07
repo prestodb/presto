@@ -23,6 +23,7 @@
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -664,6 +665,24 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       std::unordered_map<std::string, std::string>{},
       velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
           kMerge);
+}
+
+std::unique_ptr<velox::core::PartitionFunctionSpec>
+IcebergPrestoToVeloxConnector::createVeloxPartitionFunctionSpec(
+    const protocol::ConnectorPartitioningHandle* partitioningHandle,
+    const std::vector<int>& bucketToPartition,
+    const std::vector<velox::column_index_t>& channels,
+    const std::vector<velox::VectorPtr>& constValues,
+    bool& effectivelyGather) const {
+  auto icebergPartitioningHandle =
+      dynamic_cast<const protocol::iceberg::IcebergPartitioningHandle*>(
+          partitioningHandle);
+  VELOX_CHECK_NOT_NULL(
+      icebergPartitioningHandle,
+      "Unexpected partitioning handle type {}",
+      partitioningHandle->_type);
+  effectivelyGather = true;
+  return std::make_unique<velox::exec::RoundRobinPartitionFunctionSpec>();
 }
 
 } // namespace facebook::presto
