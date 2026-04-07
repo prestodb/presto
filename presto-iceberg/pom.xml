@@ -847,7 +847,6 @@
                         </rules>
                     </configuration>
                 </plugin>
-
             </plugins>
         </pluginManagement>
     </build>

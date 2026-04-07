@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VariableWidthType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.QueryUtil;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -321,8 +323,15 @@ public class ShowStatsRewrite
             rowValues.add(createEstimateRepresentation(columnStatistics.getDistinctValuesCount()));
             rowValues.add(createEstimateRepresentation(columnStatistics.getNullsFraction()));
             rowValues.add(NULL_DOUBLE);
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
-            rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            if (columnStatistics.getStringRange().isPresent()) {
+                checkState(type instanceof VariableWidthType, "String range was specified for a non variable width-type %s", type);
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMin).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+                rowValues.add(columnStatistics.getStringRange().map(StringRange::getMax).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
+            }
+            else {
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMin)));
+                rowValues.add(toStringLiteral(type, columnStatistics.getRange().map(DoubleRange::getMax)));
+            }
             rowValues.add(columnStatistics.getHistogram().map(Objects::toString).<Expression>map(StringLiteral::new).orElse(NULL_VARCHAR));
             return new Row(rowValues.build());
         }
