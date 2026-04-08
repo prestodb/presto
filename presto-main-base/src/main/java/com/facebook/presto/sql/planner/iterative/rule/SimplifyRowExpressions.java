@@ -14,7 +14,10 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
@@ -28,8 +31,12 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
@@ -37,6 +44,8 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -52,6 +61,7 @@ public class SimplifyRowExpressions
             implements PlanRowExpressionRewriter
     {
         private final NestedIfSimplifier nestedIfSimplifier;
+        private final MapFromEntriesRewriter mapFromEntriesRewriter;
         private final ExpressionOptimizerManager expressionOptimizerManager;
         private final LogicalExpressionRewriter logicalExpressionRewriter;
 
@@ -62,6 +72,7 @@ public class SimplifyRowExpressions
             this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
             this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getFunctionAndTypeManager());
             this.nestedIfSimplifier = new NestedIfSimplifier(new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()));
+            this.mapFromEntriesRewriter = new MapFromEntriesRewriter(metadata.getFunctionAndTypeManager());
         }
 
         @Override
@@ -76,6 +87,7 @@ public class SimplifyRowExpressions
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
             rewritten = RowExpressionTreeRewriter.rewriteWith(nestedIfSimplifier, rewritten);
+            rewritten = RowExpressionTreeRewriter.rewriteWith(mapFromEntriesRewriter, rewritten);
             return expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession()).optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
         }
     }
@@ -140,6 +152,95 @@ public class SimplifyRowExpressions
             }
 
             return rewritten == node ? null : rewritten;
+        }
+    }
+
+    /**
+     * Rewrites {@code map_from_entries(ARRAY[ROW(k1,v1), ROW(k2,v2), ...])}
+     * into {@code MAP(ARRAY[k1,k2,...], ARRAY[v1,v2,...])}, eliminating the
+     * overhead of constructing and then immediately destructuring ROW objects.
+     * <p>
+     * Only fires when the argument is a literal array constructor whose every
+     * element is a two-field {@code ROW_CONSTRUCTOR}.
+     */
+    private static class MapFromEntriesRewriter
+            extends RowExpressionRewriter<Void>
+    {
+        private final FunctionAndTypeManager functionAndTypeManager;
+        private final FunctionResolution functionResolution;
+
+        MapFromEntriesRewriter(FunctionAndTypeManager functionAndTypeManager)
+        {
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+            this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        }
+
+        @Override
+        public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (node.getArguments().size() != 1 ||
+                    !functionAndTypeManager.getFunctionMetadata(node.getFunctionHandle()).getName().getObjectName().equals("map_from_entries")) {
+                return null;
+            }
+
+            RowExpression argument = node.getArguments().get(0);
+            if (!(argument instanceof CallExpression)) {
+                return null;
+            }
+
+            CallExpression arrayCall = (CallExpression) argument;
+            if (!functionResolution.isArrayConstructor(arrayCall.getFunctionHandle())) {
+                return null;
+            }
+
+            List<RowExpression> entries = arrayCall.getArguments();
+            if (entries.isEmpty()) {
+                return null;
+            }
+
+            List<RowExpression> keys = new ArrayList<>();
+            List<RowExpression> values = new ArrayList<>();
+            Set<RowExpression> seenKeys = new HashSet<>();
+            for (RowExpression entry : entries) {
+                if (!(entry instanceof SpecialFormExpression)
+                        || ((SpecialFormExpression) entry).getForm() != ROW_CONSTRUCTOR) {
+                    return null;
+                }
+                SpecialFormExpression row = (SpecialFormExpression) entry;
+                if (row.getArguments().size() != 2) {
+                    return null;
+                }
+                RowExpression key = row.getArguments().get(0);
+                if (!seenKeys.add(key)) {
+                    // Duplicate key detected; skip rewrite to preserve
+                    // the original map_from_entries error message
+                    return null;
+                }
+                keys.add(key);
+                values.add(row.getArguments().get(1));
+            }
+
+            // Derive key/value types from the map type to handle coerced types correctly
+            MapType mapType = (MapType) node.getType();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
+
+            RowExpression keyArray = buildArrayConstructor(keyType, keys);
+            RowExpression valueArray = buildArrayConstructor(valueType, values);
+
+            return call(functionAndTypeManager, "MAP", node.getType(), keyArray, valueArray);
+        }
+
+        private RowExpression buildArrayConstructor(Type elementType, List<RowExpression> elements)
+        {
+            ImmutableList.Builder<Type> types = ImmutableList.builder();
+            for (RowExpression element : elements) {
+                types.add(element.getType());
+            }
+            return call("ARRAY",
+                    functionResolution.arrayConstructor(types.build()),
+                    new ArrayType(elementType),
+                    elements);
         }
     }
 
