@@ -27,6 +27,23 @@ public class IcebergInsertTableHandle
         extends IcebergWritableTableHandle
         implements ConnectorInsertTableHandle
 {
+    public IcebergInsertTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName)
+    {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false);
+    }
+
     @JsonCreator
     public IcebergInsertTableHandle(
             @JsonProperty("schemaName") String schemaName,
@@ -39,7 +56,8 @@ public class IcebergInsertTableHandle
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
             @JsonProperty("sortOrder") List<SortField> sortOrder,
-            @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName)
+            @JsonProperty("materializedViewName") Optional<SchemaTableName> materializedViewName,
+            @JsonProperty("fullRefreshRequired") boolean fullRefreshRequired)
     {
         super(
                 schemaName,
@@ -52,6 +70,7 @@ public class IcebergInsertTableHandle
                 compressionCodec,
                 storageProperties,
                 sortOrder,
-                materializedViewName);
+                materializedViewName,
+                fullRefreshRequired);
     }
 }

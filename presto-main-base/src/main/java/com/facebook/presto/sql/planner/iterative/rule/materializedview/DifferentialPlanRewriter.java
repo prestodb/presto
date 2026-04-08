@@ -201,7 +201,7 @@ public class DifferentialPlanRewriter
     /**
      * Filters stale predicates from all tables to only include columns that have equivalence mappings.
      */
-    static Map<SchemaTableName, List<TupleDomain<String>>> filterPredicatesToMappedColumns(
+    private static Map<SchemaTableName, List<TupleDomain<String>>> filterPredicatesToMappedColumns(
             Map<SchemaTableName, MaterializedDataPredicates> constraints,
             PassthroughColumnEquivalences columnEquivalences)
     {
@@ -385,9 +385,10 @@ public class DifferentialPlanRewriter
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression originalVar : originalOutputs) {
             VariableReferenceExpression deltaVar = deltaMapping.get(originalVar);
-            if (deltaVar != null) {
-                assignments.put(originalVar, deltaVar);
-            }
+            checkState(deltaVar != null,
+                    "Delta plan is missing mapping for output variable %s. " +
+                    "This indicates an incomplete variable mapping from the differential plan rewriter.", originalVar);
+            assignments.put(originalVar, deltaVar);
         }
 
         ProjectNode projectedDelta = new ProjectNode(
