@@ -1529,9 +1529,62 @@ public final class IcebergUtil
     }
 
     /**
-     * Group-based filter: Selects files from partitions meeting group criteria.
-     * Currently supports min-input-files option.
-     * Future: target-file-size-bytes, max-file-size-bytes, delete thresholds, etc.
+     * Parses and validates the min-file-size-bytes option value.
+     * Returns the parsed long value, or 0 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static long parseMinFileSize(Map<String, String> options)
+    {
+        String minFileSizeStr = options.get("min-file-size-bytes");
+        if (minFileSizeStr == null) {
+            return 0;
+        }
+
+        try {
+            long minFileSize = Long.parseLong(minFileSizeStr);
+            if (minFileSize < 0) {
+                throw new IllegalArgumentException(
+                    String.format("min-file-size-bytes must be non-negative, got: %s", minFileSize));
+            }
+            return minFileSize;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("min-file-size-bytes must be a valid long, got: %s", minFileSizeStr), e);
+        }
+    }
+
+    /**
+     * Parses and validates the max-file-size-bytes option value.
+     * Returns the parsed long value, or 0 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static long parseMaxFileSize(Map<String, String> options)
+    {
+        String maxFileSizeStr = options.get("max-file-size-bytes");
+        if (maxFileSizeStr == null) {
+            return 0;
+        }
+
+        try {
+            long maxFileSize = Long.parseLong(maxFileSizeStr);
+            if (maxFileSize < 0) {
+                throw new IllegalArgumentException(
+                    String.format("max-file-size-bytes must be non-negative, got: %s", maxFileSize));
+            }
+            return maxFileSize;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("max-file-size-bytes must be a valid long, got: %s", maxFileSizeStr), e);
+        }
+    }
+
+    /**
+     * Filters files by partition-level criteria.
+     * Selects files from partitions that have at least min-input-files files.
      *
      * @param tasks all available tasks
      * @param options rewrite options map
@@ -1560,11 +1613,9 @@ public final class IcebergUtil
         }
         return filteredTasks;
     }
-
     /**
-     * File-based filter: Selects individual files meeting file criteria.
-     * Future: min-file-size-bytes, delete-file-threshold, delete-ratio-threshold, etc.
-     * Uses OR logic: files meeting ANY criterion will be selected.
+     * Filters files by individual file criteria using OR logic.
+     * Selects files that are too small (< min-file-size-bytes) OR too large (> max-file-size-bytes).
      *
      * @param tasks all available tasks
      * @param options rewrite options map
@@ -1572,24 +1623,24 @@ public final class IcebergUtil
      */
     public static List<FileScanTask> filterByFile(List<FileScanTask> tasks, Map<String, String> options)
     {
-        // Parse file size options (placeholder for now, will be implemented when adding those options)
-        long minFileSizeBytes = 0;
-        long maxFileSizeBytes = 0;
+        long minFileSizeBytes = parseMinFileSize(options);
+        long maxFileSizeBytes = parseMaxFileSize(options);
 
         if (minFileSizeBytes <= 0 && maxFileSizeBytes <= 0) {
-            return tasks; // No size filtering, return all tasks
+            return tasks;
         }
 
         List<FileScanTask> selectedTasks = new ArrayList<>();
         for (FileScanTask task : tasks) {
             long fileSize = task.file().fileSizeInBytes();
 
-            // Select if too small OR too large (OR logic)
+            // Select files that are too small (< min) OR too large (> max)
             if ((minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
                     (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes)) {
                 selectedTasks.add(task);
             }
         }
+
         return selectedTasks;
     }
 }

@@ -75,6 +75,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKey;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMaxFileSize;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMinFileSize;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMinInputFiles;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -137,8 +139,10 @@ public class RewriteDataFilesProcedure
             if (procedureArgs.length > 4 && procedureArgs[4] != null && procedureArgs[4] instanceof Map) {
                 options = (Map<String, String>) procedureArgs[4];
 
-                // Validate min-input-files option if present using utility method
+                // Validate options if present using utility methods
                 parseMinInputFiles(options);
+                parseMinFileSize(options);
+                parseMaxFileSize(options);
             }
         }
         return options;
