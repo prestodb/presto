@@ -66,15 +66,15 @@ void TableFunctionPartition::initNullPositions() {
     return;
   }
 
-  int maxInputChannel =
+  column_index_t maxInputChannel =
       *std::max_element(referencedChannels.begin(), referencedChannels.end());
   nullPositions_.resize(maxInputChannel + 1);
 
   // nullPositions_ is indexed by TableFunctionPartitions column index,
   // not input column index. Find the max partition column index we need.
-  int maxReferencedColumn = 0;
-  for (int inputChannel : referencedChannels) {
-    int actualColumn = inputMapping_[inputChannel];
+  column_index_t maxReferencedColumn = 0;
+  for (column_index_t inputChannel : referencedChannels) {
+    column_index_t actualColumn = inputMapping_[inputChannel];
     maxReferencedColumn = std::max(maxReferencedColumn, actualColumn);
   }
   nullPositions_.resize(maxReferencedColumn + 1);
@@ -82,8 +82,8 @@ void TableFunctionPartition::initNullPositions() {
   if (markerChannels_.empty()) {
     // No marker channels, set end-of-data to partitionEnd for all referenced
     // channels.
-    for (int inputChannel : referencedChannels) {
-      int actualColumn = inputMapping_[inputChannel];
+    for (column_index_t inputChannel : referencedChannels) {
+      column_index_t actualColumn = inputMapping_[inputChannel];
       nullPositions_[actualColumn] = numRows();
     }
     return;
@@ -91,15 +91,15 @@ void TableFunctionPartition::initNullPositions() {
 
   // Marker channels are present, so compute null positions based on marker
   // channels for all referenced channels.
-  std::unordered_map<int32_t, vector_size_t> markerChannelNullPositions;
+  std::unordered_map<column_index_t, vector_size_t> markerChannelNullPositions;
   for (const auto& [_, markerInputChannel] : markerChannels_) {
-    int actualColumn = inputMapping_[markerInputChannel];
+    column_index_t actualColumn = inputMapping_[markerInputChannel];
     markerChannelNullPositions[markerInputChannel] =
         findFirstNull(data_->columnAt(actualColumn));
   }
 
-  for (int inputChannel : referencedChannels) {
-    int actualColumn = inputMapping_[inputChannel];
+  for (column_index_t inputChannel : referencedChannels) {
+    column_index_t actualColumn = inputMapping_[inputChannel];
     // Find inputChannel in markerChannels_ vector
     auto it = std::find_if(
         markerChannels_.begin(),
@@ -108,7 +108,7 @@ void TableFunctionPartition::initNullPositions() {
           return pair.first == inputChannel;
         });
     if (it != markerChannels_.end()) {
-      int markerInputChannel = it->second;
+      column_index_t markerInputChannel = it->second;
       nullPositions_[actualColumn] =
           markerChannelNullPositions[markerInputChannel];
     } else {
@@ -247,7 +247,7 @@ std::vector<velox::RowVectorPtr> TableFunctionPartition::assembleInput(
   result.reserve(requiredColumns_.size());
 
   // Empty partitions with !pruneWhenEmpty should produce output row
-  // with NULL values for the function.`
+  // with NULL values for the function.
   if (numRows() == 0) {
     result.resize(requiredColumns_.size(), nullptr);
     return result;
@@ -264,11 +264,11 @@ std::vector<velox::RowVectorPtr> TableFunctionPartition::assembleInput(
   }
 
   VELOX_CHECK_GT(numRowsLeft, 0);
-  std::vector<int> inputNonNullRows;
+  std::vector<vector_size_t> inputNonNullRows;
   inputNonNullRows.reserve(requiredColumns_.size());
   int maxNonNullRows = 0;
 
-  for (int i = 0; i < requiredColumns_.size(); i++) {
+  for (column_index_t i = 0; i < requiredColumns_.size(); i++) {
     auto actualColumnIndex = inputMapping_[requiredColumns_[i][0]];
     auto numNonNullRows = std::max(
         nullPositions_[actualColumnIndex] - numPartitionProcessedRows, 0);
@@ -281,7 +281,7 @@ std::vector<velox::RowVectorPtr> TableFunctionPartition::assembleInput(
     return result;
   }
 
-  for (int i = 0; i < requiredColumns_.size(); i++) {
+  for (column_index_t i = 0; i < requiredColumns_.size(); i++) {
     auto tableArgType = requiredColumnTypes_[i];
     auto actualColumnIndex = inputMapping_[requiredColumns_[i][0]];
     auto nullPosition = nullPositions_[actualColumnIndex];
@@ -306,7 +306,6 @@ std::vector<velox::RowVectorPtr> TableFunctionPartition::assembleInput(
         // For rows beyond the nullPosition marker, set them to null
         // This handles the case where shorter inputs are padded in the
         // cross-product.
-        // TODO(Aditi) : Is this really needed ?
         for (int rowIdx = 0; rowIdx < numOutputRows; rowIdx++) {
           int absoluteRowIdx = numPartitionProcessedRows + rowIdx;
           if (absoluteRowIdx >= nullPosition) {
@@ -319,7 +318,7 @@ std::vector<velox::RowVectorPtr> TableFunctionPartition::assembleInput(
     } else {
       // Set nullptr for this input table argument if there were no non-null
       // rows for the argument. This can happen when the function has multiple
-      // table arguments and the all the rows for one argument are null,
+      // table arguments and all the rows for one argument are null,
       // but the other argument has non-null rows.
       result.push_back(nullptr);
     }

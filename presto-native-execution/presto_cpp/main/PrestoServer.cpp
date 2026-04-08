@@ -615,9 +615,7 @@ void PrestoServer::registerHttpEndpoints() {
               getAnalyzedTableValueFunction(
                   util::extractMessageBody(body),
                   server->nativeWorkerPool_.get()));
-        } catch (const velox::VeloxUserError& ex) {
-          http::sendErrorResponse(downstream, ex.what());
-        } catch (const velox::VeloxException& ex) {
+        } catch (const std::exception& ex) {
           http::sendErrorResponse(downstream, ex.what());
         }
       });
@@ -633,9 +631,7 @@ void PrestoServer::registerHttpEndpoints() {
               getSplits(
                   util::extractMessageBody(body),
                   server->nativeWorkerPool_.get()));
-        } catch (const velox::VeloxUserError& ex) {
-          http::sendErrorResponse(downstream, ex.what());
-        } catch (const velox::VeloxException& ex) {
+        } catch (const std::exception& ex) {
           http::sendErrorResponse(downstream, ex.what());
         }
       });

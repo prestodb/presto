@@ -16,7 +16,7 @@ target_link_libraries(
   presto_tvf_core
   presto_tvf_functions
   presto_tvf_spi
-  velox_core
+  velox
 )
 
 add_executable(
@@ -37,14 +37,8 @@ target_link_libraries(
   presto_tvf_functions
   presto_tvf_plan_builder
   presto_tvf_spi
-  velox_vector_fuzzer
+  velox
   velox_exec_test_lib
-  velox_vector_test_lib
-  velox_type
-  velox_vector
-  velox_exec
-  velox_memory
-  velox_exec
   GTest::gmock
   GTest::gtest
   GTest::gtest_main

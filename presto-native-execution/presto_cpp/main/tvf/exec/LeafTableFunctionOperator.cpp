@@ -58,7 +58,7 @@ void LeafTableFunctionOperator::createTableFunctionSplitProcessor() {
       pool_,
       &stringAllocator_,
       operatorCtx_->driverCtx()->queryConfig());
-  VELOX_CHECK(splitProcessor_);
+  VELOX_CHECK_NOT_NULL(splitProcessor_);
 }
 
 RowVectorPtr LeafTableFunctionOperator::getOutput() {
@@ -99,7 +99,7 @@ RowVectorPtr LeafTableFunctionOperator::getOutput() {
   VELOX_CHECK_NOT_NULL(currentSplit_, "No split to process.");
 
   // GetOutput from table function.
-  VELOX_CHECK(splitProcessor_);
+  VELOX_CHECK_NOT_NULL(splitProcessor_);
   auto result = splitProcessor_->apply(currentSplit_->splitHandle());
   if (result->state() == TableFunctionResult::TableFunctionState::kFinished) {
     // Clear the split as the input rows are completely consumed.
@@ -113,12 +113,9 @@ RowVectorPtr LeafTableFunctionOperator::getOutput() {
     return nullptr;
   }
 
-  VELOX_CHECK(
-      result->state() == TableFunctionResult::TableFunctionState::kProcessed);
-  auto resultRows = result->result();
-  VELOX_CHECK(resultRows);
-
-  return std::move(resultRows);
+  VELOX_CHECK_EQ(
+      result->state(), TableFunctionResult::TableFunctionState::kProcessed);
+  return std::move(result->result());
 }
 
 void LeafTableFunctionOperator::reclaim(
