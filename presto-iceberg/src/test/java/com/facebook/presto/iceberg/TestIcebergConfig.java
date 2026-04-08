@@ -75,7 +75,8 @@ public class TestIcebergConfig
                 .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
                 .setStatisticsKllSketchKParameter(1024)
                 .setMaterializedViewStoragePrefix("__mv_storage__")
-                .setMaterializedViewMaxChangedPartitions(100));
+                .setMaterializedViewMaxChangedPartitions(100)
+                .setAggregatePushDownEnabled(true));
     }
 
     @Test
@@ -113,6 +114,7 @@ public class TestIcebergConfig
                 .put("iceberg.statistics-kll-sketch-k-parameter", "4096")
                 .put("iceberg.materialized-view-storage-prefix", "custom_mv_prefix")
                 .put("iceberg.materialized-view-max-changed-partitions", "2000")
+                .put("iceberg.aggregate-push-down-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -146,7 +148,8 @@ public class TestIcebergConfig
                 .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
                 .setStatisticsKllSketchKParameter(4096)
                 .setMaterializedViewStoragePrefix("custom_mv_prefix")
-                .setMaterializedViewMaxChangedPartitions(2000);
+                .setMaterializedViewMaxChangedPartitions(2000)
+                .setAggregatePushDownEnabled(false);
 
         assertFullMapping(properties, expected);
     }
