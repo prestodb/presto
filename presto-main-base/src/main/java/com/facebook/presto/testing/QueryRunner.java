@@ -119,6 +119,11 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
+    default void loadTVFProvider(String tvfProviderName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     Lock getExclusiveLock();
 
     default void loadTypeManager(String typeManagerName)
@@ -132,6 +137,11 @@ public interface QueryRunner
     }
 
     default void triggerConflictCheckWithBuiltInFunctions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void loadFunctionsFromTableFunctionRegistries()
     {
         throw new UnsupportedOperationException();
     }
