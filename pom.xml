@@ -19,6 +19,22 @@
 
     <inceptionYear>2012</inceptionYear>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -1504,9 +1520,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.airlift.resolver</groupId>
+                <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.7</version>
+                <version>1.7-spark-issue-final-fix</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.inject</groupId>
