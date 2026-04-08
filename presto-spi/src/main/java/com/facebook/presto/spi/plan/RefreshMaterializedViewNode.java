@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -101,7 +102,7 @@ public final class RefreshMaterializedViewNode
     @Override
     public List<PlanNode> getSources()
     {
-        return Collections.singletonList(source);
+        return singletonList(source);
     }
 
     @Override

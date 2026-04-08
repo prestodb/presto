@@ -666,75 +666,8 @@ public class LogicalPlanner
             Optional<NewTableLayout> writeTableLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
-        List<VariableReferenceExpression> variables = originalPlan.getFieldMappings();
-        Optional<PartitioningScheme> tablePartitioningScheme = getPartitioningSchemeForTableWrite(writeTableLayout, columnNames, variables);
-
-        verify(columnNames.size() == variables.size(), "columnNames.size() != variables.size(): %s and %s", columnNames, variables);
-        Map<String, VariableReferenceExpression> columnToVariableMap = zip(columnNames.stream(), originalPlan.getFieldMappings().stream(), SimpleImmutableEntry::new)
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-
-        Set<VariableReferenceExpression> notNullColumnVariables = columnMetadataList.stream()
-                .filter(column -> !column.isNullable())
-                .map(ColumnMetadata::getName)
-                .map(columnToVariableMap::get)
-                .collect(toImmutableSet());
-
-        if (!statisticsMetadata.isEmpty()) {
-            TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap);
-
-            StatisticAggregations.Parts aggregations = splitIntoPartialAndFinal(result.getAggregations(), variableAllocator, metadata.getFunctionAndTypeManager());
-
-            TableFinishNode commitNode = new TableFinishNode(
-                    refreshNode.getSourceLocation(),
-                    idAllocator.getNextId(),
-                    new TableWriterNode(
-                            refreshNode.getSourceLocation(),
-                            idAllocator.getNextId(),
-                            refreshNode,
-                            Optional.of(target),
-                            variableAllocator.newVariable("rows", BIGINT),
-                            variableAllocator.newVariable("fragments", VARBINARY),
-                            variableAllocator.newVariable("commitcontext", VARBINARY),
-                            originalPlan.getFieldMappings(),
-                            columnNames,
-                            notNullColumnVariables,
-                            tablePartitioningScheme,
-                            Optional.of(aggregations.getPartialAggregation()),
-                            Optional.empty(),
-                            Optional.of(Boolean.FALSE)),
-                    Optional.of(target),
-                    variableAllocator.newVariable("rows", BIGINT),
-                    Optional.of(aggregations.getFinalAggregation()),
-                    Optional.of(result.getDescriptor()),
-                    Optional.empty());
-
-            return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
-        }
-
-        TableFinishNode commitNode = new TableFinishNode(
-                refreshNode.getSourceLocation(),
-                idAllocator.getNextId(),
-                new TableWriterNode(
-                        refreshNode.getSourceLocation(),
-                        idAllocator.getNextId(),
-                        refreshNode,
-                        Optional.of(target),
-                        variableAllocator.newVariable("rows", BIGINT),
-                        variableAllocator.newVariable("fragments", VARBINARY),
-                        variableAllocator.newVariable("commitcontext", VARBINARY),
-                        originalPlan.getFieldMappings(),
-                        columnNames,
-                        notNullColumnVariables,
-                        tablePartitioningScheme,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(Boolean.FALSE)),
-                Optional.of(target),
-                variableAllocator.newVariable("rows", BIGINT),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-        return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
+        RelationPlan refreshPlan = new RelationPlan(refreshNode, originalPlan.getScope(), originalPlan.getFieldMappings());
+        return createTableWriterPlan(analysis, refreshPlan, target, columnNames, columnMetadataList, writeTableLayout, statisticsMetadata);
     }
 
     private RelationPlan createInsertPlan(Analysis analysis, Insert insertStatement)
@@ -853,11 +786,11 @@ public class LogicalPlanner
                 Optional<NewTableLayout> tableLayout,
                 TableStatisticsMetadata statisticsMetadata)
         {
-            this.plan = plan;
-            this.columnNames = columnNames;
-            this.columnMetadata = columnMetadata;
-            this.tableLayout = tableLayout;
-            this.statisticsMetadata = statisticsMetadata;
+            this.plan = requireNonNull(plan, "plan is null");
+            this.columnNames = requireNonNull(columnNames, "columnNames is null");
+            this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
+            this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
+            this.statisticsMetadata = requireNonNull(statisticsMetadata, "statisticsMetadata is null");
         }
 
         public RelationPlan getPlan()

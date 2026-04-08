@@ -251,6 +251,34 @@ public abstract class TestIcebergMaterializedViewsBase
     }
 
     @Test
+    public void testFullRefreshAfterBaseTableDeleteCleansUpStalePartition()
+    {
+        // Base table DELETE triggers full refresh, which should clean up orphaned partitions.
+        try {
+            assertUpdate("CREATE TABLE test_delete_stale_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                    "WITH (partitioning = ARRAY['dt'])");
+            assertUpdate("INSERT INTO test_delete_stale_base VALUES (1, 100, '2024-01-01'), (2, 200, '2024-01-02')", 2);
+
+            assertUpdate("CREATE MATERIALIZED VIEW test_delete_stale_mv " +
+                    "WITH (partitioning = ARRAY['dt']) AS SELECT id, value, dt FROM test_delete_stale_base");
+
+            assertRefreshAndFullyMaterialized("test_delete_stale_mv", 2);
+            assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_delete_stale_mv\"", "SELECT 2");
+
+            assertUpdate("DELETE FROM test_delete_stale_base WHERE dt = '2024-01-01'", 1);
+
+            // Full refresh writes only the surviving row; orphaned partition is removed
+            assertRefreshAndFullyMaterialized("test_delete_stale_mv", 1);
+            assertQuery("SELECT COUNT(*) FROM \"__mv_storage__test_delete_stale_mv\"", "SELECT 1");
+            assertQuery("SELECT * FROM \"__mv_storage__test_delete_stale_mv\"", "VALUES (2, 200, '2024-01-02')");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS test_delete_stale_mv");
+            assertUpdate("DROP TABLE IF EXISTS test_delete_stale_base");
+        }
+    }
+
+    @Test
     public void testRefreshMaterializedViewWithAggregation()
     {
         assertUpdate("CREATE TABLE test_mv_agg_refresh_base (category VARCHAR, value BIGINT, dt VARCHAR) " +
