@@ -40,6 +40,7 @@ public final class BlockEncodingManager
         addBlockEncoding(new IntArrayBlockEncoding());
         addBlockEncoding(new LongArrayBlockEncoding());
         addBlockEncoding(new Int128ArrayBlockEncoding());
+        addBlockEncoding(new Fixed12BlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
         addBlockEncoding(new MapBlockEncoding());

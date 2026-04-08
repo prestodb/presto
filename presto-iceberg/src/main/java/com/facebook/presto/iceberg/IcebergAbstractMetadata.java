@@ -1714,7 +1714,7 @@ public abstract class IcebergAbstractMetadata
             }
             else if (tableVersion.getVersionExpressionType() instanceof TimestampType) {
                 long timestampValue = (long) tableVersion.getTableVersion();
-                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getPrecision().toMillis(timestampValue);
+                long millisUtc = ((TimestampType) tableVersion.getVersionExpressionType()).getStorageUnit().toMillis(timestampValue);
                 return getSnapshotIdTimeOperator(table, millisUtc, tableVersion.getVersionOperator());
             }
             else if (tableVersion.getVersionExpressionType() instanceof BigintType) {
