@@ -21,8 +21,10 @@ import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -72,6 +74,10 @@ public class SimplifyRowExpressions
 
         private RowExpression rewrite(RowExpression expression, Session session)
         {
+            // Leaf expressions (variable references and constants) cannot be simplified
+            if (expression instanceof VariableReferenceExpression || expression instanceof ConstantExpression) {
+                return expression;
+            }
             // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
