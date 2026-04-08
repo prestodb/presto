@@ -70,31 +70,15 @@ public class TestRewriteDataFilesProcedure
         String tableName = "example_non_partition_table";
         String schemaName = getSession().getSchema().get();
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
+            createNonPartitionedTableWithInitialDataAndValidate(tableName);
 
-            // create 5 files
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
-
-            //The number of data files is 5, and the number of delete files is 0
-            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 5L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
-
-            result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 = 7", ImmutableList.of(BigintType.BIGINT));
+            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 = 7", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 in (9, 10)", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
 
             //The number of data files is 5, and the number of delete files is 2
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 5L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 2L);
+            validateDataFilesAndDeleteFiles(tableName, 5L, 2L);
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
                             "(3, 'foo'), (4, 'bar'), " +
@@ -104,10 +88,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
 
             //The number of data files is 1, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
 
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
@@ -126,32 +107,17 @@ public class TestRewriteDataFilesProcedure
         String tableName = "example_non_partition_true_filter_table";
         String schemaName = getSession().getSchema().get();
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
+            createNonPartitionedTableWithInitialDataAndValidate(tableName);
 
-            // create 5 files
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
-
-            //The number of data files is 5, and the number of delete files is 0
-            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 5L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
-
-            // do not support rewrite files filtered by non-identity columns
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName), ".*");
+            // Does not support rewriting files filtered by non-partitioned columns with couldn't be pushed down thoroughly
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    ".* probably connector was not able to handle provided WHERE expression");
 
             // the filter is `true` means select all files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1')", tableName, schemaName), 10);
 
             //The number of data files is 1, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
 
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
@@ -171,29 +137,13 @@ public class TestRewriteDataFilesProcedure
         String tableName = "example_non_partition_false_filter_table";
         String schemaName = getSession().getSchema().get();
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
-
-            // create 5 files
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
-
-            //The number of data files is 5, and the number of delete files is 0
-            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 5L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            createNonPartitionedTableWithInitialDataAndValidate(tableName);
 
             // the filter is `false` means select no file to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 0')", tableName, schemaName), 0);
 
             //The number of data files is still 5, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 5L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 5L, 0L);
 
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
@@ -235,31 +185,15 @@ public class TestRewriteDataFilesProcedure
         String tableName = "example_partition_table";
         String schemaName = getSession().getSchema().get();
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+            createPartitionedTableWithInitialDataAndValidate(tableName);
 
-            // create 5 files for each partition (c2 = 'foo' and c2 = 'bar')
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
-
-            //The number of data files is 10, and the number of delete files is 0
-            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 10L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
-
-            result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 = 7", ImmutableList.of(BigintType.BIGINT));
+            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 = 7", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c1 in (8, 10)", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 2L);
 
             //The number of data files is 10, and the number of delete files is 3
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 10L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 3L);
+            validateDataFilesAndDeleteFiles(tableName, 10L, 3L);
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
                             "(3, 'foo'), (4, 'bar'), " +
@@ -269,10 +203,7 @@ public class TestRewriteDataFilesProcedure
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
 
             //The number of data files is 2, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 2L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
                             "(3, 'foo'), (4, 'bar'), " +
@@ -290,31 +221,16 @@ public class TestRewriteDataFilesProcedure
         String tableName = "example_partition_filter_table";
         String schemaName = getSession().getSchema().get();
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+            createPartitionedTableWithInitialDataAndValidate(tableName);
 
-            // create 5 files for each partition (c2 = 'foo' and c2 = 'bar')
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
-
-            //The number of data files is 10, and the number of delete files is 0
-            MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 10L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
-
-            // do not support rewrite files filtered by non-identity columns
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName), ".*");
+            // Does not support rewriting files filtered by non-partitioned columns with couldn't be pushed down thoroughly
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    ".* probably connector was not able to handle provided WHERE expression");
 
             // select 5 files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName), 5);
             //The number of data files is 6, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 6L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 6L, 0L);
 
             assertQuery("select * from " + tableName,
                     "values(1, 'foo'), (2, 'bar'), " +
@@ -341,10 +257,7 @@ public class TestRewriteDataFilesProcedure
             assertQuery("select * from " + tableName, "values(2, '1002')");
 
             //The number of data files is 1, and the number of delete files is 1
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
+            validateDataFilesAndDeleteFiles(tableName, 1L, 1L);
 
             assertUpdate("alter table " + tableName + " add column c int with (partitioning = 'identity')");
             assertUpdate("INSERT INTO " + tableName + " values(5, '1005', 5), (6, '1006', 6), (7, '1007', 7)", 3);
@@ -353,51 +266,82 @@ public class TestRewriteDataFilesProcedure
             assertQuery("select * from " + tableName, "values(2, '1002', NULL), (5, '1005', 5), (7, '1007', 7)");
 
             //The number of data files is 4, and the number of delete files is 2
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 4L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 2L);
+            validateDataFilesAndDeleteFiles(tableName, 4L, 2L);
 
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a > 3')", tableName, schemaName), ".*");
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, schemaName), ".*");
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a > 3')", tableName, schemaName),
+                    ".* probably connector was not able to handle provided WHERE expression");
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, schemaName),
+                    ".* probably connector was not able to handle provided WHERE expression");
 
             assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 3);
             //The number of data files is 3, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 3L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 3L, 0L);
             assertQuery("select * from " + tableName, "values(2, '1002', NULL), (5, '1005', 5), (7, '1007', 7)");
 
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE b = '1002'", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             //The number of data files is 3, and the number of delete files is 1
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 3L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
+            validateDataFilesAndDeleteFiles(tableName, 3L, 1L);
             assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null')", tableName, schemaName), 0);
 
             //The number of data files is 2, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 2L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
             assertQuery("select * from " + tableName, "values(5, '1005', 5), (7, '1007', 7)");
 
             // This is a metadata delete
             result = getExpectedQueryRunner().execute(getSession(), "DELETE from " + tableName + " WHERE c = 7", ImmutableList.of(BigintType.BIGINT));
             assertEquals(result.getOnlyValue(), 1L);
             //The number of data files is 1, and the number of delete files is 0
-            result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 1L);
-            result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-            assertEquals(result.getOnlyValue(), 0L);
+            validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
             assertQuery("select * from " + tableName, "values(5, '1005', 5)");
         }
         finally {
             dropTable(tableName);
         }
+    }
+
+    private void createPartitionedTableWithInitialDataAndValidate(String tableName)
+    {
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+
+        // create 5 files for each partition (c2 = 'foo' or 'bar')
+        assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
+
+        //The number of data files is 10, and the number of delete files is 0
+        MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), 10L);
+        result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), 0L);
+    }
+
+    private void createNonPartitionedTableWithInitialDataAndValidate(String tableName)
+    {
+        assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar)");
+
+        // create 5 files
+        assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(3, 'foo'), (4, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(5, 'foo'), (6, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(7, 'foo'), (8, 'bar')", 2);
+        assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
+
+        //The number of data files is 5, and the number of delete files is 0
+        MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), 5L);
+        result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), 0L);
+    }
+
+    private void validateDataFilesAndDeleteFiles(String tableName, long dataFiles, long deleteFiles)
+    {
+        MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), dataFiles);
+        result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
+        assertEquals(result.getOnlyValue(), deleteFiles);
     }
 
     private void dropTable(String tableName)
