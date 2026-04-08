@@ -17,9 +17,9 @@
 #include <folly/init/Init.h>
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/plan/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/tool/trace/BroadcastWriteReplayer.h"
 #include "presto_cpp/main/tool/trace/PartitionAndSerializeReplayer.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 
 DEFINE_string(
     broadcast_write_output_dir,

@@ -11,6 +11,7 @@
 # limitations under the License.
 add_subdirectory(operators)
 add_subdirectory(types)
+add_subdirectory(plan)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
@@ -43,6 +44,7 @@ add_library(
 add_dependencies(
   presto_server_lib
   presto_operators
+  presto_velox_plan
   presto_protocol
   presto_types
   presto_thrift-cpp2
@@ -56,6 +58,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   $<TARGET_OBJECTS:presto_protocol>
+  presto_velox_plan
   presto_common
   presto_exception
   presto_expression_optimizer
@@ -64,7 +67,6 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_session_properties
-  presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
   velox_abfs

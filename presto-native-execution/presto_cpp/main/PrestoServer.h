@@ -25,7 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
+#include "presto_cpp/main/plan/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
@@ -185,11 +185,6 @@ class PrestoServer {
   /// Invoked to enable stats reporting and register counters.
   virtual void enableWorkerStatsReporting();
 
-  /// Invoked to initialize Presto to Velox plan validator.
-  virtual void initVeloxPlanValidator();
-
-  VeloxPlanValidator* getVeloxPlanValidator();
-
   void registerDynamicFunctions();
 
   /// Invoked to get the list of filters passed to the http server.
@@ -222,6 +217,8 @@ class PrestoServer {
   /// Creates memory pools, task manager, task resource, and related
   /// components.
   void initializeTaskResources();
+
+  void initVeloxPlanValidator();
 
   /// Registers task, split, and expression set listeners based on config.
   void registerListeners();
@@ -316,8 +313,6 @@ class PrestoServer {
   // 'spillerExecutor_'.
   folly::CPUThreadPoolExecutor* spillerCpuExecutor_;
 
-  std::unique_ptr<VeloxPlanValidator> planValidator_;
-
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
@@ -330,6 +325,7 @@ class PrestoServer {
   std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
+  std::unique_ptr<VeloxPlanValidator> planValidator_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};
   folly::Synchronized<bool> shuttingDown_{false};

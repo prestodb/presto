@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/plan/VeloxPlanValidator.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
@@ -36,11 +37,18 @@ class VeloxQueryPlanConverterBase {
  public:
   VeloxQueryPlanConverterBase(
       velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
+      velox::memory::MemoryPool* pool,
+      VeloxPlanValidator* planValidator = nullptr)
+      : pool_(pool),
+        queryCtx_{queryCtx},
+        exprConverter_(pool, &typeParser_),
+        veloxPlanValidator_(planValidator) {}
 
   virtual ~VeloxQueryPlanConverterBase() = default;
 
+  /// Plan validation can optionally be enabled during conversion to fail fast
+  /// on unsupported plans. Validation is performed when a non-null
+  /// VeloxPlanValidator is provided at construction time.
   virtual velox::core::PlanFragment toVeloxQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -237,10 +245,19 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
+  /// Validates the plan node if plan validation is enabled.
+  template <typename T>
+  void validateNode(const T* node) const {
+    if (veloxPlanValidator_) {
+      veloxPlanValidator_->validateNode(node);
+    }
+  }
+
   velox::memory::MemoryPool* const pool_;
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
   TypeParser typeParser_;
+  VeloxPlanValidator* veloxPlanValidator_{nullptr};
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
@@ -249,8 +266,9 @@ class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
 
   explicit VeloxInteractiveQueryPlanConverter(
       velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(queryCtx, pool) {}
+      velox::memory::MemoryPool* pool,
+      VeloxPlanValidator* planValidator = nullptr)
+      : VeloxQueryPlanConverterBase(queryCtx, pool, planValidator) {}
 
  protected:
   velox::core::PlanNodePtr toVeloxQueryPlan(
