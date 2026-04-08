@@ -1299,10 +1299,44 @@ Argument Name         required   type            Description
                                  strings         performing a rewrite, the specified sorting definition must be
                                                  compatible with the table's own sorting property, if one exists.
 
-``options``                      map             Options to be used for data files rewrite. (to be expanded)
+``options``                      map             Options to be used for data files rewrite. See options table below.
 ===================== ========== =============== =======================================================================
 
-Examples:
+Rewrite Options
+~~~~~~~~~~~~~~~
+
+The ``options`` parameter accepts a map of option names to values. The following options are available:
+
+========================== ======== =============== ========================================================================
+Option Name                Type     Default         Description
+========================== ======== =============== ========================================================================
+``min-input-files``        integer  1               Minimum number of files in a partition required for rewriting.
+                                                    Partitions with fewer files are skipped. This is a **group filter**
+                                                    that operates at the partition level.
+
+``min-file-size-bytes``    long     0 (disabled)    Files smaller than this threshold (in bytes) are selected for
+                                                    rewriting. This is a **file filter** that operates on individual
+                                                    files.
+
+``max-file-size-bytes``    long     0 (disabled)    Files larger than this threshold (in bytes) are selected for
+                                                    rewriting. This is a **file filter** that operates on individual
+                                                    files.
+========================== ======== =============== ========================================================================
+
+**Filter Behavior:**
+
+* **File Filters** (``min-file-size-bytes``, ``max-file-size-bytes``): Select individual files using OR logic.
+  A file is selected if it is too small (< min-file-size-bytes) OR too large (> max-file-size-bytes).
+
+* **Group Filters** (``min-input-files``): Select entire partitions using AND logic. After file filters are
+  applied, only partitions with at least ``min-input-files`` files are selected for rewriting.
+
+* **Combined Behavior**: File filters are applied first, then group filters. This allows you to target specific
+  files, like small files, while ensuring you only rewrite partitions with enough files to make the operation
+  worthwhile.
+
+Examples
+~~~~~~~~
 
 * Rewrite all the data files in table ``db.sample`` to the newest partition spec and combine small files to larger ones::
 
@@ -1318,6 +1352,43 @@ Examples:
 
     CALL iceberg.system.rewrite_data_files('db', 'sample', 'partition_key = 1', ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']);
     CALL iceberg.system.rewrite_data_files(schema => 'db', table_name => 'sample', filter => 'partition_key = 1', sorted_by => ARRAY['join_date']);
+
+* Rewrite only small files (less than 100MB) in table ``db.sample``::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        options => map(array['min-file-size-bytes'], array['104857600'])
+    );
+
+* Rewrite only partitions with at least 5 files in table ``db.sample``::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        options => map(array['min-input-files'], array['5'])
+    );
+
+* Rewrite small files (< 50MB) OR large files (> 1GB) in partitions with at least 3 files::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        options => map(
+            array['min-file-size-bytes', 'max-file-size-bytes', 'min-input-files'],
+            array['52428800', '1073741824', '3']
+        )
+    );
+
+* Combine options with filter and sorting::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        filter => 'partition_key = 1',
+        sorted_by => ARRAY['join_date'],
+        options => map(array['min-input-files'], array['3'])
+    );
 
 Rewrite Manifests
 ^^^^^^^^^^^^^^^^^
