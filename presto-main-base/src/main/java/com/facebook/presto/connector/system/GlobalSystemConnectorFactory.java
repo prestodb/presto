@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -34,13 +35,15 @@ public class GlobalSystemConnectorFactory
     private final Set<SystemTable> tables;
     private final Set<Procedure> procedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final NodeManager nodeManager;
 
     @Inject
-    public GlobalSystemConnectorFactory(Set<SystemTable> tables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions)
+    public GlobalSystemConnectorFactory(Set<SystemTable> tables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions, NodeManager nodeManager)
     {
         this.tables = ImmutableSet.copyOf(requireNonNull(tables, "tables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
     @Override
@@ -58,6 +61,6 @@ public class GlobalSystemConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new GlobalSystemConnector(catalogName, tables, procedures, tableFunctions);
+        return new GlobalSystemConnector(catalogName, tables, procedures, tableFunctions, nodeManager);
     }
 }
