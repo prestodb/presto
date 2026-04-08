@@ -60,6 +60,9 @@ public abstract class TestIcebergDistributedQueries
         return IcebergQueryRunner.builder()
                 .setCatalogType(catalogType)
                 .setExtraConnectorProperties(extraConnectorProperties)
+                // These tests do not rely on long query history (no assertions on past queries,
+                // retries, or timing behavior). The aggressive limits below are chosen solely to
+                // reduce query history memory usage and are safe for all Iceberg distributed tests.
                 .setExtraProperties(ImmutableMap.of("query.max-age", "10s",
                         "query.max-history", "10"))
                 .build().getQueryRunner();
