@@ -11,9 +11,12 @@
 # limitations under the License.
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
+
 target_link_libraries(
   presto_function_metadata
   presto_common
+  presto_tvf_spi
+  presto_types
   velox
   velox_async_rpc_function_registry
 )
