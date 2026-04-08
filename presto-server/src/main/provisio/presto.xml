@@ -371,4 +371,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="native-plugin/native-tvf">
+        <artifact id="${project.groupId}:presto-native-tvf:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
