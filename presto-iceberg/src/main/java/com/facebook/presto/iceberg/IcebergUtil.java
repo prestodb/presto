@@ -1527,4 +1527,69 @@ public final class IcebergUtil
                 String.format("min-input-files must be a valid integer, got: %s", minInputFilesStr), e);
         }
     }
+
+    /**
+     * Group-based filter: Selects files from partitions meeting group criteria.
+     * Currently supports min-input-files option.
+     * Future: target-file-size-bytes, max-file-size-bytes, delete thresholds, etc.
+     *
+     * @param tasks all available tasks
+     * @param options rewrite options map
+     * @return files from partitions meeting the criteria
+     */
+    public static List<FileScanTask> filterByGroup(List<FileScanTask> tasks, Map<String, String> options)
+    {
+        int minInputFiles = parseMinInputFiles(options);
+        if (minInputFiles <= 1) {
+            return tasks;
+        }
+
+        // Group files by partition
+        Map<String, List<FileScanTask>> partitionGroups = new HashMap<>();
+        for (FileScanTask task : tasks) {
+            String partitionKey = getPartitionKey(task);
+            partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
+        }
+
+        // Collect tasks from partitions that meet the threshold
+        List<FileScanTask> filteredTasks = new ArrayList<>();
+        for (List<FileScanTask> group : partitionGroups.values()) {
+            if (group.size() >= minInputFiles) {
+                filteredTasks.addAll(group);
+            }
+        }
+        return filteredTasks;
+    }
+
+    /**
+     * File-based filter: Selects individual files meeting file criteria.
+     * Future: min-file-size-bytes, delete-file-threshold, delete-ratio-threshold, etc.
+     * Uses OR logic: files meeting ANY criterion will be selected.
+     *
+     * @param tasks all available tasks
+     * @param options rewrite options map
+     * @return filtered list of tasks meeting file criteria
+     */
+    public static List<FileScanTask> filterByFile(List<FileScanTask> tasks, Map<String, String> options)
+    {
+        // Parse file size options (placeholder for now, will be implemented when adding those options)
+        long minFileSizeBytes = 0;
+        long maxFileSizeBytes = 0;
+
+        if (minFileSizeBytes <= 0 && maxFileSizeBytes <= 0) {
+            return tasks; // No size filtering, return all tasks
+        }
+
+        List<FileScanTask> selectedTasks = new ArrayList<>();
+        for (FileScanTask task : tasks) {
+            long fileSize = task.file().fileSizeInBytes();
+
+            // Select if too small OR too large (OR logic)
+            if ((minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
+                    (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes)) {
+                selectedTasks.add(task);
+            }
+        }
+        return selectedTasks;
+    }
 }

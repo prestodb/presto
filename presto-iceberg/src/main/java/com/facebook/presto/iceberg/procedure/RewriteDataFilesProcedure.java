@@ -21,7 +21,6 @@ import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
-import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
@@ -50,7 +49,6 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
 
 import javax.inject.Inject;
@@ -66,13 +64,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
+import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKey;
@@ -228,23 +227,34 @@ public class RewriteDataFilesProcedure
 
             IcebergTableLayoutHandle layoutHandle = handle.getTableLayoutHandle();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
-
-            // Get min-input-files option from procedure context
-            int minInputFiles = IcebergUtil.parseMinInputFiles(procedureContext.getOptions());
-
             final Set<DataFile> scannedDataFiles = new HashSet<>();
             final Set<DeleteFile> fullyAppliedDeleteFiles = new HashSet<>();
             if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
-                // First, collect all files grouped by partition
-                final Map<String, List<DataFile>> partitionedFiles = new HashMap<>();
+                TableScan tableScan = procedureContext.getTable().newScan()
+                        .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                        .filter(toIcebergExpression(predicate))
+                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+
+                List<FileScanTask> allTasks = new ArrayList<>();
+                try (CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles()) {
+                    fileScanTaskIterable.forEach(allTasks::add);
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+
+                // Apply filtering using options
+                List<FileScanTask> filteredTasks = filterByFile(allTasks, procedureContext.getOptions());
+                filteredTasks = filterByGroup(filteredTasks, procedureContext.getOptions());
+
+                // Collect files and delete files from filtered tasks
                 final Map<String, List<DeleteFile>> partitionedDeleteFiles = new HashMap<>();
-                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                    DataFile file = task.file();
-                    String partitionKey = getPartitionKey(task, icebergTable);
-                    partitionedFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(file);
+                for (FileScanTask task : filteredTasks) {
+                    scannedDataFiles.add(task.file());
                     if (!task.deletes().isEmpty()) {
+                        String partitionKey = getPartitionKey(task, icebergTable);
                         task.deletes().forEach(deleteFile -> {
                             if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
                                     !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
@@ -256,37 +266,10 @@ public class RewriteDataFilesProcedure
                             partitionedDeleteFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(deleteFile);
                         });
                     }
-                };
-
-                TableScan tableScan = procedureContext.getTable().newScan()
-                        .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                        .filter(toIcebergExpression(predicate))
-                        .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
-                CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles();
-                CloseableIterator<FileScanTask> fileScanTaskIterator = fileScanTaskIterable.iterator();
-                fileScanTaskIterator.forEachRemaining(fileScanTaskConsumer);
-                try {
-                    fileScanTaskIterable.close();
-                    fileScanTaskIterator.close();
-                    // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
-                    //  correct release resources holds by iterator.
-                    fileScanTaskIterator = CloseableIterator.empty();
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
                 }
 
-                // Apply min-input-files filtering: only include files and delete files from partitions that meet the threshold
-                for (Map.Entry<String, List<DataFile>> entry : partitionedFiles.entrySet()) {
-                    if (entry.getValue().size() >= minInputFiles) {
-                        scannedDataFiles.addAll(entry.getValue());
-                        // Also include delete files for this partition
-                        List<DeleteFile> deleteFilesForPartition = partitionedDeleteFiles.get(entry.getKey());
-                        if (deleteFilesForPartition != null) {
-                            fullyAppliedDeleteFiles.addAll(deleteFilesForPartition);
-                        }
-                    }
-                }
+                // Add all delete files
+                partitionedDeleteFiles.values().forEach(fullyAppliedDeleteFiles::addAll);
             }
 
             // Skip commit if no work was done

@@ -16,7 +16,7 @@ package com.facebook.presto.iceberg.procedure.context;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplitSource;
-import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.procedure.splits.RewriteDataFilesIcebergSplitSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
@@ -62,15 +62,15 @@ public class IcebergRewriteDataFilesProcedureContext
         return options;
     }
 
+    @Override
     public Optional<IcebergSplitSource> customizeSplitSource(ConnectorSession session,
                                                              TableScan tableScan,
                                                              TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
-        int minInputFiles = IcebergUtil.parseMinInputFiles(options);
-        return Optional.of(new IcebergSplitSource(
+        return Optional.of(new RewriteDataFilesIcebergSplitSource(
                 session,
                 tableScan,
                 metadataColumnConstraints,
-                minInputFiles));
+                options));
     }
 }
