@@ -603,6 +603,11 @@ public class TestingPrestoServer
                 .getBuiltInPluginFunctionNamespaceManager().triggerConflictCheckWithBuiltInFunctions();
     }
 
+    public void loadFunctionsFromTableFunctionRegistries()
+    {
+        metadata.getFunctionAndTypeManager().loadFunctionsFromTableFunctionRegistries();
+    }
+
     public DispatchManager getDispatchManager()
     {
         return dispatchManager;

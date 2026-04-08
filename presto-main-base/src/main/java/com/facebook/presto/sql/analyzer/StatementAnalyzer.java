@@ -1657,14 +1657,10 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableFunctionInvocation(TableFunctionInvocation node, Optional<Scope> scope)
         {
-            TableFunctionMetadata tableFunctionMetadata = metadata.getFunctionAndTypeManager()
-                    .getTableFunctionRegistry()
-                    .resolve(session, node.getName())
-                    .orElseThrow(() -> new SemanticException(
-                            FUNCTION_NOT_FOUND,
-                            node,
-                            "Table function %s not registered",
-                            node.getName()));
+            TableFunctionMetadata tableFunctionMetadata = metadata.getFunctionAndTypeManager().resolveTableFunction(session, node.getName());
+            if (tableFunctionMetadata == null) {
+                throw new SemanticException(FUNCTION_NOT_FOUND, node, "Table function %s not registered", node.getName());
+            }
 
             ConnectorTableFunction function = tableFunctionMetadata.getFunction();
             ConnectorId connectorId = tableFunctionMetadata.getConnectorId();

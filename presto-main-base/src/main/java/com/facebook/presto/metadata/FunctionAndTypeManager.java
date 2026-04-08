@@ -59,7 +59,11 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+import com.facebook.presto.spi.function.table.TableFunctionMetadata;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.tvf.TVFProvider;
+import com.facebook.presto.spi.tvf.TVFProviderContext;
+import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -170,6 +174,9 @@ public class FunctionAndTypeManager
     private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
     private final FunctionsConfig functionsConfig;
     private final Set<Type> types;
+
+    private final Map<String, TVFProviderFactory> tvfProviderFactories = new ConcurrentHashMap<>();
+    private final Map<ConnectorId, TVFProvider> tvfProviders = new ConcurrentHashMap<>();
 
     @Inject
     public FunctionAndTypeManager(
@@ -384,6 +391,34 @@ public class FunctionAndTypeManager
         }
     }
 
+    public void loadTVFProvider(String tvfProviderName, NodeManager nodeManager, AuthClientConfigs authClientConfigs)
+    {
+        requireNonNull(tvfProviderName, "tvfProviderName is null");
+        TVFProviderFactory factory = tvfProviderFactories.get(tvfProviderName);
+        checkState(factory != null, "No factory for tvf provider %s", tvfProviderName);
+        TVFProvider tvfProvider = factory.createTVFProvider(ImmutableMap.of(), new TVFProviderContext(nodeManager, this, authClientConfigs));
+
+        if (tvfProviders.putIfAbsent(new ConnectorId(tvfProviderName), tvfProvider) != null) {
+            throw new IllegalArgumentException(format("TVF provider [%s] is already registered", tvfProvider));
+        }
+    }
+
+    public void loadTVFProviders(NodeManager nodeManager, AuthClientConfigs authClientConfigs)
+    {
+        for (String tvfProviderName : tvfProviderFactories.keySet()) {
+            loadTVFProvider(tvfProviderName, nodeManager, authClientConfigs);
+        }
+    }
+
+    public void addTVFProviderFactory(TVFProviderFactory factory)
+    {
+        if (tvfProviderFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("TVF provider '%s' is already registered", factory.getName()));
+        }
+        handleResolver.addTableFunctionNamespace(factory.getName(), factory.getTableFunctionHandleResolver());
+        handleResolver.addTableFunctionSplitNamespace(factory.getName(), factory.getTableFunctionSplitResolver());
+    }
+
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
@@ -492,6 +527,23 @@ public class FunctionAndTypeManager
         if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
             throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
         }
+    }
+
+    public void loadFunctionsFromTableFunctionRegistries()
+    {
+        for (ConnectorId connectorId : tvfProviders.keySet()) {
+            // In terms of the NativeTVFProvider, you want it to act similarly to the system connector table functions, hence we replace the Java loaded system connector table functions.
+            // This is only enforced when TVF plugin is loaded and only in native clusters.
+            if (connectorId.getCatalogName().equals("system")) {
+                tableFunctionRegistry.removeTableFunctions(connectorId);
+            }
+            tableFunctionRegistry.addTableFunctions(connectorId, tvfProviders.get(connectorId).getTableFunctions());
+        }
+    }
+
+    public TableFunctionMetadata resolveTableFunction(Session session, QualifiedName qualifiedName)
+    {
+        return tableFunctionRegistry.resolve(session, qualifiedName);
     }
 
     public TransactionManager getTransactionManager()
@@ -806,6 +858,12 @@ public class FunctionAndTypeManager
     public Map<String, FunctionNamespaceManager<? extends SqlFunction>> getFunctionNamespaceManagers()
     {
         return ImmutableMap.copyOf(functionNamespaceManagers);
+    }
+
+    @VisibleForTesting
+    public Map<ConnectorId, TVFProvider> getTvfProviders()
+    {
+        return ImmutableMap.copyOf(tvfProviders);
     }
 
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)

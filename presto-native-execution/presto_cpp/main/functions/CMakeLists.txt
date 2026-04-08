@@ -16,6 +16,8 @@ target_link_libraries(
   presto_common
   velox_function_registry
   velox_async_rpc_function_registry
+  presto_tvf_spi
+  presto_types
 )
 
 add_subdirectory(dynamic_registry)
