@@ -63,6 +63,7 @@ public class TestTimestamps
         assertEquals(PICOSECONDS_PER_MILLISECOND, 1_000_000_000L);
 
         assertEquals(NANOSECONDS_PER_MICROSECOND, 1_000L);
+
         assertEquals(PICOSECONDS_PER_MICROSECOND, 1_000_000L);
 
         assertEquals(PICOSECONDS_PER_NANOSECOND, 1_000L);
