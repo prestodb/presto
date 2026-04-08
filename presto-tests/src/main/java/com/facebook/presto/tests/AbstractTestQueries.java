@@ -6688,6 +6688,31 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMapFromEntriesArrayLiteralRewrite()
+    {
+        // All-constant entries: rewrite to MAP(ARRAY[keys], ARRAY[values]), then constant-folded
+        assertQuerySucceeds("SELECT map_from_entries(ARRAY[ROW(1, 'a'), ROW(2, 'b')])");
+
+        // Single entry
+        assertQuerySucceeds("SELECT map_from_entries(ARRAY[ROW(10, 100)])");
+
+        // Used in a filter
+        assertQuery(
+                "SELECT orderkey FROM orders WHERE map_from_entries(ARRAY[ROW(1, true), ROW(2, false)])[1] AND orderkey < 5",
+                "SELECT orderkey FROM orders WHERE orderkey < 5");
+
+        // Mixed with table columns (non-constant values prevent full constant-folding)
+        assertQuery(
+                "SELECT map_from_entries(ARRAY[ROW(1, orderkey), ROW(2, custkey)])[1] FROM orders WHERE orderkey < 5",
+                "SELECT orderkey FROM orders WHERE orderkey < 5");
+
+        // Nested in another expression
+        assertQuery(
+                "SELECT cardinality(map_from_entries(ARRAY[ROW(1, 'x'), ROW(2, 'y'), ROW(3, 'z')]))",
+                "SELECT CAST(3 AS BIGINT)");
+    }
+
+    @Test
     public void testDuplicateUnnestItem()
     {
         // unnest with cross join

@@ -146,6 +146,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteRowConstructorInToDisjunction;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteRowExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
@@ -733,6 +734,12 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new AddDistinctForSemiJoinBuild())),
                 new KeyBasedSampler(metadata),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RewriteRowConstructorInToDisjunction(metadata))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,

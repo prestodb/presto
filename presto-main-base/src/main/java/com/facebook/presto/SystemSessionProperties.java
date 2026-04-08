@@ -394,6 +394,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
+    public static final String REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION = "rewrite_row_constructor_in_to_disjunction";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2218,6 +2219,10 @@ public final class SystemSessionProperties
                         TRY_FUNCTION_CATCHABLE_ERRORS,
                         "Comma-separated list of error code names that TRY function should catch (such as 'GENERIC_INTERNAL_ERROR,INVALID_ARGUMENTS')",
                         featuresConfig.getTryFunctionCatchableErrors(),
+                        false),
+                booleanProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION,
+                        "Rewrite ROW(...) IN (ROW(...), ...) into OR of ANDs for partition pruning",
+                        featuresConfig.isRewriteRowConstructorInToDisjunction(),
                         false));
     }
 
@@ -3781,5 +3786,8 @@ public final class SystemSessionProperties
     public static boolean isRpcFunctionOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, Boolean.class);
+    public static boolean isRewriteRowConstructorInToDisjunction(Session session)
+    {
+        return session.getSystemProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION, Boolean.class);
     }
 }
