@@ -447,7 +447,12 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
       std::unordered_map<std::string, std::string>(
           table->storage.serdeParameters.begin(),
-          table->storage.serdeParameters.end()));
+          table->storage.serdeParameters.end()),
+      nullptr, // writerOptions
+      false, // ensureFiles
+      std::make_shared<velox::connector::hive::HiveInsertFileNameGenerator>(),
+      std::unordered_map<std::string, std::string>(
+          table->storage.parameters.begin(), table->storage.parameters.end()));
 }
 
 std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>

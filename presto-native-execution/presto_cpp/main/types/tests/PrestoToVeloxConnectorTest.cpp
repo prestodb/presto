@@ -435,3 +435,43 @@ TEST_F(PrestoToVeloxConnectorTest, ctasEmptySerdeParameters) {
 
   EXPECT_TRUE(hiveInsert->serdeParameters().empty());
 }
+
+TEST_F(PrestoToVeloxConnectorTest, hiveInsertTableHandleTableParameters) {
+  auto protoHandle = std::make_shared<protocol::hive::HiveInsertTableHandle>();
+  protoHandle->_type = "hive";
+
+  protocol::hive::HiveColumnHandle col;
+  col.name = "col1";
+  col.hiveType = "int";
+  col.typeSignature = "integer";
+  col.columnType = protocol::hive::ColumnType::REGULAR;
+  protoHandle->inputColumns = {col};
+
+  protoHandle->locationHandle.targetPath = "/target";
+  protoHandle->locationHandle.writePath = "/write";
+  protoHandle->locationHandle.tableType = protocol::hive::TableType::EXISTING;
+
+  protoHandle->actualStorageFormat = protocol::hive::HiveStorageFormat::DWRF;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+
+  auto table = std::make_shared<protocol::hive::Table>();
+  table->storage.parameters = {{"param1", "value1"}, {"param2", "value2"}};
+  protoHandle->pageSinkMetadata.table = table;
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "hive";
+
+  HivePrestoToVeloxConnector hiveConnector("hive");
+  auto result =
+      hiveConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
+
+  auto* hiveHandle =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(result.get());
+  ASSERT_NE(hiveHandle, nullptr);
+
+  const auto& storageParams = hiveHandle->storageParameters();
+  EXPECT_EQ(storageParams.size(), 2);
+  EXPECT_EQ(storageParams.at("param1"), "value1");
+  EXPECT_EQ(storageParams.at("param2"), "value2");
+}
