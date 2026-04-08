@@ -15,7 +15,7 @@ package com.facebook.presto.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import okhttp3.mockwebserver.MockResponse;
+import mockwebserver3.MockResponse;
 import org.testng.annotations.Test;
 
 import static com.google.common.net.HttpHeaders.COOKIE;
@@ -30,10 +30,11 @@ public class TestQueryRunner
     public void testCookie()
             throws InterruptedException
     {
-        server.enqueue(new MockResponse()
-                .setResponseCode(307)
+        server.enqueue(new MockResponse.Builder()
+                .code(307)
                 .addHeader(LOCATION, server.url("/v1/statement"))
-                .addHeader(SET_COOKIE, "a=apple"));
+                .addHeader(SET_COOKIE, "a=apple")
+                .build());
         server.enqueue(createMockResponse());
         server.enqueue(createMockResponse());
 
