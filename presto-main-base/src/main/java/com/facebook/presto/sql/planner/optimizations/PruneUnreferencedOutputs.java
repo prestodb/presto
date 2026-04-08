@@ -694,7 +694,12 @@ public class PruneUnreferencedOutputs
             Assignments.Builder builder = Assignments.builder();
             node.getAssignments().forEach((variable, expression) -> {
                 if (context.get().contains(variable)) {
-                    expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
+                    if (expression instanceof VariableReferenceExpression) {
+                        expectedInputs.add((VariableReferenceExpression) expression);
+                    }
+                    else {
+                        expectedInputs.addAll(VariablesExtractor.extractUnique(expression));
+                    }
                     builder.put(variable, expression);
                 }
                 else {

@@ -195,6 +195,27 @@ public class TestPruneUnreferencedOutputs
                                                 ImmutableMap.of("custkey", "custkey", "orderkey", "orderkey", "orderstatus", "orderstatus", "totalprice", "totalprice")))));
     }
 
+    @Test
+    public void testProjectWithVariableReferenceAssignments()
+    {
+        // Verifies that identity/variable-reference assignments in a project node
+        // are correctly handled when pruning unreferenced outputs
+        assertRuleApplication()
+                .on(p ->
+                        p.output(ImmutableList.of("a", "b"), ImmutableList.of(p.variable("a", BIGINT), p.variable("b", BIGINT)),
+                                p.project(
+                                        Assignments.builder()
+                                                .put(p.variable("a", BIGINT), p.variable("a", BIGINT))
+                                                .put(p.variable("b", BIGINT), p.variable("b", BIGINT))
+                                                .put(p.variable("c", BIGINT), p.variable("c", BIGINT)) // unreferenced
+                                                .build(),
+                                        p.values(p.variable("a", BIGINT), p.variable("b", BIGINT), p.variable("c", BIGINT)))))
+                .matches(
+                        output(
+                                project(
+                                        values("a", "b", "c"))));
+    }
+
     private OptimizerAssert assertRuleApplication()
     {
         RuleTester tester = tester();
