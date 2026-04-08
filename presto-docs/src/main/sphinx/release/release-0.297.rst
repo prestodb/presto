@@ -29,6 +29,9 @@ _______________
 * Fix /v1/info/metrics endpoint to return application/json or text/plain based on the request Accept header. `#26639 <https://github.com/prestodb/presto/pull/26639>`_
 * Improve ``LIKE '%substring%'`` pattern matching by rewriting to ``STRPOS`` instead of ``CARDINALITY(SPLIT(...))``, improving CPU and memory efficiency. `#27311 <https://github.com/prestodb/presto/pull/27311>`_
 * Improve performance of ``UNNEST`` by adding a ``PushdownThroughUnnest`` optimizer rule that pushes projections and filter conjuncts not dependent on unnest output variables below the UnnestNode. This rule is controlled using the ``pushdown_through_unnest`` session property (default enabled). `#27125 <https://github.com/prestodb/presto/pull/27125>`_
+* Improve performance for queries that apply aggregation such as ``MIN``, ``MAX``, ``ARBITRARY``, or ``APPROX_DISTINCT`` to a constant input by replacing them with the constant directly. Controlled by the ``simplify_aggregations_over_constant`` session property (disabled by default). `#27246 <https://github.com/prestodb/presto/pull/27246>`_
+* Improve performance of semi-join (``IN``) queries where the probe/source side is a ``UNION`` by pushing the join through the union. Controlled by the ``optimizer.push-semi-join-through-union`` configuration property or the ``push_semi_join_through_union`` session property (disabled by default). `#27176 <https://github.com/prestodb/presto/pull/27176>`_
+* Improve parallelism for small tables with few files by enabling distributed scan. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
 * Improve size estimates for constants. `#27188 <https://github.com/prestodb/presto/pull/27188>`_
 * Add DDL statements for ``CREATE BRANCH``. `#26898 <https://github.com/prestodb/presto/pull/26898>`_
 * Add DDL support for dropping a branch from a table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
@@ -40,7 +43,6 @@ _______________
 * Add ``materialized_view_staleness_window`` session property to configure acceptable staleness duration. `#26728 <https://github.com/prestodb/presto/pull/26728>`_
 * Add a new ``http-server.https.keystore.scan-interval-seconds`` configuration flag to scan the keystore file periodically for new certs. `#26739 <https://github.com/prestodb/presto/pull/26739>`_
 * Add ability to disable the UI. This can be toggled with the ``webui-enabled`` configuration property. `#26682 <https://github.com/prestodb/presto/pull/26682>`_
-* Add an optimizer which can do function rewrite. The name of the expression optimizer is specified with session property ``expression_optimizer_in_row_expression_rewrite`` which defaults to disabled when it's empty. `#26859 <https://github.com/prestodb/presto/pull/26859>`_
 * Add comprehensive :doc:`/admin/jmx-metrics` for metadata operations. `#26875 <https://github.com/prestodb/presto/pull/26875>`_
 * Add configurable freshness thresholds for materialized views using :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\`` session property and :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\`` configuration property. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add cost-based selection for materialized view query rewriting, choosing the lowest-cost plan when multiple views are applicable. This can be enabled with the ``materialized_view_query_rewrite_cost_based_selection_enabled`` session property. `#27222 <https://github.com/prestodb/presto/pull/27222>`_
@@ -48,11 +50,8 @@ _______________
 * Add materialized CTE support for single node execution. `#26794 <https://github.com/prestodb/presto/pull/26794>`_
 * Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over equi-join key pairs based on join type, enabling bucketed join optimizations for tool-generated queries. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
 * Add optimizer rule to pre-aggregate data before GroupId node in grouping sets queries, reducing row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
-* Add optimizer rule ``SimplifyAggregationsOverConstant`` that simplifies aggregations over constant inputs (``MIN``, ``MAX``, ``ARBITRARY``, ``APPROX_DISTINCT``) to constants. Controlled by the ``simplify_aggregations_over_constant`` session property (disabled by default). `#27246 <https://github.com/prestodb/presto/pull/27246>`_
-* Add optimizer rule ``PushSemiJoinThroughUnion`` that pushes a ``SemiJoinNode``, along with the underlying ``ProjectNode``, through a ``UnionNode``. Controlled by the ``optimizer.push-semi-join-through-union`` configuration property or the ``push_semi_join_through_union`` session property (disabled by default). `#27176 <https://github.com/prestodb/presto/pull/27176>`_
 * Add :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\`` configuration property to control the number of tasks for remote project node. `#27044 <https://github.com/prestodb/presto/pull/27044>`_
-* Add options to force shuffle table scan input if the number of files to be scanned is small. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
-* Add options to skip projection pushdown through exchange rule. `#26943 <https://github.com/prestodb/presto/pull/26943>`_
+* Add options to skip projection pushdown through exchange rule. Controlled by the ``optimizer.skip-pushdown-through-exchange-for-remote-projection`` configuration property or the ``skip_pushdown_through_exchange_for_remote_projection`` session property (disabled by default). `#26943 <https://github.com/prestodb/presto/pull/26943>`_
 * Add support for ``America/Coyhaique`` timezone (Chile's Aysén Region). `#26981 <https://github.com/prestodb/presto/pull/26981>`_
 * Add support for ``CREATE TABLE AS SELECT`` and ``INSERT`` from materialized views. `#27227 <https://github.com/prestodb/presto/pull/27227>`_
 * Add support for :doc:`/sql/create-vector-index`, which creates vector search indexes on table columns with configurable index properties and partition filtering using an ``UPDATING FOR`` clause. `#27307 <https://github.com/prestodb/presto/pull/27307>`_
@@ -74,17 +73,17 @@ ______________________________________
 * Add ``native_max_target_file_size`` session property to control the maximum target file size for writers. When a file exceeds this size during writing, the writer will close the current file and start writing to a new file. See :ref:`connector/hive:hive session properties`. `#27054 <https://github.com/prestodb/presto/pull/27054>`_
 * Add :ref:`presto_cpp/properties-session:\`\`native_aggregation_compaction_bytes_threshold\`\`` and :ref:`presto_cpp/properties-session:\`\`native_aggregation_compaction_unused_memory_ratio\`\`` session properties to control string compaction during global aggregation. `#26874 <https://github.com/prestodb/presto/pull/26874>`_
 * Add :ref:`presto_cpp/properties-session:\`\`native_merge_join_output_batch_start_size\`\`` session property to control the initial output batch size for merge joins, with optional dynamic adjustment based on observed row sizes (disabled by default). `#27086 <https://github.com/prestodb/presto/pull/27086>`_
-* Add a native expression optimizer for optimizing expressions in the sidecar. `#24602 <https://github.com/prestodb/presto/pull/24602>`_
+* Add support for constant folding user defined functions in native clusters. `#24602 <https://github.com/prestodb/presto/pull/24602>`_
 * Add worker uptime metric ``presto_cpp.worker_runtime_uptime_secs`` to track worker process runtime. `#26979 <https://github.com/prestodb/presto/pull/26979>`_
 * Add http endpoint ``v1/expressions`` in sidecar for expression optimization. See :doc:`/presto_cpp/sidecar`. `#26475 <https://github.com/prestodb/presto/pull/26475>`_
 * Add :ref:`presto_cpp/properties:\`\`ssd-cache-max-entries\`\`` configuration property to limit SSD cache entries and prevent unbounded metadata memory growth (default value: 10M entries, ~500MB metadata). `#26795 <https://github.com/prestodb/presto/pull/26795>`_
 
 Security Changes
 ________________
+* Fix CSP by removing ``img-src 'http: https:'`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. `#26790 <https://github.com/prestodb/presto/pull/26790>`_
 * Add a temporary configuration property ``hive.restrict-procedure-call`` for ranger and sql-standard access control. It defaults to ``true``, meaning procedure calls are restricted. To allow procedure calls, set this configuration property to ``false``. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add fine-grained access control for procedure calls in the file-based access control system. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for procedure calls in access control. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
-* Remove ``http: https:`` in response to `CWE-693 <https://cwe.mitre.org/data/definitions/693.html>`_. :pr:`25910`. `#26790 <https://github.com/prestodb/presto/pull/26790>`_
 * Update aircompressor dependency from 0.27 to version 2.0.2 to fix `CVE-2025-67721 <https://www.cve.org/CVERecord?id=CVE-2025-67721>`_. `#27152 <https://github.com/prestodb/presto/pull/27152>`_
 * Upgrade Druid to version 35.0.1 to address `CVE-2024-53990 <https://github.com/advisories/GHSA-mfj5-cf8g-g2fv>`_ and `CVE-2025-12183 <https://github.com/advisories/GHSA-vqf4-7m7x-wgfc>`_. `#26820 <https://github.com/prestodb/presto/pull/26820>`_
 * Upgrade Netty to version 4.2.12.Final to address `CVE-2026-33871 <https://github.com/advisories/GHSA-w9fj-cfpg-grvv>`_ and `CVE-2025-67735 <https://github.com/advisories/GHSA-84h7-rjj3-6jx4>`_. `#27464 <https://github.com/prestodb/presto/pull/27464>`_
