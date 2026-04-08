@@ -18,6 +18,7 @@ add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
 add_subdirectory(properties)
+add_subdirectory(tvf)
 
 add_library(
   presto_server_lib
@@ -67,6 +68,8 @@ target_link_libraries(
   presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
+  presto_tvf_exec
+  presto_tvf_functions
   velox_abfs
   velox_aggregates
   velox_caching
