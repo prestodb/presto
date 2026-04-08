@@ -1604,7 +1604,7 @@ public abstract class AbstractTestExpressionInterpreter
                 return;
             }
             assertTrue(right instanceof ConstantExpression);
-            assertRowExpressionEvaluationEquals(((ConstantExpression) left).getValue(), ((ConstantExpression) left).getValue());
+            assertRowExpressionEvaluationEquals(((ConstantExpression) left).getValue(), ((ConstantExpression) right).getValue());
         }
         else if (left instanceof InputReferenceExpression || left instanceof VariableReferenceExpression) {
             assertEquals(left, right);
