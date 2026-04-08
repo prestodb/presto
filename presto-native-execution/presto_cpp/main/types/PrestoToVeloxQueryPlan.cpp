@@ -41,6 +41,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+#include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/exec/TraceUtil.h"
 // RPC plan nodes for single-operator async RPC execution
@@ -3201,6 +3202,9 @@ void registerPrestoPlanNodeSerDe() {
   registry.Register(
       "MaterializedExchangeNode",
       presto::operators::MaterializedExchangeNode::create);
+  registry.Register(
+      "TableFunctionProcessorNode",
+      presto::tvf::TableFunctionProcessorNode::create);
 }
 
 void parseSqlFunctionHandle(
