@@ -299,6 +299,7 @@ public class FeaturesConfig
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
+    private boolean rewriteRowConstructorInToDisjunction;
     private boolean optimizeConditionalApproxDistinct = true;
 
     private boolean preProcessMetadataCalls;
@@ -3156,6 +3157,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteExpressionWithConstantVariable(boolean rewriteExpressionWithConstantVariable)
     {
         this.rewriteExpressionWithConstantVariable = rewriteExpressionWithConstantVariable;
+        return this;
+    }
+
+    public boolean isRewriteRowConstructorInToDisjunction()
+    {
+        return this.rewriteRowConstructorInToDisjunction;
+    }
+
+    @Config("optimizer.rewrite-row-constructor-in-to-disjunction")
+    @ConfigDescription("Rewrite ROW(...) IN (ROW(...), ...) into OR of ANDs for partition pruning")
+    public FeaturesConfig setRewriteRowConstructorInToDisjunction(boolean rewriteRowConstructorInToDisjunction)
+    {
+        this.rewriteRowConstructorInToDisjunction = rewriteRowConstructorInToDisjunction;
         return this;
     }
 
