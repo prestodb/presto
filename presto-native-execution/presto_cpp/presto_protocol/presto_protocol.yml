@@ -60,6 +60,7 @@ AbstractClasses:
     subclasses:
       - { name: SystemPartitioningHandle, key: $remote }
       - { name: HivePartitioningHandle,   key: hive }
+      - { name: IcebergPartitioningHandle,   key: hive-iceberg }
       - { name: TpchPartitioningHandle,   key: tpch }
 
   ConnectorTableHandle:
@@ -285,6 +286,7 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/partitioning/IcebergPartitioningHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchSplit.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableLayoutHandle.java

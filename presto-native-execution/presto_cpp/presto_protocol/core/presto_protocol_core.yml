@@ -62,6 +62,7 @@ AbstractClasses:
     subclasses:
       - { name: SystemPartitioningHandle, key: $remote }
       - { name: HivePartitioningHandle,   key: hive }
+      - { name: IcebergPartitioningHandle,   key: hive-iceberg }
       - { name: TpchPartitioningHandle,   key: tpch }
 
   ConnectorTableHandle:
