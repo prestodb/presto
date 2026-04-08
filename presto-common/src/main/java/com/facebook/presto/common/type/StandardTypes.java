@@ -69,6 +69,7 @@ public final class StandardTypes
             VARCHAR,
             CHAR,
             DECIMAL,
+            TIMESTAMP,
             ROW,
             ARRAY,
             MAP,
