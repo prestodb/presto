@@ -28,6 +28,9 @@ EnumMap:
   SampleNode:
     Type: SampleNodeType
 
+  RPCNode:
+    StreamingMode: RPCNodeStreamingMode
+
 ExtraFields:
   RowExpression:
     std::shared_ptr<SourceLocation>: sourceLocation
@@ -183,6 +186,7 @@ AbstractClasses:
       - { name: MergeJoinNode,            key: .MergeJoinNode }
       - { name: WindowNode,               key: .WindowNode }
       - { name: CallDistributedProcedureNode, key: com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode }
+      - { name: RPCNode,                key: com.facebook.presto.sql.planner.plan.RPCNode }
 
   RowExpression:
     super: JsonEncodedSubclass
@@ -345,6 +349,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SortNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/CallDistributedProcedureNode.java
+  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/RPCNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
   - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinType.java
