@@ -7,7 +7,8 @@
       },
       "docString": "presto.default.set_agg",
       "functionKind": "AGGREGATE",
-      "longVariableConstraints":[],
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
       "outputType": "array(t)",
       "paramTypes": [
         "t"
@@ -20,14 +21,14 @@
       "schema": "default",
       "typeVariableConstraints": [
         {
-          "comparableRequired":false,
-          "name":"t",
-          "nonDecimalNumericRequired":false,
-          "orderableRequired":false,
-          "variadicBound":""
+          "comparableRequired": false,
+          "name": "t",
+          "nonDecimalNumericRequired": false,
+          "orderableRequired": false,
+          "variadicBound": ""
         }
       ],
-      "variableArity":false
+      "variableArity": false
     }
   ]
 }

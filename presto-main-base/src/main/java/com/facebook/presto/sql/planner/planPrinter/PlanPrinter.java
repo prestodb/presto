@@ -101,6 +101,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -1318,6 +1319,13 @@ public class PlanPrinter
         public Void visitMergeWriter(MergeWriterNode node, Void context)
         {
             addNode(node, "MergeWriter", format("table: %s", node.getTarget().toString()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, Void context)
+        {
+            addNode(node, "RPC", format("function: %s, output: %s", node.getFunctionName(), node.getOutputVariable()));
             return processChildren(node, context);
         }
 

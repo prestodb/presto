@@ -83,6 +83,7 @@ target_link_libraries(
   velox_dynamic_library_loader
   velox_encode
   velox_exec
+  velox_rpc_plan_node_translator
   velox_file
   velox_functions_lib
   velox_functions_prestosql
