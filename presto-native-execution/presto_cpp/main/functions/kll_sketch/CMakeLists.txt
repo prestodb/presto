@@ -10,16 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common velox_function_registry)
+add_library(
+  presto_kll_sketch_functions
+  KllSketchAggregate.cpp
+  KllSketchFunctions.cpp
+  KllSketchType.cpp
+  KllSketchTypeRegistration.cpp
+)
 
-add_subdirectory(dynamic_registry)
-add_subdirectory(kll_sketch)
-add_subdirectory(theta_sketch)
-
-if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
-  add_subdirectory(remote)
-endif()
+target_link_libraries(presto_kll_sketch_functions velox_common_base Folly::folly)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

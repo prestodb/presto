@@ -91,6 +91,8 @@
 #include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #endif
 
+#include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+
 #ifdef __linux__
 // Required by BatchThreadFactory
 #include <pthread.h>
@@ -1492,6 +1494,9 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+
+  functions::aggregate::kll_sketch::registerAllKllSketchFunctions(
+      prestoBuiltinFunctionPrefix_);
 }
 
 void PrestoServer::registerRemoteFunctions() {
