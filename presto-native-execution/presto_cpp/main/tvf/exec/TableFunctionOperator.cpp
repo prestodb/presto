@@ -131,8 +131,8 @@ RowVectorPtr TableFunctionOperator::getOutputFromFunction() {
     return nullptr;
   }
 
-  VELOX_CHECK(
-      result->state() == TableFunctionResult::TableFunctionState::kProcessed);
+  VELOX_CHECK_EQ(
+      result->state(), TableFunctionResult::TableFunctionState::kProcessed);
   if (result->usedInput()) {
     auto numFunctionInputRows = [&]() -> vector_size_t {
       // Note: This logic will return 0 for the single input row with nullptr
@@ -156,7 +156,7 @@ RowVectorPtr TableFunctionOperator::getOutputFromFunction() {
   }
 
   auto resultRows = result->result();
-  if (!resultRows) {
+  if (!resultRows || resultRows->size() == 0) {
     return nullptr;
   }
 
@@ -185,10 +185,17 @@ RowVectorPtr TableFunctionOperator::getOutput() {
     if (tableFunctionProcessorNode_->pruneWhenEmpty()) {
       return nullptr;
     } else {
-      // This function has not received any input rows but processes empty
-      // input.
-      tableFunctionPartition_ = tablePartitionBuild_->emptyPartition();
-      initNewPartition();
+      // The TableFunction has !pruneWhenEmpty, so we need to create an empty
+      // partition and process it. For the first time getOutput() is called,
+      // tableFunctionPartition_ will be nullptr, so we create an empty
+      // partition and process it. If the partition was previously created, then
+      // the function has not returned Finished result yet. So we simply keep
+      // calling getOutputFromFunction() until the function returns
+      // FinishedResult.
+      if (!tableFunctionPartition_) {
+        tableFunctionPartition_ = tablePartitionBuild_->emptyPartition();
+        initNewPartition();
+      }
     }
   } else {
     // There is no partition being processed. Either this is the first partition

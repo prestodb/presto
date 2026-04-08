@@ -43,17 +43,22 @@ class TableFunctionResult {
     kProcessed,
   };
 
-  TableFunctionResult(TableFunctionState state) : state_(state) {
-    VELOX_CHECK(state == TableFunctionState::kFinished);
+  TableFunctionResult(TableFunctionState state)
+      : state_(state), usedInput_(true), result_(nullptr), future_(nullptr) {
+    VELOX_CHECK_EQ(state, TableFunctionState::kFinished);
   }
 
   TableFunctionResult(bool usedInput, velox::RowVectorPtr result)
       : state_(TableFunctionState::kProcessed),
         usedInput_(usedInput),
-        result_(std::move(result)) {}
+        result_(std::move(result)),
+        future_(nullptr) {}
 
   TableFunctionResult(velox::ContinueFuture* future)
-      : state_(TableFunctionState::kBlocked), future_(future) {}
+      : state_(TableFunctionState::kBlocked),
+        usedInput_(false),
+        result_(nullptr),
+        future_(future) {}
 
   TableFunctionResult::TableFunctionState state() const {
     return state_;
@@ -81,3 +86,14 @@ class TableFunctionResult {
 };
 
 } // namespace facebook::presto::tvf
+
+template <>
+struct fmt::formatter<
+    facebook::presto::tvf::TableFunctionResult::TableFunctionState>
+    : formatter<int> {
+  auto format(
+      facebook::presto::tvf::TableFunctionResult::TableFunctionState s,
+      format_context& ctx) const {
+    return formatter<int>::format(static_cast<int>(s), ctx);
+  }
+};

@@ -142,6 +142,7 @@ std::vector<SortOrder> deserializeSortingOrders(const folly::dynamic& array) {
   for (const auto& order : array) {
     sortingOrders.push_back(SortOrder::deserialize(order));
   }
+
   return sortingOrders;
 }
 

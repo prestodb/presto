@@ -31,7 +31,7 @@ addTvfNode(
              PlanNodeId nodeId, PlanNodePtr source) -> PlanNodePtr {
     // Validate the user has provided all required arguments.
     auto argsSpecList = getTableFunctionArgumentSpecs(name);
-    bool pruneWhenEmpty;
+    bool pruneWhenEmpty = false;
     for (const auto argSpec : argsSpecList) {
       if (argSpec->required()) {
         VELOX_CHECK_GT(args.count(argSpec->name()), 0);
