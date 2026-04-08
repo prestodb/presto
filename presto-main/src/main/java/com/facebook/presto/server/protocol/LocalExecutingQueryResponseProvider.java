@@ -16,6 +16,7 @@ package com.facebook.presto.server.protocol;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.dispatcher.DispatchInfo;
+import com.facebook.presto.server.protocol.QueryResourceUtil.ExternalUriInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.inject.Inject;
@@ -49,8 +50,8 @@ public class LocalExecutingQueryResponseProvider
             String slug,
             DispatchInfo dispatchInfo,
             UriInfo uriInfo,
+            ExternalUriInfo externalUriInfo,
             String xPrestoPrefixUrl,
-            String scheme,
             Duration maxWait,
             DataSize targetResultSize,
             boolean compressionEnabled,
@@ -69,7 +70,7 @@ public class LocalExecutingQueryResponseProvider
             return Optional.empty();
         }
         return Optional.of(transform(
-                query.waitForResults(0, uriInfo, scheme, maxWait, targetResultSize, binaryResults),
+                query.waitForResults(0, uriInfo, externalUriInfo, maxWait, targetResultSize, binaryResults),
                 results -> toResponse(query, results, xPrestoPrefixUrl, compressionEnabled, nestedDataSerializationEnabled, durationUntilExpirationMs),
                 directExecutor()));
     }

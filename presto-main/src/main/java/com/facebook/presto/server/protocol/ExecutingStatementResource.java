@@ -21,6 +21,7 @@ import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.server.ServerConfig;
+import com.facebook.presto.server.protocol.QueryResourceUtil.ExternalUriInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,10 +47,12 @@ import org.weakref.jmx.Nested;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.X_FORWARDED_HOST;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.X_FORWARDED_PORT;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.abortIfPrefixUrlInvalid;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.createExternalUriInfo;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.facebook.presto.server.security.RoleType.USER;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.Futures.transformAsync;
@@ -71,6 +74,7 @@ public class ExecutingStatementResource
     private final QueryManager queryManager;
     private final boolean compressionEnabled;
     private final boolean nestedDataSerializationEnabled;
+    private final boolean queryResultsUseForwardedHeaders;
     private final QueryBlockingRateLimiter queryRateLimiter;
 
     @Inject
@@ -84,8 +88,10 @@ public class ExecutingStatementResource
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
-        this.nestedDataSerializationEnabled = requireNonNull(serverConfig, "serverConfig is null").isNestedDataSerializationEnabled();
+        ServerConfig actualServerConfig = requireNonNull(serverConfig, "serverConfig is null");
+        this.compressionEnabled = actualServerConfig.isQueryResultsCompressionEnabled();
+        this.nestedDataSerializationEnabled = actualServerConfig.isNestedDataSerializationEnabled();
+        this.queryResultsUseForwardedHeaders = actualServerConfig.isQueryResultsUseForwardedHeadersInUris();
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
     }
 
@@ -107,6 +113,8 @@ public class ExecutingStatementResource
             @QueryParam("targetResultSize") DataSize targetResultSize,
             @DefaultValue("false") @QueryParam("binaryResults") boolean binaryResults,
             @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @HeaderParam(X_FORWARDED_HOST) String xForwardedHost,
+            @HeaderParam(X_FORWARDED_PORT) String xForwardedPort,
             @HeaderParam(PRESTO_PREFIX_URL) String xPrestoPrefixUrl,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
@@ -118,21 +126,17 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        if (isNullOrEmpty(proto)) {
-            proto = uriInfo.getRequestUri().getScheme();
-        }
-
         abortIfPrefixUrlInvalid(xPrestoPrefixUrl);
 
         Query query = queryProvider.getQuery(queryId, slug);
+        ExternalUriInfo externalUriInfo = createExternalUriInfo(uriInfo, proto, xForwardedHost, xForwardedPort, queryResultsUseForwardedHeaders);
         ListenableFuture<Double> acquirePermitAsync = queryRateLimiter.acquire(queryId);
-        String effectiveFinalProto = proto;
         DataSize effectiveFinalTargetResultSize = targetResultSize;
         ListenableFuture<QueryResults> waitForResultsAsync = transformAsync(
                 acquirePermitAsync,
                 acquirePermitTimeSeconds -> {
                     queryRateLimiter.addRateLimiterBlockTime(new Duration(acquirePermitTimeSeconds, SECONDS));
-                    return query.waitForResults(token, uriInfo, effectiveFinalProto, wait, effectiveFinalTargetResultSize, binaryResults);
+                    return query.waitForResults(token, uriInfo, externalUriInfo, wait, effectiveFinalTargetResultSize, binaryResults);
                 },
                 responseExecutor);
         long durationUntilExpirationMs = queryManager.getDurationUntilExpirationInMillis(queryId);

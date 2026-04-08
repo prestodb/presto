@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.NodePoolType;
 import jakarta.validation.constraints.NotNull;
@@ -44,6 +45,7 @@ public class ServerConfig
     private Duration clusterResourceGroupStateInfoExpirationDuration = new Duration(0, MILLISECONDS);
     private String clusterTag;
     private boolean webUIEnabled = true;
+    private boolean queryResultsUseForwardedHeadersInUris;
 
     public boolean isResourceManager()
     {
@@ -264,6 +266,19 @@ public class ServerConfig
     public ServerConfig setClusterTag(String clusterTag)
     {
         this.clusterTag = clusterTag;
+        return this;
+    }
+
+    public boolean isQueryResultsUseForwardedHeadersInUris()
+    {
+        return queryResultsUseForwardedHeadersInUris;
+    }
+
+    @Config("query-results.use-forwarded-headers-in-uris")
+    @ConfigDescription("Trust X-Forwarded-Host and X-Forwarded-Port when building statement response URIs. Enable only behind a trusted reverse proxy.")
+    public ServerConfig setQueryResultsUseForwardedHeadersInUris(boolean queryResultsUseForwardedHeadersInUris)
+    {
+        this.queryResultsUseForwardedHeadersInUris = queryResultsUseForwardedHeadersInUris;
         return this;
     }
 }
