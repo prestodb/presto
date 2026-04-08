@@ -28,7 +28,7 @@ _______________
 * Fix a bug where queries could get permanently stuck in resource groups when coordinator task-based throttling (``experimental.max-total-running-task-count-to-not-execute-new-query``) is enabled. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
 * Fix /v1/info/metrics endpoint to return application/json or text/plain based on the request Accept header. `#26639 <https://github.com/prestodb/presto/pull/26639>`_
 * Improve ``LIKE '%substring%'`` pattern matching by rewriting to ``STRPOS`` instead of ``CARDINALITY(SPLIT(...))``, improving CPU and memory efficiency. `#27311 <https://github.com/prestodb/presto/pull/27311>`_
-* Improve performance of ``UNNEST`` by adding a ``PushdownThroughUnnest`` optimizer rule that pushes projections and filter conjuncts not dependent on unnest output variables below the UnnestNode. This rule is controlled using the ``pushdown_through_unnest`` session property (default enabled). `#27125 <https://github.com/prestodb/presto/pull/27125>`_
+* Improve performance of ``UNNEST`` by adding a ``PushdownThroughUnnest`` optimizer rule that pushes projections and filter through the unnest when possible. This rule is controlled using the ``pushdown_through_unnest`` session property (default enabled). `#27125 <https://github.com/prestodb/presto/pull/27125>`_
 * Improve performance for queries that apply aggregation such as ``MIN``, ``MAX``, ``ARBITRARY``, or ``APPROX_DISTINCT`` to a constant input by replacing them with the constant directly. Controlled by the ``simplify_aggregations_over_constant`` session property (disabled by default). `#27246 <https://github.com/prestodb/presto/pull/27246>`_
 * Improve performance of semi-join (``IN``) queries where the probe/source side is a ``UNION`` by pushing the join through the union. Controlled by the ``optimizer.push-semi-join-through-union`` configuration property or the ``push_semi_join_through_union`` session property (disabled by default). `#27176 <https://github.com/prestodb/presto/pull/27176>`_
 * Improve parallelism for small tables with few files by enabling distributed scan. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
@@ -48,8 +48,8 @@ _______________
 * Add cost-based selection for materialized view query rewriting, choosing the lowest-cost plan when multiple views are applicable. This can be enabled with the ``materialized_view_query_rewrite_cost_based_selection_enabled`` session property. `#27222 <https://github.com/prestodb/presto/pull/27222>`_
 * Add expression simplification rule to flatten nested ``IF`` expressions: ``IF(x, IF(y, v, E), E)`` is rewritten to ``IF(x AND y, v, E)`` when the outer and inner else branches are identical. `#27267 <https://github.com/prestodb/presto/pull/27267>`_
 * Add materialized CTE support for single node execution. `#26794 <https://github.com/prestodb/presto/pull/26794>`_
-* Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over equi-join key pairs based on join type, enabling bucketed join optimizations for tool-generated queries. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
-* Add optimizer rule to pre-aggregate data before GroupId node in grouping sets queries, reducing row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
+* Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over join keys by simplifying them based on join type, enabling bucketed join optimizations. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
+* Improve performance of queries using grouping sets by pre-aggregating data before row multiplication. Enabled via session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
 * Add :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\`` configuration property to control the number of tasks for remote project node. `#27044 <https://github.com/prestodb/presto/pull/27044>`_
 * Add options to skip projection pushdown through exchange rule. Controlled by the ``optimizer.skip-pushdown-through-exchange-for-remote-projection`` configuration property or the ``skip_pushdown_through_exchange_for_remote_projection`` session property (disabled by default). `#26943 <https://github.com/prestodb/presto/pull/26943>`_
 * Add support for ``America/Coyhaique`` timezone (Chile's Aysén Region). `#26981 <https://github.com/prestodb/presto/pull/26981>`_
@@ -63,7 +63,6 @@ _______________
 * Add DDL statements for ``CREATE TAG``. `#27113 <https://github.com/prestodb/presto/pull/27113>`_
 * Replace ``experimental.max-total-running-task-count-to-not-execute-new-query`` with :ref:`admin/properties:\`\`max-total-running-task-count-to-not-execute-new-query\`\``. This is backwards compatible. `#27146 <https://github.com/prestodb/presto/pull/27146>`_
 * Remove implicit bundling of SQL invoked function plugins from the default Presto server Provisio build. `#26926 <https://github.com/prestodb/presto/pull/26926>`_
-* Update Session to serialize and deserialize selectedUser and reasonForSelect to SessionRepresentation, allowing ``INSERT`` and ``DELETE`` query sessions to contain these fields. `#27360 <https://github.com/prestodb/presto/pull/27360>`_
 * Update timezone data to 2025b by upgrading to Joda-Time 2.14.0. `#26981 <https://github.com/prestodb/presto/pull/26981>`_
 
 Prestissimo (Native Execution) Changes
@@ -84,7 +83,7 @@ ________________
 * Add a temporary configuration property ``hive.restrict-procedure-call`` for ranger and sql-standard access control. It defaults to ``true``, meaning procedure calls are restricted. To allow procedure calls, set this configuration property to ``false``. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add fine-grained access control for procedure calls in the file-based access control system. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for procedure calls in access control. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
-* Update aircompressor dependency from 0.27 to version 2.0.2 to fix `CVE-2025-67721 <https://www.cve.org/CVERecord?id=CVE-2025-67721>`_. `#27152 <https://github.com/prestodb/presto/pull/27152>`_
+* Upgrade aircompressor dependency from 0.27 to version 2.0.2 to fix `CVE-2025-67721 <https://www.cve.org/CVERecord?id=CVE-2025-67721>`_. `#27152 <https://github.com/prestodb/presto/pull/27152>`_
 * Upgrade Druid to version 35.0.1 to address `CVE-2024-53990 <https://github.com/advisories/GHSA-mfj5-cf8g-g2fv>`_ and `CVE-2025-12183 <https://github.com/advisories/GHSA-vqf4-7m7x-wgfc>`_. `#26820 <https://github.com/prestodb/presto/pull/26820>`_
 * Upgrade Netty to version 4.2.12.Final to address `CVE-2026-33871 <https://github.com/advisories/GHSA-w9fj-cfpg-grvv>`_ and `CVE-2025-67735 <https://github.com/advisories/GHSA-84h7-rjj3-6jx4>`_. `#27464 <https://github.com/prestodb/presto/pull/27464>`_
 * Upgrade Rhino to version 1.8.1 to address `CVE-2025-66453 <https://github.com/advisories/GHSA-3w8q-xq97-5j7x>`_. `#26820 <https://github.com/prestodb/presto/pull/26820>`_
@@ -99,7 +98,6 @@ ________________
 * Upgrade mssql-jdbc to 13.2.1.jre11 in response to `CVE-2025-59250 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2025-59250>`_. `#26674 <https://github.com/prestodb/presto/pull/26674>`_
 * Upgrade node-forge from 1.3.1 to 1.4.0 in response to multiple security advisories including `CVE-2026-33891 <https://www.cve.org/CVERecord?id=CVE-2026-33891>`_ (DoS in BigInteger.modInverse), `CVE-2026-33894 <https://www.cve.org/CVERecord?id=CVE-2026-33894>`_ (RSA-PKCS signature forgery), `CVE-2026-33895 <https://www.cve.org/CVERecord?id=CVE-2026-33895>`_ (Ed25519 signature forgery), and `CVE-2026-33896 <https://www.cve.org/CVERecord?id=CVE-2026-33896>`_ (basicConstraints bypass in certificate chain verification). This dependency is used by ``webpack-dev-server`` for development and does not affect production runtime. `#27448 <https://github.com/prestodb/presto/pull/27448>`_
 * Upgrade org.apache.logging.log4j:log4j-core from from 2.24.3 to 2.25.3 to address `CVE-2025-68161 <https://nvd.nist.gov/vuln/detail/CVE-2025-68161>`_. `#26885 <https://github.com/prestodb/presto/pull/26885>`_
-* Upgrade transitive dependency org.apache.logging.log4j:log4j-core to 2.25.3 to fix `CVE-2025-68161 <https://nvd.nist.gov/vuln/detail/CVE-2025-68161>`_. `#26906 <https://github.com/prestodb/presto/pull/26906>`_
 * Upgrade webpack-dev-server from 5.2.0 to 5.2.1 to address security vulnerabilities in cross-origin request handling and WebSocket connections. The update enforces proper ``Access-Control-Allow-Origin`` header validation for cross-origin requests and restricts WebSocket connections from IP addresses in the ``Origin`` header unless explicitly configured via ``allowedHosts``. This dependency is used for local development only and does not affect production runtime. `#26275 <https://github.com/prestodb/presto/pull/26275>`_
 * Upgrade zookeeper to version 3.9.5 in response to `CVE-2026-24281 <https://github.com/advisories/GHSA-7xrh-hqfc-g7qr>`_, `CVE-2026-24308 <https://github.com/advisories/GHSA-crhr-qqj8-rpxc>`_. `#27319 <https://github.com/prestodb/presto/pull/27319>`_
 * Upgrade Jetty to 12.0.29 in response to `CVE-2025-5115 <https://nvd.nist.gov/vuln/detail/CVE-2025-5115>`_. `#26739 <https://github.com/prestodb/presto/pull/26739>`_
@@ -110,7 +108,7 @@ ______________
 
 Cassandra Connector Changes
 ___________________________
-* Drop stale tables if table creation process fails. `#27100 <https://github.com/prestodb/presto/pull/27100>`_
+* Fix table creation to clean up stale tables on failure. `#27100 <https://github.com/prestodb/presto/pull/27100>`_
 
 Delta Lake Connector Changes
 ____________________________
@@ -145,7 +143,7 @@ _________________________
 * Add single-table multi-statement writes :ref:`transaction <connector/iceberg:Transaction support>` on snapshot isolation level. `#25003 <https://github.com/prestodb/presto/pull/25003>`_
 * Add support for ``MERGE`` command in the Iceberg connector. `#25470 <https://github.com/prestodb/presto/pull/25470>`_
 * Add support for :ref:`connector/iceberg:materialized views` in Iceberg catalog. `#26958 <https://github.com/prestodb/presto/pull/26958>`_
-* Add support for ``SMALLINT`` and ``TINYINT`` columns in presto-iceberg by mapping them to Iceberg ``INTEGER`` type. `#27461 <https://github.com/prestodb/presto/pull/27461>`_
+* Add support for ``SMALLINT`` and ``TINYINT`` columns by mapping them to Iceberg ``INTEGER`` type. `#27461 <https://github.com/prestodb/presto/pull/27461>`_
 * Add support for configuring access control in Iceberg using the ``iceberg.security`` property in the Iceberg catalog properties file. The supported types are ``allow-all`` and ``file``. See :ref:`connector/iceberg:authorization`. `#26803 <https://github.com/prestodb/presto/pull/26803>`_
 * Add support for creating Iceberg tables with format-version = ``3``. `#27021 <https://github.com/prestodb/presto/pull/27021>`_
 * Add support for dropping a branch from an Iceberg table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
