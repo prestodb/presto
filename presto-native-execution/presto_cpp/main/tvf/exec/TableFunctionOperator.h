@@ -56,22 +56,20 @@ class TableFunctionOperator : public velox::exec::Operator {
   }
 
   bool isFinished() override {
-    if (!noMoreInput_) {
-      // We still have input to process.
+    if (!noMoreInput_ || validFunctionInput_) {
       return false;
     }
 
-    // The operator has received noMoreInput() as is now generating function
-    // output.
-    // The operator is not finished until the function has finished processing
-    // all partitions and there is no more output to be generated.
-    if (tableFunctionPartition_ || tablePartitionBuild_->hasNextPartition()) {
-      return false;
-    }
+    bool allRowsProcessed =
+        (numRows_ > 0) ? (numProcessedRows_ >= numRows_) : true;
+    bool emptyPruned =
+        (numRows_ == 0) && tableFunctionProcessorNode_->pruneWhenEmpty();
+    bool emptyPartitionDone = (numRows_ == 0) && finishedEmptyPartition_;
+    bool multipleInputsDone =
+        (requiredColumnTypes_.size() <= 1) || calledWithNullptr_;
 
-    // All the partitions have been processed and there is no more output to
-    // be generated.
-    return true;
+    return emptyPruned || emptyPartitionDone ||
+        (allRowsProcessed && multipleInputsDone);
   }
 
   void reclaim(
@@ -109,23 +107,12 @@ class TableFunctionOperator : public velox::exec::Operator {
   // TableFunctionPartitions for the processing.
   std::unique_ptr<TablePartitionBuild> tablePartitionBuild_;
 
-  // The current tableFunctionPartition being processed.
-  // This is set to nullptr when there is no partition being processed.
-  // A partition is fully processed when the TableFunction returns
-  // FinishedResult for the partition.
   std::shared_ptr<TableFunctionPartition> tableFunctionPartition_;
 
-  // The input to be sent to the function for the current partition.
-  // This is assembled from the input rows of the partition. It is updated
-  // when the function signals that it has usedInput of the current apply call.
   std::vector<velox::RowVectorPtr> functionInput_;
-  // Used to track if the above functionInput_ vector needs to be used again
-  // for the next apply call to the function for the current partition. This
-  // is done if the TableFunctionPartition needs a second call to apply
-  // with the same input to return all output for the partition.
   bool validFunctionInput_ = false;
 
-  // This is constructed to process the data for each partition.
+  // This should be constructed for each partition.
   std::unique_ptr<TableFunctionDataProcessor> dataProcessor_;
 
   // Number of input rows received.
@@ -136,10 +123,16 @@ class TableFunctionOperator : public velox::exec::Operator {
   // Number of input rows of the current partition processed so far.
   velox::vector_size_t numPartitionProcessedRows_ = 0;
 
+  // Flag to track if we've called the function with nullptr to signal
+  // end-of-stream
+  bool calledWithNullptr_ = false;
+
+  // Flag to track if we've finished processing the empty partition
+  bool finishedEmptyPartition_ = false;
+
   // Number of rows that be fit into an output block.
   velox::vector_size_t numRowsPerOutput_;
 
-  // Returned if the function wants to block.
   velox::ContinueFuture* future_;
 };
 
