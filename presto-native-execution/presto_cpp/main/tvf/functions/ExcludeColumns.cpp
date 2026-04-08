@@ -162,7 +162,6 @@ class ExcludeColumns : public TableFunction {
   }
 
   velox::RowTypePtr returnType_;
-  const SelectivityVector inputSelections_;
 };
 } // namespace
 

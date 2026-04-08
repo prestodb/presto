@@ -443,4 +443,3 @@ JavaClasses:
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeTableFunctionAnalysis.java
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/NativeDescriptor.java
   - presto-native-tvf/src/main/java/com/facebook/presto/tvf/JsonBasedTableFunctionMetadata.java
->>>>>>> 81cc2bac57 (feat(native) : Add TVF Native Plugin)

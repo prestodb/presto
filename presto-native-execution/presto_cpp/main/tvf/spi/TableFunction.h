@@ -216,7 +216,7 @@ using TableFunctionSplitGenerator =
 /// and descriptor arguments.
 /// If the Table Function is a leaf operation, then it must provide a
 /// getSplits() implementation that divides the work into splits, and a
-/// TableFunctionSplitProcessor will ßbe created to process each split.
+/// TableFunctionSplitProcessor will be created to process each split.
 bool registerTableFunction(
     const std::string& name,
     TableArgumentSpecList argumentsSpec,

@@ -10,9 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# target_include_directories(presto_tvf_exec PRIVATE
-# ${CMAKE_SOURCE_DIR}/presto_cpp/main/tvf/core)
-
 add_library(
   presto_tvf_exec
   LeafTableFunctionOperator.cpp

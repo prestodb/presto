@@ -302,6 +302,21 @@ void to_json(json& j, const std::shared_ptr<ExecutionWriterTarget>& p);
 void from_json(const json& j, std::shared_ptr<ExecutionWriterTarget>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct ConnectorPartitioningHandle : public JsonEncodedSubclass {
+  static std::string serialize(ConnectorPartitioningHandle& p) {
+    VELOX_NYI("Serialization not implemented for ConnectorPartitioningHandle");
+  }
+  static std::shared_ptr<ConnectorPartitioningHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<ConnectorPartitioningHandle> p) {
+    VELOX_NYI(
+        "Deserialization not implemented for ConnectorPartitioningHandle");
+  }
+};
+void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p);
+void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct Argument : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<Argument>& p);
 void from_json(const json& j, std::shared_ptr<Argument>& p);
@@ -880,22 +895,6 @@ namespace facebook::presto::protocol {
 enum class ExchangeEncoding { COLUMNAR, ROW_WISE };
 extern void to_json(json& j, const ExchangeEncoding& e);
 extern void from_json(const json& j, ExchangeEncoding& e);
-} // namespace facebook::presto::protocol
-namespace facebook::presto::protocol {
-struct ConnectorPartitioningHandle : public JsonEncodedSubclass {
-  static std::string serialize(
-      const ConnectorPartitioningHandle& /* handle */) {
-    VELOX_NYI("ConnectorPartitioningHandle::serialize not implemented");
-  }
-
-  static std::shared_ptr<ConnectorPartitioningHandle> deserialize(
-      const std::string& /* data */,
-      std::shared_ptr<ConnectorPartitioningHandle> /* handle */) {
-    VELOX_NYI("ConnectorPartitioningHandle::deserialize not implemented");
-  }
-};
-void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p);
-void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct PartitioningHandle {
