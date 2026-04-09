@@ -1480,21 +1480,7 @@ public final class IcebergUtil
      */
     public static String getPartitionKey(FileScanTask task)
     {
-        org.apache.iceberg.PartitionSpec spec = task.spec();
-        if (spec.isUnpartitioned()) {
-            return "unpartitioned";
-        }
-        return task.file().partition().toString();
-    }
-
-    /**
-     * Gets a partition key string for a FileScanTask using the table's specs.
-     * Returns "unpartitioned" for unpartitioned tables, otherwise returns the partition data as a string.
-     * This version is useful when you need to look up the spec from the table.
-     */
-    public static String getPartitionKey(FileScanTask task, Table table)
-    {
-        org.apache.iceberg.PartitionSpec spec = table.specs().get(task.file().specId());
+        PartitionSpec spec = task.spec();
         if (spec.isUnpartitioned()) {
             return "unpartitioned";
         }
@@ -1590,7 +1576,7 @@ public final class IcebergUtil
      * @param options rewrite options map
      * @return files from partitions meeting the criteria
      */
-    public static List<FileScanTask> filterByGroup(List<FileScanTask> tasks, Map<String, String> options)
+    public static CloseableIterable<FileScanTask> filterByGroup(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
     {
         int minInputFiles = parseMinInputFiles(options);
         if (minInputFiles <= 1) {
@@ -1599,20 +1585,23 @@ public final class IcebergUtil
 
         // Group files by partition
         Map<String, List<FileScanTask>> partitionGroups = new HashMap<>();
+        Map<String, Set<String>> partitionFilePathGroups = new HashMap<>();
         for (FileScanTask task : tasks) {
             String partitionKey = getPartitionKey(task);
             partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
+            partitionFilePathGroups.computeIfAbsent(partitionKey, k -> new HashSet<>()).add(task.file().location());
         }
 
         // Collect tasks from partitions that meet the threshold
         List<FileScanTask> filteredTasks = new ArrayList<>();
-        for (List<FileScanTask> group : partitionGroups.values()) {
-            if (group.size() >= minInputFiles) {
-                filteredTasks.addAll(group);
+        for (String partitionKey : partitionFilePathGroups.keySet()) {
+            if (partitionFilePathGroups.get(partitionKey).size() >= minInputFiles) {
+                filteredTasks.addAll(partitionGroups.get(partitionKey));
             }
         }
-        return filteredTasks;
+        return CloseableIterable.withNoopClose(filteredTasks);
     }
+
     /**
      * Filters files by individual file criteria using OR logic.
      * Selects files that are too small (< min-file-size-bytes) OR too large (> max-file-size-bytes).
@@ -1621,7 +1610,7 @@ public final class IcebergUtil
      * @param options rewrite options map
      * @return filtered list of tasks meeting file criteria
      */
-    public static List<FileScanTask> filterByFile(List<FileScanTask> tasks, Map<String, String> options)
+    public static CloseableIterable<FileScanTask> filterByFile(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
     {
         long minFileSizeBytes = parseMinFileSize(options);
         long maxFileSizeBytes = parseMaxFileSize(options);
@@ -1630,17 +1619,10 @@ public final class IcebergUtil
             return tasks;
         }
 
-        List<FileScanTask> selectedTasks = new ArrayList<>();
-        for (FileScanTask task : tasks) {
+        return CloseableIterable.filter(tasks, task -> {
             long fileSize = task.file().fileSizeInBytes();
-
-            // Select files that are too small (< min) OR too large (> max)
-            if ((minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
-                    (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes)) {
-                selectedTasks.add(task);
-            }
-        }
-
-        return selectedTasks;
+            return (minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
+                    (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes);
+        });
     }
 }
