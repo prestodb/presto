@@ -1908,7 +1908,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.";
 
         assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 5)", 1);
@@ -1946,7 +1946,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
         // Test with delete_mode set to copy-on-write
         String tableNameCow = "test_delete_partitioned_cow";
-        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. Configure write.delete.mode table property to allow row level deletions.";
+        @Language("RegExp") String errorMessage = "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.";
 
         assertUpdate("CREATE TABLE " + tableNameCow + " (id integer, value integer) WITH (\"format-version\" = '2', partitioning = Array['id'], \"write.delete.mode\" = 'copy-on-write')");
         assertUpdate("INSERT INTO " + tableNameCow + " VALUES (1, 10)", 1);
