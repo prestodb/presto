@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
@@ -152,6 +153,13 @@ public class SymbolMapper
 
     public RowExpression map(RowExpression value)
     {
+        // Fast path: leaf expressions don't need TreeRewriter machinery
+        if (value instanceof VariableReferenceExpression) {
+            return map((VariableReferenceExpression) value);
+        }
+        if (value instanceof ConstantExpression) {
+            return value;
+        }
         return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Void>()
         {
             @Override

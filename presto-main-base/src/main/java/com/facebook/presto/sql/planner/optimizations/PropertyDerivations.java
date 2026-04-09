@@ -821,6 +821,22 @@ public class PropertyDerivations
                 RowExpression expression = assignment.getValue();
                 VariableReferenceExpression output = assignment.getKey();
 
+                // Variable reference assignments (identity or renaming) and constants never
+                // produce new constant information from the interpreter. Skip them to avoid
+                // expensive RowExpressionInterpreter construction for wide projections.
+                if (expression instanceof VariableReferenceExpression) {
+                    VariableReferenceExpression inputVar = (VariableReferenceExpression) expression;
+                    ConstantExpression existingConstantValue = properties.getConstants().get(inputVar);
+                    if (existingConstantValue != null) {
+                        constants.put(output, existingConstantValue);
+                    }
+                    continue;
+                }
+                if (expression instanceof ConstantExpression) {
+                    constants.put(output, (ConstantExpression) expression);
+                    continue;
+                }
+
                 // TODO:
                 // We want to use a symbol resolver that looks up in the constants from the input subplan
                 // to take advantage of constant-folding for complex expressions

@@ -305,6 +305,13 @@ public class PredicatePushDown
         @Override
         public PlanNode visitProject(ProjectNode node, RewriteContext<RowExpression> context)
         {
+            // Fast path: when inherited predicate is TRUE, there are no conjuncts
+            // to push through the project, so skip the expensive determinism check
+            // on all assignments.
+            if (context.get().equals(TRUE_CONSTANT)) {
+                return context.defaultRewrite(node, TRUE_CONSTANT);
+            }
+
             Set<VariableReferenceExpression> deterministicVariables = node.getAssignments().entrySet().stream()
                     .filter(entry -> determinismEvaluator.isDeterministic(entry.getValue()))
                     .map(Map.Entry::getKey)

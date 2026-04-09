@@ -541,4 +541,20 @@ public class TestAddExchangesPlans
         // When DISABLED, no extra round robin exchange should be added
         assertDistributedPlan("SELECT nationkey FROM nation", session, anyTree(exchange(REMOTE_STREAMING, ExchangeNode.Type.GATHER, tableScan("nation"))));
     }
+
+    @Test
+    public void testWideProjectionWithIdentityAssignments()
+    {
+        // Verify that wide projections with identity assignments and constants
+        // produce valid plans. PropertyDerivations.visitProject should correctly
+        // propagate constant properties through identity assignments without
+        // creating RowExpressionInterpreter for each one.
+        assertDistributedPlan(
+                "SELECT nationkey, nationkey AS k2, nationkey + 1 AS k3, " +
+                        "name, name AS n2, 42 AS const1, 99 AS const2 " +
+                        "FROM nation",
+                anyTree(
+                        exchange(REMOTE_STREAMING, ExchangeNode.Type.GATHER,
+                                anyTree(tableScan("nation")))));
+    }
 }

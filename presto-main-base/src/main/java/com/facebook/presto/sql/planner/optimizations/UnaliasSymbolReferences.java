@@ -887,7 +887,12 @@ public class UnaliasSymbolReferences
 
         private VariableReferenceExpression canonicalize(VariableReferenceExpression variable)
         {
-            String canonical = variable.getName();
+            String name = variable.getName();
+            if (!mapping.containsKey(name)) {
+                // Fast path: no mapping exists, return original variable to avoid allocation
+                return variable;
+            }
+            String canonical = name;
             Set<String> visited = new HashSet<>();
             visited.add(canonical);
             while (mapping.containsKey(canonical)) {
@@ -898,6 +903,10 @@ public class UnaliasSymbolReferences
                     mapping.remove(canonical);
                     break;
                 }
+            }
+            if (canonical.equals(name)) {
+                // Mapping resolved back to original name (cycle was broken), return original
+                return variable;
             }
             return new VariableReferenceExpression(variable.getSourceLocation(), canonical, types.get(new SymbolReference(getNodeLocation(variable.getSourceLocation()), canonical)));
         }

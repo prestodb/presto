@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -103,5 +105,43 @@ public class TestSymbolMapper
 
         VariableReferenceExpression mapped = mapper.map(varA);
         assertEquals(mapped.getName(), "b");
+    }
+
+    @Test
+    public void testMapRowExpressionVariable()
+    {
+        VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "a", BigintType.BIGINT);
+        VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "b", BigintType.BIGINT);
+
+        SymbolMapper mapper = new SymbolMapper(ImmutableMap.of(varA, varB), WarningCollector.NOOP);
+
+        RowExpression result = mapper.map((RowExpression) varA);
+        assertEquals(((VariableReferenceExpression) result).getName(), "b");
+    }
+
+    @Test
+    public void testMapRowExpressionConstant()
+    {
+        VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "a", BigintType.BIGINT);
+        VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "b", BigintType.BIGINT);
+
+        SymbolMapper mapper = new SymbolMapper(ImmutableMap.of(varA, varB), WarningCollector.NOOP);
+
+        ConstantExpression constant = new ConstantExpression(42L, BigintType.BIGINT);
+        RowExpression result = mapper.map((RowExpression) constant);
+        assertSame(result, constant);
+    }
+
+    @Test
+    public void testMapRowExpressionUnmappedVariable()
+    {
+        VariableReferenceExpression varA = new VariableReferenceExpression(Optional.empty(), "a", BigintType.BIGINT);
+        VariableReferenceExpression varB = new VariableReferenceExpression(Optional.empty(), "b", BigintType.BIGINT);
+
+        SymbolMapper mapper = new SymbolMapper(ImmutableMap.of(varA, varB), WarningCollector.NOOP);
+
+        VariableReferenceExpression varC = new VariableReferenceExpression(Optional.empty(), "c", BigintType.BIGINT);
+        RowExpression result = mapper.map((RowExpression) varC);
+        assertSame(result, varC);
     }
 }
