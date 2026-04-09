@@ -216,6 +216,7 @@ public class FeaturesConfig
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly = true;
     private boolean checkAccessControlWithSubfields;
+    private boolean alwaysAnalyzeCreateTableQueryEnabled;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
@@ -2108,6 +2109,18 @@ public class FeaturesConfig
     public FeaturesConfig setCheckAccessControlOnUtilizedColumnsOnly(boolean checkAccessControlOnUtilizedColumnsOnly)
     {
         this.checkAccessControlOnUtilizedColumnsOnly = checkAccessControlOnUtilizedColumnsOnly;
+        return this;
+    }
+
+    public boolean isAlwaysAnalyzeCreateTableQueryEnabled()
+    {
+        return alwaysAnalyzeCreateTableQueryEnabled;
+    }
+
+    @Config("always-analyze-create-table-query-enabled")
+    public FeaturesConfig setAlwaysAnalyzeCreateTableQueryEnabled(boolean alwaysAnalyzeCreateTableQueryEnabled)
+    {
+        this.alwaysAnalyzeCreateTableQueryEnabled = alwaysAnalyzeCreateTableQueryEnabled;
         return this;
     }
 

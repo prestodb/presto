@@ -144,6 +144,17 @@ To avoid these problems:
 
 The corresponding configuration property is :ref:`admin/properties:\`\`check-access-control-on-utilized-columns-only\`\``.
 
+``always_analyze_create_table_query_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, ``CREATE TABLE AS SELECT IF NOT EXISTS`` statements that target an existing table will still
+analyze the inner ``SELECT`` query.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`always-analyze-create-table-query-enabled\`\``.
+
 ``max_serializable_object_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
