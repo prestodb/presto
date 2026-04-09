@@ -13,21 +13,17 @@
  */
 package com.facebook.presto.nativetests;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.AbstractTestDateTimeScalarFunctions;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import static java.lang.Boolean.parseBoolean;
 
 public class TestPrestoNativeDateTimeScalarFunctions
-        extends AbstractTestQueryFramework
+        extends AbstractTestDateTimeScalarFunctions
 {
     private String storageFormat;
     private boolean sidecarEnabled;
-    private Session session;
 
     @BeforeClass
     @Override
@@ -35,12 +31,8 @@ public class TestPrestoNativeDateTimeScalarFunctions
             throws Exception
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
         super.init();
-        session =
-        Session.builder(getSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("America/Chicago"))
-                .build();
     }
 
     @Override
@@ -49,35 +41,5 @@ public class TestPrestoNativeDateTimeScalarFunctions
     {
         QueryRunner queryRunner = NativeTestsUtils.createNativeQueryRunner(storageFormat, sidecarEnabled);
         return queryRunner;
-    }
-
-    @Test
-    public void testLocalTime()
-    {
-        assertQuerySucceeds(session, "SELECT localtime IS NOT NULL");
-    }
-
-    @Test
-    public void testLocalTimestamp()
-    {
-        assertQuerySucceeds(session, "SELECT localtimestamp IS NOT NULL");
-    }
-
-    @Test
-    public void testCurrentTime()
-    {
-        assertQuerySucceeds(session, "SELECT current_time IS NOT NULL");
-    }
-
-    @Test
-    public void testCurrentTimestamp()
-    {
-        assertQuerySucceeds(session, "SELECT current_timestamp IS NOT NULL");
-    }
-
-    @Test
-    public void testCurrentTimezone()
-    {
-        assertQuerySucceeds(session, "SELECT current_timezone() IS NOT NULL");
     }
 }
