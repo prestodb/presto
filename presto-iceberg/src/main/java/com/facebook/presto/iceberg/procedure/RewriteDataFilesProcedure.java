@@ -241,35 +241,30 @@ public class RewriteDataFilesProcedure
                         .filter(toIcebergExpression(predicate))
                         .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
 
-                List<FileScanTask> allTasks = new ArrayList<>();
-                try (CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles()) {
-                    fileScanTaskIterable.forEach(allTasks::add);
+                final Map<String, List<DeleteFile>> partitionedDeleteFiles = new HashMap<>();
+                Map<String, String> options = procedureContext.getOptions();
+                // Apply filtering using options
+                try (CloseableIterable<FileScanTask> fileScanTaskIterable = filterByGroup(filterByFile(tableScan.planFiles(), options), options)) {
+                    // Collect files and delete files from filtered tasks
+                    for (FileScanTask task : fileScanTaskIterable) {
+                        scannedDataFiles.add(task.file());
+                        if (!task.deletes().isEmpty()) {
+                            String partitionKey = getPartitionKey(task);
+                            task.deletes().forEach(deleteFile -> {
+                                if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
+                                        !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
+                                        !predicate.isAll()) {
+                                    // Equality files with an unpartitioned spec are applied as global deletes
+                                    //  So they should not be cleaned up unless the whole table is optimized
+                                    return;
+                                }
+                                partitionedDeleteFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(deleteFile);
+                            });
+                        }
+                    }
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
-                }
-
-                // Apply filtering using options
-                List<FileScanTask> filteredTasks = filterByFile(allTasks, procedureContext.getOptions());
-                filteredTasks = filterByGroup(filteredTasks, procedureContext.getOptions());
-
-                // Collect files and delete files from filtered tasks
-                final Map<String, List<DeleteFile>> partitionedDeleteFiles = new HashMap<>();
-                for (FileScanTask task : filteredTasks) {
-                    scannedDataFiles.add(task.file());
-                    if (!task.deletes().isEmpty()) {
-                        String partitionKey = getPartitionKey(task, icebergTable);
-                        task.deletes().forEach(deleteFile -> {
-                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
-                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
-                                    !predicate.isAll()) {
-                                // Equality files with an unpartitioned spec are applied as global deletes
-                                //  So they should not be cleaned up unless the whole table is optimized
-                                return;
-                            }
-                            partitionedDeleteFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(deleteFile);
-                        });
-                    }
                 }
 
                 // Add all delete files

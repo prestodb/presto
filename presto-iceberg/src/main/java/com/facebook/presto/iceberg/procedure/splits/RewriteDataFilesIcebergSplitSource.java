@@ -16,18 +16,16 @@ package com.facebook.presto.iceberg.procedure.splits;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplitSource;
-import com.facebook.presto.iceberg.IcebergUtil;
-import com.facebook.presto.iceberg.util.FilteredTableScan;
 import com.facebook.presto.spi.ConnectorSession;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+
+import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
+import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 
 /**
  * Split source for rewrite_data_files procedure that applies min-input-files filtering.
@@ -42,23 +40,11 @@ public class RewriteDataFilesIcebergSplitSource
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints,
             Map<String, String> options)
     {
-        super(session, applyFilters(tableScan, options), metadataColumnConstraints);
+        super(session, getTargetSplitSize(session, tableScan).toBytes(), applyFilters(tableScan, options), metadataColumnConstraints);
     }
 
-    private static TableScan applyFilters(TableScan tableScan, Map<String, String> options)
+    private static CloseableIterable<FileScanTask> applyFilters(TableScan tableScan, Map<String, String> options)
     {
-        try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
-            List<FileScanTask> tasks = new ArrayList<>();
-            fileScanTasks.forEach(tasks::add);
-
-            // Apply filtering using options
-            List<FileScanTask> filteredTasks = IcebergUtil.filterByFile(tasks, options);
-            filteredTasks = IcebergUtil.filterByGroup(filteredTasks, options);
-
-            return new FilteredTableScan(tableScan, filteredTasks);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to filter table scan", e);
-        }
+        return filterByGroup(filterByFile(tableScan.planFiles(), options), options);
     }
 }
