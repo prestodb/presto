@@ -123,6 +123,7 @@ public class IcebergTableProperties
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> deprecatedTableProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final Map<String, PropertyMetadata<?>> deprecatedPropertyMetadata;
 
@@ -264,11 +265,20 @@ public class IcebergTableProperties
                                 .collect(toImmutableList()),
                         value -> value)
                         .withAdditionalTypeHandler(VARCHAR, ImmutableList::of));
+
+        deprecatedTableProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .addAll(deprecatedPropertyMetadata.values())
+                .build();
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    public List<PropertyMetadata<?>> getDeprecatedTableProperties()
+    {
+        return deprecatedTableProperties;
     }
 
     public List<PropertyMetadata<?>> getColumnProperties()
