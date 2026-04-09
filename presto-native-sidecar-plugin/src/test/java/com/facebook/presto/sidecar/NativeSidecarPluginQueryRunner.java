@@ -19,7 +19,7 @@ import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableMap;
+//import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
@@ -54,7 +54,6 @@ public class NativeSidecarPluginQueryRunner
         // Launch distributed runner.
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setCoordinatorSidecarEnabled(true)
-                .setHiveProperties(ImmutableMap.of("hive.create-empty-bucket-files", "false"))
                 .build();
         setupNativeSidecarPlugin(queryRunner);
         return queryRunner;

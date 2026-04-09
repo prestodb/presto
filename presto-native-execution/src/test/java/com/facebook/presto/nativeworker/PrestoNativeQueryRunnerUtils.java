@@ -160,7 +160,6 @@ public class PrestoNativeQueryRunnerUtils
                 this.hiveProperties.putAll(ImmutableMap.<String, String>builder()
                         .putAll(getNativeWorkerHiveProperties())
                         .put("hive.allow-drop-table", "true")
-                        .put("hive.create-empty-bucket-files", "false")
                         .build());
                 this.security = "legacy";
                 this.useExternalWorkerLauncher = true;
