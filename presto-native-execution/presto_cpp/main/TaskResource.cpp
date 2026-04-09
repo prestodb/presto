@@ -365,11 +365,13 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
           velox::core::PlanConsistencyChecker::check(planFragment.planNode);
         }
+        auto dynamicFilterInfos = converter.getDynamicFilterInfos();
 
         return taskManager_.createOrUpdateBatchTask(
             taskId,
             batchUpdateRequest,
             planFragment,
+            dynamicFilterInfos,
             summarize,
             std::move(queryCtx),
             startProcessCpuTime);
@@ -397,6 +399,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           updateRequest = json::parse(requestBody);
         }
         velox::core::PlanFragment planFragment;
+        std::vector<JoinDynamicFilterInfo> dynamicFilterInfos;
         std::shared_ptr<velox::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {
           protocol::PlanFragment prestoPlan = json::parse(
@@ -415,12 +418,14 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
           planValidator_->validatePlanFragment(planFragment);
+          dynamicFilterInfos = converter.getDynamicFilterInfos();
         }
 
         return taskManager_.createOrUpdateTask(
             taskId,
             updateRequest,
             planFragment,
+            dynamicFilterInfos,
             summarize,
             std::move(queryCtx),
             startProcessCpuTime);

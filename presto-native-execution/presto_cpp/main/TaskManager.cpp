@@ -24,6 +24,7 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/operators/DynamicFilterSource.h"
+#include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -508,12 +509,14 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
     const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
+      dynamicFilterInfos,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -525,6 +528,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
@@ -535,6 +539,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
   return createOrUpdateTaskImpl(
       taskId,
       planFragment,
+      dynamicFilterInfos,
       updateRequest.sources,
       updateRequest.outputIds,
       summarize,
@@ -545,6 +550,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
     const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
     bool summarize,
@@ -593,7 +599,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       startTask = true;
       prestoTask->createFinishTimeMs = getCurrentTimeMs();
 
-      // Register dynamic filter callbacks so operators can deliver filters.
+      // Register dynamic filter callbacks so filters can be delivered to
+      // the coordinator.
       auto weakTask = std::weak_ptr<PrestoTask>(prestoTask);
       operators::DynamicFilterCallbackRegistry::instance().registerCallbacks(
           taskId,
@@ -608,6 +615,33 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
               task->registerDynamicFilterIds(filterIds);
             }
           });
+
+      // Register HashJoinBridge callbacks for distributed dynamic filter
+      // extraction. When the hash table is built, the callback extracts
+      // filter values from VectorHasher and delivers them to PrestoTask.
+      for (const auto& info : dynamicFilterInfos) {
+        std::unordered_set<std::string> filterIds;
+        for (const auto& ch : info.channels) {
+          filterIds.insert(ch.filterId);
+        }
+        prestoTask->registerDynamicFilterIds(filterIds);
+
+        auto taskIdStr = taskId;
+        auto channels = info.channels;
+        // Use a leaf memory pool for TupleDomain serialization.
+        auto leafPool = prestoTask->task->pool()->addLeafChild(
+            fmt::format("df_extract_{}", info.joinNodeId));
+        prestoTask->task->registerHashJoinBridgeCallback(
+            velox::core::PlanNodeId(info.joinNodeId),
+            [taskIdStr, channels, leafPool](
+                const velox::exec::BaseHashTable& mainTable,
+                const std::vector<std::unique_ptr<velox::exec::BaseHashTable>>&
+                    otherTables,
+                bool /*hasNullKeys*/) {
+              operators::extractAndDeliverFilters(
+                  taskIdStr, channels, mainTable, otherTables, leafPool.get());
+            });
+      }
     }
     execTask = prestoTask->task;
   }

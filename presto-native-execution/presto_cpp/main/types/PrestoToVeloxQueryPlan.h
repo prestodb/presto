@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <stdexcept>
 #include <vector>
+#include "presto_cpp/main/operators/DynamicFilterSource.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
@@ -26,6 +28,13 @@
 #include "presto_cpp/main/types/TypeParser.h"
 
 namespace facebook::presto {
+
+/// Metadata accumulated during plan conversion for join nodes with distributed
+/// dynamic filters. Used by TaskManager to register HashJoinBridge callbacks.
+struct JoinDynamicFilterInfo {
+  std::string joinNodeId;
+  std::vector<operators::DynamicFilterChannel> channels;
+};
 
 class VeloxQueryPlanConverterBase {
  public:
@@ -46,6 +55,12 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<const protocol::PlanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
+
+  /// Returns dynamic filter metadata accumulated during plan conversion.
+  /// Consumed by TaskManager to register HashJoinBridge callbacks.
+  const std::vector<JoinDynamicFilterInfo>& getDynamicFilterInfos() const {
+    return dynamicFilterInfos_;
+  }
 
  protected:
   virtual velox::core::PlanNodePtr toVeloxQueryPlan(
@@ -236,6 +251,10 @@ class VeloxQueryPlanConverterBase {
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
   TypeParser typeParser_;
+
+  /// Accumulated during plan conversion for join nodes with distributed
+  /// dynamic filters.
+  std::vector<JoinDynamicFilterInfo> dynamicFilterInfos_;
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {

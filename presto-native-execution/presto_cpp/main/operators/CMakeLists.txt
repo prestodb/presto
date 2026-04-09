@@ -14,6 +14,7 @@
 add_library(
   presto_operators
   DynamicFilterSource.cpp
+  HashBuildFilterExtractor.cpp
   PartitionAndSerialize.cpp
   ShuffleExchangeSource.cpp
   ShuffleRead.cpp

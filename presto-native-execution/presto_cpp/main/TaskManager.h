@@ -18,6 +18,7 @@
 #include <memory>
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
+#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -73,6 +74,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
       const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
       bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
@@ -81,6 +83,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
       const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
       bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
@@ -235,6 +238,7 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
       bool summarize,

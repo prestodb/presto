@@ -19,9 +19,7 @@
 #include <string>
 #include <unordered_set>
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Operator.h"
-#include "velox/type/Variant.h"
+#include "velox/type/Type.h"
 
 namespace facebook::presto::operators {
 
@@ -32,61 +30,18 @@ struct DynamicFilterChannel {
   velox::TypePtr type;
 };
 
-/// PlanNode that wraps the build-side child of a hash join to collect
-/// dynamic filter values as data flows through. This is a pass-through node:
-/// outputType() == source->outputType(). The operator extracts distinct values
-/// (or min/max ranges) from the specified columns and delivers them to the
-/// coordinator via a callback.
-class DynamicFilterSourceNode : public velox::core::PlanNode {
- public:
-  DynamicFilterSourceNode(
-      const velox::core::PlanNodeId& id,
-      std::vector<DynamicFilterChannel> channels,
-      velox::core::PlanNodePtr source)
-      : velox::core::PlanNode(id),
-        channels_(std::move(channels)),
-        sources_{std::move(source)} {}
-
-  const velox::RowTypePtr& outputType() const override {
-    return sources_[0]->outputType();
-  }
-
-  const std::vector<velox::core::PlanNodePtr>& sources() const override {
-    return sources_;
-  }
-
-  const std::vector<DynamicFilterChannel>& channels() const {
-    return channels_;
-  }
-
-  std::string_view name() const override {
-    return "DynamicFilterSource";
-  }
-
-  folly::dynamic serialize() const override;
-
-  static velox::core::PlanNodePtr create(
-      const folly::dynamic& obj,
-      void* context);
-
- private:
-  void addDetails(std::stringstream& stream) const override;
-
-  const std::vector<DynamicFilterChannel> channels_;
-  const std::vector<velox::core::PlanNodePtr> sources_;
-};
-
-/// Global per-task callback registry for delivering dynamic filter data from
-/// DynamicFilterSourceOperator to PrestoTask.
+/// Global per-task callback registry for delivering dynamic filter data
+/// to PrestoTask. Used by both the HashBuild filter extraction path and
+/// the coordinator's filter collection endpoint.
 class DynamicFilterCallbackRegistry {
  public:
-  /// Called when a DynamicFilterSource pipeline flushes its collected filters.
+  /// Called when dynamic filters are produced for a task.
   using FlushCallback = std::function<void(
       const std::map<std::string, protocol::TupleDomain<std::string>>&,
       const std::unordered_set<std::string>&)>;
 
-  /// Called at operator creation time to register filter IDs the task will
-  /// produce, so the coordinator knows when all pipelines have flushed.
+  /// Called to register filter IDs the task will produce, so the coordinator
+  /// knows when all filters have been delivered.
   using RegisterCallback =
       std::function<void(const std::unordered_set<std::string>&)>;
 
@@ -97,15 +52,14 @@ class DynamicFilterCallbackRegistry {
       FlushCallback flushCallback,
       RegisterCallback registerCallback);
 
-  /// Registers filter IDs for a task (called at operator creation time).
+  /// Registers filter IDs for a task.
   void registerFilterIds(
       const std::string& taskId,
       const std::unordered_set<std::string>& filterIds);
 
   /// Invokes the flush callback for the given task without removing it.
-  /// Multiple pipelines (DynamicFilterSourceNodes) within the same task can
-  /// each call fire() independently — the callback stays registered until
-  /// removeCallback() is called at task deletion time.
+  /// Multiple join nodes within the same task can each call fire()
+  /// independently.
   void fire(
       const std::string& taskId,
       std::map<std::string, protocol::TupleDomain<std::string>> filters,
@@ -119,16 +73,6 @@ class DynamicFilterCallbackRegistry {
     RegisterCallback registerIds;
   };
   folly::Synchronized<std::map<std::string, Callbacks>> callbacks_;
-};
-
-/// Translator that converts DynamicFilterSourceNode to the operator.
-class DynamicFilterSourceTranslator
-    : public velox::exec::Operator::PlanNodeTranslator {
- public:
-  std::unique_ptr<velox::exec::Operator> toOperator(
-      velox::exec::DriverCtx* ctx,
-      int32_t id,
-      const velox::core::PlanNodePtr& node) override;
 };
 
 } // namespace facebook::presto::operators
