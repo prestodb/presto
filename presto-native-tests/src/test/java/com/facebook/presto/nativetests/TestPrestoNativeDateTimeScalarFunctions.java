@@ -31,7 +31,7 @@ public class TestPrestoNativeDateTimeScalarFunctions
             throws Exception
     {
         storageFormat = System.getProperty("storageFormat", "PARQUET");
-        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "false"));
+        sidecarEnabled = parseBoolean(System.getProperty("sidecarEnabled", "true"));
         super.init();
     }
 
