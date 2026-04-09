@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -278,6 +279,15 @@ public final class StreamPropertyDerivations
         public StreamProperties visitSequence(SequenceNode node, List<StreamProperties> inputProperties)
         {
             return new StreamProperties(MULTIPLE, Optional.empty(), false);
+        }
+
+        @Override
+        public StreamProperties visitRPC(RPCNode node, List<StreamProperties> inputProperties)
+        {
+            // RPCNode may return rows out of order (PER_ROW mode dispatches
+            // individual RPCs that complete asynchronously), so ordering is
+            // not preserved. Partitioning is unchanged since RPCNode is 1:1.
+            return inputProperties.get(0).unordered(true);
         }
 
         @Override

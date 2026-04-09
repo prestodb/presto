@@ -82,6 +82,11 @@ public class JsonBasedUdfFunctionMetadata
      * Optional execution endpoint for routing function execution to a different server
      */
     private final Optional<URI> executionEndpoint;
+    /**
+     * Whether this function is an RPC function (dispatched via the async RPC framework).
+     * Set by the sidecar based on AsyncRPCFunctionRegistry.
+     */
+    private final boolean isRpcFunction;
 
     @JsonCreator
     public JsonBasedUdfFunctionMetadata(
@@ -97,7 +102,8 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("version") Optional<String> version,
             @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints,
             @JsonProperty("longVariableConstraints") Optional<List<LongVariableConstraint>> longVariableConstraints,
-            @JsonProperty("executionEndpoint") Optional<URI> executionEndpoint)
+            @JsonProperty("executionEndpoint") Optional<URI> executionEndpoint,
+            @JsonProperty("isRpcFunction") boolean isRpcFunction)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
@@ -121,6 +127,7 @@ public class JsonBasedUdfFunctionMetadata
                 throw new IllegalArgumentException("Execution endpoint must use HTTP or HTTPS protocol: " + uri);
             }
         });
+        this.isRpcFunction = isRpcFunction;
     }
 
     @JsonProperty
@@ -205,5 +212,11 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<URI> getExecutionEndpoint()
     {
         return executionEndpoint;
+    }
+
+    @JsonProperty
+    public boolean getIsRpcFunction()
+    {
+        return isRpcFunction;
     }
 }

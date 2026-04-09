@@ -147,7 +147,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
@@ -161,7 +162,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         udfSignatureMap.put("square", squareFunctions);
 
         // array_function_1
@@ -179,7 +181,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two float arrays into one",
                 FunctionKind.SCALAR,
@@ -193,7 +196,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two double arrays into one",
                 FunctionKind.SCALAR,
@@ -207,7 +211,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         udfSignatureMap.put("array_function_1", arrayFunction1);
 
         // array_function_2
@@ -225,7 +230,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         arrayFunction2.add(new JsonBasedUdfFunctionMetadata(
                 "transforms inputs into the output",
                 FunctionKind.SCALAR,
@@ -239,7 +245,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         udfSignatureMap.put("array_function_2", arrayFunction2);
 
         return udfSignatureMap;
@@ -264,7 +271,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
@@ -278,7 +286,8 @@ public class TestRestBasedFunctionNamespaceManager
                 Optional.of("1"),
                 Optional.of(emptyList()),
                 Optional.of(emptyList()),
-                Optional.empty()));
+                Optional.empty(),
+                false));
         udfSignatureMap.put("square", squareFunctions);
 
         return udfSignatureMap;

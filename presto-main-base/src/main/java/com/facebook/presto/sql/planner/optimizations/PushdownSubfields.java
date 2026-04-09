@@ -73,6 +73,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -525,6 +526,19 @@ public class PushdownSubfields
                 entry.getValue().forEach(variable -> context.get().addAssignment(entry.getKey(), variable));
             }
 
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.add(node.getOutputVariable());
+            Set<String> argColumnNames = ImmutableSet.copyOf(node.getArgumentColumns());
+            for (VariableReferenceExpression var : node.getSource().getOutputVariables()) {
+                if (argColumnNames.contains(var.getName())) {
+                    context.get().variables.add(var);
+                }
+            }
             return context.defaultRewrite(node, context.get());
         }
 
