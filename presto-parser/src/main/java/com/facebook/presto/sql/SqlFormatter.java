@@ -88,6 +88,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
+import com.facebook.presto.sql.tree.RefreshVectorIndex;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -1321,6 +1322,20 @@ public final class SqlFormatter
                 builder.append("\nUPDATING FOR ");
                 builder.append(formatExpression(updatingFor, parameters));
             });
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRefreshVectorIndex(RefreshVectorIndex node, Integer indent)
+        {
+            builder.append("REFRESH VECTOR INDEX ")
+                    .append(formatName(node.getIndexName()));
+
+            if (node.getWhere().isPresent()) {
+                builder.append(" WHERE ")
+                        .append(formatExpression(node.getWhere().get(), parameters));
+            }
 
             return null;
         }

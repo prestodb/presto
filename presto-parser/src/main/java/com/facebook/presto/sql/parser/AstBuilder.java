@@ -138,6 +138,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
+import com.facebook.presto.sql.tree.RefreshVectorIndex;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -397,6 +398,15 @@ class AstBuilder
                 columns,
                 updatingFor,
                 properties);
+    }
+
+    @Override
+    public Node visitRefreshVectorIndex(SqlBaseParser.RefreshVectorIndexContext context)
+    {
+        return new RefreshVectorIndex(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                visitIfPresent(context.booleanExpression(), Expression.class));
     }
 
     @Override
