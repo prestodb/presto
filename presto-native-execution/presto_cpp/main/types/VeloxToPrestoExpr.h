@@ -94,7 +94,7 @@ class VeloxToPrestoExprConverter {
 
   /// Helper function to convert N-argument AND/OR expressions (N > 2) to nested
   /// binary operations for Presto compatibility.
-  SpecialFormExpressionPtr convertToNestedBinaryOperations(
+  SpecialFormExpressionPtr getNestedConjunctExpression(
       const std::vector<velox::core::TypedExprPtr>& inputs,
       protocol::Form form,
       const protocol::TypeSignature& returnType) const;
