@@ -231,6 +231,12 @@ public class TestRewriteDataFilesProcedure
             // do not support rewrite files filtered by non-identity columns
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
 
+            String tableName1 = "my_table";
+            String schema = "my_schema";
+            System.out.println(getQueryRunner().execute(
+                    format("explain (type distributed) CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')",
+                            tableName1, schema)
+            ).toString());
             // select 5 files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, TEST_SCHEMA), 5);
             table.refresh();
