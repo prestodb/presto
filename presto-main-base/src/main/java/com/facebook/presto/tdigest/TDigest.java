@@ -95,6 +95,9 @@ public class TDigest
     static final double MAX_COMPRESSION_FACTOR = 1_000;
     private static final double sizeFudge = 30;
     private static final double EPSILON = 0.001;
+    // Relative error epsilon to handle floating-point precision issues
+    // with large totalWeight values.
+    private static final double RELATIVE_ERROR_EPSILON = 1e-4;
 
     private double min = Double.POSITIVE_INFINITY;
     private double max = Double.NEGATIVE_INFINITY;
@@ -360,7 +363,10 @@ public class TDigest
             sumWeights += weight[i];
         }
 
-        checkArgument(Math.abs(sumWeights - totalWeight) < EPSILON, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
+        // Use relative epsilon to handle floating-point precision issues
+        // with large totalWeight values.
+        double relativeEpsilon = Math.max(EPSILON, Math.abs(totalWeight) * RELATIVE_ERROR_EPSILON);
+        checkArgument(Math.abs(sumWeights - totalWeight) < relativeEpsilon, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
         if (runBackwards) {
             reverse(mean, 0, activeCentroids);
             reverse(weight, 0, activeCentroids);
