@@ -797,6 +797,16 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS TINYINT) FROM orders");
         assertQuerySucceeds(session, "SELECT TRY_CAST(comment AS BIGINT) FROM orders");
         assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS DOUBLE) FROM orders");
+
+        // Test BIND expression is preserved when lambda captures outer variable.
+        assertQuerySucceeds(session,
+                "SELECT IF(TRY(CAST(a AS INT)) IN (1, 5), TRY(CAST(b AS DOUBLE)), 0.0) FROM (VALUES (varchar'1', varchar'2.1'), (varchar'5', varchar'3.4')) t(a, b)");
+        assertQuerySucceeds(session,
+                "select transform(col1, x -> if(x, col2[2], 0)) from (values (array[false], array[0])) t(col1, col2)");
+        assertQuerySucceeds(session,
+                "SELECT FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v1, FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v2 FROM (select MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN ( SELECT MAP() AS other_map ) risk_map");
+        assertQuerySucceeds(session,
+                "SELECT COALESCE( TRY( TRANSFORM_VALUES( id, (k, v) -> k / v ) ) , MAP() ) FROM ( VALUES (MAP(ARRAY[1, 2], ARRAY[0, 0])),  (MAP(ARRAY[1, 2], ARRAY[1, 2])),  (MAP(ARRAY[28, 56], ARRAY[2, 4])), (MAP(ARRAY[4, 5], ARRAY[0, 0])), (MAP(ARRAY[12, 72], ARRAY[3, 6]))) AS t (id)");
     }
 
     @Test

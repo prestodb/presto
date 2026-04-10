@@ -28,6 +28,8 @@ using LambdaDefinitionExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::LambdaDefinitionExpression>;
 using SpecialFormExpressionPtr =
     std::shared_ptr<facebook::presto::protocol::SpecialFormExpression>;
+using FieldAccessExprPtr =
+    std::shared_ptr<const facebook::velox::core::FieldAccessTypedExpr>;
 
 namespace facebook::presto::expression {
 
@@ -117,10 +119,26 @@ class VeloxToPrestoExprConverter {
   SpecialFormExpressionPtr getDereferenceExpression(
       const velox::core::DereferenceTypedExpr* dereferenceExpr) const;
 
-  /// Helper function to construct a Presto
-  /// `protocol::LambdaDefinitionExpression` from a Velox lambda expression.
-  LambdaDefinitionExpressionPtr getLambdaExpression(
+  /// Helper function to construct a Presto RowExpression from a Velox lambda
+  /// expression. If the lambda body contains free variables (captured from an
+  /// outer scope), the result is a SpecialFormExpression of type BIND wrapping
+  /// an expanded LambdaDefinitionExpression. Otherwise, returns a plain
+  /// LambdaDefinitionExpression.
+  RowExpressionPtr resolveLambdaExpression(
       const velox::core::LambdaTypedExpr* lambdaExpr) const;
+
+  /// Helper function to construct a Presto LambdaDefinitionExpression from a
+  /// Velox lambda expression.
+  LambdaDefinitionExpressionPtr getLambdaExpression(
+      const velox::core::LambdaTypedExpr* lambdaExpr,
+      const std::vector<FieldAccessExprPtr>& freeFields) const;
+
+  /// Helper function to construct a Presto SpecialFormExpression of type BIND
+  /// that wraps an expanded lambda with the given free variables.
+  SpecialFormExpressionPtr getBindExpression(
+      const LambdaDefinitionExpressionPtr& lambdaDefinitionExpression,
+      const std::vector<FieldAccessExprPtr>& freeFields,
+      const velox::TypePtr& returnType) const;
 
   /// Helper function to construct a Presto `protocol::CallExpression` from a
   /// Velox call expression.
