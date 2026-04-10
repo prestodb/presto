@@ -45,6 +45,7 @@ import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
+import com.facebook.presto.iceberg.delete.IcebergDeletionVectorPageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -70,6 +71,7 @@ import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -875,17 +877,33 @@ public class IcebergPageSourceProvider
         verify(storageProperties.isPresent(), "storageProperties are null");
 
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
-        Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
-                partitionSpec,
-                split.getPartitionDataJson(),
-                locationProvider,
-                fileWriterFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                jsonCodec,
-                session,
-                split.getPath(),
-                split.getFileFormat());
+        int tableFormatVersion = Integer.parseInt(
+                storageProperties.get().getOrDefault("format-version", "2"));
+        Supplier<ConnectorPageSink> deleteSinkSupplier;
+        if (tableFormatVersion >= 3) {
+            deleteSinkSupplier = () -> new IcebergDeletionVectorPageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath());
+        }
+        else {
+            deleteSinkSupplier = () -> new IcebergDeletePageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    fileWriterFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath(),
+                    split.getFileFormat());
+        }
         boolean storeDeleteFilePath = icebergColumns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
         Supplier<List<DeleteFilter>> deleteFilters = memoize(() -> {
             // If equality deletes are optimized into a join they don't need to be applied here
