@@ -68,6 +68,21 @@ public abstract class AbstractTestSqlInvokedFunctions
 
         sql = "select array_split_into_chunks(array[], 0)";
         assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        sql = "select array_split_into_chunks(cast(array[] as array(integer)), 2)";
+        assertQuery(sql, "values array[]");
+
+        sql = "select array_split_into_chunks(cast(array[] as array(bigint)), 5)";
+        assertQuery(sql, "values array[]");
+
+        sql = "select array_split_into_chunks(cast(array[] as array(varchar)), 1)";
+        assertQuery(sql, "values array[]");
+
+        sql = "select array_split_into_chunks(cast(array[] as array(double)), 3)";
+        assertQuery(sql, "values array[]");
+
+        sql = "select array_split_into_chunks(array[], -1)";
+        assertQueryFails(sql, ".*Invalid slice size: -1. Size must be greater than zero.*");
     }
 
     @Test

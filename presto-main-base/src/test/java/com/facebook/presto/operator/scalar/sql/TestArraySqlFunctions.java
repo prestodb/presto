@@ -132,6 +132,15 @@ public class TestArraySqlFunctions
     }
 
     @Test
+    public void testArraySplitIntoChunksEmptyArray()
+    {
+        assertFunction("array_split_into_chunks(cast(array[] as array(bigint)), 2)", new ArrayType(new ArrayType(BIGINT)), emptyList());
+        assertFunction("array_split_into_chunks(cast(array[] as array(varchar)), 3)", new ArrayType(new ArrayType(VARCHAR)), emptyList());
+        assertFunction("array_split_into_chunks(cast(array[] as array(integer)), 1)", new ArrayType(new ArrayType(INTEGER)), emptyList());
+        assertFunction("array_split_into_chunks(cast(array[] as array(double)), 5)", new ArrayType(new ArrayType(DOUBLE)), emptyList());
+    }
+
+    @Test
     public void testArrayFrequencyBigint()
     {
         assertFunction("array_frequency(cast(null as array(bigint)))", createMapType(BIGINT, INTEGER), null);
