@@ -131,7 +131,8 @@ public class TestPrestoNativeBuiltInFunctions
                 Optional.empty(),
                 Optional.of(ImmutableList.of()),
                 Optional.of(ImmutableList.of()),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         return ImmutableList.of(createSqlInvokedFunction("test_agg_function", testFunctionMetadata, "presto"));
     }

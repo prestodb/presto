@@ -72,6 +72,7 @@ import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -840,6 +841,28 @@ public class UnaliasSymbolReferences
         }
 
         @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+            List<RowExpression> newArguments = node.getArguments().stream()
+                    .map(this::canonicalize)
+                    .collect(toImmutableList());
+            List<String> newArgumentColumns = node.getArgumentColumns().stream()
+                    .map(this::canonicalizeColumnName)
+                    .collect(toImmutableList());
+            return new RPCNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    source,
+                    node.getFunctionName(),
+                    newArguments,
+                    newArgumentColumns,
+                    canonicalize(node.getOutputVariable()),
+                    node.getStreamingMode(),
+                    node.getDispatchBatchSize());
+        }
+
+        @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("Unsupported plan node " + node.getClass().getSimpleName());
@@ -922,6 +945,15 @@ public class UnaliasSymbolReferences
         private RowExpression canonicalize(RowExpression value)
         {
             return RowExpressionVariableInliner.inlineVariables(this::canonicalize, value);
+        }
+
+        private String canonicalizeColumnName(String name)
+        {
+            String canonical = name;
+            while (mapping.containsKey(canonical)) {
+                canonical = mapping.get(canonical);
+            }
+            return canonical;
         }
 
         private List<VariableReferenceExpression> canonicalizeAndDistinct(List<VariableReferenceExpression> outputs)

@@ -70,6 +70,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -934,6 +935,18 @@ public class PropertyDerivations
         {
             // Return the rightmost node properties
             return context.get(context.size() - 1);
+        }
+
+        @Override
+        public ActualProperties visitRPC(RPCNode node, List<ActualProperties> inputProperties)
+        {
+            // RPCNode may return rows out of order (PER_ROW mode dispatches
+            // individual RPCs that complete asynchronously), so local ordering
+            // properties (SortingProperty) must be stripped. Partitioning and
+            // grouping properties are preserved since RPCNode is 1:1.
+            return ActualProperties.builderFrom(inputProperties.get(0))
+                    .unordered(true)
+                    .build();
         }
 
         @Override

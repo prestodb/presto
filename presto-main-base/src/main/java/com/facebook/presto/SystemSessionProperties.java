@@ -236,6 +236,7 @@ public final class SystemSessionProperties
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
+    public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -1328,6 +1329,10 @@ public final class SystemSessionProperties
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
                         false,
+                        false),
+                booleanProperty(RPC_FUNCTION_OPTIMIZER_ENABLED,
+                        "Enable the RPC function optimizer that rewrites RPC function calls to use async RPCNode execution",
+                        true,
                         false),
                 booleanProperty(
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
@@ -3079,6 +3084,11 @@ public final class SystemSessionProperties
     public static boolean isRemoteFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(REMOTE_FUNCTIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRpcFunctionOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, Boolean.class);
     }
 
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)

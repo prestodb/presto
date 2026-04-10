@@ -207,6 +207,7 @@ import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableRefe
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
+import com.facebook.presto.sql.planner.optimizations.RpcFunctionOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
 import com.facebook.presto.sql.planner.optimizations.SimplifyPlanWithEmptyInput;
@@ -222,11 +223,13 @@ import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import org.weakref.jmx.MBeanExporter;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.LOGICAL;
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.PHYSICAL;
@@ -256,7 +259,8 @@ public class PlanOptimizers
             FeaturesConfig featuresConfig,
             ExpressionOptimizerManager expressionOptimizerManager,
             TaskManagerConfig taskManagerConfig,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames)
     {
         this(metadata,
                 sqlParser,
@@ -274,7 +278,8 @@ public class PlanOptimizers
                 featuresConfig,
                 expressionOptimizerManager,
                 taskManagerConfig,
-                accessControl);
+                accessControl,
+                rpcFunctionNames);
     }
 
     @PostConstruct
@@ -310,6 +315,46 @@ public class PlanOptimizers
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl)
     {
+        this(metadata,
+                sqlParser,
+                noExchange,
+                exporter,
+                splitManager,
+                planOptimizerManager,
+                pageSourceManager,
+                statsCalculator,
+                costCalculator,
+                estimatedExchangesCostCalculator,
+                costComparator,
+                taskCountEstimator,
+                partitioningProviderManager,
+                featuresConfig,
+                expressionOptimizerManager,
+                taskManagerConfig,
+                accessControl,
+                ImmutableSet::of);
+    }
+
+    public PlanOptimizers(
+            Metadata metadata,
+            SqlParser sqlParser,
+            boolean noExchange,
+            MBeanExporter exporter,
+            SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
+            PageSourceManager pageSourceManager,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            CostCalculator estimatedExchangesCostCalculator,
+            CostComparator costComparator,
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager,
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager,
+            TaskManagerConfig taskManagerConfig,
+            AccessControl accessControl,
+            Supplier<Set<String>> rpcFunctionNames)
+    {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
@@ -341,6 +386,9 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         builder.add(new LogicalCteOptimizer(metadata));
+
+        // Rewrite RPC function calls (e.g., fb_llm_inference) to use async RPC pattern
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames));
 
         builder.add(new IterativeOptimizer(
                 metadata,
