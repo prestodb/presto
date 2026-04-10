@@ -56,9 +56,7 @@ import javax.inject.Provider;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -74,7 +72,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
 import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKey;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMaxFileSize;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMinFileSize;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMinInputFiles;
@@ -241,7 +238,6 @@ public class RewriteDataFilesProcedure
                         .filter(toIcebergExpression(predicate))
                         .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
 
-                final Map<String, List<DeleteFile>> partitionedDeleteFiles = new HashMap<>();
                 Map<String, String> options = procedureContext.getOptions();
                 // Apply filtering using options
                 try (CloseableIterable<FileScanTask> fileScanTaskIterable = filterByGroup(filterByFile(tableScan.planFiles(), options), options)) {
@@ -249,7 +245,6 @@ public class RewriteDataFilesProcedure
                     for (FileScanTask task : fileScanTaskIterable) {
                         scannedDataFiles.add(task.file());
                         if (!task.deletes().isEmpty()) {
-                            String partitionKey = getPartitionKey(task);
                             task.deletes().forEach(deleteFile -> {
                                 if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
                                         !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
@@ -258,7 +253,7 @@ public class RewriteDataFilesProcedure
                                     //  So they should not be cleaned up unless the whole table is optimized
                                     return;
                                 }
-                                partitionedDeleteFiles.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(deleteFile);
+                                fullyAppliedDeleteFiles.add(deleteFile);
                             });
                         }
                     }
@@ -266,21 +261,11 @@ public class RewriteDataFilesProcedure
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
-
-                // Add all delete files
-                partitionedDeleteFiles.values().forEach(fullyAppliedDeleteFiles::addAll);
             }
 
-            // Skip commit if no work was done
             if (fragments.isEmpty() &&
                     scannedDataFiles.isEmpty() &&
                     fullyAppliedDeleteFiles.isEmpty()) {
-                return;
-            }
-
-            // Skip commit if no new files were created and no delete files to clean up
-            // This happens when min-input-files filtering prevents rewrite
-            if (fragments.isEmpty() && fullyAppliedDeleteFiles.isEmpty()) {
                 return;
             }
 

@@ -91,6 +91,7 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.view.View;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -1476,13 +1477,14 @@ public final class IcebergUtil
 
     /**
      * Gets a partition key string for a FileScanTask using the task's spec.
-     * Returns "unpartitioned" for unpartitioned tables, otherwise returns the partition data as a string.
+     * Returns a sentinel value for unpartitioned tables, otherwise returns the partition data as a string.
+     * The sentinel uses a prefix that cannot occur in normal partition values to avoid collisions.
      */
     public static String getPartitionKey(FileScanTask task)
     {
         PartitionSpec spec = task.spec();
         if (spec.isUnpartitioned()) {
-            return "unpartitioned";
+            return "__UNPARTITIONED__";
         }
         return task.file().partition().toString();
     }
@@ -1586,10 +1588,15 @@ public final class IcebergUtil
         // Group files by partition
         Map<String, List<FileScanTask>> partitionGroups = new HashMap<>();
         Map<String, Set<String>> partitionFilePathGroups = new HashMap<>();
-        for (FileScanTask task : tasks) {
-            String partitionKey = getPartitionKey(task);
-            partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
-            partitionFilePathGroups.computeIfAbsent(partitionKey, k -> new HashSet<>()).add(task.file().location());
+        try (CloseableIterable<FileScanTask> autoCloseTasks = tasks) {
+            for (FileScanTask task : autoCloseTasks) {
+                String partitionKey = getPartitionKey(task);
+                partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
+                partitionFilePathGroups.computeIfAbsent(partitionKey, k -> new HashSet<>()).add(task.file().location());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan table file tasks", e);
         }
 
         // Collect tasks from partitions that meet the threshold

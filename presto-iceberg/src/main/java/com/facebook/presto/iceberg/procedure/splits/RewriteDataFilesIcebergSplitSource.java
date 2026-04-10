@@ -28,8 +28,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 
 /**
- * Split source for rewrite_data_files procedure that applies min-input-files filtering.
- * Filters out partitions with fewer files than the specified threshold.
+ * Split source for rewrite_data_files procedure that applies filtering based on procedure options.
+ * Supports file-level filters (min-file-size-bytes, max-file-size-bytes) and group-level filters (min-input-files).
  */
 public class RewriteDataFilesIcebergSplitSource
         extends IcebergSplitSource
