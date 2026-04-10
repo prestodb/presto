@@ -280,7 +280,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
-                <version>3.6.0</version>
+                <version>4.0.3</version>
             </dependency>
 
             <dependency>
@@ -1522,7 +1522,7 @@
             <dependency>
                 <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.7-spark-issue-final-fix</version>
+                <version>1.7-spark-plexus-fix-final-review1</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.google.inject</groupId>
@@ -3315,8 +3315,6 @@
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                             <exclude>com.google.guava:guava</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
@@ -3387,8 +3385,6 @@
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                             <exclude>com.google.guava:guava</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
