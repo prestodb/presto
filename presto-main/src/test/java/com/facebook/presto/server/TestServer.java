@@ -36,6 +36,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
@@ -186,6 +187,37 @@ public class TestServer
     }
 
     @Test
+    public void testPartialCancelUriUsesForwardedHostWhenEnabled()
+            throws Exception
+    {
+        restartServer(ImmutableMap.of("query-results.use-forwarded-headers-in-uris", "true"));
+        server.installPlugin(new TpchPlugin());
+        server.createCatalog("tpch", "tpch");
+
+        Request request = forwardedRequest(preparePost(), "engine.example.com", null)
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("SELECT * FROM tpch.sf100.lineitem", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        while (queryResults.getPartialCancelUri() == null && queryResults.getNextUri() != null) {
+            queryResults = client.execute(
+                    forwardedRequest(prepareGet(), "engine.example.com", null)
+                            .setUri(toServerUri(queryResults.getNextUri()))
+                            .build(),
+                    createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        }
+
+        assertNotNull(queryResults.getPartialCancelUri(), "expected a running query to expose partialCancelUri");
+        assertEquals(queryResults.getPartialCancelUri().getScheme(), "https");
+        assertEquals(queryResults.getPartialCancelUri().getHost(), "engine.example.com");
+        assertEquals(queryResults.getPartialCancelUri().getPort(), -1);
+    }
+
+    @Test
     public void testStatementUrisUseForwardedPortWhenEnabled()
             throws Exception
     {
@@ -220,6 +252,29 @@ public class TestServer
                 .setHeader(X_FORWARDED_PROTO, "https")
                 .setHeader(X_FORWARDED_HOST, "engine.example.com")
                 .setHeader(X_FORWARDED_PORT, "not-a-port")
+                .build();
+
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
+
+        assertEquals(queryResults.getInfoUri().getScheme(), "https");
+        assertEquals(queryResults.getNextUri().getScheme(), "https");
+        assertEquals(queryResults.getInfoUri().getHost(), server.getBaseUrl().getHost());
+        assertEquals(queryResults.getNextUri().getHost(), server.getBaseUrl().getHost());
+    }
+
+    @Test
+    public void testStatementUrisFallBackToInternalHostWhenForwardedHostIsEffectivelyEmpty()
+            throws Exception
+    {
+        restartServer(ImmutableMap.of("query-results.use-forwarded-headers-in-uris", "true"));
+
+        Request request = preparePost()
+                .setUri(uriFor("/v1/statement"))
+                .setBodyGenerator(createStaticBodyGenerator("show catalogs", UTF_8))
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_SOURCE, "source")
+                .setHeader(X_FORWARDED_PROTO, "https")
+                .setHeader(X_FORWARDED_HOST, " ,  , ")
                 .build();
 
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));

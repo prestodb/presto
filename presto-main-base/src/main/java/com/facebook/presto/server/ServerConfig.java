@@ -275,7 +275,7 @@ public class ServerConfig
     }
 
     @Config("query-results.use-forwarded-headers-in-uris")
-    @ConfigDescription("Trust X-Forwarded-Host and X-Forwarded-Port when building statement response URIs. Enable only behind a trusted reverse proxy.")
+    @ConfigDescription("Trust X-Forwarded-Host and X-Forwarded-Port when building statement response URIs. X-Forwarded-Proto continues to determine the external scheme. Enable only behind a trusted reverse proxy.")
     public ServerConfig setQueryResultsUseForwardedHeadersInUris(boolean queryResultsUseForwardedHeadersInUris)
     {
         this.queryResultsUseForwardedHeadersInUris = queryResultsUseForwardedHeadersInUris;

@@ -287,7 +287,11 @@ public final class QueryResourceUtil
 
     private static String getFirstForwardedHeaderValue(String headerValue)
     {
-        return FORWARDED_HEADER_SPLITTER.splitToList(headerValue).get(0);
+        List<String> values = FORWARDED_HEADER_SPLITTER.splitToList(headerValue);
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Forwarded header value is empty");
+        }
+        return values.get(0);
     }
 
     private static String urlEncode(String value)
