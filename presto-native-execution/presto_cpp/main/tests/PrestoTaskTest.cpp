@@ -175,3 +175,91 @@ TEST_F(PrestoTaskTest, updateStatus) {
   EXPECT_EQ(status.queuedPartitionedDrivers, 0);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 }
+
+// Regression test: if filter IDs are registered but never flushed (e.g.,
+// because HashBuild took an early-return path that skipped the callback),
+// snapshotDynamicFilters must report operatorCompleted=true once the Velox
+// task reaches a terminal state. Otherwise the coordinator's
+// DynamicFilterFetcher would long-poll until distributed_dynamic_filter_
+// max_wait_time elapses (5 minutes by default).
+TEST_F(PrestoTaskTest, dynamicFilterOperatorCompletedOnTerminalState) {
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  // Register a filter ID but never flush it — simulates the case where the
+  // HashBuild callback never fires (e.g., cached hash table, anti-join null
+  // keys, or task aborted before finishHashBuild runs).
+  prestoTask.registerDynamicFilterIds({"filter_1"});
+
+  // While the task is still running, operatorCompleted must be false so the
+  // fetcher keeps polling.
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+  EXPECT_TRUE(snapshot.filters.empty());
+
+  // Terminate the task. Any registered-but-unflushed filter IDs should now
+  // be reported as completed so the fetcher stops polling.
+  prestoTask.task->requestCancel().wait();
+
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted)
+      << "operatorCompleted must be true once the task is in a terminal "
+         "state, even if some registered filter IDs were never flushed";
+  EXPECT_TRUE(
+      snapshot.completedFilterIds.find("filter_1") !=
+      snapshot.completedFilterIds.end())
+      << "unflushed filter IDs must be reported as completed on terminal "
+         "state so the coordinator treats them as 'no contribution'";
+}
+
+// When no filter IDs are registered at all (e.g., a task with no dynamic
+// filter producers) and the task terminates, operatorCompleted should be
+// true so the coordinator's fetcher doesn't poll forever.
+TEST_F(
+    PrestoTaskTest,
+    dynamicFilterOperatorCompletedOnTerminalStateNoRegistered) {
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  // No filter IDs registered. While running, operatorCompleted is false
+  // because the task might still register some.
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  // Once terminal, no more IDs can be registered — report complete.
+  prestoTask.task->requestCancel().wait();
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted);
+}
+
+// Happy path: register filter IDs and flush them normally while the task is
+// still running. operatorCompleted should be true without relying on the
+// terminal-state fallback.
+TEST_F(PrestoTaskTest, dynamicFilterOperatorCompletedHappyPath) {
+  memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  prestoTask.registerDynamicFilterIds({"filter_1", "filter_2"});
+
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  // Flush one of two — still not complete.
+  prestoTask.markFilterIdsFlushed({"filter_1"});
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  // Flush the second — now complete while still running.
+  prestoTask.markFilterIdsFlushed({"filter_2"});
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted);
+
+  // Clean up.
+  prestoTask.task->requestCancel().wait();
+}

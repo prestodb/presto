@@ -950,6 +950,10 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
   // Remove dynamic filter callback on task deletion.
   operators::DynamicFilterCallbackRegistry::instance().removeCallback(taskId);
 
+  // Wake any long-poll getDynamicFilters waiters so they re-snapshot and
+  // observe operatorCompleted=true for the now-terminal task.
+  prestoTask->wakeDynamicFilterWaiters(0);
+
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
   prestoTask->updateCoordinatorHeartbeatLocked();

@@ -256,6 +256,11 @@ struct PrestoTask {
   /// Caller must NOT hold PrestoTask::mutex.
   void applyPendingExternalFilters();
 
+  /// Wakes any long-poll getDynamicFilters waiters. Called when new filter
+  /// data is produced, or externally when the task transitions to a terminal
+  /// state so waiters re-snapshot and observe operatorCompleted=true.
+  void wakeDynamicFilterWaiters(int64_t version);
+
  private:
   // Dynamic filter storage.
   struct VersionedFilter {
@@ -298,8 +303,6 @@ struct PrestoTask {
       const std::string& filterId,
       const std::string& scanPlanNodeId,
       const protocol::TupleDomain<std::string>& tupleDomain);
-
-  void wakeDynamicFilterWaiters(int64_t version);
 
   void recordProcessCpuTime();
 

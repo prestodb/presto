@@ -659,7 +659,13 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
         taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
             taskId, updateRequest);
     return taskManager_->createOrUpdateTask(
-        taskId, updateRequest, planFragment, summarize, std::move(queryCtx), 0);
+        taskId,
+        updateRequest,
+        planFragment,
+        {},
+        summarize,
+        std::move(queryCtx),
+        0);
   }
 
   RowTypePtr rowType_;
@@ -1001,12 +1007,13 @@ TEST_P(TaskManagerTest, tableScanOneSplitAtATime) {
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
     taskManager_->createOrUpdateTask(
-        taskId, updateRequest, {}, true, nullptr, 0);
+        taskId, updateRequest, {}, {}, true, nullptr, 0);
   }
 
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
-  taskManager_->createOrUpdateTask(taskId, updateRequest, {}, true, nullptr, 0);
+  taskManager_->createOrUpdateTask(
+      taskId, updateRequest, {}, {}, true, nullptr, 0);
 
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 1");
 }
@@ -1566,7 +1573,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, {}, planFragment, true, queryCtx, 0),
+          taskId, {}, planFragment, {}, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes");
 
   // Splits for scan node on the probe side.
@@ -1575,7 +1582,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       makeSource(probeId, {}, true));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, true, queryCtx, 0),
+          taskId, batchRequest, planFragment, {}, true, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes: " +
           buildId);
 
@@ -1585,13 +1592,13 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
       makeSource(buildId, {}, false));
   VELOX_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
-          taskId, batchRequest, planFragment, true, queryCtx, 0),
+          taskId, batchRequest, planFragment, {}, true, queryCtx, 0),
       "Expected no-more-splits message for plan node " + buildId);
 
   // All splits.
   batchRequest.taskUpdateRequest.sources.back().noMoreSplits = true;
   ASSERT_NO_THROW(taskManager_->createOrUpdateBatchTask(
-      taskId, batchRequest, planFragment, true, queryCtx, 0));
+      taskId, batchRequest, planFragment, {}, true, queryCtx, 0));
   auto resultOrFailure = fetchAllResults(taskId, ROW({BIGINT()}), {});
   ASSERT_EQ(resultOrFailure.status, nullptr);
 }
@@ -1682,7 +1689,7 @@ TEST_P(TaskManagerTest, summarize) {
     protocol::TaskUpdateRequest updateRequest;
     updateRequest.sources.push_back(source);
     taskInfo = taskManager_->createOrUpdateTask(
-        taskId, updateRequest, {}, summarize, nullptr, 0);
+        taskId, updateRequest, {}, {}, summarize, nullptr, 0);
     if (summarize) {
       // no pipeline stats when summarize set to true
       ASSERT_EQ(taskInfo->stats.pipelines.size(), 0);
@@ -1710,7 +1717,7 @@ TEST_P(TaskManagerTest, summarize) {
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.sources.push_back(makeSource("0", {}, true, splitSequenceId));
   taskInfo = taskManager_->createOrUpdateTask(
-      taskId, updateRequest, {}, true, nullptr, 0);
+      taskId, updateRequest, {}, {}, true, nullptr, 0);
   // no pipeline stats when summarize set to true
   ASSERT_EQ(taskInfo->stats.pipelines.size(), 0);
 

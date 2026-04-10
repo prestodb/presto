@@ -1055,20 +1055,35 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
   }
   snapshot.version = dynamicFilterVersion_.load();
   snapshot.completedFilterIds = *flushedFilterIds_.rlock();
+  // If the Velox task has reached a terminal state, any filter IDs that were
+  // registered but never flushed won't receive further contributions — the
+  // HashBuild callback has either already fired or never will (e.g. the task
+  // was aborted, the hash table came from cache, or the build finished via an
+  // early-return path like anti-join null keys). Treat all remaining
+  // registered IDs as completed so the coordinator's DynamicFilterFetcher can
+  // stop polling instead of hanging until timeout.
+  const bool taskTerminal =
+      task != nullptr && task->state() != exec::TaskState::kRunning;
   // operatorCompleted is true only when ALL registered filter IDs have been
   // flushed, matching the Java SqlTask.isDynamicFilterOperatorCompleted()
   // semantics: flushedFilterIds.containsAll(registeredDynamicFilterIds).
   {
     auto registered = registeredFilterIds_.rlock();
     if (registered->empty()) {
-      snapshot.operatorCompleted = false;
+      snapshot.operatorCompleted = taskTerminal;
     } else {
       snapshot.operatorCompleted = true;
       for (const auto& id : *registered) {
         if (snapshot.completedFilterIds.find(id) ==
             snapshot.completedFilterIds.end()) {
-          snapshot.operatorCompleted = false;
-          break;
+          if (taskTerminal) {
+            // Task is done — report the unflushed ID as completed so the
+            // coordinator treats it as "no contribution" instead of hanging.
+            snapshot.completedFilterIds.insert(id);
+          } else {
+            snapshot.operatorCompleted = false;
+            break;
+          }
         }
       }
     }
