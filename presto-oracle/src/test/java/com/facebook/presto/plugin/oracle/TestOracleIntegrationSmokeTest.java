@@ -30,7 +30,7 @@ public class TestOracleIntegrationSmokeTest
     private final OracleServerTester oracleServer;
     private QueryRunner queryRunner;
 
-    protected TestOracleIntegrationSmokeTest()
+    public TestOracleIntegrationSmokeTest()
             throws Exception
     {
         this.oracleServer = new OracleServerTester();
