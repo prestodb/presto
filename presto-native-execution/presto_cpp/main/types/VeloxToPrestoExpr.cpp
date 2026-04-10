@@ -136,6 +136,52 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
   handle->signature = signature;
   return handle;
 }
+
+// Collects free FieldAccessTypedExpr leaf nodes from a Velox expression tree
+// that are not bound by any enclosing lambda's signature. The 'boundNames'
+// parameter contains names that are in scope from enclosing lambda signatures.
+// Results are appended to 'freeFields' in DFS order with deduplication.
+// 'visitedNames' tracks field names already added to 'freeFields' so that each
+// captured variable appears exactly once, even if referenced multiple times in
+// the expression tree.
+void collectFreeFieldAccesses(
+    const velox::core::TypedExprPtr& expr,
+    const std::unordered_set<std::string>& boundNames,
+    std::vector<FieldAccessTypedExprPtr>& freeFields,
+    std::unordered_set<std::string>& visitedNames) {
+  if (auto fieldAccess =
+          std::dynamic_pointer_cast<const velox::core::FieldAccessTypedExpr>(
+              expr)) {
+    if (fieldAccess->isInputColumn() &&
+        !boundNames.count(fieldAccess->name())) {
+      // Free variable: not bound by any enclosing lambda and not yet seen.
+      if (visitedNames.insert(fieldAccess->name()).second) {
+        freeFields.push_back(fieldAccess);
+      }
+    }
+    // Recurse into inputs for dereference-like field accesses.
+    for (const auto& input : fieldAccess->inputs()) {
+      collectFreeFieldAccesses(input, boundNames, freeFields, visitedNames);
+    }
+    return;
+  }
+
+  if (auto lambda =
+          std::dynamic_pointer_cast<const velox::core::LambdaTypedExpr>(expr)) {
+    // For nested lambdas, extend the bound set with the lambda's parameters.
+    auto innerBound = boundNames;
+    const auto& names = lambda->signature()->names();
+    innerBound.insert(names.begin(), names.end());
+    collectFreeFieldAccesses(
+        lambda->body(), innerBound, freeFields, visitedNames);
+    return;
+  }
+
+  // Recurse into all inputs for other expression types.
+  for (const auto& input : expr->inputs()) {
+    collectFreeFieldAccesses(input, boundNames, freeFields, visitedNames);
+  }
+}
 } // namespace
 
 std::string VeloxToPrestoExprConverter::getValueBlock(
@@ -390,27 +436,78 @@ SpecialFormExpressionPtr VeloxToPrestoExprConverter::getDereferenceExpression(
   return result;
 }
 
-LambdaDefinitionExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
+RowExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
     const velox::core::LambdaTypedExpr* lambdaExpr) const {
-  static constexpr char const* kLambda = "lambda";
+  const auto& signature = lambdaExpr->signature();
 
+  std::unordered_set<std::string> boundNames(
+      signature->names().begin(), signature->names().end());
+  std::vector<FieldAccessTypedExprPtr> freeFields;
+  std::unordered_set<std::string> visitedNames;
+  collectFreeFieldAccesses(
+      lambdaExpr->body(), boundNames, freeFields, visitedNames);
+
+  return resolveLambdaExpression(lambdaExpr, freeFields);
+}
+
+RowExpressionPtr VeloxToPrestoExprConverter::resolveLambdaExpression(
+    const velox::core::LambdaTypedExpr* lambdaExpr,
+    const std::vector<FieldAccessTypedExprPtr>& freeFields) const {
+  static constexpr char const* kLambda = "lambda";
   json result;
   result["@type"] = kLambda;
   const auto& signature = lambdaExpr->signature();
+
   std::vector<protocol::TypeSignature> argumentTypes;
-  argumentTypes.reserve(signature->children().size());
+  std::vector<std::string> arguments;
+  argumentTypes.reserve(freeFields.size() + signature->children().size());
+  arguments.reserve(freeFields.size() + signature->names().size());
+
+  // Prepend captured variable names/types to the lambda signature.
+  for (const auto& field : freeFields) {
+    arguments.emplace_back(field->name());
+    argumentTypes.emplace_back(getTypeSignature(field->type()));
+  }
+  // Then add the original lambda arguments.
   for (const auto& type : signature->children()) {
     argumentTypes.emplace_back(getTypeSignature(type));
   }
-  result["argumentTypes"] = argumentTypes;
-
-  std::vector<std::string> arguments;
-  arguments.reserve(signature->names().size());
   for (const auto& name : signature->names()) {
     arguments.emplace_back(name);
   }
+
+  result["argumentTypes"] = argumentTypes;
   result["arguments"] = arguments;
   result["body"] = getRowExpression(lambdaExpr->body());
+
+  if (freeFields.empty()) {
+    // Return a plain LambdaDefinitionExpression when there are no captured
+    // variables.
+    return result;
+  }
+  // Wrap in a BIND expression with captured variables.
+  LambdaDefinitionExpressionPtr lambdaDefinitionExpression = result;
+  return getBindExpression(
+      lambdaDefinitionExpression, freeFields, lambdaExpr->type());
+}
+
+// BIND(capturedVar1, ..., expandedLambda) provides captured outer variables
+// to the lambda at evaluation time.
+SpecialFormExpressionPtr VeloxToPrestoExprConverter::getBindExpression(
+    const LambdaDefinitionExpressionPtr& lambdaDefinitionExpression,
+    const std::vector<FieldAccessTypedExprPtr>& freeFields,
+    const velox::TypePtr& returnType) const {
+  static constexpr char const* kBind = "BIND";
+  json result;
+  result["@type"] = kSpecial;
+  result["form"] = kBind;
+  result["returnType"] = getTypeSignature(returnType);
+
+  result["arguments"] = json::array();
+  for (const auto& field : freeFields) {
+    result["arguments"].push_back(getVariableReferenceExpression(field.get()));
+  }
+  result["arguments"].push_back(lambdaDefinitionExpression);
   return result;
 }
 
