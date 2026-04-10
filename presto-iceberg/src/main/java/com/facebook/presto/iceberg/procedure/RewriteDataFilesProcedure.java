@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.CommitTaskData;
+import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
 import com.facebook.presto.iceberg.IcebergProcedureContext;
@@ -47,7 +48,6 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
-import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
@@ -113,8 +113,8 @@ public class RewriteDataFilesProcedure
                 ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
                     checkArgument(arguments.length == 2, format("invalid number of arguments: %s (should have %s)", arguments.length, 2));
-                    checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
-                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1]);
+                    checkArgument(arguments[0] instanceof Table && arguments[1] instanceof IcebergAbstractMetadata, "Invalid arguments, required: [Table, IcebergAbstractMetadata]");
+                    return new IcebergProcedureContext((Table) arguments[0], (IcebergAbstractMetadata) arguments[1]);
                 });
     }
 
@@ -172,7 +172,7 @@ public class RewriteDataFilesProcedure
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             IcebergDistributedProcedureHandle handle = (IcebergDistributedProcedureHandle) procedureHandle;
-            Table icebergTable = procedureContext.getTransaction().table();
+            Table icebergTable = procedureContext.getTable();
 
             List<CommitTaskData> commitTasks = fragments.stream()
                     .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
@@ -247,7 +247,7 @@ public class RewriteDataFilesProcedure
                 return;
             }
 
-            RewriteFiles rewriteFiles = procedureContext.getTransaction().newRewrite()
+            RewriteFiles rewriteFiles = icebergTable.newRewrite()
                     .rewriteFiles(scannedDataFiles, fullyAppliedDeleteFiles, newFiles, ImmutableSet.of());
 
             // Table.snapshot method returns null if there is no matching snapshot

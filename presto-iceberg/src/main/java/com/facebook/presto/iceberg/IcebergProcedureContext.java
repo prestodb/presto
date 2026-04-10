@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.spi.connector.ConnectorProcedureContext;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.Transaction;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,12 +22,12 @@ public class IcebergProcedureContext
         implements ConnectorProcedureContext
 {
     final Table table;
-    final Transaction transaction;
+    final IcebergAbstractMetadata metadata;
 
-    public IcebergProcedureContext(Table table, Transaction transaction)
+    public IcebergProcedureContext(Table table, IcebergAbstractMetadata metadata)
     {
         this.table = requireNonNull(table, "table is null");
-        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public Table getTable()
@@ -36,8 +35,8 @@ public class IcebergProcedureContext
         return table;
     }
 
-    public Transaction getTransaction()
+    public IcebergAbstractMetadata getMetadata()
     {
-        return transaction;
+        return metadata;
     }
 }

@@ -46,6 +46,7 @@ import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.ManifestFileCacheInvalidationProcedure;
+import com.facebook.presto.iceberg.procedure.MigrateTableProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RewriteDataFilesProcedure;
@@ -195,6 +196,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(StatisticsFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ManifestFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteDataFilesProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(MigrateTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteManifestsProcedure.class).in(Scopes.SINGLETON);
 
         // for orc
