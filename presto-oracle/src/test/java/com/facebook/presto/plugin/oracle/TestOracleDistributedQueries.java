@@ -46,7 +46,7 @@ public class TestOracleDistributedQueries
     private final OracleServerTester oracleServer;
     private final QueryRunner queryRunner;
 
-    public TestOracleDistributedQueries()
+    protected TestOracleDistributedQueries()
             throws Exception
     {
         this.oracleServer = new OracleServerTester();
