@@ -685,7 +685,7 @@ public class SqlQueryExecution
                     .withNoMoreBufferIds();
         }
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector(), metadata);
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = SqlQueryScheduler.createSqlQueryScheduler(
                 locationFactory,

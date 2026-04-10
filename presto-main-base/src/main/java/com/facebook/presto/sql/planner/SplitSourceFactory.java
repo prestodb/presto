@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -73,6 +75,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -85,11 +88,13 @@ public class SplitSourceFactory
 
     private final SplitSourceProvider splitSourceProvider;
     private final WarningCollector warningCollector;
+    private final Metadata metadata;
 
-    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector)
+    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, Metadata metadata)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
@@ -210,7 +215,45 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitIndexJoin(IndexJoinNode node, Context context)
         {
-            return node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> probeSplits = node.getProbeSource().accept(this, context);
+            Map<PlanNodeId, SplitSource> indexSplits = node.getIndexSource().accept(this, context);
+            return ImmutableMap.<PlanNodeId, SplitSource>builder()
+                    .putAll(probeSplits)
+                    .putAll(indexSplits)
+                    .build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitIndexSource(IndexSourceNode node, Context context)
+        {
+            // Only create split sources for native execution with bucketed
+            // index tables. Non-bucketed index tables handle data fetching
+            // internally in the worker via connector::createIndexSource()
+            // and do not need coordinator splits. Java execution uses the
+            // Index SPI at runtime and never needs coordinator splits.
+            if (!isNativeExecutionEnabled(session)) {
+                return ImmutableMap.of();
+            }
+
+            if (!metadata.getLayout(session, node.getTableHandle())
+                    .getTablePartitioning()
+                    .isPresent()) {
+                return ImmutableMap.of();
+            }
+
+            TableHandle table = node.getTableHandle();
+            SplitSchedulingStrategy strategy = getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId());
+
+            // Use LazySplitSource to defer the potentially expensive MetaStore
+            // call (split enumeration) until splits are actually needed,
+            // consistent with visitTableScan(). The table layout is guaranteed
+            // to be resolved by the connector's plan optimizer
+            // (ApplyConnectorOptimization).
+            SplitSource splitSource = new LazySplitSource(
+                    () -> splitSourceProvider.getSplits(session, table, strategy, warningCollector));
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override
