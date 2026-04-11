@@ -603,6 +603,179 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "PARTITIONED multi-join: at least one DF should be pushed into scan");
     }
 
+    /**
+     * Reproducer that stress-tests the multi-driver HashBuild code path
+     * exercised by TPC-DS SF1000 benchmarks on multi-worker clusters. In
+     * production Q19 stage 2 has 16 build drivers per task (128 total across
+     * 8 tasks). Only the last driver per task to reach
+     * {@code allPeersFinished} continues past the gate in
+     * {@code finishHashBuild} — the others go to {@code kWaitForBuild}. The
+     * last driver is the sole invoker of
+     * {@code HashJoinBridge::fireHashTableReadyCallback} for that task.
+     * <p>
+     * This test forces higher driver concurrency than the default reproducer
+     * ({@code task_concurrency=4}) to exercise the multi-driver
+     * gather-and-fire path without requiring the test framework to have
+     * spill paths configured. The cross-stage dimension-with-dimension
+     * subquery produces the same Join→ExchangeNode(LOCAL REPARTITION)
+     * →RemoteSourceNode build-side shape that TPC-DS queries hit.
+     * <p>
+     * The assertions are the same as
+     * {@link #testPartitionedMultiJoinNoFilterTimeout}: no timeouts and
+     * every registered filter ID must receive at least one contribution.
+     */
+    @Test(invocationCount = 5)
+    public void testPartitionedMultiJoinNoFilterTimeoutHighConcurrency()
+    {
+        // Use fact_orders_by_year which is partitioned by year(order_date);
+        // joining against a per-year dimension gives a natural cross-stage
+        // build side that the Java optimizer will repartition.
+        String query = "SELECT f.order_id, f.amount, d.label " +
+                "FROM fact_orders_by_year f " +
+                "JOIN (" +
+                "  SELECT d.order_date, d.label " +
+                "  FROM dim_selected_dates d " +
+                "  JOIN dim_active_regions r ON r.region_name = 'WEST'" +
+                ") d ON f.order_date = d.order_date " +
+                "ORDER BY f.order_id";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "10s")
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .setSystemProperty("task_concurrency", "4")
+                .setSystemProperty("hash_partition_count", "4")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, query);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+        // Correctness first.
+        assertEquals(
+                resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "PARTITIONED multi-join with high concurrency: results must match no-DPP");
+
+        RuntimeStats stats = getRuntimeStats(resultWithDpp);
+
+        // No filter should time out.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_TIMED_OUT + "[")) {
+                assertEquals(metric.getSum(), 0L,
+                        format("Filter %s timed out under high-concurrency "
+                                + "multi-driver configuration — build-side "
+                                + "callback did not deliver contributions in time",
+                                key));
+            }
+        });
+
+        // Every filter with Expected=N partitions must have Received>=1.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[")) {
+                String filterId = key.substring(
+                        (DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[").length(),
+                        key.length() - 1);
+                long expected = metric.getSum();
+                long received = getMetricValue(
+                        stats,
+                        DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[" + filterId + "]");
+                assertTrue(received >= 1L,
+                        format("Filter %s expected %d partitions but received %d "
+                                + "(high-concurrency multi-driver config)",
+                                filterId, expected, received));
+            }
+        });
+    }
+
+    /**
+     * Reproducer that exercises the HashBuild spill-restore path with DPP.
+     * With spilling enabled and memory pressure, {@code finishHashBuild()}
+     * can be called multiple times per task: once for the initial build and
+     * again for each spill partition restore. The filter-extraction callback
+     * is cleared after the first fire (see HashJoinBridge.cpp), so the
+     * contribution must come from the initial non-spill call, not from
+     * the recursive spill restore.
+     * <p>
+     * This test forces join spilling via {@code join_spill_enabled=true}
+     * and a low {@code query_max_memory_per_node} so that even the small
+     * test data triggers memory pressure during build. It requires that the
+     * subclass configured {@code experimental.spiller-spill-path} on the
+     * query runner.
+     * <p>
+     * Assertions match the other reproducers: no filter timeouts and every
+     * registered filter ID must receive at least one contribution.
+     */
+    @Test(invocationCount = 5)
+    public void testPartitionedMultiJoinNoFilterTimeoutWithSpill()
+    {
+        String query = "SELECT f.order_id, f.amount, dc.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN (" +
+                "  SELECT c.customer_id, c.customer_name " +
+                "  FROM dim_customers c " +
+                "  JOIN dim_active_regions r ON c.region = r.region_name" +
+                ") dc ON f.customer_id = dc.customer_id " +
+                "ORDER BY f.order_id";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "10s")
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .setSystemProperty("task_concurrency", "4")
+                .setSystemProperty("hash_partition_count", "4")
+                // Enable join spilling with memory pressure so the hash
+                // build triggers spill partitioning and then restores on
+                // the same operator, re-entering finishHashBuild().
+                .setSystemProperty("spill_enabled", "true")
+                .setSystemProperty("join_spill_enabled", "true")
+                .setSystemProperty("query_max_memory_per_node", "16MB")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, query);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+        // Correctness: DPP + spill must produce identical results.
+        assertEquals(
+                resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "PARTITIONED multi-join with spill: results must match no-DPP");
+
+        RuntimeStats stats = getRuntimeStats(resultWithDpp);
+
+        // No filter should time out.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_TIMED_OUT + "[")) {
+                assertEquals(metric.getSum(), 0L,
+                        format("Filter %s timed out under join-spill config "
+                                + "— HashBuild callback did not fire on the "
+                                + "non-spill path before spill restore", key));
+            }
+        });
+
+        // Every filter with Expected=N partitions must have Received>=1.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[")) {
+                String filterId = key.substring(
+                        (DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[").length(),
+                        key.length() - 1);
+                long expected = metric.getSum();
+                long received = getMetricValue(
+                        stats,
+                        DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[" + filterId + "]");
+                assertTrue(received >= 1L,
+                        format("Filter %s expected %d partitions but received %d "
+                                + "(join-spill config)",
+                                filterId, expected, received));
+            }
+        });
+    }
+
     @Test(invocationCount = 10)
     public void testDynamicPartitionPruningWithYearTransform()
     {

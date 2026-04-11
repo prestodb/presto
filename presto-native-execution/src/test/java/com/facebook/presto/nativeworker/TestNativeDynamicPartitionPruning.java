@@ -28,6 +28,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -54,11 +55,22 @@ public class TestNativeDynamicPartitionPruning
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        // Configure spill paths so tests can enable join spilling via the
+        // session property. The session property spill_enabled still gates
+        // whether spilling actually happens, so this is harmless for tests
+        // that don't opt in.
+        Path spillPath = Paths.get(
+                System.getProperty("java.io.tmpdir"),
+                "presto-dpp-test-spills",
+                java.util.UUID.randomUUID().toString());
+
         DistributedQueryRunner queryRunner = (DistributedQueryRunner)
                 PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
                         .setStorageFormat("PARQUET")
                         .setUseThrift(true)
                         .setAdditionalCatalogs(ImmutableMap.of("hive", "hive"))
+                        .setExtraProperty("experimental.spiller-spill-path", spillPath.toString())
+                        .setExtraProperty("experimental.spiller-max-used-space-threshold", "1.0")
                         .build();
 
         Path catalogDirectory = getIcebergDataDirectoryPath(
