@@ -92,6 +92,13 @@ class VeloxToPrestoExprConverter {
   std::vector<RowExpressionPtr> getInSpecialFormExpressionArgs(
       const velox::core::CallTypedExpr* inExpr) const;
 
+  /// Helper function to convert N-argument AND/OR expressions (N > 2) to nested
+  /// binary operations for Presto compatibility.
+  SpecialFormExpressionPtr getNestedConjunctExpression(
+      const std::vector<velox::core::TypedExprPtr>& inputs,
+      protocol::Form form,
+      const protocol::TypeSignature& returnType) const;
+
   /// Helper function to construct a Presto `protocol::SpecialFormExpression`
   /// from a Velox call expression. This function should be called only on call
   /// expressions that map to a Presto `SpecialFormExpression`. This can be
