@@ -619,16 +619,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       // Register HashJoinBridge callbacks for distributed dynamic filter
       // extraction. When the hash table is built, the callback extracts
       // filter values from VectorHasher and delivers them to PrestoTask.
-      LOG(INFO) << "DPP: taskId=" << taskId << " registering "
-                << dynamicFilterInfos.size() << " join dynamic filter infos";
       for (const auto& info : dynamicFilterInfos) {
         std::unordered_set<std::string> filterIds;
         for (const auto& ch : info.channels) {
           filterIds.insert(ch.filterId);
         }
-        LOG(INFO) << "DPP: taskId=" << taskId
-                  << " joinNodeId=" << info.joinNodeId
-                  << " filterIds=" << folly::join(",", filterIds);
         prestoTask->registerDynamicFilterIds(filterIds);
 
         auto taskIdStr = taskId;

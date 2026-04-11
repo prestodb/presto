@@ -806,6 +806,37 @@ void PrestoTask::updateTimeInfoLocked(
   if (mutexWaitMs > 0) {
     taskRuntimeStats["externalDynamicFilterMutexWaitMs"].addValue(mutexWaitMs);
   }
+
+  // TODO(dpp): Temporary diagnostic runtime metrics for tracing DPP filter-
+  // delivery flow on production workers. These expose the internal counters
+  // as task-level runtime metrics so they appear in the query JSON and
+  // Presto UI. REVERT this entire block (along with the counters in
+  // PrestoTask.h and their increments elsewhere) once the DPP filter-
+  // timeout bug is diagnosed and fixed.
+  const auto dppRegistered = dppFilterIdsRegistered_.load();
+  if (dppRegistered > 0) {
+    taskRuntimeStats["dppFilterIdsRegistered"].addValue(dppRegistered);
+  }
+  const auto dppFired = dppCallbackFired_.load();
+  if (dppFired > 0) {
+    taskRuntimeStats["dppCallbackFired"].addValue(dppFired);
+  }
+  const auto dppFlushed = dppFiltersFlushed_.load();
+  if (dppFlushed > 0) {
+    taskRuntimeStats["dppFiltersFlushed"].addValue(dppFlushed);
+  }
+  const auto dppTerminal = dppTerminalStateFlushed_.load();
+  if (dppTerminal > 0) {
+    taskRuntimeStats["dppTerminalStateFlushed"].addValue(dppTerminal);
+  }
+  const auto dppSnapshots = dppSnapshotCalls_.load();
+  if (dppSnapshots > 0) {
+    taskRuntimeStats["dppSnapshotCalls"].addValue(dppSnapshots);
+  }
+  const auto dppNullTask = dppSnapshotsWithNullTask_.load();
+  if (dppNullTask > 0) {
+    taskRuntimeStats["dppSnapshotsWithNullTask"].addValue(dppNullTask);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -1008,6 +1039,11 @@ protocol::RuntimeMetric toRuntimeMetric(
 void PrestoTask::storeDynamicFilters(
     const std::map<std::string, protocol::TupleDomain<std::string>>& filters) {
   VLOG(1) << "storeDynamicFilters: filterCount=" << filters.size();
+  // TODO(dpp): Temporary diagnostic counters — bump once per callback fire
+  // and add the number of filters delivered in that fire. REVERT when the
+  // DPP filter-timeout bug is diagnosed and fixed.
+  dppCallbackFired_.fetch_add(1);
+  dppFiltersFlushed_.fetch_add(filters.size());
   auto version = dynamicFilterVersion_.fetch_add(1) + 1;
   {
     auto locked = dynamicFilters_.wlock();
@@ -1020,6 +1056,9 @@ void PrestoTask::storeDynamicFilters(
 
 void PrestoTask::registerDynamicFilterIds(
     const std::unordered_set<std::string>& filterIds) {
+  // TODO(dpp): Temporary diagnostic counter — bump on each filter-id
+  // registration. REVERT when the DPP filter-timeout bug is fixed.
+  dppFilterIdsRegistered_.fetch_add(filterIds.size());
   registeredFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
 }
 
@@ -1043,6 +1082,13 @@ void PrestoTask::wakeDynamicFilterWaiters(int64_t version) {
 
 PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
     int64_t sinceVersion) {
+  // TODO(dpp): Temporary diagnostic counters — bump per snapshot call and
+  // separately when the task pointer is null. REVERT when DPP filter-
+  // timeout bug is fixed.
+  dppSnapshotCalls_.fetch_add(1);
+  if (task == nullptr) {
+    dppSnapshotsWithNullTask_.fetch_add(1);
+  }
   DynamicFilterSnapshot snapshot;
   // Read filters BEFORE completion flag (matches Java ordering).
   {
@@ -1064,20 +1110,6 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
   // stop polling instead of hanging until timeout.
   const bool taskTerminal =
       task != nullptr && task->state() != exec::TaskState::kRunning;
-  {
-    auto registered = registeredFilterIds_.rlock();
-    VLOG(1) << "DPP-snapshot: taskId=" << id.toString()
-            << " taskPtr=" << (task != nullptr ? "set" : "null")
-            << " taskState="
-            << (task != nullptr
-                    ? velox::exec::taskStateString(task->state())
-                    : std::string("null"))
-            << " taskTerminal=" << taskTerminal
-            << " registeredCount=" << registered->size()
-            << " flushedCount=" << snapshot.completedFilterIds.size()
-            << " sinceVersion=" << sinceVersion
-            << " currentVersion=" << snapshot.version;
-  }
   // operatorCompleted is true only when ALL registered filter IDs have been
   // flushed, matching the Java SqlTask.isDynamicFilterOperatorCompleted()
   // semantics: flushedFilterIds.containsAll(registeredDynamicFilterIds).
@@ -1093,6 +1125,12 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
           if (taskTerminal) {
             // Task is done — report the unflushed ID as completed so the
             // coordinator treats it as "no contribution" instead of hanging.
+            // TODO(dpp): Temporary diagnostic counter — bump each time the
+            // terminal-state fallback kicks in for an unflushed filter id.
+            // A non-zero value here means the HashBuild callback did not
+            // fire (or was cleared) before the task transitioned terminal.
+            // REVERT when DPP filter-timeout bug is fixed.
+            dppTerminalStateFlushed_.fetch_add(1);
             snapshot.completedFilterIds.insert(id);
           } else {
             snapshot.operatorCompleted = false;

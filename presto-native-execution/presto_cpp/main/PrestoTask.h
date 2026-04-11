@@ -284,6 +284,19 @@ struct PrestoTask {
   // Time (ms) spent waiting for Velox Task::mutex_ in addExternalDynamicFilter.
   std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
 
+  // TODO(dpp): Temporary diagnostic counters for tracing DPP filter-delivery
+  // flow on production workers. These are reported as runtime metrics so
+  // they appear in the query JSON and Presto UI. REVERT these (the counters,
+  // the increments, and the reporting in updateInfoLocked) once the
+  // distributed dynamic partition pruning filter-timeout bug is diagnosed
+  // and fixed.
+  std::atomic<int64_t> dppFilterIdsRegistered_{0};
+  std::atomic<int64_t> dppCallbackFired_{0};
+  std::atomic<int64_t> dppFiltersFlushed_{0};
+  std::atomic<int64_t> dppTerminalStateFlushed_{0};
+  std::atomic<int64_t> dppSnapshotCalls_{0};
+  std::atomic<int64_t> dppSnapshotsWithNullTask_{0};
+
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.
   struct PendingExternalFilter {

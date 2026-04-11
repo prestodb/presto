@@ -56,10 +56,6 @@ void maybeAccumulateDynamicFilterInfo(
     const std::string& joinNodeId,
     const core::PlanNodePtr& buildSide,
     std::vector<JoinDynamicFilterInfo>& infoOut) {
-  LOG(INFO) << "DPP-converter: joinNodeId=" << joinNodeId
-            << " dynamicFilters.size()=" << dynamicFilters.size()
-            << " buildSideType=" << buildSide->name()
-            << " buildSideOutput=" << buildSide->outputType()->toString();
   if (dynamicFilters.empty()) {
     return;
   }
@@ -68,9 +64,6 @@ void maybeAccumulateDynamicFilterInfo(
     auto index = buildSide->outputType()->getChildIdx(buildVar.name);
     auto type = buildSide->outputType()->childAt(index);
     channels.push_back({filterId, static_cast<column_index_t>(index), type});
-    LOG(INFO) << "DPP-converter: joinNodeId=" << joinNodeId
-              << " filterId=" << filterId << " column=" << buildVar.name
-              << " index=" << index;
   }
   infoOut.push_back({joinNodeId, std::move(channels)});
 }
