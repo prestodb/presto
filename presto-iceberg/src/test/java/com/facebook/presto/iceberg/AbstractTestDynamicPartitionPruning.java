@@ -40,6 +40,7 @@ import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_CONSTR
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSHED_INTO_SCAN;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
@@ -510,6 +511,96 @@ public abstract class AbstractTestDynamicPartitionPruning
 
         assertEquals(getMetricValue(dppStats, DYNAMIC_FILTER_SPLITS_BEFORE_FILTER), 0,
                 "Multi-join: all filters should resolve in time");
+    }
+
+    /**
+     * Strict reproducer for the "filter times out with Received=0 despite
+     * Expected=N" benchmark failure pattern seen in TPC-DS queries. Runs a
+     * multi-join query under PARTITIONED distribution and asserts:
+     *   (1) no filter times out,
+     *   (2) for every filter with Expected=N partitions, at least one
+     *       contribution was received (i.e. the HashBuild callback fired on
+     *       at least one task, or the terminal-state fallback kicked in).
+     * <p>
+     * The existing {@code testMultiJoinDynamicPartitionPruning} only checks
+     * that the probe scan saw the filter; it tolerates partial contributions.
+     * This test is stricter so a build-side callback miss becomes visible.
+     */
+    @Test(invocationCount = 5)
+    public void testPartitionedMultiJoinNoFilterTimeout()
+    {
+        // Multi-join where the outer join's build side is itself the result
+        // of an inner join, matching the shape of TPC-DS queries that have
+        // shown the failure in production (e.g. Q19 join 1504 whose build
+        // side is an ExchangeNode wrapping a RemoteSourceNode).
+        String query = "SELECT f.order_id, f.amount, dc.customer_name " +
+                "FROM fact_orders f " +
+                "JOIN (" +
+                "  SELECT c.customer_id, c.customer_name " +
+                "  FROM dim_customers c " +
+                "  JOIN dim_active_regions r ON c.region = r.region_name" +
+                ") dc ON f.customer_id = dc.customer_id " +
+                "ORDER BY f.order_id";
+
+        // Force PARTITIONED distribution so the outer join's build side is a
+        // REPARTITION exchange (not REPLICATE). Use a short max wait so a
+        // hung filter produces a test failure within seconds instead of
+        // minutes.
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, query);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+        // Correctness first: DPP and no-DPP must produce identical results.
+        assertEquals(
+                resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "PARTITIONED multi-join: DPP and no-DPP results must match");
+
+        RuntimeStats stats = getRuntimeStats(resultWithDpp);
+
+        // (1) No filter should time out. A timed-out filter indicates the
+        // coordinator never saw enough partition contributions from the
+        // build-side tasks within the wait window — the exact failure mode
+        // this test is designed to catch.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_TIMED_OUT + "[")) {
+                assertEquals(metric.getSum(), 0L,
+                        format("Filter %s timed out — build-side callback "
+                                + "did not deliver contributions in time", key));
+            }
+        });
+
+        // (2) For every filter the coordinator registered, at least one
+        // build-side contribution should have arrived. A received count of 0
+        // when expected > 0 means the HashBuild callback never fired AND the
+        // terminal-state fallback did not compensate.
+        stats.getMetrics().forEach((key, metric) -> {
+            if (key.startsWith(DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[")) {
+                String filterId = key.substring(
+                        (DYNAMIC_FILTER_EXPECTED_PARTITIONS + "[").length(),
+                        key.length() - 1);
+                long expected = metric.getSum();
+                long received = getMetricValue(
+                        stats,
+                        DYNAMIC_FILTER_PARTITIONS_RECEIVED + "[" + filterId + "]");
+                assertTrue(received >= 1L,
+                        format("Filter %s expected %d partitions but received %d",
+                                filterId, expected, received));
+            }
+        });
+
+        // Sanity check: at least one filter was pushed into an Iceberg scan.
+        assertTrue(
+                getMetricValue(stats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) > 0,
+                "PARTITIONED multi-join: at least one DF should be pushed into scan");
     }
 
     @Test(invocationCount = 10)
