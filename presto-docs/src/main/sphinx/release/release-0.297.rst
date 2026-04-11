@@ -34,6 +34,8 @@ _______________
 * Improve parallelism for small tables with few files by enabling distributed scan. `#26941 <https://github.com/prestodb/presto/pull/26941>`_
 * Improve query performance by flattening nested ``IF`` expressions ``IF(x, IF(y, v, E), E)`` to ``IF(x AND y, v, E)`` when the outer and inner else branches are identical. Handles arbitrary nesting depth and both null and non-null else branches. `#27267 <https://github.com/prestodb/presto/pull/27267>`_
 * Improve size estimates for constants. `#27188 <https://github.com/prestodb/presto/pull/27188>`_
+* Improve performance of queries using grouping sets by pre-aggregating data before row multiplication. Enabled using session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
+* Improve performance of queries with redundant `COALESCE` expressions over join keys by simplifying them based on join type, enabling bucketed join optimizations. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
 * Add DDL statements for ``CREATE BRANCH``. `#26898 <https://github.com/prestodb/presto/pull/26898>`_
 * Add DDL support for dropping a branch from a table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
 * Add DDL support for dropping a tag from a table. `#23614 <https://github.com/prestodb/presto/pull/23614>`_
@@ -48,8 +50,6 @@ _______________
 * Add configurable freshness thresholds for materialized views using :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\`` session property and :ref:`admin/properties:\`\`materialized-view-stale-read-behavior\`\`` configuration property. `#26764 <https://github.com/prestodb/presto/pull/26764>`_
 * Add cost-based selection for materialized view query rewriting, choosing the lowest-cost plan when multiple views are applicable. This can be enabled with the ``materialized_view_query_rewrite_cost_based_selection_enabled`` session property. `#27222 <https://github.com/prestodb/presto/pull/27222>`_
 * Add materialized CTE support for single node execution. `#26794 <https://github.com/prestodb/presto/pull/26794>`_
-* Add optimizer rule ``SimplifyCoalesceOverJoinKeys`` that simplifies redundant ``COALESCE`` expressions over join keys by simplifying them based on join type, enabling bucketed join optimizations. Controlled by the ``simplify_coalesce_over_join_keys`` session property (disabled by default). `#27250 <https://github.com/prestodb/presto/pull/27250>`_
-* Improve performance of queries using grouping sets by pre-aggregating data before row multiplication. Enabled using session property ``pre_aggregate_before_grouping_sets``. `#27290 <https://github.com/prestodb/presto/pull/27290>`_
 * Add :ref:`admin/properties:\`\`optimizer.remote-function-names-for-fixed-parallelism\`\`` configuration property to control the number of tasks for remote project node. `#27044 <https://github.com/prestodb/presto/pull/27044>`_
 * Add options to skip projection pushdown through exchange rule. Controlled by the ``optimizer.skip-pushdown-through-exchange-for-remote-projection`` configuration property or the ``skip_pushdown_through_exchange_for_remote_projection`` session property (disabled by default). `#26943 <https://github.com/prestodb/presto/pull/26943>`_
 * Add support for ``America/Coyhaique`` timezone (Chile's Aysén Region). `#26981 <https://github.com/prestodb/presto/pull/26981>`_
