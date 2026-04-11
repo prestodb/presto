@@ -1064,6 +1064,20 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
   // stop polling instead of hanging until timeout.
   const bool taskTerminal =
       task != nullptr && task->state() != exec::TaskState::kRunning;
+  {
+    auto registered = registeredFilterIds_.rlock();
+    VLOG(1) << "DPP-snapshot: taskId=" << id.toString()
+            << " taskPtr=" << (task != nullptr ? "set" : "null")
+            << " taskState="
+            << (task != nullptr
+                    ? velox::exec::taskStateString(task->state())
+                    : std::string("null"))
+            << " taskTerminal=" << taskTerminal
+            << " registeredCount=" << registered->size()
+            << " flushedCount=" << snapshot.completedFilterIds.size()
+            << " sinceVersion=" << sinceVersion
+            << " currentVersion=" << snapshot.version;
+  }
   // operatorCompleted is true only when ALL registered filter IDs have been
   // flushed, matching the Java SqlTask.isDynamicFilterOperatorCompleted()
   // semantics: flushedFilterIds.containsAll(registeredDynamicFilterIds).

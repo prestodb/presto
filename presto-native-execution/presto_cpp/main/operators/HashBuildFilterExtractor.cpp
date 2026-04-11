@@ -273,6 +273,10 @@ void extractAndDeliverFilters(
     const std::vector<std::unique_ptr<BaseHashTable>>& otherTables,
     memory::MemoryPool* pool) {
 
+  LOG(INFO) << "DPP-extract: taskId=" << taskId
+            << " channels=" << channels.size()
+            << " otherTables=" << otherTables.size();
+
   std::map<std::string, protocol::TupleDomain<std::string>> filters;
   std::unordered_set<std::string> filterIds;
 
