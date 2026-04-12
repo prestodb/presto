@@ -14,12 +14,9 @@
 #include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
 #include <algorithm>
 #include <glog/logging.h>
-#include <folly/container/F14Set.h>
 #include "presto_cpp/main/types/TupleDomainBuilder.h"
-#include "velox/exec/RowContainer.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/type/Filter.h"
-#include "velox/vector/FlatVector.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -113,155 +110,15 @@ void convertFilter(
 }
 
 /// Finds the VectorHasher in a hash table that processes the given column.
-/// Sets keyColumnIndex to the hasher's position, which is also the column
-/// index in the RowContainer.
 const VectorHasher* findHasher(
     const BaseHashTable& table,
-    column_index_t columnIndex,
-    int32_t& keyColumnIndex) {
-  for (int32_t i = 0; i < static_cast<int32_t>(table.hashers().size()); ++i) {
-    if (table.hashers()[i]->channel() == columnIndex) {
-      keyColumnIndex = i;
-      return table.hashers()[i].get();
+    column_index_t columnIndex) {
+  for (const auto& h : table.hashers()) {
+    if (h->channel() == columnIndex) {
+      return h.get();
     }
   }
-  keyColumnIndex = -1;
   return nullptr;
-}
-
-/// Maximum total byte size for collected filter values before falling back
-/// to a min/max range. Matches the old Java DynamicFilterSourceOperator's
-/// DEFAULT_MAX_SIZE_BYTES and VectorHasher's kMaxDistinctStringsBytes.
-static constexpr uint64_t kMaxFilterSizeBytes = 1 << 20; // 1MB
-
-static constexpr int32_t kBatchSize = 1024;
-
-/// Scans hash table rows to collect values for a column whose VectorHasher
-/// overflowed. Accumulates unique values into a shared set (for cross-table
-/// dedup). If total bytes exceed kMaxFilterSizeBytes, stops collecting
-/// discrete values and only tracks min/max for range fallback.
-void collectStringValuesFromRows(
-    const BaseHashTable& table,
-    int32_t keyColumnIndex,
-    folly::F14FastSet<std::string>& uniqueStrings,
-    uint64_t& totalBytes,
-    bool& exceeded,
-    std::optional<variant>& minValue,
-    std::optional<variant>& maxValue,
-    memory::MemoryPool* pool) {
-  auto* rows = table.rows();
-  auto resultVector = BaseVector::create(VARCHAR(), kBatchSize, pool);
-  auto* flatResult = resultVector->asFlatVector<StringView>();
-
-  RowContainerIterator iter;
-  std::vector<char*> rowPtrs(kBatchSize);
-  for (;;) {
-    auto numRows = rows->listRows(&iter, kBatchSize, rowPtrs.data());
-    if (numRows == 0) {
-      break;
-    }
-    rows->extractColumn(
-        rowPtrs.data(), numRows, keyColumnIndex, resultVector);
-    for (int32_t i = 0; i < numRows; ++i) {
-      if (resultVector->isNullAt(i)) {
-        continue;
-      }
-      auto sv = flatResult->valueAt(i);
-      std::string s(sv.data(), sv.size());
-
-      // Track min/max unconditionally.
-      auto v = variant(s);
-      if (!minValue.has_value() || v < minValue.value()) {
-        minValue = v;
-      }
-      if (!maxValue.has_value() || maxValue.value() < v) {
-        maxValue = v;
-      }
-
-      if (!exceeded) {
-        auto [it, inserted] = uniqueStrings.insert(std::move(s));
-        if (inserted) {
-          totalBytes += it->size();
-          if (totalBytes > kMaxFilterSizeBytes) {
-            exceeded = true;
-            uniqueStrings.clear();
-          }
-        }
-      }
-    }
-  }
-}
-
-/// Scans hash table rows to collect integer values for a column whose
-/// VectorHasher overflowed.
-/// Reads an integer value from a FlatVector at position i, widening to
-/// int64_t regardless of the underlying integer type.
-int64_t readIntValue(const BaseVector& vector, int32_t i) {
-  switch (vector.typeKind()) {
-    case TypeKind::BIGINT:
-      return vector.asFlatVector<int64_t>()->valueAt(i);
-    case TypeKind::INTEGER:
-      return vector.asFlatVector<int32_t>()->valueAt(i);
-    case TypeKind::SMALLINT:
-      return vector.asFlatVector<int16_t>()->valueAt(i);
-    case TypeKind::TINYINT:
-      return vector.asFlatVector<int8_t>()->valueAt(i);
-    default:
-      VELOX_UNREACHABLE(
-          "Unsupported type for integer filter extraction: {}",
-          vector.type()->toString());
-  }
-}
-
-void collectIntegerValuesFromRows(
-    const BaseHashTable& table,
-    int32_t keyColumnIndex,
-    const TypePtr& type,
-    folly::F14FastSet<int64_t>& uniqueInts,
-    uint64_t& totalBytes,
-    bool& exceeded,
-    std::optional<variant>& minValue,
-    std::optional<variant>& maxValue,
-    memory::MemoryPool* pool) {
-  auto* rows = table.rows();
-  auto resultVector = BaseVector::create(type, kBatchSize, pool);
-
-  RowContainerIterator iter;
-  std::vector<char*> rowPtrs(kBatchSize);
-  for (;;) {
-    auto numRows = rows->listRows(&iter, kBatchSize, rowPtrs.data());
-    if (numRows == 0) {
-      break;
-    }
-    rows->extractColumn(
-        rowPtrs.data(), numRows, keyColumnIndex, resultVector);
-    for (int32_t i = 0; i < numRows; ++i) {
-      if (resultVector->isNullAt(i)) {
-        continue;
-      }
-      auto val = readIntValue(*resultVector, i);
-      auto v = toTypedVariant(val, type);
-
-      // Track min/max unconditionally.
-      if (!minValue.has_value() || v < minValue.value()) {
-        minValue = v;
-      }
-      if (!maxValue.has_value() || maxValue.value() < v) {
-        maxValue = v;
-      }
-
-      if (!exceeded) {
-        auto [it, inserted] = uniqueInts.insert(val);
-        if (inserted) {
-          totalBytes += sizeof(int64_t);
-          if (totalBytes > kMaxFilterSizeBytes) {
-            exceeded = true;
-            uniqueInts.clear();
-          }
-        }
-      }
-    }
-  }
 }
 
 } // namespace
@@ -291,52 +148,44 @@ void extractAndDeliverFilters(
     // must NOT produce none() — that would incorrectly prune all data.
     bool hasFilterableHasher = false;
 
-    // State for row-scanning fallback when VectorHasher overflows. Shared
-    // across tables for cross-table deduplication.
-    bool needsRowScan = false;
-    bool exceeded = false;
-    uint64_t totalBytes = 0;
-    folly::F14FastSet<std::string> uniqueStrings;
-    folly::F14FastSet<int64_t> uniqueInts;
-
     auto collectFromTable = [&](const BaseHashTable& table) {
-      int32_t keyColumnIndex = -1;
-      const auto* hasher =
-          findHasher(table, channel.columnIndex, keyColumnIndex);
+      const auto* hasher = findHasher(table, channel.columnIndex);
       if (!hasher) {
         return;
       }
       auto filter = hasher->getFilter(false);
       if (!filter) {
         if (hasher->distinctOverflow()) {
-          // VectorHasher overflowed — scan hash table rows directly to
-          // collect values up to a byte budget.
-          hasFilterableHasher = true;
-          needsRowScan = true;
-          bool isStringType = channel.type->kind() == TypeKind::VARCHAR ||
-              channel.type->kind() == TypeKind::VARBINARY;
-          if (isStringType) {
-            collectStringValuesFromRows(
-                table,
-                keyColumnIndex,
-                uniqueStrings,
-                totalBytes,
-                exceeded,
-                minValue,
-                maxValue,
-                pool);
-          } else {
-            collectIntegerValuesFromRows(
-                table,
-                keyColumnIndex,
-                channel.type,
-                uniqueInts,
-                totalBytes,
-                exceeded,
-                minValue,
-                maxValue,
-                pool);
+          // VectorHasher overflowed distinct tracking. Use O(1) range
+          // from the hasher (min/max) instead of scanning hash table
+          // rows. Row scanning is too expensive to run serially on the
+          // last driver's thread for large build sides.
+          if (hasher->hasRange() && !hasher->rangeOverflow()) {
+            // Integer types: int64 range is valid.
+            hasFilterableHasher = true;
+            allDiscrete = false;
+            auto lo = toTypedVariant(hasher->min(), channel.type);
+            auto hi = toTypedVariant(hasher->max(), channel.type);
+            minValue = minValue.has_value()
+                ? std::min(minValue.value(), lo)
+                : lo;
+            maxValue = maxValue.has_value()
+                ? (maxValue.value() < hi ? hi : maxValue.value())
+                : hi;
+          } else if (hasher->hasStringRange()) {
+            // VARCHAR/VARBINARY: lexicographic string range is valid.
+            hasFilterableHasher = true;
+            allDiscrete = false;
+            auto lo = variant(hasher->minString());
+            auto hi = variant(hasher->maxString());
+            minValue = minValue.has_value()
+                ? std::min(minValue.value(), lo)
+                : lo;
+            maxValue = maxValue.has_value()
+                ? (maxValue.value() < hi ? hi : maxValue.value())
+                : hi;
           }
+          // else: unsupported type — skip this driver.
         }
         return;
       }
@@ -358,27 +207,6 @@ void extractAndDeliverFilters(
     collectFromTable(mainTable);
     for (const auto& other : otherTables) {
       collectFromTable(*other);
-    }
-
-    // Convert row-scan results into discreteValues or range.
-    if (needsRowScan) {
-      if (exceeded) {
-        allDiscrete = false;
-      } else {
-        bool isStringType = channel.type->kind() == TypeKind::VARCHAR ||
-            channel.type->kind() == TypeKind::VARBINARY;
-        if (isStringType) {
-          discreteValues.reserve(discreteValues.size() + uniqueStrings.size());
-          for (const auto& s : uniqueStrings) {
-            discreteValues.push_back(variant(s));
-          }
-        } else {
-          discreteValues.reserve(discreteValues.size() + uniqueInts.size());
-          for (auto val : uniqueInts) {
-            discreteValues.push_back(toTypedVariant(val, channel.type));
-          }
-        }
-      }
     }
 
     // If any non-empty driver fell back to range, discard discrete values.
