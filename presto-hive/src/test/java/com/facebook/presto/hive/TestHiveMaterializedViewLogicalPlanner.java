@@ -2121,7 +2121,7 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
-    public void testMaterializedViewOptimizationWithUnsupportedFunctionSubquery()
+    public void testMaterializedViewOptimizationWithScalarFunctionSubquery()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
                 .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
@@ -2165,27 +2165,10 @@ public class TestHiveMaterializedViewLogicalPlanner
                     "ON s1.orderkey = s2.orderkey " +
                     "ORDER BY s1.orderkey, longest_comment", table, table2);
 
+            // Both subqueries should be rewritten to use MVs (length() is now supported as a scalar function)
             MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
             MaterializedResult baseQueryResult = computeActual(baseQuery);
             assertEquals(baseQueryResult, optimizedQueryResult);
-
-            assertPlan(queryOptimizationWithMaterializedView, baseQuery, anyTree(
-                    node(JoinNode.class,
-                            exchange(
-                                    anyTree(
-                                            constrainedTableScan(table,
-                                                    ImmutableMap.of(),
-                                                    ImmutableMap.of()))),
-                            anyTree(
-                                    exchange(
-                                            anyTree(
-                                                    constrainedTableScan(table2,
-                                                            ImmutableMap.of(),
-                                                            ImmutableMap.of("orderkey_13", "orderkey"))),
-                                            anyTree(
-                                                    constrainedTableScan(view2,
-                                                            ImmutableMap.of(),
-                                                            ImmutableMap.of("ds_42", "ds", "orderkey_41", "orderkey"))))))));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view2);

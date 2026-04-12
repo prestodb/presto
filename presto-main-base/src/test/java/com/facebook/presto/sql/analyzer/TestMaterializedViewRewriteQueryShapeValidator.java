@@ -34,11 +34,21 @@ public class TestMaterializedViewRewriteQueryShapeValidator
         assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y ORDER BY z");
     }
     @Test
-    public void unsupportedFunction()
+    public void scalarFunction()
     {
-        assertFails(
-                "SELECT GEOMETRIC_MEAN(x) AS geomean_x, y FROM tbl GROUP BY y",
-                "Query shape invalid: geometric_mean function is not supported for materialized view optimizations");
+        assertSucceeds("SELECT CONCAT(x, y) AS concat_xy, z FROM tbl GROUP BY z");
+    }
+
+    @Test
+    public void scalarFunctionWithAggregate()
+    {
+        assertSucceeds("SELECT IF(y > 0, SUM(x), 0) AS conditional_sum, y FROM tbl GROUP BY y");
+    }
+
+    @Test
+    public void jsonFunction()
+    {
+        assertSucceeds("SELECT JSON_EXTRACT_SCALAR(x, '$.key'), y FROM tbl GROUP BY y");
     }
 
     @Test

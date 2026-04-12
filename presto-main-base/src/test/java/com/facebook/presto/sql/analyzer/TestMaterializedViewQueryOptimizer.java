@@ -316,6 +316,230 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testScalarFunctionInSelect()
+    {
+        String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(a), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJsonExtractInSelect()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT JSON_EXTRACT_SCALAR(a, '$.key'), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT JSON_EXTRACT_SCALAR(mv_a, '$.key'), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testIfExpressionInSelect()
+    {
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT IF(a > 0, a, 0), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT IF(a > 0, a, 0), SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testCoalesceInSelect()
+    {
+        String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COALESCE(a, b), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testCaseExpressionInSelect()
+    {
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT CASE WHEN a > 0 THEN a ELSE 0 END, SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN a > 0 THEN a ELSE 0 END, SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testCastInSelect()
+    {
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT CAST(a AS VARCHAR), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT CAST(a AS VARCHAR), SUM(sum_b) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNestedScalarFunctionsInSelect()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(a + b), SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT ABS(mv_a + b), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarFunctionUnmappedColumn()
+    {
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(d), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarFunctionMixedMappedAndUnmappedColumns()
+    {
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(a + d), SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarWrappingAggregate()
+    {
+        String originalViewSql = format("SELECT a, SUM(c) AS sum_c FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(SUM(c)), a FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT ABS(SUM(sum_c)), a FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNotExpressionInSelect()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT NOT (a > 0), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT NOT (a > 0), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testIsNullPredicateInSelect()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a IS NULL, b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a IS NULL, b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testIsNotNullPredicateInSelect()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a IS NOT NULL, b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a IS NOT NULL, b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNullIfInSelect()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT NULLIF(a, 0), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT NULLIF(a, 0), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testInPredicateInSelect()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a IN (1, 2, 3), b FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a IN (1, 2, 3), b FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNestedCaseWithScalarFunctions()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT CASE WHEN ABS(a) > 0 THEN CONCAT(CAST(a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testMultipleScalarFunctionsInSelect()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(a), LOWER(CAST(b AS VARCHAR)), COALESCE(a, b) FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT ABS(mv_a), LOWER(CAST(b AS VARCHAR)), COALESCE(mv_a, b) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWindowFunctionNotRewrittenAsScalar()
+    {
+        // Window functions should NOT be rewritten — they must fall back to base query
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ROW_NUMBER() OVER (ORDER BY a), b FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testUnsupportedAggregateFunctionApproxSet()
+    {
+        // APPROX_SET is an aggregate — should NOT be rewritten as scalar
+        String originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT APPROX_SET(a) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testUnsupportedAggregateFunctionArrayAgg()
+    {
+        // ARRAY_AGG is an aggregate — should NOT be rewritten as scalar
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ARRAY_AGG(a), b FROM %s GROUP BY b", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarWrappingUnsupportedAggregate()
+    {
+        // ABS(APPROX_SET(a)) — inner aggregate should cause fallback
+        String originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(APPROX_SET(a)) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarFunctionWithTablePrefix()
+    {
+        String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT ABS(%s.a), SUM(%s.c) FROM %s GROUP BY %s.a, %s.b", BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT ABS(a), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarFunctionWithTableAlias()
+    {
+        String originalViewSql = format("SELECT a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COALESCE(t.a, t.b), SUM(c) FROM %s t GROUP BY t.a, t.b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT COALESCE(a, b), SUM(sum_c) FROM %s GROUP BY a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNestedScalarFunctionWithTablePrefix()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT CASE WHEN ABS(%s.a) > 0 THEN CONCAT(CAST(%s.a AS VARCHAR), CAST(%s.b AS VARCHAR)) ELSE 'none' END, SUM(%s.c) FROM %s GROUP BY %s.a, %s.b",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT CASE WHEN ABS(mv_a) > 0 THEN CONCAT(CAST(mv_a AS VARCHAR), CAST(b AS VARCHAR)) ELSE 'none' END, SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNestedScalarFunctionWithTableAlias()
+    {
+        String originalViewSql = format("SELECT a as mv_a, b, SUM(c) AS sum_c FROM %s GROUP BY a, b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT IF(t.a > 0, COALESCE(t.a, t.b), 0), SUM(t.c) FROM %s t GROUP BY t.a, t.b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT IF(mv_a > 0, COALESCE(mv_a, b), 0), SUM(sum_c) FROM %s GROUP BY mv_a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithNoMatchingBaseTable()
     {
         String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_2);
@@ -447,16 +671,16 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
-    public void testWithUnsupportedFunction()
+    public void testWithUnsupportedAggregateFunction()
     {
+        // GEOMETRIC_MEAN is an aggregate — cannot be rewritten, falls back to base query
         String originalViewSql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
-
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
+        // GEOMETRIC_MEAN with MV that has the column — still an aggregate, cannot rewrite
         originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
         baseQuerySql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
-
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
