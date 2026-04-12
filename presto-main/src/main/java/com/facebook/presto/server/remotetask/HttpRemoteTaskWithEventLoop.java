@@ -519,7 +519,8 @@ public final class HttpRemoteTaskWithEventLoop
                 dynamicFilterService,
                 session.getQueryId(),
                 dynamicFilterStats,
-                isVerboseRuntimeStatsEnabled(session));
+                isVerboseRuntimeStatsEnabled(session),
+                this::failTask);
         this.shouldFetchDynamicFilters = isDistributedDynamicFilterEnabled(session);
         this.loggingPrefix = format("Query: %s, Task: %s", session.getQueryId(), taskId);
     }

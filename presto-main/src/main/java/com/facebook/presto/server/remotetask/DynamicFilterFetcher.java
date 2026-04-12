@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
@@ -84,6 +85,8 @@ public class DynamicFilterFetcher
     private final boolean extendedMetrics;
     private final String taskSuffix;
 
+    private final Consumer<Throwable> onFatal;
+
     private final AtomicLong lastFetchedVersion = new AtomicLong(0);
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(true);
@@ -107,7 +110,8 @@ public class DynamicFilterFetcher
             DynamicFilterService dynamicFilterService,
             QueryId queryId,
             DynamicFilterStats dynamicFilterStats,
-            boolean extendedMetrics)
+            boolean extendedMetrics,
+            Consumer<Throwable> onFatal)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -120,6 +124,7 @@ public class DynamicFilterFetcher
         this.filterCodec = requireNonNull(filterCodec, "filterCodec is null");
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.extendedMetrics = extendedMetrics;
+        this.onFatal = requireNonNull(onFatal, "onFatal is null");
         this.taskSuffix = taskId.getStageExecutionId().getStageId().getId() + "." + taskId.getId();
         this.errorTracker = taskRequestErrorTracker(
                 taskId,
@@ -292,18 +297,19 @@ public class DynamicFilterFetcher
     public void fatal(Throwable cause)
     {
         verify(taskEventLoop.inEventLoop());
-        // DPP is optional for correctness; do not fail the query
-        log.warn(cause, "Fatal error fetching dynamic filters from task %s, stopping fetcher", taskId);
+        // A fatal error in the dynamic filter fetch path indicates a
+        // programming error (e.g. the C++ worker returned JSON that Java
+        // cannot parse). Propagate the error to fail the query with the
+        // full stack trace rather than silently swallowing it and letting
+        // the DPP filter time out minutes later.
         dynamicFilterStats.getFilterFetchFailure().update(1);
-        // TODO(dpp): Temporary diagnostic metric — emit into query runtime
-        // stats so we can see fatal parsing errors in the query JSON without
-        // scraping worker logs. REVERT when DPP issue is fixed.
+        // TODO(dpp): Temporary diagnostic metric — REVERT when DPP issue
+        // is fixed.
         if (extendedMetrics) {
             emitExtendedMetric(format("dynamicFilterFetcherFatal[%s]", taskSuffix), 1);
-            emitExtendedMetric(format("dynamicFilterFetcherFatalMessage[%s]", taskSuffix),
-                    cause.getMessage() != null ? cause.getMessage().hashCode() : 0);
         }
         stop();
+        onFatal.accept(cause);
     }
 
     /**
