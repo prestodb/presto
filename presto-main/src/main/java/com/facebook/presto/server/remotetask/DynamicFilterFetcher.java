@@ -295,6 +295,14 @@ public class DynamicFilterFetcher
         // DPP is optional for correctness; do not fail the query
         log.warn(cause, "Fatal error fetching dynamic filters from task %s, stopping fetcher", taskId);
         dynamicFilterStats.getFilterFetchFailure().update(1);
+        // TODO(dpp): Temporary diagnostic metric — emit into query runtime
+        // stats so we can see fatal parsing errors in the query JSON without
+        // scraping worker logs. REVERT when DPP issue is fixed.
+        if (extendedMetrics) {
+            emitExtendedMetric(format("dynamicFilterFetcherFatal[%s]", taskSuffix), 1);
+            emitExtendedMetric(format("dynamicFilterFetcherFatalMessage[%s]", taskSuffix),
+                    cause.getMessage() != null ? cause.getMessage().hashCode() : 0);
+        }
         stop();
     }
 
