@@ -414,7 +414,8 @@ public class TestDynamicFilterFetcher
                 dynamicFilterService,
                 new QueryId("test"),
                 new DynamicFilterStats(),
-                false);
+                false,
+                throwable -> {});
         return fetcher;
     }
 
