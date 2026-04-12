@@ -837,6 +837,14 @@ void PrestoTask::updateTimeInfoLocked(
   if (dppNullTask > 0) {
     taskRuntimeStats["dppSnapshotsWithNullTask"].addValue(dppNullTask);
   }
+  const auto dppWithData = dppSnapshotsWithFilterData_.load();
+  if (dppWithData > 0) {
+    taskRuntimeStats["dppSnapshotsWithFilterData"].addValue(dppWithData);
+  }
+  const auto dppOpComplete = dppSnapshotsOperatorCompleted_.load();
+  if (dppOpComplete > 0) {
+    taskRuntimeStats["dppSnapshotsOperatorCompleted"].addValue(dppOpComplete);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(
@@ -1139,6 +1147,14 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
         }
       }
     }
+  }
+  // TODO(dpp): Temporary diagnostic counters — track what the snapshot
+  // actually contains. REVERT when DPP filter-timeout bug is fixed.
+  if (!snapshot.filters.empty()) {
+    dppSnapshotsWithFilterData_.fetch_add(1);
+  }
+  if (snapshot.operatorCompleted) {
+    dppSnapshotsOperatorCompleted_.fetch_add(1);
   }
   return snapshot;
 }

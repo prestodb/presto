@@ -296,6 +296,11 @@ struct PrestoTask {
   std::atomic<int64_t> dppTerminalStateFlushed_{0};
   std::atomic<int64_t> dppSnapshotCalls_{0};
   std::atomic<int64_t> dppSnapshotsWithNullTask_{0};
+  // Count of snapshots that actually returned >=1 filter in the filters map.
+  // If > 0 but Java never receives the filter, the drop is in HTTP transport.
+  // If == 0, the C++ snapshot never had filter data at request time.
+  std::atomic<int64_t> dppSnapshotsWithFilterData_{0};
+  std::atomic<int64_t> dppSnapshotsOperatorCompleted_{0};
 
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.
