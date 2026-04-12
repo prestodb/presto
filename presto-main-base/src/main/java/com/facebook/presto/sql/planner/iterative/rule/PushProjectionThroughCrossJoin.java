@@ -292,6 +292,20 @@ public class PushProjectionThroughCrossJoin
                 continue;
             }
 
+            // For non-top-level residuals, add pass-throughs for source variables
+            // not already in the residual so that upper levels can reference them
+            // (e.g. variables pushed at higher levels that flow through the cross join)
+            if (!isTopLevel) {
+                Assignments.Builder augmented = Assignments.builder();
+                augmented.putAll(res);
+                for (VariableReferenceExpression v : result.getOutputVariables()) {
+                    if (!res.getMap().containsKey(v)) {
+                        augmented.put(v, v);
+                    }
+                }
+                res = augmented.build();
+            }
+
             result = new ProjectNode(
                     project.getSourceLocation(),
                     context.getIdAllocator().getNextId(),

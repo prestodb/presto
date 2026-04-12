@@ -478,6 +478,55 @@ public class TestPushProjectionThroughCrossJoin
     }
 
     @Test
+    public void testCascadingWithMixedResidualAndHigherLevelPush()
+    {
+        // Reproduces: "Expression dependencies ([pushed_right]) not in source plan output ([left_var, mixed])"
+        // Intermediate project has a mixed (both-sides) expression creating a non-identity residual.
+        // Top project pushes an expression to the right side.
+        // Without the fix, the intermediate residual project doesn't pass through
+        // the pushed variable, causing a validation error.
+        tester().assertThat(new PushProjectionThroughCrossJoin(getFunctionManager()))
+                .setSystemProperty(PUSH_PROJECTION_THROUGH_CROSS_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression a = p.variable("a", BIGINT);
+                    VariableReferenceExpression b = p.variable("b", BIGINT);
+                    VariableReferenceExpression mixed = p.variable("mixed", BIGINT);
+
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("pushed_right", BIGINT), p.rowExpression("b + BIGINT '1'"))
+                                    .put(p.variable("out2", BIGINT), p.rowExpression("a + mixed"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(a, a)
+                                            .put(b, b)
+                                            .put(mixed, p.rowExpression("a + b"))
+                                            .build(),
+                                    p.join(
+                                            JoinType.INNER,
+                                            p.values(a),
+                                            p.values(b))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of(
+                                        "pushed_right", expression("pushed_right"),
+                                        "out2", expression("a + mixed")),
+                                project(
+                                        ImmutableMap.of(
+                                                "a", expression("a"),
+                                                "b", expression("b"),
+                                                "mixed", expression("a + b"),
+                                                "pushed_right", expression("pushed_right")),
+                                        join(
+                                                values("a"),
+                                                project(
+                                                        ImmutableMap.of("pushed_right", expression("b + BIGINT '1'")),
+                                                        values("b"))))));
+    }
+
+    @Test
     public void testCascadingDoesNotFireOnAllIdentity()
     {
         // All cascading projects are identity — nothing to push
