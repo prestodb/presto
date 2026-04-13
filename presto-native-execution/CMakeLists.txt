@@ -42,6 +42,10 @@ endif()
 # Important warnings that must be explicitly enabled.
 set(ENABLE_WARNINGS "-Wreorder")
 
+if("${ENABLE_ALL_WARNINGS}")
+  string(APPEND ENABLE_WARNINGS " -Wall")
+endif()
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DISABLED_WARNINGS} ${ENABLE_WARNINGS}")
 
 # Add all Presto options below.
