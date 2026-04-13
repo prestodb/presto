@@ -254,6 +254,45 @@ public abstract class AbstractTestAggregationsNative
                 "SELECT partkey, true FROM lineitem GROUP BY partkey");
     }
 
+    /// Covers qdigest functions not exercised by the `testStatisticalDigest*` overrides above:
+    /// BIGINT/REAL inputs, `values_at_quantiles`, `scale_qdigest`, `quantile_at_value`, null handling.
+    /// Assertions check properties (`> 0`, non-decreasing, round-trip) because qdigest is approximate
+    /// and its serialized form is opaque, so exact-value comparison is not meaningful.
+    @Test
+    public void testQDigestFunctions()
+    {
+        // qdigest_agg over BIGINT and REAL inputs.
+        assertQuery("SELECT value_at_quantile(qdigest_agg(orderkey), 0.5E0) > 0 FROM lineitem", "SELECT true");
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(orderkey AS REAL)), 0.5E0) > 0 FROM lineitem", "SELECT true");
+
+        // values_at_quantiles should return a non-decreasing array of quantile values.
+        assertQuery(
+                "SELECT v[1] <= v[2] AND v[2] <= v[3] FROM (" +
+                        "SELECT values_at_quantiles(qdigest_agg(CAST(orderkey AS DOUBLE)), ARRAY[0.1E0, 0.5E0, 0.9E0]) v FROM lineitem)",
+                "SELECT true");
+
+        // scale_qdigest multiplies all weights by the scale factor; the quantile value is approximately preserved.
+        assertQuery(
+                "SELECT abs(value_at_quantile(scale_qdigest(d, 2E0), 0.5E0) - value_at_quantile(d, 0.5E0)) " +
+                        "/ value_at_quantile(d, 0.5E0) < 0.05E0 FROM (" +
+                        "SELECT qdigest_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                "SELECT true");
+
+        // quantile_at_value / value_at_quantile round-trip: the recovered quantile should be near 0.5.
+        assertQuery(
+                "SELECT quantile_at_value(d, value_at_quantile(d, 0.5E0)) BETWEEN 0.3E0 AND 0.7E0 FROM (" +
+                        "SELECT qdigest_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                "SELECT true");
+
+        // Partial-null input: non-null values are aggregated, nulls are ignored.
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CASE WHEN orderkey % 2 = 0 THEN orderkey END), 0.5E0) > 0 FROM lineitem",
+                "SELECT true");
+
+        // All-null input: qdigest_agg returns null, so value_at_quantile returns null.
+        assertQuery("SELECT value_at_quantile(qdigest_agg(CAST(NULL AS BIGINT)), 0.5E0) IS NULL FROM lineitem",
+                "SELECT true");
+    }
+
     // TODO: remove and directly return charNToVarcharImplicitCast after addressing Issue #25894 and adding support for Char(n) type
     // to class NativeTypeManager for Sidecar.
     protected static boolean getCharNToVarcharImplicitCastForTest(boolean sidecarEnabled, boolean charNToVarcharImplicitCast)
