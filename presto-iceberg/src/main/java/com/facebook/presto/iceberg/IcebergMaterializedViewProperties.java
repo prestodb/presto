@@ -43,6 +43,8 @@ public class IcebergMaterializedViewProperties
     public static final String STALE_READ_BEHAVIOR = "stale_read_behavior";
     public static final String STALENESS_WINDOW = "staleness_window";
     public static final String REFRESH_TYPE = "refresh_type";
+    public static final String USE_TIMESTAMP_BASED_STALENESS = "use_timestamp_based_staleness";
+    public static final String CROSS_CATALOG_MATERIALIZED_VIEWS_ENABLED = "cross_catalog_materialized_views_enabled";
 
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
@@ -86,6 +88,16 @@ public class IcebergMaterializedViewProperties
                         true,
                         value -> value == null ? null : MaterializedViewRefreshType.valueOf(((String) value).toUpperCase(ENGLISH)),
                         value -> value == null ? null : ((MaterializedViewRefreshType) value).name()))
+                .add(PropertyMetadata.booleanProperty(
+                        USE_TIMESTAMP_BASED_STALENESS,
+                        "Use timestamp-based staleness evaluation instead of snapshot-based",
+                        null,
+                        true))
+                .add(PropertyMetadata.booleanProperty(
+                        CROSS_CATALOG_MATERIALIZED_VIEWS_ENABLED,
+                        "Enable cross-catalog materialized views (requires legacy_materialized_views=false)",
+                        null,
+                        true))
                 .build();
 
         // Combine table properties (for storage table) with MV-specific properties
@@ -123,5 +135,15 @@ public class IcebergMaterializedViewProperties
     public static Optional<MaterializedViewRefreshType> getRefreshType(Map<String, Object> properties)
     {
         return Optional.ofNullable((MaterializedViewRefreshType) properties.get(REFRESH_TYPE));
+    }
+
+    public static Optional<Boolean> getUseTimestampBasedStaleness(Map<String, Object> properties)
+    {
+        return Optional.ofNullable((Boolean) properties.get(USE_TIMESTAMP_BASED_STALENESS));
+    }
+
+    public static Optional<Boolean> getCrossCatalogMaterializedViewsEnabled(Map<String, Object> properties)
+    {
+        return Optional.ofNullable((Boolean) properties.get(CROSS_CATALOG_MATERIALIZED_VIEWS_ENABLED));
     }
 }

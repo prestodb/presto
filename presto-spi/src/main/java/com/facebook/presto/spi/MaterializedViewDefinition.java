@@ -34,6 +34,7 @@ public final class MaterializedViewDefinition
     private final String schema;
     private final String table;
     private final List<SchemaTableName> baseTables;
+    private final Optional<List<String>> baseTableCatalogs;
     private final Optional<String> owner;
     private final Optional<ViewSecurity> securityMode;
     private final List<ColumnMapping> columnMappings;
@@ -48,6 +49,7 @@ public final class MaterializedViewDefinition
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("baseTables") List<SchemaTableName> baseTables,
+            @JsonProperty("baseTableCatalogs") Optional<List<String>> baseTableCatalogs,
             @JsonProperty("owner") Optional<String> owner,
             @JsonProperty("securityMode") Optional<ViewSecurity> securityMode,
             @JsonProperty("columnMapping") List<ColumnMapping> columnMappings,
@@ -60,6 +62,7 @@ public final class MaterializedViewDefinition
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
         this.baseTables = unmodifiableList(new ArrayList<>(requireNonNull(baseTables, "baseTables is null")));
+        this.baseTableCatalogs = requireNonNull(baseTableCatalogs, "baseTableCatalogs is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.securityMode = requireNonNull(securityMode, "securityMode is null");
         this.columnMappings = unmodifiableList(new ArrayList<>(requireNonNull(columnMappings, "columnMappings is null")));
@@ -86,6 +89,7 @@ public final class MaterializedViewDefinition
                 schema,
                 table,
                 baseTables,
+                Optional.empty(),
                 owner,
                 securityMode,
                 columnMappings,
@@ -113,6 +117,39 @@ public final class MaterializedViewDefinition
                 schema,
                 table,
                 baseTables,
+                Optional.empty(),
+                owner,
+                securityMode,
+                convertFromMapToColumnMappings(
+                        requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
+                        requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
+                        new SchemaTableName(schema, table)),
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                Optional.empty(),
+                Optional.empty());
+    }
+
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<List<String>> baseTableCatalogs,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping,
+            Map<String, Map<SchemaTableName, String>> nonNullColumnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                baseTableCatalogs,
                 owner,
                 securityMode,
                 convertFromMapToColumnMappings(
@@ -147,6 +184,12 @@ public final class MaterializedViewDefinition
     public List<SchemaTableName> getBaseTables()
     {
         return baseTables;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getBaseTableCatalogs()
+    {
+        return baseTableCatalogs;
     }
 
     @JsonProperty
@@ -199,6 +242,7 @@ public final class MaterializedViewDefinition
         sb.append(",schema=").append(schema);
         sb.append(",table=").append(table);
         sb.append(",baseTables=").append(baseTables);
+        sb.append(",baseTableCatalogs=").append(baseTableCatalogs.orElse(null));
         sb.append(",owner=").append(owner.orElse(null));
         sb.append(",securityMode=").append(securityMode.orElse(null));
         sb.append(",columnMappings=").append(columnMappings);

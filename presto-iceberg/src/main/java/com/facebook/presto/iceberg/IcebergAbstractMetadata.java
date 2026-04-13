@@ -190,11 +190,13 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getCrossCatalogMaterializedViewsEnabled;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStalenessWindow;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getUseTimestampBasedStaleness;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -262,6 +264,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -299,6 +302,7 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_FORMAT_VERSION = "presto.materialized_view.format_version";
     protected static final String PRESTO_MATERIALIZED_VIEW_ORIGINAL_SQL = "presto.materialized_view.original_sql";
     protected static final String PRESTO_MATERIALIZED_VIEW_BASE_TABLES = "presto.materialized_view.base_tables";
+    protected static final String PRESTO_MATERIALIZED_VIEW_BASE_TABLE_CATALOGS = "presto.materialized_view.base_table_catalogs";
     protected static final String PRESTO_MATERIALIZED_VIEW_BASE_SNAPSHOT_PREFIX = "presto.materialized_view.base_snapshot.";
     protected static final String PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID = "presto.materialized_view.last_refresh_snapshot_id";
     protected static final String PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA = "presto.materialized_view.storage_schema";
@@ -309,6 +313,9 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "presto.materialized_view.stale_read_behavior";
     protected static final String PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW = "presto.materialized_view.staleness_window";
     protected static final String PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE = "presto.materialized_view.refresh_type";
+    protected static final String PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_TIMESTAMP = "presto.materialized_view.last_refresh_timestamp";
+    protected static final String PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS = "presto.materialized_view.use_timestamp_based_staleness";
+    protected static final String PRESTO_MATERIALIZED_VIEW_CROSS_CATALOG_ENABLED = "presto.materialized_view.cross_catalog_enabled";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
 
@@ -325,6 +332,7 @@ public abstract class IcebergAbstractMetadata
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
     private final StandardFunctionResolution functionResolution;
+    private static final JsonCodec<List<String>> STRING_LIST_CODEC = JsonCodec.listJsonCodec(String.class);
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
@@ -361,6 +369,8 @@ public abstract class IcebergAbstractMetadata
     }
 
     protected abstract Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName);
+
+    protected abstract String getCatalogName(ConnectorSession session);
 
     protected abstract Optional<IcebergViewMetadata> getViewMetadata(ConnectorSession session, SchemaTableName viewName);
 
@@ -1857,10 +1867,10 @@ public abstract class IcebergAbstractMetadata
     {
         shouldRunInAutoCommitTransaction("CREATE MATERIALIZED VIEW");
         validateNoBranchInBaseTables(viewDefinition.getBaseTables(), "CREATE MATERIALIZED VIEW");
+        SchemaTableName viewName = viewMetadata.getTable();
+        Map<String, Object> materializedViewProperties = viewMetadata.getProperties();
+        validateCrossCatalogMaterializedView(session, viewDefinition, viewName, materializedViewProperties);
         try {
-            SchemaTableName viewName = viewMetadata.getTable();
-            Map<String, Object> materializedViewProperties = viewMetadata.getProperties();
-
             SchemaTableName storageTableName = getStorageTableName(session, viewName, materializedViewProperties);
 
             if (viewExists(session, viewMetadata)) {
@@ -1887,6 +1897,10 @@ public abstract class IcebergAbstractMetadata
 
                     String baseTablesStr = serializeSchemaTableNames(viewDefinition.getBaseTables());
                     properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLES, baseTablesStr);
+                    if (viewDefinition.getBaseTableCatalogs().isPresent()) {
+                        String baseTableCatalogsStr = serializeBaseTableCatalogs(viewDefinition.getBaseTableCatalogs().get());
+                        properties.put(PRESTO_MATERIALIZED_VIEW_BASE_TABLE_CATALOGS, baseTableCatalogsStr);
+                    }
                     properties.put(PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS, serializeColumnMappings(viewDefinition.getColumnMappings()));
                     properties.put(PRESTO_MATERIALIZED_VIEW_OWNER, viewDefinition.getOwner()
                             .orElseThrow(() -> new PrestoException(INVALID_VIEW, "Materialized view owner is required")));
@@ -1900,6 +1914,22 @@ public abstract class IcebergAbstractMetadata
                             .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
                     getRefreshType(materializedViewProperties)
                             .ifPresent(refreshType -> properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name()));
+                    Optional<Boolean> crossCatalogEnabled = getCrossCatalogMaterializedViewsEnabled(materializedViewProperties);
+                    Optional<Boolean> useTimestampBased = getUseTimestampBasedStaleness(materializedViewProperties);
+                    if (crossCatalogEnabled.isPresent() && crossCatalogEnabled.get()) {
+                        if (useTimestampBased.isPresent() && !useTimestampBased.get()) {
+                            throw new PrestoException(INVALID_TABLE_PROPERTY,
+                                    "use_timestamp_based_staleness must be true when cross_catalog_materialized_views_enabled is true");
+                        }
+                        properties.put(PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS, "true");
+                        properties.put(PRESTO_MATERIALIZED_VIEW_CROSS_CATALOG_ENABLED, "true");
+                    }
+                    else {
+                        useTimestampBased.ifPresent(useTimestamp ->
+                                properties.put(PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS, useTimestamp.toString()));
+                        crossCatalogEnabled.ifPresent(crossCatalog ->
+                                properties.put(PRESTO_MATERIALIZED_VIEW_CROSS_CATALOG_ENABLED, crossCatalog.toString()));
+                    }
 
                     for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
                         properties.put(getBaseTableViewPropertyName(baseTable), "0");
@@ -1987,6 +2017,12 @@ public abstract class IcebergAbstractMetadata
             baseTables = deserializeSchemaTableNames(baseTablesStr);
         }
 
+        Optional<List<String>> baseTableCatalogs = Optional.empty();
+        String baseTableCatalogsStr = viewProperties.get(PRESTO_MATERIALIZED_VIEW_BASE_TABLE_CATALOGS);
+        if (baseTableCatalogsStr != null && !baseTableCatalogsStr.isEmpty()) {
+            baseTableCatalogs = Optional.of(deserializeBaseTableCatalogs(baseTableCatalogsStr));
+        }
+
         String columnMappingsJson = getRequiredMaterializedViewProperty(viewProperties, PRESTO_MATERIALIZED_VIEW_COLUMN_MAPPINGS);
         List<ColumnMapping> columnMappings = deserializeColumnMappings(columnMappingsJson);
 
@@ -2041,6 +2077,7 @@ public abstract class IcebergAbstractMetadata
                 storageSchema,
                 storageTableName,
                 baseTables,
+                baseTableCatalogs,
                 Optional.of(owner),
                 Optional.of(securityMode),
                 columnMappings,
@@ -2086,6 +2123,12 @@ public abstract class IcebergAbstractMetadata
                     format("Materialized view metadata not found for %s", materializedViewName));
         }
         Map<String, String> props = viewMetadata.get().getProperties();
+        boolean useTimestampBasedStaleness = isTimestampBasedStalenessEnabled(props);
+        if (useTimestampBasedStaleness) {
+            // Use timestamp-based staleness evaluation
+            return getTimestampBasedMaterializedViewStatus(session, materializedViewName, props);
+        }
+        // Use snapshot-based staleness evaluation
         String lastRefreshSnapshotStr = props.get(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID);
         if (lastRefreshSnapshotStr == null) {
             return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
@@ -2157,6 +2200,45 @@ public abstract class IcebergAbstractMetadata
                         entry -> new MaterializedViewStatus.MaterializedDataPredicates(entry.getValue(), ImmutableList.of())));
 
         return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, predicatesMap, lastFreshTime);
+    }
+
+    private MaterializedViewStatus getTimestampBasedMaterializedViewStatus(
+            ConnectorSession session,
+            SchemaTableName materializedViewName,
+            Map<String, String> props)
+    {
+        String lastRefreshTimestampStr = props.get(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_TIMESTAMP);
+        if (lastRefreshTimestampStr == null) {
+            // MV has never been refreshed
+            return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+        }
+
+        final long lastRefreshTimestampMillis;
+        try {
+            lastRefreshTimestampMillis = Long.parseLong(lastRefreshTimestampStr);
+        }
+        catch (NumberFormatException e) {
+            // Invalid metadata; force a refresh by treating as not materialized
+            log.warn("Invalid last refresh timestamp for materialized view %s: %s. Treating as NOT_MATERIALIZED.", materializedViewName, lastRefreshTimestampStr);
+            return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+        }
+
+        long currentTimestampMillis = session.getStartTime();
+        if (lastRefreshTimestampMillis > currentTimestampMillis) {
+            log.warn("Last refresh timestamp %d for materialized view %s is in the future (current time: %d). Treating as NOT_MATERIALIZED.",
+                    lastRefreshTimestampMillis, materializedViewName, currentTimestampMillis);
+            return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+        }
+
+        Duration stalenessWindow = getOptionalDurationProperty(props, PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW).orElseGet(() -> new Duration(0, TimeUnit.SECONDS));
+        long elapsedMillis = currentTimestampMillis - lastRefreshTimestampMillis;
+        if (elapsedMillis <= stalenessWindow.toMillis()) {
+            Optional<Long> lastFreshTime = Optional.of(lastRefreshTimestampMillis);
+            return new MaterializedViewStatus(FULLY_MATERIALIZED, ImmutableMap.of(), lastFreshTime);
+        }
+        else {
+            return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of());
+        }
     }
 
     private Optional<List<TupleDomain<String>>> detectChangedPartitions(
@@ -2422,8 +2504,19 @@ public abstract class IcebergAbstractMetadata
         Optional<MaterializedViewDefinition> definition = getMaterializedView(session, materializedViewName);
         Map<String, String> properties = new HashMap<>();
         properties.put(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID, String.valueOf(newSnapshotId));
+        // Update last refresh timestamp to current time in milliseconds
+        properties.put(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_TIMESTAMP, String.valueOf(session.getStartTime()));
 
-        if (definition.isPresent()) {
+        Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, materializedViewName);
+        if (!viewMetadata.isPresent()) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                        format("Materialized view metadata not found for %s", materializedViewName));
+        }
+        Map<String, String> props = viewMetadata.get().getProperties();
+        boolean useTimestampBasedStaleness = isTimestampBasedStalenessEnabled(props);
+
+        // Only capture base table snapshots if NOT using timestamp-based staleness
+        if (!useTimestampBasedStaleness && definition.isPresent()) {
             for (SchemaTableName baseTable : definition.get().getBaseTables()) {
                 try {
                     Table baseIcebergTable = getIcebergTable(session, baseTable);
@@ -2487,6 +2580,59 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
                     format("Invalid base table name format: %s. Cause: %s", json, e.getMessage()), e);
         }
+    }
+
+    private String serializeBaseTableCatalogs(List<String> catalogs)
+    {
+        try {
+            return STRING_LIST_CODEC.toJson(catalogs);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Failed to serialize base table catalogs: %s", e.getMessage()), e);
+        }
+    }
+
+    private List<String> deserializeBaseTableCatalogs(String json)
+    {
+        try {
+            return STRING_LIST_CODEC.fromJson(json);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
+                    format("Invalid base table catalogs format: %s. Cause: %s", json, e.getMessage()), e);
+        }
+    }
+
+    private void validateCrossCatalogMaterializedView(
+            ConnectorSession session,
+            MaterializedViewDefinition viewDefinition,
+            SchemaTableName viewName,
+            Map<String, Object> materializedViewProperties)
+    {
+        if (!viewDefinition.getBaseTableCatalogs().isPresent()) {
+            return;
+        }
+
+        List<String> baseTableCatalogs = viewDefinition.getBaseTableCatalogs().get();
+        List<SchemaTableName> baseTables = viewDefinition.getBaseTables();
+        String viewCatalogName = getCatalogName(session);
+        boolean crossCatalogEnabled = getCrossCatalogMaterializedViewsEnabled(materializedViewProperties).orElse(false);
+        if (!crossCatalogEnabled) {
+            for (int i = 0; i < baseTables.size(); i++) {
+                if (!viewCatalogName.equals(baseTableCatalogs.get(i))) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cross-catalog materialized views are not enabled. " +
+                                            "Materialized view %s cannot be created from a base table %s in a different catalog %s.",
+                                    viewName, baseTables.get(i), baseTableCatalogs.get(i)));
+                }
+            }
+        }
+    }
+
+    private boolean isTimestampBasedStalenessEnabled(Map<String, String> props)
+    {
+        return Boolean.parseBoolean(props.getOrDefault(PRESTO_MATERIALIZED_VIEW_USE_TIMESTAMP_BASED_STALENESS, "false"));
     }
 
     private static String getBaseTableViewPropertyName(SchemaTableName baseTable)

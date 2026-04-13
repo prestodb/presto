@@ -42,6 +42,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -125,19 +127,27 @@ public class CreateMaterializedViewTask
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
 
-        List<SchemaTableName> baseTables = analysis.getTableNodes().stream()
-                .map(table -> {
-                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
-                    if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
-                        throw new SemanticException(
-                                NOT_SUPPORTED,
-                                statement,
-                                "Materialized view %s created from a base table in a different catalog %s is not supported.",
-                                viewName, tableName);
-                    }
+        List<String> baseTableCatalogsList = new ArrayList<>();
+        Map<String, QualifiedObjectName> uniqueTables = new LinkedHashMap<>();
+        analysis.getTableNodes().forEach(table -> {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
+            if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
+                if (isLegacyMaterializedViews(session)) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            statement,
+                            "Cross-catalog materialized views require legacy_materialized_views=false. ",
+                            viewName, tableName);
+                }
+            }
+            String key = String.format("%s.%s.%s", tableName.getCatalogName(), tableName.getSchemaName(), tableName.getObjectName());
+            uniqueTables.putIfAbsent(key, tableName);
+        });
+        List<SchemaTableName> baseTables = uniqueTables.values().stream()
+                .map(tableName -> {
+                    baseTableCatalogsList.add(tableName.getCatalogName());
                     return toSchemaTableName(tableName);
                 })
-                .distinct()
                 .collect(toImmutableList());
 
         MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
@@ -164,6 +174,7 @@ public class CreateMaterializedViewTask
                 viewName.getSchemaName(),
                 viewName.getObjectName(),
                 baseTables,
+                Optional.of(baseTableCatalogsList),
                 owner,
                 securityMode,
                 extractor.getMaterializedViewColumnMappings(),

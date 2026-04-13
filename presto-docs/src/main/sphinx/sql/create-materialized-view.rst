@@ -91,7 +91,46 @@ Create a materialized view with staleness configuration::
     GROUP BY date_trunc('day', order_date), region
 
 
-The optional ``staleness_window`` parameter defines how long stale data is acceptable and allows duration values in hours, minutes, or seconds (for example: 1hr, 30m).
+The optional ``staleness_window`` parameter defines how long stale data is acceptable and allows duration values in hours, minutes, or seconds (for example: ``1h``, ``30m``).
+
+Timestamp-Based Staleness Detection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To create materialized views from non-Iceberg tables, where snapshot comparison is not feasible, you can enable timestamp-based staleness detection using the ``use_timestamp_based_staleness`` property.
+
+* The ``use_timestamp_based_staleness`` property accepts a boolean value: ``true`` or ``false``
+* This mode is automatically enabled when ``cross_catalog_materialized_views_enabled`` is set to ``true``
+
+**Limitations**
+
+* Timestamp-based staleness does not track individual base table modifications, only the time since last refresh
+
+Create a materialized view with timestamp-based staleness detection::
+
+    CREATE MATERIALIZED VIEW daily_sales_timestamp
+    WITH (
+        use_timestamp_based_staleness = true,
+        staleness_window = '2h'
+    )
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           region,
+           SUM(amount) AS total_sales
+    FROM orders
+    GROUP BY date_trunc('day', order_date), region
+
+Create a cross-catalog materialized view with timestamp-based staleness::
+
+    CREATE MATERIALIZED VIEW iceberg.analytics.cross_catalog_sales
+    WITH (
+        cross_catalog_materialized_views_enabled = true,
+        staleness_window = '1h'
+    )
+    AS
+    SELECT date_trunc('day', order_date) AS day,
+           SUM(amount) AS total_sales
+    FROM mysql.sales.orders
+    GROUP BY date_trunc('day', order_date)
 
 Create a materialized view with connector properties::
 
