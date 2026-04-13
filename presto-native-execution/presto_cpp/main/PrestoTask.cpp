@@ -845,6 +845,14 @@ void PrestoTask::updateTimeInfoLocked(
   if (dppOpComplete > 0) {
     taskRuntimeStats["dppSnapshotsOperatorCompleted"].addValue(dppOpComplete);
   }
+  const auto dppSent = dppResponsesSentWithData_.load();
+  if (dppSent > 0) {
+    taskRuntimeStats["dppResponsesSentWithData"].addValue(dppSent);
+  }
+  const auto dppDropped = dppResponsesDroppedExpired_.load();
+  if (dppDropped > 0) {
+    taskRuntimeStats["dppResponsesDroppedExpired"].addValue(dppDropped);
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(

@@ -261,6 +261,16 @@ struct PrestoTask {
   /// state so waiters re-snapshot and observe operatorCompleted=true.
   void wakeDynamicFilterWaiters(int64_t version);
 
+  /// TODO(dpp): Temporary — increment diagnostic counters for HTTP
+  /// response delivery. REVERT when DPP bug is fixed.
+  void recordDppResponseMetric(bool expired) {
+    if (expired) {
+      dppResponsesDroppedExpired_.fetch_add(1);
+    } else {
+      dppResponsesSentWithData_.fetch_add(1);
+    }
+  }
+
  private:
   // Dynamic filter storage.
   struct VersionedFilter {
@@ -301,6 +311,10 @@ struct PrestoTask {
   // If == 0, the C++ snapshot never had filter data at request time.
   std::atomic<int64_t> dppSnapshotsWithFilterData_{0};
   std::atomic<int64_t> dppSnapshotsOperatorCompleted_{0};
+  // Count of HTTP responses with filter data that were ACTUALLY SENT
+  // vs DROPPED because requestExpired() was true (client disconnected).
+  std::atomic<int64_t> dppResponsesSentWithData_{0};
+  std::atomic<int64_t> dppResponsesDroppedExpired_{0};
 
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.

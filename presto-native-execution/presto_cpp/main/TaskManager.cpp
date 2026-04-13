@@ -1590,6 +1590,16 @@ void TaskManager::removeDynamicFiltersThrough(
   }
 }
 
+void TaskManager::incrementDppResponseMetric(
+    const TaskId& taskId,
+    bool expired) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it != taskMap->end()) {
+    it->second->recordDppResponseMetric(expired);
+  }
+}
+
 bool TaskManager::addExternalDynamicFilter(
     const TaskId& taskId,
     const std::string& filterId,

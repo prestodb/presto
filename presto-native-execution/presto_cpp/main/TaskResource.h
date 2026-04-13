@@ -117,6 +117,7 @@ class TaskResource {
   VeloxPlanValidator* const planValidator_;
 
   TaskManager& taskManager_;
+
 };
 
 } // namespace facebook::presto
