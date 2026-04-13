@@ -164,8 +164,18 @@ void extractAndDeliverFilters(
             // Integer types: int64 range is valid.
             hasFilterableHasher = true;
             allDiscrete = false;
+            VLOG(1) << "DPP range fallback: type="
+                    << channel.type->toString()
+                    << " min=" << hasher->min()
+                    << " max=" << hasher->max();
             auto lo = toTypedVariant(hasher->min(), channel.type);
             auto hi = toTypedVariant(hasher->max(), channel.type);
+            VELOX_CHECK(
+                !lo.isNull() && !hi.isNull(),
+                "toTypedVariant produced null from hasher min={} max={} type={}",
+                hasher->min(),
+                hasher->max(),
+                channel.type->toString());
             minValue = minValue.has_value()
                 ? std::min(minValue.value(), lo)
                 : lo;
@@ -178,6 +188,9 @@ void extractAndDeliverFilters(
             allDiscrete = false;
             auto lo = variant(hasher->minString());
             auto hi = variant(hasher->maxString());
+            VELOX_CHECK(
+                !lo.isNull() && !hi.isNull(),
+                "String range produced null variants");
             minValue = minValue.has_value()
                 ? std::min(minValue.value(), lo)
                 : lo;

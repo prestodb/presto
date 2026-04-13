@@ -49,11 +49,26 @@ protocol::Marker buildMarker(
     const velox::variant& value,
     protocol::Bound bound,
     velox::memory::MemoryPool* pool) {
+  VELOX_CHECK(
+      !value.isNull(),
+      "buildMarker received a null variant for type {} — this would produce "
+      "a Marker with getValue()=null on the Java side, causing NPE in "
+      "JoinDynamicFilter.addPartitionByFilterId",
+      veloxType->toString());
+
   protocol::Marker marker;
   marker.type = prestoType;
   marker.bound = bound;
 
   auto vector = createSingleValueVector(veloxType, value, pool);
+
+  // Verify the vector is non-null at position 0 before serializing.
+  VELOX_CHECK(
+      !vector->isNullAt(0),
+      "createSingleValueVector produced a null vector from non-null variant "
+      "for type {}",
+      veloxType->toString());
+
   auto block = std::make_shared<protocol::Block>();
   block->data = serializeVectorToBase64(vector, pool);
   marker.valueBlock = block;
@@ -124,6 +139,13 @@ protocol::TupleDomain<std::string> buildTupleDomain(
         prestoType, type, *maxValue, protocol::Bound::EXACTLY, pool);
     ranges.push_back(std::move(range));
   }
+
+  VLOG(1) << "buildTupleDomain: column=" << columnName
+          << " type=" << prestoType
+          << " discreteCount=" << discreteValues.size()
+          << " rangeCount=" << ranges.size()
+          << " hasMin=" << minValue.has_value()
+          << " hasMax=" << maxValue.has_value();
 
   // Build SortedRangeSet.
   auto sortedRangeSet = std::make_shared<protocol::SortedRangeSet>();
