@@ -322,6 +322,15 @@ VeloxToPrestoExprConverter::getRowConstructorExpression(
   result["form"] = kRowConstructor;
   result["returnType"] = getTypeSignature(constantExpr->valueVector()->type());
 
+  // Check if the ROW constant is NULL. If so, it should not be converted to
+  // ROW_CONSTRUCTOR but rather kept as a NULL ConstantExpression.
+  VELOX_CHECK(
+      !constantExpr->isNull(),
+      "getRowConstructorExpression should not be called for NULL ROW constants. "
+      "Expression type: {}, Expression string: {}. ",
+      constantExpr->type()->toString(),
+      constantExpr->toString());
+
   const auto& constVector = constantExpr->toConstantVector(pool_);
   const auto* rowVector = constVector->valueVector()->as<velox::RowVector>();
   VELOX_CHECK_NOT_NULL(
@@ -438,9 +447,9 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
     case velox::core::ExprKind::kConstant: {
       const auto* constantExpr =
           expr->asUnchecked<velox::core::ConstantTypedExpr>();
-      // ConstantTypedExpr of ROW type maps to SpecialFormExpression of type
-      // ROW_CONSTRUCTOR in Presto.
-      if (expr->type()->isRow()) {
+      // Non-NULL ConstantTypedExpr of ROW type maps to SpecialFormExpression of
+      // type ROW_CONSTRUCTOR in Presto.
+      if (expr->type()->isRow() && !constantExpr->isNull()) {
         return getRowConstructorExpression(constantExpr);
       }
       return getConstantExpression(constantExpr);

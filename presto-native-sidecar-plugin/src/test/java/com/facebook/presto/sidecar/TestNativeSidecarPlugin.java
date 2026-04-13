@@ -772,6 +772,11 @@ public class TestNativeSidecarPlugin
                         "(4, 4, 'O'), " +
                         "(6, 6, 'F'), " +
                         "(7, 7, 'O')");
+
+        assertQueryWithSameQueryRunner(session, "SELECT CAST(NULL AS ROW(s1 VARCHAR, s2 VARCHAR))", "SELECT NULL");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT IF (0 = 0, NULL, ROW(regionkey, 1)) FROM region",
+                "VALUES (NULL), (NULL), (NULL), (NULL), (NULL)");
     }
 
     @Test
