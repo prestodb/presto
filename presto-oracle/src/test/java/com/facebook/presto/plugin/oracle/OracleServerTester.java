@@ -14,7 +14,6 @@
 package com.facebook.presto.plugin.oracle;
 
 import org.testcontainers.containers.OracleContainer;
-import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
@@ -38,7 +37,7 @@ public class OracleServerTester
 
     public OracleServerTester()
     {
-        super(DockerImageName.parse("wnameless/oracle-xe-11g-r2"));
+        super("wnameless/oracle-xe-11g-r2");
 
         withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
 
