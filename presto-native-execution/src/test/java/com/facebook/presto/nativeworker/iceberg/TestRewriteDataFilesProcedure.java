@@ -312,10 +312,7 @@ public class TestRewriteDataFilesProcedure
         assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
         //The number of data files is 10, and the number of delete files is 0
-        MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-        assertEquals(result.getOnlyValue(), 10L);
-        result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-        assertEquals(result.getOnlyValue(), 0L);
+        validateDataFilesAndDeleteFiles(tableName, 10L, 0L);
     }
 
     private void createNonPartitionedTableWithInitialDataAndValidate(String tableName)
@@ -330,10 +327,7 @@ public class TestRewriteDataFilesProcedure
         assertUpdate("INSERT INTO " + tableName + " values(9, 'foo'), (10, 'bar')", 2);
 
         //The number of data files is 5, and the number of delete files is 0
-        MaterializedResult result = getExpectedQueryRunner().execute(getSession(), "select count(*) from \"" + tableName + "$files\"", ImmutableList.of(BigintType.BIGINT));
-        assertEquals(result.getOnlyValue(), 5L);
-        result = getExpectedQueryRunner().execute(getSession(), "select count(distinct \"$delete_file_path\") from " + tableName, ImmutableList.of(BigintType.BIGINT));
-        assertEquals(result.getOnlyValue(), 0L);
+        validateDataFilesAndDeleteFiles(tableName, 5L, 0L);
     }
 
     private void validateDataFilesAndDeleteFiles(String tableName, long dataFiles, long deleteFiles)
