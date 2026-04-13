@@ -60,6 +60,7 @@ import static com.facebook.presto.common.type.StandardTypes.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.StandardTypes.SETDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
@@ -97,6 +98,7 @@ public class NativeTypeManager
                     HYPER_LOG_LOG,
                     K_HYPER_LOG_LOG,
                     P4_HYPER_LOG_LOG,
+                    SETDIGEST,
                     JSON,
                     TIME_WITH_TIME_ZONE,
                     TIMESTAMP_WITH_TIME_ZONE,
