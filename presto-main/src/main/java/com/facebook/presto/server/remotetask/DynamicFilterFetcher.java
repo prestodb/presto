@@ -289,9 +289,8 @@ public class DynamicFilterFetcher
             errorTracker.requestFailed(cause);
         }
         catch (PrestoException e) {
-            // Too many failures; query continues without DPP (filter times out to all())
-            log.warn(e, "Giving up on dynamic filter fetch for task %s, stopping fetcher", taskId);
             stop();
+            onFatal.accept(e);
             return;
         }
 
