@@ -47,7 +47,7 @@ public class NativeArraySqlFunctions
     @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
     @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
     @TypeParameter("T")
-    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(T, T, bigint)")})
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "int"), @SqlParameter(name = "f", type = "function(T, T, int)")})
     @SqlType("array<T>")
     public static String arrayTopNComparator()
     {

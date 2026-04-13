@@ -316,7 +316,7 @@ public class TestNativeSidecarPlugin
         // These function signatures are only supported in the native execution engine
         assertQuerySucceeds("select array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)], x -> x[2])");
         assertQuerySucceeds("SELECT array_sort(quantities, x -> abs(x)) FROM orders_ex");
-        assertQuerySucceeds("SELECT array_sort(quantities, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) FROM orders_ex");
+        assertQuery("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex");
 
         assertQuery("SELECT array_sort(map_keys(map_union(quantity_by_linenumber))) FROM orders_ex");
         assertQuery("SELECT filter(quantities, q -> q > 10) FROM orders_ex");
@@ -616,11 +616,11 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT array_split_into_chunks(split(comment, ''), 2) from nation");
         assertQuery("SELECT array_least_frequent(quantities) from orders_ex");
         assertQuery("SELECT array_least_frequent(split(comment, ''), 5) from nation");
-        assertQuerySucceeds("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders");
+        assertQuery("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from orders");
 
         // Map functions
-        assertQuerySucceeds("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
-        assertQuerySucceeds("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation");
+        assertQuery("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
+        assertQuery("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
                 .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
@@ -648,18 +648,14 @@ public class TestNativeSidecarPlugin
         assertQueryFails(session,
                 "SELECT array_least_frequent(split(comment, ''), 2) from nation",
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");
-        assertQueryFails(session,
-                "SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from orders",
-                " Scalar function native\\.default\\.array_top_n not registered with arguments.*",
-                true);
 
         // Map functions
         assertQueryFails(session,
-                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_values not registered with arguments.*",
                 true);
         assertQueryFails(session,
-                "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, cast(1 as bigint), if (x > y, cast(-1 as bigint), cast(0 as bigint)))) from nation",
+                "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_keys not registered with arguments.*",
                 true);
     }
