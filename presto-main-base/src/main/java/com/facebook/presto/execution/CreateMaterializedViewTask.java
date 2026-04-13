@@ -23,8 +23,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -179,6 +182,9 @@ public class CreateMaterializedViewTask
 
         return immediateFuture(null);
     }
+
+    @Override
+    public void queryPermissionCheck(AccessControl accessControl, Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions) {}
 
     @Override
     public String explain(CreateMaterializedView statement, List<Expression> parameters)
