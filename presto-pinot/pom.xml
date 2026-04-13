@@ -19,7 +19,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.datasketches-java.version>6.1.1</dep.datasketches-java.version>
         <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
-        <dep.log4j.version>2.25.3</dep.log4j.version>
+        <dep.log4j.version>2.25.4</dep.log4j.version>
     </properties>
 
     <dependencyManagement>
