@@ -2,3 +2,8 @@ rules:
   dangerous-triggers:
     ignore:
       - codenotify.yml
+      - velox-advance-pr-check.yml
+  template-injection:
+    ignore:
+      - velox-advance-pr-create.yml
+      - velox-advance-pr-check.yml
