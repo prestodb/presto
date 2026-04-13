@@ -35,6 +35,8 @@ public class TestPrestoContainerRemoteFunction
                 ContainerQueryRunner.TPCH_CATALOG,
                 ContainerQueryRunner.TINY_SCHEMA,
                 ContainerQueryRunner.DEFAULT_NUMBER_OF_WORKERS,
+                true,
+                false,
                 ContainerQueryRunner.DEFAULT_FUNCTION_SERVER_PORT,
                 true);
     }
