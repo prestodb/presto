@@ -781,14 +781,30 @@ void PrestoServer::stopAnnouncer() {
 }
 
 void PrestoServer::joinExecutors() {
+  // Join exchange HTTP CPU executor first. Exchange CPU threads run
+  // PrestoExchangeSource::handleDataResponse which dispatches callbacks to
+  // driverExecutor_ (MonitoredExecutor) via ExchangeClient. We must drain
+  // these threads before destroying driverExecutor_ to avoid use-after-free.
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http CPU executor '"
+      << exchangeHttpCpuExecutor_->getName()
+      << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
+      << exchangeHttpCpuExecutor_->numThreads();
+  exchangeHttpCpuExecutor_->join();
+
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Joining Driver CPU Executor '" << driverCpuExecutor_->getName()
       << "': threads: " << driverCpuExecutor_->numActiveThreads() << "/"
       << driverCpuExecutor_->numThreads()
       << ", task queue: " << driverCpuExecutor_->getTaskQueueSize();
+  driverCpuExecutor_->join();
   // Schedule release of SessionPools held by HttpClients before the exchange
   // HTTP IO executor threads are joined.
   driverExecutor_.reset();
+
+  // Release exchange CPU executor resources after driverExecutor_ is reset,
+  // before exchange IO threads are joined.
+  exchangeHttpCpuExecutor_.reset();
 
   if (connectorCpuExecutor_) {
     PRESTO_SHUTDOWN_LOG(INFO)
@@ -823,16 +839,6 @@ void PrestoServer::joinExecutors() {
         << httpSrvIoExecutor_->numThreads();
     httpSrvIoExecutor_->join();
   }
-
-  PRESTO_SHUTDOWN_LOG(INFO)
-      << "Joining Exchange Http CPU executor '"
-      << exchangeHttpCpuExecutor_->getName()
-      << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
-      << exchangeHttpCpuExecutor_->numThreads();
-  exchangeHttpCpuExecutor_->join();
-  // Schedule release of SessionPools held by HttpClients before the exchange
-  // HTTP IO executor threads are joined.
-  exchangeHttpCpuExecutor_.reset();
 
   if (exchangeSourceConnectionPool_) {
     // Connection pool needs to be destroyed after CPU threads are joined but

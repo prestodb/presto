@@ -21,6 +21,7 @@ add_executable(
   PrestoToVeloxQueryConfigTest.cpp
   QueryContextCacheTest.cpp
   ServerOperationTest.cpp
+  ShutdownOrderTest.cpp
   TaskManagerTest.cpp
   QueryContextManagerTest.cpp
   TaskInfoTest.cpp
