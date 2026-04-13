@@ -19,12 +19,12 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.CommitTaskData;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
-import com.facebook.presto.iceberg.IcebergProcedureContext;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
+import com.facebook.presto.iceberg.procedure.context.IcebergRewriteDataFilesProcedureContext;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -49,7 +49,6 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.types.Type;
 
 import javax.inject.Inject;
@@ -60,17 +59,22 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.function.Consumer;
 
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
+import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMaxFileSize;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMinFileSize;
+import static com.facebook.presto.iceberg.IcebergUtil.parseMinInputFiles;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
@@ -109,16 +113,39 @@ public class RewriteDataFilesProcedure
                         new Argument("filter", VARCHAR, false, "TRUE"),
                         new Argument("sorted_by", "array(varchar)", false, null),
                         new Argument("options", "map(varchar, varchar)", false, null)),
-                (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
-                ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergProcedureContext) procedureContext, tableHandle, fragments)),
+                (session, procedureContext, tableLayoutHandle, arguments, sortOrderIndex) -> beginCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, (IcebergTableLayoutHandle) tableLayoutHandle, arguments, sortOrderIndex),
+                ((session, procedureContext, tableHandle, fragments) -> finishCallDistributedProcedure(session, (IcebergRewriteDataFilesProcedureContext) procedureContext, tableHandle, fragments)),
                 arguments -> {
-                    checkArgument(arguments.length == 2, format("invalid number of arguments: %s (should have %s)", arguments.length, 2));
+                    // Context provider receives [Table, Transaction, procedureArguments]
+                    checkArgument(arguments.length >= 2, format("invalid number of arguments: %s (should have at least %s)", arguments.length, 2));
                     checkArgument(arguments[0] instanceof Table && arguments[1] instanceof Transaction, "Invalid arguments, required: [Table, Transaction]");
-                    return new IcebergProcedureContext((Table) arguments[0], (Transaction) arguments[1]);
+
+                    // Extract and validate options from procedure arguments if present
+                    Map<String, String> options = extractAndValidateOptions(arguments);
+
+                    return new IcebergRewriteDataFilesProcedureContext((Table) arguments[0], (Transaction) arguments[1], options);
                 });
     }
 
-    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
+    private static Map<String, String> extractAndValidateOptions(Object[] contextProviderArgs)
+    {
+        Map<String, String> options = ImmutableMap.of();
+        if (contextProviderArgs.length > 2 && contextProviderArgs[2] instanceof Object[]) {
+            Object[] procedureArgs = (Object[]) contextProviderArgs[2];
+            // Options is the 5th procedure parameter (index 4)
+            if (procedureArgs.length > 4 && procedureArgs[4] != null && procedureArgs[4] instanceof Map) {
+                options = (Map<String, String>) procedureArgs[4];
+
+                // Validate options if present using utility methods
+                parseMinInputFiles(options);
+                parseMinFileSize(options);
+                parseMaxFileSize(options);
+            }
+        }
+        return options;
+    }
+
+    private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
@@ -168,7 +195,7 @@ public class RewriteDataFilesProcedure
         }
     }
 
-    private void finishCallDistributedProcedure(ConnectorSession session, IcebergProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
+    private void finishCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, ConnectorDistributedProcedureHandle procedureHandle, Collection<Slice> fragments)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             IcebergDistributedProcedureHandle handle = (IcebergDistributedProcedureHandle) procedureHandle;
@@ -206,35 +233,30 @@ public class RewriteDataFilesProcedure
             if (tableHandle.getIcebergTableName().getSnapshotId().isPresent()) {
                 TupleDomain<IcebergColumnHandle> predicate = layoutHandle.getValidPredicate();
 
-                Consumer<FileScanTask> fileScanTaskConsumer = (task) -> {
-                    scannedDataFiles.add(task.file());
-                    if (!task.deletes().isEmpty()) {
-                        task.deletes().forEach(deleteFile -> {
-                            if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
-                                    !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
-                                    !predicate.isAll()) {
-                                // Equality files with an unpartitioned spec are applied as global deletes
-                                //  So they should not be cleaned up unless the whole table is optimized
-                                return;
-                            }
-                            fullyAppliedDeleteFiles.add(deleteFile);
-                        });
-                    }
-                };
-
                 TableScan tableScan = procedureContext.getTable().newScan()
                         .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                         .filter(toIcebergExpression(predicate))
                         .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
-                CloseableIterable<FileScanTask> fileScanTaskIterable = tableScan.planFiles();
-                CloseableIterator<FileScanTask> fileScanTaskIterator = fileScanTaskIterable.iterator();
-                fileScanTaskIterator.forEachRemaining(fileScanTaskConsumer);
-                try {
-                    fileScanTaskIterable.close();
-                    fileScanTaskIterator.close();
-                    // TODO: remove this after org.apache.iceberg.io.CloseableIterator'withClose
-                    //  correct release resources holds by iterator.
-                    fileScanTaskIterator = CloseableIterator.empty();
+
+                Map<String, String> options = procedureContext.getOptions();
+                // Apply filtering using options
+                try (CloseableIterable<FileScanTask> fileScanTaskIterable = filterByGroup(filterByFile(tableScan.planFiles(), options), options)) {
+                    // Collect files and delete files from filtered tasks
+                    for (FileScanTask task : fileScanTaskIterable) {
+                        scannedDataFiles.add(task.file());
+                        if (!task.deletes().isEmpty()) {
+                            task.deletes().forEach(deleteFile -> {
+                                if (deleteFile.content() == FileContent.EQUALITY_DELETES &&
+                                        !icebergTable.specs().get(deleteFile.specId()).isPartitioned() &&
+                                        !predicate.isAll()) {
+                                    // Equality files with an unpartitioned spec are applied as global deletes
+                                    //  So they should not be cleaned up unless the whole table is optimized
+                                    return;
+                                }
+                                fullyAppliedDeleteFiles.add(deleteFile);
+                            });
+                        }
+                    }
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);

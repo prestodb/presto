@@ -28,6 +28,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
 import java.io.IOException;
@@ -73,15 +74,24 @@ public class IcebergSplitSource
             TableScan tableScan,
             TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
+        this(session, getTargetSplitSize(session, tableScan).toBytes(), tableScan.planFiles(), metadataColumnConstraints);
+    }
+
+    public IcebergSplitSource(
+            ConnectorSession session,
+            long targetSplitSize,
+            CloseableIterable<FileScanTask> fileScanTasks,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
-        this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
+        this.targetSplitSize = targetSplitSize;
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
         this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
-                        closer.register(tableScan.planFiles()),
+                        closer.register(fileScanTasks),
                         targetSplitSize)
                         .iterator());
     }

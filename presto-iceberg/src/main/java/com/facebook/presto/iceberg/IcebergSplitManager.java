@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.changelog.ChangelogSplitSource;
 import com.facebook.presto.iceberg.equalitydeletes.EqualityDeletesSplitSource;
+import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -36,6 +37,7 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -75,6 +77,10 @@ public class IcebergSplitManager
             SplitSchedulingContext splitSchedulingContext)
     {
         IcebergTableLayoutHandle layoutHandle = (IcebergTableLayoutHandle) layout;
+
+        IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) transactionManager.get(transaction);
+        Optional<IcebergCommonProcedureContext> procedureContext = metadata.getProcedureContext();
+
         IcebergTableHandle table = layoutHandle.getTable();
 
         if (!table.getIcebergTableName().getSnapshotId().isPresent()) {
@@ -84,7 +90,7 @@ public class IcebergSplitManager
         TupleDomain<IcebergColumnHandle> predicate = getNonMetadataColumnConstraints(layoutHandle
                 .getValidPredicate());
 
-        Table icebergTable = getIcebergTable(transactionManager.get(transaction), session, table.getSchemaTableName());
+        Table icebergTable = getIcebergTable(metadata, session, table.getSchemaTableName());
 
         if (table.getIcebergTableName().getTableType() == CHANGELOG) {
             // if the snapshot isn't specified, grab the oldest available version of the table
@@ -116,11 +122,13 @@ public class IcebergSplitManager
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
             //      propagate it at split level so the parquet pushdown can leverage it.
-            IcebergSplitSource splitSource = new IcebergSplitSource(
-                    session,
-                    tableScan,
-                    getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
-            return splitSource;
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints = getMetadataColumnConstraints(layoutHandle.getValidPredicate());
+            return procedureContext
+                    .flatMap(context -> context.customizeSplitSource(session, tableScan, metadataColumnConstraints))
+                    .orElseGet(() -> new IcebergSplitSource(
+                            session,
+                            tableScan,
+                            metadataColumnConstraints));
         }
     }
 

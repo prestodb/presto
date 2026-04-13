@@ -35,6 +35,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
@@ -153,6 +154,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -315,7 +317,7 @@ public abstract class IcebergAbstractMetadata
     protected final NodeVersion nodeVersion;
     protected final RowExpressionService rowExpressionService;
     protected final FilterStatsCalculatorService filterStatsCalculatorService;
-    protected Optional<IcebergProcedureContext> procedureContext = Optional.empty();
+    protected final AtomicReference<IcebergCommonProcedureContext> procedureContext = new AtomicReference<>();
     protected final IcebergTransactionContext transactionContext;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
@@ -379,9 +381,9 @@ public abstract class IcebergAbstractMetadata
 
     public abstract void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName);
 
-    public Optional<IcebergProcedureContext> getProcedureContext()
+    public Optional<IcebergCommonProcedureContext> getProcedureContext()
     {
-        return this.procedureContext;
+        return Optional.ofNullable(this.procedureContext.get());
     }
 
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
@@ -1477,7 +1479,8 @@ public abstract class IcebergAbstractMetadata
                         procedureName.getSchemaName(),
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
-        procedureContext = Optional.of((IcebergProcedureContext) ((DistributedProcedure) procedure).createContext(icebergTable, icebergTable.newTransaction()));
+        verify(procedureContext.compareAndSet(null, (IcebergCommonProcedureContext) ((DistributedProcedure) procedure).createContext(icebergTable, icebergTable.newTransaction(), arguments)),
+                "procedure context must not be present");
         return ((DistributedProcedure) procedure).begin(session, procedureContext.get(), tableLayoutHandle, arguments);
     }
 
@@ -1490,9 +1493,9 @@ public abstract class IcebergAbstractMetadata
                         procedureName.getSchemaName(),
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
-        verify(procedureContext.isPresent(), "procedure context must be present");
+        verify(procedureContext.get() != null, "procedure context must be present");
         ((DistributedProcedure) procedure).finish(session, procedureContext.get(), procedureHandle, fragments);
-        procedureContext = Optional.empty();
+        procedureContext.set(null);
     }
 
     @Override

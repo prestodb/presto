@@ -29,6 +29,9 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -439,6 +442,678 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1001')", tableName, TEST_SCHEMA), ".*WHERE clause must evaluate to a boolean: actual type integer");
             assertQueryFails(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a')", tableName, TEST_SCHEMA), ".*WHERE clause must evaluate to a boolean: actual type integer");
             assertQueryFails(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'n')", tableName, TEST_SCHEMA), ".*Column 'n' cannot be resolved");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMinInputFilesOption()
+    {
+        String tableName = "test_min_input_files_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+
+            // Insert data to create 3 files
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            // Test with min-input-files = 5 (should skip rewrite since we only have 3 files)
+            // When filtering prevents rewrite, no splits are generated and 0 rows are returned
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['5']))", tableName, TEST_SCHEMA), 0);
+            table.refresh();
+            // Should still have 3 files since rewrite was skipped due to min-input-files threshold
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            // Test with min-input-files = 2 (should perform rewrite since we have 3 files >= 2)
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['2']))", tableName, TEST_SCHEMA), 3);
+            table.refresh();
+            // Should have 1 file after rewrite
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Verify data integrity
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+    @Test
+    public void testRewriteDataFilesWithInvalidMinInputFilesOption()
+    {
+        String tableName = "test_invalid_min_input_files";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+            // Test with invalid min-input-files value (not a number)
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['invalid']))", tableName, TEST_SCHEMA),
+                    ".*min-input-files must be a valid integer.*");
+
+            // Test with min-input-files less than 1
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['0']))", tableName, TEST_SCHEMA),
+                    ".*min-input-files must be at least 1.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithPartitioningCombineAll()
+    {
+        String tableName = "test_min_input_files_partitioned_combine";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar, value varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create 3 files in partition 'A' and 3 files in partition 'B'
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A', 'val1')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'A', 'val2')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'A', 'val3')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'B', 'val4')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'B', 'val5')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'B', 'val6')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 6);
+
+            // Rewrite all partitions with min-input-files = 2 (both partitions have 3 files >= 2)
+            // This should combine all 6 files into 2 files (1 per partition)
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['2']))", tableName, TEST_SCHEMA), 6);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Verify data integrity
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'A', 'val1'), (2, 'A', 'val2'), (3, 'A', 'val3'), (4, 'B', 'val4'), (5, 'B', 'val5'), (6, 'B', 'val6')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithPartitioningSelectiveRewrite()
+    {
+        String tableName = "test_min_input_files_partitioned_selective";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar, value varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create 4 files in partition 'A', 2 files in partition 'B', and 3 files in partition 'C'
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A', 'val1')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'A', 'val2')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'A', 'val3')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'A', 'val4')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'B', 'val5')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'B', 'val6')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (7, 'C', 'val7')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (8, 'C', 'val8')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'C', 'val9')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 9);
+
+            // Rewrite with min-input-files = 3
+            // Partition A has 4 files (>= 3) - should be rewritten to 1 file
+            // Partition B has 2 files (< 3) - should NOT be rewritten (stays as 2 files)
+            // Partition C has 3 files (>= 3) - should be rewritten to 1 file
+            // Total: 4 + 3 = 7 files rewritten, resulting in 1 + 2 + 1 = 4 files total
+            // Row count now correctly returns 7 (rows from qualifying partitions) because
+            // filtering happens at split generation time
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['3']))", tableName, TEST_SCHEMA), 7);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 4);
+
+            // Verify data integrity
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'A', 'val1'), (2, 'A', 'val2'), (3, 'A', 'val3'), (4, 'A', 'val4'), (5, 'B', 'val5'), (6, 'B', 'val6'), (7, 'C', 'val7'), (8, 'C', 'val8'), (9, 'C', 'val9')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithFilterAndPartitioningSelectiveRewrite()
+    {
+        String tableName = "test_min_input_files_filter_partitioned";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar, value varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create multiple files across different partitions
+            // Partition 'A': 4 files
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A', 'val1')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'A', 'val2')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'A', 'val3')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'A', 'val4')", 1);
+            // Partition 'B': 2 files
+            assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'B', 'val5')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'B', 'val6')", 1);
+            // Partition 'C': 3 files
+            assertUpdate("INSERT INTO " + tableName + " VALUES (7, 'C', 'val7')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (8, 'C', 'val8')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'C', 'val9')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 9);
+
+            // Filter to only partitions 'A' and 'B', with min-input-files = 3
+            // Partition A has 4 files (>= 3) - should be rewritten
+            // Partition B has 2 files (< 3) - should NOT be rewritten
+            // Partition C is filtered out - not considered
+            // Result: Only partition A's 4 files are rewritten to 1 file
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'category IN (''A'', ''B'')', options => map(array['min-input-files'], array['3']))", tableName, TEST_SCHEMA), 4);
+            table.refresh();
+            // Total files: 1 (A rewritten) + 2 (B unchanged) + 3 (C unchanged) = 6
+            assertHasDataFiles(table.currentSnapshot(), 6);
+
+            // Verify data integrity
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'A', 'val1'), (2, 'A', 'val2'), (3, 'A', 'val3'), (4, 'A', 'val4'), (5, 'B', 'val5'), (6, 'B', 'val6'), (7, 'C', 'val7'), (8, 'C', 'val8'), (9, 'C', 'val9')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithDeleteFiles()
+    {
+        String tableName = "test_min_input_files_with_deletes";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+
+            // Insert multiple rows in single INSERT to create files that can have position deletes
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'a'), (2, 'b')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'c'), (4, 'd')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'e'), (6, 'f')", 2);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Delete one row to create a delete file
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 1);
+
+            // Test with min-input-files = 5
+            // We have 3 data files and 1 delete file
+            // Only data files count toward threshold, so 3 < 5, should skip rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['5']))", tableName, TEST_SCHEMA), 0);
+            table.refresh();
+            // Should still have 3 data files and 1 delete file since rewrite was skipped
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 1);
+
+            // Test with min-input-files = 2
+            // We have 3 data files (>= 2), should perform rewrite
+            // Delete files should be applied during rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['2']))", tableName, TEST_SCHEMA), 5);
+            table.refresh();
+            // Should have 1 data file after rewrite, and 0 delete files (applied during rewrite)
+            assertHasDataFiles(table.currentSnapshot(), 1);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Verify data integrity - row with id=1 should be deleted
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e'), (6, 'f')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithDeleteFilesPartitioned()
+    {
+        String tableName = "test_min_input_files_deletes_partitioned";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar, value varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create 4 data files in partition 'A' and 2 data files in partition 'B'
+            // Use multi-row inserts to enable position deletes
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'A', 'val1'), (2, 'A', 'val2')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'A', 'val3'), (4, 'A', 'val4')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'A', 'val5'), (6, 'A', 'val6')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(7, 'A', 'val7'), (8, 'A', 'val8')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(9, 'B', 'val9'), (10, 'B', 'val10')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(11, 'B', 'val11'), (12, 'B', 'val12')", 2);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 6);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Delete rows to create delete files in both partitions
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 9", 1);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 6);
+            assertHasDeleteFiles(table.currentSnapshot(), 2);
+
+            // Rewrite with min-input-files = 3
+            // Partition A: 4 data files + 1 delete file, but only 4 data files count (>= 3) - should rewrite
+            // Partition B: 2 data files + 1 delete file, but only 2 data files count (< 3) - should NOT rewrite
+            // Result: 7 rows from partition A (after applying delete)
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['3']))", tableName, TEST_SCHEMA), 7);
+            table.refresh();
+            // Partition A: 1 data file, 0 delete files (rewritten and delete applied)
+            // Partition B: 2 data files, 1 delete file (unchanged)
+            // Total: 3 data files, 1 delete file
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 1);
+
+            // Verify data integrity
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'A', 'val2'), (3, 'A', 'val3'), (4, 'A', 'val4'), (5, 'A', 'val5'), (6, 'A', 'val6'), (7, 'A', 'val7'), (8, 'A', 'val8'), (10, 'B', 'val10'), (11, 'B', 'val11'), (12, 'B', 'val12')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithMultipleDeleteFiles()
+    {
+        String tableName = "test_min_input_files_multiple_deletes";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+
+            // Insert data to create 2 data files with multiple rows each
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'a'), (2, 'b')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'c'), (4, 'd')", 2);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Create multiple delete files
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'e'), (6, 'f')", 2);
+            assertUpdate("DELETE FROM " + tableName + " WHERE value = 'b'", 1);
+
+            table.refresh();
+            // Should have 3 data files and 2 delete files
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 2);
+
+            // Test with min-input-files = 4
+            // We have 3 data files and 2 delete files
+            // Only 3 data files count (< 4), should skip rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['4']))", tableName, TEST_SCHEMA), 0);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 3);
+            assertHasDeleteFiles(table.currentSnapshot(), 2);
+
+            // Test with min-input-files = 3
+            // We have 3 data files (>= 3), should perform rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['3']))", tableName, TEST_SCHEMA), 4);
+            table.refresh();
+            // Should have 1 data file and 0 delete files after rewrite
+            assertHasDataFiles(table.currentSnapshot(), 1);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Verify data integrity - rows with id=1 and id=2 should be deleted
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (3, 'c'), (4, 'd'), (5, 'e'), (6, 'f')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMinInputFilesWithDeletesPartitioningAndFilter()
+    {
+        String tableName = "test_min_input_files_comprehensive";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar, subcategory varchar, value varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create multiple files across different partitions
+            // Partition 'A': 5 data files
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'A', 'X', 'val1'), (2, 'A', 'X', 'val2')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(3, 'A', 'X', 'val3'), (4, 'A', 'X', 'val4')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(5, 'A', 'Y', 'val5'), (6, 'A', 'Y', 'val6')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(7, 'A', 'Y', 'val7'), (8, 'A', 'Y', 'val8')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(9, 'A', 'Z', 'val9'), (10, 'A', 'Z', 'val10')", 2);
+            // Partition 'B': 2 data files
+            assertUpdate("INSERT INTO " + tableName + " values(11, 'B', 'X', 'val11'), (12, 'B', 'X', 'val12')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(13, 'B', 'Y', 'val13'), (14, 'B', 'Y', 'val14')", 2);
+            // Partition 'C': 4 data files
+            assertUpdate("INSERT INTO " + tableName + " values(15, 'C', 'X', 'val15'), (16, 'C', 'X', 'val16')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(17, 'C', 'Y', 'val17'), (18, 'C', 'Y', 'val18')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(19, 'C', 'Z', 'val19'), (20, 'C', 'Z', 'val20')", 2);
+            assertUpdate("INSERT INTO " + tableName + " values(21, 'C', 'Z', 'val21'), (22, 'C', 'Z', 'val22')", 2);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 11);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Delete rows to create delete files in partitions A and C
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 15", 1);
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 11);
+            assertHasDeleteFiles(table.currentSnapshot(), 2);
+
+            // Test comprehensive scenario:
+            // - Filter: category IN ('A', 'B') - excludes partition C
+            // - min-input-files: 3
+            // - Partition A: 5 data files + 1 delete file, 5 >= 3 - should rewrite (9 rows after delete)
+            // - Partition B: 2 data files + 0 delete files, 2 < 3 - should NOT rewrite
+            // - Partition C: filtered out by WHERE clause - not considered
+            // Result: Only partition A's 9 rows (after applying delete) should be rewritten
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'category IN (''A'', ''B'')', options => map(array['min-input-files'], array['3']))", tableName, TEST_SCHEMA), 9);
+            table.refresh();
+            // Partition A: 1 data file, 0 delete files (rewritten and delete applied)
+            // Partition B: 2 data files, 0 delete files (unchanged)
+            // Partition C: 4 data files, 1 delete file (unchanged, filtered out)
+            // Total: 7 data files, 1 delete file
+            assertHasDataFiles(table.currentSnapshot(), 7);
+            assertHasDeleteFiles(table.currentSnapshot(), 1);
+
+            // Verify data integrity - both deletes are visible in queries (Iceberg applies delete files during reads)
+            // row with id=1 deleted (applied during rewrite of A), row with id=15 deleted (delete file still exists for C)
+            assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 20");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'A'", "VALUES 9");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'B'", "VALUES 4");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'C'", "VALUES 7");
+
+            // Now rewrite partition C with min-input-files = 4 (it has 4 files, exactly at threshold)
+            // Returns 7 rows (the actual data after applying the delete file for id=15)
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'category = ''C''', options => map(array['min-input-files'], array['4']))", tableName, TEST_SCHEMA), 7);
+            table.refresh();
+            // Partition A: 1 data file, 0 delete files
+            // Partition B: 2 data files, 0 delete files
+            // Partition C: 1 data file, 0 delete files (rewritten and delete applied)
+            // Total: 4 data files, 0 delete files
+            assertHasDataFiles(table.currentSnapshot(), 4);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            // Verify final data integrity - both deletes fully applied (delete files removed)
+            assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 20");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'A'", "VALUES 9");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'B'", "VALUES 4");
+            assertQuery("SELECT COUNT(*) FROM " + tableName + " WHERE category = 'C'", "VALUES 7");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+    @Test
+    public void testRewriteDataFilesWithMinFileSizeBytes()
+    {
+        String tableName = "test_min_file_size_bytes";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, data varchar)");
+
+            // Create two small files with 1 row each
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+            // Create one large file with many rows
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(3, 'data'), (4, 'data'), (5, 'data'), (6, 'data'), (7, 'data'), " +
+                    "(8, 'data'), (9, 'data'), (10, 'data'), (11, 'data'), (12, 'data')", 10);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            // Get actual file sizes to determine appropriate threshold
+            List<Long> fileSizes = new ArrayList<>();
+            for (FileScanTask task : table.newScan().planFiles()) {
+                fileSizes.add(task.file().fileSizeInBytes());
+            }
+            Collections.sort(fileSizes);
+
+            // Use a threshold between the small files and the large file
+            // fileSizes should be: [small, small, large]
+            long threshold = (fileSizes.get(1) + fileSizes.get(2)) / 2;
+
+            // min-file-size-bytes filters files BELOW threshold (too small)
+            // Should select the two small files and combine them
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-file-size-bytes'], array['%d']))",
+                    TEST_SCHEMA, tableName, threshold), 2);
+
+            table.refresh();
+            // Two small files combined into one, large file unchanged = 2 total files
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'a'), (2, 'b'), (3, 'data'), (4, 'data'), (5, 'data'), " +
+                    "(6, 'data'), (7, 'data'), (8, 'data'), (9, 'data'), (10, 'data'), (11, 'data'), (12, 'data')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMaxFileSizeBytes()
+    {
+        String tableName = "test_max_file_size_bytes";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, data varchar)");
+
+            // Create one small file and two large files
+            // Small file
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            // Two large files with many rows each
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(2, 'data'), (3, 'data'), (4, 'data'), (5, 'data'), (6, 'data')", 5);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(7, 'data'), (8, 'data'), (9, 'data'), (10, 'data'), (11, 'data')", 5);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            // Get actual file sizes to determine appropriate threshold
+            List<Long> fileSizes = new ArrayList<>();
+            for (FileScanTask task : table.newScan().planFiles()) {
+                fileSizes.add(task.file().fileSizeInBytes());
+            }
+            Collections.sort(fileSizes);
+
+            // Use a threshold between the small file and the large files
+            // fileSizes should be: [small, large, large]
+            long threshold = (fileSizes.get(0) + fileSizes.get(1)) / 2;
+
+            // max-file-size-bytes filters files ABOVE threshold (too large)
+            // Should select the two large files and combine them
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['max-file-size-bytes'], array['%d']))",
+                    TEST_SCHEMA, tableName, threshold), 10);
+
+            table.refresh();
+            // Two large files combined into one, small file unchanged = 2 total files
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'a'), (2, 'data'), (3, 'data'), (4, 'data'), (5, 'data'), " +
+                    "(6, 'data'), (7, 'data'), (8, 'data'), (9, 'data'), (10, 'data'), (11, 'data')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMinAndMaxFileSizeBytes()
+    {
+        String tableName = "test_min_and_max_file_size_bytes";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, data varchar)");
+
+            // Create files with three distinct size ranges: small, medium, large
+            // Two small files (1 row each)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+            // Two medium files (5 rows each) - these should be skipped
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(3, 'data'), (4, 'data'), (5, 'data'), (6, 'data'), (7, 'data')", 5);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(8, 'data'), (9, 'data'), (10, 'data'), (11, 'data'), (12, 'data')", 5);
+            // One large file (15 rows)
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(13, 'data'), (14, 'data'), (15, 'data'), (16, 'data'), (17, 'data'), " +
+                    "(18, 'data'), (19, 'data'), (20, 'data'), (21, 'data'), (22, 'data'), " +
+                    "(23, 'data'), (24, 'data'), (25, 'data'), (26, 'data'), (27, 'data')", 15);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 5);
+
+            // Get actual file sizes and categorize them
+            List<Long> fileSizes = new ArrayList<>();
+            for (FileScanTask task : table.newScan().planFiles()) {
+                fileSizes.add(task.file().fileSizeInBytes());
+            }
+            Collections.sort(fileSizes);
+
+            // Set thresholds to select small and large files, but skip medium files
+            // fileSizes should be: [small, small, medium, medium, large]
+            long minThreshold = (fileSizes.get(1) + fileSizes.get(2)) / 2; // Between small and medium
+            long maxThreshold = (fileSizes.get(3) + fileSizes.get(4)) / 2; // Between medium and large
+
+            // min-file-size-bytes selects files < minThreshold (the 2 small files)
+            // max-file-size-bytes selects files > maxThreshold (the 1 large file)
+            // Medium files should be skipped (not too small, not too large)
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-file-size-bytes', 'max-file-size-bytes'], array['%d', '%d']))",
+                    TEST_SCHEMA, tableName, minThreshold, maxThreshold), 17);
+
+            table.refresh();
+            // 2 small files + 1 large file -> 1 combined file
+            // 2 medium files remain unchanged
+            // Total: 3 files
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'a'), (2, 'b'), (3, 'data'), (4, 'data'), (5, 'data'), " +
+                    "(6, 'data'), (7, 'data'), (8, 'data'), (9, 'data'), (10, 'data'), " +
+                    "(11, 'data'), (12, 'data'), (13, 'data'), (14, 'data'), (15, 'data'), " +
+                    "(16, 'data'), (17, 'data'), (18, 'data'), (19, 'data'), (20, 'data'), " +
+                    "(21, 'data'), (22, 'data'), (23, 'data'), (24, 'data'), (25, 'data'), " +
+                    "(26, 'data'), (27, 'data')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMinInputFilesAndFileSizeOptions()
+    {
+        String tableName = "test_min_input_files_and_file_size";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Partition 'A': 3 small files + 1 large file (meets min-input-files>=3 and has small files)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(4, 'A'), (5, 'A'), (6, 'A'), (7, 'A'), (8, 'A')", 5);
+            // Partition 'B': 2 small files (has small files but doesn't meet min-input-files>=3)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'B')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (10, 'B')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 6);
+
+            // Get file sizes to set threshold that selects small files
+            List<Long> allFileSizes = new ArrayList<>();
+            for (FileScanTask task : table.newScan().planFiles()) {
+                allFileSizes.add(task.file().fileSizeInBytes());
+            }
+            Collections.sort(allFileSizes);
+            // allFileSizes should be: [small_A, small_A, small_A, small_B, small_B, large_A]
+            // Set threshold between small and large files
+            long threshold = (allFileSizes.get(4) + allFileSizes.get(5)) / 2;
+
+            // Combine min-input-files=3 with min-file-size-bytes
+            // File size filter selects: small files from A (3) and small files from B (2)
+            // Group filter then selects: only files from partitions with >= 3 files (partition A only)
+            // Result: Only partition A's 3 small files are rewritten
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-input-files', 'min-file-size-bytes'], array['3', '%d']))",
+                    TEST_SCHEMA, tableName, threshold), 3);
+
+            table.refresh();
+            // Partition 'A': 3 small files -> 1 file, large file unchanged
+            // Partition 'B': 2 small files unchanged (doesn't meet min-input-files>=3)
+            // Total: 4 files
+            assertHasDataFiles(table.currentSnapshot(), 4);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'A'), (2, 'A'), (3, 'A'), (4, 'A'), (5, 'A'), (6, 'A'), (7, 'A'), (8, 'A'), (9, 'B'), (10, 'B')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithAllOptionsCombined()
+    {
+        String tableName = "test_all_options_combined";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, category varchar) WITH (partitioning = ARRAY['category'])");
+
+            // Create multiple files with varying sizes in different partitions
+            // Partition 'A': 3 small files + 1 medium file + 1 very large file (meets min-input-files>=3)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'A')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(4, 'A'), (5, 'A'), (6, 'A'), (7, 'A'), (8, 'A')", 5);
+            // Very large file with many rows
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(9, 'A'), (10, 'A'), (11, 'A'), (12, 'A'), (13, 'A'), " +
+                    "(14, 'A'), (15, 'A'), (16, 'A'), (17, 'A'), (18, 'A'), " +
+                    "(19, 'A'), (20, 'A'), (21, 'A'), (22, 'A'), (23, 'A')", 15);
+            // Partition 'B': 2 small files (doesn't meet min-input-files>=3)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (24, 'B')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (25, 'B')", 1);
+            // Partition 'C': 1 file (not in filter)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (26, 'C')", 1);
+
+            // Add deletes
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 25", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 8);
+            assertHasDeleteFiles(table.currentSnapshot(), 2);
+
+            // Dynamically determine file size thresholds based on actual file sizes
+            List<Long> partitionAFileSizes = new ArrayList<>();
+            for (FileScanTask task : table.newScan().planFiles()) {
+                String partition = task.file().partition().get(0, String.class);
+                if (partition.equals("A")) {
+                    partitionAFileSizes.add(task.file().fileSizeInBytes());
+                }
+            }
+            Collections.sort(partitionAFileSizes);
+
+            // Set thresholds to select 3 smallest files and 1 largest file
+            long minThreshold = partitionAFileSizes.get(2) + 1;
+            long maxThreshold = partitionAFileSizes.get(4) - 1;
+
+            // Rewrite with all options: filter, min-input-files, min-file-size-bytes, max-file-size-bytes
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', filter => 'category IN (''A'', ''B'')', options => map(array['min-input-files', 'min-file-size-bytes', 'max-file-size-bytes'], array['3', '%d', '%d']))",
+                    TEST_SCHEMA, tableName, minThreshold, maxThreshold), 17);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 5);
+            assertHasDeleteFiles(table.currentSnapshot(), 1);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'A'), (3, 'A'), (4, 'A'), (5, 'A'), (6, 'A'), (7, 'A'), (8, 'A'), " +
+                    "(9, 'A'), (10, 'A'), (11, 'A'), (12, 'A'), (13, 'A'), (14, 'A'), (15, 'A'), " +
+                    "(16, 'A'), (17, 'A'), (18, 'A'), (19, 'A'), (20, 'A'), (21, 'A'), (22, 'A'), (23, 'A'), " +
+                    "(24, 'B'), (26, 'C')");
         }
         finally {
             dropTable(tableName);

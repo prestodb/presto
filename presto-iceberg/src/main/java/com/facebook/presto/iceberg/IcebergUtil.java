@@ -91,6 +91,7 @@ import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.view.View;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -1488,5 +1489,163 @@ public final class IcebergUtil
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
         }
+    }
+
+    /**
+     * Gets a partition key string for a FileScanTask using the task's spec.
+     * Returns a sentinel value for unpartitioned tables, otherwise returns the partition data as a string.
+     * The sentinel uses a prefix that cannot occur in normal partition values to avoid collisions.
+     */
+    public static String getPartitionKey(FileScanTask task)
+    {
+        PartitionSpec spec = task.spec();
+        if (spec.isUnpartitioned()) {
+            return "__UNPARTITIONED__";
+        }
+        return task.file().partition().toString();
+    }
+
+    /**
+     * Parses and validates the min-input-files option value.
+     * Returns the parsed integer value, or 1 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static int parseMinInputFiles(Map<String, String> options)
+    {
+        String minInputFilesStr = options.get("min-input-files");
+        if (minInputFilesStr == null) {
+            return 1;
+        }
+
+        try {
+            int minInputFiles = Integer.parseInt(minInputFilesStr);
+            if (minInputFiles < 1) {
+                throw new IllegalArgumentException(
+                    String.format("min-input-files must be at least 1, got: %s", minInputFiles));
+            }
+            return minInputFiles;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("min-input-files must be a valid integer, got: %s", minInputFilesStr), e);
+        }
+    }
+
+    /**
+     * Parses and validates the min-file-size-bytes option value.
+     * Returns the parsed long value, or 0 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static long parseMinFileSize(Map<String, String> options)
+    {
+        String minFileSizeStr = options.get("min-file-size-bytes");
+        if (minFileSizeStr == null) {
+            return 0;
+        }
+
+        try {
+            long minFileSize = Long.parseLong(minFileSizeStr);
+            if (minFileSize < 0) {
+                throw new IllegalArgumentException(
+                    String.format("min-file-size-bytes must be non-negative, got: %s", minFileSize));
+            }
+            return minFileSize;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("min-file-size-bytes must be a valid long, got: %s", minFileSizeStr), e);
+        }
+    }
+
+    /**
+     * Parses and validates the max-file-size-bytes option value.
+     * Returns the parsed long value, or 0 if the option is not present.
+     *
+     * @throws IllegalArgumentException if the value is invalid
+     */
+    public static long parseMaxFileSize(Map<String, String> options)
+    {
+        String maxFileSizeStr = options.get("max-file-size-bytes");
+        if (maxFileSizeStr == null) {
+            return 0;
+        }
+
+        try {
+            long maxFileSize = Long.parseLong(maxFileSizeStr);
+            if (maxFileSize < 0) {
+                throw new IllegalArgumentException(
+                    String.format("max-file-size-bytes must be non-negative, got: %s", maxFileSize));
+            }
+            return maxFileSize;
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                String.format("max-file-size-bytes must be a valid long, got: %s", maxFileSizeStr), e);
+        }
+    }
+
+    /**
+     * Filters files by partition-level criteria.
+     * Selects files from partitions that have at least min-input-files files.
+     *
+     * @param tasks all available tasks
+     * @param options rewrite options map
+     * @return files from partitions meeting the criteria
+     */
+    public static CloseableIterable<FileScanTask> filterByGroup(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
+    {
+        int minInputFiles = parseMinInputFiles(options);
+        if (minInputFiles <= 1) {
+            return tasks;
+        }
+
+        // Group files by partition
+        Map<String, List<FileScanTask>> partitionGroups = new HashMap<>();
+        Map<String, Set<String>> partitionFilePathGroups = new HashMap<>();
+        try (CloseableIterable<FileScanTask> autoCloseTasks = tasks) {
+            for (FileScanTask task : autoCloseTasks) {
+                String partitionKey = getPartitionKey(task);
+                partitionGroups.computeIfAbsent(partitionKey, k -> new ArrayList<>()).add(task);
+                partitionFilePathGroups.computeIfAbsent(partitionKey, k -> new HashSet<>()).add(task.file().location());
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to scan table file tasks", e);
+        }
+
+        // Collect tasks from partitions that meet the threshold
+        List<FileScanTask> filteredTasks = new ArrayList<>();
+        for (String partitionKey : partitionFilePathGroups.keySet()) {
+            if (partitionFilePathGroups.get(partitionKey).size() >= minInputFiles) {
+                filteredTasks.addAll(partitionGroups.get(partitionKey));
+            }
+        }
+        return CloseableIterable.withNoopClose(filteredTasks);
+    }
+
+    /**
+     * Filters files by individual file criteria using OR logic.
+     * Selects files that are too small (< min-file-size-bytes) OR too large (> max-file-size-bytes).
+     *
+     * @param tasks all available tasks
+     * @param options rewrite options map
+     * @return filtered list of tasks meeting file criteria
+     */
+    public static CloseableIterable<FileScanTask> filterByFile(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
+    {
+        long minFileSizeBytes = parseMinFileSize(options);
+        long maxFileSizeBytes = parseMaxFileSize(options);
+
+        if (minFileSizeBytes <= 0 && maxFileSizeBytes <= 0) {
+            return tasks;
+        }
+
+        return CloseableIterable.filter(tasks, task -> {
+            long fileSize = task.file().fileSizeInBytes();
+            return (minFileSizeBytes > 0 && fileSize < minFileSizeBytes) ||
+                    (maxFileSizeBytes > 0 && fileSize > maxFileSizeBytes);
+        });
     }
 }
