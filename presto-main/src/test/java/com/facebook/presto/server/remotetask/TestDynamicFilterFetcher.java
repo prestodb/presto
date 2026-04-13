@@ -395,6 +395,190 @@ public class TestDynamicFilterFetcher
         assertTrue(joinFilter.hasData(), "Filter should have data from the real partition");
     }
 
+    /**
+     * Verifies that a TupleDomain with a RANGE (min != max) round-trips
+     * correctly through DynamicFilterResponse JSON serialization. This is the
+     * code path the C++ HashBuild callback uses when VectorHasher overflows
+     * discrete tracking and falls back to min/max range. The C++ sends:
+     *
+     *   {"filters": {"filterId": {"columnDomains": [{"column": "filterId",
+     *      "domain": {"values": {"@type": "sortable", "type": "integer",
+     *        "ranges": [{"low": {"type": "integer", "valueBlock": "...",
+     *        "bound": "EXACTLY"}, "high": {"type": "integer",
+     *        "valueBlock": "...", "bound": "EXACTLY"}}]},
+     *      "nullAllowed": false}}]}}}
+     *
+     * The Marker.valueBlock is a base64-encoded Presto Block with a single
+     * integer value. If the Block round-trips with getValue() == null, the
+     * coordinator crashes with NPE in JoinDynamicFilter.addPartitionByFilterId.
+     */
+    @Test
+    public void testRangeFilterRoundTrip()
+            throws Exception
+    {
+        // Create a range domain: [10, 100000] — mimics the min/max range from
+        // VectorHasher overflow for an INTEGER column like c_customer_sk.
+        Domain rangeDomain = Domain.create(
+                com.facebook.presto.common.predicate.ValueSet.ofRanges(
+                        com.facebook.presto.common.predicate.Range.range(
+                                BIGINT, 10L, true, 100000L, true)),
+                false);
+
+        String filterId = "test_filter";
+        TupleDomain<String> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(filterId, rangeDomain));
+
+        // Round-trip through JSON serialization (same path as HTTP response).
+        DynamicFilterResponse response = DynamicFilterResponse.completed(
+                ImmutableMap.of(filterId, tupleDomain),
+                1L,
+                ImmutableSet.of(filterId));
+
+        byte[] jsonBytes = codec.toJsonBytes(response);
+        DynamicFilterResponse parsed = codec.fromJson(jsonBytes);
+
+        // Verify the parsed response has the filter.
+        assertTrue(parsed.getFilters().containsKey(filterId),
+                "Parsed response should contain filter " + filterId);
+
+        TupleDomain<String> parsedDomain = parsed.getFilters().get(filterId);
+        assertFalse(parsedDomain.isAll(), "Parsed domain should not be all()");
+        assertFalse(parsedDomain.isNone(), "Parsed domain should not be none()");
+
+        Domain parsedColumnDomain = parsedDomain.getDomains().get().get(filterId);
+        com.facebook.presto.common.predicate.SortedRangeSet rangeSet =
+                (com.facebook.presto.common.predicate.SortedRangeSet)
+                        parsedColumnDomain.getValues();
+
+        // The critical check: Marker.getValue() must be non-null for both
+        // the low and high bounds. A null here causes the production NPE.
+        com.facebook.presto.common.predicate.Range parsedRange =
+                rangeSet.getOrderedRanges().get(0);
+        assertFalse(parsedRange.getLow().isLowerUnbounded(),
+                "Low bound should not be unbounded");
+        assertFalse(parsedRange.getHigh().isUpperUnbounded(),
+                "High bound should not be unbounded");
+        assertEquals(parsedRange.getLow().getValue(), 10L,
+                "Low bound value should be 10");
+        assertEquals(parsedRange.getHigh().getValue(), 100000L,
+                "High bound value should be 100000");
+    }
+
+    /**
+     * Same as testRangeFilterRoundTrip but uses INTEGER type (not BIGINT)
+     * to match the production c_customer_sk column type. The C++ code's
+     * toTypedVariant returns variant(int32_t) for INTEGER, which might
+     * serialize differently than variant(int64_t) for BIGINT.
+     */
+    @Test
+    public void testRangeFilterRoundTripInteger()
+            throws Exception
+    {
+        com.facebook.presto.common.type.Type integerType =
+                com.facebook.presto.common.type.IntegerType.INTEGER;
+        Domain rangeDomain = Domain.create(
+                com.facebook.presto.common.predicate.ValueSet.ofRanges(
+                        com.facebook.presto.common.predicate.Range.range(
+                                integerType, (long) 10, true, (long) 100000, true)),
+                false);
+
+        String filterId = "test_filter_int";
+        TupleDomain<String> tupleDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(filterId, rangeDomain));
+
+        DynamicFilterResponse response = DynamicFilterResponse.completed(
+                ImmutableMap.of(filterId, tupleDomain),
+                1L,
+                ImmutableSet.of(filterId));
+
+        byte[] jsonBytes = codec.toJsonBytes(response);
+        DynamicFilterResponse parsed = codec.fromJson(jsonBytes);
+
+        TupleDomain<String> parsedDomain = parsed.getFilters().get(filterId);
+        Domain parsedColumnDomain = parsedDomain.getDomains().get().get(filterId);
+        com.facebook.presto.common.predicate.SortedRangeSet rangeSet =
+                (com.facebook.presto.common.predicate.SortedRangeSet)
+                        parsedColumnDomain.getValues();
+
+        com.facebook.presto.common.predicate.Range parsedRange =
+                rangeSet.getOrderedRanges().get(0);
+        assertEquals(parsedRange.getLow().getValue(), (long) 10,
+                "INTEGER low bound should round-trip as long 10");
+        assertEquals(parsedRange.getHigh().getValue(), (long) 100000,
+                "INTEGER high bound should round-trip as long 100000");
+    }
+
+    /**
+     * Tests deserialization of a DynamicFilterResponse JSON constructed to
+     * match what the C++ native worker sends. The valueBlock bytes are
+     * manually constructed in Presto's block encoding format (INT_ARRAY
+     * for integer, same format as PrestoVectorSerde's serializeSingleColumn).
+     * <p>
+     * Format for INT_ARRAY with 1 non-null value (22 bytes):
+     *   [4 bytes: encoding name length = 9]
+     *   [9 bytes: "INT_ARRAY"]
+     *   [4 bytes: positionCount = 1]
+     *   [1 byte : hasNulls = 0]
+     *   [4 bytes: int32 value, little-endian]
+     * <p>
+     * If this test fails, the C++ PrestoVectorSerde format does NOT match
+     * Java's BlockEncodingSerde expectations.
+     */
+    @Test
+    public void testCppSerializedBlockDeserialization()
+            throws Exception
+    {
+        // Construct the raw bytes that C++ PrestoVectorSerde.serializeSingleColumn
+        // would produce for a ConstantVector<int32_t>(42) of size 1.
+        byte[] blockBytes = new byte[] {
+                // Encoding name length = 9 (little-endian int32)
+                0x09, 0x00, 0x00, 0x00,
+                // Encoding name "INT_ARRAY"
+                0x49, 0x4E, 0x54, 0x5F, 0x41, 0x52, 0x52, 0x41, 0x59,
+                // positionCount = 1 (little-endian int32)
+                0x01, 0x00, 0x00, 0x00,
+                // hasNulls = false (single byte)
+                0x00,
+                // values[0] = 42 (little-endian int32)
+                0x2A, 0x00, 0x00, 0x00
+        };
+        String base64Block = java.util.Base64.getMimeEncoder(-1, new byte[0]).encodeToString(blockBytes);
+
+        // Construct the full DynamicFilterResponse JSON matching what the C++
+        // getDynamicFilters endpoint returns.
+        String json = String.format(
+                "{\"filters\":{\"test_filter\":{\"columnDomains\":[{\"column\":\"test_filter\","
+                        + "\"domain\":{\"values\":{\"@type\":\"sortable\",\"type\":\"integer\","
+                        + "\"ranges\":[{\"low\":{\"type\":\"integer\",\"valueBlock\":\"%s\","
+                        + "\"bound\":\"EXACTLY\"},\"high\":{\"type\":\"integer\","
+                        + "\"valueBlock\":\"%s\",\"bound\":\"EXACTLY\"}}]},"
+                        + "\"nullAllowed\":false}}]}},"
+                        + "\"version\":1,\"operatorCompleted\":true,"
+                        + "\"completedFilterIds\":[\"test_filter\"]}",
+                base64Block, base64Block);
+
+        // Parse using the production codec — same Jackson config as the
+        // DynamicFilterFetcher.
+        DynamicFilterResponse parsed = codec.fromJson(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        // Verify the filter was parsed with non-null Marker values.
+        TupleDomain<String> parsedDomain = parsed.getFilters().get("test_filter");
+        assertFalse(parsedDomain.isNone(), "Parsed domain should not be none()");
+        assertFalse(parsedDomain.isAll(), "Parsed domain should not be all()");
+
+        Domain columnDomain = parsedDomain.getDomains().get().get("test_filter");
+        com.facebook.presto.common.predicate.SortedRangeSet rangeSet =
+                (com.facebook.presto.common.predicate.SortedRangeSet) columnDomain.getValues();
+
+        com.facebook.presto.common.predicate.Range range = rangeSet.getOrderedRanges().get(0);
+        // This is the critical assertion — if getValue() returns null,
+        // it reproduces the production NPE.
+        assertEquals(range.getLow().getValue(), 42L,
+                "C++ serialized INT_ARRAY block should deserialize with value 42");
+        assertEquals(range.getHigh().getValue(), 42L,
+                "C++ serialized INT_ARRAY block should deserialize with value 42");
+    }
+
     private DynamicFilterFetcher createFetcher(TestingHttpClient httpClient, Duration maxErrorDuration)
     {
         return createFetcher(httpClient, maxErrorDuration, new DynamicFilterService());
