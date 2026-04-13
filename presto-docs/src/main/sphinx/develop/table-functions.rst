@@ -20,7 +20,7 @@ To declare a table function, you must implement ``ConnectorTableFunction``. Subc
 The constructor
 ---------------
 
-::
+.. code-block:: java
 
     public class MyFunction
             extends AbstractConnectorTableFunction
@@ -195,7 +195,7 @@ the ``analyze()`` method. This method is called by the engine during the analysi
 of query processing. The ``analyze()`` method is also the place to perform custom checks 
 on the arguments:
 
-::
+.. code-block:: java
   
   @Override
   public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
