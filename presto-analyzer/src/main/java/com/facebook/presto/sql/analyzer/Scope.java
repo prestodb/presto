@@ -30,7 +30,7 @@ import static com.facebook.presto.sql.analyzer.SemanticExceptions.ambiguousAttri
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -132,13 +132,7 @@ public class Scope
     private Optional<ResolvedField> resolveField(Expression node, QualifiedName name, int fieldIndexOffset, boolean local)
     {
         List<Field> matches = relation.resolveFields(name);
-        if (matches.size() > 1) {
-            throw ambiguousAttributeException(node, name);
-        }
-        else if (matches.size() == 1) {
-            return Optional.of(asResolvedField(matches.stream().collect(onlyElement()), fieldIndexOffset, local));
-        }
-        else {
+        if (matches.isEmpty()) {
             if (isColumnReference(name, relation)) {
                 return Optional.empty();
             }
@@ -147,6 +141,24 @@ public class Scope
             }
             return Optional.empty();
         }
+
+        // 1. Try exact match first
+        String exactName = name.getOriginalSuffix().getValue();
+        List<Field> exactMatches = matches.stream()
+                .filter(field -> field.getName().isPresent() && field.getName().get().equals(exactName))
+                .collect(toImmutableList());
+
+        if (exactMatches.size() == 1) {
+            return Optional.of(asResolvedField(exactMatches.get(0), fieldIndexOffset, local));
+        }
+
+        // 2. If no exact match (or multiple exact matches, which shouldn't happen), fallback to case-insensitive if unique
+        if (matches.size() == 1) {
+            return Optional.of(asResolvedField(matches.get(0), fieldIndexOffset, local));
+        }
+
+        // 3. Multiple non-exact matches -> Ambiguous
+        throw ambiguousAttributeException(node, name);
     }
 
     private ResolvedField asResolvedField(Field field, int fieldIndexOffset, boolean local)

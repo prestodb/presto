@@ -220,4 +220,62 @@ public class TestMongoDbIntegrationMixedCaseTest
             mongoClient.getDatabase("testdb1").drop();
         }
     }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mongodb")
+                .setSchema("Mixed_Test_Database")
+                .build();
+        MongoClient mongoClient = mongoQueryRunner.getMongoClient();
+        try {
+            mongoClient.getDatabase("Mixed_Test_Database").getCollection("case_sensitive_test")
+                    .insertOne(new Document()
+                            .append("user_id", 1)
+                            .append("Age", 39)
+                            .append("Name", "Alice")
+                            .append("age", 29)
+                            .append("city", "Bangalore"));
+            assertQuery(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_test",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(session, "SELECT Age FROM Mixed_Test_Database.case_sensitive_test", "VALUES 39");
+            assertQuery(session, "SELECT age FROM Mixed_Test_Database.case_sensitive_test", "VALUES 29");
+            assertQuery(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_test WHERE Age > 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_test WHERE age < 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(session, "SELECT Age, age FROM Mixed_Test_Database.ambiguous_column_test",
+                    "VALUES (39, 29)");
+        }
+        finally {
+            mongoClient.getDatabase("Mixed_Test_Database").getCollection("case_sensitive_test").drop();
+        }
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mongodb")
+                .setSchema("Mixed_Test_Database")
+                .build();
+        MongoClient mongoClient = mongoQueryRunner.getMongoClient();
+        try {
+            mongoClient.getDatabase("Mixed_Test_Database").getCollection("case_sensitive_where_test")
+                    .insertOne(new Document()
+                            .append("user_id", 1)
+                            .append("Age", 39)
+                            .append("Name", "Alice")
+                            .append("age", 29)
+                            .append("city", "Bangalore"));
+            assertQueryFails(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_where_test WHERE name = 'Alice'",
+                    ".*Column 'name' cannot be resolved.*");
+            assertQueryFails(session, "SELECT NAME FROM Mixed_Test_Database.case_sensitive_select_test",
+                    ".*Column 'NAME' cannot be resolved.*");
+        }
+        finally {
+            mongoClient.getDatabase("Mixed_Test_Database").getCollection("case_sensitive_where_test").drop();
+        }
+    }
 }

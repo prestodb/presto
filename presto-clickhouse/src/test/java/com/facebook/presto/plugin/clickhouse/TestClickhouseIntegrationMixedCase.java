@@ -205,4 +205,49 @@ public class TestClickhouseIntegrationMixedCase
             getQueryRunner().execute(session, "DROP TABLE IF EXISTS \"Test_ÆØÅ\" ");
         }
     }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+    {
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE case_sensitive_test (user_id Int32, Age Int32, Name String, age Int32, city String) ENGINE = MergeTree() ORDER BY user_id");
+            getQueryRunner().execute(session, "INSERT INTO case_sensitive_test VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertTrue(getQueryRunner().tableExists(session, "case_sensitive_test"));
+            // Test SELECT * works with duplicate columns
+            assertQuery(session, "SELECT * FROM case_sensitive_test",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            // Test selecting specific columns with exact case
+            assertQuery(session, "SELECT Age FROM case_sensitive_test", "VALUES 39");
+            assertQuery(session, "SELECT age FROM case_sensitive_test", "VALUES 29");
+            // Test WHERE clause with exact case should work
+            assertQuery(session, "SELECT * FROM case_sensitive_test WHERE Age > 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            assertQuery(session, "SELECT * FROM case_sensitive_test WHERE age < 30",
+                    "VALUES (1, 39, 'Alice', 29, 'Bangalore')");
+            // Test selecting both Age and age columns
+            assertQuery(session, "SELECT Age, age FROM case_sensitive_test",
+                    "VALUES (39, 29)");
+        }
+        finally {
+            getQueryRunner().execute(session, "DROP TABLE IF EXISTS case_sensitive_test");
+        }
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+    {
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE case_sensitive_error_test (user_id Int32, Age Int32, Name String, city String) ENGINE = MergeTree() ORDER BY user_id");
+            getQueryRunner().execute(session, "INSERT INTO case_sensitive_error_test VALUES (1, 39, 'Alice', 'Bangalore')");
+            // Test WHERE clause with wrong case should fail
+            assertQueryFails(session, "SELECT * FROM case_sensitive_error_test WHERE name = 'Alice'",
+                    ".*Column 'name' cannot be resolved.*");
+            // Test SELECT with wrong case should fail
+            assertQueryFails(session, "SELECT NAME FROM case_sensitive_error_test",
+                    ".*Column 'NAME' cannot be resolved.*");
+        }
+        finally {
+            getQueryRunner().execute(session, "DROP TABLE IF EXISTS case_sensitive_error_test");
+        }
+    }
 }
