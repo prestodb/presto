@@ -279,6 +279,11 @@ public class DynamicFilterFetcher
     {
         verify(taskEventLoop.inEventLoop());
         dynamicFilterStats.getFilterFetchFailure().update(1);
+        // TODO(dpp): Temporary diagnostic metric — make fetch failures
+        // visible in query JSON. REVERT when DPP issue is fixed.
+        if (extendedMetrics) {
+            emitExtendedMetric(format("dynamicFilterFetcherFailed[%s]", taskSuffix), 1);
+        }
 
         try {
             errorTracker.requestFailed(cause);
