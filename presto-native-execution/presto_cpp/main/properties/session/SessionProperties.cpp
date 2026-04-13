@@ -558,9 +558,8 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kUnnestSplitOutput,
-      "In streaming aggregation, wait until we have enough number of output"
-      "rows to produce a batch of size specified by this. If set to 0, then"
-      "Operator::outputBatchRows will be used as the min output batch rows.",
+      "If true, the unnest operator might split output for each input batch "
+      "based on the output batch size control.",
       BOOLEAN(),
       false,
       QueryConfig::kUnnestSplitOutput,
