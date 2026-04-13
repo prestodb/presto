@@ -337,6 +337,7 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean rewriteBucketedSemiJoinToJoin;
     private boolean mergeMaxByMinByAggregationsEnabled;
     private boolean pushdownSubfieldForMapFunctions = true;
     private boolean pushdownSubfieldForCardinality;
@@ -3442,6 +3443,19 @@ public class FeaturesConfig
     public boolean isAddDistinctBelowSemiJoinBuild()
     {
         return addDistinctBelowSemiJoinBuild;
+    }
+
+    @Config("optimizer.rewrite-bucketed-semi-join-to-join")
+    @ConfigDescription("Rewrite semi join to left join when both sides are bucketed by the join key")
+    public FeaturesConfig setRewriteBucketedSemiJoinToJoin(boolean rewriteBucketedSemiJoinToJoin)
+    {
+        this.rewriteBucketedSemiJoinToJoin = rewriteBucketedSemiJoinToJoin;
+        return this;
+    }
+
+    public boolean isRewriteBucketedSemiJoinToJoin()
+    {
+        return rewriteBucketedSemiJoinToJoin;
     }
 
     @Config("optimizer.merge-max-by-and-min-by-aggregations")

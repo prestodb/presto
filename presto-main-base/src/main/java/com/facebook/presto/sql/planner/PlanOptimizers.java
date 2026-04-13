@@ -141,6 +141,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnsupportedDynamicFi
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.ReplaceConditionalApproxDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteAggregationIfToFilter;
+import com.facebook.presto.sql.planner.iterative.rule.RewriteBucketedSemiJoinToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseExpressionPredicate;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteCaseToMap;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteConstantArrayContainsToInExpression;
@@ -715,6 +716,12 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new LeftJoinWithArrayContainsToEquiJoinCondition(metadata.getFunctionAndTypeManager()))),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new RewriteBucketedSemiJoinToJoin(metadata))),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,

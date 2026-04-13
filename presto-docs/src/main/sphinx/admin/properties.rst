@@ -1149,6 +1149,19 @@ The corresponding session property is :ref:`admin/properties-session:\`\`optimiz
 Enable push down inner join inequality predicates to database. For this configuration to be enabled, :ref:`admin/properties:\`\`optimizer.inner-join-pushdown-enabled\`\`` should be set to ``true``.
 The corresponding session property is :ref:`admin/properties-session:\`\`optimizer_inequality_join_pushdown_enabled\`\``.
 
+``optimizer.rewrite-bucketed-semi-join-to-join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When both sides of a semi-join are backed by tables bucketed on the semi-join key,
+rewrite the ``SemiJoinNode`` to a colocated ``LEFT JOIN`` with a ``DISTINCT`` on the
+right side. This avoids data shuffle since both sides are already co-partitioned by
+the join key.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`rewrite_bucketed_semi_join_to_join\`\``.
+
 ``optimizer.use-histograms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
