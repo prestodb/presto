@@ -341,4 +341,9 @@ public class ParquetWriter
         }
         throw new IllegalArgumentException("Invalid compressionCodec: " + compressionCodecClass);
     }
+
+    public boolean isClosed()
+    {
+        return closed;
+    }
 }

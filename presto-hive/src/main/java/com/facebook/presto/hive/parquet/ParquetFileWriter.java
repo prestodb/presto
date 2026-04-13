@@ -86,7 +86,11 @@ public class ParquetFileWriter
     @Override
     public long getWrittenBytes()
     {
-        return parquetWriter.getWrittenBytes() + parquetWriter.getBufferedBytes();
+        if (parquetWriter.isClosed()) {
+            return parquetWriter.getWrittenBytes();
+        }
+        return parquetWriter.getWrittenBytes()
+                + parquetWriter.getBufferedBytes();
     }
 
     @Override
