@@ -137,11 +137,19 @@ void extractAndDeliverFilters(
     filterIds.insert(channel.filterId);
   }
 
+  // Maximum estimated byte size for the discrete-values TupleDomain JSON
+  // before collapsing to a min/max range. The Java HTTP client's default
+  // maxContentLength is 16 MB; stay well under that. Each discrete value
+  // produces ~120 bytes of JSON (two Markers with base64 blocks).
+  static constexpr uint64_t kMaxDiscreteFilterJsonBytes = 10 << 20; // 10 MB
+  static constexpr uint64_t kJsonBytesPerDiscreteValue = 120;
+
   for (const auto& channel : channels) {
     std::vector<variant> discreteValues;
     std::optional<variant> minValue;
     std::optional<variant> maxValue;
     bool allDiscrete = true;
+    uint64_t estimatedDiscreteBytes = 0;
     // Track whether any hasher returned a real filter (non-null,
     // non-AlwaysFalse). If all hashers returned nullptr, the type is
     // unsupported for filter extraction (e.g., distinctOverflow) and we
@@ -152,15 +160,6 @@ void extractAndDeliverFilters(
       const auto* hasher = findHasher(table, channel.columnIndex);
       if (!hasher) {
         return;
-      }
-      // Cap accumulated discrete values to avoid producing a TupleDomain
-      // JSON response that exceeds the Java HTTP client's maxContentLength
-      // (16 MB default). With 16 drivers per task, each returning up to
-      // 100K values, the uncapped total can reach 1.6M values (~190 MB
-      // JSON). Cap at VectorHasher's per-table limit.
-      if (allDiscrete &&
-          discreteValues.size() > VectorHasher::kMaxDistinct) {
-        allDiscrete = false;
       }
       auto filter = hasher->getFilter(false);
       if (!filter) {
@@ -218,11 +217,31 @@ void extractAndDeliverFilters(
         return;
       }
       hasFilterableHasher = true;
+      if (!allDiscrete) {
+        // Already collapsed to range — just extract min/max, skip
+        // discrete values. convertFilter updates minValue/maxValue
+        // from the filter's bounds regardless of discrete extraction.
+        std::vector<variant> unused;
+        convertFilter(*filter, channel.type, unused, minValue, maxValue);
+        return;
+      }
       size_t prevSize = discreteValues.size();
       convertFilter(*filter, channel.type, discreteValues, minValue, maxValue);
       if (discreteValues.size() == prevSize) {
         // This driver had data but produced no discrete values (range overflow).
         allDiscrete = false;
+        return;
+      }
+      // Check estimated response size. Each discrete value produces ~120
+      // bytes of JSON (two Markers with base64 blocks, type, bound). If
+      // the total exceeds the limit, collapse to min/max range — the
+      // min/max are already tracked by convertFilter.
+      estimatedDiscreteBytes =
+          discreteValues.size() * kJsonBytesPerDiscreteValue;
+      if (estimatedDiscreteBytes > kMaxDiscreteFilterJsonBytes) {
+        allDiscrete = false;
+        discreteValues.clear();
+        discreteValues.shrink_to_fit();
       }
     };
 
