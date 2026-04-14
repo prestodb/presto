@@ -192,8 +192,12 @@ public class MongoSession
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
-        // skip column loading for views
-        if (!isView(tableMeta)) {
+        if (isView(tableMeta)) {
+            // For views, infer columns from sample data
+            columnHandles.addAll(guessViewFields(tableName));
+        }
+        else {
+            // For regular collections, use stored metadata
             for (Document columnMetadata : getColumnMetadata(tableMeta)) {
                 columnHandles.add(buildColumnHandle(columnMetadata));
             }
@@ -204,6 +208,40 @@ public class MongoSession
                 tableHandle,
                 columnHandles.build(),
                 isView(tableMeta) ? ImmutableList.of() : getIndexes(tableName));
+    }
+
+    private List<MongoColumnHandle> guessViewFields(SchemaTableName tableName)
+    {
+        MongoCollection<Document> collection = getCollection(tableName);
+
+        // Sample the view to infer schema
+        Document sample = collection.find().first();
+
+        if (sample == null) {
+            // Empty view - return empty list
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<MongoColumnHandle> columns = ImmutableList.builder();
+
+        for (String key : sample.keySet()) {
+            Object value = sample.get(key);
+            Optional<TypeSignature> fieldType = guessFieldType(value);
+
+            if (fieldType.isPresent()) {
+                Type type = typeManager.getType(fieldType.get());
+                boolean hidden = key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature());
+                columns.add(new MongoColumnHandle(key, type, hidden));
+            }
+            else {
+                log.debug("Unable to guess field type for view column %s from %s : %s",
+                        key,
+                        value == null ? "null" : value.getClass().getName(),
+                        value);
+            }
+        }
+
+        return columns.build();
     }
 
     private static boolean isView(Document tableMeta)
@@ -252,6 +290,18 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        // Check if it's a view by looking at the metadata
+        try {
+            Document tableMeta = getTableMetadata(tableName);
+            if (isView(tableMeta)) {
+                return ImmutableList.of();
+            }
+        }
+        catch (Exception e) {
+            // If we can't get metadata, try to get indexes anyway
+            log.debug(e, "Could not check if %s is a view", tableName);
+        }
+
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -764,18 +814,36 @@ public class MongoSession
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
 
         MongoDatabase db = client.getDatabase(schemaName);
-        Document filter = new Document(TYPE_KEY, VIEW_TYPE_NAME);
+
+        // Build filter for listCollections command
+        Document filter = new Document("type", "view");
         if (tableNameOrNull != null) {
-            filter.append(TABLE_NAME_KEY, tableNameOrNull);
+            filter.append("name", tableNameOrNull);
         }
 
-        db.getCollection(schemaCollection).find(filter).forEach((Block<Document>) doc -> {
-            SchemaTableName viewName = new SchemaTableName(schemaName, doc.getString(TABLE_NAME_KEY));
-            String viewData = doc.getString("data");
-            if (viewData != null) {
-                views.put(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewData));
-            }
-        });
+        // List all views using listCollections
+        db.listCollections()
+                .filter(filter)
+                .forEach((Block<Document>) doc -> {
+                    String viewName = doc.getString("name");
+                    Document options = doc.get("options", Document.class);
+
+                    if (options != null) {
+                        String viewOn = options.getString("viewOn");
+                        List<Document> pipeline = options.getList("pipeline", Document.class);
+
+                        // Create view data as JSON string
+                        Document viewData = new Document()
+                                .append("viewOn", viewOn)
+                                .append("pipeline", pipeline);
+
+                        SchemaTableName schemaTableName = new SchemaTableName(schemaName, viewName);
+                        views.put(schemaTableName, new ConnectorViewDefinition(
+                                schemaTableName,
+                                Optional.empty(),
+                                viewData.toJson()));
+                    }
+                });
 
         return views.build();
     }
