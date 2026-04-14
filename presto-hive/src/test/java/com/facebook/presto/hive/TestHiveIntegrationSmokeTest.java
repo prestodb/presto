@@ -925,39 +925,45 @@ public class TestHiveIntegrationSmokeTest
 
     private void testEmptyBucketedTable(Session session, HiveStorageFormat storageFormat, boolean optimizedPartitionUpdateSerializationEnabled, boolean createEmpty)
     {
-        String tableName = "test_empty_bucketed_table";
+        String tableName = "test_empty_bucketed_table_" + System.nanoTime();
 
-        @Language("SQL") String createTable = "" +
-                "CREATE TABLE " + tableName + " " +
-                "(bucket_key VARCHAR, col_1 VARCHAR, col2 VARCHAR) " +
-                "WITH (" +
-                "format = '" + storageFormat + "', " +
-                "bucketed_by = ARRAY[ 'bucket_key' ], " +
-                "bucket_count = 11 " +
-                ") ";
+        try {
+            @Language("SQL") String createTable = "" +
+                    "CREATE TABLE " + tableName + " " +
+                    "(bucket_key VARCHAR, col_1 VARCHAR, col_2 VARCHAR) " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "bucketed_by = ARRAY[ 'bucket_key' ], " +
+                    "bucket_count = 11 " +
+                    ") ";
 
-        assertUpdate(createTable);
+            assertUpdate(createTable);
 
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+            assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
+            assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
 
-        assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
+            assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
 
-        // make sure that we will get one file per bucket regardless of writer count configured
-        Session parallelWriter = Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
-                .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
-                .build();
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
+            // make sure that we will get one file per bucket regardless of writer count configured
+            Session parallelWriter = Session.builder(getTableWriteTestingSession(optimizedPartitionUpdateSerializationEnabled))
+                    .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                    .build();
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+            assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
-        assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
+            assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
-        assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+            assertUpdate(session, "DROP TABLE " + tableName);
+            assertFalse(getQueryRunner().tableExists(session, tableName));
+        }
+        finally {
+            // Ensure cleanup even if the test fails before the explicit DROP
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
