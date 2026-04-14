@@ -1180,6 +1180,14 @@ class StatementAnalyzer
             Table sourceTable = new Table(node.getTableName());
             Scope tableScope = analyzer.analyze(sourceTable, scope);
 
+            // Check for duplicate columns
+            Set<String> seenColumns = new HashSet<>();
+            for (Identifier column : node.getColumns()) {
+                if (!seenColumns.add(column.getValue())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getValue());
+                }
+            }
+
             // Validate that specified columns exist in the source table
             TableHandle sourceTableHandle = session.getRuntimeStats().recordWallTime(
                     RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS,
