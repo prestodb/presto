@@ -2378,47 +2378,55 @@ public class TestAnalyzer
     @Test
     public void testCreateVectorIndex()
     {
-        // basic success cases
-        analyze("CREATE VECTOR INDEX test_index ON t1(a, b)");
-        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1')");
-        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1', p2 = 'val2')");
+        // basic success cases — t14 has id:BIGINT, embedding_real:array(real), embedding_double:array(double), name:VARCHAR
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_double)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1')");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1', p2 = 'val2')");
 
         // with UPDATING FOR clause
-        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) UPDATING FOR a > 10");
-        analyze("CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'val1') UPDATING FOR a BETWEEN 1 AND 100");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR id > 10");
+        analyze("CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'val1') UPDATING FOR id BETWEEN 1 AND 100");
 
-        // single column
-        analyze("CREATE VECTOR INDEX test_index ON t1(a)");
+        // single column (embedding only)
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_real)");
+        analyze("CREATE VECTOR INDEX test_index ON t14(embedding_double)");
 
         // source table does not exist
         assertFails(MISSING_TABLE, ".*Source table '.*' does not exist",
                 "CREATE VECTOR INDEX test_index ON nonexistent_table(a, b)");
 
         // destination table already exists — allowed (connector decides how to handle)
-        analyze("CREATE VECTOR INDEX t1 ON t2(a, b)");
+        analyze("CREATE VECTOR INDEX t1 ON t14(id, embedding_real)");
 
         // column does not exist in source table
         assertFails(MISSING_COLUMN, ".*Column 'unknown' does not exist in source table '.*'",
-                "CREATE VECTOR INDEX test_index ON t1(a, unknown)");
+                "CREATE VECTOR INDEX test_index ON t14(id, unknown)");
         assertFails(MISSING_COLUMN, ".*Column 'nonexistent' does not exist in source table '.*'",
-                "CREATE VECTOR INDEX test_index ON t1(nonexistent)");
+                "CREATE VECTOR INDEX test_index ON t14(nonexistent)");
 
         // duplicate columns
-        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'a' specified more than once",
-                "CREATE VECTOR INDEX test_index ON t1(a, a)");
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'id' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t14(id, id)");
+
+        // embedding column type validation — last column must be array(real) or array(double)
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'id' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id)");
+        assertFails(TYPE_MISMATCH, ".*Embedding column 'name' must be of type array\\(real\\) or array\\(double\\).*",
+                "CREATE VECTOR INDEX test_index ON t14(id, name)");
 
         // duplicate properties
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
-                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
-                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'v1', \"p1\" = 'v2')");
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', \"p1\" = 'v2')");
 
         // unresolved property value
         assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved",
-                "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = y)");
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = y)");
 
         // UPDATING FOR with invalid column reference
         assertFails(MISSING_ATTRIBUTE, ".*",
-                "CREATE VECTOR INDEX test_index ON t1(a, b) UPDATING FOR nonexistent_col > 10");
+                "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) UPDATING FOR nonexistent_col > 10");
     }
 }
