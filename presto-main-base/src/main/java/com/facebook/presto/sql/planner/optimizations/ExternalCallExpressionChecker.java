@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
+import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -73,5 +74,11 @@ public class ExternalCallExpressionChecker
     public Boolean visitSpecialForm(SpecialFormExpression specialForm, Void context)
     {
         return specialForm.getArguments().stream().anyMatch(argument -> argument.accept(this, null));
+    }
+
+    @Override
+    public Boolean visitIntermediateFormExpression(IntermediateFormExpression expression, Void context)
+    {
+        return false;
     }
 }
