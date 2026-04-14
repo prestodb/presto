@@ -1,7 +1,6 @@
 -- TPC-H/TPC-R Pricing Summary Report Query (Q1)
 -- Functional Query Definition
 -- Approved February 1998
--- Fixed shipdate predicate as DWRF doesn't support DATE types
 select
 	returnflag,
 	linestatus,
@@ -16,8 +15,8 @@ select
 from
 	lineitem
 where
-    cast(shipdate as date) >= date '1998-12-01' - interval '90' day
-    and shipdate <= '1998-12-01'
+	${shipdate} >= date '1998-12-01' - interval '90' day
+	and ${shipdate} <= date '1998-12-01'
 group by
 	returnflag,
 	linestatus
