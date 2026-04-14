@@ -291,6 +291,8 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>no_aop</classifier>
+            <version>4.2.2</version>
         </dependency>
 
         <dependency>
@@ -526,7 +528,11 @@
                     <ignoredUsedUndeclaredDependencies>
                         <ignoredUsedUndeclaredDependency>com.squareup.okhttp3:okhttp</ignoredUsedUndeclaredDependency>
                         <ignoredUsedUndeclaredDependency>com.squareup.okhttp3:okhttp-urlconnection</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice:jar:6.0.0</ignoredUsedUndeclaredDependency>
                     </ignoredUsedUndeclaredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.inject:guice</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
