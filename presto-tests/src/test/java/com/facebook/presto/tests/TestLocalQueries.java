@@ -158,4 +158,35 @@ public class TestLocalQueries
     public void testSetSessionNativeWorkerSessionProperty()
     {
     }
+
+    @Test
+    public void testPushProjectionThroughCrossJoinWithCascadingProjects()
+    {
+        // Verifies that push_projection_through_cross_join handles cascading projects
+        // where the intermediate level has a both-sides expression (non-identity residual)
+        // and a higher level pushes an expression to one side.
+        // Without the fix, the intermediate residual drops the pushed variable,
+        // causing: "Expression dependencies ([r_scaled]) not in source plan output"
+        String sql = "SELECT " +
+                "    sub.nationkey + sub.regionkey AS mixed, " +
+                "    sub.r_scaled " +
+                "FROM ( " +
+                "    SELECT " +
+                "        n.nationkey, " +
+                "        r.regionkey, " +
+                "        n.nationkey + r.regionkey AS nr_sum, " +
+                "        r.regionkey * 100 AS r_scaled " +
+                "    FROM nation n " +
+                "    CROSS JOIN region r " +
+                ") sub";
+
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("push_projection_through_cross_join", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("push_projection_through_cross_join", "true")
+                .build();
+
+        assertQuery(enabled, sql, disabled, sql);
+    }
 }
