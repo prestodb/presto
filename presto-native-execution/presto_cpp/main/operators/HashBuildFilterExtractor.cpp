@@ -153,6 +153,15 @@ void extractAndDeliverFilters(
       if (!hasher) {
         return;
       }
+      // Cap accumulated discrete values to avoid producing a TupleDomain
+      // JSON response that exceeds the Java HTTP client's maxContentLength
+      // (16 MB default). With 16 drivers per task, each returning up to
+      // 100K values, the uncapped total can reach 1.6M values (~190 MB
+      // JSON). Cap at VectorHasher's per-table limit.
+      if (allDiscrete &&
+          discreteValues.size() > VectorHasher::kMaxDistinct) {
+        allDiscrete = false;
+      }
       auto filter = hasher->getFilter(false);
       if (!filter) {
         if (hasher->distinctOverflow()) {
