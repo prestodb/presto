@@ -71,6 +71,7 @@ public class TypeSignature
 
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIME_WITH_TIME_ZONE);
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
+        SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.TIMESTAMP_MICROSECONDS);
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_DAY_TO_SECOND);
         SIMPLE_TYPE_WITH_SPACES.add(StandardTypes.INTERVAL_YEAR_TO_MONTH);
         SIMPLE_TYPE_WITH_SPACES.add("double precision");

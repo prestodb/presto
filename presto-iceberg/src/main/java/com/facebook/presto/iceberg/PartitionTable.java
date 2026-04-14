@@ -299,7 +299,7 @@ public class PartitionTable
         }
         if (type instanceof Types.TimestampType) {
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
-            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
+            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getStorageUnit() == MILLISECONDS) {
                 return MICROSECONDS.toMillis((long) value);
             }
         }
