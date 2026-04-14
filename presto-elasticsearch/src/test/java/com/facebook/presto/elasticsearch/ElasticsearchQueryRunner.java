@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -70,7 +71,7 @@ public final class ElasticsearchQueryRunner
 
             LOG.info("Loading data...");
 
-            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
+            client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
 
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
