@@ -117,7 +117,7 @@ public class ExpressionOptimizerManager
         log.info("-- Loading expression optimizer [%s] --", optimizerName);
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
-                new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution, authClientConfigs));
+                new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution, authClientConfigs, functionAndTypeManager));
         expressionOptimizers.put(optimizerName, optimizer);
         log.info("-- Added expression optimizer [%s] --", optimizerName);
     }

@@ -797,6 +797,35 @@ public class TestNativeSidecarPlugin
         assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS TINYINT) FROM orders");
         assertQuerySucceeds(session, "SELECT TRY_CAST(comment AS BIGINT) FROM orders");
         assertQuerySucceeds(session, "SELECT TRY_CAST(orderkey AS DOUBLE) FROM orders");
+
+        // Ensure args passed down to the native expression optimizer are of the same type.
+        Session preparedStatementSession = Session.builder(session)
+                .addPreparedStatement("my_query", "SELECT c1[10] FROM (SELECT ? as c1)")
+                .build();
+        assertQueryWithSameQueryRunner(preparedStatementSession,
+                "EXECUTE my_query USING MAP(ARRAY[BIGINT '10', 200], ARRAY [100, 300])", "VALUES (100)");
+
+        // This test ensures we correctly pick the bigint implementation version of the grouping
+        // function which supports up to 62 columns. Semantically it is exactly the same as
+        // TestGroupingOperationFunction#testMoreThanThirtyTwoArguments. That test is a little easier to
+        // understand and verify.
+        String fortyLetterSequence = "aa, ab, ac, ad, ae, af, ag, ah, ai, aj, ak, al, am, an, ao, ap, aq, ar, asa, at, au, av, aw, ax, ay, az, " +
+                "ba, bb, bc, bd, be, bf, bg, bh, bi, bj, bk, bl, bm, bn";
+        String fortyIntegers = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, " +
+                "31, 32, 33, 34, 35, 36, 37, 38, 39, 40";
+        // 20, 2, 13, 33, 40, 9 , 14 (corresponding indices from Left to right in the above fortyLetterSequence)
+        String groupingSet1 = "at, ab, am, bg, bn, ai, an";
+        // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
+        String groupingSet2 = "bb, ad, ae, bc, be, aj";
+        String query = String.format(
+                "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
+                fortyLetterSequence,
+                fortyIntegers,
+                fortyLetterSequence,
+                fortyLetterSequence,
+                groupingSet1,
+                groupingSet2);
+        assertQueryWithSameQueryRunner(session, query, "VALUES (0), (822283861886), (995358664191)");
     }
 
     @Test

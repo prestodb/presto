@@ -51,7 +51,12 @@ public class NativeExpressionOptimizerFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new NativeSidecarCommunicationModule(context.getAuthClientConfigs()),
-                    new NativeExpressionsModule(context.getNodeManager(), context.getRowExpressionSerde(), context.getFunctionMetadataManager(), context.getFunctionResolution()));
+                    new NativeExpressionsModule(
+                            context.getNodeManager(),
+                            context.getRowExpressionSerde(),
+                            context.getFunctionMetadataManager(),
+                            context.getFunctionResolution(),
+                            context.getTypeManager()));
 
             Injector injector = app
                     .doNotInitializeLogging()

@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.sidecar.expressions;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -43,10 +45,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.EVALUATED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
@@ -57,16 +61,19 @@ public class NativeExpressionOptimizer
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution resolution;
     private final NativeSidecarExpressionInterpreter rowExpressionInterpreterService;
+    private final CastInsertionVisitor castInsertionVisitor;
 
     @Inject
     public NativeExpressionOptimizer(
             NativeSidecarExpressionInterpreter rowExpressionInterpreterService,
             FunctionMetadataManager functionMetadataManager,
-            StandardFunctionResolution resolution)
+            StandardFunctionResolution resolution,
+            TypeManager typeManager)
     {
         this.rowExpressionInterpreterService = requireNonNull(rowExpressionInterpreterService, "rowExpressionInterpreterService is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.resolution = requireNonNull(resolution, "resolution is null");
+        this.castInsertionVisitor = new CastInsertionVisitor(resolution, requireNonNull(typeManager, "typeManager is null"));
     }
 
     @Override
@@ -74,6 +81,7 @@ public class NativeExpressionOptimizer
     {
         // Collect expressions to optimize
         CollectingVisitor collectingVisitor = new CollectingVisitor(functionMetadataManager, level, resolution);
+        expression = expression.accept(castInsertionVisitor, null);
         expression.accept(collectingVisitor, variableResolver);
         List<RowExpression> expressionsToOptimize = collectingVisitor.getExpressionsToOptimize();
 
@@ -405,6 +413,93 @@ public class NativeExpressionOptimizer
                     .map(argument -> toRowExpression(argument.getSourceLocation(), argument.accept(this, context), argument.getType()))
                     .collect(toImmutableList());
             return new SpecialFormExpression(specialForm.getSourceLocation(), specialForm.getForm(), specialForm.getType(), updatedArguments);
+        }
+    }
+
+    /**
+     * This visitor preprocesses the expression tree to insert casts for array constructor arguments
+     * that don't match the array element type. This must happen before sending expressions to the
+     * native sidecar for optimization.
+     */
+    private static class CastInsertionVisitor
+            implements RowExpressionVisitor<RowExpression, Void>
+    {
+        private final StandardFunctionResolution resolution;
+        private final TypeManager typeManager;
+
+        public CastInsertionVisitor(StandardFunctionResolution resolution, TypeManager typeManager)
+        {
+            this.resolution = requireNonNull(resolution, "resolution is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
+        @Override
+        public RowExpression visitCall(CallExpression call, Void context)
+        {
+            // First, recursively process all arguments
+            List<RowExpression> processedArguments = call.getArguments().stream()
+                    .map(arg -> arg.accept(this, context))
+                    .collect(toImmutableList());
+
+            // For array constructor functions, check arguments and add casts if needed
+            if (resolution.isArrayConstructor(call.getFunctionHandle())) {
+                checkArgument(call.getType() instanceof ArrayType, format("%s is not an instance of ArrayType", call.getType()));
+                ArrayType arrayReturnType = (ArrayType) call.getType();
+                Type elementType = arrayReturnType.getElementType();
+
+                processedArguments = processedArguments.stream()
+                        .map(arg -> insertCastIfNeeded(arg, elementType))
+                        .collect(toImmutableList());
+            }
+            return new CallExpression(call.getSourceLocation(), call.getDisplayName(), call.getFunctionHandle(), call.getType(), processedArguments);
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialFormExpression specialForm, Void context)
+        {
+            List<RowExpression> processedArguments = specialForm.getArguments().stream()
+                    .map(arg -> arg.accept(this, context))
+                    .collect(toImmutableList());
+            return new SpecialFormExpression(specialForm.getSourceLocation(), specialForm.getForm(), specialForm.getType(), processedArguments);
+        }
+
+        @Override
+        public RowExpression visitLambda(LambdaDefinitionExpression lambda, Void context)
+        {
+            RowExpression processedBody = lambda.getBody().accept(this, context);
+            return new LambdaDefinitionExpression(lambda.getSourceLocation(), lambda.getArgumentTypes(), lambda.getArguments(), processedBody);
+        }
+
+        @Override
+        public RowExpression visitVariableReference(VariableReferenceExpression variable, Void context)
+        {
+            return variable;
+        }
+
+        @Override
+        public RowExpression visitConstant(ConstantExpression constant, Void context)
+        {
+            return constant;
+        }
+
+        @Override
+        public RowExpression visitExpression(RowExpression expression, Void context)
+        {
+            return expression;
+        }
+
+        private RowExpression insertCastIfNeeded(RowExpression arg, Type returnType)
+        {
+            // If argument type doesn't match the return type and can be coerced, add cast
+            if (!arg.getType().equals(returnType) && typeManager.canCoerce(arg.getType(), returnType)) {
+                return new CallExpression(
+                        arg.getSourceLocation(),
+                        "CAST",
+                        resolution.lookupCast("CAST", arg.getType(), returnType),
+                        returnType,
+                        ImmutableList.of(arg));
+            }
+            return arg;
         }
     }
 
