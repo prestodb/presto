@@ -233,8 +233,6 @@ public class TestPlanCheckerRouterPlugin
     private static List<String> getNativeIncompatibleQueries()
     {
         return ImmutableList.of(
-                "SELECT array_sort(array[row('apples', 23), row('bananas', 12), row('grapes', 44)]," +
-                        " (x, y) -> if (x < y, 1, if (x > y, -1, 0)))",
                 "SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x");
     }
 

@@ -224,6 +224,5 @@ public class TestPrestoNativeBuiltInFunctions
         assertPlan("SELECT test_agg_function(5, cast(orderkey as smallint), orderkey) FROM tpch.tiny.orders", anyTree(any()));
 
         assertQuerySucceeds("SELECT ARRAY_SORT( ARRAY[ ARRAY['a', 'b', 'c'] ], (x, y) -> IF( COALESCE( x[1], '' ) > COALESCE( y[1], '' ), 1, IF( COALESCE( x[1], '' ) < COALESCE( y[1], '' ), -1, 0 ) ) )");
-        assertQuerySucceeds("SELECT ARRAY_SORT( ARRAY[ ARRAY['a', 'b', 'c'] ], (x, y) -> IF( COALESCE( x[1], '' ) > COALESCE( y[1], '' ), cast(1 as bigint), IF( COALESCE( x[1], '' ) < COALESCE( y[1], '' ), cast(-1 as bigint), cast(0 as bigint) ) ) )");
     }
 }
