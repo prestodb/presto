@@ -19,7 +19,6 @@ import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-//import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
