@@ -351,14 +351,15 @@ public class TestSubqueries
     public void testCorrelatedScalarSubqueryWithLambdaInUnnest()
     {
         // Regression test: a qualified correlated reference (e.g. t.a) inside a lambda
-        // inside UNNEST inside a correlated scalar subquery would crash with
+        // inside UNNEST inside a correlated scalar subquery previously crashed with
         // UnsupportedOperationException("Unimplemented RowExpression visitor for
         // class UnresolvedSymbolExpression") because LambdaDefinitionExpression's
         // CanonicalizeExpression did not handle IntermediateFormExpression.
-        assertions.assertQuery(
+        // After the fix, it fails gracefully with an unsupported correlated subquery error.
+        assertions.assertFails(
                 "SELECT t.a, (SELECT MAX(v) FROM UNNEST(TRANSFORM(t.arr, x -> x + t.a)) AS u(v)) " +
                         "FROM (VALUES (1, ARRAY[10, 20, 30]), (2, ARRAY[40, 50])) t(a, arr)",
-                "VALUES (1, 31), (2, 52)");
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
