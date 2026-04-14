@@ -44,6 +44,7 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -51,6 +52,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
@@ -65,6 +67,7 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
@@ -757,11 +760,38 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitSimpleGroupBy(SimpleGroupBy node, Void context)
         {
-            ImmutableList.Builder<Expression> rewrittenSimpleGroupBy = ImmutableList.builder();
-            for (Expression column : node.getExpressions()) {
-                rewrittenSimpleGroupBy.add((Expression) process(removeExpressionPrefix(column, removablePrefix), context));
+            return new SimpleGroupBy(rewriteGroupByExpressions(node.getExpressions(), context));
+        }
+
+        @Override
+        protected Node visitCube(Cube node, Void context)
+        {
+            return new Cube(rewriteGroupByExpressions(node.getExpressions(), context));
+        }
+
+        @Override
+        protected Node visitRollup(Rollup node, Void context)
+        {
+            return new Rollup(rewriteGroupByExpressions(node.getExpressions(), context));
+        }
+
+        @Override
+        protected Node visitGroupingSets(GroupingSets node, Void context)
+        {
+            ImmutableList.Builder<List<Expression>> rewrittenSets = ImmutableList.builder();
+            for (List<Expression> set : node.getSets()) {
+                rewrittenSets.add(rewriteGroupByExpressions(set, context));
             }
-            return new SimpleGroupBy(rewrittenSimpleGroupBy.build());
+            return new GroupingSets(rewrittenSets.build());
+        }
+
+        private List<Expression> rewriteGroupByExpressions(List<Expression> expressions, Void context)
+        {
+            ImmutableList.Builder<Expression> rewritten = ImmutableList.builder();
+            for (Expression column : expressions) {
+                rewritten.add((Expression) process(removeExpressionPrefix(column, removablePrefix), context));
+            }
+            return rewritten.build();
         }
 
         private boolean validateExpressionForGroupBy(Set<Expression> groupByOfMaterializedView, Expression expression)
