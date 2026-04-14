@@ -141,7 +141,7 @@ std::string decompressMessageBody(
   }
 }
 
-const std::vector<std::string> getFunctionNameParts(
+std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction) {
   std::vector<std::string> parts;
   folly::split('.', registeredFunction, parts, true);

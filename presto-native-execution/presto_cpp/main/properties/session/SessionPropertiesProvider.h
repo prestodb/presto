@@ -20,8 +20,6 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/type/Type.h"
 
-using json = nlohmann::json;
-
 namespace facebook::presto {
 
 /// This is the interface of the session property.
@@ -39,15 +37,15 @@ class SessionProperty {
         veloxConfig_(veloxConfig),
         value_(defaultValue) {}
 
-  const protocol::SessionPropertyMetadata getMetadata() {
+  const protocol::SessionPropertyMetadata& getMetadata() const {
     return metadata_;
   }
 
-  const std::optional<std::string> getVeloxConfig() {
+  const std::optional<std::string>& getVeloxConfig() const {
     return veloxConfig_;
   }
 
-  const std::string getValue() {
+  const std::string& getValue() const {
     return value_;
   }
 
@@ -83,7 +81,7 @@ class SessionPropertiesProvider {
   const std::string toVeloxConfig(const std::string& name) const;
 
   /// Serialize all properties to JSON.
-  json serialize() const;
+  nlohmann::json serialize() const;
 
   /// Check if a property has a corresponding Velox config.
   inline bool hasVeloxConfig(const std::string& key) {

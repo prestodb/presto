@@ -67,6 +67,6 @@ inline std::string addDefaultNamespacePrefix(
 /// The keys in velox function maps are of the format
 /// `catalog.schema.function_name`. This utility function extracts the
 /// three parts, {catalog, schema, function_name}, from the registered function.
-const std::vector<std::string> getFunctionNameParts(
+std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction);
 } // namespace facebook::presto::util

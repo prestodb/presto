@@ -19,6 +19,8 @@
 
 namespace facebook::presto {
 
+using json = nlohmann::json;
+
 void SessionPropertiesProvider::addSessionProperty(
     const std::string& name,
     const std::string& description,
