@@ -24,17 +24,6 @@ public class NativeMapSqlFunctions
 {
     private NativeMapSqlFunctions() {}
 
-    @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = true)
-    @Description("Returns the top N keys of the given map sorting its keys using the provided lambda comparator.")
-    @TypeParameter("K")
-    @TypeParameter("V")
-    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint"), @SqlParameter(name = "f", type = "function(K, K, bigint)")})
-    @SqlType("array<K>")
-    public static String mapTopNKeysComparator()
-    {
-        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), slice(reverse(array_sort(map_keys(input), f)), 1, n))";
-    }
-
     @SqlInvokedScalarFunction(value = "map_top_n_values", deterministic = true, calledOnNullInput = true)
     @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
     @TypeParameter("K")
