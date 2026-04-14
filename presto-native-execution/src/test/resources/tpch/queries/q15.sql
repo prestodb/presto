@@ -4,13 +4,13 @@
 
 with revenue as (
 select
-    suppkey as supplier_no,
-    sum(extendedprice * (1 - discount)) as total_revenue
+	suppkey as supplier_no,
+	sum(extendedprice * (1 - discount)) as total_revenue
 from
-    lineitem
+	lineitem
 where
-    shipdate >= '1996-01-01'
-    and cast(shipdate as date) < date '1996-01-01' + interval '3' month
+	${shipdate} >= date '1996-01-01'
+	and ${shipdate} < date '1996-01-01' + interval '3' month
 group by suppkey
 )
 

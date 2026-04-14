@@ -57,6 +57,12 @@ public abstract class AbstractTestNativeHiveExternalTableTpchQueries
             "customer", "part", "partsupp", "region", "supplier");
 
     @Override
+    protected String getStorageFormat()
+    {
+        return "DWRF";
+    }
+
+    @Override
     public Session getSession()
     {
         return Session.builder(super.getSession()).setCatalog(HIVE).setSchema(TPCH_EXTERNAL_SCHEMA).build();

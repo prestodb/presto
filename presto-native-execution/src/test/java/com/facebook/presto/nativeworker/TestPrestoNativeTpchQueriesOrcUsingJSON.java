@@ -21,13 +21,17 @@ import org.testng.annotations.Test;
 public class TestPrestoNativeTpchQueriesOrcUsingJSON
         extends AbstractTestNativeTpchQueries
 {
-    private final String storageFormat = "ORC";
+    @Override
+    protected String getStorageFormat()
+    {
+        return "ORC";
+    }
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }
@@ -36,7 +40,7 @@ public class TestPrestoNativeTpchQueriesOrcUsingJSON
     protected ExpectedQueryRunner createExpectedQueryRunner() throws Exception
     {
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }

@@ -16,7 +16,7 @@ package com.facebook.presto.nativeworker;
 import com.facebook.presto.testing.QueryRunner;
 
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitemStandard;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitemWithNativeDate;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNationWithFormat;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
@@ -27,14 +27,22 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupp
 public abstract class AbstractTestNativeIcebergTpchQueries
         extends AbstractTestNativeTpchQueries
 {
-    String storageFormat = "PARQUET";
+    @Override
+    protected String getStorageFormat()
+    {
+        return "PARQUET";
+    }
+
     @Override
     protected void createTables()
     {
         QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
-        createLineitemStandard(queryRunner);
-        createOrders(queryRunner);
-        createNationWithFormat(queryRunner, storageFormat);
+        // createLineitemWithNativeDate uses standard TPC-H columns with native
+        // DATE, omitting the SMALLINT/TINYINT derived columns from createLineitem()
+        // that Iceberg cannot write (ShortArrayBlock/ByteArrayBlock crash).
+        createLineitemWithNativeDate(queryRunner);
+        createOrders(queryRunner, getStorageFormat());
+        createNationWithFormat(queryRunner, getStorageFormat());
         createCustomer(queryRunner);
         createPart(queryRunner);
         createPartSupp(queryRunner);
