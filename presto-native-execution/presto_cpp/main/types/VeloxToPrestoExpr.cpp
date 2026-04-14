@@ -101,6 +101,18 @@ const std::unordered_map<std::string, std::string>& veloxToPrestoOperatorMap() {
   return veloxToPrestoOperatorMap;
 }
 
+const std::unordered_map<std::string, std::string>&
+veloxToPrestoInternalFunctionMap() {
+  // Maps Velox internal function names to Presto internal/native function
+  // names used when constructing function signatures.
+  static const std::unordered_map<std::string, std::string>
+      veloxToPrestoInternalFunctionMap = {
+          {"try", "presto.default.$internal$try"},
+          {"try_cast", "presto.default.try_cast"},
+      };
+  return veloxToPrestoInternalFunctionMap;
+}
+
 // If the function name prefix starts from "presto.default", then it is a built
 // in function handle. Otherwise, it is a native function handle.
 std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
@@ -117,12 +129,12 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
     handle->_type = kStatic;
     handle->signature = signature;
     return handle;
-  } else {
-    auto handle = std::make_shared<protocol::NativeFunctionHandle>();
-    handle->_type = kNativeFunctionHandle;
-    handle->signature = signature;
-    return handle;
   }
+
+  auto handle = std::make_shared<protocol::NativeFunctionHandle>();
+  handle->_type = kNativeFunctionHandle;
+  handle->signature = signature;
+  return handle;
 }
 } // namespace
 
@@ -409,34 +421,61 @@ CallExpressionPtr VeloxToPrestoExprConverter::getCallExpression(
   json result;
   result["@type"] = kCall;
   protocol::Signature signature;
-  std::string exprName = expr->name();
+  std::string veloxExprName = expr->name();
+  std::string prestoExprName;
+
+  // Map Velox expression to the right Presto expression name when constructing
+  // the Presto function signature.
   const auto& opMap = veloxToPrestoOperatorMap();
-  auto mapIter = opMap.find(exprName);
+  auto mapIter = opMap.find(veloxExprName);
   if (mapIter != opMap.end()) {
-    exprName = mapIter->second;
+    prestoExprName = mapIter->second;
+  } else {
+    const auto& internalFunctionMap = veloxToPrestoInternalFunctionMap();
+    auto internalMapIter = internalFunctionMap.find(veloxExprName);
+    if (internalMapIter != internalFunctionMap.end()) {
+      prestoExprName = internalMapIter->second;
+    } else {
+      prestoExprName = veloxExprName;
+    }
   }
-  signature.name = exprName;
-  result["displayName"] = exprName;
+
+  signature.name = prestoExprName;
+  result["displayName"] = prestoExprName;
   signature.kind = protocol::FunctionKind::SCALAR;
   signature.typeVariableConstraints = {};
   signature.longVariableConstraints = {};
+  signature.variableArity = false;
   signature.returnType = getTypeSignature(expr->type());
 
   std::vector<protocol::TypeSignature> argumentTypes;
   auto exprInputs = expr->inputs();
   argumentTypes.reserve(exprInputs.size());
-  for (const auto& input : exprInputs) {
-    argumentTypes.emplace_back(getTypeSignature(input->type()));
+  bool isTryExpression = (veloxExprName == velox::expression::kTry);
+  result["arguments"] = json::array();
+  if (isTryExpression) {
+    VELOX_CHECK_EQ(
+        exprInputs.size(),
+        1,
+        "Velox TRY expression should have exactly 1 input, but got {}.",
+        exprInputs.size());
+
+    // Presto '$internal$try' expects a lambda with no arguments: () -> T.
+    // Construct a "function(T)" type signature for the lambda argument.
+    const auto lambdaExpr = std::make_shared<velox::core::LambdaTypedExpr>(
+        velox::ROW({}), exprInputs.at(0));
+    argumentTypes.emplace_back(getTypeSignature(lambdaExpr->type()));
+    result["arguments"].push_back(getLambdaExpression(lambdaExpr.get()));
+  } else {
+    for (const auto& input : exprInputs) {
+      argumentTypes.emplace_back(getTypeSignature(input->type()));
+      result["arguments"].push_back(getRowExpression(input));
+    }
   }
   signature.argumentTypes = argumentTypes;
-  signature.variableArity = false;
 
-  result["functionHandle"] = getFunctionHandle(exprName, signature);
+  result["functionHandle"] = getFunctionHandle(prestoExprName, signature);
   result["returnType"] = getTypeSignature(expr->type());
-  result["arguments"] = json::array();
-  for (const auto& exprInput : exprInputs) {
-    result["arguments"].push_back(getRowExpression(exprInput));
-  }
 
   return result;
 }
@@ -466,9 +505,14 @@ RowExpressionPtr VeloxToPrestoExprConverter::getRowExpression(
     }
     case velox::core::ExprKind::kCast: {
       // Velox CastTypedExpr maps to Presto CallExpression.
+      // Preserve nullOnFailure (isTryCast) so that TryCast round-trips
+      // correctly as "presto.default.try_cast" rather than "cast".
       const auto* castExpr = expr->asUnchecked<velox::core::CastTypedExpr>();
       auto call = std::make_shared<velox::core::CallTypedExpr>(
-          expr->type(), castExpr->inputs(), velox::expression::kCast);
+          expr->type(),
+          castExpr->inputs(),
+          castExpr->isTryCast() ? velox::expression::kTryCast
+                                : velox::expression::kCast);
       return getCallExpression(call.get());
     }
     case velox::core::ExprKind::kCall: {
