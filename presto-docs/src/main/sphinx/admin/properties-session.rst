@@ -833,3 +833,18 @@ For example, when enabled, the following query::
 
 is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
 reducing both CPU and memory usage.
+
+Geometry Properties
+-------------------
+
+``legacy_st_equals``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable legacy behavior for the ``ST_Equals`` geospatial function.
+See :func:`functions/geospatial:ST_Equals` for details on the behavior differences.
+This property will be removed in a future release.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`legacy-st-equals\`\``.
