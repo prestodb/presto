@@ -2403,6 +2403,10 @@ public class TestAnalyzer
         assertFails(MISSING_COLUMN, ".*Column 'nonexistent' does not exist in source table '.*'",
                 "CREATE VECTOR INDEX test_index ON t1(nonexistent)");
 
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'a' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t1(a, a)");
+
         // duplicate properties
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
                 "CREATE VECTOR INDEX test_index ON t1(a, b) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
