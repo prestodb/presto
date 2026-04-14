@@ -29,6 +29,7 @@ target_link_libraries(
   velox_presto_serializer
   velox_presto_types
   velox_window
+  velox_connector_registry
   ${RE2}
   GTest::gtest
 )
