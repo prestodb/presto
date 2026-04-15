@@ -17,8 +17,11 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.IndexJoinNode;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -282,7 +285,18 @@ class GroupedExecutionTagger
     @Override
     public GroupedExecutionTagger.GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
     {
-        Optional<TableLayout.TablePartitioning> tablePartitioning = metadata.getLayout(session, node.getTable()).getTablePartitioning();
+        return getSourceNodeGroupedExecutionProperties(node.getId(), node.getTable());
+    }
+
+    @Override
+    public GroupedExecutionTagger.GroupedExecutionProperties visitIndexSource(IndexSourceNode node, Void context)
+    {
+        return getSourceNodeGroupedExecutionProperties(node.getId(), node.getTableHandle());
+    }
+
+    private GroupedExecutionTagger.GroupedExecutionProperties getSourceNodeGroupedExecutionProperties(PlanNodeId nodeId, TableHandle tableHandle)
+    {
+        Optional<TableLayout.TablePartitioning> tablePartitioning = metadata.getLayout(session, tableHandle).getTablePartitioning();
         if (!tablePartitioning.isPresent()) {
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
@@ -294,10 +308,46 @@ class GroupedExecutionTagger
             return new GroupedExecutionTagger.GroupedExecutionProperties(
                     true,
                     false,
-                    ImmutableList.of(node.getId()),
+                    ImmutableList.of(nodeId),
                     partitionHandles.size(),
-                    metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
+                    metadata.getConnectorCapabilities(session, tableHandle.getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
         }
+    }
+
+    @Override
+    public GroupedExecutionTagger.GroupedExecutionProperties visitIndexJoin(IndexJoinNode node, Void context)
+    {
+        GroupedExecutionTagger.GroupedExecutionProperties probe = node.getProbeSource().accept(this, null);
+        GroupedExecutionTagger.GroupedExecutionProperties index = node.getIndexSource().accept(this, null);
+
+        if (!groupedExecutionEnabled) {
+            return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
+        }
+
+        // For index join with colocated execution, both probe and index sides must be capable
+        // and have the same number of lifespans (buckets)
+        if (probe.currentNodeCapable && index.currentNodeCapable) {
+            if (probe.totalLifespans != index.totalLifespans) {
+                return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
+            }
+            // Include both probe and index side scan nodes for grouped
+            // execution. Each bucket group gets its own index split,
+            // ensuring file alignment for colocated lookup joins.
+            ImmutableList.Builder<PlanNodeId> allScanNodes = ImmutableList.builder();
+            allScanNodes.addAll(probe.capableTableScanNodes);
+            allScanNodes.addAll(index.capableTableScanNodes);
+            return new GroupedExecutionTagger.GroupedExecutionProperties(
+                    true,
+                    true,
+                    allScanNodes.build(),
+                    probe.totalLifespans,
+                    probe.recoveryEligible && index.recoveryEligible);
+        }
+
+        // Probe-only grouped execution for index joins is not currently
+        // supported. The index side requires colocated grouped execution
+        // with matching bucket counts for correct split scheduling.
+        return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
     }
 
     private GroupedExecutionTagger.GroupedExecutionProperties processChildren(PlanNode node)

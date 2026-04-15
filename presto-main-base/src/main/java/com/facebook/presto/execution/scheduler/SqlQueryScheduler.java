@@ -41,6 +41,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -659,6 +660,14 @@ public class SqlQueryScheduler
         }
         if (newRoot != fragment.getRoot()) {
             Optional<StatsAndCosts> estimatedStatsAndCosts = fragment.getStatsAndCosts();
+            // Filter the scheduling order to only include sources from the
+            // original fragment. The visitor includes all source nodes (e.g.
+            // IndexSourceNode), but some don't need coordinator-scheduled
+            // splits and were excluded during plan fragmentation.
+            Set<PlanNodeId> originalSources = ImmutableSet.copyOf(fragment.getTableScanSchedulingOrder());
+            List<PlanNodeId> newSchedulingOrder = scheduleOrder(newRoot).stream()
+                    .filter(originalSources::contains)
+                    .collect(toImmutableList());
             return Optional.of(
                     // The partitioningScheme should stay the same
                     // even if the root's outputVariable layout is changed.
@@ -667,7 +676,7 @@ public class SqlQueryScheduler
                             newRoot,
                             fragment.getVariables(),
                             fragment.getPartitioning(),
-                            scheduleOrder(newRoot),
+                            newSchedulingOrder,
                             fragment.getPartitioningScheme(),
                             fragment.getOutputOrderingScheme(),
                             fragment.getStageExecutionDescriptor(),

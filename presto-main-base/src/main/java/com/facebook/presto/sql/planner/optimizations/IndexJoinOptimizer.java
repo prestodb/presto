@@ -618,6 +618,11 @@ public class IndexJoinOptimizer
 
             if (!resultingPredicate.equals(TRUE_CONSTANT)) {
                 // TODO: it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
+                // Note: For native execution, connectors may provide a ConnectorPlanOptimizer
+                // that absorbs this FilterNode into the IndexSourceNode's table handle during
+                // ApplyConnectorOptimization (which runs after this optimizer). If no connector
+                // optimizer absorbs it, the FilterNode is handled in PrestoToVeloxQueryPlan by
+                // unwrapping the filter and merging it into the join's remaining filter.
                 source = new FilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, resultingPredicate);
             }
             context.markSuccess();
