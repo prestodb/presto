@@ -2699,7 +2699,8 @@ Property Name                                              Description
 
 ``refresh_type``                                           Refresh strategy for the materialized view. Valid values: ``FULL``
                                                            (always recompute entire view), ``INCREMENTAL`` (recompute only stale
-                                                           partitions when possible, fall back to full otherwise). Default: ``FULL``
+                                                           partitions when possible, fall back to full otherwise). When not set,
+                                                           uses the ``materialized_view_default_refresh_type`` session property.
 ========================================================== ============================================================================
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
