@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.procedure.context;
 
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplitSource;
 import com.facebook.presto.iceberg.procedure.splits.RewriteDataFilesIcebergSplitSource;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
-import org.apache.iceberg.Transaction;
 
 import java.util.Map;
 import java.util.Optional;
@@ -32,18 +32,18 @@ public class IcebergRewriteDataFilesProcedureContext
         implements IcebergCommonProcedureContext
 {
     final Table table;
-    final Transaction transaction;
+    final IcebergAbstractMetadata metadata;
     final Map<String, String> options;
 
-    public IcebergRewriteDataFilesProcedureContext(Table table, Transaction transaction)
+    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata)
     {
-        this(table, transaction, ImmutableMap.of());
+        this(table, metadata, ImmutableMap.of());
     }
 
-    public IcebergRewriteDataFilesProcedureContext(Table table, Transaction transaction, Map<String, String> options)
+    public IcebergRewriteDataFilesProcedureContext(Table table, IcebergAbstractMetadata metadata, Map<String, String> options)
     {
         this.table = requireNonNull(table, "table is null");
-        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.options = ImmutableMap.copyOf(requireNonNull(options, "options is null"));
     }
 
@@ -52,9 +52,9 @@ public class IcebergRewriteDataFilesProcedureContext
         return table;
     }
 
-    public Transaction getTransaction()
+    public IcebergAbstractMetadata getMetadata()
     {
-        return transaction;
+        return metadata;
     }
 
     public Map<String, String> getOptions()

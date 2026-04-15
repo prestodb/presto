@@ -1479,7 +1479,7 @@ public abstract class IcebergAbstractMetadata
                         procedureName.getSchemaName(),
                         procedureName.getObjectName()));
         verify(procedure instanceof DistributedProcedure, "procedure must be DistributedProcedure");
-        verify(procedureContext.compareAndSet(null, (IcebergCommonProcedureContext) ((DistributedProcedure) procedure).createContext(icebergTable, icebergTable.newTransaction(), arguments)),
+        verify(procedureContext.compareAndSet(null, (IcebergCommonProcedureContext) ((DistributedProcedure) procedure).createContext(icebergTable, this, arguments)),
                 "procedure context must not be present");
         return ((DistributedProcedure) procedure).begin(session, procedureContext.get(), tableLayoutHandle, arguments);
     }
