@@ -48,6 +48,7 @@ public class TestOAuth2Config
                 .setUserMappingFile(null)
                 .setEnableRefreshTokens(false)
                 .setEnableDiscovery(true)
+                .setAuthorizationEndpoint(null)
                 .setUserinfoCacheEnabled(false)
                 .setUserinfoCacheTtl(new Duration(10, MINUTES)));
     }

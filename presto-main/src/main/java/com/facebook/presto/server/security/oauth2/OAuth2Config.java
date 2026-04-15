@@ -51,7 +51,7 @@ public class OAuth2Config
     private boolean enableDiscovery = true;
     private boolean userinfoCacheEnabled;
     private Duration userinfoCacheTtl = new Duration(10, TimeUnit.MINUTES);
-    private Optional<String> authorizationEndpoint;
+    private Optional<String> authorizationEndpoint = Optional.empty();
 
     public Optional<String> getStateKey()
     {
