@@ -1180,6 +1180,14 @@ class StatementAnalyzer
             Table sourceTable = new Table(node.getTableName());
             Scope tableScope = analyzer.analyze(sourceTable, scope);
 
+            // Check for duplicate columns
+            Set<String> seenColumns = new HashSet<>();
+            for (Identifier column : node.getColumns()) {
+                if (!seenColumns.add(column.getValue())) {
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getValue());
+                }
+            }
+
             // Validate that specified columns exist in the source table
             TableHandle sourceTableHandle = session.getRuntimeStats().recordWallTime(
                     RuntimeMetricName.GET_TABLE_HANDLE_TIME_NANOS,
@@ -1191,6 +1199,23 @@ class StatementAnalyzer
                 if (!sourceColumns.containsKey(column.getValue())) {
                     throw new SemanticException(MISSING_COLUMN, column, "Column '%s' does not exist in source table '%s'", column.getValue(), sourceTableName);
                 }
+            }
+
+            // Validate that the last column (embedding column) is array(real) or array(double)
+            Identifier embeddingColumn = node.getColumns().get(node.getColumns().size() - 1);
+            String embeddingColumnName = embeddingColumn.getValue();
+            Type embeddingType = metadataResolver.getColumns(sourceTableHandle).stream()
+                    .filter(col -> col.getName().equals(embeddingColumnName))
+                    .findFirst()
+                    .orElseThrow(() -> new SemanticException(MISSING_COLUMN, embeddingColumn,
+                            "Column '%s' does not exist in source table '%s'", embeddingColumnName, sourceTableName))
+                    .getType();
+            if (!(embeddingType instanceof ArrayType)
+                    || (!(((ArrayType) embeddingType).getElementType() instanceof RealType)
+                    && !(((ArrayType) embeddingType).getElementType() instanceof DoubleType))) {
+                throw new SemanticException(TYPE_MISMATCH, embeddingColumn,
+                        "Embedding column '%s' must be of type array(real) or array(double), but was %s",
+                        embeddingColumnName, embeddingType);
             }
 
             // Analyze UPDATING FOR predicate (validates column references, types, etc.)

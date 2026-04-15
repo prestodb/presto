@@ -362,6 +362,16 @@ public class AbstractAnalyzerTest
                         ColumnMetadata.builder().setName("z").setType(BIGINT).build())),
                 false));
 
+        // table with id and embedding columns for vector index tests
+        SchemaTableName table14 = new SchemaTableName("s1", "t14");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(table14, ImmutableList.of(
+                        ColumnMetadata.builder().setName("id").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("embedding_real").setType(new ArrayType(RealType.REAL)).build(),
+                        ColumnMetadata.builder().setName("embedding_double").setType(new ArrayType(DOUBLE)).build(),
+                        ColumnMetadata.builder().setName("name").setType(VARCHAR).build())),
+                false));
+
         // materialized view referencing table in same schema
         List<SchemaTableName> baseTables = new ArrayList<>(Collections.singletonList(table2));
         MaterializedViewDefinition.TableColumn baseTableColumns = new MaterializedViewDefinition.TableColumn(table2, "a", true);
