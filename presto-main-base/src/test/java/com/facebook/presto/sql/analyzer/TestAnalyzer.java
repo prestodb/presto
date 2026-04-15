@@ -2415,6 +2415,10 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, ".*Embedding column 'name' must be of type array\\(real\\) or array\\(double\\).*",
                 "CREATE VECTOR INDEX test_index ON t14(id, name)");
 
+        // duplicate columns
+        assertFails(DUPLICATE_COLUMN_NAME, ".*Column name 'a' specified more than once",
+                "CREATE VECTOR INDEX test_index ON t1(a, a)");
+
         // duplicate properties
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1",
                 "CREATE VECTOR INDEX test_index ON t14(id, embedding_real) WITH (p1 = 'v1', p2 = 'v2', p1 = 'v3')");
