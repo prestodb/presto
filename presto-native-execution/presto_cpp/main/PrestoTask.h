@@ -271,6 +271,26 @@ struct PrestoTask {
     }
   }
 
+  /// TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT once
+  /// the missing-callback issue is root-caused.
+  enum class DppBridgeEvent { kRegistered, kAttempted, kSucceeded, kFailed };
+  void recordDppBridgeEvent(DppBridgeEvent event) {
+    switch (event) {
+      case DppBridgeEvent::kRegistered:
+        dppBridgeRegistered_.fetch_add(1);
+        break;
+      case DppBridgeEvent::kAttempted:
+        dppBridgeAttempted_.fetch_add(1);
+        break;
+      case DppBridgeEvent::kSucceeded:
+        dppBridgeSucceeded_.fetch_add(1);
+        break;
+      case DppBridgeEvent::kFailed:
+        dppBridgeFailed_.fetch_add(1);
+        break;
+    }
+  }
+
  private:
   // Dynamic filter storage.
   struct VersionedFilter {
@@ -315,6 +335,17 @@ struct PrestoTask {
   // vs DROPPED because requestExpired() was true (client disconnected).
   std::atomic<int64_t> dppResponsesSentWithData_{0};
   std::atomic<int64_t> dppResponsesDroppedExpired_{0};
+  // TODO(dpp-diag): Temporary bridge-callback diagnostics to identify why
+  // the largest-build join's callback doesn't fire. REVERT once root-caused.
+  // Compare: registered >= attempted >= succeeded.
+  //  registered: registerHashJoinBridgeCallback called (one per join node)
+  //  attempted:  bridge callback lambda was invoked by Velox
+  //  succeeded:  extractAndDeliverFilters completed without exception
+  //  failed:     extractAndDeliverFilters threw an exception
+  std::atomic<int64_t> dppBridgeRegistered_{0};
+  std::atomic<int64_t> dppBridgeAttempted_{0};
+  std::atomic<int64_t> dppBridgeSucceeded_{0};
+  std::atomic<int64_t> dppBridgeFailed_{0};
 
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.

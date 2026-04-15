@@ -26,7 +26,7 @@ namespace facebook::presto::operators {
 namespace {
 
 /// Converts a variant to the correct type for integer-like columns.
-variant toTypedVariant(int64_t value, const TypePtr& type) {
+static variant toTypedVariant(int64_t value, const TypePtr& type) {
   switch (type->kind()) {
     case TypeKind::INTEGER:
       return variant(static_cast<int32_t>(value));
@@ -38,6 +38,8 @@ variant toTypedVariant(int64_t value, const TypePtr& type) {
       return variant(value); // BIGINT, DATE
   }
 }
+
+} // namespace
 
 /// Extracts filter data from a common::Filter and adds to the accumulators.
 void convertFilter(
@@ -108,6 +110,8 @@ void convertFilter(
       break;
   }
 }
+
+namespace {
 
 /// Finds the VectorHasher in a hash table that processes the given column.
 const VectorHasher* findHasher(

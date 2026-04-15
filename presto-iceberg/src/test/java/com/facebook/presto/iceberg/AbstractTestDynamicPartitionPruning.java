@@ -225,6 +225,63 @@ public abstract class AbstractTestDynamicPartitionPruning
         dimSelectedDatesFiles = countFiles("dim_selected_dates");
         factOrdersTotalManifests = countManifests("fact_orders");
         factOrdersByYearTotalManifests = countManifests("fact_orders_by_year");
+
+        // High-cardinality dimension table: 100K rows with BIGINT keys.
+        // With 90K WEST values, broadcast joins produce ~90K discrete values
+        // in the DPP filter (~10.8 MB at 120 bytes/value), exceeding the
+        // C++ byte-based cap (10 MB) and collapsing to a range filter.
+        // Insert in 10K-row batches to avoid infrastructure issues.
+        executeTableDdl("CREATE TABLE dim_high_cardinality (" +
+                "customer_id BIGINT, " +
+                "region VARCHAR)");
+        for (int batch = 0; batch < 10; batch++) {
+            int offset = batch * 10000;
+            executeTableDdl(format(
+                    "INSERT INTO dim_high_cardinality " +
+                            "SELECT %d + x AS customer_id, " +
+                            "CASE WHEN %d + x <= 90000 THEN 'WEST' ELSE 'OTHER' END AS region " +
+                            "FROM UNNEST(sequence(1, 10000)) AS t(x)",
+                    offset, offset),
+                    10000);
+        }
+
+        // High-cardinality VARCHAR dimension: 100K rows with string keys.
+        // Tests that VARCHAR discrete values correctly collapse to a
+        // lexicographic min/max range when the byte-based cap is exceeded.
+        executeTableDdl("CREATE TABLE dim_high_card_varchar (" +
+                "str_key VARCHAR, " +
+                "region VARCHAR)");
+        for (int batch = 0; batch < 10; batch++) {
+            int offset = batch * 10000;
+            executeTableDdl(format(
+                    "INSERT INTO dim_high_card_varchar " +
+                            "SELECT CAST(%d + x AS VARCHAR) AS str_key, " +
+                            "CASE WHEN %d + x <= 90000 THEN 'WEST' ELSE 'OTHER' END AS region " +
+                            "FROM UNNEST(sequence(1, 10000)) AS t(x)",
+                    offset, offset),
+                    10000);
+        }
+
+        // VARCHAR-partitioned fact table for string key join tests.
+        executeTableDdl("CREATE TABLE fact_orders_varchar (" +
+                "order_id BIGINT, " +
+                "str_key VARCHAR, " +
+                "total_amount DOUBLE" +
+                ") WITH (partitioning = ARRAY['str_key'])");
+        for (int key = 1; key <= 10; key++) {
+            executeTableDdl(format(
+                    "INSERT INTO fact_orders_varchar " +
+                            "SELECT (row_number() OVER ()) + %d * 1000 AS order_id, " +
+                            "CAST(%d AS VARCHAR) AS str_key, " +
+                            "CAST(random() * 1000 AS DOUBLE) AS total_amount " +
+                            "FROM (VALUES 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20," +
+                            "21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40," +
+                            "41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60," +
+                            "61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80," +
+                            "81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100) t(x)",
+                    key, key),
+                    100);
+        }
     }
 
     @AfterClass(alwaysRun = true)
@@ -236,6 +293,9 @@ public abstract class AbstractTestDynamicPartitionPruning
         executeTableDdl("DROP TABLE IF EXISTS dim_selected_dates");
         executeTableDdl("DROP TABLE IF EXISTS dim_active_regions");
         executeTableDdl("DROP TABLE IF EXISTS fact_returns");
+        executeTableDdl("DROP TABLE IF EXISTS dim_high_cardinality");
+        executeTableDdl("DROP TABLE IF EXISTS dim_high_card_varchar");
+        executeTableDdl("DROP TABLE IF EXISTS fact_orders_varchar");
     }
 
     @Test(invocationCount = 10)
@@ -2062,6 +2122,85 @@ public abstract class AbstractTestDynamicPartitionPruning
         // else: filter arrived during warmup scanning before budget exhaustion — inline filter used
 
         assertFilterResolvesWithinTimeout(stats, "warmup-scan");
+    }
+
+    /**
+     * Verifies that a high-cardinality BIGINT build side (90K distinct values)
+     * does not cause ResponseTooLargeException when dynamic filtering is
+     * enabled. With broadcast join, each worker's hash table has all 90K
+     * values. The C++ byte-based cap (~10 MB, ~83K values at 120 bytes each)
+     * collapses the discrete filter to a min/max range. The optimizer may or
+     * may not add dynamic filter annotations for large build sides, so the
+     * primary assertion is correctness — no HTTP errors.
+     */
+    @Test
+    public void testHighCardinalityBuildSideCollapsesToRange()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "10s")
+                .setSystemProperty("join_distribution_type", "BROADCAST")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        // fact_orders has customer_id 1-10; dim_high_cardinality WEST has 1-90000.
+        // All fact rows match because customer_id 1-10 ⊆ [1, 90000].
+        String dppQuery =
+                "SELECT f.customer_id, f.order_id, f.amount " +
+                        "FROM fact_orders f " +
+                        "JOIN dim_high_cardinality d ON f.customer_id = d.customer_id " +
+                        "WHERE d.region = 'WEST' " +
+                        "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, dppQuery);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), dppQuery);
+
+        assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                "High-cardinality: should return all 1000 fact rows");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "High-cardinality: DPP and no-DPP results must match");
+    }
+
+    /**
+     * Verifies that a high-cardinality VARCHAR build side (90K distinct string
+     * values) produces correct results when joined with a VARCHAR-partitioned
+     * fact table. With broadcast join, the C++ side's VectorHasher tracks
+     * lexicographic min/max for strings, enabling range-based filtering when
+     * discrete tracking overflows or the byte-based cap is exceeded. The
+     * primary assertion is correctness — no ResponseTooLargeException.
+     */
+    @Test
+    public void testHighCardinalityVarcharCollapsesToRange()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "10s")
+                .setSystemProperty("join_distribution_type", "BROADCAST")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        // fact_orders_varchar has str_key '1'-'10'; dim WEST has '1'-'90000'.
+        // All fact rows match because str_key '1'-'10' ⊆ WEST values.
+        String dppQuery =
+                "SELECT f.str_key, f.order_id, f.total_amount " +
+                        "FROM fact_orders_varchar f " +
+                        "JOIN dim_high_card_varchar d ON f.str_key = d.str_key " +
+                        "WHERE d.region = 'WEST' " +
+                        "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, dppQuery);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), dppQuery);
+
+        assertEquals(resultWithDpp.getResult().getRowCount(), 1000,
+                "High-cardinality VARCHAR: should return all 1000 fact rows");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "High-cardinality VARCHAR: DPP and no-DPP results must match");
     }
 
     // =====================================================================

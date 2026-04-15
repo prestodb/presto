@@ -616,9 +616,11 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
             }
           });
 
-      // Register HashJoinBridge callbacks for distributed dynamic filter
-      // extraction. When the hash table is built, the callback extracts
-      // filter values from VectorHasher and delivers them to PrestoTask.
+      // Register bridge callbacks for distributed dynamic filter extraction.
+      // The bridge callback fires once from the last HashBuild driver after
+      // allPeersFinished, with access to all drivers' hash tables merged.
+      // extractAndDeliverFilters applies a byte-based cap to prevent
+      // ResponseTooLargeException.
       for (const auto& info : dynamicFilterInfos) {
         std::unordered_set<std::string> filterIds;
         for (const auto& ch : info.channels) {
@@ -626,20 +628,48 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
         }
         prestoTask->registerDynamicFilterIds(filterIds);
 
-        auto taskIdStr = taskId;
+        // TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT
+        // once the missing-callback issue is root-caused.
+        prestoTask->recordDppBridgeEvent(
+            PrestoTask::DppBridgeEvent::kRegistered);
+
         auto channels = info.channels;
-        // Use a leaf memory pool for TupleDomain serialization.
+        auto taskIdCopy = std::string(taskId);
         auto leafPool = prestoTask->task->pool()->addLeafChild(
-            fmt::format("df_extract_{}", info.joinNodeId));
+            fmt::format("df_bridge_{}", info.joinNodeId));
+        auto weakPrestoTask = std::weak_ptr<PrestoTask>(prestoTask);
         prestoTask->task->registerHashJoinBridgeCallback(
-            velox::core::PlanNodeId(info.joinNodeId),
-            [taskIdStr, channels, leafPool](
+            info.joinNodeId,
+            [taskIdCopy,
+             channels = std::move(channels),
+             leafPool = std::move(leafPool),
+             weakPrestoTask](
                 const velox::exec::BaseHashTable& mainTable,
                 const std::vector<std::unique_ptr<velox::exec::BaseHashTable>>&
                     otherTables,
                 bool /*hasNullKeys*/) {
-              operators::extractAndDeliverFilters(
-                  taskIdStr, channels, mainTable, otherTables, leafPool.get());
+              if (auto pt = weakPrestoTask.lock()) {
+                pt->recordDppBridgeEvent(
+                    PrestoTask::DppBridgeEvent::kAttempted);
+              }
+              try {
+                operators::extractAndDeliverFilters(
+                    taskIdCopy,
+                    channels,
+                    mainTable,
+                    otherTables,
+                    leafPool.get());
+                if (auto pt = weakPrestoTask.lock()) {
+                  pt->recordDppBridgeEvent(
+                      PrestoTask::DppBridgeEvent::kSucceeded);
+                }
+              } catch (const std::exception& e) {
+                if (auto pt = weakPrestoTask.lock()) {
+                  pt->recordDppBridgeEvent(
+                      PrestoTask::DppBridgeEvent::kFailed);
+                }
+                throw;
+              }
             });
       }
     }

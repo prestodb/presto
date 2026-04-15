@@ -853,6 +853,19 @@ void PrestoTask::updateTimeInfoLocked(
   if (dppDropped > 0) {
     taskRuntimeStats["dppResponsesDroppedExpired"].addValue(dppDropped);
   }
+  // TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT once
+  // root-caused. Compare: registered >= bridgeSet >= attempted >= succeeded.
+  // Any drop between adjacent levels pinpoints where the callback is lost.
+  auto emit = [&](const char* name, std::atomic<int64_t>& counter) {
+    auto v = counter.load();
+    if (v > 0) {
+      taskRuntimeStats[name].addValue(v);
+    }
+  };
+  emit("dppBridgeRegistered", dppBridgeRegistered_);
+  emit("dppBridgeAttempted", dppBridgeAttempted_);
+  emit("dppBridgeSucceeded", dppBridgeSucceeded_);
+  emit("dppBridgeFailed", dppBridgeFailed_);
 }
 
 void PrestoTask::updateMemoryInfoLocked(

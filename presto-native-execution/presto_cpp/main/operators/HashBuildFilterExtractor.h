@@ -18,8 +18,20 @@
 #include "presto_cpp/main/operators/DynamicFilterSource.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/HashTable.h"
+#include "velox/type/Filter.h"
+#include "velox/type/Variant.h"
 
 namespace facebook::presto::operators {
+
+/// Extracts filter data from a common::Filter and adds to the accumulators.
+/// Populates discreteValues with individual values and/or updates
+/// minValue/maxValue with range bounds.
+void convertFilter(
+    const velox::common::Filter& filter,
+    const velox::TypePtr& type,
+    std::vector<velox::variant>& discreteValues,
+    std::optional<velox::variant>& minValue,
+    std::optional<velox::variant>& maxValue);
 
 /// Extracts dynamic filters from pre-merge hash tables' VectorHasher objects
 /// and delivers them to the PrestoTask via DynamicFilterCallbackRegistry.
