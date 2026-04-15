@@ -67,7 +67,6 @@ target_link_libraries(
   presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
-  presto_velox_conversion
   velox
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}

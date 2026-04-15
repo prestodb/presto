@@ -14,8 +14,9 @@ add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
 target_link_libraries(
   presto_function_metadata
   presto_common
-  velox_function_registry
-  velox_async_rpc_function_registry
+  #velox_function_registry
+  #velox_async_rpc_function_registry
+  velox
 )
 
 add_subdirectory(dynamic_registry)

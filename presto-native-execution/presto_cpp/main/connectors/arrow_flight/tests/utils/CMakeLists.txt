@@ -21,7 +21,8 @@ target_link_libraries(
   presto_flight_connector_test_lib
   arrow
   presto_flight_connector
-  velox_exception
+  #velox_exception
+  velox
   presto_flight_connector_utils
   velox_exec_test_lib
 )

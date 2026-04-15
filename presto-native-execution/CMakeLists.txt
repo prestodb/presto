@@ -218,7 +218,6 @@ include_directories(${CMAKE_BINARY_DIR})
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 
 set(VELOX_MONO_LIBRARY ON CACHE BOOL "Build Velox mono library")
-set(VELOX_BUILD_SHARED ON CACHE BOOL "Build Velox shared library to link to")
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
