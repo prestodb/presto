@@ -93,7 +93,7 @@ public class TestOAuth2Config
                 .setEnableRefreshTokens(true)
                 .setEnableDiscovery(false)
                 .setUserinfoCacheEnabled(true)
-                .setUserinfoCacheTtl(new Duration(5, MINUTES));
+                .setUserinfoCacheTtl(new Duration(5, MINUTES))
                 .setEnableDiscovery(false)
                 .setAuthorizationEndpoint("endpoint");
 
