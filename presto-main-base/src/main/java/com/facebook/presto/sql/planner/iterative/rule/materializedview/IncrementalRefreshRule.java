@@ -35,6 +35,7 @@ import com.facebook.presto.spi.plan.RefreshMaterializedViewNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
@@ -145,10 +146,10 @@ public class IncrementalRefreshRule
         SchemaTableName dataTable = new SchemaTableName(materializedViewDefinition.get().getSchema(), materializedViewDefinition.get().getTable());
         PassthroughColumnEquivalences columnEquivalences = new PassthroughColumnEquivalences(materializedViewDefinition.get(), dataTable);
 
-        Optional<Map<SchemaTableName, List<TupleDomain<String>>>> filteredConstraints =
+        Map<SchemaTableName, List<TupleDomain<String>>> filteredConstraints =
                 filterToValidRefreshColumns(materializedViewDefinition.get(), constraints, columnEquivalences, dataTable);
 
-        if (!filteredConstraints.isPresent()) {
+        if (filteredConstraints.isEmpty()) {
             context.getWarningCollector().add(new PrestoWarning(
                     MATERIALIZED_VIEW_STITCHING_FALLBACK,
                     "Cannot perform incremental refresh for materialized view " + qualifiedViewName +
@@ -162,7 +163,7 @@ public class IncrementalRefreshRule
                 session,
                 idAllocator,
                 variableAllocator,
-                filteredConstraints.get(),
+                filteredConstraints,
                 columnEquivalences,
                 context.getLookup(),
                 context.getWarningCollector());
@@ -186,9 +187,9 @@ public class IncrementalRefreshRule
      * @param constraints Raw stale predicates by base table
      * @param columnEquivalences Column equivalences for mapping base to storage columns
      * @param dataTable The MV storage table name
-     * @return Filtered constraints if all stale columns are valid refresh columns, empty otherwise
+     * @return Filtered constraints with valid refresh columns only, empty map if incremental refresh is not possible
      */
-    private static Optional<Map<SchemaTableName, List<TupleDomain<String>>>> filterToValidRefreshColumns(
+    private static Map<SchemaTableName, List<TupleDomain<String>>> filterToValidRefreshColumns(
             MaterializedViewDefinition materializedViewDefinition,
             Map<SchemaTableName, MaterializedDataPredicates> constraints,
             PassthroughColumnEquivalences columnEquivalences,
@@ -197,7 +198,7 @@ public class IncrementalRefreshRule
         Optional<List<String>> validRefreshColumns = materializedViewDefinition.getValidRefreshColumns();
 
         if (!validRefreshColumns.isPresent() || validRefreshColumns.get().isEmpty()) {
-            return Optional.empty();
+            return ImmutableMap.of();
         }
 
         ImmutableSet<String> validRefreshColumnSet = ImmutableSet.copyOf(validRefreshColumns.get());
@@ -215,10 +216,10 @@ public class IncrementalRefreshRule
 
         // If any table has no valid predicates after filtering, incremental refresh is not possible
         if (filtered.values().stream().anyMatch(List::isEmpty)) {
-            return Optional.empty();
+            return ImmutableMap.of();
         }
 
-        return Optional.of(filtered);
+        return filtered;
     }
 
     private static List<TupleDomain<String>> filterPredicatesForTable(

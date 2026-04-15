@@ -118,9 +118,9 @@ import org.apache.iceberg.ReplacePartitions;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
@@ -1371,29 +1371,27 @@ public abstract class IcebergAbstractMetadata
         if (!tableExists(session, tableName)) {
             // If table doesn't exist, check if it's a materialized view
             return getMaterializedView(session, tableName).map(definition -> {
-                        SchemaTableName storageTableName = new SchemaTableName(definition.getSchema(), definition.getTable());
-                        Table storageTable = getIcebergTable(session, storageTableName);
+                SchemaTableName storageTableName = new SchemaTableName(definition.getSchema(), definition.getTable());
+                Table storageTable = getIcebergTable(session, storageTableName);
 
-                        // Time travel on the materialized view itself is not supported
-                        if (tableVersion.isPresent() || name.getSnapshotId().isPresent()) {
-                            throw new PrestoException(NOT_SUPPORTED, "Time travel queries on materialized views are not supported");
-                        }
+                // Time travel on the materialized view itself is not supported
+                if (tableVersion.isPresent() || name.getSnapshotId().isPresent()) {
+                    throw new PrestoException(NOT_SUPPORTED, "Time travel queries on materialized views are not supported");
+                }
 
-                        return new IcebergTableHandle(
-                                storageTableName.getSchemaName(),
-                                new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty(), Optional.empty()),
-                                name.getSnapshotId().isPresent(),
-                                tryGetLocation(storageTable),
-                                tryGetProperties(storageTable),
-                                tryGetSchema(storageTable).map(SchemaParser::toJson),
-                                Optional.empty(),
-                                Optional.empty(),
-                                getSortFields(storageTable),
-                                ImmutableList.of(),
-                                Optional.of(tableName));
-                    })
-                    // null indicates table not found
-                    .orElse(null);
+                return new IcebergTableHandle(
+                        storageTableName.getSchemaName(),
+                        new IcebergTableName(storageTableName.getTableName(), name.getTableType(), Optional.empty(), Optional.empty(), Optional.empty()),
+                        name.getSnapshotId().isPresent(),
+                        tryGetLocation(storageTable),
+                        tryGetProperties(storageTable),
+                        tryGetSchema(storageTable).map(SchemaParser::toJson),
+                        Optional.empty(),
+                        Optional.empty(),
+                        getSortFields(storageTable),
+                        ImmutableList.of(),
+                        Optional.of(tableName));
+            }).orElse(null); // null indicates table not found
         }
 
         SchemaTableName tableNameToLoad = new SchemaTableName(tableName.getSchemaName(), name.getTableName());
