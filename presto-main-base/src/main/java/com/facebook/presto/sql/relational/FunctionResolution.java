@@ -159,6 +159,7 @@ public final class FunctionResolution
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "TRY_CAST"));
     }
 
+    @Override
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
         return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of(ARRAY_CONSTRUCTOR)));
