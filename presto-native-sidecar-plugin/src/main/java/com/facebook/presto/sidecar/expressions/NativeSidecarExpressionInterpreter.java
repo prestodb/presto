@@ -54,6 +54,7 @@ public class NativeSidecarExpressionInterpreter
     public static final String PRESTO_TIME_ZONE_HEADER = "X-Presto-Time-Zone";
     public static final String PRESTO_USER_HEADER = "X-Presto-User";
     public static final String PRESTO_EXPRESSION_OPTIMIZER_LEVEL_HEADER = "X-Presto-Expression-Optimizer-Level";
+    public static final String PRESTO_SESSION_START_TIME_HEADER = "X-Presto-Session-Start-Time";
     private static final String EXPRESSIONS_ENDPOINT = "/v1/expressions";
 
     private final NodeManager nodeManager;
@@ -132,6 +133,7 @@ public class NativeSidecarExpressionInterpreter
                 .setHeader(PRESTO_TIME_ZONE_HEADER, session.getSqlFunctionProperties().getTimeZoneKey().getId())
                 .setHeader(PRESTO_USER_HEADER, session.getUser())
                 .setHeader(PRESTO_EXPRESSION_OPTIMIZER_LEVEL_HEADER, level.name())
+                .setHeader(PRESTO_SESSION_START_TIME_HEADER, String.valueOf(session.getSqlFunctionProperties().getSessionStartTime()))
                 .build();
     }
 

@@ -226,6 +226,11 @@ json::array_t getOptimizedExpressions(
   static constexpr char const* kTimezoneHeader = "X-Presto-Time-Zone";
   const auto& timezone = httpHeaders.getSingleOrEmpty(kTimezoneHeader);
 
+  static constexpr char const* kSessionStartTimeHeader =
+      "X-Presto-Session-Start-Time";
+  const auto& sessionStartTime =
+      httpHeaders.getSingleOrEmpty(kSessionStartTimeHeader);
+
   protocol::ExpressionOptimizationRequest request =
       json::parse(util::extractMessageBody(body));
 
@@ -235,6 +240,8 @@ json::array_t getOptimizedExpressions(
   configs.insert({velox::core::QueryConfig::kSessionTimezone, timezone});
   configs.insert(
       {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"});
+  configs.insert(
+      {velox::core::QueryConfig::kSessionStartTime, sessionStartTime});
 
   auto queryConfig = velox::core::QueryConfig{std::move(configs)};
   auto queryCtx =

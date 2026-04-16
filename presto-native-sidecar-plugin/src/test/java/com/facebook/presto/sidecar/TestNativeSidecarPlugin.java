@@ -53,6 +53,8 @@ import com.google.common.collect.Ordering;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -822,6 +824,10 @@ public class TestNativeSidecarPlugin
                 groupingSet1,
                 groupingSet2);
         assertQueryWithSameQueryRunner(session, query, "VALUES (0), (822283861886), (995358664191)");
+
+        Instant current = getNowInstant(session);
+        Instant future = getNowInstant(session);
+        assertTrue(future.isAfter(current));
     }
 
     @Test
@@ -888,5 +894,15 @@ public class TestNativeSidecarPlugin
         // Verify that the test shared secret is propagated all the way through
         assertTrue(authenticationManager.getSharedSecret().isPresent());
         assertEquals(authenticationManager.getSharedSecret().get(), "internal-shared-secret");
+    }
+
+    private Instant getNowInstant(Session session)
+    {
+        List<MaterializedRow> rows = computeActual(session, "select now()").getMaterializedRows();
+        assertEquals(rows.size(), 1);
+
+        Object value = rows.get(0).getField(0);
+        checkArgument(value instanceof ZonedDateTime, "Expected ZonedDateTime but got %s", value);
+        return ((ZonedDateTime) value).toInstant();
     }
 }
