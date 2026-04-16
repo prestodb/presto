@@ -177,6 +177,40 @@ TEST_F(PlanConverterTest, offsetLimit) {
   ASSERT_TRUE(foundLimit);
 }
 
+// IndexSourceNode is converted to a TableScanNode with the same output type
+// and column assignments. The default toVeloxTableHandle(IndexHandle) overload
+// delegates to toVeloxTableHandle, producing a standard HiveTableHandle.
+TEST_F(PlanConverterTest, indexSource) {
+  auto plan = assertToVeloxQueryPlan("IndexSource.json");
+  ASSERT_NE(plan, nullptr);
+
+  // OutputNode wraps the converted IndexSourceNode.
+  auto* tableScan =
+      dynamic_cast<const core::TableScanNode*>(plan->sources()[0].get());
+  ASSERT_NE(tableScan, nullptr);
+  ASSERT_EQ(tableScan->id(), "0");
+
+  // Verify output type has the expected columns.
+  auto outputType = tableScan->outputType();
+  ASSERT_EQ(outputType->size(), 2);
+  ASSERT_EQ(outputType->nameOf(0), "nationkey");
+  ASSERT_EQ(outputType->nameOf(1), "name");
+
+  // Verify assignments.
+  ASSERT_EQ(tableScan->assignments().size(), 2);
+  ASSERT_NE(
+      tableScan->assignments().find("nationkey"),
+      tableScan->assignments().end());
+  ASSERT_NE(
+      tableScan->assignments().find("name"), tableScan->assignments().end());
+
+  // Verify the table handle is a HiveTableHandle.
+  auto* tableHandle = dynamic_cast<const connector::hive::HiveTableHandle*>(
+      tableScan->tableHandle().get());
+  ASSERT_NE(tableHandle, nullptr);
+  ASSERT_EQ(tableHandle->tableName(), "tpch.nation");
+}
+
 TEST_F(PlanConverterTest, batchPlanConversion) {
   filesystems::registerLocalFileSystem();
   auto root = assertToBatchVeloxQueryPlan(
