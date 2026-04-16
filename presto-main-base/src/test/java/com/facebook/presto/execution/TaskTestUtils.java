@@ -74,6 +74,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -187,7 +189,10 @@ public final class TaskTestUtils
                 jsonCodec(TableCommitContext.class),
                 new RowExpressionDeterminismEvaluator(metadata),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper(),
+                new ObjectMapper()
+                        .registerModule(new Jdk8Module())
+                        .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                        .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false),
                 (session) -> {
                     throw new UnsupportedOperationException();
                 });

@@ -233,6 +233,8 @@ import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -471,7 +473,9 @@ public class LocalExecutionPlanner
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
                 .copy()
-                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .registerModule(new Jdk8Module())
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
         this.useNewNanDefinition = requireNonNull(functionsConfig, "functionsConfig is null").getUseNewNanDefinition();
