@@ -16,10 +16,13 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
@@ -44,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import jakarta.inject.Inject;
+import org.apache.hadoop.fs.Path;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -87,6 +91,7 @@ public class DeltaMetadata
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final DeltaConfig config;
+    private final HdfsEnvironment hdfsEnvironment;
 
     @Inject
     public DeltaMetadata(
@@ -94,13 +99,15 @@ public class DeltaMetadata
             DeltaClient deltaClient,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
-            DeltaConfig config)
+            DeltaConfig config,
+            HdfsEnvironment hdfsEnvironment)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
     @Override
@@ -173,6 +180,14 @@ public class DeltaMetadata
 
         HiveStorageFormat hiveStorageFormat = getTableStorageFormat(tableMetadata.getProperties());
         String tableLocation = tableProperties.get(EXTERNAL_LOCATION_PROPERTY).toString();
+
+        // Need to check for path existence to avoid inconsistent metastore
+        // as Delta connector does not support managed tables
+        Path targetPath = MetastoreUtil.getExternalPath(
+                hdfsEnvironment,
+                new HdfsContext(session, schemaName, tableName, tableLocation, true),
+                tableLocation);
+        log.debug("Creating external table with location: '%s'", targetPath.toString());
 
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))

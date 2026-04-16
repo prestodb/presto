@@ -1102,7 +1102,10 @@ public class HiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
             String externalLocation = getExternalLocation(tableMetadata.getProperties());
-            targetPath = getExternalPath(new HdfsContext(session, schemaName, tableName, externalLocation, true), externalLocation);
+            targetPath = MetastoreUtil.getExternalPath(
+                    hdfsEnvironment,
+                    new HdfsContext(session, schemaName, tableName, externalLocation, true),
+                    externalLocation);
         }
         else if (tableType.equals(MANAGED_TABLE) || tableType.equals(MATERIALIZED_VIEW)) {
             LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
@@ -1447,20 +1450,6 @@ public class HiveMetadata
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Cannot open Avro schema file: " + url, e);
-        }
-    }
-
-    private Path getExternalPath(HdfsContext context, String location)
-    {
-        try {
-            Path path = new Path(location);
-            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
-            }
-            return path;
-        }
-        catch (IllegalArgumentException | IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI", e);
         }
     }
 
