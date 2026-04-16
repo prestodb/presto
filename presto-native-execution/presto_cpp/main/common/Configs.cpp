@@ -233,6 +233,11 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
+          BOOL_PROP(kExchangeMaterializationEnabled, false),
+          NUM_PROP(
+              kExchangeMaterializationPartitioningRowBatchBufferSize,
+              16L << 20),
+          NUM_PROP(kExchangeMaterializationPerPartitionBufferSize, 130L * 1024),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
@@ -760,6 +765,24 @@ uint64_t SystemConfig::ssdCacheMaxEntries() const {
 
 std::string SystemConfig::shuffleName() const {
   return optionalProperty(kShuffleName).value();
+}
+
+bool SystemConfig::exchangeMaterializationEnabled() const {
+  return optionalProperty<bool>(kExchangeMaterializationEnabled)
+      .value_or(false);
+}
+
+int64_t SystemConfig::exchangeMaterializationPartitioningRowBatchBufferSize()
+    const {
+  return optionalProperty<int64_t>(
+             kExchangeMaterializationPartitioningRowBatchBufferSize)
+      .value_or(16L << 20);
+}
+
+int64_t SystemConfig::exchangeMaterializationPerPartitionBufferSize() const {
+  return optionalProperty<int64_t>(
+             kExchangeMaterializationPerPartitionBufferSize)
+      .value_or(130L * 1024);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
