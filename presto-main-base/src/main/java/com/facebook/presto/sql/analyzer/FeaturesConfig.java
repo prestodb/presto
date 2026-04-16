@@ -23,6 +23,7 @@ import com.facebook.airlift.units.MaxDataSize;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -243,6 +244,7 @@ public class FeaturesConfig
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
+    private MaterializedViewRefreshType materializedViewDefaultRefreshType = MaterializedViewRefreshType.FULL;
     private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
@@ -2400,6 +2402,19 @@ public class FeaturesConfig
     public FeaturesConfig setMaterializedViewAllowFullRefreshEnabled(boolean value)
     {
         this.materializedViewAllowFullRefreshEnabled = value;
+        return this;
+    }
+
+    public MaterializedViewRefreshType getMaterializedViewDefaultRefreshType()
+    {
+        return materializedViewDefaultRefreshType;
+    }
+
+    @Config("materialized-view-default-refresh-type")
+    @ConfigDescription("Default refresh type for materialized views when not specified on the view (FULL or INCREMENTAL)")
+    public FeaturesConfig setMaterializedViewDefaultRefreshType(MaterializedViewRefreshType value)
+    {
+        this.materializedViewDefaultRefreshType = value;
         return this;
     }
 

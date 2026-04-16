@@ -37,6 +37,7 @@ public class IcebergWritableTableHandle
     private final Map<String, String> storageProperties;
     private final List<SortField> sortOrder;
     private final Optional<SchemaTableName> materializedViewName;
+    private final boolean fullRefreshRequired;
 
     public IcebergWritableTableHandle(
             String schemaName,
@@ -50,7 +51,7 @@ public class IcebergWritableTableHandle
             Map<String, String> storageProperties,
             List<SortField> sortOrder)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, Optional.empty());
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, Optional.empty(), false);
     }
 
     public IcebergWritableTableHandle(
@@ -66,6 +67,23 @@ public class IcebergWritableTableHandle
             List<SortField> sortOrder,
             Optional<SchemaTableName> materializedViewName)
     {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false);
+    }
+
+    public IcebergWritableTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName,
+            boolean fullRefreshRequired)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -77,6 +95,7 @@ public class IcebergWritableTableHandle
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
         this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+        this.fullRefreshRequired = fullRefreshRequired;
     }
 
     @JsonProperty
@@ -149,5 +168,11 @@ public class IcebergWritableTableHandle
     public Optional<SchemaTableName> getMaterializedViewName()
     {
         return materializedViewName;
+    }
+
+    @JsonProperty
+    public boolean isFullRefreshRequired()
+    {
+        return fullRefreshRequired;
     }
 }

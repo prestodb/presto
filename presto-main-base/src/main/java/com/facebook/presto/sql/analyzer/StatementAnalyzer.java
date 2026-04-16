@@ -945,7 +945,8 @@ class StatementAnalyzer
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
-                    refreshQuery));
+                    refreshQuery,
+                    toSchemaTableName(viewName)));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
