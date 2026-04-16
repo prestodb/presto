@@ -60,6 +60,19 @@ class PrestoToVeloxConnector {
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser) const = 0;
 
+  /// Overload for IndexSourceNode conversion that passes the indexHandle
+  /// to enable index lookup support. Default implementation delegates to
+  /// the base toVeloxTableHandle (ignoring indexHandle). Connectors
+  /// supporting index lookup should override this.
+  [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
+  toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const protocol::IndexHandle& /*indexHandle*/,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser) const {
+    return toVeloxTableHandle(tableHandle, exprConverter, typeParser);
+  }
+
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(

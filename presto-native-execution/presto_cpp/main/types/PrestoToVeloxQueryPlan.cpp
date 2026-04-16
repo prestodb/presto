@@ -130,6 +130,18 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
   return connector.toVeloxTableHandle(tableHandle, exprConverter, typeParser);
 }
 
+std::shared_ptr<connector::ConnectorTableHandle>
+toConnectorTableHandleForIndexSource(
+    const protocol::TableHandle& tableHandle,
+    const protocol::IndexHandle& indexHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  const auto& connector =
+      getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
+  return connector.toVeloxTableHandle(
+      tableHandle, indexHandle, exprConverter, typeParser);
+}
+
 std::vector<core::TypedExprPtr> getProjections(
     const VeloxExprConverter& exprConverter,
     const protocol::Assignments& assignments) {
@@ -1367,8 +1379,21 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   }
 
   const auto left = toVeloxQueryPlan(node->probeSource, tableWriteInfo, taskId);
-  const auto right =
-      toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+  auto right = toVeloxQueryPlan(node->indexSource, tableWriteInfo, taskId);
+
+  // The index source is normally an IndexSourceNode which converts to a
+  // TableScanNode. However, IndexJoinOptimizer may insert a FilterNode between
+  // IndexJoinNode and IndexSourceNode when there are non-domain-expressible
+  // predicates on the index side (e.g., LIKE, complex expressions). Connectors
+  // may absorb this FilterNode via ConnectorPlanOptimizer before it reaches
+  // native plan conversion. If not absorbed, we unwrap it here and merge the
+  // filter into the join's remaining filter.
+  core::TypedExprPtr indexSourceFilter;
+  if (auto filterNode =
+          std::dynamic_pointer_cast<const core::FilterNode>(right)) {
+    indexSourceFilter = filterNode->filter();
+    right = filterNode->sources()[0];
+  }
 
   std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
   std::vector<core::TypedExprPtr> unsupportedConditions{};
@@ -1380,6 +1405,12 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         /*acceptConstant=*/false,
         joinConditionPtrs,
         unsupportedConditions);
+  }
+
+  // If a FilterNode was unwrapped from the index source, add it to
+  // unsupported conditions so it becomes part of the join's remaining filter.
+  if (indexSourceFilter) {
+    unsupportedConditions.push_back(indexSourceFilter);
   }
 
   // Combine unsupported conditions into a single filter using AND
@@ -1411,14 +1442,17 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::IndexSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
+  VELOX_CHECK_NOT_NULL(node);
   auto rowType = toRowType(node->outputVariables, typeParser_);
   connector::ColumnHandleMap assignments;
   for (const auto& [variable, columnHandle] : node->assignments) {
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
   }
-  auto connectorTableHandle =
-      toConnectorTableHandle(node->tableHandle, exprConverter_, typeParser_);
+
+  auto connectorTableHandle = toConnectorTableHandleForIndexSource(
+      node->tableHandle, node->indexHandle, exprConverter_, typeParser_);
+
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }
