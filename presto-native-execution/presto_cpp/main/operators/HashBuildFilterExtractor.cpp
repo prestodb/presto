@@ -271,14 +271,27 @@ void extractAndDeliverFilters(
       continue;
     }
 
-    filters[channel.filterId] = buildTupleDomain(
-        channel.filterId,
-        channel.type,
-        discreteValues,
-        minValue,
-        maxValue,
-        false, // nullAllowed
-        pool);
+    try {
+      filters[channel.filterId] = buildTupleDomain(
+          channel.filterId,
+          channel.type,
+          discreteValues,
+          minValue,
+          maxValue,
+          false, // nullAllowed
+          pool);
+    } catch (const std::exception& e) {
+      // buildTupleDomain serializes values through PrestoVectorSerde which
+      // allocates memory from the pool. Under memory pressure (e.g., large
+      // hash tables consuming most of the task pool), these allocations can
+      // fail. Skip this filter channel rather than losing all filters for
+      // the entire join node. The coordinator treats a missing filter as
+      // "no constraint" (all partitions pass).
+      LOG(WARNING) << "DPP: buildTupleDomain failed for filter="
+                   << channel.filterId << " type=" << channel.type->toString()
+                   << " discreteValues=" << discreteValues.size()
+                   << " error=" << e.what();
+    }
   }
 
   DynamicFilterCallbackRegistry::instance().fire(
