@@ -27,6 +27,7 @@ import java.io.IOException;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.makeCompatibleName;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -84,8 +85,10 @@ public class TestParquetTypeUtils
     public void testReadPreCannedParquetWithHyphenatedFields()
             throws IOException
     {
-        String parquetFilePath = "src/test/resources/hyphenated-fields/hyphenated_struct_fields.parquet";
-        Path path = new Path(parquetFilePath);
+        Path path = new Path(requireNonNull(
+                getClass().getClassLoader()
+                        .getResource("hyphenated-fields/hyphenated_struct_fields.parquet"))
+                .toString());
         Configuration conf = new Configuration(false);
 
         ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(conf, path);
@@ -120,8 +123,10 @@ public class TestParquetTypeUtils
     public void testLookupWithMakeCompatibleNameFindsFields()
             throws IOException
     {
-        String parquetFilePath = "src/test/resources/hyphenated-fields/hyphenated_struct_fields.parquet";
-        Path path = new Path(parquetFilePath);
+        Path path = new Path(requireNonNull(
+                getClass().getClassLoader()
+                        .getResource("hyphenated-fields/hyphenated_struct_fields.parquet"))
+                .toString());
         Configuration conf = new Configuration(false);
 
         ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(conf, path);
@@ -132,11 +137,12 @@ public class TestParquetTypeUtils
         org.apache.parquet.io.GroupColumnIO applicationColumnIO =
                 (org.apache.parquet.io.GroupColumnIO) messageColumnIO.getChild(1);
 
-        // WITH makeCompatibleName() - fields should be found
-        assertNotNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("aws-region")));
-        assertNotNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("user-id")));
-        assertNotNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("data-center")));
-        assertNotNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("normal_field")));
+        // WITH makeCompatibleName() - fields should be found and names should match
+        assertEquals(requireNonNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("aws-region"))).getName(), "aws_x2Dregion");
+        assertEquals(requireNonNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("user-id"))).getName(), "user_x2Did");
+        assertEquals(requireNonNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("data-center"))).getName(), "data_x2Dcenter");
+        assertEquals(requireNonNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("normal_field"))).getName(), "normal_field");
+        assertEquals(requireNonNull(lookupColumnByName(applicationColumnIO, makeCompatibleName("aws_x2Dregion_2"))).getName(), "aws_x2Dregion_2");
     }
 
     /**
@@ -147,8 +153,10 @@ public class TestParquetTypeUtils
     public void testLookupWithoutEncodingDoesNotFindFields()
             throws IOException
     {
-        String parquetFilePath = "src/test/resources/hyphenated-fields/hyphenated_struct_fields.parquet";
-        Path path = new Path(parquetFilePath);
+        Path path = new Path(requireNonNull(
+                getClass().getClassLoader()
+                        .getResource("hyphenated-fields/hyphenated_struct_fields.parquet"))
+                .toString());
         Configuration conf = new Configuration(false);
 
         ParquetMetadata parquetMetadata = ParquetFileReader.readFooter(conf, path);

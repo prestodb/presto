@@ -287,6 +287,68 @@ public class TestIcebergTypes
     }
 
     /**
+     * End-to-end test that writes to an Iceberg table with hyphenated struct fields
+     * and reads it back, verifying the complete write→read cycle works correctly.
+     * This test validates the full integration of:
+     * 1. PrimitiveTypeMapBuilder.makeCompatibleName() for writing hex-encoded field names
+     * 2. ColumnIOConverter.constructField() for reading with makeCompatibleName()
+     * 3. IcebergPageSourceProvider.getColumnType() for SYNTHESIZED column handling
+     */
+    @Test
+    public void testEndToEndWriteReadWithHyphenatedStructFields()
+    {
+        String tableName = "test_e2e_hyphenated_struct";
+        try {
+            // Create table with multiple hyphenated fields in struct
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id INT, " +
+                    "application ROW(" +
+                    "  \"aws-region\" VARCHAR, " +
+                    "  \"user-id\" INT, " +
+                    "  \"data-center\" VARCHAR, " +
+                    "  \"zone-id\" INT, " +
+                    "  normal_field VARCHAR" +
+                    ")" +
+                    ")");
+
+            // Write data - tests PrimitiveTypeMapBuilder.makeCompatibleName()
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, ROW('us-west-2', 1001, 'dc-west-01', 100, 'normal1')), " +
+                    "(2, ROW('eu-central-1', 1002, 'dc-eu-01', 200, 'normal2')), " +
+                    "(3, ROW('ap-south-1', 1003, 'dc-ap-01', 300, 'normal3'))", 3);
+
+            // Read back - tests ColumnIOConverter.constructField() with makeCompatibleName()
+            // Test individual field access (SYNTHESIZED path)
+            assertQuery(
+                    "SELECT id, application.\"aws-region\", application.\"user-id\", application.\"data-center\" FROM " + tableName,
+                    "VALUES (1, 'us-west-2', 1001, 'dc-west-01'), " +
+                    "(2, 'eu-central-1', 1002, 'dc-eu-01'), " +
+                    "(3, 'ap-south-1', 1003, 'dc-ap-01')");
+
+            // Test all fields including normal field
+            assertQuery(
+                    "SELECT application.\"aws-region\", application.\"user-id\", application.\"data-center\", " +
+                    "application.\"zone-id\", application.normal_field FROM " + tableName,
+                    "VALUES ('us-west-2', 1001, 'dc-west-01', 100, 'normal1'), " +
+                    "('eu-central-1', 1002, 'dc-eu-01', 200, 'normal2'), " +
+                    "('ap-south-1', 1003, 'dc-ap-01', 300, 'normal3')");
+
+            // Test with WHERE clause on hyphenated field
+            assertQuery(
+                    "SELECT id, application.\"aws-region\" FROM " + tableName + " WHERE application.\"user-id\" = 1002",
+                    "VALUES (2, 'eu-central-1')");
+
+            // Test with ORDER BY on hyphenated field
+            assertQuery(
+                    "SELECT id, application.\"zone-id\" FROM " + tableName + " ORDER BY application.\"zone-id\" DESC",
+                    "VALUES (3, 300), (2, 200), (1, 100)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
      * Test top level hyphenated column names still work correctly.
      * Top level columns use field ID based lookup so they were never broken.
      * This test ensures our fix doesn't regress this behavior.
