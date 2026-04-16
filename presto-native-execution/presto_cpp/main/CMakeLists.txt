@@ -67,43 +67,7 @@ target_link_libraries(
   presto_velox_plan_conversion
   presto_hive_functions
   presto_theta_sketch_functions
-  velox_abfs
-  velox_aggregates
-  velox_caching
-  velox_common_base
-  velox_core
-  velox_dwio_common_exception
-  velox_dwio_dwrf_reader
-  velox_dwio_dwrf_writer
-  velox_dwio_orc_reader
-  velox_dwio_parquet_reader
-  velox_dwio_parquet_writer
-  velox_dwio_text_reader_register
-  velox_dwio_text_writer_register
-  velox_dynamic_library_loader
-  velox_encode
-  velox_exec
-  velox_rpc_plan_node_translator
-  velox_file
-  velox_functions_lib
-  velox_functions_prestosql
-  velox_gcs
-  velox_hdfs
-  velox_connector_registry
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_hive_partition_function
-  velox_key_encoder
-  velox_presto_serializer
-  velox_presto_type_parser
-  velox_s3fs
-  velox_serialization
-  velox_time
-  velox_type
-  velox_type_fbhive
-  velox_type_tz
-  velox_vector
-  velox_window
+  velox
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
@@ -144,6 +108,12 @@ if(APPLE)
 else()
   target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
 endif()
+
+# Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
+# results in multiple link errors similar to the one below only on GCC.
+# "undefined reference to `vtable for velox::connector::tpch::TpchTableHandle`"
+# TODO: Fix these errors.
+#target_link_libraries(presto_server presto_server_lib velox)
 
 # velox_tpch_connector is an OBJECT target in Velox and so needs to be linked to
 # the executable or use TARGET_OBJECT linkage for the presto_server_lib target.

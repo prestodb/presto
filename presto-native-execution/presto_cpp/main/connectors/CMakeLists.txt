@@ -32,8 +32,9 @@ endif()
 target_link_libraries(
   presto_connectors
   presto_velox_expr_conversion
-  velox_type_fbhive
-  velox_tpcds_connector
+  #velox_type_fbhive
+  #velox_tpcds_connector
+  velox
 )
 
 add_subdirectory(hive)

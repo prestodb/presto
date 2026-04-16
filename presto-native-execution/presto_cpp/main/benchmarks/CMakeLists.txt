@@ -9,17 +9,4 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-add_library(presto_exception Exception.cpp)
-add_library(presto_common Counters.cpp Utils.cpp ConfigReader.cpp Configs.cpp)
-
-target_link_libraries(presto_exception velox)
-set_property(TARGET presto_exception PROPERTY JOB_POOL_LINK
-                                              presto_link_job_pool)
-
-target_link_libraries(presto_common velox)
-set_property(TARGET presto_common PROPERTY JOB_POOL_LINK presto_link_job_pool)
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(tests)
-endif()
+add_subdirectory(http-jwt)
