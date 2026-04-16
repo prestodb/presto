@@ -232,8 +232,9 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
-import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -470,10 +471,11 @@ public class LocalExecutionPlanner
                 new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver()),
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
-        this.sortedMapObjectMapper = JsonObjectMapperUtils.configureObjectMapperForJacksonFix(
-                requireNonNull(objectMapper, "objectMapper is null")
-                        .copy()
-                        .configure(ORDER_MAP_ENTRIES_BY_KEYS, true));
+        this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
+                .copy()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .registerModule(new Jdk8Module())
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
         this.useNewNanDefinition = requireNonNull(functionsConfig, "functionsConfig is null").getUseNewNanDefinition();
