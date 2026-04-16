@@ -242,8 +242,9 @@ import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ThrowingClusterTtlProviderManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.ThrowingNodeTtlFetcherManager;
 import com.facebook.presto.util.FinalizerService;
-import com.facebook.presto.util.JsonObjectMapperUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -387,7 +388,10 @@ public class LocalQueryRunner
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory)
     {
         this(defaultSession, featuresConfig, functionsConfig, nodeSpillConfig, withInitialTransaction, alwaysRevokeMemory,
-                JsonObjectMapperUtils.createConfiguredObjectMapper());
+                new ObjectMapper()
+                        .registerModule(new Jdk8Module())
+                        .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                        .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false));
     }
 
     public LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, ObjectMapper objectMapper)
@@ -643,7 +647,10 @@ public class LocalQueryRunner
     public static LocalQueryRunner queryRunnerWithFakeNodeCountForStats(Session defaultSession, int nodeCount)
     {
         return new LocalQueryRunner(defaultSession, new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, nodeCount,
-                JsonObjectMapperUtils.createConfiguredObjectMapper(),
+                new ObjectMapper()
+                        .registerModule(new Jdk8Module())
+                        .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                        .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false),
                 new TaskManagerConfig().setTaskConcurrency(4));
     }
 
