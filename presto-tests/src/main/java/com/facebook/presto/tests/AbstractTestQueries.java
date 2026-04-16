@@ -4635,6 +4635,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionAllAboveBroadcastJoin()
+    {
+        assertQuery(
+                "SELECT COUNT(*) " +
+                "FROM region r " +
+                "JOIN (SELECT nationkey " +
+                "      FROM nation " +
+                "      UNION ALL " +
+                "      SELECT nationkey as key " +
+                "      FROM nation) n " +
+                "ON r.regionkey = n.nationkey",
+                "VALUES 10");
+    }
+
+    @Test
     public void testTableSampleBernoulliBoundaryValues()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
