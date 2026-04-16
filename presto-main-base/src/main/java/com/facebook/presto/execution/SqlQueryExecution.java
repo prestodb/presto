@@ -822,8 +822,14 @@ public class SqlQueryExecution
                         plan.getTypes(),
                         pruneHistogramsFromStatsAndCosts(plan.getStatsAndCosts())))
                 .orElse(null));
-        // drop the reference to the scheduler since execution is finished
-        queryScheduler.set(null);
+        // Atomically get and clear the scheduler reference, then abort it.
+        // This ensures tasks are always aborted even if the state change
+        // listener that normally calls abort() hasn't run yet due to
+        // asynchronous listener dispatch ordering.
+        SqlQuerySchedulerInterface scheduler = queryScheduler.getAndSet(null);
+        if (scheduler != null) {
+            scheduler.abort();
+        }
         stateMachine.pruneQueryInfoFinished();
     }
 
