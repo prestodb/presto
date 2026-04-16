@@ -19,6 +19,22 @@
 
     <inceptionYear>2012</inceptionYear>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <licenses>
         <license>
             <name>Apache License 2.0</name>
@@ -264,7 +280,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
-                <version>3.6.0</version>
+                <version>4.0.3</version>
             </dependency>
 
             <dependency>
@@ -1498,15 +1514,21 @@
             </dependency>
 
             <dependency>
-                <groupId>org.sonatype.aether</groupId>
-                <artifactId>aether-api</artifactId>
-                <version>1.13.1</version>
+                <groupId>org.apache.maven.resolver</groupId>
+                <artifactId>maven-resolver-api</artifactId>
+                <version>1.9.6</version>
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.resolver</groupId>
+                <groupId>com.github.ShahimSharafudeen.resolvertest</groupId>
                 <artifactId>resolver</artifactId>
-                <version>1.4</version>
+                <version>1.7-spark-plexus-fix-final-review1</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2882,8 +2904,6 @@
                         <rules>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
-                                    <!-- TODO: fix this in Airlift resolver -->
-                                    <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
@@ -3295,8 +3315,6 @@
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                             <exclude>com.google.guava:guava</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
@@ -3367,8 +3385,6 @@
                                 <rules>
                                     <requireUpperBoundDeps>
                                         <excludes combine.children="append">
-                                            <!-- TODO: fix this in Airlift resolver -->
-                                            <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                             <exclude>com.google.guava:guava</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                             <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
