@@ -25,6 +25,12 @@ if(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR)
   target_link_libraries(presto_connectors presto_flight_connector)
 endif()
 
+if(PRESTO_ENABLE_LANCE)
+  target_sources(presto_connectors PRIVATE LancePrestoToVeloxConnector.cpp)
+  target_compile_definitions(presto_connectors PUBLIC PRESTO_ENABLE_LANCE)
+  target_link_libraries(presto_connectors velox_lance_connector)
+endif()
+
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_connectors velox_cudf_hive_connector cudf::cudf)
 endif()

@@ -64,7 +64,7 @@ public class LancePageSourceProvider
                 .map(LanceColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
+        String tablePath = lanceSplit.getDatasetPath();
 
         return new LanceFragmentPageSource(
                 tableHandle,
