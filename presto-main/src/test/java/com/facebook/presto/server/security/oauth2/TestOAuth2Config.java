@@ -48,6 +48,7 @@ public class TestOAuth2Config
                 .setUserMappingFile(null)
                 .setEnableRefreshTokens(false)
                 .setEnableDiscovery(true)
+                .setAuthorizationEndpoint(null)
                 .setUserinfoCacheEnabled(false)
                 .setUserinfoCacheTtl(new Duration(10, MINUTES)));
     }
@@ -74,6 +75,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
                 .put("http-server.authentication.oauth2.userinfo-cache", "true")
                 .put("http-server.authentication.oauth2.userinfo-cache-ttl", "5m")
+                .put("http-server.authentication.oauth2.authorization-endpoint", "endpoint")
                 .build();
 
         OAuth2Config expected = new OAuth2Config()
@@ -92,7 +94,9 @@ public class TestOAuth2Config
                 .setEnableRefreshTokens(true)
                 .setEnableDiscovery(false)
                 .setUserinfoCacheEnabled(true)
-                .setUserinfoCacheTtl(new Duration(5, MINUTES));
+                .setUserinfoCacheTtl(new Duration(5, MINUTES))
+                .setEnableDiscovery(false)
+                .setAuthorizationEndpoint("endpoint");
 
         assertFullMapping(properties, expected);
     }

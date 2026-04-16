@@ -150,7 +150,9 @@ public abstract class AbstractCliTest
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                true);
+                true,
+                false,
+                ImmutableList.of());
     }
 
     protected static QueryRunner createQueryRunner(ClientSession clientSession)

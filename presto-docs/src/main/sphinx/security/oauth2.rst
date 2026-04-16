@@ -35,6 +35,7 @@ Below are the key configuration properties for enabling OAuth2 authentication in
     http-server.authentication.oauth2.max-clock-skew=1m
     http-server.authentication.oauth2.refresh-tokens=true
     http-server.authentication.oauth2.oidc.discovery=true
+    http-server.authentication.oauth2.authorization-endpoint=https://your-idp.com/oauth2/authorize
     http-server.authentication.oauth2.state-key=your-hmac-secret
     http-server.authentication.oauth2.additional-audiences=your-client-id,another-audience
     http-server.authentication.oauth2.user-mapping.pattern=(.*)
@@ -67,6 +68,7 @@ Notes
 - **Groups Field**: Optional claim used for role-based access control.
 - **State Key**: A secret used to sign the OAuth2 state parameter (HMAC).
 - **Refresh Tokens**: Enable if your IdP supports issuing refresh tokens.
+- **Authorization Endpoint**: Optional. Use this to specify a custom authorization endpoint for IdPs that have separate authorization endpoints and issuers. When not specified, the authorization endpoint is discovered from the IdP's OIDC discovery document (if ``oidc.discovery=true``) or derived from the issuer URL.
 - **UserInfo Cache**: Enable caching of UserInfo endpoint responses to reduce load on the IdP and improve performance. When enabled, responses are cached using a SHA-256 hash of the access token as the key. Default is ``false``.
 - **UserInfo Cache TTL**: Time-to-live for cached UserInfo entries. Only applicable when ``userinfo-cache`` is enabled. Default is ``10m`` (10 minutes). Minimum value is ``1m``.
 - **Callback**: When configuring your IdP the callback URI must be set to ``[presto]/oauth2/callback``
