@@ -610,6 +610,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitRefreshVectorIndex(RefreshVectorIndex node, C context)
+    {
+        node.getWhere().ifPresent(where -> process(where, context));
+        return null;
+    }
+
+    @Override
     protected R visitStartTransaction(StartTransaction node, C context)
     {
         node.getTransactionModes().forEach(transactionMode -> process(transactionMode, context));

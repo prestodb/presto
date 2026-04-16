@@ -119,6 +119,7 @@ import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
+import com.facebook.presto.sql.tree.RefreshVectorIndex;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -1530,6 +1531,39 @@ public class TestSqlParser
         // UPDATING FOR without expression
         assertInvalidStatement("CREATE VECTOR INDEX idx ON t(a) UPDATING FOR",
                 "mismatched input '<EOF>'.*");
+    }
+
+    @Test
+    public void testRefreshVectorIndex()
+    {
+        assertStatement("REFRESH VECTOR INDEX idx",
+                new RefreshVectorIndex(
+                        QualifiedName.of("idx"),
+                        Optional.empty()));
+
+        assertStatement("REFRESH VECTOR INDEX a.b.c",
+                new RefreshVectorIndex(
+                        QualifiedName.of("a", "b", "c"),
+                        Optional.empty()));
+
+        assertStatement("REFRESH VECTOR INDEX idx WHERE p = 'x'",
+                new RefreshVectorIndex(
+                        QualifiedName.of("idx"),
+                        Optional.of(new ComparisonExpression(
+                                EQUAL,
+                                new Identifier("p"),
+                                new StringLiteral("x")))));
+
+        assertStatement("REFRESH VECTOR INDEX idx WHERE p BETWEEN 'x' AND 'y'",
+                new RefreshVectorIndex(
+                        QualifiedName.of("idx"),
+                        Optional.of(new BetweenPredicate(
+                                new Identifier("p"),
+                                new StringLiteral("x"),
+                                new StringLiteral("y")))));
+
+        assertInvalidStatement("REFRESH VECTOR idx", "mismatched input 'idx'.*");
+        assertInvalidStatement("REFRESH INDEX idx", "mismatched input 'INDEX'.*");
     }
 
     @Test
