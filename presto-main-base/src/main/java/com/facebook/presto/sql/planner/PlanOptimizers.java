@@ -388,9 +388,6 @@ public class PlanOptimizers
 
         builder.add(new LogicalCteOptimizer(metadata));
 
-        // Rewrite RPC function calls (e.g., fb_llm_inference) to use async RPC pattern
-        builder.add(new RpcFunctionOptimizer(rpcFunctionNames));
-
         builder.add(new IterativeOptimizer(
                 metadata,
                 ruleStats,
@@ -644,6 +641,7 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames));
 
         builder.add(new IterativeOptimizer(
                 metadata,
