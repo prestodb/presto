@@ -662,6 +662,27 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
       "shuffle.local.max-partition-bytes"};
   static constexpr std::string_view kShuffleName{"shuffle.name"};
+
+  /// Enable materialized exchange I/O (ExchangeWrite/ExchangeRead operators).
+  /// When false, falls back to PnS + LocalPartition + ShuffleWrite.
+  /// Default: false.
+  static constexpr std::string_view kExchangeMaterializationEnabled{
+      "exchange.materialization.enabled"};
+
+  /// ExchangeWrite flat buffer flush threshold in bytes. Controls how much
+  /// serialized CompactRow data accumulates per driver before flushing to
+  /// the ExchangeOutputBuffer. Default: 16MB.
+  static constexpr std::string_view
+      kExchangeMaterializationPartitioningRowBatchBufferSize{
+          "exchange.materialization.partitioning-row-batch-buffer-size"};
+
+  /// ExchangeOutputBuffer per-partition drain threshold in bytes. When a
+  /// partition accumulates this much data, it is drained to the writer.
+  /// Default: 130KB.
+  static constexpr std::string_view
+      kExchangeMaterializationPerPartitionBufferSize{
+          "exchange.materialization.per-partition-buffer-size"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1114,6 +1135,12 @@ class SystemConfig : public ConfigBase {
   uint64_t ssdCacheMaxEntries() const;
 
   std::string shuffleName() const;
+
+  bool exchangeMaterializationEnabled() const;
+
+  int64_t exchangeMaterializationPartitioningRowBatchBufferSize() const;
+
+  int64_t exchangeMaterializationPerPartitionBufferSize() const;
 
   bool enableSerializedPageChecksum() const;
 

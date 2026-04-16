@@ -47,3 +47,34 @@ target_link_libraries(
 )
 
 set_property(TARGET presto_operators_test PROPERTY JOB_POOL_LINK presto_link_job_pool)
+
+add_executable(presto_exchange_test ExchangeTest.cpp)
+
+add_test(
+  NAME presto_exchange_test
+  COMMAND presto_exchange_test
+)
+
+target_link_libraries(
+  presto_exchange_test
+  presto_connectors
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  velox_vector_fuzzer
+  velox_exec_test_lib
+  velox_hive_partition_function
+  velox_vector_test_lib
+  velox_type
+  velox_vector
+  velox_exec
+  velox_memory
+  GTest::gmock
+  GTest::gtest
+  GTest::gtest_main
+)
+
+set_tests_properties(presto_exchange_test PROPERTIES TIMEOUT 300)
+
+set_property(TARGET presto_exchange_test PROPERTY JOB_POOL_LINK presto_link_job_pool)

@@ -39,6 +39,8 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/ExchangeRead.h"
+#include "presto_cpp/main/operators/ExchangeWrite.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
@@ -1475,6 +1477,10 @@ void PrestoServer::registerCustomOperators() {
       std::make_unique<operators::ShuffleWriteTranslator>());
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleReadTranslator>());
+  velox::exec::Operator::registerOperator(
+      std::make_unique<operators::ExchangeWriteTranslator>());
+  velox::exec::Operator::registerOperator(
+      std::make_unique<operators::ExchangeReadTranslator>());
 
   // Todo - Split Presto & Presto-on-Spark server into different classes
   // which will allow server specific operator registration.
