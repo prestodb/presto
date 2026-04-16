@@ -291,11 +291,11 @@ struct PrestoTask {
     }
   }
 
-  /// Records the first bridge callback error message (truncated to 200 chars).
+  /// Records the first bridge callback error message (truncated to 500 chars).
   void recordDppBridgeError(const std::string& error) {
     auto locked = dppBridgeFirstError_.wlock();
     if (locked->empty()) {
-      *locked = error.substr(0, 200);
+      *locked = error.substr(0, 500);
     }
   }
 
