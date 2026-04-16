@@ -30,6 +30,8 @@ public class LanceWritableTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final String tablePath;
+    private final List<String> tableId;
     private final String schemaJson;
     private final List<LanceColumnHandle> inputColumns;
 
@@ -37,11 +39,15 @@ public class LanceWritableTableHandle
     public LanceWritableTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
+            @JsonProperty("tablePath") String tablePath,
+            @JsonProperty("tableId") List<String> tableId,
             @JsonProperty("schemaJson") String schemaJson,
             @JsonProperty("inputColumns") List<LanceColumnHandle> inputColumns)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
+        this.tableId = ImmutableList.copyOf(requireNonNull(tableId, "tableId is null"));
         this.schemaJson = requireNonNull(schemaJson, "schemaJson is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
     }
@@ -59,6 +65,18 @@ public class LanceWritableTableHandle
     }
 
     @JsonProperty
+    public String getTablePath()
+    {
+        return tablePath;
+    }
+
+    @JsonProperty
+    public List<String> getTableId()
+    {
+        return tableId;
+    }
+
+    @JsonProperty
     public String getSchemaJson()
     {
         return schemaJson;
@@ -73,7 +91,7 @@ public class LanceWritableTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, schemaJson, inputColumns);
+        return Objects.hash(schemaName, tableName, tablePath, tableId, schemaJson, inputColumns);
     }
 
     @Override
@@ -88,6 +106,8 @@ public class LanceWritableTableHandle
         LanceWritableTableHandle other = (LanceWritableTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.tablePath, other.tablePath) &&
+                Objects.equals(this.tableId, other.tableId) &&
                 Objects.equals(this.schemaJson, other.schemaJson) &&
                 Objects.equals(this.inputColumns, other.inputColumns);
     }
@@ -98,6 +118,7 @@ public class LanceWritableTableHandle
         return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("tablePath", tablePath)
                 .toString();
     }
 }

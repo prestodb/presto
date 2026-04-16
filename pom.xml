@@ -2802,6 +2802,25 @@
                 <artifactId>scala-library</artifactId>
                 <version>${scala.version}</version>
             </dependency>
+
+            <!-- Lance -->
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-core</artifactId>
+                <version>2.0.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-namespace-core</artifactId>
+                <version>0.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.lance</groupId>
+                <artifactId>lance-namespace-apache-client</artifactId>
+                <version>0.6.1</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

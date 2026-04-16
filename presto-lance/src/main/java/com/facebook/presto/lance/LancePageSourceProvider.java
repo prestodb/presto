@@ -64,13 +64,11 @@ public class LancePageSourceProvider
                 .map(LanceColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
-
         return new LanceFragmentPageSource(
                 tableHandle,
                 lanceColumns,
                 lanceSplit.getFragments(),
-                tablePath,
+                tableHandle.getTablePath(),
                 config.getReadBatchSize(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator());

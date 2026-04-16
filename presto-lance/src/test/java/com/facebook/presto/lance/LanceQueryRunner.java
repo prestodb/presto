@@ -49,7 +49,7 @@ public class LanceQueryRunner
 
             // Use a temp directory for lance root
             Path tempDir = Files.createTempDirectory("lance-test");
-            connectorProperties.putIfAbsent("lance.root-url", tempDir.toString());
+            connectorProperties.putIfAbsent("lance.root", tempDir.toString());
 
             queryRunner.createCatalog(DEFAULT_CATALOG, "lance", connectorProperties);
             return queryRunner;

@@ -52,7 +52,7 @@ public class LanceSplitManager
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
         List<Fragment> fragments = namespaceHolder.getFragments(
-                tableHandle.getTableName());
+                tableHandle.getTablePath());
 
         List<ConnectorSplit> splits = fragments.stream()
                 .map(fragment -> (ConnectorSplit) new LanceSplit(

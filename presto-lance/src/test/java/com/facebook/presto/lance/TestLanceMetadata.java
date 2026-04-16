@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import org.testng.annotations.BeforeMethod;
@@ -50,9 +51,12 @@ public class TestLanceMetadata
         assertNotNull(dbUrl, "example_db resource not found");
         String rootPath = Paths.get(dbUrl.toURI()).toString();
         LanceConfig config = new LanceConfig()
-                .setRootUrl(rootPath)
                 .setSingleLevelNs(true);
-        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config);
+
+        // Pass lance.root through namespace properties (as the connector factory would)
+        Map<String, String> namespaceProperties = ImmutableMap.of("lance.root", rootPath);
+
+        LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         JsonCodec<LanceCommitTaskData> commitTaskDataCodec = jsonCodec(LanceCommitTaskData.class);
         metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
     }
@@ -70,11 +74,14 @@ public class TestLanceMetadata
     {
         ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
         assertNotNull(handle);
-        assertEquals(handle, new LanceTableHandle("default", "test_table1"));
+        LanceTableHandle lanceHandle = (LanceTableHandle) handle;
+        assertEquals(lanceHandle.getSchemaName(), "default");
+        assertEquals(lanceHandle.getTableName(), "test_table1");
+        assertNotNull(lanceHandle.getTablePath());
+        assertNotNull(lanceHandle.getTableId());
 
         ConnectorTableHandle handle2 = metadata.getTableHandle(null, new SchemaTableName("default", "test_table2"));
         assertNotNull(handle2);
-        assertEquals(handle2, new LanceTableHandle("default", "test_table2"));
 
         // non-existent schema
         assertNull(metadata.getTableHandle(null, new SchemaTableName("other_schema", "test_table1")));
@@ -86,8 +93,9 @@ public class TestLanceMetadata
     @Test
     public void testGetColumnHandles()
     {
-        LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table1");
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(null, tableHandle);
+        ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
+        assertNotNull(handle);
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(null, handle);
         assertNotNull(columns);
         assertEquals(columns.size(), 4);
         assertTrue(columns.containsKey("x"));
@@ -99,8 +107,9 @@ public class TestLanceMetadata
     @Test
     public void testGetTableMetadata()
     {
-        LanceTableHandle tableHandle = new LanceTableHandle("default", "test_table1");
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(null, tableHandle);
+        ConnectorTableHandle handle = metadata.getTableHandle(null, new SchemaTableName("default", "test_table1"));
+        assertNotNull(handle);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(null, handle);
         assertNotNull(tableMetadata);
         assertEquals(tableMetadata.getTable(), new SchemaTableName("default", "test_table1"));
         assertEquals(tableMetadata.getColumns().size(), 4);
