@@ -866,6 +866,15 @@ void PrestoTask::updateTimeInfoLocked(
   emit("dppBridgeAttempted", dppBridgeAttempted_);
   emit("dppBridgeSucceeded", dppBridgeSucceeded_);
   emit("dppBridgeFailed", dppBridgeFailed_);
+  // Encode the first error message as a metric name so it appears in the
+  // query JSON runtimeStats. The "sum" value is 1; the error text is in
+  // the metric key itself.
+  {
+    auto err = dppBridgeFirstError_.rlock();
+    if (!err->empty()) {
+      taskRuntimeStats["dppBridgeError:" + *err].addValue(1);
+    }
+  }
 }
 
 void PrestoTask::updateMemoryInfoLocked(

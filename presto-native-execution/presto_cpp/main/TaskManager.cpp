@@ -665,6 +665,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
                 }
               } catch (const std::exception& e) {
                 if (auto pt = weakPrestoTask.lock()) {
+                  pt->recordDppBridgeError(e.what());
                   pt->recordDppBridgeEvent(
                       PrestoTask::DppBridgeEvent::kFailed);
                 }

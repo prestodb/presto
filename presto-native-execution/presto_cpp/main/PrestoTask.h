@@ -291,6 +291,14 @@ struct PrestoTask {
     }
   }
 
+  /// Records the first bridge callback error message (truncated to 200 chars).
+  void recordDppBridgeError(const std::string& error) {
+    auto locked = dppBridgeFirstError_.wlock();
+    if (locked->empty()) {
+      *locked = error.substr(0, 200);
+    }
+  }
+
  private:
   // Dynamic filter storage.
   struct VersionedFilter {
@@ -346,6 +354,8 @@ struct PrestoTask {
   std::atomic<int64_t> dppBridgeAttempted_{0};
   std::atomic<int64_t> dppBridgeSucceeded_{0};
   std::atomic<int64_t> dppBridgeFailed_{0};
+  // First error message from a failed extractAndDeliverFilters call.
+  folly::Synchronized<std::string> dppBridgeFirstError_;
 
   // Pending external dynamic filters that arrived before the Velox Task was
   // created. Applied when the task starts. Protected by PrestoTask::mutex.
