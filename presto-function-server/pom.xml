@@ -120,13 +120,20 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.resolver</groupId>
+            <groupId>com.github.imsayari404.resolver</groupId>
             <artifactId>resolver</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.inject</groupId>
+                    <artifactId>guice</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
-            <groupId>org.sonatype.aether</groupId>
-            <artifactId>aether-api</artifactId>
+            <groupId>org.apache.maven.resolver</groupId>
+            <artifactId>maven-resolver-api</artifactId>
+            <version>1.9.6</version>
         </dependency>
 
         <dependency>
@@ -173,6 +180,20 @@
                     <violationsFiles>
                         <violationsFile>${project.parent.basedir}/src/modernizer/violations.xml</violationsFile>
                     </violationsFiles>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <failOnWarning>false</failOnWarning>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice:jar:6.0.0</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice:jar:no_aop:4.2.2</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.inject:guice</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>

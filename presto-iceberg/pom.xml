@@ -261,6 +261,8 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+            <classifier>no_aop</classifier>
+            <version>4.2.2</version>
         </dependency>
 
         <dependency>
@@ -809,6 +811,12 @@
                     <!--                        <dependency>javax.servlet:javax.servlet-api:jar</dependency>-->
                     <!--                        <dependency>org.apache.httpcomponents.core5:httpcore5:jar</dependency>-->
                     <!--                    </ignoredUsedUndeclaredDependencies>-->
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.google.inject:guice:jar:6.0.0</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.inject:guice</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
