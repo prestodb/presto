@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
 #include <algorithm>
+#include <fmt/format.h>
 #include <glog/logging.h>
 #include "presto_cpp/main/types/TupleDomainBuilder.h"
 #include "velox/exec/VectorHasher.h"
@@ -132,7 +133,8 @@ void extractAndDeliverFilters(
     const std::vector<DynamicFilterChannel>& channels,
     const BaseHashTable& mainTable,
     const std::vector<std::unique_ptr<BaseHashTable>>& otherTables,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    DppErrorCallback errorCallback) {
 
   std::map<std::string, protocol::TupleDomain<std::string>> filters;
   std::unordered_set<std::string> filterIds;
@@ -142,11 +144,16 @@ void extractAndDeliverFilters(
   }
 
   // Maximum estimated byte size for the discrete-values TupleDomain JSON
-  // before collapsing to a min/max range. The Java HTTP client's default
-  // maxContentLength is 16 MB; stay well under that. Each discrete value
-  // produces ~120 bytes of JSON (two Markers with base64 blocks).
+  // across ALL channels in this response before collapsing to min/max
+  // ranges. The Java HTTP client's default maxContentLength is 16 MB;
+  // stay well under that. Each discrete value produces ~120 bytes of JSON
+  // (two Markers with base64 blocks). The budget is cumulative across all
+  // channels to prevent multi-channel responses from exceeding the limit.
   static constexpr uint64_t kMaxDiscreteFilterJsonBytes = 10 << 20; // 10 MB
   static constexpr uint64_t kJsonBytesPerDiscreteValue = 120;
+  // A range filter (single min/max pair) contributes ~240 bytes.
+  static constexpr uint64_t kJsonBytesPerRange = 2 * kJsonBytesPerDiscreteValue;
+  uint64_t cumulativeEstimatedBytes = 0;
 
   for (const auto& channel : channels) {
     std::vector<variant> discreteValues;
@@ -236,13 +243,15 @@ void extractAndDeliverFilters(
         allDiscrete = false;
         return;
       }
-      // Check estimated response size. Each discrete value produces ~120
-      // bytes of JSON (two Markers with base64 blocks, type, bound). If
-      // the total exceeds the limit, collapse to min/max range — the
-      // min/max are already tracked by convertFilter.
+      // Check estimated cumulative response size. Each discrete value
+      // produces ~120 bytes of JSON (two Markers with base64 blocks, type,
+      // bound). Compare against the remaining budget (total cap minus bytes
+      // already committed by prior channels) to prevent multi-channel
+      // responses from exceeding the HTTP maxContentLength limit.
       estimatedDiscreteBytes =
           discreteValues.size() * kJsonBytesPerDiscreteValue;
-      if (estimatedDiscreteBytes > kMaxDiscreteFilterJsonBytes) {
+      if (cumulativeEstimatedBytes + estimatedDiscreteBytes >
+          kMaxDiscreteFilterJsonBytes) {
         allDiscrete = false;
         discreteValues.clear();
         discreteValues.shrink_to_fit();
@@ -271,6 +280,15 @@ void extractAndDeliverFilters(
       continue;
     }
 
+    // Update cumulative byte estimate for this channel.
+    if (!discreteValues.empty()) {
+      cumulativeEstimatedBytes +=
+          discreteValues.size() * kJsonBytesPerDiscreteValue;
+    } else {
+      // Range-only: one range with two markers.
+      cumulativeEstimatedBytes += kJsonBytesPerRange;
+    }
+
     try {
       filters[channel.filterId] = buildTupleDomain(
           channel.filterId,
@@ -284,13 +302,20 @@ void extractAndDeliverFilters(
       // Skip this filter channel rather than losing all filters for
       // the entire join node. The coordinator treats a missing filter as
       // "no constraint" (all partitions pass).
-      LOG(ERROR) << "DPP: buildTupleDomain failed for filter="
-                 << channel.filterId << " type=" << channel.type->toString()
-                 << " discreteValues=" << discreteValues.size()
-                 << " hasMin=" << minValue.has_value()
-                 << " hasMax=" << maxValue.has_value()
-                 << " columnIndex=" << channel.columnIndex
-                 << " error=" << e.what();
+      auto errorMsg = fmt::format(
+          "buildTupleDomain failed for filter={} type={} "
+          "discreteValues={} hasMin={} hasMax={} columnIndex={}: {}",
+          channel.filterId,
+          channel.type->toString(),
+          discreteValues.size(),
+          minValue.has_value(),
+          maxValue.has_value(),
+          channel.columnIndex,
+          e.what());
+      LOG(ERROR) << "DPP: " << errorMsg;
+      if (errorCallback) {
+        errorCallback(errorMsg);
+      }
     }
   }
 

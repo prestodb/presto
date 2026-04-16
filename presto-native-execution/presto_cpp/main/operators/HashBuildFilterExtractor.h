@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 #include "presto_cpp/main/operators/DynamicFilterSource.h"
@@ -22,6 +23,10 @@
 #include "velox/type/Variant.h"
 
 namespace facebook::presto::operators {
+
+/// Optional callback for reporting per-channel extraction errors.
+/// Receives the error message string.
+using DppErrorCallback = std::function<void(const std::string&)>;
 
 /// Extracts filter data from a common::Filter and adds to the accumulators.
 /// Populates discreteValues with individual values and/or updates
@@ -38,12 +43,17 @@ void convertFilter(
 ///
 /// Called before prepareJoinTable() so VectorHasher discrete values are still
 /// intact. Unions values across all per-driver hash tables.
+///
+/// @param errorCallback Optional callback invoked with the error message
+///   when buildTupleDomain fails for a channel. The channel is skipped but
+///   other channels continue. If null, errors are only logged.
 void extractAndDeliverFilters(
     const std::string& taskId,
     const std::vector<DynamicFilterChannel>& channels,
     const velox::exec::BaseHashTable& mainTable,
     const std::vector<std::unique_ptr<velox::exec::BaseHashTable>>&
         otherTables,
-    velox::memory::MemoryPool* pool);
+    velox::memory::MemoryPool* pool,
+    DppErrorCallback errorCallback = nullptr);
 
 } // namespace facebook::presto::operators

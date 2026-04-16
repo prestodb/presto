@@ -658,7 +658,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
                     channels,
                     mainTable,
                     otherTables,
-                    leafPool.get());
+                    leafPool.get(),
+                    [weakPrestoTask](const std::string& error) {
+                      if (auto pt = weakPrestoTask.lock()) {
+                        pt->recordDppBridgeError(error);
+                      }
+                    });
                 if (auto pt = weakPrestoTask.lock()) {
                   pt->recordDppBridgeEvent(
                       PrestoTask::DppBridgeEvent::kSucceeded);
