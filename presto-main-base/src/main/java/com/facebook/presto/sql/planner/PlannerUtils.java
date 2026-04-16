@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -59,11 +60,15 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -87,6 +92,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -388,9 +394,57 @@ public class PlannerUtils
         else if (planNode instanceof ProjectNode) {
             return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
         }
+        else if (planNode instanceof UnionNode) {
+            return cloneUnionNode((UnionNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+        }
 
         checkState(false, "Currently cannot clone: " + planNode.getClass().getName() + " nodes.");
         return null;
+    }
+
+    private static PlanNode cloneUnionNode(UnionNode unionNode, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    {
+        int numSources = unionNode.getSources().size();
+        List<PlanNode> clonedSources = new ArrayList<>();
+        List<Map<VariableReferenceExpression, VariableReferenceExpression>> legVarMaps = new ArrayList<>();
+
+        for (int i = 0; i < numSources; i++) {
+            Map<VariableReferenceExpression, VariableReferenceExpression> sourceMap = unionNode.sourceVariableMap(i);
+            Map<VariableReferenceExpression, VariableReferenceExpression> legVarMap = new HashMap<>();
+
+            List<VariableReferenceExpression> legFieldsToKeep = fieldsToKeep.stream()
+                    .map(sourceMap::get)
+                    .filter(v -> v != null)
+                    .collect(toImmutableList());
+
+            PlanNode clonedLeg = clonePlanNode(unionNode.getSources().get(i), session, metadata, idAllocator, legFieldsToKeep, legVarMap);
+            clonedSources.add(clonedLeg);
+            legVarMaps.add(legVarMap);
+        }
+
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newOutputToInputs = ImmutableListMultimap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> newOutputVars = ImmutableList.builder();
+
+        for (VariableReferenceExpression outputVar : unionNode.getOutputVariables()) {
+            VariableReferenceExpression newOutputVar = varMap.getOrDefault(outputVar, outputVar);
+            varMap.putIfAbsent(outputVar, newOutputVar);
+            newOutputVars.add(newOutputVar);
+
+            List<VariableReferenceExpression> originalInputs = unionNode.getVariableMapping().get(outputVar);
+            for (int i = 0; i < numSources; i++) {
+                VariableReferenceExpression originalInput = originalInputs.get(i);
+                VariableReferenceExpression clonedInput = legVarMaps.get(i).getOrDefault(originalInput, originalInput);
+                newOutputToInputs.put(newOutputVar, clonedInput);
+            }
+        }
+
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> multimap = newOutputToInputs.build();
+        return new UnionNode(
+                unionNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                clonedSources,
+                newOutputVars.build(),
+                fromListMultimap(multimap));
     }
 
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata, boolean isVerboseOptimizerInfoEnabled)
@@ -472,7 +526,8 @@ public class PlannerUtils
     {
         return node instanceof TableScanNode ||
                 node instanceof ProjectNode && isScanFilterProject(((ProjectNode) node).getSource()) ||
-                node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource());
+                node instanceof FilterNode && isScanFilterProject(((FilterNode) node).getSource()) ||
+                node instanceof UnionNode && ((UnionNode) node).getSources().stream().allMatch(PlannerUtils::isScanFilterProject);
     }
 
     /**
@@ -502,6 +557,10 @@ public class PlannerUtils
             ProjectNode projectNode = (ProjectNode) node;
             return projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)
                     && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator);
+        }
+        else if (node instanceof UnionNode) {
+            return ((UnionNode) node).getSources().stream()
+                    .allMatch(source -> isDeterministicPlanSubtree(source, determinismEvaluator));
         }
         return false;
     }

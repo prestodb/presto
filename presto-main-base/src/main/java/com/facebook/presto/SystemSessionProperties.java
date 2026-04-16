@@ -357,6 +357,7 @@ public final class SystemSessionProperties
     public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String JOIN_PREFILTER_COMPLEX_BUILD_SIDE = "join_prefilter_build_side_with_complex_probe_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
@@ -2080,6 +2081,11 @@ public final class SystemSessionProperties
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
                         false),
+                booleanProperty(
+                        JOIN_PREFILTER_COMPLEX_BUILD_SIDE,
+                        "Extend join prefilter to support complex left-side patterns (UNION ALL, cross join, unnest, aggregation) and push prefilter below right-side aggregation",
+                        false,
+                        false),
                 booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
@@ -3642,6 +3648,11 @@ public final class SystemSessionProperties
     public static boolean isJoinPrefilterEnabled(Session session)
     {
         return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
+    }
+
+    public static boolean isJoinPrefilterComplexBuildSideEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_PREFILTER_COMPLEX_BUILD_SIDE, Boolean.class);
     }
 
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)
