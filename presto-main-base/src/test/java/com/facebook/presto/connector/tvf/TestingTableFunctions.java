@@ -1391,7 +1391,7 @@ public class TestingTableFunctions
         public static final class ConstantFunctionSplit
                 implements ConnectorSplit
         {
-            private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ConstantFunctionSplit.class).instanceSize());
+            private static final long INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ConstantFunctionSplit.class).instanceSize());
             public static final int DEFAULT_SPLIT_SIZE = 5500;
 
             private final long count;

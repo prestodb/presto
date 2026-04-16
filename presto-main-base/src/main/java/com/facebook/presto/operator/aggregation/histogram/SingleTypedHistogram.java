@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class SingleTypedHistogram
         implements TypedHistogram
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleTypedHistogram.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
 
     private final int expectedSize;

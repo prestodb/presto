@@ -359,9 +359,9 @@ public class TestHiveSplitSource
                 1);
 
         TestSplit testSplit = new TestSplit(0);
-        int testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes() + testSplit.getPartitionInfo().getEstimatedSizeInBytes();
+        long testSplitSizeInBytes = testSplit.getEstimatedSizeInBytes() + testSplit.getPartitionInfo().getEstimatedSizeInBytes();
 
-        int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / testSplitSizeInBytes;
+        int maxSplitCount = toIntExact(maxOutstandingSplitsSize.toBytes()) / toIntExact(testSplitSizeInBytes);
         for (int i = 0; i < maxSplitCount; i++) {
             hiveSplitSource.addToQueue(new TestSplit(i));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);

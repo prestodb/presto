@@ -61,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDirectSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectSelectiveStreamReader.class).instanceSize();
 
     private final SelectiveReaderContext context;
     private final boolean isCharType;

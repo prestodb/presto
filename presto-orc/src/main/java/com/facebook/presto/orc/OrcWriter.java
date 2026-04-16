@@ -105,7 +105,7 @@ import static java.util.stream.Collectors.toList;
 public class OrcWriter
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -932,7 +932,7 @@ public class OrcWriter
 
     private static class ClosedStripe
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ClosedStripe.class).instanceSize() + ClassLayout.parseClass(StripeInformation.class).instanceSize();
 
         private final StripeInformation stripeInformation;
         private final StripeStatistics statistics;

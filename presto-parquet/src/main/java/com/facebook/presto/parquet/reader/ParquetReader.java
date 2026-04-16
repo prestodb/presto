@@ -95,7 +95,7 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReader
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ParquetReader.class).instanceSize();
     private static final int MAX_VECTOR_LENGTH = 1024;
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
