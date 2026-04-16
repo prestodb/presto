@@ -15,9 +15,14 @@ package com.facebook.presto.lance;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
+
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class LanceConfig
 {
@@ -28,6 +33,10 @@ public class LanceConfig
     private int maxRowsPerFile = 1_000_000;
     private int maxRowsPerGroup = 100_000;
     private int writeBatchSize = 10_000;
+    private DataSize indexCacheSize = new DataSize(128, MEGABYTE);
+    private DataSize metadataCacheSize = new DataSize(128, MEGABYTE);
+    private int datasetCacheMaxEntries = 100;
+    private Duration datasetCacheTtl = new Duration(60, MINUTES);
 
     @NotNull
     public String getImpl()
@@ -123,6 +132,62 @@ public class LanceConfig
     public LanceConfig setWriteBatchSize(int writeBatchSize)
     {
         this.writeBatchSize = writeBatchSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getIndexCacheSize()
+    {
+        return indexCacheSize;
+    }
+
+    @Config("lance.index-cache-size")
+    @ConfigDescription("Size of Lance index cache per worker")
+    public LanceConfig setIndexCacheSize(DataSize indexCacheSize)
+    {
+        this.indexCacheSize = indexCacheSize;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMetadataCacheSize()
+    {
+        return metadataCacheSize;
+    }
+
+    @Config("lance.metadata-cache-size")
+    @ConfigDescription("Size of Lance metadata cache per worker")
+    public LanceConfig setMetadataCacheSize(DataSize metadataCacheSize)
+    {
+        this.metadataCacheSize = metadataCacheSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getDatasetCacheMaxEntries()
+    {
+        return datasetCacheMaxEntries;
+    }
+
+    @Config("lance.dataset-cache-max-entries")
+    @ConfigDescription("Maximum number of cached Lance datasets per worker")
+    public LanceConfig setDatasetCacheMaxEntries(int datasetCacheMaxEntries)
+    {
+        this.datasetCacheMaxEntries = datasetCacheMaxEntries;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDatasetCacheTtl()
+    {
+        return datasetCacheTtl;
+    }
+
+    @Config("lance.dataset-cache-ttl")
+    @ConfigDescription("TTL for cached Lance datasets")
+    public LanceConfig setDatasetCacheTtl(Duration datasetCacheTtl)
+    {
+        this.datasetCacheTtl = datasetCacheTtl;
         return this;
     }
 }

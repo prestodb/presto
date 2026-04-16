@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,14 +28,22 @@ public class LanceTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final Optional<Long> datasetVersion;
+
+    public LanceTableHandle(String schemaName, String tableName)
+    {
+        this(schemaName, tableName, Optional.empty());
+    }
 
     @JsonCreator
     public LanceTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("datasetVersion") Optional<Long> datasetVersion)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
     }
 
     @JsonProperty
@@ -49,10 +58,16 @@ public class LanceTableHandle
         return tableName;
     }
 
+    @JsonProperty
+    public Optional<Long> getDatasetVersion()
+    {
+        return datasetVersion;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName);
+        return Objects.hash(schemaName, tableName, datasetVersion);
     }
 
     @Override
@@ -66,7 +81,8 @@ public class LanceTableHandle
         }
         LanceTableHandle other = (LanceTableHandle) obj;
         return Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.datasetVersion, other.datasetVersion);
     }
 
     @Override
@@ -75,6 +91,7 @@ public class LanceTableHandle
         return toStringHelper(this)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
+                .add("datasetVersion", datasetVersion)
                 .toString();
     }
 }

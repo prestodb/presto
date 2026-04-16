@@ -16,8 +16,12 @@ package com.facebook.presto.lance;
 import com.facebook.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLanceTableHandle
 {
@@ -30,5 +34,18 @@ public class TestLanceTableHandle
         String json = codec.toJson(tableHandle);
         LanceTableHandle copy = codec.fromJson(json);
         assertEquals(copy, tableHandle);
+        assertFalse(copy.getDatasetVersion().isPresent());
+    }
+
+    @Test
+    public void testJsonRoundTripWithVersion()
+    {
+        JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
+        LanceTableHandle handleWithVersion = new LanceTableHandle("default", "test_table", Optional.of(42L));
+        String json = codec.toJson(handleWithVersion);
+        LanceTableHandle copy = codec.fromJson(json);
+        assertEquals(copy, handleWithVersion);
+        assertTrue(copy.getDatasetVersion().isPresent());
+        assertEquals(copy.getDatasetVersion().get(), Long.valueOf(42L));
     }
 }

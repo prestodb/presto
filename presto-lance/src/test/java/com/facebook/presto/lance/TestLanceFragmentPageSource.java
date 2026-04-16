@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import org.lance.Fragment;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,7 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -43,6 +45,7 @@ public class TestLanceFragmentPageSource
     private LanceNamespaceHolder namespaceHolder;
     private LanceTableHandle tableHandle;
     private String tablePath;
+    private long datasetVersion;
     private List<Fragment> fragments;
     private ArrowBlockBuilder arrowBlockBuilder;
 
@@ -58,9 +61,16 @@ public class TestLanceFragmentPageSource
                 .setSingleLevelNs(true);
         namespaceHolder = new LanceNamespaceHolder(config);
         arrowBlockBuilder = new ArrowBlockBuilder(createTestFunctionAndTypeManager());
-        tableHandle = new LanceTableHandle("default", "test_table1");
+        datasetVersion = namespaceHolder.getLatestVersion("test_table1");
+        tableHandle = new LanceTableHandle("default", "test_table1", Optional.of(datasetVersion));
         tablePath = namespaceHolder.getTablePath("test_table1");
-        fragments = namespaceHolder.getFragments("test_table1");
+        fragments = namespaceHolder.getFragments("test_table1", Optional.of(datasetVersion));
+    }
+
+    @AfterMethod
+    public void tearDown()
+    {
+        namespaceHolder.shutdown();
     }
 
     @Test
@@ -75,6 +85,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -107,6 +119,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();
@@ -139,6 +153,8 @@ public class TestLanceFragmentPageSource
                 ImmutableList.of(fragments.get(0).getId()),
                 tablePath,
                 8192,
+                namespaceHolder,
+                Optional.of(datasetVersion),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator())) {
             Page page = pageSource.getNextPage();

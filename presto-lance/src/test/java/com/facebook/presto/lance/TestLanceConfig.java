@@ -13,14 +13,18 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.airlift.units.DataSize;
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestLanceConfig
 {
@@ -34,7 +38,11 @@ public class TestLanceConfig
                 .setReadBatchSize(8192)
                 .setMaxRowsPerFile(1_000_000)
                 .setMaxRowsPerGroup(100_000)
-                .setWriteBatchSize(10_000));
+                .setWriteBatchSize(10_000)
+                .setIndexCacheSize(new DataSize(128, MEGABYTE))
+                .setMetadataCacheSize(new DataSize(128, MEGABYTE))
+                .setDatasetCacheMaxEntries(100)
+                .setDatasetCacheTtl(new Duration(60, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -48,6 +56,10 @@ public class TestLanceConfig
                 .put("lance.max-rows-per-file", "500000")
                 .put("lance.max-rows-per-group", "50000")
                 .put("lance.write-batch-size", "5000")
+                .put("lance.index-cache-size", "256MB")
+                .put("lance.metadata-cache-size", "512MB")
+                .put("lance.dataset-cache-max-entries", "50")
+                .put("lance.dataset-cache-ttl", "30m")
                 .build();
 
         LanceConfig expected = new LanceConfig()
@@ -57,7 +69,11 @@ public class TestLanceConfig
                 .setReadBatchSize(4096)
                 .setMaxRowsPerFile(500_000)
                 .setMaxRowsPerGroup(50_000)
-                .setWriteBatchSize(5_000);
+                .setWriteBatchSize(5_000)
+                .setIndexCacheSize(new DataSize(256, MEGABYTE))
+                .setMetadataCacheSize(new DataSize(512, MEGABYTE))
+                .setDatasetCacheMaxEntries(50)
+                .setDatasetCacheTtl(new Duration(30, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }
