@@ -43,7 +43,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -393,8 +393,8 @@ public class PushPartialAggregationThroughExchangeRuleSet
         private PlanNode split(AggregationNode node, Context context)
         {
             // Add a partial and final with an exchange in between
-            Map<VariableReferenceExpression, AggregationNode.Aggregation> intermediateAggregation = new HashMap<>();
-            Map<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
+            Map<VariableReferenceExpression, AggregationNode.Aggregation> intermediateAggregation = new LinkedHashMap<>();
+            Map<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregation = new LinkedHashMap<>();
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
                 AggregationNode.Aggregation originalAggregation = entry.getValue();
                 String functionName = functionAndTypeManager.getFunctionMetadata(originalAggregation.getFunctionHandle()).getName().getObjectName();
