@@ -62,7 +62,7 @@ public final class TupleDomain<T>
      */
     private final Optional<Map<T, Domain>> domains;
 
-    private TupleDomain(Optional<Map<T, Domain>> domains)
+    public TupleDomain(Optional<Map<T, Domain>> domains)
     {
         requireNonNull(domains, "domains is null");
 
@@ -501,6 +501,25 @@ public final class TupleDomain<T>
                 LinkedHashMap::new);
     }
 
+    public class Builder
+    {
+        private Optional<List<ColumnDomain<T>>> columnDomains;
+
+        private Builder()
+        {
+        }
+
+        public Builder setColumnDomains(Optional<List<ColumnDomain<T>>> columnDomains)
+        {
+            this.columnDomains = columnDomains;
+            return this;
+        }
+
+        public TupleDomain<T> build()
+        {
+            return fromColumnDomains(columnDomains);
+        }
+    }
     // Available for Jackson serialization only!
     public static class ColumnDomain<C>
     {

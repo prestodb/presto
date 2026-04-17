@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Primitives;
@@ -53,6 +55,7 @@ public final class ConstantExpression
     }
 
     @JsonCreator
+    @ThriftConstructor
     public static ConstantExpression createConstantExpression(
             @JsonProperty("valueBlock") Block valueBlock,
             @JsonProperty("type") Type type)
@@ -61,6 +64,7 @@ public final class ConstantExpression
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Block getValueBlock()
     {
         return Utils.nativeValueToBlock(type, value);
@@ -78,6 +82,7 @@ public final class ConstantExpression
 
     @Override
     @JsonProperty
+    @ThriftField(2)
     public Type getType()
     {
         return type;

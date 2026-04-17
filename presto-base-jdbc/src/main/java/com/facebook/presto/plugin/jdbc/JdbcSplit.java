@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
@@ -26,11 +29,13 @@ import com.google.common.collect.ImmutableList;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcSplit
         implements ConnectorSplit
 {
@@ -58,13 +63,27 @@ public class JdbcSplit
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
     }
 
+    @ThriftConstructor
+    public JdbcSplit(
+            String connectorId,
+            @Nullable String catalogName,
+            @Nullable String schemaName,
+            String tableName,
+            JdbcThriftTupleDomain thriftTupleDomain,
+            Optional<JdbcExpression> additionalPredicate)
+    {
+        this(connectorId, catalogName, schemaName, tableName, thriftTupleDomain.getTupleDomain().transform(columnHandle -> (ColumnHandle) columnHandle), additionalPredicate);
+    }
+
     @JsonProperty
+    @ThriftField(1)
     public String getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     @Nullable
     public String getCatalogName()
     {
@@ -72,6 +91,7 @@ public class JdbcSplit
     }
 
     @JsonProperty
+    @ThriftField(3)
     @Nullable
     public String getSchemaName()
     {
@@ -79,6 +99,7 @@ public class JdbcSplit
     }
 
     @JsonProperty
+    @ThriftField(4)
     public String getTableName()
     {
         return tableName;
@@ -90,7 +111,14 @@ public class JdbcSplit
         return tupleDomain;
     }
 
+    @ThriftField(value = 5, name = "tupleDomain")
+    public JdbcThriftTupleDomain getThriftTupleDomain()
+    {
+        return new JdbcThriftTupleDomain(tupleDomain.transform(columnHandle -> (JdbcColumnHandle) columnHandle));
+    }
+
     @JsonProperty
+    @ThriftField(value = 6, name = "additionalProperty")
     public Optional<JdbcExpression> getAdditionalPredicate()
     {
         return additionalPredicate;
@@ -117,5 +145,35 @@ public class JdbcSplit
     public Object getInfo()
     {
         return this;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(
+                connectorId,
+                catalogName,
+                schemaName,
+                tableName,
+                tupleDomain,
+                additionalPredicate);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+        JdbcSplit other = (JdbcSplit) obj;
+        return Objects.equals(this.connectorId, other.connectorId) &&
+                Objects.equals(this.catalogName, other.catalogName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.tupleDomain, other.tupleDomain) &&
+                Objects.equals(this.additionalPredicate, other.additionalPredicate);
     }
 }
