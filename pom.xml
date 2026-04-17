@@ -1130,7 +1130,7 @@
             <dependency>
                 <groupId>com.github.imjalpreet</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>14-SNAPSHOT</version>
+                <version>14-SNAPSHOT-imjalpreet</version>
             </dependency>
 
             <dependency>
