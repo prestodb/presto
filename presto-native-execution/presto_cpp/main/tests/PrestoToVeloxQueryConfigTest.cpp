@@ -672,6 +672,18 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {
       std::numeric_limits<int64_t>::max(), veloxConfig5.sessionStartTimeMs());
 }
 
+TEST_F(PrestoToVeloxQueryConfigTest, utcTimezoneConfiguration) {
+  // Test that UTC timezone (timeZoneKey = 0) is correctly propagated to
+  // QueryConfig.
+  auto session = createBasicSession();
+  session.timeZoneKey = 0; // UTC
+
+  auto veloxConfig = QueryConfig{toVeloxConfigs(session)};
+
+  // Verify that UTC timezone is set in the config
+  EXPECT_EQ("UTC", veloxConfig.sessionTimezone());
+}
+
 TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   // Verifies system configs are properly applied when no session properties
   // override them. Uses exact count matching to catch any config additions or
