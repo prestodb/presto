@@ -230,9 +230,25 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <rules>
+                            <requireUpperBoundDeps>
+                                <excludes combine.children="append">
+                                    <exclude>it.unimi.dsi:fastutil</exclude>
+                                </excludes>
+                            </requireUpperBoundDeps>
+                        </rules>
+                    </configuration>
+                </plugin>
+                <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
+                        <ignoredClassPatterns>
+                            <ignoredClassPattern>org.apache.helix.*</ignoredClassPattern>
+                        </ignoredClassPatterns>
                         <ignoredDependencies>
                             <dependency>
                                 <groupId>io.netty</groupId>

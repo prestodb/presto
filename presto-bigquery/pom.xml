@@ -398,9 +398,31 @@
                                 <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
                                 <!-- Exclude protobuf-java so enforcer doesn’t force upgrade to 4.x -->
                                 <exclude>com.google.protobuf:protobuf-java</exclude>
+                                <exclude>com.fasterxml.jackson.datatype:jackson-datatype-jsr310</exclude>
+                                <exclude>org.checkerframework:checker-qual</exclude>
+                                <exclude>io.opentelemetry:opentelemetry-api</exclude>
+                                <exclude>io.grpc:grpc-util</exclude>
+                                <exclude>commons-codec:commons-codec</exclude>
+                                <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                <exclude>io.opentelemetry:opentelemetry-context</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredClassPatterns combine.children="append">
+                        <!-- Ignore duplicate classes in com.google.re2j:re2j and com.teradata:re2j-td -->
+                        <ignoredClassPattern>com.google.re2j.*</ignoredClassPattern>
+                    </ignoredClassPatterns>
+                    <ignoredResourcePatterns>
+                        <!-- Ignore duplicate resources in org.apache.arrow -->
+                        <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
                 </configuration>
             </plugin>
 
