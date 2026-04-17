@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATI
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveTestUtils.DO_NOTHING_DIRECTORY_LISTER;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
@@ -510,7 +511,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private static void assertConvertPartitionValueToDouble(Type type, String value, double expected)
     {
-        Object prestoValue = parsePartitionValue(format("p=%s", value), value, type, DateTimeZone.getDefault()).getValue();
+        Object prestoValue = parsePartitionValue(Optional.of(SESSION), format("p=%s", value), value, type, DateTimeZone.getDefault()).getValue();
         assertEquals(convertPartitionValueToDouble(type, prestoValue), expected);
     }
 
@@ -830,7 +831,7 @@ public class TestMetastoreHiveStatisticsProvider
 
     private HivePartition partition(String name)
     {
-        return hivePartitionManager.parsePartition(TABLE, new PartitionNameWithVersion(name, Optional.empty()), ImmutableList.of(PARTITION_COLUMN_1, PARTITION_COLUMN_2), ImmutableList.of(VARCHAR, BIGINT));
+        return hivePartitionManager.parsePartition(SESSION, TABLE, new PartitionNameWithVersion(name, Optional.empty()), ImmutableList.of(PARTITION_COLUMN_1, PARTITION_COLUMN_2), ImmutableList.of(VARCHAR, BIGINT));
     }
 
     private static PartitionStatistics rowsCount(long rowsCount)

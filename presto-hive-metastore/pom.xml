@@ -209,8 +209,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-dwrf</artifactId>
         </dependency>
 
         <dependency>
