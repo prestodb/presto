@@ -261,38 +261,11 @@ struct PrestoTask {
   /// state so waiters re-snapshot and observe operatorCompleted=true.
   void wakeDynamicFilterWaiters(int64_t version);
 
-  /// TODO(dpp): Temporary — increment diagnostic counters for HTTP
-  /// response delivery. REVERT when DPP bug is fixed.
-  void recordDppResponseMetric(bool expired) {
-    if (expired) {
-      dppResponsesDroppedExpired_.fetch_add(1);
-    } else {
-      dppResponsesSentWithData_.fetch_add(1);
-    }
-  }
-
-  /// TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT once
-  /// the missing-callback issue is root-caused.
-  enum class DppBridgeEvent { kRegistered, kAttempted, kSucceeded, kFailed };
-  void recordDppBridgeEvent(DppBridgeEvent event) {
-    switch (event) {
-      case DppBridgeEvent::kRegistered:
-        dppBridgeRegistered_.fetch_add(1);
-        break;
-      case DppBridgeEvent::kAttempted:
-        dppBridgeAttempted_.fetch_add(1);
-        break;
-      case DppBridgeEvent::kSucceeded:
-        dppBridgeSucceeded_.fetch_add(1);
-        break;
-      case DppBridgeEvent::kFailed:
-        dppBridgeFailed_.fetch_add(1);
-        break;
-    }
-  }
-
-  /// Records the first bridge callback error message (truncated to 500 chars).
+  /// Records a DPP bridge callback failure. Increments the failure counter
+  /// and captures the first error message (truncated to 500 chars) so it
+  /// appears in query runtime stats for diagnosis without worker logs.
   void recordDppBridgeError(const std::string& error) {
+    dppBridgeFailed_.fetch_add(1);
     auto locked = dppBridgeFirstError_.wlock();
     if (locked->empty()) {
       *locked = error.substr(0, 500);
@@ -322,39 +295,9 @@ struct PrestoTask {
   // Time (ms) spent waiting for Velox Task::mutex_ in addExternalDynamicFilter.
   std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
 
-  // TODO(dpp): Temporary diagnostic counters for tracing DPP filter-delivery
-  // flow on production workers. These are reported as runtime metrics so
-  // they appear in the query JSON and Presto UI. REVERT these (the counters,
-  // the increments, and the reporting in updateInfoLocked) once the
-  // distributed dynamic partition pruning filter-timeout bug is diagnosed
-  // and fixed.
-  std::atomic<int64_t> dppFilterIdsRegistered_{0};
-  std::atomic<int64_t> dppCallbackFired_{0};
-  std::atomic<int64_t> dppFiltersFlushed_{0};
-  std::atomic<int64_t> dppTerminalStateFlushed_{0};
-  std::atomic<int64_t> dppSnapshotCalls_{0};
-  std::atomic<int64_t> dppSnapshotsWithNullTask_{0};
-  // Count of snapshots that actually returned >=1 filter in the filters map.
-  // If > 0 but Java never receives the filter, the drop is in HTTP transport.
-  // If == 0, the C++ snapshot never had filter data at request time.
-  std::atomic<int64_t> dppSnapshotsWithFilterData_{0};
-  std::atomic<int64_t> dppSnapshotsOperatorCompleted_{0};
-  // Count of HTTP responses with filter data that were ACTUALLY SENT
-  // vs DROPPED because requestExpired() was true (client disconnected).
-  std::atomic<int64_t> dppResponsesSentWithData_{0};
-  std::atomic<int64_t> dppResponsesDroppedExpired_{0};
-  // TODO(dpp-diag): Temporary bridge-callback diagnostics to identify why
-  // the largest-build join's callback doesn't fire. REVERT once root-caused.
-  // Compare: registered >= attempted >= succeeded.
-  //  registered: registerHashJoinBridgeCallback called (one per join node)
-  //  attempted:  bridge callback lambda was invoked by Velox
-  //  succeeded:  extractAndDeliverFilters completed without exception
-  //  failed:     extractAndDeliverFilters threw an exception
-  std::atomic<int64_t> dppBridgeRegistered_{0};
-  std::atomic<int64_t> dppBridgeAttempted_{0};
-  std::atomic<int64_t> dppBridgeSucceeded_{0};
+  // Count of DPP bridge callback failures (extractAndDeliverFilters threw).
   std::atomic<int64_t> dppBridgeFailed_{0};
-  // First error message from a failed extractAndDeliverFilters call.
+  // First error message from a failed bridge callback.
   folly::Synchronized<std::string> dppBridgeFirstError_;
 
   // Pending external dynamic filters that arrived before the Velox Task was

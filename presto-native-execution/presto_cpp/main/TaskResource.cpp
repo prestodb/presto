@@ -774,16 +774,7 @@ proxygen::RequestHandler* TaskResource::getDynamicFilters(
                   .via(evb)
                   .thenValue([this, taskId, downstream, handlerState](
                                  PrestoTask::DynamicFilterSnapshot snapshot) {
-                    // TODO(dpp): Temporary diagnostic — track whether
-                    // requestExpired drops data-bearing responses.
-                    // REVERT when DPP filter-timeout bug is fixed.
-                    const bool hasData = !snapshot.filters.empty();
-                    const bool expired = handlerState->requestExpired();
-                    if (hasData) {
-                      taskManager_.incrementDppResponseMetric(
-                          taskId, expired);
-                    }
-                    if (!expired) {
+                    if (!handlerState->requestExpired()) {
                       json j;
                       j["filters"] = json::object();
                       for (const auto& [filterId, domain] : snapshot.filters) {

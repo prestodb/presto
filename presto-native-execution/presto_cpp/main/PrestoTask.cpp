@@ -807,68 +807,12 @@ void PrestoTask::updateTimeInfoLocked(
     taskRuntimeStats["externalDynamicFilterMutexWaitMs"].addValue(mutexWaitMs);
   }
 
-  // TODO(dpp): Temporary diagnostic runtime metrics for tracing DPP filter-
-  // delivery flow on production workers. These expose the internal counters
-  // as task-level runtime metrics so they appear in the query JSON and
-  // Presto UI. REVERT this entire block (along with the counters in
-  // PrestoTask.h and their increments elsewhere) once the DPP filter-
-  // timeout bug is diagnosed and fixed.
-  const auto dppRegistered = dppFilterIdsRegistered_.load();
-  if (dppRegistered > 0) {
-    taskRuntimeStats["dppFilterIdsRegistered"].addValue(dppRegistered);
+  // DPP bridge callback failure counters — report extraction failures and
+  // error messages so they appear in query JSON without needing worker logs.
+  const auto dppFailed = dppBridgeFailed_.load();
+  if (dppFailed > 0) {
+    taskRuntimeStats["dppBridgeFailed"].addValue(dppFailed);
   }
-  const auto dppFired = dppCallbackFired_.load();
-  if (dppFired > 0) {
-    taskRuntimeStats["dppCallbackFired"].addValue(dppFired);
-  }
-  const auto dppFlushed = dppFiltersFlushed_.load();
-  if (dppFlushed > 0) {
-    taskRuntimeStats["dppFiltersFlushed"].addValue(dppFlushed);
-  }
-  const auto dppTerminal = dppTerminalStateFlushed_.load();
-  if (dppTerminal > 0) {
-    taskRuntimeStats["dppTerminalStateFlushed"].addValue(dppTerminal);
-  }
-  const auto dppSnapshots = dppSnapshotCalls_.load();
-  if (dppSnapshots > 0) {
-    taskRuntimeStats["dppSnapshotCalls"].addValue(dppSnapshots);
-  }
-  const auto dppNullTask = dppSnapshotsWithNullTask_.load();
-  if (dppNullTask > 0) {
-    taskRuntimeStats["dppSnapshotsWithNullTask"].addValue(dppNullTask);
-  }
-  const auto dppWithData = dppSnapshotsWithFilterData_.load();
-  if (dppWithData > 0) {
-    taskRuntimeStats["dppSnapshotsWithFilterData"].addValue(dppWithData);
-  }
-  const auto dppOpComplete = dppSnapshotsOperatorCompleted_.load();
-  if (dppOpComplete > 0) {
-    taskRuntimeStats["dppSnapshotsOperatorCompleted"].addValue(dppOpComplete);
-  }
-  const auto dppSent = dppResponsesSentWithData_.load();
-  if (dppSent > 0) {
-    taskRuntimeStats["dppResponsesSentWithData"].addValue(dppSent);
-  }
-  const auto dppDropped = dppResponsesDroppedExpired_.load();
-  if (dppDropped > 0) {
-    taskRuntimeStats["dppResponsesDroppedExpired"].addValue(dppDropped);
-  }
-  // TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT once
-  // root-caused. Compare: registered >= bridgeSet >= attempted >= succeeded.
-  // Any drop between adjacent levels pinpoints where the callback is lost.
-  auto emit = [&](const char* name, std::atomic<int64_t>& counter) {
-    auto v = counter.load();
-    if (v > 0) {
-      taskRuntimeStats[name].addValue(v);
-    }
-  };
-  emit("dppBridgeRegistered", dppBridgeRegistered_);
-  emit("dppBridgeAttempted", dppBridgeAttempted_);
-  emit("dppBridgeSucceeded", dppBridgeSucceeded_);
-  emit("dppBridgeFailed", dppBridgeFailed_);
-  // Encode the first error message as a metric name so it appears in the
-  // query JSON runtimeStats. The "sum" value is 1; the error text is in
-  // the metric key itself.
   {
     auto err = dppBridgeFirstError_.rlock();
     if (!err->empty()) {
@@ -1077,11 +1021,6 @@ protocol::RuntimeMetric toRuntimeMetric(
 void PrestoTask::storeDynamicFilters(
     const std::map<std::string, protocol::TupleDomain<std::string>>& filters) {
   VLOG(1) << "storeDynamicFilters: filterCount=" << filters.size();
-  // TODO(dpp): Temporary diagnostic counters — bump once per callback fire
-  // and add the number of filters delivered in that fire. REVERT when the
-  // DPP filter-timeout bug is diagnosed and fixed.
-  dppCallbackFired_.fetch_add(1);
-  dppFiltersFlushed_.fetch_add(filters.size());
   auto version = dynamicFilterVersion_.fetch_add(1) + 1;
   {
     auto locked = dynamicFilters_.wlock();
@@ -1094,9 +1033,6 @@ void PrestoTask::storeDynamicFilters(
 
 void PrestoTask::registerDynamicFilterIds(
     const std::unordered_set<std::string>& filterIds) {
-  // TODO(dpp): Temporary diagnostic counter — bump on each filter-id
-  // registration. REVERT when the DPP filter-timeout bug is fixed.
-  dppFilterIdsRegistered_.fetch_add(filterIds.size());
   registeredFilterIds_.wlock()->insert(filterIds.begin(), filterIds.end());
 }
 
@@ -1120,13 +1056,6 @@ void PrestoTask::wakeDynamicFilterWaiters(int64_t version) {
 
 PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
     int64_t sinceVersion) {
-  // TODO(dpp): Temporary diagnostic counters — bump per snapshot call and
-  // separately when the task pointer is null. REVERT when DPP filter-
-  // timeout bug is fixed.
-  dppSnapshotCalls_.fetch_add(1);
-  if (task == nullptr) {
-    dppSnapshotsWithNullTask_.fetch_add(1);
-  }
   DynamicFilterSnapshot snapshot;
   // Read filters BEFORE completion flag (matches Java ordering).
   {
@@ -1163,12 +1092,6 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
           if (taskTerminal) {
             // Task is done — report the unflushed ID as completed so the
             // coordinator treats it as "no contribution" instead of hanging.
-            // TODO(dpp): Temporary diagnostic counter — bump each time the
-            // terminal-state fallback kicks in for an unflushed filter id.
-            // A non-zero value here means the HashBuild callback did not
-            // fire (or was cleared) before the task transitioned terminal.
-            // REVERT when DPP filter-timeout bug is fixed.
-            dppTerminalStateFlushed_.fetch_add(1);
             snapshot.completedFilterIds.insert(id);
           } else {
             snapshot.operatorCompleted = false;
@@ -1177,14 +1100,6 @@ PrestoTask::DynamicFilterSnapshot PrestoTask::snapshotDynamicFilters(
         }
       }
     }
-  }
-  // TODO(dpp): Temporary diagnostic counters — track what the snapshot
-  // actually contains. REVERT when DPP filter-timeout bug is fixed.
-  if (!snapshot.filters.empty()) {
-    dppSnapshotsWithFilterData_.fetch_add(1);
-  }
-  if (snapshot.operatorCompleted) {
-    dppSnapshotsOperatorCompleted_.fetch_add(1);
   }
   return snapshot;
 }

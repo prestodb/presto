@@ -139,12 +139,6 @@ class TaskManager {
       const protocol::TaskId& taskId,
       int64_t throughVersion);
 
-  /// TODO(dpp): Temporary — increment per-task diagnostic counter for
-  /// DPP response delivery. REVERT when DPP bug is fixed.
-  void incrementDppResponseMetric(
-      const protocol::TaskId& taskId,
-      bool expired);
-
   bool addExternalDynamicFilter(
       const protocol::TaskId& taskId,
       const std::string& filterId,

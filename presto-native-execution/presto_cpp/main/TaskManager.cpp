@@ -628,11 +628,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
         }
         prestoTask->registerDynamicFilterIds(filterIds);
 
-        // TODO(dpp-diag): Temporary bridge-callback diagnostics. REVERT
-        // once the missing-callback issue is root-caused.
-        prestoTask->recordDppBridgeEvent(
-            PrestoTask::DppBridgeEvent::kRegistered);
-
         auto channels = info.channels;
         auto taskIdCopy = std::string(taskId);
         // Use a standalone pool from the MemoryManager rather than
@@ -654,10 +649,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
                 const std::vector<std::unique_ptr<velox::exec::BaseHashTable>>&
                     otherTables,
                 bool /*hasNullKeys*/) {
-              if (auto pt = weakPrestoTask.lock()) {
-                pt->recordDppBridgeEvent(
-                    PrestoTask::DppBridgeEvent::kAttempted);
-              }
               try {
                 operators::extractAndDeliverFilters(
                     taskIdCopy,
@@ -670,15 +661,9 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
                         pt->recordDppBridgeError(error);
                       }
                     });
-                if (auto pt = weakPrestoTask.lock()) {
-                  pt->recordDppBridgeEvent(
-                      PrestoTask::DppBridgeEvent::kSucceeded);
-                }
               } catch (const std::exception& e) {
                 if (auto pt = weakPrestoTask.lock()) {
                   pt->recordDppBridgeError(e.what());
-                  pt->recordDppBridgeEvent(
-                      PrestoTask::DppBridgeEvent::kFailed);
                 }
                 throw;
               }
@@ -1629,16 +1614,6 @@ void TaskManager::removeDynamicFiltersThrough(
   auto it = taskMap->find(taskId);
   if (it != taskMap->end()) {
     it->second->removeDynamicFiltersThrough(throughVersion);
-  }
-}
-
-void TaskManager::incrementDppResponseMetric(
-    const TaskId& taskId,
-    bool expired) {
-  auto taskMap = taskMap_.rlock();
-  auto it = taskMap->find(taskId);
-  if (it != taskMap->end()) {
-    it->second->recordDppResponseMetric(expired);
   }
 }
 
