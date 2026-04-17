@@ -550,6 +550,9 @@
                         <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                         <ignoredDependency>org.apache.httpcomponents:httpclient</ignoredDependency>
+                        <!-- hudi-presto-bundle shades io.airlift.compress.* classes, so the analyzer
+                             attributes aircompressor usage to the bundle and flags this direct declaration as unused. -->
+                        <ignoredDependency>io.airlift:aircompressor</ignoredDependency>
                     </ignoredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:jackson-core</ignoredNonTestScopedDependency>
