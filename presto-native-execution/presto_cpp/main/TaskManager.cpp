@@ -635,8 +635,14 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
 
         auto channels = info.channels;
         auto taskIdCopy = std::string(taskId);
-        auto leafPool = prestoTask->task->pool()->addLeafChild(
-            fmt::format("df_bridge_{}", info.joinNodeId));
+        // Use a standalone pool from the MemoryManager rather than
+        // a child of the task pool. The bridge callback runs on the
+        // HashBuild driver thread during noMoreInput. Allocations from
+        // a task-child pool can trigger memory arbitration, which
+        // expects the driver to be suspended — but it's running.
+        auto leafPool =
+            velox::memory::MemoryManager::getInstance()->addLeafPool(
+                fmt::format("df_bridge_{}", info.joinNodeId));
         auto weakPrestoTask = std::weak_ptr<PrestoTask>(prestoTask);
         prestoTask->task->registerHashJoinBridgeCallback(
             info.joinNodeId,

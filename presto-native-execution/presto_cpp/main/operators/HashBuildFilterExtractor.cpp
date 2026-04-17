@@ -195,12 +195,12 @@ void extractAndDeliverFilters(
                 hasher->min(),
                 hasher->max(),
                 channel.type->toString());
-            minValue = minValue.has_value()
-                ? std::min(minValue.value(), lo)
-                : lo;
-            maxValue = maxValue.has_value()
-                ? (maxValue.value() < hi ? hi : maxValue.value())
-                : hi;
+            if (!minValue.has_value() || lo < minValue.value()) {
+              minValue = lo;
+            }
+            if (!maxValue.has_value() || maxValue.value() < hi) {
+              maxValue = hi;
+            }
           } else if (hasher->hasStringRange()) {
             // VARCHAR/VARBINARY: lexicographic string range is valid.
             hasFilterableHasher = true;
@@ -210,12 +210,12 @@ void extractAndDeliverFilters(
             VELOX_CHECK(
                 !lo.isNull() && !hi.isNull(),
                 "String range produced null variants");
-            minValue = minValue.has_value()
-                ? std::min(minValue.value(), lo)
-                : lo;
-            maxValue = maxValue.has_value()
-                ? (maxValue.value() < hi ? hi : maxValue.value())
-                : hi;
+            if (!minValue.has_value() || lo < minValue.value()) {
+              minValue = lo;
+            }
+            if (!maxValue.has_value() || maxValue.value() < hi) {
+              maxValue = hi;
+            }
           }
           // else: unsupported type — skip this driver.
         }
@@ -277,6 +277,17 @@ void extractAndDeliverFilters(
       // else: no hasher supports this type (all returned nullptr).
       // Don't add a filter — the coordinator treats the absence of a
       // domain for a flushed filter ID as "all" (no constraint).
+      continue;
+    }
+
+    // Guard: skip if min or max variant is null. This can happen if
+    // the variant was corrupted by self-assignment through std::min
+    // on optional<variant> (now fixed above), or by other edge cases.
+    if ((minValue.has_value() && minValue->isNull()) ||
+        (maxValue.has_value() && maxValue->isNull())) {
+      LOG(WARNING) << "DPP: skipping filter=" << channel.filterId
+                   << " due to null min/max variant, type="
+                   << channel.type->toString();
       continue;
     }
 
