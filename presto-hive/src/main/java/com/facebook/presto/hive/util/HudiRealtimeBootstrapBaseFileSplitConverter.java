@@ -71,7 +71,7 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
         if (!isNullOrEmpty(customFileSplitClass) && HoodieRealtimeBootstrapBaseFileSplit.class.getName().equals(customFileSplitClass)) {
             String deltaFilePaths = customSplitInfo.get(DELTA_FILE_PATHS_KEY);
             List<String> deltaLogPaths = isNullOrEmpty(deltaFilePaths) ? Collections.emptyList() : Arrays.asList(deltaFilePaths.split(","));
-            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(HoodieLogFile::new).collect(Collectors.toList());
             FileSplit bootstrapFileSplit = new FileSplit(
                     new Path(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_PATH)),
                     parseLong(customSplitInfo.get(BOOTSTRAP_FILE_SPLIT_START)),
