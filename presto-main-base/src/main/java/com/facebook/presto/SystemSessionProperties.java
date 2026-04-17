@@ -381,6 +381,7 @@ public final class SystemSessionProperties
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
+    public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2197,6 +2198,15 @@ public final class SystemSessionProperties
                         featuresConfig.getRemoteFunctionFixedParallelismTaskCount(),
                         false),
                 new PropertyMetadata<>(
+                        RPC_FUNCTION_PARALLELISM,
+                        "Number of tasks for distributed RPC execution. 0 means use default planning (no forced parallelism, task count determined by query structure). Values > 1 distribute across N tasks via ROUND_ROBIN exchange.",
+                        INTEGER,
+                        Integer.class,
+                        0,
+                        false,
+                        value -> validateIntegerValue(value, RPC_FUNCTION_PARALLELISM, 0, false),
+                        object -> object),
+                new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
                         VARCHAR,
@@ -3797,6 +3807,11 @@ public final class SystemSessionProperties
     public static int getRemoteFunctionFixedParallelismTaskCount(Session session)
     {
         return session.getSystemProperty(REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT, Integer.class);
+    }
+
+    public static int getRpcFunctionParallelism(Session session)
+    {
+        return session.getSystemProperty(RPC_FUNCTION_PARALLELISM, Integer.class);
     }
 
     public static String getTryFunctionCatchableErrors(Session session)
