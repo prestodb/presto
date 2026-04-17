@@ -300,9 +300,11 @@ public class DeltaMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (DeltaColumn column : deltaTableHandle.getDeltaTable().getColumns()) {
             columnHandles.put(
-                    column.getName(),
+                    column.getLogicalName(),
                     new DeltaColumnHandle(
-                            column.getName(),
+                            column.getId(),
+                            column.getPhysicalName(),
+                            column.getLogicalName(),
                             column.getType(),
                             column.isPartition() ? PARTITION : REGULAR,
                             Optional.empty()));
@@ -357,7 +359,7 @@ public class DeltaMetadata
     {
         DeltaColumnHandle deltaColumnHandle = (DeltaColumnHandle) columnHandle;
         return ColumnMetadata.builder()
-                .setName(deltaColumnHandle.getName())
+                .setName(deltaColumnHandle.getLogicalName())
                 .setType(typeManager.getType(deltaColumnHandle.getDataType()))
                 .build();
     }
@@ -373,7 +375,7 @@ public class DeltaMetadata
     private ColumnMetadata getColumnMetadata(ConnectorSession session, DeltaColumn deltaColumn)
     {
         return ColumnMetadata.builder()
-                .setName(normalizeIdentifier(session, deltaColumn.getName()))
+                .setName(normalizeIdentifier(session, deltaColumn.getLogicalName()))
                 .setType(typeManager.getType(deltaColumn.getType()))
                 .build();
     }
