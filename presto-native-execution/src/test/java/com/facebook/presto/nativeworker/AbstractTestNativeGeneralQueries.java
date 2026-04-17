@@ -996,6 +996,11 @@ public abstract class AbstractTestNativeGeneralQueries
         assertQuery("SELECT substr(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
 
+        // Substring, length, trim. Alias to Substr
+        assertQuery("SELECT substring(comment, 1, 10), length(comment), trim(comment) FROM orders");
+        assertQuery("SELECT substring(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
+        assertQuery("SELECT substring(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
+
         assertQuery("SELECT trim(comment, ' ns'), ltrim(comment, 'a b c'), rtrim(comment, 'l y') FROM orders");
 
         // Split
