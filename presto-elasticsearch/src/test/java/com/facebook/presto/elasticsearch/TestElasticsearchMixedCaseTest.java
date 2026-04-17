@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.IndexRequest;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.rest5_client.Rest5ClientTransport;
+import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.tpch.TpchTable;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.hc.core5.http.HttpHost;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -34,7 +34,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
-import static org.elasticsearch.client.RequestOptions.DEFAULT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -44,14 +43,17 @@ public class TestElasticsearchMixedCaseTest
 {
     private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
     private ElasticsearchServer elasticsearch;
-    private RestHighLevelClient client;
+    private ElasticsearchClient client;
     @Override
-    protected QueryRunner createQueryRunner()
+    protected com.facebook.presto.testing.QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of());
+        elasticsearch = new ElasticsearchServer(elasticsearchServer, ImmutableMap.of(), ImmutableMap.of(
+                "xpack.security.enabled", "false"));
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        Rest5Client restClient = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
+        Rest5ClientTransport transport = new Rest5ClientTransport(restClient, new JacksonJsonpMapper());
+        client = new ElasticsearchClient(transport);
 
         return createElasticsearchQueryRunner(elasticsearch.getAddress(),
                 TpchTable.getTables(),
@@ -69,9 +71,10 @@ public class TestElasticsearchMixedCaseTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "_doc")
-                .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE), DEFAULT);
+        client.index(IndexRequest.of(i -> i
+                .index(index)
+                .document(document)
+                .refresh(co.elastic.clients.elasticsearch._types.Refresh.True)));
     }
 
     @Test
