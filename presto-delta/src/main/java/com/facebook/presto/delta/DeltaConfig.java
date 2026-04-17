@@ -21,6 +21,7 @@ public class DeltaConfig
     private int maxSplitsBatchSize = 200;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean caseSensitivePartitionsEnabled = true;
+    private boolean deletionVectorsEnabled;
 
     @NotNull
     public boolean isParquetDereferencePushdownEnabled()
@@ -56,6 +57,18 @@ public class DeltaConfig
     public DeltaConfig setCaseSensitivePartitionsEnabled(boolean caseSensitivePartitionsEnabled)
     {
         this.caseSensitivePartitionsEnabled = caseSensitivePartitionsEnabled;
+        return this;
+    }
+
+    public boolean isDeletionVectorsEnabled()
+    {
+        return this.deletionVectorsEnabled;
+    }
+
+    @Config("delta.deletion-vectors-enabled")
+    public DeltaConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
+    {
+        this.deletionVectorsEnabled = deletionVectorsEnabled;
         return this;
     }
 }

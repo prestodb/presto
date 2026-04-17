@@ -14,6 +14,9 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.delta.deletionvector.DeletionVectorEntry;
+import com.facebook.presto.hive.HdfsContext;
+import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -24,16 +27,20 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import io.delta.kernel.data.Row;
 import io.delta.kernel.internal.InternalScanFileUtils;
+import io.delta.kernel.internal.actions.DeletionVectorDescriptor;
 import io.delta.kernel.utils.CloseableIterator;
 import io.delta.kernel.utils.FileStatus;
 import jakarta.inject.Inject;
+import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.delta.DeltaSessionProperties.isDeletionVectorsEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -73,6 +80,9 @@ public class DeltaSplitManager
         private final CloseableIterator<Row> rowIterator;
         private final int maxBatchSize;
         private final ConnectorSession session;
+        private final HdfsEnvironment hdfsEnvironment;
+        private final HdfsContext hdfsContext;
+        private final Configuration configuration;
 
         DeltaSplitSource(ConnectorSession session, DeltaTableLayoutHandle deltaTableHandle)
         {
@@ -83,6 +93,9 @@ public class DeltaSplitManager
                     deltaTableHandle.getPredicate(),
                     typeManager);
             this.maxBatchSize = deltaConfig.getMaxSplitsBatchSize();
+            this.hdfsEnvironment = deltaClient.getHdfsEnvironment();
+            this.hdfsContext = new HdfsContext(session, deltaTable.getSchemaName(), deltaTable.getTableName());
+            this.configuration = hdfsEnvironment.getConfiguration(hdfsContext, new org.apache.hadoop.fs.Path(deltaTable.getTableLocation()));
         }
 
         @Override
@@ -90,19 +103,37 @@ public class DeltaSplitManager
         {
             ImmutableList.Builder<ConnectorSplit> splitBuilder = ImmutableList.builder();
             long currentSplitCount = 0;
+            boolean deletionVectorsEnabled = isDeletionVectorsEnabled(session);
             while (rowIterator.hasNext() && currentSplitCount < maxSize && currentSplitCount < maxBatchSize) {
                 Row row = rowIterator.next();
                 FileStatus addFileStatus = InternalScanFileUtils.getAddFileStatus(row);
+                DeletionVectorEntry deletionVectorEntry = null;
+
+                if (deletionVectorsEnabled) {
+                    DeletionVectorDescriptor deletionVectorDescriptor =
+                            InternalScanFileUtils.getDeletionVectorDescriptorFromRow(row);
+                    if (deletionVectorDescriptor != null) {
+                        deletionVectorEntry = new DeletionVectorEntry(
+                                deletionVectorDescriptor.getStorageType(),
+                                deletionVectorDescriptor.getPathOrInlineDv(),
+                                deletionVectorDescriptor.getOffset(),
+                                deletionVectorDescriptor.getSizeInBytes(),
+                                deletionVectorDescriptor.getCardinality());
+                    }
+                }
+
                 splitBuilder.add(new DeltaSplit(
                         connectorId,
                         deltaTable.getSchemaName(),
                         deltaTable.getTableName(),
                         addFileStatus.getPath(),
+                        deltaTable.getTableLocation(),
                         0, /* start */
                         addFileStatus.getSize() /* split length - default is read the entire file in one split */,
                         addFileStatus.getSize(),
                         removeNullPartitionValues(InternalScanFileUtils.getPartitionValues(row)),
-                        getNodeSelectionStrategy(session)));
+                        getNodeSelectionStrategy(session),
+                        Optional.ofNullable(deletionVectorEntry)));
                 currentSplitCount++;
             }
 

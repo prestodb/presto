@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class IncrementalUpdateQueriesTest
+public class TestIncrementalUpdateQueries
         extends AbstractDeltaDistributedQueryTestBase
 {
     private final String version = "delta_v3";
