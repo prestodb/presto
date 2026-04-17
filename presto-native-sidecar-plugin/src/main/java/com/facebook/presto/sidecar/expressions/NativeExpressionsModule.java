@@ -26,7 +26,9 @@ import com.google.inject.Scopes;
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.sidecar.NativeSidecarCommunicationModule.installMBeanModule;
 import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class NativeExpressionsModule
         implements Module
@@ -64,6 +66,10 @@ public class NativeExpressionsModule
         jsonCodecBinder(binder).bindListJsonCodec(RowExpressionOptimizationResult.class);
 
         binder.bind(NativeSidecarExpressionInterpreter.class).in(Scopes.SINGLETON);
+
+        // jmx metrics
+        installMBeanModule(binder);
+        newExporter(binder).export(NativeSidecarExpressionInterpreter.class).withGeneratedName();
 
         // The main service provider
         binder.bind(NativeExpressionOptimizer.class).in(Scopes.SINGLETON);
