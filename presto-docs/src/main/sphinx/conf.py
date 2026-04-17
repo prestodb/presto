@@ -27,7 +27,7 @@ try:
 except:
     pass
 
-sys.path.insert(0, os.path.abspath('ext'))
+sys.path.insert(0, os.path.abspath("ext"))
 
 
 def child_node(node, name):
@@ -45,74 +45,78 @@ def maven_version(pom):
     dom = xml.dom.minidom.parse(pom)
     project = dom.childNodes[0]
 
-    version = child_node(project, 'version')
+    version = child_node(project, "version")
     if version:
         return node_text(version)
 
-    parent = child_node(project, 'parent')
-    version = child_node(parent, 'version')
+    parent = child_node(project, "parent")
+    version = child_node(parent, "version")
     return node_text(version)
 
 
 def get_version():
-    version = os.environ.get('PRESTO_VERSION', '').strip()
-    return version or maven_version('../../../pom.xml')
+    version = os.environ.get("PRESTO_VERSION", "").strip()
+    return version or maven_version("../../../pom.xml")
 
 # -- General configuration -----------------------------------------------------
 
 
-needs_sphinx = '8.2.1'
+needs_sphinx = "8.2.1"
 
 extensions = [
-    'sphinx_immaterial', 'download', 'issue', 'pr', 'sphinx.ext.autosectionlabel'
+    "sphinx_immaterial",
+    "download",
+    "issue",
+    "pr",
+    "sphinx.ext.autosectionlabel"
 ]
 
-copyright = 'The Presto Foundation. All rights reserved. Presto is a registered trademark of LF Projects, LLC'
+copyright = "The Presto Foundation. All rights reserved. Presto is a registered trademark of LF Projects, LLC"
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
-source_suffix = '.rst'
+source_suffix = ".rst"
 
-master_doc = 'index'
+master_doc = "index"
 
-project = u'Presto'
+project = u"Presto"
 
-# Set Author blank to avoid default value of 'unknown'
-author = ''
+# Set Author blank to avoid default value of "unknown"
+author = ""
 
 version = get_version()
 release = version
 
-exclude_patterns = ['_build']
+exclude_patterns = ["_build"]
 
-highlight_language = 'sql'
+highlight_language = "sql"
 
-rst_epilog = """
+rst_epilog = f"""
 .. |presto_server_release| replace:: ``presto-server-{release}``
 .. |presto_router_release| replace:: ``presto-router-{release}``
-""".replace('{release}', release)
+"""
 
-# 'xelatex' natively supports Unicode
-latex_engine = 'xelatex'
+# "xelatex" natively supports Unicode
+latex_engine = "xelatex"
 
 autosectionlabel_prefix_document = True
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme = 'sphinx_immaterial'
+html_theme = "sphinx_immaterial"
 
 # Set link name generated in the top bar.
-html_title = '%s %s Documentation' % (project, release)
-html_logo = 'images/logo.png'
-html_favicon = 'images/favicon.ico'
+html_title = f"{project} {release} Documentation"
+html_logo = "images/logo.png"
+html_favicon = "images/favicon.ico"
 
-html_static_path = ['.']
+html_static_path = ["."]
 
 # Set the primary domain to js because if left as the default python
-# the theme errors when functions aren't available in a python module
-primary_domain = 'js'
+# the theme errors when functions are not available in a python module
+primary_domain = "js"
 
-html_add_permalinks = '#'
+html_add_permalinks = "#"
 html_show_copyright = True
 html_show_sphinx = False
 
@@ -127,12 +131,12 @@ html_theme_options = {
         "provider": "google",
         "property": "G-K7GB6F0LBZ"
     },
-    'features': [
-        'toc.follow',
-        'toc.sticky',
-        'content.code.copy',
+    "features": [
+        "toc.follow",
+        "toc.sticky",
+        "content.code.copy",
     ],
-    'palette': [
+    "palette": [
         {
             "media": "(prefers-color-scheme: light)",
             "scheme": "default",
@@ -154,14 +158,14 @@ html_theme_options = {
             }
         },
     ],
-    'edit_uri': 'blob/master/presto-docs/src/main/sphinx',
+    "edit_uri": "blob/master/presto-docs/src/main/sphinx",
 
-    # 'base_url': '/',
-    'repo_url': 'https://github.com/prestodb/presto',
-    'repo_name': 'Presto',
+    # "base_url": "/",
+    "repo_url": "https://github.com/prestodb/presto",
+    "repo_name": "Presto",
 
     # If true, TOC entries that are not ancestors of the current page are collapsed
-    'globaltoc_collapse': True,
+    "globaltoc_collapse": True,
     "social": [
         {
             "icon": "fontawesome/brands/github",
