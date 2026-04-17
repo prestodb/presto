@@ -299,6 +299,7 @@ public class FeaturesConfig
     private boolean inferInequalityPredicates;
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
+    private boolean rewriteJsonExtractScalarStrposFilter;
     private boolean rewriteExpressionWithConstantVariable = true;
     private boolean rewriteRowConstructorInToDisjunction;
     private boolean optimizeConditionalApproxDistinct = true;
@@ -3067,6 +3068,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteConstantArrayContainsToInEnabled(boolean rewriteConstantArrayContainsToIn)
     {
         this.rewriteConstantArrayContainsToIn = rewriteConstantArrayContainsToIn;
+        return this;
+    }
+
+    public boolean isRewriteJsonExtractScalarStrposFilterEnabled()
+    {
+        return this.rewriteJsonExtractScalarStrposFilter;
+    }
+
+    @Config("optimizer.rewrite-json-extract-scalar-strpos-filter")
+    @ConfigDescription("Add strpos pre-filter for json_extract_scalar equality predicates to short-circuit expensive JSON parsing")
+    public FeaturesConfig setRewriteJsonExtractScalarStrposFilterEnabled(boolean rewriteJsonExtractScalarStrposFilter)
+    {
+        this.rewriteJsonExtractScalarStrposFilter = rewriteJsonExtractScalarStrposFilter;
         return this;
     }
 
