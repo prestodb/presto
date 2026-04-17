@@ -642,7 +642,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
         // expects the driver to be suspended — but it's running.
         auto leafPool =
             velox::memory::MemoryManager::getInstance()->addLeafPool(
-                fmt::format("df_bridge_{}", info.joinNodeId));
+                fmt::format("df_bridge_{}_{}", taskId, info.joinNodeId));
         auto weakPrestoTask = std::weak_ptr<PrestoTask>(prestoTask);
         prestoTask->task->registerHashJoinBridgeCallback(
             info.joinNodeId,
