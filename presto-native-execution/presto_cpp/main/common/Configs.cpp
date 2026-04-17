@@ -296,6 +296,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTextReaderEnabled, true),
           BOOL_PROP(kCharNToVarcharImplicitCast, false),
           BOOL_PROP(kEnumTypesEnabled, true),
+          NONE_PROP(kPlanDumpDir),
           BOOL_PROP(kPlanConsistencyCheckEnabled, false),
       };
 }
@@ -1166,6 +1167,10 @@ bool SystemConfig::enumTypesEnabled() const {
 
 bool SystemConfig::planConsistencyCheckEnabled() const {
   return optionalProperty<bool>(kPlanConsistencyCheckEnabled).value();
+}
+
+folly::Optional<std::string> SystemConfig::planDumpDir() const {
+  return optionalProperty<std::string>(kPlanDumpDir);
 }
 
 NodeConfig::NodeConfig() {
