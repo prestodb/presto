@@ -22,11 +22,15 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.function.Function;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
@@ -114,6 +118,30 @@ public class TestNativeExpressionOptimizer
                 Session.builder(queryRunner.getDefaultSession())
                         .setSystemProperty(FIELD_NAMES_IN_JSON_CAST_ENABLED, "true")
                         .build());
+    }
+
+    @Test
+    public void testCurrentTimestamp()
+    {
+        ZoneId zone = ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId());
+        LocalDateTime dateTime = LocalDateTime.of(2025, 11, 2, 2, 30, 0);
+        Instant instant = dateTime.atZone(zone).toInstant();
+
+        Session session = Session.builder(queryRunner.getDefaultSession())
+                .setStartTime(instant.toEpochMilli())
+                .setTimeZoneKey(TestingSession.DEFAULT_TIME_ZONE_KEY)
+                .build();
+
+        double epochSeconds = instant.toEpochMilli() / 1000.0;
+
+        assertOptimizedEquals(
+                "now() = from_unixtime(" + epochSeconds + ")",
+                "true",
+                session);
+        assertOptimizedEquals(
+                "current_timestamp = now()",
+                "true",
+                session);
     }
 
     private void assertOptimizedEquals(@Language("SQL") String actual, @Language("SQL") String expected)
