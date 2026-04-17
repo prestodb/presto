@@ -122,6 +122,7 @@ import static com.facebook.presto.SystemSessionProperties.getPartialMergePushdow
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionFixedParallelismTaskCount;
 import static com.facebook.presto.SystemSessionProperties.getRemoteFunctionNamesForFixedParallelism;
+import static com.facebook.presto.SystemSessionProperties.getRpcFunctionParallelism;
 import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleParallelismThreshold;
 import static com.facebook.presto.SystemSessionProperties.getTableScanShuffleStrategy;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -869,6 +870,14 @@ public class AddExchanges
         public PlanWithProperties visitRPC(RPCNode node, PreferredProperties preferredProperties)
         {
             PlanWithProperties source = accept(node.getSource(), preferredProperties);
+
+            int taskCount = getRpcFunctionParallelism(session);
+            if (taskCount > 1) {
+                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), taskCount);
+                newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
+                return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+            }
+
             return rebaseAndDeriveProperties(node, source);
         }
 
