@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isMergeAggregationsWithAndWithoutFilter;
 import static com.facebook.presto.SystemSessionProperties.isPushAggregationThroughJoin;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -174,6 +175,13 @@ public class PushPartialAggregationThroughJoinRuleSet
         public Pattern<AggregationNode> getPattern()
         {
             return WITH_PROJECTION;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return !isMergeAggregationsWithAndWithoutFilter(session) // TODO: Fix bug in merging masked aggregations when a Agg is pushed through the Project below the join
+                    && super.isEnabled(session);
         }
 
         @Override
