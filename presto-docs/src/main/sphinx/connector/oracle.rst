@@ -99,6 +99,65 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 
     SELECT * FROM oracle.web.clicks;
 
+
+Oracle View Support
+-------------------
+
+The Oracle connector supports querying existing views and creating new views.
+
+Querying Views
+^^^^^^^^^^^^^^
+
+Query an existing view in Oracle:
+
+.. code-block:: sql
+
+    SELECT * FROM oracle.abc.test_view;
+
+Query a view with selected columns:
+
+.. code-block:: sql
+
+    SELECT * FROM oracle.abc.employees_view;
+
+CREATE VIEW
+^^^^^^^^^^^
+
+Create a new view:
+
+.. code-block:: sql
+
+    CREATE VIEW oracle.abc.test_view1 AS
+    SELECT * FROM oracle.abc.employees;
+
+Replace an existing view:
+
+.. code-block:: sql
+
+    CREATE OR REPLACE VIEW oracle.abc.test_view1 AS
+    SELECT id, name, salary FROM oracle.abc.employees;
+
+SHOW CREATE VIEW
+^^^^^^^^^^^^^^^^
+
+Display the SQL definition of a view:
+
+.. code-block:: sql
+
+    SHOW CREATE VIEW oracle.abc.test_view1;
+
+DROP VIEW
+^^^^^^^^^
+
+Drop an existing view:
+
+.. code-block:: sql
+
+    DROP VIEW oracle.abc.test_view1;
+
+.. note::
+    Views must be dropped using ``DROP VIEW``, not ``DROP TABLE``.
+    Using ``DROP TABLE`` on a view will result in an error.
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``oracle`` in the above examples.
 
