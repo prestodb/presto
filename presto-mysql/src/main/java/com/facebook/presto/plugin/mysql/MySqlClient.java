@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -30,8 +31,12 @@ import com.facebook.presto.plugin.jdbc.QueryBuilder;
 import com.facebook.presto.plugin.jdbc.mapping.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mysql.cj.jdbc.JdbcStatement;
 import com.mysql.jdbc.Driver;
@@ -43,6 +48,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +68,7 @@ import static com.facebook.presto.plugin.jdbc.QueryBuilder.quote;
 import static com.facebook.presto.plugin.jdbc.mapping.StandardColumnMappings.geometryReadMapping;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
@@ -77,6 +85,7 @@ public class MySqlClient
      * @see <a href="https://dev.mysql.com/doc/connector-j/en/connector-j-reference-error-sqlstates.html">MySQL documentation</a>
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
+    private static final JsonCodec<ViewDefinition> VIEW_CODEC = JsonCodec.jsonCodec(ViewDefinition.class);
 
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -294,5 +303,178 @@ public class MySqlClient
     public String normalizeIdentifier(ConnectorSession session, String identifier)
     {
         return caseSensitiveNameMatchingEnabled ? identifier : identifier.toLowerCase(ENGLISH);
+    }
+
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, List<SchemaTableName> tableNames)
+    {
+        JdbcIdentity identity = new JdbcIdentity(session.getUser(), session.getIdentity().getExtraCredentials());
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            for (SchemaTableName schemaTableName : tableNames) {
+                String schemaName = schemaTableName.getSchemaName();
+                String tableName = schemaTableName.getTableName();
+
+                String sql = format(
+                        "SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS " +
+                                "WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        schemaName, tableName);
+
+                try (Statement statement = connection.createStatement();
+                        ResultSet resultSet = statement.executeQuery(sql)) {
+                    while (resultSet.next()) {
+                        // StatementAnalyzer can't parse sql with back ticks, so we replace them here
+                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, schemaName, tableName);
+
+                        SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
+                        String viewData = VIEW_CODEC.toJson(viewDefinition);
+
+                        String owner = session.getUser();
+                        views.put(viewName, new ConnectorViewDefinition(
+                                viewName,
+                                Optional.of(owner),
+                                viewData));
+                    }
+                }
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return views.build();
+    }
+
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String schemaName, String tableName)
+            throws SQLException
+    {
+        String owner = session.getUser();
+        String viewSql = resultSet.getString("view_definition").replace('`', '"');
+
+        List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
+                connectorId,
+                schemaTableName,
+                schemaName,
+                null,
+                tableName));
+
+        List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
+                .map(MySqlClient::toViewColumn)
+                .collect(toImmutableList());
+
+        return new ViewDefinition(
+                viewSql,
+                Optional.of(connectorId),
+                Optional.of(schemaName),
+                columns,
+                Optional.of(owner),
+                false);
+    }
+
+    private static ViewDefinition.ViewColumn toViewColumn(JdbcColumnHandle jdbcColumn)
+    {
+        return new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType());
+    }
+
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
+            try (ResultSet resultSet = metadata.getTables(
+                    schemaName.orElse(null),
+                    null,
+                    escapeNamePattern(Optional.empty(), escape).orElse(null),
+                    new String[] {"VIEW"})) {
+                ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
+                while (resultSet.next()) {
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    String schema = schemaName.orElse(resultSet.getString("TABLE_SCHEM"));
+                    builder.add(new SchemaTableName(
+                            normalizeIdentifier(session, schema),
+                            normalizeIdentifier(session, tableName)));
+                }
+                return builder.build();
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public List<SchemaTableName> listSchemasForViews(ConnectorSession session)
+    {
+        List<SchemaTableName> allTableNames = new ArrayList<>();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            Collection<String> schemaNames = listSchemas(connection);
+            for (String schema : schemaNames) {
+                List<SchemaTableName> tablesNames = listViews(session, Optional.ofNullable(schema));
+                allTableNames.addAll(tablesNames);
+            }
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+        return allTableNames;
+    }
+
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        SchemaTableName viewName = viewMetadata.getTable();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        // viewData is a Presto-internal JSON blob; extract the raw SQL before passing to MySQL
+        String originalSql;
+        try {
+            originalSql = viewData.replaceAll(".*\"originalSql\":\"(.*?)\".*", "$1")
+                    .replace("\\n", "\n");
+        }
+        catch (Exception e) {
+            throw new PrestoException(JDBC_ERROR, "Failed to parse view data: " + e.getMessage(), e);
+        }
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "%s VIEW %s AS %s",
+                    replace ? "CREATE OR REPLACE" : "CREATE",
+                    quoted(null, viewName.getSchemaName(), viewName.getTableName()),
+                    originalSql);
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "RENAME TABLE %s TO %s",
+                    quoted(null, viewName.getSchemaName(), viewName.getTableName()),
+                    quoted(null, newViewName.getSchemaName(), newViewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "DROP VIEW %s",
+                    quoted(null, viewName.getSchemaName(), viewName.getTableName()));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 }
