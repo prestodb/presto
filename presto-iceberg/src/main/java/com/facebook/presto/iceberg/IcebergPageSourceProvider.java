@@ -95,6 +95,7 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
@@ -364,8 +365,10 @@ public class IcebergPageSourceProvider
                 if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
                         !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
                     Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield).stream()
+                            .map(AvroSchemaUtil::makeCompatibleName)
+                            .collect(Collectors.toList());
+                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
                     if (columnIO.isPresent()) {
                         internalFields.add(constructField(prestoType, columnIO.get()));
                     }
@@ -379,7 +382,7 @@ public class IcebergPageSourceProvider
                         internalFields.add(Optional.empty());
                     }
                     else {
-                        internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.get().getName())));
+                        internalFields.add(constructField(column.getType(), lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
                 }
                 isRowPositionList.add(column.isRowPositionColumn());
@@ -421,7 +424,10 @@ public class IcebergPageSourceProvider
     {
         if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
-            return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
+            List<String> encodedPath = nestedColumnPath(pushedDownSubfield).stream()
+                    .map(AvroSchemaUtil::makeCompatibleName)
+                    .collect(Collectors.toList());
+            return getSubfieldType(messageType, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()), encodedPath);
         }
 
         if (parquetIdToField.isEmpty()) {
