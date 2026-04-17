@@ -1228,7 +1228,7 @@
             <dependency>
                 <groupId>com.github.imjalpreet</groupId>
                 <artifactId>presto-hive-dwrf</artifactId>
-                <version>hive4-upgrade-imjalpreet-1</version>
+                <version>hive4-upgrade-imjalpreet-4</version>
             </dependency>
 
             <dependency>
