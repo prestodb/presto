@@ -39,7 +39,9 @@ jobs:
       matrix:
         java: ['17']
         modules:
-          - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
+          - :presto-common-arrow
+          - :presto-base-arrow-flight
+          - :presto-flight-shim
 
     timeout-minutes: 80
     concurrency:
