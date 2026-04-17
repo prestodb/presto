@@ -61,8 +61,7 @@ public class TestHiveBucketedTables
                         "n_regionkey     BIGINT," +
                         "n_comment       STRING) " +
                         (partitioned ? "PARTITIONED BY (part_key STRING) " : " ") +
-                        "CLUSTERED BY (n_regionkey) " +
-                        (bucketed ? "INTO 2 BUCKETS " : " ") +
+                        (bucketed ? "CLUSTERED BY (n_regionkey) INTO 2 BUCKETS " : " ") +
                         "ROW FORMAT DELIMITED FIELDS TERMINATED BY '|'")
                 .setNoData()
                 .build();
