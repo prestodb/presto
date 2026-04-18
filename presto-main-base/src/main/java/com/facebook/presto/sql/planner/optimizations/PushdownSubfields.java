@@ -79,6 +79,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -102,6 +103,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFro
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
 import static com.facebook.presto.common.Subfield.structureOnly;
+import static com.facebook.presto.common.type.TypeUtils.hasFloatingPointMapKey;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
@@ -155,6 +157,24 @@ public class PushdownSubfields
         Rewriter rewriter = new Rewriter(session, metadata, expressionOptimizerProvider);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
+    }
+
+    @VisibleForTesting
+    static Optional<List<Subfield>> toSubfield(
+            RowExpression expression,
+            FunctionResolution functionResolution,
+            ExpressionOptimizer expressionOptimizer,
+            ConnectorSession connectorSession,
+            FunctionAndTypeManager functionAndTypeManager,
+            boolean isPushdownSubfieldsForMapFunctionsEnabled)
+    {
+        return Rewriter.toSubfield(
+                expression,
+                functionResolution,
+                expressionOptimizer,
+                connectorSession,
+                functionAndTypeManager,
+                isPushdownSubfieldsForMapFunctionsEnabled);
     }
 
     private static class Rewriter
@@ -666,7 +686,8 @@ public class PushdownSubfields
             return metadata.getColumnMetadata(session, tableHandle, columnHandle).getName();
         }
 
-        private static Optional<List<Subfield>> toSubfield(
+        @VisibleForTesting
+        static Optional<List<Subfield>> toSubfield(
                 RowExpression expression,
                 FunctionResolution functionResolution,
                 ExpressionOptimizer expressionOptimizer,
@@ -734,6 +755,9 @@ public class PushdownSubfields
                             if (((Number) index).longValue() < 0 && arguments.get(0).getType() instanceof ArrayType) {
                                 return Optional.empty();
                             }
+                            if (hasFloatingPointMapKey(arguments.get(0).getType())) {
+                                return Optional.empty();
+                            }
 
                             elements.add(new Subfield.LongSubscript(((Number) index).longValue()));
                             expression = arguments.get(0);
@@ -798,6 +822,9 @@ public class PushdownSubfields
         {
             ImmutableList.Builder<Subfield> arguments = ImmutableList.builder();
             checkState(constantArray.getValue() instanceof Block && constantArray.getType() instanceof ArrayType);
+            if (hasFloatingPointMapKey(mapVariable.getType())) {
+                return Optional.empty();
+            }
             Block arrayValue = (Block) constantArray.getValue();
             Type arrayElementType = ((ArrayType) constantArray.getType()).getElementType();
             for (int i = 0; i < arrayValue.getPositionCount(); ++i) {
@@ -817,6 +844,9 @@ public class PushdownSubfields
 
         private static Optional<Subfield> extractSubfieldsFromSingleValue(ConstantExpression mapKey, VariableReferenceExpression mapVariable)
         {
+            if (hasFloatingPointMapKey(mapVariable.getType())) {
+                return Optional.empty();
+            }
             Object value = mapKey.getValue();
             if (value == null) {
                 return Optional.empty();

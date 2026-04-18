@@ -56,6 +56,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertTrue;
 
 public class TestSubfieldExtractor
@@ -63,6 +64,8 @@ public class TestSubfieldExtractor
     private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "c_bigint", BIGINT);
     private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression(Optional.empty(), "c_bigint_array", new ArrayType(BIGINT));
     private static final VariableReferenceExpression C_BIGINT_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_bigint_to_bigint_map", mapType(BIGINT, BIGINT));
+    private static final VariableReferenceExpression C_DOUBLE_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_double_to_bigint_map", mapType(DOUBLE, BIGINT));
+    private static final VariableReferenceExpression C_REAL_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_real_to_bigint_map", mapType(REAL, BIGINT));
     private static final VariableReferenceExpression C_VARCHAR_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_varchar_to_bigint_map", mapType(VARCHAR, BIGINT));
     private static final VariableReferenceExpression C_STRUCT = new VariableReferenceExpression(Optional.empty(), "c_struct", RowType.from(ImmutableList.of(
             RowType.field("a", BIGINT),
@@ -113,6 +116,13 @@ public class TestSubfieldExtractor
         assertSubfieldExtract(mapSubscript(dereference(C_STRUCT, 4), constant(Slices.utf8Slice("foo"), VARCHAR)), "c_struct.e[\"foo\"]");
 
         assertEquals(subfieldExtractor.extract(constant(2L, INTEGER)), Optional.empty());
+    }
+
+    @Test
+    public void testFloatingPointMapKeys()
+    {
+        assertEquals(subfieldExtractor.extract(mapSubscript(C_DOUBLE_TO_BIGINT_MAP, constant(0.99, DOUBLE))), Optional.empty());
+        assertEquals(subfieldExtractor.extract(mapSubscript(C_REAL_TO_BIGINT_MAP, constant((long) floatToRawIntBits(0.99f), REAL))), Optional.empty());
     }
 
     @Test
