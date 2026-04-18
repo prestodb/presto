@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativetests.cudf;
 
+import com.facebook.presto.nativetests.NativeTestsUtils;
 import com.facebook.presto.nativeworker.AbstractTestNativeTpchQueries;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
@@ -24,12 +25,23 @@ public class TestCudfTpchQueries
     private static final String DEFAULT_STORAGE_FORMAT = "PARQUET";
 
     @Override
+    protected String getStorageFormat()
+    {
+        return System.getProperty("storageFormat", DEFAULT_STORAGE_FORMAT);
+    }
+
+    @Override
+    protected void createTables()
+    {
+        NativeTestsUtils.createTables(getStorageFormat());
+    }
+
+    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        String storageFormat = System.getProperty("storageFormat", DEFAULT_STORAGE_FORMAT);
         return PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(false)
                 .setEnableCudf(true)
@@ -40,9 +52,8 @@ public class TestCudfTpchQueries
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        String storageFormat = System.getProperty("storageFormat", DEFAULT_STORAGE_FORMAT);
         return PrestoNativeQueryRunnerUtils.javaHiveQueryRunnerBuilder()
-                .setStorageFormat(storageFormat)
+                .setStorageFormat(getStorageFormat())
                 .setAddStorageFormatToPath(true)
                 .build();
     }

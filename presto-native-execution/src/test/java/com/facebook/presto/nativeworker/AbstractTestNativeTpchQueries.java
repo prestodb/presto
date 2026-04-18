@@ -21,46 +21,36 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createBucketedLineitemAndOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createCustomer;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createLineitem;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNation;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersHll;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPart;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createPartSupp;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createSupplier;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createAllTables;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public abstract class AbstractTestNativeTpchQueries
         extends AbstractTestQueryFramework
 {
+    /// Returns the storage format used by this test class (e.g. "DWRF", "ORC", "PARQUET").
+    protected abstract String getStorageFormat();
+
     @Override
     protected void createTables()
     {
-        QueryRunner queryRunner = (QueryRunner) getExpectedQueryRunner();
-        createLineitem(queryRunner);
-        createBucketedLineitemAndOrders(queryRunner);
-        createOrders(queryRunner);
-        createOrdersEx(queryRunner);
-        createOrdersHll(queryRunner);
-        createNation(queryRunner);
-        createCustomer(queryRunner);
-        createBucketedCustomer(queryRunner);
-        createPart(queryRunner);
-        createPartSupp(queryRunner);
-        createRegion(queryRunner);
-        createSupplier(queryRunner);
+        createAllTables((QueryRunner) getExpectedQueryRunner(), getStorageFormat());
     }
 
-    private static String getTpchQuery(int q)
+    protected String getTpchQuery(int q)
             throws IOException
     {
         String sql = Resources.toString(Resources.getResource("tpch/queries/q" + q + ".sql"), UTF_8);
         sql = sql.replaceFirst("(?m);$", "");
+        // Resolve ${col} placeholders: DWRF and ORC store date columns as VARCHAR,
+        // so they need cast(col as date) for date comparisons; PARQUET stores them
+        // as native DATE, so the column reference is used directly.
+        String format = getStorageFormat();
+        if (format.equals("DWRF") || format.equals("ORC")) {
+            sql = sql.replaceAll("\\$\\{([^}]+)}", "cast($1 as date)");
+        }
+        else {
+            sql = sql.replaceAll("\\$\\{([^}]+)}", "$1");
+        }
         return sql;
     }
 
