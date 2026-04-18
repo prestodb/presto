@@ -321,12 +321,47 @@ can be run manually for optional checks using `pre-commit run --hook-stage manua
 * PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.
 
 ## Advance Velox Version
-For Prestissimo to use a newer Velox version from the Presto repository root:
-* `git -C presto-native-execution/velox checkout main`
-* `git -C presto-native-execution/velox pull`
-* `git add presto-native-execution/velox`
-* Build and run tests (including E2E) to ensure everything works.
-* Submit a PR, get it approved and merged.
+
+Prestissimo uses Velox as a submodule. There are two ways to advance the Velox version:
+
+### 1. Manual Advance (For Immediate Updates)
+
+Use this method when you need to advance Velox immediately or to a specific commit.
+
+**Steps:**
+1. Update the Velox submodule:
+   ```bash
+   git -C presto-native-execution/velox checkout main
+   git -C presto-native-execution/velox pull
+   git add presto-native-execution/velox
+   ```
+2. Build and run tests (including E2E) to ensure everything works
+3. Submit a PR, get it approved and merged
+
+### 2. Automated Advance (Scheduled Workflow)
+
+Presto maintains automated GitHub Actions workflows that run daily to keep Velox up to date.
+
+**How It Works:**
+- **Daily Schedule**: Runs automatically at 09:00 UTC
+- **Auto-creates PR**: Creates a PR on the `velox-update` branch with the latest Velox changes
+- **CI Monitoring**: Automatically monitors CI status and notifies [@prestodb/team-velox](https://github.com/orgs/prestodb/teams/team-velox) when checks pass or fail
+- **Team Notification**: Alerts the team when new Velox changes are available
+
+**How to Use:**
+
+1. **Check for existing PR**: Look for an open PR with the `velox-update` branch at https://github.com/prestodb/presto/pulls
+
+2. **Manually trigger workflow** (if needed):
+   - Go to [Actions → "Advance velox PR create"](https://github.com/prestodb/presto/actions/workflows/velox-advance-pr-create.yml)
+   - Click "Run workflow"
+   - Options:
+     - Default: Checks for new changes and notifies if available
+     - `close_pr: true`: Forces creation of a new PR with latest changes
+
+3. **Review and merge**: Once CI passes (you'll receive a notification), review and merge the PR
+
+**Notification Group**: By default, [@prestodb/team-velox](https://github.com/orgs/prestodb/teams/team-velox) is notified. This can be customized via the `VELOX_UPDATE_NOTIFICATION_GROUP` repository variable.
 
 ## Functional test using containers
 To build container images and do functional tests, see [Prestissimo: Functional Testing Using Containers](testcontainers/README.md).
