@@ -20,7 +20,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.fastutil.version>8.5.15</dep.fastutil.version>
         <dep.datasketches-memory.version>3.0.2</dep.datasketches-memory.version>
-        <dep.log4j.version>2.25.3</dep.log4j.version>
+        <dep.log4j.version>2.25.4</dep.log4j.version>
     </properties>
 
     <dependencyManagement>
