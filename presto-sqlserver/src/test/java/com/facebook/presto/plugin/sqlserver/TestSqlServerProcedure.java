@@ -11,69 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.plugin.oracle;
+package com.facebook.presto.plugin.sqlserver;
 
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import com.facebook.presto.tests.AbstractTestQueryFramework;
+import org.testcontainers.mssqlserver.MSSQLServerContainer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
-import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-public class TestOracleIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestSqlServerProcedure
+        extends AbstractTestQueryFramework
 {
-    private final OracleServerTester oracleServer;
-    private QueryRunner queryRunner;
+    private MSSQLServerContainer mssqlServerContainer;
 
-    protected TestOracleIntegrationSmokeTest()
-            throws Exception
+    public TestSqlServerProcedure()
     {
-        this.oracleServer = new OracleServerTester();
-        this.queryRunner = createOracleQueryRunner(oracleServer, ORDERS);
-    }
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return queryRunner;
+        this.mssqlServerContainer = new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2025-latest")
+                .acceptLicense();
+        this.mssqlServerContainer.start();
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        oracleServer.close();
-    }
-
-    @Override
-    protected boolean isLegacyTimestampEnabled()
-    {
-        return false;
-    }
-
-    @Override
-    public void testDescribeTable()
-    {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BIGINT, BIGINT)
-                .row("orderkey", "bigint", "", "", 19L, null, null)
-                .row("custkey", "bigint", "", "", 19L, null, null)
-                .row("orderstatus", "varchar(1)", "", "", null, null, 1L)
-                .row("totalprice", "double", "", "", 53L, null, null)
-                .row("orderdate", "timestamp", "", "", null, null, null)
-                .row("orderpriority", "varchar(15)", "", "", null, null, 15L)
-                .row("clerk", "varchar(15)", "", "", null, null, 15L)
-                .row("shippriority", "bigint", "", "", 19L, null, null)
-                .row("comment", "varchar(79)", "", "", null, null, 79L)
-                .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
+        mssqlServerContainer.stop();
     }
 
     @Test
@@ -82,10 +46,10 @@ public class TestOracleIntegrationSmokeTest
         String tableName = "test_execute";
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
         try {
-            assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(id number, a number)')");
+            assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(id BIGINT IDENTITY(1,1) PRIMARY KEY, a int)')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(id, a) VALUES (1, 1)')");
-            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(id, a) VALUES (2, 21)')");
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
 
             assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
@@ -108,10 +72,10 @@ public class TestOracleIntegrationSmokeTest
         String tableName = "test_execute_named";
         String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
         try {
-            assertUpdate("CALL system.execute(QUERY => 'CREATE TABLE " + schemaTableName + "(id number, a number)')");
+            assertUpdate("CALL system.execute(QUERY => 'CREATE TABLE " + schemaTableName + "(id BIGINT IDENTITY(1,1) PRIMARY KEY, a int)')");
             assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
-            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(id, a) VALUES (1, 1)')");
-            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(id, a) VALUES (2, 21)')");
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
             assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
 
             assertUpdate("CALL system.execute(QUERY => 'UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
@@ -133,5 +97,16 @@ public class TestOracleIntegrationSmokeTest
     {
         assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
         assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
+    }
+
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return SqlServerQueryRunner.createSqlServerQueryRunner(
+                mssqlServerContainer.getJdbcUrl(),
+                ImmutableMap.of("allow-drop-table", "true"),
+                mssqlServerContainer.getUsername(),
+                mssqlServerContainer.getPassword());
     }
 }
