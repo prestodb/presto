@@ -275,6 +275,11 @@ pre {
     min-width: 0;
 }
 
+.flex-basis-100 {
+    flex-basis: 100%;
+    min-width: 0;
+}
+
 .flex-basis-40 {
     flex-basis: 40%;
     min-width: 0;
