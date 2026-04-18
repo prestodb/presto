@@ -53,8 +53,10 @@ import com.facebook.presto.hive.TableParameterCodec;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.http.HttpHiveMetastoreConfig;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
+import com.facebook.presto.hive.metastore.thrift.StaticMetastoreConfig;
 import com.facebook.presto.hive.metastore.thrift.TestingHiveCluster;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.ThriftHiveMetastoreConfig;
@@ -112,6 +114,8 @@ public class S3SelectTestHelper
     private CacheConfig cacheConfig;
     private MetastoreClientConfig metastoreClientConfig;
     private ThriftHiveMetastoreConfig thriftHiveMetastoreConfig;
+    private HttpHiveMetastoreConfig httpHiveMetastoreConfig;
+
 
     public S3SelectTestHelper(String host,
             int port,
@@ -131,13 +135,14 @@ public class S3SelectTestHelper
         cacheConfig = new CacheConfig();
         metastoreClientConfig = new MetastoreClientConfig();
         thriftHiveMetastoreConfig = new ThriftHiveMetastoreConfig();
+        httpHiveMetastoreConfig = new HttpHiveMetastoreConfig();
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
             metastoreClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, host, port, new HiveCommonClientConfig());
+        HiveCluster hiveCluster = new TestingHiveCluster(metastoreClientConfig, thriftHiveMetastoreConfig, httpHiveMetastoreConfig, host, port, new HiveCommonClientConfig(), new StaticMetastoreConfig());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         HivePartitionManager hivePartitionManager = new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, config);
 
