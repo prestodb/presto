@@ -29,6 +29,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -43,6 +44,7 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
@@ -52,12 +54,18 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.IfExpression;
+import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
+import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -66,14 +74,17 @@ import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.SampledRelation;
+import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SimpleCaseExpression;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
+import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +93,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -133,6 +145,7 @@ public class MaterializedViewQueryOptimizer
     private final RowExpressionDomainTranslator domainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
     private final MetadataResolver metadataResolver;
+    private final Set<String> builtInScalarFunctionNames;
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -148,6 +161,10 @@ public class MaterializedViewQueryOptimizer
         this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
         this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        this.builtInScalarFunctionNames = functionAndTypeManager.listBuiltInFunctions().stream()
+                .filter(fn -> fn.getSignature().getKind() == FunctionKind.SCALAR)
+                .map(fn -> fn.getSignature().getNameSuffix().toLowerCase(Locale.ENGLISH))
+                .collect(ImmutableSet.toImmutableSet());
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
                 new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()),
@@ -644,7 +661,11 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitExpression(Expression node, Void context)
         {
-            return super.visitExpression(removeExpressionPrefix(node, removablePrefix), context);
+            Expression stripped = removeExpressionPrefix(node, removablePrefix);
+            if (stripped != node) {
+                return process(stripped, context);
+            }
+            return super.visitExpression(node, context);
         }
 
         @Override
@@ -659,7 +680,21 @@ public class MaterializedViewQueryOptimizer
             }
 
             if (!ASSOCIATIVE_REWRITE_FUNCTIONS.contains(node.getName())) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Was unable to rewrite non-associative function call with materialized view");
+                if (!isScalarFunction(node)) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Unsupported function for materialized view rewrite: " + node.getName());
+                }
+                // Scalar function (CONCAT, JSON_EXTRACT, ABS, etc.) — rewrite arguments recursively
+                for (Expression argument : node.getArguments()) {
+                    rewrittenArguments.add((Expression) process(argument, context));
+                }
+                return new FunctionCall(
+                        node.getName(),
+                        node.getWindow(),
+                        node.getFilter(),
+                        node.getOrderBy(),
+                        node.isDistinct(),
+                        node.isIgnoreNulls(),
+                        rewrittenArguments.build());
             }
 
             if (baseToViewColumnMap.containsKey(node)) {
@@ -722,6 +757,102 @@ public class MaterializedViewQueryOptimizer
         }
 
         @Override
+        protected Node visitIfExpression(IfExpression node, Void context)
+        {
+            return new IfExpression(
+                    (Expression) process(node.getCondition(), context),
+                    (Expression) process(node.getTrueValue(), context),
+                    node.getFalseValue().map(v -> (Expression) process(v, context)).orElse(null));
+        }
+
+        @Override
+        protected Node visitCoalesceExpression(CoalesceExpression node, Void context)
+        {
+            ImmutableList.Builder<Expression> operands = ImmutableList.builder();
+            for (Expression operand : node.getOperands()) {
+                operands.add((Expression) process(operand, context));
+            }
+            return new CoalesceExpression(operands.build());
+        }
+
+        @Override
+        protected Node visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
+        {
+            ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                whenClauses.add((WhenClause) process(whenClause, context));
+            }
+            return new SearchedCaseExpression(
+                    whenClauses.build(),
+                    node.getDefaultValue().map(v -> (Expression) process(v, context)));
+        }
+
+        @Override
+        protected Node visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
+        {
+            ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+            for (WhenClause whenClause : node.getWhenClauses()) {
+                whenClauses.add((WhenClause) process(whenClause, context));
+            }
+            return new SimpleCaseExpression(
+                    (Expression) process(node.getOperand(), context),
+                    whenClauses.build(),
+                    node.getDefaultValue().map(v -> (Expression) process(v, context)));
+        }
+
+        @Override
+        protected Node visitWhenClause(WhenClause node, Void context)
+        {
+            return new WhenClause(
+                    (Expression) process(node.getOperand(), context),
+                    (Expression) process(node.getResult(), context));
+        }
+
+        @Override
+        protected Node visitNullIfExpression(NullIfExpression node, Void context)
+        {
+            return new NullIfExpression(
+                    (Expression) process(node.getFirst(), context),
+                    (Expression) process(node.getSecond(), context));
+        }
+
+        @Override
+        protected Node visitCast(Cast node, Void context)
+        {
+            return new Cast(
+                    (Expression) process(node.getExpression(), context),
+                    node.getType(),
+                    node.isSafe(),
+                    node.isTypeOnly());
+        }
+
+        @Override
+        protected Node visitInPredicate(InPredicate node, Void context)
+        {
+            return new InPredicate(
+                    (Expression) process(node.getValue(), context),
+                    (Expression) process(node.getValueList(), context));
+        }
+
+        @Override
+        protected Node visitNotExpression(NotExpression node, Void context)
+        {
+            return new NotExpression((Expression) process(node.getValue(), context));
+        }
+
+        @Override
+        protected Node visitIsNullPredicate(IsNullPredicate node, Void context)
+        {
+            return new IsNullPredicate((Expression) process(node.getValue(), context));
+        }
+
+        @Override
+        protected Node visitIsNotNullPredicate(IsNotNullPredicate node, Void context)
+        {
+            return new IsNotNullPredicate((Expression) process(node.getValue(), context));
+        }
+
+        @Override
         protected Node visitGroupBy(GroupBy node, Void context)
         {
             ImmutableList.Builder<GroupingElement> rewrittenGroupBy = ImmutableList.builder();
@@ -770,9 +901,21 @@ public class MaterializedViewQueryOptimizer
                     && (ASSOCIATIVE_REWRITE_FUNCTIONS.contains(((FunctionCall) expression).getName())
                     || MaterializedViewUtils.validateNonAssociativeFunctionRewrite((FunctionCall) expression, materializedViewInfo.getBaseToViewColumnMap()));
 
+            // Scalar expressions (IF, CASE, COALESCE, scalar functions like CONCAT/ABS/JSON_EXTRACT)
+            // are valid in SELECT — the rewriter handles them by rewriting leaf identifiers.
+            // Only known built-in scalar functions qualify; unknown/plugin functions are not assumed scalar.
+            boolean isScalar = !(expression instanceof Identifier)
+                    && (!(expression instanceof FunctionCall) || isScalarFunction((FunctionCall) expression));
+
             // If a selected column is not present in GROUP BY node of the query.
             // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
-            return groupByOfMaterializedView.contains(expression) || !(materializedViewInfo.getBaseToViewColumnMap().containsKey(expression) || canRewrite);
+            return groupByOfMaterializedView.contains(expression) || !(materializedViewInfo.getBaseToViewColumnMap().containsKey(expression) || canRewrite || isScalar);
+        }
+
+        private boolean isScalarFunction(FunctionCall functionCall)
+        {
+            return !functionCall.getWindow().isPresent()
+                    && builtInScalarFunctionNames.contains(functionCall.getName().getSuffix().toLowerCase(Locale.ENGLISH));
         }
 
         /**
