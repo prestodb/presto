@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -39,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.mongodb.Block;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
@@ -190,9 +192,15 @@ public class MongoSession
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
-        for (Document columnMetadata : getColumnMetadata(tableMeta)) {
-            MongoColumnHandle columnHandle = buildColumnHandle(columnMetadata);
-            columnHandles.add(columnHandle);
+        if (isView(tableMeta)) {
+            // For views, infer columns from sample data
+            columnHandles.addAll(guessViewFields(tableName));
+        }
+        else {
+            // For regular collections, use stored metadata
+            for (Document columnMetadata : getColumnMetadata(tableMeta)) {
+                columnHandles.add(buildColumnHandle(columnMetadata));
+            }
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(tableName);
@@ -200,6 +208,40 @@ public class MongoSession
                 tableHandle,
                 columnHandles.build(),
                 isView(tableMeta) ? ImmutableList.of() : getIndexes(tableName));
+    }
+
+    private List<MongoColumnHandle> guessViewFields(SchemaTableName tableName)
+    {
+        MongoCollection<Document> collection = getCollection(tableName);
+
+        // Sample the view to infer schema
+        Document sample = collection.find().first();
+
+        if (sample == null) {
+            // Empty view - return empty list
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<MongoColumnHandle> columns = ImmutableList.builder();
+
+        for (String key : sample.keySet()) {
+            Object value = sample.get(key);
+            Optional<TypeSignature> fieldType = guessFieldType(value);
+
+            if (fieldType.isPresent()) {
+                Type type = typeManager.getType(fieldType.get());
+                boolean hidden = key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature());
+                columns.add(new MongoColumnHandle(key, type, hidden));
+            }
+            else {
+                log.debug("Unable to guess field type for view column %s from %s : %s",
+                        key,
+                        value == null ? "null" : value.getClass().getName(),
+                        value);
+            }
+        }
+
+        return columns.build();
     }
 
     private static boolean isView(Document tableMeta)
@@ -217,14 +259,23 @@ public class MongoSession
 
         return new MongoColumnHandle(name, type, hidden);
     }
-
+//
+//    private List<Document> getColumnMetadata(Document doc)
+//    {
+//        if (!doc.containsKey(FIELDS_KEY)) {
+//            return ImmutableList.of();
+//        }
+//
+//        return (List<Document>) doc.get(FIELDS_KEY);
+//    }
+//
     private List<Document> getColumnMetadata(Document doc)
     {
-        if (!doc.containsKey(FIELDS_KEY)) {
-            return ImmutableList.of();
+        Object fields = doc.get(FIELDS_KEY);
+        if (fields instanceof List) {
+            return (List<Document>) fields;
         }
-
-        return (List<Document>) doc.get(FIELDS_KEY);
+        return ImmutableList.of();
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
@@ -239,6 +290,18 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        // Check if it's a view by looking at the metadata
+        try {
+            Document tableMeta = getTableMetadata(tableName);
+            if (isView(tableMeta)) {
+                return ImmutableList.of();
+            }
+        }
+        catch (Exception e) {
+            // If we can't get metadata, try to get indexes anyway
+            log.debug(e, "Could not check if %s is a view", tableName);
+        }
+
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -669,5 +732,119 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public void createView(SchemaTableName viewName, String viewData)
+    {
+        String schemaName = viewName.getSchemaName();
+        String tableName = viewName.getTableName();
+
+        MongoDatabase db = client.getDatabase(schemaName);
+        MongoCollection<Document> schema = db.getCollection(schemaCollection);
+
+        Document metadata = new Document(TABLE_NAME_KEY, tableName)
+                .append(FIELDS_KEY, new ArrayList<>())   // <-- must be a List, not a Document
+                .append(TYPE_KEY, VIEW_TYPE_NAME)
+                .append("data", viewData);               // store the SQL string opaquely
+
+        schema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+        schema.insertOne(metadata);
+
+        tableCache.invalidate(viewName);
+    }
+
+    public void renameView(SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        // MongoDB doesn't support renaming views natively — drop and recreate.
+        // We can reconstruct the definition from listCollections.
+        String schemaName = viewName.getSchemaName();
+        String tableName = viewName.getTableName();
+        MongoDatabase db = client.getDatabase(schemaName);
+
+        // Fetch the current view definition from listCollections
+        Document viewInfo = db.listCollections()
+                .filter(new Document(NAME_KEY, tableName))
+                .first();
+        requireNonNull(viewInfo, "View definition not found: " + viewName);
+
+        Document options = viewInfo.get("options", Document.class);
+        String sourceCollection = options.getString("viewOn");
+        List<Document> pipeline = options.getList("pipeline", Document.class);
+
+        // Drop old, recreate under new name in target schema
+        dropView(viewName);
+        String newSchemaName = newViewName.getSchemaName();
+        String newTableName = newViewName.getTableName();
+        MongoDatabase newDb = client.getDatabase(newSchemaName);
+
+        Document newMetadata = new Document(TABLE_NAME_KEY, newTableName)
+                .append(FIELDS_KEY, ImmutableList.of())
+                .append(TYPE_KEY, VIEW_TYPE_NAME);
+        newDb.getCollection(schemaCollection)
+                .createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+        newDb.getCollection(schemaCollection).insertOne(newMetadata);
+        newDb.createView(newTableName, sourceCollection, pipeline);
+
+        tableCache.invalidate(viewName);
+        tableCache.invalidate(newViewName);
+    }
+
+    public void dropView(SchemaTableName viewName)
+    {
+        deleteTableMetadata(viewName);          // reuses existing helper
+        getCollection(viewName).drop();         // drops the underlying view collection
+        tableCache.invalidate(viewName);
+    }
+
+    public List<SchemaTableName> listViews(String schemaName)
+    {
+        MongoDatabase db = client.getDatabase(schemaName);
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
+
+        db.listCollections()
+                .filter(new Document(TYPE_KEY, VIEW_TYPE_NAME))
+                .forEach((Block<Document>) doc ->
+                        views.add(new SchemaTableName(schemaName, doc.getString(NAME_KEY))));
+
+        return views.build();
+    }
+
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(String schemaName, String tableNameOrNull)
+    {
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        MongoDatabase db = client.getDatabase(schemaName);
+
+        // Build filter for listCollections command
+        Document filter = new Document("type", "view");
+        if (tableNameOrNull != null) {
+            filter.append("name", tableNameOrNull);
+        }
+
+        // List all views using listCollections
+        db.listCollections()
+                .filter(filter)
+                .forEach((Block<Document>) doc -> {
+                    String viewName = doc.getString("name");
+                    Document options = doc.get("options", Document.class);
+
+                    if (options != null) {
+                        String viewOn = options.getString("viewOn");
+                        List<Document> pipeline = options.getList("pipeline", Document.class);
+
+                        // Create view data as JSON string
+                        Document viewData = new Document()
+                                .append("viewOn", viewOn)
+                                .append("pipeline", pipeline);
+
+                        SchemaTableName schemaTableName = new SchemaTableName(schemaName, viewName);
+                        views.put(schemaTableName, new ConnectorViewDefinition(
+                                schemaTableName,
+                                Optional.empty(),
+                                viewData.toJson()));
+                    }
+                });
+
+        return views.build();
     }
 }
