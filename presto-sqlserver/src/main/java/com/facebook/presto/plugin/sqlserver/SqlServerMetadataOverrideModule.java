@@ -13,16 +13,18 @@
  */
 package com.facebook.presto.plugin.sqlserver;
 
-import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.connector.ConnectorFactory;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.plugin.jdbc.JdbcMetadataFactory;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-public class SqlServerPlugin
-        implements Plugin
+public class SqlServerMetadataOverrideModule
+        implements Module
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public void configure(Binder binder)
     {
-        return ImmutableList.of(new SqlServerConnectorFactory());
+        // Override the JdbcMetadataFactory binding from JdbcModule
+        binder.bind(JdbcMetadataFactory.class).to(SqlServerMetadataFactory.class).in(Scopes.SINGLETON);
     }
 }
