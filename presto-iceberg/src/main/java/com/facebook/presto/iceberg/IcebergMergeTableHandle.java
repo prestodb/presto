@@ -31,17 +31,20 @@ public class IcebergMergeTableHandle
     private final IcebergTableHandle tableHandle;
     private final IcebergInsertTableHandle insertTableHandle;
     private final Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs;
+    private final int formatVersion;
 
     @JsonCreator
     @ThriftConstructor
     public IcebergMergeTableHandle(
             @JsonProperty("tableHandle") IcebergTableHandle tableHandle,
             @JsonProperty("insertTableHandle") IcebergInsertTableHandle insertTableHandle,
-            @JsonProperty("partitionSpecs") Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs)
+            @JsonProperty("partitionSpecs") Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs,
+            @JsonProperty("formatVersion") int formatVersion)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.insertTableHandle = requireNonNull(insertTableHandle, "insertTableHandle is null");
         this.partitionSpecs = requireNonNull(partitionSpecs, "partitionSpecs is null");
+        this.formatVersion = formatVersion;
     }
 
     @Override
@@ -64,5 +67,12 @@ public class IcebergMergeTableHandle
     public Map<Integer, PrestoIcebergPartitionSpec> getPartitionSpecs()
     {
         return partitionSpecs;
+    }
+
+    @JsonProperty
+    @ThriftField(4)
+    public int getFormatVersion()
+    {
+        return formatVersion;
     }
 }
