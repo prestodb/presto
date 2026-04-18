@@ -39,9 +39,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TypeUtils.hasFloatingPointMapKey;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isRangeFiltersOnSubscriptsEnabled;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
@@ -96,16 +95,6 @@ public final class SubfieldExtractor
     private static boolean hasSubscripts(Optional<Subfield> subfield)
     {
         return subfield.isPresent() && subfield.get().getPath().stream().anyMatch(Subfield.PathElement::isSubscript);
-    }
-
-    private static boolean hasFloatingPointMapKey(Type type)
-    {
-        return type instanceof MapType && isFloatingPointType(((MapType) type).getKeyType());
-    }
-
-    private static boolean isFloatingPointType(Type type)
-    {
-        return type.equals(DOUBLE) || type.equals(REAL);
     }
 
     public Optional<Subfield> extract(RowExpression expression)

@@ -103,8 +103,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFro
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
 import static com.facebook.presto.common.Subfield.structureOnly;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TypeUtils.hasFloatingPointMapKey;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
@@ -859,16 +858,6 @@ public class PushdownSubfields
                 return Optional.of(new Subfield(mapVariable.getName(), ImmutableList.of(new Subfield.StringSubscript(((Slice) value).toStringUtf8()))));
             }
             return Optional.empty();
-        }
-
-        private static boolean hasFloatingPointMapKey(Type type)
-        {
-            return type instanceof MapType && isFloatingPointType(((MapType) type).getKeyType());
-        }
-
-        private static boolean isFloatingPointType(Type type)
-        {
-            return type.equals(DOUBLE) || type.equals(REAL);
         }
 
         private static NestedField nestedField(String name)
