@@ -115,4 +115,20 @@ public class IcebergHiveTableOperationsConfig
     {
         return lockingEnabled;
     }
+
+    private boolean commitTableDataEnabled;
+
+    public boolean getCommitTableDataEnabled()
+    {
+        return commitTableDataEnabled;
+    }
+
+    @Config("iceberg.hive.commit-table-data-enabled")
+    @ConfigDescription("Use commit_table_data CAS API instead of alter_table for Iceberg metadata commits. " +
+            "Requires metastore support for the commit_table_data API.")
+    public IcebergHiveTableOperationsConfig setCommitTableDataEnabled(boolean commitTableDataEnabled)
+    {
+        this.commitTableDataEnabled = commitTableDataEnabled;
+        return this;
+    }
 }

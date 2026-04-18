@@ -344,6 +344,19 @@ public class HiveTableOperations
                 if (base == null) {
                     metastore.createTable(metastoreContext, table, privileges, emptyList());
                 }
+                else if (config.getCommitTableDataEnabled()) {
+                    // Use commit_table_data CAS API for atomic metadata location swap.
+                    // This is more reliable than alter_table for Iceberg metadata commits
+                    // because it provides true compare-and-swap semantics on sd.location.
+                    try {
+                        metastore.commitTableData(metastoreContext, database, tableName, newMetadataLocation, currentMetadataLocation);
+                    }
+                    catch (UnsupportedOperationException e) {
+                        log.warn("commitTableData not supported by metastore, falling back to persistTable for %s.%s", database, tableName);
+                        PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
+                        metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
+                    }
+                }
                 else {
                     PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
                     metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));

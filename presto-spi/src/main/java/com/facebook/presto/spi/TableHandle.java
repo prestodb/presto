@@ -55,7 +55,7 @@ public final class TableHandle
             ConnectorTransactionHandle transaction,
             ConnectorTableLayoutHandle connectorTableLayout)
     {
-        this(connectorId, connectorHandle, transaction, Optional.of(connectorTableLayout), Optional.empty());
+        this(connectorId, connectorHandle, transaction, Optional.ofNullable(connectorTableLayout), Optional.empty());
     }
 
     public TableHandle(

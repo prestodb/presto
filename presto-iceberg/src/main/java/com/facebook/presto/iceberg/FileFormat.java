@@ -26,7 +26,9 @@ public enum FileFormat
     ORC("orc", true),
     PARQUET("parquet", true),
     AVRO("avro", true),
-    METADATA("metadata.json", false);
+    METADATA("metadata.json", false),
+    PUFFIN("puffin", false),
+    DWRF("dwrf", true);
 
     private final String ext;
     private final boolean splittable;
@@ -61,6 +63,9 @@ public enum FileFormat
             case METADATA:
                 prestoFileFormat = METADATA;
                 break;
+            case PUFFIN:
+                prestoFileFormat = PUFFIN;
+                break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported file format: " + format);
         }
@@ -80,6 +85,15 @@ public enum FileFormat
                 break;
             case AVRO:
                 fileFormat = org.apache.iceberg.FileFormat.AVRO;
+                break;
+            case METADATA:
+                fileFormat = org.apache.iceberg.FileFormat.METADATA;
+                break;
+            case PUFFIN:
+                fileFormat = org.apache.iceberg.FileFormat.PUFFIN;
+                break;
+            case DWRF:
+                fileFormat = org.apache.iceberg.FileFormat.ORC;
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported file format: " + this);
