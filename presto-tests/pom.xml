@@ -16,7 +16,7 @@
         <air.test.jvmsize>5g</air.test.jvmsize>
         <project.build.targetJdk>17</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <bouncycastle.version>1.81</bouncycastle.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
     </properties>
 
     <dependencies>
