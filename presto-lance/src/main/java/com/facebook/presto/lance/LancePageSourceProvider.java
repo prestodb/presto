@@ -15,6 +15,7 @@ package com.facebook.presto.lance;
 
 import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -23,12 +24,16 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class LancePageSourceProvider
@@ -66,6 +71,27 @@ public class LancePageSourceProvider
 
         String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
 
+        // Build filter from predicate pushdown
+        TupleDomain<ColumnHandle> predicate = layoutHandle.getTupleDomain();
+        Optional<String> filter = LanceSessionProperties.isFilterPushdownEnabled(session)
+                ? LanceSqlFilterBuilder.buildFilter(predicate)
+                : Optional.empty();
+
+        // Determine filter projection columns (needed for filter but not in output).
+        // Only add extra columns when a filter was actually pushed down.
+        // TODO: extractFilterColumnNames returns all TupleDomain columns, but buildFilter
+        //   silently skips unsupported types (e.g. VARBINARY). In mixed queries this may
+        //   add skipped columns to filterProjectionColumns, causing unnecessary I/O.
+        //   Fix: have buildFilter also return the set of successfully pushed column names.
+        Set<String> outputColumnNames = lanceColumns.stream()
+                .map(LanceColumnHandle::getColumnName)
+                .collect(toImmutableSet());
+        List<String> filterProjectionColumns = filter.isPresent()
+                ? LanceSqlFilterBuilder.extractFilterColumnNames(predicate).stream()
+                        .filter(name -> !outputColumnNames.contains(name))
+                        .collect(toImmutableList())
+                : ImmutableList.of();
+
         return new LanceFragmentPageSource(
                 tableHandle,
                 lanceColumns,
@@ -73,6 +99,8 @@ public class LancePageSourceProvider
                 tablePath,
                 config.getReadBatchSize(),
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator());
+                namespaceHolder.getAllocator(),
+                filter,
+                filterProjectionColumns);
     }
 }

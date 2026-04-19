@@ -34,6 +34,7 @@ import org.lance.ipc.LanceScanner;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +53,8 @@ public class LanceArrowToPageScanner
             BufferAllocator allocator,
             List<LanceColumnHandle> columns,
             ScannerFactory scannerFactory,
-            ArrowBlockBuilder arrowBlockBuilder)
+            ArrowBlockBuilder arrowBlockBuilder,
+            Optional<String> filter)
     {
         this.allocator = requireNonNull(allocator, "allocator is null");
         this.columns = requireNonNull(columns, "columns is null");
@@ -61,7 +63,7 @@ public class LanceArrowToPageScanner
         List<String> columnNames = columns.stream()
                 .map(LanceColumnHandle::getColumnName)
                 .collect(toImmutableList());
-        LanceScanner scanner = scannerFactory.open(allocator, columnNames);
+        LanceScanner scanner = scannerFactory.open(allocator, columnNames, filter);
         this.arrowReader = scanner.scanBatches();
     }
 
