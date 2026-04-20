@@ -32,21 +32,26 @@ Configuration Properties
 
 The following configuration properties are available:
 
-================================== ============================================================
-Property Name                       Description
-================================== ============================================================
-``druid.coordinator-url``           Druid coordinator url.
-``druid.broker-url``                Druid broker url.
-``druid.schema-name``               Druid schema name.
-``druid.compute-pushdown-enabled``  Whether to pushdown all query processing to Druid.
-``case-sensitive-name-matching``    Enable case-sensitive identifier support for schema,
-                                    table, and column names for the connector. When disabled,
-                                    names are matched case-insensitively using lowercase
-                                    normalization. Default is ``false``.
-``druid.tls.enabled``               Enable TLS when connecting to Druid.
-``druid.tls.truststore-path``       Path to the trust certificate file.
-``druid.tls.truststore-password``   Password for the trust certificate file.
-================================== ============================================================
+======================================== ============================================================
+Property Name                            Description
+======================================== ============================================================
+``druid.coordinator-url``                Druid coordinator url.
+``druid.broker-url``                     Druid broker url.
+``druid.schema-name``                    Druid schema name.
+``druid.compute-pushdown-enabled``       Whether to pushdown all query processing to Druid.
+``case-sensitive-name-matching``         Enable case-sensitive identifier support for schema,
+                                         table, and column names for the connector. When disabled,
+                                         names are matched case-insensitively using lowercase
+                                         normalization. Default is ``false``.
+``druid.tls.enabled``                    Enable TLS when connecting to Druid.
+``druid.tls.truststore-path``            Path to the trust certificate file.
+``druid.tls.truststore-password``        Password for the trust certificate file.
+``druid.authentication.type``            Authentication type for Druid.
+``druid.basic.authentication.username``  Username for basic authentication.
+``druid.basic.authentication.password``  Password for basic authentication.
+``druid.hadoop.config.resources``        Hadoop configuration resources.
+``druid.ingestion.storage.path``         Local storage path for ingestion.
+======================================== ============================================================
 
 ``druid.coordinator-url``
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -88,6 +93,36 @@ Path to the trust certificate file.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Password for the trust certificate file.
+
+``druid.authentication.type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Authentication type for Druid.
+
+Supported values are: ``NONE`` (default), ``BASIC`` and ``KERBEROS``
+
+``druid.basic.authentication.username``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Username for basic authentication. Required when ``druid.authentication.type`` is set to ``BASIC``.
+
+``druid.basic.authentication.password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Password for basic authentication. Required when ``druid.authentication.type`` is set to ``BASIC``.
+
+``druid.hadoop.config.resources``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Comma-separated list of Hadoop configuration resource paths (e.g., ``core-site.xml``, ``hdfs-site.xml``).
+Required if Druid uses HDFS for deep storage or requires Kerberos configuration.
+
+``druid.ingestion.storage.path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Local storage path on Presto nodes used for temporary files during data ingestion.
+
+The default is the system temporary directory (``java.io.tmpdir``).
 
 Data Types
 ----------
