@@ -111,4 +111,35 @@ public class TestPrestoNativeArrayFunctionQueries
         assertQueryFails("SELECT array_top_n(a, b) FROM (VALUES(ARRAY[1, 2, 3], -2)) as t(a,b)",
                 "n >= 0 \\(-2 vs\\. 0\\) Parameter n: -2 to ARRAY_TOP_N is negative Top-level Expression: (presto|native)\\.default\\.array_top_n\\(field, field_0\\)");
     }
+
+    @Test
+    public void testArrayTopNWithComparator()
+    {
+        // Natural descending via natural-order comparator.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[1, 5, 3, 9, 2], 3)) as t(a, b)");
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[5, 1, 5, 3], 2)) as t(a, b)");
+
+        // Ascending (bottom-n) via reversed comparator.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM (VALUES(ARRAY[1, 5, 3, 9, 2], 3)) as t(a, b)");
+
+        // Null elements are placed last by array_sort; reversed to front after REVERSE, so nulls appear first in the top-n.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[1, NULL, 3, 2], 2)) as t(a, b)");
+
+        // n larger than cardinality returns the whole array sorted descending.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[1, 2], 5)) as t(a, b)");
+
+        // n = 0 returns empty array.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[1, 2, 3], 0)) as t(a, b)");
+
+        // Empty / null array.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[], 2)) as t(a, b)");
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(CAST(NULL AS ARRAY(INTEGER)), 2)) as t(a, b)");
+
+        // String arrays sorted lexicographically descending.
+        assertQuery("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY['a', 'zzz', 'zz', 'b', 'g', 'f'], 3)) as t(a, b)");
+
+        // Negative n fails with the parameter-validation error from the SQL-invoked definition.
+        assertQueryFails("SELECT array_top_n(a, b, (x, y) -> if (x < y, -1, if (x > y, 1, 0))) FROM (VALUES(ARRAY[1, 2, 3], -2)) as t(a, b)",
+                ".*Parameter n: -2 to ARRAY_TOP_N is negative.*");
+    }
 }
