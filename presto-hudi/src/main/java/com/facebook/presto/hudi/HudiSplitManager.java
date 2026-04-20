@@ -44,6 +44,7 @@ import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.storage.StorageConfiguration;
 
 import javax.inject.Inject;
 
@@ -63,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMemoryFileSystemViewWithTimeline;
+import static org.apache.hudi.hadoop.fs.HadoopFSUtils.getStorageConfWithCopy;
 
 public class HudiSplitManager
         implements ConnectorSplitManager
@@ -116,14 +118,15 @@ public class HudiSplitManager
         ExtendedFileSystem fs = getFileSystem(session, table);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(isHudiMetadataTableEnabled(session)).build();
         Configuration conf = fs.getConf();
-        HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(conf).setBasePath(table.getPath()).build();
+        StorageConfiguration<Configuration> storageConf = getStorageConfWithCopy(conf);
+        HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(storageConf).setBasePath(table.getPath()).build();
         HoodieTimeline timeline = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants();
         String timestamp = timeline.lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
         if (timestamp == null) {
             // no completed instant for current table
             return new FixedSplitSource(ImmutableList.of());
         }
-        HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
+        HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(storageConf);
         HoodieTableFileSystemView fsView = createInMemoryFileSystemViewWithTimeline(engineContext, metaClient, metadataConfig, timeline);
 
         return new HudiSplitSource(
