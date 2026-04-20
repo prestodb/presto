@@ -29,11 +29,11 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.storage.StoragePath;
 
 import java.util.List;
 import java.util.Optional;
@@ -62,7 +62,7 @@ public class HudiPartitionSplitGenerator
     private final MetastoreContext metastoreContext;
     private final HudiTableLayoutHandle layout;
     private final HudiTableHandle table;
-    private final Path tablePath;
+    private final StoragePath tablePath;
     private final HoodieTableFileSystemView fsView;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Queue<String> concurrentPartitionQueue;
@@ -82,7 +82,7 @@ public class HudiPartitionSplitGenerator
         this.metastoreContext = toMetastoreContext(requireNonNull(session, "session is null"));
         this.layout = requireNonNull(layout, "layout is null");
         this.table = layout.getTable();
-        this.tablePath = new Path(table.getPath());
+        this.tablePath = new StoragePath(table.getPath());
         this.fsView = requireNonNull(fsView, "fsView is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
         this.concurrentPartitionQueue = requireNonNull(concurrentPartitionQueue, "concurrentPartitionQueue is null");
@@ -106,7 +106,7 @@ public class HudiPartitionSplitGenerator
     private void generateSplitsFromPartition(String partitionName)
     {
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
-        Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
+        StoragePath partitionPath = new StoragePath(hudiPartition.getStorage().getLocation());
         String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
                 fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :

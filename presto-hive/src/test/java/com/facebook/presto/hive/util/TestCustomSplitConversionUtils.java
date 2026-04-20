@@ -44,7 +44,7 @@ public class TestCustomSplitConversionUtils
             throws IOException
     {
         List<String> deltaLogPaths = Arrays.asList("test1", "test2", "test3");
-        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(HoodieLogFile::new).collect(Collectors.toList());
         String expectedMaxCommitTime = "max_commit_time";
 
         FileSplit baseSplit = new FileSplit(FILE_PATH, SPLIT_START_POS, SPLIT_LENGTH, SPLIT_HOSTS);
@@ -125,7 +125,7 @@ public class TestCustomSplitConversionUtils
             throws IOException
     {
         List<String> deltaLogPaths = Arrays.asList("test1", "test2", "test3");
-        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+        List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(HoodieLogFile::new).collect(Collectors.toList());
         String maxCommitTime = "max_commit_time";
 
         Path bootstrapSourceFilePath = new Path("/test/source/test.parquet");
