@@ -241,7 +241,7 @@ json::array_t getOptimizedExpressions(
   auto configs = toVeloxConfigsFromSessionProperties(sessionProperties);
   configs.insert({velox::core::QueryConfig::kSessionTimezone, timezone});
   configs.insert(
-      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"});
+      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "false"});
   configs.insert(
       {velox::core::QueryConfig::kSessionStartTime, sessionStartTime});
 

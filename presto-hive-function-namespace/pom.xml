@@ -43,13 +43,6 @@
             <artifactId>hadoop-apache</artifactId>
         </dependency>
 
-        <!-- the dependency is needed for UDF registration -->
-        <!-- similar issue: https://issues.apache.org/jira/browse/SPARK-27176 -->
-        <dependency>
-            <groupId>org.apache.hive</groupId>
-            <artifactId>hive-llap-common</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
@@ -62,8 +55,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-apache</artifactId>
         </dependency>
 
         <dependency>
