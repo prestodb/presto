@@ -138,7 +138,8 @@ public class TestServer
 
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
         QueryError queryError = queryResults.getError();
         assertNotNull(queryError);
@@ -233,7 +234,8 @@ public class TestServer
 
         ImmutableList.Builder<List<Object>> data = ImmutableList.builder();
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
 
             if (queryResults.getData() != null) {
                 data.addAll(queryResults.getData());
@@ -293,7 +295,8 @@ public class TestServer
         assertEquals(queryResults.getNextUri().getPath(), format("/v1/statement/queued/%s/1", queryId));
 
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
 
         if (queryResults.getError() != null) {
@@ -322,7 +325,8 @@ public class TestServer
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
 
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
         if (queryResults.getError() != null) {
             fail(queryResults.getError().toString());
@@ -363,7 +367,8 @@ public class TestServer
                 .build();
 
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
-        client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+        Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+        client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
     }
 
@@ -388,7 +393,8 @@ public class TestServer
             if (queryResults.getValue().getNextUri() == null) {
                 break;
             }
-            queryResults = client.execute(prepareGet().setUri(queryResults.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getValue().getNextUri()).build();
+            queryResults = client.execute(nextRequest, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
 
         if (queryResults.getValue().getError() != null) {
@@ -409,7 +415,8 @@ public class TestServer
 
         QueryResults queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
 
         assertNotNull(queryResults.getError());
@@ -449,7 +456,8 @@ public class TestServer
         JsonResponse<QueryResults> queryResults = initResponse;
         while (queryResults.getValue().getNextUri() != null) {
             URI nextUri = queryResults.getValue().getNextUri();
-            queryResults = client.execute(prepareGet().setUri(nextUri).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(nextUri).build();
+            queryResults = client.execute(nextRequest, createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
 
             String header = queryResults.getHeader(CACHE_CONTROL);
             assertNotNull(header);
@@ -484,7 +492,8 @@ public class TestServer
 
         // Verify query executes normally with retry parameters
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
         assertNull(queryResults.getError());
     }
@@ -512,7 +521,8 @@ public class TestServer
 
         // Verify the usual endpoint fails
         try {
-            client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request failingRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            client.execute(failingRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
         catch (UnexpectedResponseException e) {
             // Expected failure, retry query should not be fetched from the usual endpoint
@@ -528,7 +538,8 @@ public class TestServer
         queryResults = client.execute(request, createJsonResponseHandler(QUERY_RESULTS_CODEC));
 
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
 
         assertNull(queryResults.getError());
@@ -617,7 +628,8 @@ public class TestServer
 
         // Verify query executes with both retry parameters and session properties
         while (queryResults.getNextUri() != null) {
-            queryResults = client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+            Request nextRequest = prepareGet().setUri(queryResults.getNextUri()).build();
+            queryResults = client.execute(nextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
         assertNull(queryResults.getError());
     }
@@ -703,7 +715,8 @@ public class TestServer
                     break;
                 }
 
-                firstResults = client.execute(prepareGet().setUri(firstResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_CODEC));
+                Request firstNextRequest = prepareGet().setUri(firstResults.getNextUri()).build();
+                firstResults = client.execute(firstNextRequest, createJsonResponseHandler(QUERY_RESULTS_CODEC));
                 iterations++;
             }
 
