@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +31,16 @@ public class CommitTaskData
     private final FileFormat fileFormat;
     private final Optional<String> referencedDataFile;
     private final FileContent content;
+    private final OptionalLong contentOffset;
+    private final OptionalLong contentSizeInBytes;
+    private final OptionalLong recordCount;
 
+    /**
+     * Backward compatibility: pre-V3 CommitTaskData JSON payloads do not include
+     * contentOffset / contentSizeInBytes / recordCount, so Jackson passes {@code null}
+     * for these {@link OptionalLong} parameters when deserializing older fragments.
+     * The null-checks below normalize them to {@link OptionalLong#empty()}.
+     */
     @JsonCreator
     public CommitTaskData(
             @JsonProperty("path") String path,
@@ -40,7 +50,10 @@ public class CommitTaskData
             @JsonProperty("partitionDataJson") Optional<String> partitionDataJson,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("referencedDataFile") String referencedDataFile,
-            @JsonProperty("content") FileContent content)
+            @JsonProperty("content") FileContent content,
+            @JsonProperty("contentOffset") OptionalLong contentOffset,
+            @JsonProperty("contentSizeInBytes") OptionalLong contentSizeInBytes,
+            @JsonProperty("recordCount") OptionalLong recordCount)
     {
         this.path = requireNonNull(path, "path is null");
         this.fileSizeInBytes = fileSizeInBytes;
@@ -50,6 +63,24 @@ public class CommitTaskData
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.referencedDataFile = Optional.ofNullable(referencedDataFile);
         this.content = requireNonNull(content, "content is null");
+        this.contentOffset = contentOffset != null ? contentOffset : OptionalLong.empty();
+        this.contentSizeInBytes = contentSizeInBytes != null ? contentSizeInBytes : OptionalLong.empty();
+        this.recordCount = recordCount != null ? recordCount : OptionalLong.empty();
+    }
+
+    public CommitTaskData(
+            String path,
+            long fileSizeInBytes,
+            MetricsWrapper metrics,
+            int partitionSpecId,
+            Optional<String> partitionDataJson,
+            FileFormat fileFormat,
+            String referencedDataFile,
+            FileContent content)
+    {
+        this(path, fileSizeInBytes, metrics, partitionSpecId, partitionDataJson,
+                fileFormat, referencedDataFile, content,
+                OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty());
     }
 
     @JsonProperty
@@ -98,5 +129,23 @@ public class CommitTaskData
     public FileContent getContent()
     {
         return content;
+    }
+
+    @JsonProperty
+    public OptionalLong getContentOffset()
+    {
+        return contentOffset;
+    }
+
+    @JsonProperty
+    public OptionalLong getContentSizeInBytes()
+    {
+        return contentSizeInBytes;
+    }
+
+    @JsonProperty
+    public OptionalLong getRecordCount()
+    {
+        return recordCount;
     }
 }

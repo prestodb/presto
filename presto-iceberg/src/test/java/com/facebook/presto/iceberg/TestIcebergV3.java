@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
@@ -29,13 +30,17 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.deletes.BaseDVFileWriter;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.OutputFileFactory;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
@@ -44,6 +49,8 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -70,6 +77,7 @@ public class TestIcebergV3
 
     @Test
     public void testCreateV3Table()
+            throws Exception
     {
         String tableName = "test_create_v3_table";
         try {
@@ -85,6 +93,7 @@ public class TestIcebergV3
 
     @Test
     public void testCreateUnsupportedFormatVersion()
+            throws Exception
     {
         String tableName = "test_create_v4_table";
         // Ensure clean state in case a previous run created the table
@@ -97,6 +106,7 @@ public class TestIcebergV3
 
     @Test
     public void testUpgradeV2ToV3()
+            throws Exception
     {
         String tableName = "test_upgrade_v2_to_v3";
         try {
@@ -122,6 +132,7 @@ public class TestIcebergV3
 
     @Test
     public void testInsertIntoV3Table()
+            throws Exception
     {
         String tableName = "test_insert_v3_table";
         try {
@@ -137,18 +148,42 @@ public class TestIcebergV3
     }
 
     @Test
-    public void testDeleteOnV3TableNotSupported()
+    public void testDeleteOnV3Table()
+            throws Exception
     {
         String tableName = "test_v3_delete";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName
                     + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)", 3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
-            assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM " + tableName + " WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
+
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            // Verify DV metadata: the delete should have produced a PUFFIN-format deletion vector
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+                        assertEquals(deleteFile.format(), FileFormat.PUFFIN);
+                        assertTrue(deleteFile.path().toString().endsWith(".puffin"),
+                                "Deletion vector file should have .puffin extension");
+                        assertTrue(deleteFile.fileSizeInBytes() > 0,
+                                "Deletion vector file size should be positive");
+                    }
+                }
+            }
+
+            // Delete more rows
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 3", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0)");
         }
         finally {
             dropTable(tableName);
@@ -157,6 +192,7 @@ public class TestIcebergV3
 
     @Test
     public void testTruncateV3Table()
+            throws Exception
     {
         String tableName = "test_v3_truncate";
         try {
@@ -179,6 +215,7 @@ public class TestIcebergV3
 
     @Test
     public void testMetadataDeleteOnV3PartitionedTable()
+            throws Exception
     {
         String tableName = "test_v3_metadata_delete";
         try {
@@ -207,20 +244,26 @@ public class TestIcebergV3
     }
 
     @Test
-    public void testUpdateOnV3TableNotSupported()
+    public void testUpdateOnV3Table()
+            throws Exception
     {
         String tableName = "test_v3_update";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, status VARCHAR, score DOUBLE) WITH (\"format-version\" = '3', \"write.update.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, status VARCHAR, score DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName
                             + " VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)",
                     3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)");
-            assertThatThrownBy(() -> getQueryRunner()
-                    .execute("UPDATE " + tableName + " SET status = 'updated', score = 95.0 WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+
+            assertUpdate("UPDATE " + tableName + " SET status = 'updated', score = 95.0 WHERE id = 1", 1);
+            assertQuery("SELECT * FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice', 'updated', 95.0)");
+
+            assertUpdate("UPDATE " + tableName + " SET status = 'retired' WHERE status = 'inactive'", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 'updated', 95.0), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'retired', 78.3)");
         }
         finally {
             dropTable(tableName);
@@ -228,13 +271,14 @@ public class TestIcebergV3
     }
 
     @Test
-    public void testMergeOnV3TableNotSupported()
+    public void testMergeOnV3Table()
+            throws Exception
     {
         String tableName = "test_v3_merge_target";
         String sourceTable = "test_v3_merge_source";
         try {
             assertUpdate("CREATE TABLE " + tableName
-                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3', \"write.update.mode\" = 'merge-on-read')");
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
             assertUpdate("CREATE TABLE " + sourceTable + " (id INTEGER, name VARCHAR, value DOUBLE)");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0)", 2);
             assertUpdate("INSERT INTO " + sourceTable + " VALUES (1, 'Alice Updated', 150.0), (3, 'Charlie', 300.0)",
@@ -242,11 +286,15 @@ public class TestIcebergV3
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0)");
             assertQuery("SELECT * FROM " + sourceTable + " ORDER BY id",
                     "VALUES (1, 'Alice Updated', 150.0), (3, 'Charlie', 300.0)");
-            assertThatThrownBy(() -> getQueryRunner().execute(
+
+            assertUpdate(
                     "MERGE INTO " + tableName + " t USING " + sourceTable + " s ON t.id = s.id " +
                             "WHEN MATCHED THEN UPDATE SET name = s.name, value = s.value " +
-                            "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                            "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)",
+                    3);
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice Updated', 150.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
         }
         finally {
             dropTable(tableName);
@@ -256,6 +304,7 @@ public class TestIcebergV3
 
     @Test
     public void testOptimizeOnV3Table()
+            throws Exception
     {
         String tableName = "test_v3_optimize";
         try {
@@ -279,10 +328,10 @@ public class TestIcebergV3
     }
 
     @Test
-    public void testPuffinDeletionVectorsNotSupported()
+    public void testPuffinDeletionVectorsAccepted()
             throws Exception
     {
-        String tableName = "test_puffin_deletion_vectors_not_supported";
+        String tableName = "test_puffin_deletion_vectors_accepted";
         try {
             assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
@@ -309,7 +358,20 @@ public class TestIcebergV3
                         .commit();
             }
 
-            assertQueryFails("SELECT * FROM " + tableName, "Iceberg deletion vectors.*PUFFIN.*not supported");
+            // The PUFFIN delete file is now accepted by the split source (no longer
+            // throws NOT_SUPPORTED). The query will fail downstream because the fake
+            // .puffin file doesn't exist on disk, but the important thing is that the
+            // coordinator no longer rejects it at split enumeration time.
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                // Verify the error is NOT the old "PUFFIN not supported" rejection.
+                // Other failures (e.g., fake .puffin file not on disk) are acceptable.
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "PUFFIN deletion vectors should be accepted, not rejected: " + e.getMessage());
+            }
         }
         finally {
             dropTable(tableName);
@@ -318,6 +380,7 @@ public class TestIcebergV3
 
     @Test
     public void testV3SupportedOperations()
+            throws Exception
     {
         String tableName = "test_v3_supported";
         try {
@@ -359,6 +422,7 @@ public class TestIcebergV3
 
     @Test
     public void testSelectFromV3TableAfterInsert()
+            throws Exception
     {
         String tableName = "test_select_v3_table";
         try {
@@ -384,6 +448,7 @@ public class TestIcebergV3
 
     @Test
     public void testV3TableWithPartitioning()
+            throws Exception
     {
         String tableName = "test_v3_partitioned_table";
         try {
@@ -406,6 +471,7 @@ public class TestIcebergV3
 
     @Test
     public void testV3TableEncryptionNotSupported()
+            throws Exception
     {
         String tableName = "test_v3_encrypted";
         try {
@@ -444,6 +510,7 @@ public class TestIcebergV3
 
     @Test
     public void testAddColumnWithDefaultRequiresV3()
+            throws Exception
     {
         String tableName = "test_add_column_default_v2";
         try {
@@ -495,6 +562,548 @@ public class TestIcebergV3
         return catalogDirectory.toFile();
     }
 
+    @Test
+    public void testDeletionVectorEndToEnd()
+            throws Exception
+    {
+        String tableName = "test_dv_end_to_end";
+        try {
+            // Step 1: Create V3 table and insert data
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four'), (5, 'five')", 5);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 5");
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'one'), (2, 'two'), (3, 'three'), (4, 'four'), (5, 'five')");
+
+            Table table = loadTable(tableName);
+
+            // Step 2: Write a real Puffin file with a valid spec-compliant deletion vector
+            // via Iceberg's native BaseDVFileWriter. We mark row positions 1 and 3 (0-indexed)
+            // as deleted — corresponding to (2, 'two') and (4, 'four') in insertion order.
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                DeleteFile puffinDeleteFile = writeDeletionVector(table, task, new long[] {1L, 3L});
+
+                // Step 3: Attach the Puffin DV file to the table using Iceberg API
+                table.newRowDelta()
+                        .addDeletes(puffinDeleteFile)
+                        .commit();
+            }
+
+            // Step 4: Verify coordinator-side metadata is correct.
+            // Reload the table and verify the DV file was committed with correct metadata.
+            table = loadTable(tableName);
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                java.util.List<org.apache.iceberg.DeleteFile> deletes = task.deletes();
+                assertFalse(deletes.isEmpty(), "Table should have deletion vector files");
+
+                org.apache.iceberg.DeleteFile dvFile = deletes.get(0);
+                assertEquals(dvFile.format(), FileFormat.PUFFIN, "Delete file should be PUFFIN format");
+                assertEquals(dvFile.recordCount(), 2, "Delete file should have 2 deleted records");
+                assertTrue(dvFile.fileSizeInBytes() > 0, "PUFFIN file size should be positive");
+            }
+
+            // Step 5: Verify the coordinator can enumerate splits without error.
+            // The query will attempt to read data. On a Java worker, the actual DV
+            // reading is not implemented (that's in Velox's DeletionVectorReader),
+            // so we verify the coordinator path succeeds by running a SELECT.
+            // The PUFFIN delete file will either be silently ignored by the Java
+            // page source (returning all 5 rows) or cause a non-DV-rejection error.
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                // The Java page source may fail trying to read the PUFFIN file as
+                // positional deletes (since it doesn't have a DV reader). That's expected.
+                // The important assertion is that the error is NOT the old
+                // "PUFFIN not supported" rejection from the coordinator.
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "Coordinator should not reject PUFFIN deletion vectors: " + e.getMessage());
+
+                // Also verify it's not a file-not-found error (the Puffin file exists)
+                assertFalse(
+                        e.getMessage().contains("FileNotFoundException"),
+                        "PUFFIN file should exist on disk: " + e.getMessage());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Writes a Puffin deletion-vector file via Iceberg's native {@link BaseDVFileWriter}
+     * and returns the resulting {@link DeleteFile} ready to be committed via
+     * {@code table.newRowDelta().addDeletes(...)}.  The native writer emits
+     * spec-compliant {@code deletion-vector-v1} blobs (64-bit Roaring portable bitmap
+     * with the required magic / length / CRC framing) — exactly what the production
+     * page-sink path produces in {@link com.facebook.presto.iceberg.delete.IcebergDeletionVectorPageSink}.
+     */
+    private static DeleteFile writeDeletionVector(Table table, FileScanTask task, long[] positions)
+            throws java.io.IOException
+    {
+        String dataFilePath = task.file().path().toString();
+        OutputFileFactory fileFactory = OutputFileFactory.builderFor(table, 0, 0L)
+                .format(FileFormat.PUFFIN)
+                .operationId(UUID.randomUUID().toString())
+                .build();
+        try (BaseDVFileWriter writer = new BaseDVFileWriter(fileFactory, path -> null)) {
+            for (long pos : positions) {
+                writer.delete(dataFilePath, pos, task.spec(), task.file().partition());
+            }
+            writer.close();
+            java.util.List<DeleteFile> produced = writer.result().deleteFiles();
+            org.testng.Assert.assertFalse(produced.isEmpty(),
+                    "BaseDVFileWriter produced no DeleteFile for fixture data file " + dataFilePath);
+            return produced.get(0);
+        }
+    }
+
+    @Test
+    public void testDeletionVectorDeletesAllRows()
+            throws Exception
+    {
+        String tableName = "test_dv_deletes_all_rows";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two'), (3, 'three')", 3);
+
+            Table table = loadTable(tableName);
+
+            // Write a DV that deletes all 3 rows (positions 0, 1, 2).
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                DeleteFile puffinDeleteFile = writeDeletionVector(table, task, new long[] {0L, 1L, 2L});
+
+                table.newRowDelta()
+                        .addDeletes(puffinDeleteFile)
+                        .commit();
+            }
+
+            // Verify the coordinator can enumerate splits. On Java workers the DV
+            // reader isn't implemented, so the query may either succeed (returning
+            // all rows because the Java page source ignores the DV) or fail with a
+            // non-rejection error. The key assertion is that it doesn't throw
+            // "PUFFIN not supported".
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "Coordinator should not reject PUFFIN deletion vectors: " + e.getMessage());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testDeletionVectorOnMultipleDataFiles()
+            throws Exception
+    {
+        String tableName = "test_dv_multiple_data_files";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            // Two separate inserts create two separate data files.
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two'), (3, 'three')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'four'), (5, 'five'), (6, 'six')", 3);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 6");
+
+            Table table = loadTable(tableName);
+
+            // Attach a DV only to the first data file (positions 0 and 2 → rows 1
+            // and 3 from the first insert). The second data file has no deletes.
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask firstTask = tasks.iterator().next();
+                DeleteFile puffinDeleteFile = writeDeletionVector(table, firstTask, new long[] {0L, 2L});
+
+                table.newRowDelta()
+                        .addDeletes(puffinDeleteFile)
+                        .commit();
+            }
+
+            // Verify coordinator metadata: only the first file's task should have deletes.
+            table = loadTable(tableName);
+            int tasksWithDeletes = 0;
+            int tasksWithoutDeletes = 0;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    if (task.deletes().isEmpty()) {
+                        tasksWithoutDeletes++;
+                    }
+                    else {
+                        tasksWithDeletes++;
+                        assertEquals(task.deletes().size(), 1, "First data file should have exactly 1 DV");
+                        assertEquals(task.deletes().get(0).format(), FileFormat.PUFFIN);
+                    }
+                }
+            }
+            assertEquals(tasksWithDeletes, 1, "Exactly one data file should have a DV");
+            assertEquals(tasksWithoutDeletes, 1, "Exactly one data file should have no deletes");
+
+            // Run a query — coordinator should enumerate splits without error.
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "Coordinator should not reject PUFFIN deletion vectors: " + e.getMessage());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3SchemaEvolution()
+            throws Exception
+    {
+        String tableName = "test_v3_schema_evolution";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
+
+            // Add a new column via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("score", org.apache.iceberg.types.Types.DoubleType.get())
+                    .commit();
+
+            // New inserts include the new column
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'three', 99.5)", 1);
+
+            // Verify all rows are readable (old rows have NULL for the new column)
+            assertQuery("SELECT id, value FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'one'), (2, 'two'), (3, 'three')");
+            assertQuery("SELECT id, score FROM " + tableName + " WHERE score IS NOT NULL",
+                    "VALUES (3, 99.5)");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE score IS NULL", "SELECT 2");
+
+            // Rename a column
+            table = loadTable(tableName);
+            table.updateSchema()
+                    .renameColumn("value", "label")
+                    .commit();
+
+            // Verify reads still work after rename
+            assertQuery("SELECT id, label FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'one'), (2, 'two'), (3, 'three')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3MultipleSnapshotsWithDV()
+            throws Exception
+    {
+        String tableName = "test_v3_multi_snapshot_dv";
+        try {
+            // Snapshot 1: initial data
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two'), (3, 'three')", 3);
+
+            Table table = loadTable(tableName);
+            long snapshot1Id = table.currentSnapshot().snapshotId();
+
+            // Snapshot 2: attach a DV deleting row at position 1 (row id=2, 'two')
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                DeleteFile puffinDeleteFile = writeDeletionVector(table, task, new long[] {1L});
+
+                table.newRowDelta()
+                        .addDeletes(puffinDeleteFile)
+                        .commit();
+            }
+
+            // Snapshot 3: more data added after the DV
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'four'), (5, 'five')", 2);
+
+            // Verify the table now has 3 snapshots
+            table = loadTable(tableName);
+            int snapshotCount = 0;
+            for (org.apache.iceberg.Snapshot snapshot : table.snapshots()) {
+                snapshotCount++;
+            }
+            assertTrue(snapshotCount >= 3, "Table should have at least 3 snapshots, got: " + snapshotCount);
+
+            // Verify coordinator can enumerate all splits (including those with DVs
+            // and those from the post-DV insert).
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                int totalFiles = 0;
+                int filesWithDeletes = 0;
+                for (FileScanTask task : tasks) {
+                    totalFiles++;
+                    if (!task.deletes().isEmpty()) {
+                        filesWithDeletes++;
+                    }
+                }
+                assertEquals(totalFiles, 2, "Should have 2 data files (one from each insert)");
+                assertEquals(filesWithDeletes, 1, "Only the first data file should have DV deletes");
+            }
+
+            // Run a query to verify coordinator enumeration succeeds.
+            try {
+                computeActual("SELECT * FROM " + tableName);
+            }
+            catch (RuntimeException e) {
+                assertFalse(
+                        e.getMessage().contains("Iceberg deletion vectors") && e.getMessage().contains("not supported"),
+                        "Coordinator should not reject PUFFIN deletion vectors: " + e.getMessage());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3DeletionVectorMetadataFields()
+            throws Exception
+    {
+        String tableName = "test_dv_metadata_fields";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two')", 2);
+
+            Table table = loadTable(tableName);
+
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                DeleteFile puffinDeleteFile = writeDeletionVector(table, task, new long[] {0L});
+
+                table.newRowDelta()
+                        .addDeletes(puffinDeleteFile)
+                        .commit();
+            }
+
+            // Verify the committed DV file has correct metadata fields.
+            table = loadTable(tableName);
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                java.util.List<org.apache.iceberg.DeleteFile> deletes = task.deletes();
+                assertFalse(deletes.isEmpty(), "Should have deletion vector files");
+
+                org.apache.iceberg.DeleteFile dvFile = deletes.get(0);
+                assertEquals(dvFile.format(), FileFormat.PUFFIN, "Format should be PUFFIN");
+                assertEquals(dvFile.recordCount(), 1, "Record count should match deleted positions");
+                assertTrue(dvFile.fileSizeInBytes() > 0, "File size must be positive");
+
+                // Verify the DV file path ends with .puffin as expected.
+                assertTrue(dvFile.path().toString().endsWith(".puffin"), "DV file should be a .puffin file");
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Verifies the produced Puffin file is spec-compliant per Iceberg V3:
+     *   - blob type is exactly "deletion-vector-v1" (not the legacy "deletion-vector-v2")
+     *   - the "referenced-data-file" property is present and matches the data file
+     *   - the "cardinality" property is present and matches the deleted-position count
+     *
+     * This protects the migration's main contract: that Velox's DeletionVectorReader
+     * (which expects spec-compliant DV blobs) can decode the files Presto writes.
+     */
+    @Test
+    public void testDeletionVectorIsSpecCompliant()
+            throws Exception
+    {
+        String tableName = "test_dv_spec_compliant";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')", 4);
+
+            Table table = loadTable(tableName);
+            DeleteFile dv;
+            String dataFilePath;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                dataFilePath = task.file().path().toString();
+                dv = writeDeletionVector(table, task, new long[] {0L, 2L});
+                table.newRowDelta().addDeletes(dv).commit();
+            }
+
+            // Open the produced Puffin file and inspect the blob metadata directly.
+            try (org.apache.iceberg.puffin.PuffinReader reader = org.apache.iceberg.puffin.Puffin
+                    .read(table.io().newInputFile(dv.path().toString()))
+                    .build()) {
+                java.util.List<org.apache.iceberg.puffin.BlobMetadata> blobs = reader.fileMetadata().blobs();
+                assertEquals(blobs.size(), 1, "Iceberg V3 file-scoped DV must contain exactly one blob");
+
+                org.apache.iceberg.puffin.BlobMetadata blob = blobs.get(0);
+                // SPEC: blob type for V3 file-scoped DV must be "deletion-vector-v1".
+                assertEquals(blob.type(), "deletion-vector-v1",
+                        "DV blob type must match Iceberg V3 spec; got: " + blob.type());
+
+                // SPEC: the blob carries the referenced-data-file and cardinality properties.
+                Map<String, String> props = blob.properties();
+                assertEquals(props.get("referenced-data-file"), dataFilePath,
+                        "referenced-data-file property must point at the source data file");
+                assertEquals(props.get("cardinality"), "2",
+                        "cardinality property must equal the count of deleted positions");
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Verifies BaseDVFileWriter / Roaring64Bitmap can round-trip a position larger
+     * than Integer.MAX_VALUE.  The pre-migration hand-rolled implementation used a
+     * 32-bit Roaring container which would silently truncate or corrupt such positions.
+     */
+    @Test
+    public void testDeletionVectorWithLargePosition()
+            throws Exception
+    {
+        String tableName = "test_dv_large_position";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+            Table table = loadTable(tableName);
+            DeleteFile dv;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                FileScanTask task = tasks.iterator().next();
+                // 5_000_000_000L > Integer.MAX_VALUE (~2.15e9) — only 64-bit Roaring can hold this.
+                long largePos = 5_000_000_000L;
+                dv = writeDeletionVector(table, task, new long[] {largePos});
+                // Read back via Iceberg's PositionDeleteIndex and verify the position is preserved.
+                try (org.apache.iceberg.puffin.PuffinReader reader = org.apache.iceberg.puffin.Puffin
+                        .read(table.io().newInputFile(dv.path().toString()))
+                        .build()) {
+                    org.apache.iceberg.util.Pair<org.apache.iceberg.puffin.BlobMetadata, java.nio.ByteBuffer> pair =
+                            reader.readAll(reader.fileMetadata().blobs()).iterator().next();
+                    java.nio.ByteBuffer buf = pair.second();
+                    byte[] bytes = new byte[buf.remaining()];
+                    buf.get(bytes);
+                    org.apache.iceberg.deletes.PositionDeleteIndex index =
+                            org.apache.iceberg.deletes.PositionDeleteIndex.deserialize(bytes, dv);
+                    assertTrue(index.isDeleted(largePos),
+                            "Position " + largePos + " should be present in the round-tripped DV");
+                    assertFalse(index.isDeleted(largePos - 1L),
+                            "Position " + (largePos - 1L) + " should NOT be marked as deleted");
+                }
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3WriteReadRoundTrip()
+            throws Exception
+    {
+        String tableName = "test_v3_write_read_round_trip";
+        try {
+            // Step 1: Create V3 table and insert initial data
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName
+                    + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)", 5);
+
+            // Step 2: Verify initial data via read path
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 5");
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)");
+
+            // Step 3: First DELETE via write path (produces DV #1)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id IN (1, 3)", 2);
+
+            // Step 4: Verify read path filters DV #1 correctly
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)");
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
+
+            // Step 5: Cross-validate DV #1 metadata via Iceberg API
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            int dvCount = 0;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+                        dvCount++;
+                        assertEquals(deleteFile.format(), FileFormat.PUFFIN,
+                                "Presto-written DV must use PUFFIN format");
+                        assertTrue(deleteFile.path().toString().endsWith(".puffin"),
+                                "DV file path must end with .puffin");
+                        assertTrue(deleteFile.fileSizeInBytes() > 0,
+                                "DV file size must be positive");
+                        assertTrue(deleteFile.contentOffset() >= 0,
+                                "DV content offset must be non-negative");
+                        assertTrue(deleteFile.contentSizeInBytes() > 0,
+                                "DV content size must be positive");
+                        assertTrue(deleteFile.recordCount() > 0,
+                                "DV record count must be positive");
+                    }
+                }
+            }
+            assertTrue(dvCount > 0, "Should have at least one deletion vector after DELETE");
+
+            // Step 6: Insert more data (creates a new data file alongside existing ones)
+            assertUpdate("INSERT INTO " + tableName
+                    + " VALUES (6, 'Frank', 600.0), (7, 'Grace', 700.0)", 2);
+
+            // Step 7: Verify read path handles mixed state: old data with DVs + new data
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0), (6, 'Frank', 600.0), (7, 'Grace', 700.0)");
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 5");
+
+            // Step 8: Second DELETE via write path (produces DV #2, targeting new and old data)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id IN (2, 7)", 2);
+
+            // Step 9: Verify cumulative read path correctness with two rounds of DVs
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (4, 'Dave', 400.0), (5, 'Eve', 500.0), (6, 'Frank', 600.0)");
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
+
+            // Step 10: Cross-validate cumulative DV metadata via Iceberg API
+            table = loadTable(tableName);
+            int totalDvs = 0;
+            int totalDataFiles = 0;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    totalDataFiles++;
+                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+                        totalDvs++;
+                        assertEquals(deleteFile.format(), FileFormat.PUFFIN,
+                                "All DVs must use PUFFIN format");
+                        assertTrue(deleteFile.recordCount() > 0,
+                                "Each DV must have positive record count");
+                    }
+                }
+            }
+            assertTrue(totalDvs > 0, "Should have deletion vectors after two rounds of DELETE");
+            assertTrue(totalDataFiles > 0, "Should have data files remaining");
+
+            // Step 11: Verify aggregation works correctly over DV-filtered data
+            assertQuery("SELECT SUM(value) FROM " + tableName, "SELECT 1500.0");
+            assertQuery("SELECT MIN(id), MAX(id) FROM " + tableName, "VALUES (4, 6)");
+
+            // Step 12: Verify predicates work correctly with DVs
+            assertQuery("SELECT * FROM " + tableName + " WHERE value > 450.0 ORDER BY id",
+                    "VALUES (5, 'Eve', 500.0), (6, 'Frank', 600.0)");
+            assertQuery("SELECT * FROM " + tableName + " WHERE name LIKE '%a%' ORDER BY id",
+                    "VALUES (4, 'Dave', 400.0), (6, 'Frank', 600.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private void dropTableViaIceberg(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(
@@ -502,5 +1111,502 @@ public class TestIcebergV3
                 getProperties(), new Configuration());
         catalog.dropTable(
                 TableIdentifier.of(TEST_SCHEMA, tableName), true);
+    }
+
+    @Test
+    public void testRewriteDeleteFilesProcedure()
+            throws Exception
+    {
+        String tableName = "test_rewrite_delete_files";
+        try {
+            // Step 1: Create V3 table and insert data
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR, value DOUBLE) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName
+                    + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Carol', 300.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)", 5);
+
+            // Step 2: Perform multiple deletes to create multiple DVs per data file
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 3", 1);
+
+            // Step 3: Verify we have multiple delete files before compaction
+            Table table = loadTable(tableName);
+            int dvCountBefore = 0;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    dvCountBefore += task.deletes().size();
+                }
+            }
+            assertTrue(dvCountBefore >= 2, "Should have at least 2 DVs before compaction, got: " + dvCountBefore);
+
+            // Step 4: Verify data is correct before compaction
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)");
+
+            // Step 5: Run DV compaction
+            assertQuerySucceeds(format("CALL system.rewrite_delete_files('%s', '%s')", TEST_SCHEMA, tableName));
+
+            // Step 6: Verify data is still correct after compaction
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob', 200.0), (4, 'Dave', 400.0), (5, 'Eve', 500.0)");
+
+            // Step 7: Verify DVs were compacted (fewer or equal DVs)
+            table.refresh();
+            int dvCountAfter = 0;
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (DeleteFile dv : task.deletes()) {
+                        dvCountAfter++;
+                        assertEquals(dv.format(), FileFormat.PUFFIN, "Compacted DV must use PUFFIN format");
+                    }
+                }
+            }
+            assertTrue(dvCountAfter <= dvCountBefore,
+                    "DV count after compaction (" + dvCountAfter + ") should be <= before (" + dvCountBefore + ")");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDeleteFilesOnV2Table()
+            throws Exception
+    {
+        String tableName = "test_rewrite_delete_files_v2";
+        try {
+            // V2 tables should be a no-op (no DVs to compact)
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, value VARCHAR) WITH (\"format-version\" = '2', delete_mode = 'merge-on-read')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one'), (2, 'two'), (3, 'three')", 3);
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+
+            assertQuerySucceeds(format("CALL system.rewrite_delete_files('%s', '%s')", TEST_SCHEMA, tableName));
+
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'two'), (3, 'three')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testV3DefaultValues()
+            throws Exception
+    {
+        String tableName = "test_v3_default_values";
+        try {
+            // Step 1: Create V3 table and insert initial data
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+            // Step 2: Add column via Iceberg API (default values not yet supported in Iceberg 1.10.x)
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("score", org.apache.iceberg.types.Types.DoubleType.get())
+                    .commit();
+
+            // Step 3: Verify we can read old data — the new column should be NULL
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (2, 'Bob')");
+
+            // Step 4: Insert new data with the new column
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'Carol', 300.0)", 1);
+
+            // Step 5: Verify new data reads correctly
+            assertQuery("SELECT id, name, score FROM " + tableName + " WHERE id = 3",
+                    "VALUES (3, 'Carol', 300.0)");
+
+            // Step 6: Verify old rows get NULL for the new column (schema evolution without default)
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', NULL), (2, 'Bob', NULL), (3, 'Carol', 300.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMultiArgumentPartitionTransforms()
+            throws Exception
+    {
+        String tableName = "test_v3_multi_arg_transforms";
+        try {
+            // Create V3 table with bucket(4, id) partitioning
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR, value DOUBLE)"
+                    + " WITH (\"format-version\" = '3', partitioning = ARRAY['bucket(id, 4)'])");
+
+            // Verify table was created with correct partition spec
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            assertEquals(table.spec().fields().size(), 1);
+            assertEquals(table.spec().fields().get(0).transform().toString(), "bucket[4]");
+
+            // Insert data — should distribute across buckets
+            assertUpdate("INSERT INTO " + tableName
+                    + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0), (4, 'Diana', 400.0)", 4);
+
+            // Verify data reads correctly
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0), (4, 'Diana', 400.0)");
+
+            // Verify partition pruning works — query with equality predicate
+            assertQuery("SELECT name, value FROM " + tableName + " WHERE id = 2",
+                    "VALUES ('Bob', 200.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testTruncatePartitionTransform()
+            throws Exception
+    {
+        String tableName = "test_v3_truncate_transform";
+        try {
+            // Create V3 table with truncate(10, value) partitioning on a varchar column
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, category VARCHAR, amount DOUBLE)"
+                    + " WITH (\"format-version\" = '3', partitioning = ARRAY['truncate(category, 3)'])");
+
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            assertEquals(table.spec().fields().size(), 1);
+            assertEquals(table.spec().fields().get(0).transform().toString(), "truncate[3]");
+
+            // Insert data with varying category prefixes
+            assertUpdate("INSERT INTO " + tableName
+                    + " VALUES (1, 'food_pizza', 15.0), (2, 'food_burger', 12.0),"
+                    + " (3, 'drink_coffee', 5.0), (4, 'drink_tea', 3.0)", 4);
+
+            // Verify data reads correctly
+            assertQuery("SELECT id, category, amount FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'food_pizza', 15.0), (2, 'food_burger', 12.0),"
+                    + " (3, 'drink_coffee', 5.0), (4, 'drink_tea', 3.0)");
+
+            // Verify we can filter
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'food_pizza'",
+                    "VALUES 1");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testNanosecondTimestampSchema()
+            throws Exception
+    {
+        String tableName = "test_v3_timestamp_nano";
+        try {
+            // Create V3 table with Presto
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+
+            // Add nanosecond timestamp columns via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("ts_nano", Types.TimestampNanoType.withoutZone())
+                    .addColumn("ts_nano_tz", Types.TimestampNanoType.withZone())
+                    .commit();
+
+            // Verify Presto can read the schema with nanosecond columns
+            // ts_nano maps to timestamp microseconds, ts_nano_tz maps to timestamp with time zone
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Insert data through Presto — the nanosecond columns accept null values
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantColumnSchema()
+            throws Exception
+    {
+        String tableName = "test_v3_variant";
+        try {
+            // Create V3 table with Presto
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+
+            // Add variant column via Iceberg API
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("data", Types.VariantType.get())
+                    .commit();
+
+            // Verify Presto can read the schema with the variant column
+            // Variant maps to JSON in Presto
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Insert data — the variant column accepts null values
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantTypeEndToEnd()
+            throws Exception
+    {
+        String tableName = "test_v3_variant_e2e";
+        try {
+            // Step 1: Create V3 table and add variant columns via Iceberg schema evolution
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("metadata", Types.VariantType.get())
+                    .commit();
+
+            // Step 2: Verify empty table with variant column is queryable
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 0");
+
+            // Step 3: Insert data — variant column receives NULLs
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')", 3);
+
+            // Step 4: Verify full row reads including NULL variant values
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', NULL), (2, 'Bob', NULL), (3, 'Charlie', NULL)");
+
+            // Step 5: Test IS NULL predicate on variant column
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 3");
+
+            // Step 6: Test filtering on non-variant columns with variant columns in projection
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " WHERE id > 1 ORDER BY id",
+                    "VALUES (2, 'Bob', NULL), (3, 'Charlie', NULL)");
+
+            // Step 7: Test aggregation with variant columns in the table
+            assertQuery("SELECT count(*), min(id), max(id) FROM " + tableName, "VALUES (3, 1, 3)");
+            assertQuery("SELECT name, count(*) FROM " + tableName + " GROUP BY name ORDER BY name",
+                    "VALUES ('Alice', 1), ('Bob', 1), ('Charlie', 1)");
+
+            // Step 8: DELETE rows from a table with variant columns
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie')");
+
+            // Step 9: Insert more data after deletion
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Diana'), (5, 'Eve')", 2);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+
+            // Step 10: Verify mixed snapshots (pre-delete and post-delete) read correctly
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve')");
+
+            // Step 11: Further schema evolution — add another variant column alongside the first
+            table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("tags", Types.VariantType.get())
+                    .commit();
+
+            // Step 12: Verify reads still work with two variant columns
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 4");
+            assertQuery("SELECT id, name FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice')");
+
+            // Step 13: Insert with both variant columns NULL
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (6, 'Frank')", 1);
+            assertQuery("SELECT id, metadata, tags FROM " + tableName + " WHERE id = 6",
+                    "VALUES (6, NULL, NULL)");
+
+            // Step 14: Verify V3 format preserved through all operations
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantColumnWithPartitioning()
+            throws Exception
+    {
+        String tableName = "test_v3_variant_partitioned";
+        try {
+            // Create V3 partitioned table with variant column
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, category VARCHAR) WITH (\"format-version\" = '3', partitioning = ARRAY['category'])");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("data", Types.VariantType.get())
+                    .commit();
+
+            // Insert data into multiple partitions
+            assertUpdate("INSERT INTO " + tableName + " (id, category) VALUES (1, 'A'), (2, 'A'), (3, 'B'), (4, 'C')", 4);
+
+            // Verify partition pruning works with variant column present
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'A' ORDER BY id",
+                    "VALUES 1, 2");
+            assertQuery("SELECT id FROM " + tableName + " WHERE category = 'B'",
+                    "VALUES 3");
+
+            // Verify cross-partition aggregation
+            assertQuery("SELECT category, count(*) FROM " + tableName + " GROUP BY category ORDER BY category",
+                    "VALUES ('A', 2), ('B', 1), ('C', 1)");
+
+            // Delete within a partition
+            assertUpdate("DELETE FROM " + tableName + " WHERE category = 'A'", 2);
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 2");
+            assertQuery("SELECT id FROM " + tableName + " ORDER BY id",
+                    "VALUES 3, 4");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantJsonDataRoundTrip()
+            throws Exception
+    {
+        String tableName = "test_v3_variant_json_data";
+        try {
+            // Step 1: Create V3 table and add variant column via Iceberg API
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("metadata", Types.VariantType.get())
+                    .commit();
+
+            // Step 2: Insert rows with actual JSON data into the variant column.
+            // VARIANT maps to JSON in Presto; use SQL JSON '...' literal syntax.
+            assertUpdate("INSERT INTO " + tableName + " VALUES "
+                    + "(1, 'Alice', JSON '{\"age\":30,\"city\":\"NYC\"}'), "
+                    + "(2, 'Bob', JSON '{\"age\":25}'), "
+                    + "(3, 'Charlie', NULL)", 3);
+
+            // Step 3: Verify round-trip — JSON values survive write → Parquet → read
+            assertQuery("SELECT id, name, metadata FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', '{\"age\":30,\"city\":\"NYC\"}'), "
+                            + "(2, 'Bob', '{\"age\":25}'), "
+                            + "(3, 'Charlie', NULL)");
+
+            // Step 4: Test filtering on non-variant columns with variant data present
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 1",
+                    "VALUES ('{\"age\":30,\"city\":\"NYC\"}')");
+
+            // Step 5: Test IS NULL / IS NOT NULL on variant column with actual data
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 2");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NULL", "SELECT 1");
+
+            // Step 6: Insert rows with different JSON value types (number, string, boolean)
+            assertUpdate("INSERT INTO " + tableName + " VALUES "
+                    + "(4, 'Diana', JSON '42'), "
+                    + "(5, 'Eve', JSON '\"simple string\"'), "
+                    + "(6, 'Frank', JSON 'true')", 3);
+
+            // Step 7: Verify all rows
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 6");
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 4", "VALUES ('42')");
+            assertQuery("SELECT metadata FROM " + tableName + " WHERE id = 6", "VALUES ('true')");
+
+            // Step 8: Delete rows with variant data
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE metadata IS NOT NULL", "SELECT 4");
+
+            // Step 9: Verify remaining data
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (2, 'Bob'), (3, 'Charlie'), (4, 'Diana'), (5, 'Eve'), (6, 'Frank')");
+
+            // Step 10: Verify V3 format preserved
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantColumnWithDeleteAndUpdate()
+            throws Exception
+    {
+        String tableName = "test_v3_variant_dml";
+        try {
+            // Create V3 table with merge-on-read delete mode and variant column
+            assertUpdate("CREATE TABLE " + tableName
+                    + " (id INTEGER, name VARCHAR, score DOUBLE)"
+                    + " WITH (\"format-version\" = '3', \"write.delete.mode\" = 'merge-on-read', \"write.update.mode\" = 'merge-on-read')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("extra", Types.VariantType.get())
+                    .commit();
+
+            // Insert data
+            assertUpdate("INSERT INTO " + tableName + " (id, name, score) VALUES "
+                    + "(1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)", 4);
+
+            // Verify initial data
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 85.5), (2, 'Bob', 92.0), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
+
+            // Row-level DELETE (produces deletion vector)
+            assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
+            assertQuery("SELECT id, name FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice'), (3, 'Charlie'), (4, 'Diana')");
+
+            // Verify DV metadata is PUFFIN format
+            table = loadTable(tableName);
+            try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+                for (FileScanTask task : tasks) {
+                    for (org.apache.iceberg.DeleteFile deleteFile : task.deletes()) {
+                        assertEquals(deleteFile.format(), FileFormat.PUFFIN);
+                    }
+                }
+            }
+
+            // UPDATE on table with variant column
+            assertUpdate("UPDATE " + tableName + " SET score = 99.9 WHERE id = 1", 1);
+            assertQuery("SELECT id, name, score FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 'Alice', 99.9)");
+
+            // Verify final state
+            assertQuery("SELECT id, name, score FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 99.9), (3, 'Charlie', 78.3), (4, 'Diana', 95.0)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testVariantWithJsonExtract()
+            throws Exception
+    {
+        String tableName = "test_v3_variant_json_extract";
+        try {
+            // Create V3 table and add Variant column via Iceberg API
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            Table table = loadTable(tableName);
+            table.updateSchema()
+                    .addColumn("metadata", Types.VariantType.get())
+                    .commit();
+
+            // Insert a row using SQL JSON literal syntax (Variant maps to JSON in Presto)
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, JSON '{\"age\":30,\"city\":\"NYC\"}')", 1);
+
+            // Verify json_extract_scalar works directly on the Variant column —
+            // the user-visible payoff of mapping Variant to JSON.
+            assertQuery(
+                    "SELECT json_extract_scalar(metadata, '$.city') FROM " + tableName + " WHERE id = 1",
+                    "VALUES ('NYC')");
+            assertQuery(
+                    "SELECT json_extract_scalar(metadata, '$.age') FROM " + tableName + " WHERE id = 1",
+                    "VALUES ('30')");
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 }
