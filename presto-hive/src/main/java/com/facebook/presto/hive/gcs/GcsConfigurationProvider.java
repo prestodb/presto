@@ -15,12 +15,12 @@ package com.facebook.presto.hive.gcs;
 
 import com.facebook.presto.hive.DynamicConfigurationProvider;
 import com.facebook.presto.hive.HdfsContext;
-import com.google.cloud.hadoop.gcsio.GoogleCloudStorageFileSystem;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
 import static com.facebook.presto.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
+import static com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem.SCHEME;
 
 public class GcsConfigurationProvider
         implements DynamicConfigurationProvider
@@ -30,7 +30,7 @@ public class GcsConfigurationProvider
     @Override
     public void updateConfiguration(Configuration configuration, HdfsContext context, URI uri)
     {
-        if (!uri.getScheme().equals(GoogleCloudStorageFileSystem.SCHEME)) {
+        if (!uri.getScheme().equals(SCHEME)) {
             return;
         }
 
