@@ -53,6 +53,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -65,6 +66,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.procedure.TableDataRewriteAnalysisContext;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
@@ -204,12 +206,15 @@ public class LogicalPlanner
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
         else if (statement instanceof Call) {
-            checkState(analysis.getDistributedProcedureType().isPresent(), "Call distributed procedure analysis is missing");
-            switch (analysis.getDistributedProcedureType().get()) {
+            Optional<DistributedProcedure.DistributedProcedureType> procedureType = analysis.getCallDistributedProcedureAnalysis()
+                    .map(Analysis.CallDistributedProcedureAnalysis::getDistributedProcedureType);
+            checkState(procedureType.isPresent(),
+                    "Call distributed procedure analysis is missing");
+            switch (procedureType.get()) {
                 case TABLE_DATA_REWRITE:
                     return createCallDistributedProcedurePlanForTableDataRewrite(analysis, (Call) statement);
                 default:
-                    throw new PrestoException(NOT_SUPPORTED, "Unsupported distributed procedure type: " + analysis.getDistributedProcedureType().get());
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported distributed procedure type: " + procedureType.get());
             }
         }
         else if (statement instanceof Insert) {
@@ -261,12 +266,19 @@ public class LogicalPlanner
 
     private RelationPlan createCallDistributedProcedurePlanForTableDataRewrite(Analysis analysis, Call statement)
     {
-        TableHandle targetTable = analysis.getCallTarget()
+        TableHandle targetTable = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .map(TableDataRewriteAnalysisContext::getCallTarget)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Target table does not exist"));
         Optional<QualifiedObjectName> procedureName = analysis.getProcedureName();
-        Optional<Object[]> procedureArguments = analysis.getProcedureArguments();
+        Optional<Object[]> procedureArguments = analysis.getCallDistributedProcedureAnalysis()
+                .map(Analysis.CallDistributedProcedureAnalysis::getProcedureArguments);
 
-        QuerySpecification querySpecification = analysis.getTargetQuery()
+        QuerySpecification querySpecification = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .map(TableDataRewriteAnalysisContext::getTargetQuery)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "The query for target table does not exist"));
         RelationPlan plan = createRelationPlan(analysis, querySpecification, new SqlPlannerContext(0));
 
