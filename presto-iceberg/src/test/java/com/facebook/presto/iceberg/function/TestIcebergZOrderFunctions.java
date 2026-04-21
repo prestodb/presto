@@ -222,8 +222,7 @@ public class TestIcebergZOrderFunctions
     public void testZOrderInterleaveTwoColumns()
     {
         // Test a complete Z-order computation with 2 integer columns
-        assertQuery(
-                "SELECT length(zorder(ARRAY[" +
+        assertQuery("SELECT length(zorder(ARRAY[" +
                 "zorder_integer_bytes(100), " +
                 "zorder_integer_bytes(200)], 16))",
                 "SELECT 16");
@@ -273,16 +272,17 @@ public class TestIcebergZOrderFunctions
         // Test that null inputs return zero-filled byte arrays (not NULL)
         assertQuery("SELECT zorder_integer_bytes(NULL) IS NOT NULL", "SELECT true");
         assertQuery("SELECT length(zorder_integer_bytes(NULL))", "SELECT 8");
-        
+
         // Test that varchar with null returns zero-filled array
-        assertQuery("SELECT zorder_varchar_bytes(NULL, 10) IS NOT NULL", "SELECT true");
+        assertQuery(
+                "SELECT zorder_varchar_bytes(NULL, 10) IS NOT NULL", "SELECT true");
         assertQuery("SELECT length(zorder_varchar_bytes(NULL, 10))", "SELECT 10");
 
         // Test that interleave returns zero-filled array if any input is null
         assertQuery(
                 "SELECT zorder(ARRAY[zorder_integer_bytes(1), NULL], 16) IS NOT NULL",
                 "SELECT true");
-        
+
         // Verify the zero-filled array has the correct length
         assertQuery(
                 "SELECT length(zorder(ARRAY[zorder_integer_bytes(1), NULL], 16))",
@@ -324,7 +324,7 @@ public class TestIcebergZOrderFunctions
         assertQuery(
                 "SELECT COUNT(*) FROM test_zorder_table WHERE length(zorder_integer_bytes(id)) = 8",
                 "SELECT 4");
-        
+
         // Verify NULL id produces zero-filled bytes (0x0000000000000000)
         assertQuery(
                 "SELECT length(zorder_integer_bytes(id)) FROM test_zorder_table WHERE id IS NULL",
@@ -363,7 +363,7 @@ public class TestIcebergZOrderFunctions
          *
          * Expected Z-order: (0,0) → (1,0) → (0,1) → (1,1) → (2,0) → (0,2) → (2,2)
          */
-        
+
         // Create a table with 2D spatial data
         assertUpdate("CREATE TABLE test_zorder_sort (x INT, y INT, name VARCHAR)");
         assertUpdate("INSERT INTO test_zorder_sort VALUES " +
@@ -397,7 +397,6 @@ public class TestIcebergZOrderFunctions
                 "SELECT x, y, z FROM test_zorder_3d " +
                 "ORDER BY zorder(ARRAY[zorder_integer_bytes(x), zorder_integer_bytes(y), zorder_integer_bytes(z)], 24)",
                 "VALUES (0, 0, 0), (1, 1, 1), (2, 1, 0), (1, 2, 3)");
-
 
         // Order by Z-order value (interleaved x,y coordinates)
         // Z-order should cluster spatially close points together
