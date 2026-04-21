@@ -19,6 +19,8 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.spi.ConnectorId;
@@ -41,10 +43,13 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
@@ -71,6 +76,7 @@ public final class NativePlanChecker
     private static final Logger LOG = Logger.get(NativePlanChecker.class);
     private static final JsonCodec<PlanConversionResponse> PLAN_CONVERSION_RESPONSE_JSON_CODEC = JsonCodec.jsonCodec(PlanConversionResponse.class);
     public static final String PLAN_CONVERSION_ENDPOINT = "/v1/velox/plan";
+    private static final TimeStat latency = new TimeStat();
 
     private final NodeManager nodeManager;
     private final JsonCodec<SimplePlanFragment> planFragmentJsonCodec;
@@ -107,6 +113,13 @@ public final class NativePlanChecker
         return httpClient;
     }
 
+    @Managed
+    @Nested
+    public TimeStat getLatency()
+    {
+        return latency;
+    }
+
     /**
      * HACK: Replace TableWriterNode from the plan fragment with a ProjectNode because validating a TableWriterNode
      * is unsupported by the native sidecar.  They are unsupported because they contain information only determined
@@ -138,6 +151,7 @@ public final class NativePlanChecker
     {
         LOG.debug("Starting native plan validation [fragment: %s, root: %s]", planFragment.getId(), planFragment.getRoot().getId());
         String requestBodyJson = planFragmentJsonCodec.toJson(planFragment);
+        long start = System.nanoTime();
 
         try {
             StringResponse response = httpClient.execute(getSidecarRequest(requestBodyJson), createStringResponseHandler());
@@ -154,6 +168,9 @@ public final class NativePlanChecker
             throw new PrestoException(NATIVEPLANCHECKER_CONNECTION_ERROR, "Error getting native plan checker response", e);
         }
         finally {
+            Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            latency.add(duration);
+            LOG.debug("Fragment: %s, root: %s, native plan validation latencyMs=%d", planFragment.getId(), planFragment.getRoot().getId(), duration.toMillis());
             LOG.debug("Native plan validation complete [fragment: %s, root: %s]", planFragment.getId(), planFragment.getRoot().getId());
         }
     }

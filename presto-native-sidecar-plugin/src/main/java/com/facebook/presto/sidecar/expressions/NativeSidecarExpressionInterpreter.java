@@ -17,6 +17,9 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.TimeStat;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.sidecar.ForSidecarInfo;
 import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.spi.ConnectorSession;
@@ -28,12 +31,15 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.net.URI;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -56,7 +62,8 @@ public class NativeSidecarExpressionInterpreter
     public static final String PRESTO_EXPRESSION_OPTIMIZER_LEVEL_HEADER = "X-Presto-Expression-Optimizer-Level";
     public static final String PRESTO_SESSION_START_TIME_HEADER = "X-Presto-Session-Start-Time";
     private static final String EXPRESSIONS_ENDPOINT = "/v1/expressions";
-
+    private static final TimeStat latency = new TimeStat();
+    private static final Logger log = Logger.get(NativeSidecarExpressionInterpreter.class);
     private final NodeManager nodeManager;
     private final HttpClient httpClient;
     private final JsonCodec<ExpressionOptimizationRequest> expressionOptimizationRequestCodec;
@@ -109,6 +116,7 @@ public class NativeSidecarExpressionInterpreter
     public List<RowExpressionOptimizationResult> optimize(ConnectorSession session, ExpressionOptimizer.Level level, List<RowExpression> resolvedExpressions)
     {
         List<RowExpressionOptimizationResult> optimizedExpressions;
+        long start = System.nanoTime();
         try {
             optimizedExpressions = httpClient.execute(
                     getSidecarRequest(session, level, resolvedExpressions),
@@ -117,7 +125,19 @@ public class NativeSidecarExpressionInterpreter
         catch (Exception e) {
             throw new PrestoException(INVALID_ARGUMENTS, "Failed to get optimized expressions from sidecar.", e);
         }
+        finally {
+            Duration duration = new Duration(System.nanoTime() - start, TimeUnit.NANOSECONDS);
+            latency.add(duration);
+            log.debug("queryId=%s, expression optimization latencyMs=%d", session.getQueryId(), duration.toMillis());
+        }
         return optimizedExpressions;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getLatency()
+    {
+        return latency;
     }
 
     private Request getSidecarRequest(ConnectorSession session, Level level, List<RowExpression> resolvedExpressions)
