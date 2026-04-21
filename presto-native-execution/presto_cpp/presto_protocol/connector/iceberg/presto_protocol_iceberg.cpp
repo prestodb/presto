@@ -1406,6 +1406,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "SchemaTableName",
       "materializedViewName");
+  to_json_key(
+      j,
+      "fullRefreshRequired",
+      p.fullRefreshRequired,
+      "IcebergInsertTableHandle",
+      "bool",
+      "fullRefreshRequired");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -1487,6 +1494,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "SchemaTableName",
       "materializedViewName");
+  from_json_key(
+      j,
+      "fullRefreshRequired",
+      p.fullRefreshRequired,
+      "IcebergInsertTableHandle",
+      "bool",
+      "fullRefreshRequired");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
