@@ -276,6 +276,8 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -1458,6 +1460,8 @@ class StatementAnalyzer
                                     session.getAccessControlContext(),
                                     tableName));
 
+                    List<String> sortFieldStrings = extractSortFieldStrings(values, tableDataRewriteDistributedProcedure.getSortOrderIndex());
+                    Optional<List<String>> zOrderColumns = extractZOrderColumns(sortFieldStrings);
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
                     Expression filterExpression = sqlParser.createExpression(filter);
                     QuerySpecification querySpecification = new QuerySpecification(
@@ -1473,7 +1477,7 @@ class StatementAnalyzer
 
                     TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
                             .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
-                    TableDataRewriteAnalysisContext tableDataRewriteAnalysisContext = new TableDataRewriteAnalysisContext(tableHandle, querySpecification);
+                    TableDataRewriteAnalysisContext tableDataRewriteAnalysisContext = new TableDataRewriteAnalysisContext(tableHandle, querySpecification, zOrderColumns);
                     analysis.setCallDistributedProcedureAnalysis(new Analysis.CallDistributedProcedureAnalysis(procedureType, values, Optional.of(tableDataRewriteAnalysisContext)));
                     break;
                 default:

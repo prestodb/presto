@@ -41,7 +41,9 @@ public enum IcebergMetadataColumn
      */
     UPDATE_ROW_DATA(Integer.MIN_VALUE, "$row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
     MERGE_TARGET_ROW_ID_DATA(Integer.MIN_VALUE + 1, "$target_table_row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT),
-    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 2, "partition_data", VARCHAR, PRIMITIVE)
+    MERGE_PARTITION_DATA(Integer.MIN_VALUE + 2, "partition_data", VARCHAR, PRIMITIVE),
+
+    Z_ORDER(Integer.MIN_VALUE + 3, "$z_order", BIGINT, PRIMITIVE)
     /**/;
 
     private static final Set<Integer> COLUMN_IDS = Stream.concat(

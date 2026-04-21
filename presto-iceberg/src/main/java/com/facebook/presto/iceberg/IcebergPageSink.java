@@ -69,11 +69,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -157,7 +159,7 @@ public class IcebergPageSink
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
         this.tempDirectory = new Path(tempDirectoryPath);
-        this.columnTypes = getColumnsForWrite(outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
+        List<Type> types = getColumnsForWrite(outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
                 .map(IcebergColumnHandle::getType)
                 .collect(toImmutableList());
         this.sortParameters = sortParameters;
@@ -165,12 +167,22 @@ public class IcebergPageSink
             ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
             ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
             for (SortField sortField : sortOrder) {
-                Types.NestedField column = outputSchema.findField(sortField.getSourceColumnId());
-                if (column == null) {
-                    throw new PrestoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
+                if (sortField.getSourceColumnId() == Z_ORDER.getId()) {
+                    sortColumnIndexes.add(outputSchema.columns().size());
+                    sortOrders.add(sortField.getSortOrder());
+                    types = ImmutableList.<Type>builder()
+                            .addAll(types)
+                            .add(VARBINARY)
+                            .build();
                 }
-                sortColumnIndexes.add(outputSchema.columns().indexOf(column));
-                sortOrders.add(sortField.getSortOrder());
+                else {
+                    Types.NestedField column = outputSchema.findField(sortField.getSourceColumnId());
+                    if (column == null) {
+                        throw new PrestoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
+                    }
+                    sortColumnIndexes.add(outputSchema.columns().indexOf(column));
+                    sortOrders.add(sortField.getSortOrder());
+                }
             }
             this.sortColumnIndexes = sortColumnIndexes.build();
             this.sortOrders = sortOrders.build();
@@ -179,6 +191,7 @@ public class IcebergPageSink
             this.sortColumnIndexes = ImmutableList.of();
             this.sortOrders = ImmutableList.of();
         }
+        this.columnTypes = types;
     }
 
     @Override

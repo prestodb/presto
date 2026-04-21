@@ -18,6 +18,9 @@ import com.facebook.presto.spi.procedure.ProcedureAnalysisContext;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.google.errorprone.annotations.Immutable;
 
+import java.util.List;
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -26,13 +29,16 @@ public class TableDataRewriteAnalysisContext
 {
     private final TableHandle callTarget;
     private final QuerySpecification targetQuery;
+    private final Optional<List<String>> zOrderColumns;
 
     public TableDataRewriteAnalysisContext(
             TableHandle callTarget,
-            QuerySpecification targetQuery)
+            QuerySpecification targetQuery,
+            Optional<List<String>> zOrderColumns)
     {
         this.callTarget = requireNonNull(callTarget, "callTarget is null");
         this.targetQuery = requireNonNull(targetQuery, "targetQuery is null");
+        this.zOrderColumns = requireNonNull(zOrderColumns, "zOrderColumns is null");
     }
 
     public TableHandle getCallTarget()
@@ -43,5 +49,10 @@ public class TableDataRewriteAnalysisContext
     public QuerySpecification getTargetQuery()
     {
         return targetQuery;
+    }
+
+    public Optional<List<String>> getzOrderColumns()
+    {
+        return zOrderColumns;
     }
 }
