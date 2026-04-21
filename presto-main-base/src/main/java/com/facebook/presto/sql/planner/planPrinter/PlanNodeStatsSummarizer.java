@@ -23,6 +23,7 @@ import com.facebook.presto.operator.PipelineStats;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.WindowInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.util.MoreMath;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
@@ -161,11 +162,11 @@ public class PlanNodeStatsSummarizer
                     windowNodeStats.merge(planNodeId, WindowOperatorStats.create(windowInfo), (left, right) -> left.mergeWith(right));
                 }
 
-                planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
-                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSizeInBytes(), Long::sum);
+                planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), MoreMath::saturatingAdd);
+                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSizeInBytes(), MoreMath::saturatingAdd);
 
-                planNodeRawInputPositions.merge(planNodeId, operatorStats.getRawInputPositions(), Long::sum);
-                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSizeInBytes(), Long::sum);
+                planNodeRawInputPositions.merge(planNodeId, operatorStats.getRawInputPositions(), MoreMath::saturatingAdd);
+                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSizeInBytes(), MoreMath::saturatingAdd);
 
                 planNodeNullJoinBuildKeyCount.merge(planNodeId, operatorStats.getNullJoinBuildKeyCount(), Long::sum);
                 planNodeJoinBuildKeyCount.merge(planNodeId, operatorStats.getJoinBuildKeyCount(), Long::sum);
@@ -190,8 +191,8 @@ public class PlanNodeStatsSummarizer
                     continue;
                 }
 
-                planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
-                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSizeInBytes(), Long::sum);
+                planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), MoreMath::saturatingAdd);
+                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSizeInBytes(), MoreMath::saturatingAdd);
                 processedNodes.add(planNodeId);
             }
         }

@@ -16,6 +16,8 @@ package com.facebook.presto.sql.planner.planPrinter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static com.facebook.presto.util.MoreMath.saturatingAdd;
+
 public class OperatorInputStats
 {
     private final long totalDrivers;
@@ -63,9 +65,9 @@ public class OperatorInputStats
     public static OperatorInputStats merge(OperatorInputStats first, OperatorInputStats second)
     {
         return new OperatorInputStats(
-                first.totalDrivers + second.totalDrivers,
-                first.inputPositions + second.inputPositions,
-                first.inputDataSizeInBytes + second.inputDataSizeInBytes,
+                saturatingAdd(first.totalDrivers, second.totalDrivers),
+                saturatingAdd(first.inputPositions, second.inputPositions),
+                saturatingAdd(first.inputDataSizeInBytes, second.inputDataSizeInBytes),
                 first.sumSquaredInputPositions + second.sumSquaredInputPositions);
     }
 }
