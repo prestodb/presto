@@ -24,26 +24,6 @@ public class NativeArraySqlFunctions
 {
     private NativeArraySqlFunctions() {}
 
-    @SqlInvokedScalarFunction(value = "array_least_frequent", deterministic = true, calledOnNullInput = true)
-    @Description("Determines the least frequent element in the array. If there are multiple elements, the function returns the smallest element")
-    @TypeParameter("T")
-    @SqlParameter(name = "input", type = "array(T)")
-    @SqlType("array<T>")
-    public static String arrayLeastFrequent()
-    {
-        return "RETURN IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, 1), x -> x[2]))";
-    }
-
-    @SqlInvokedScalarFunction(value = "array_least_frequent", deterministic = true, calledOnNullInput = true)
-    @Description("Determines the n least frequent element in the array in the ascending order of the elements.")
-    @TypeParameter("T")
-    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "n", type = "bigint")})
-    @SqlType("array<T>")
-    public static String arrayNLeastFrequent()
-    {
-        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), IF(COALESCE(CARDINALITY(REMOVE_NULLS(input)), 0) = 0, NULL, TRANSFORM(SLICE(ARRAY_SORT(TRANSFORM(MAP_ENTRIES(ARRAY_FREQUENCY(REMOVE_NULLS(input))), x -> ROW(x[2], x[1]))), 1, n), x -> x[2])))";
-    }
-
     @SqlInvokedScalarFunction(value = "array_top_n", deterministic = true, calledOnNullInput = true)
     @Description("Returns the top N values of the given map sorted using the provided lambda comparator.")
     @TypeParameter("T")

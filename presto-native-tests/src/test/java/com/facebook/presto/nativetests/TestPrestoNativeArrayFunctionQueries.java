@@ -99,6 +99,65 @@ public class TestPrestoNativeArrayFunctionQueries
     }
 
     @Test
+    public void testArrayLeastFrequent()
+    {
+        // Single least frequent element.
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (ARRAY[1, 2, 2, 3, 3, 3])) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (CAST(ARRAY['a', 'b', 'b', 'c', 'c', 'c'] AS ARRAY(VARCHAR)))) AS t(a)");
+
+        // Unsorted input exercises ascending-order output.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[3, 1, 2, 3, 2, 3], 2)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (CAST(ARRAY['c', 'a', 'b', 'c', 'b', 'c'] AS ARRAY(VARCHAR)), 2)) AS t(a, b)");
+
+        // Tie-break: returns the smallest element among those with the lowest frequency.
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (ARRAY[1, 1, 2, 2, 3, 3])) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (CAST(ARRAY['abc', 'bc', 'aaa'] AS ARRAY(VARCHAR)))) AS t(a)");
+
+        // Single-element and all-equal arrays.
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (ARRAY[42])) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (ARRAY[42, 42])) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[42], 1)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[42, 42], 1)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[42, 42], 2)) AS t(a, b)");
+
+        // Null handling.
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (CAST(NULL AS ARRAY(INTEGER)))) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (CAST(ARRAY[] AS ARRAY(INTEGER)))) AS t(a)");
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (CAST(ARRAY[NULL, NULL, NULL] AS ARRAY(INTEGER)))) AS t(a)");
+
+        // Nulls in array are ignored.
+        assertQuery("SELECT array_least_frequent(a) FROM (VALUES (ARRAY[1, 2, 2, NULL])) AS t(a)");
+
+        // Nulls are also ignored for the N-argument variant.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, NULL], 1)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, NULL], 2)) AS t(a, b)");
+
+        // N least frequent elements returned in ascending order.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, 3, 3, 3], 2)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (CAST(ARRAY['a', 'b', 'b', 'c', 'c', 'c'] AS ARRAY(VARCHAR)), 3)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 1, 2, 2, 3, 3], 1)) AS t(a, b)");
+
+        // N equal to number of distinct non-null elements: returns all.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, 3, 3, 3], 3)) AS t(a, b)");
+
+        // N greater than number of distinct non-null elements: returns all.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, 3, 3, 3, -1], 5)) AS t(a, b)");
+
+        // N = 0 returns empty array (not null) when array has non-null elements.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (ARRAY[1, 2, 2, NULL], 0)) AS t(a, b)");
+
+        // Null/empty input returns null regardless of n.
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (CAST(NULL AS ARRAY(INTEGER)), 3)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (CAST(ARRAY[] AS ARRAY(INTEGER)), 2)) AS t(a, b)");
+        assertQuery("SELECT array_least_frequent(a, b) FROM (VALUES (CAST(ARRAY[NULL, NULL, NULL] AS ARRAY(INTEGER)), 1)) AS t(a, b)");
+
+        // Negative n fails.
+        assertQueryFails(
+                "SELECT array_least_frequent(a, b) FROM (VALUES (CAST(ARRAY['a', 'b', 'b', 'c', 'c', 'c'] AS ARRAY(VARCHAR)), -1)) AS t(a, b)",
+                ".*n must be greater than or equal to 0.*");
+    }
+
+    @Test
     public void testArrayTopN()
     {
         assertQuery("SELECT array_top_n(a, b) FROM (VALUES(ARRAY[1, 5, 3, 9, 2],3)) as t(a,b)");
