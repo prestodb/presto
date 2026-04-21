@@ -90,7 +90,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 3;
 
     @Override
     protected void createTables()
@@ -637,19 +637,14 @@ public class TestNativeSidecarPlugin
     @Test
     public void testNonOverriddenInlinedSqlInvokedFunctionsWhenConfigDisabled()
     {
-        // When inline_sql_functions is set to false, the below queries should fail as the implementations don't exist on the native worker
         Session session = Session.builder(getSession())
                 .setSystemProperty(KEY_BASED_SAMPLING_ENABLED, "true")
                 .setSystemProperty(INLINE_SQL_FUNCTIONS, "false")
                 .build();
 
         // Array functions
-        assertQueryFails(session,
-                "SELECT array_least_frequent(quantities) from orders_ex",
-                ".*Scalar function name not registered: native.default.array_least_frequent.*");
-        assertQueryFails(session,
-                "SELECT array_least_frequent(split(comment, ''), 2) from nation",
-                ".*Scalar function name not registered: native.default.array_least_frequent.*");
+        assertQuery(session, "SELECT array_least_frequent(quantities) from orders_ex");
+        assertQuery(session, "SELECT array_least_frequent(split(comment, ''), 2) from nation");
 
         // Map functions
         assertQueryFails(session,
