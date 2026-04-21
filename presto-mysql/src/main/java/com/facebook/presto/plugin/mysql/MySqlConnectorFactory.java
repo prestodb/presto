@@ -26,7 +26,6 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
-import com.google.inject.Module;
 
 import java.util.Map;
 
