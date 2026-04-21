@@ -36,6 +36,7 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
+import com.facebook.presto.spi.procedure.ProcedureAnalysisContext;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -180,11 +181,8 @@ public class Analysis
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     // for call distributed procedure
-    private Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType = Optional.empty();
     private Optional<QualifiedObjectName> procedureName = Optional.empty();
-    private Optional<Object[]> procedureArguments = Optional.empty();
-    private Optional<TableHandle> callTarget = Optional.empty();
-    private Optional<QuerySpecification> targetQuery = Optional.empty();
+    private Optional<CallDistributedProcedureAnalysis> callDistributedProcedureAnalysis = Optional.empty();
 
     // for create vector index
     private Optional<CreateVectorIndexAnalysis> createVectorIndexAnalysis = Optional.empty();
@@ -713,6 +711,16 @@ public class Analysis
         return createVectorIndexAnalysis;
     }
 
+    public void setCallDistributedProcedureAnalysis(CallDistributedProcedureAnalysis analysis)
+    {
+        this.callDistributedProcedureAnalysis = Optional.of(analysis);
+    }
+
+    public Optional<CallDistributedProcedureAnalysis> getCallDistributedProcedureAnalysis()
+    {
+        return this.callDistributedProcedureAnalysis;
+    }
+
     public Optional<QualifiedObjectName> getProcedureName()
     {
         return procedureName;
@@ -721,36 +729,6 @@ public class Analysis
     public void setProcedureName(Optional<QualifiedObjectName> procedureName)
     {
         this.procedureName = procedureName;
-    }
-
-    public Optional<DistributedProcedure.DistributedProcedureType> getDistributedProcedureType()
-    {
-        return distributedProcedureType;
-    }
-
-    public void setDistributedProcedureType(Optional<DistributedProcedure.DistributedProcedureType> distributedProcedureType)
-    {
-        this.distributedProcedureType = distributedProcedureType;
-    }
-
-    public Optional<Object[]> getProcedureArguments()
-    {
-        return procedureArguments;
-    }
-
-    public void setProcedureArguments(Optional<Object[]> procedureArguments)
-    {
-        this.procedureArguments = procedureArguments;
-    }
-
-    public Optional<TableHandle> getCallTarget()
-    {
-        return callTarget;
-    }
-
-    public void setCallTarget(TableHandle callTarget)
-    {
-        this.callTarget = Optional.of(callTarget);
     }
 
     public Optional<TableHandle> getAnalyzeTarget()
@@ -1151,16 +1129,6 @@ public class Analysis
     public Optional<Expression> getViewAccessorWhereClause()
     {
         return viewAccessorWhereClause;
-    }
-
-    public void setTargetQuery(QuerySpecification targetQuery)
-    {
-        this.targetQuery = Optional.of(targetQuery);
-    }
-
-    public Optional<QuerySpecification> getTargetQuery()
-    {
-        return this.targetQuery;
     }
 
     public Map<FunctionKind, Set<String>> getInvokedFunctions()
@@ -1948,6 +1916,39 @@ public class Analysis
         public Scope getTargetTableScope()
         {
             return targetTableScope;
+        }
+    }
+
+    @Immutable
+    public static final class CallDistributedProcedureAnalysis
+    {
+        private final DistributedProcedure.DistributedProcedureType distributedProcedureType;
+        private final Object[] procedureArguments;
+        private final Optional<ProcedureAnalysisContext> procedureAnalysisContext;
+
+        public CallDistributedProcedureAnalysis(
+                DistributedProcedure.DistributedProcedureType distributedProcedureType,
+                Object[] procedureArguments,
+                Optional<ProcedureAnalysisContext> procedureAnalysisContext)
+        {
+            this.distributedProcedureType = requireNonNull(distributedProcedureType, "distributedProcedureType is null");
+            this.procedureArguments = requireNonNull(procedureArguments, "procedureArguments is null");
+            this.procedureAnalysisContext = requireNonNull(procedureAnalysisContext, "procedureAnalysisContext is null");
+        }
+
+        public DistributedProcedure.DistributedProcedureType getDistributedProcedureType()
+        {
+            return distributedProcedureType;
+        }
+
+        public Object[] getProcedureArguments()
+        {
+            return procedureArguments;
+        }
+
+        public Optional<ProcedureAnalysisContext> getProcedureAnalysisContext()
+        {
+            return procedureAnalysisContext;
         }
     }
 
