@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
@@ -135,6 +136,8 @@ import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateCons
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.google.common.base.Preconditions.checkState;
@@ -315,6 +318,25 @@ public class LogicalPlanner
                 .map(columnToVariableMap::get)
                 .collect(toImmutableSet());
 
+        PlanNode queryRoot = plan.getRoot();
+        Optional<List<String>> zOrderColumns = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .flatMap(TableDataRewriteAnalysisContext::getzOrderColumns);
+        if (zOrderColumns.isPresent() && !zOrderColumns.get().isEmpty()) {
+            // todo: use the column names in `zOrderColumns` to construct a `zorder` function to replace to `to_utf8` function here.
+            VariableReferenceExpression orderCol1 = columnToVariableMap.get(zOrderColumns.get().get(0));
+            CallExpression castToVarchar = call("CAST", metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, orderCol1.getType(), VARCHAR), VARCHAR, orderCol1);
+            CallExpression varbinaryFunction = call("to_utf8", metadata.getFunctionAndTypeManager().lookupFunction("to_utf8", fromTypes(VARCHAR)), VARBINARY, castToVarchar);
+            VariableReferenceExpression output = variableAllocator.newVariable("$z_order", VARBINARY);
+            Assignments assignments = Assignments.builder()
+                    .putAll(identityAssignments(queryRoot.getOutputVariables()))
+                    .put(output, varbinaryFunction)
+                    .build();
+            queryRoot = new ProjectNode(idAllocator.getNextId(), queryRoot, assignments);
+            columnNames = ImmutableList.<String>builder().addAll(columnNames).add("$z_order").build();
+        }
+
         CallDistributedProcedureTarget callDistributedProcedureTarget = new CallDistributedProcedureTarget(
                 procedureName.get(),
                 procedureArguments.get(),
@@ -328,12 +350,12 @@ public class LogicalPlanner
                         Optional.empty(),
                         idAllocator.getNextId(),
                         Optional.empty(),
-                        plan.getRoot(),
+                        queryRoot,
                         Optional.of(callDistributedProcedureTarget),
                         variableAllocator.newVariable("rows", BIGINT),
                         variableAllocator.newVariable("fragment", VARBINARY),
                         variableAllocator.newVariable("commitcontext", VARBINARY),
-                        plan.getRoot().getOutputVariables(),
+                        queryRoot.getOutputVariables(),
                         columnNames,
                         notNullColumnVariables,
                         partitioningScheme),
