@@ -72,6 +72,8 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergFileWriter
 {
@@ -156,6 +158,35 @@ public class TestIcebergFileWriter
         MessageType writtenSchema = parquetMetadata.getFileMetaData().getSchema();
         MessageType originalSchema = convert(icebergSchema, "table");
         assertEquals(originalSchema, writtenSchema);
+    }
+
+    @Test
+    public void testWriteDwrfFileDispatchesToOrcWriter()
+            throws Exception
+    {
+        Path path = new Path(createTempDir().getAbsolutePath() + "/test.dwrf");
+        Schema icebergSchema = toIcebergSchema(ImmutableList.of(
+                ColumnMetadata.builder().setName("a").setType(VARCHAR).build(),
+                ColumnMetadata.builder().setName("b").setType(INTEGER).build(),
+                ColumnMetadata.builder().setName("c").setType(TIMESTAMP).build(),
+                ColumnMetadata.builder().setName("d").setType(DATE).build()));
+        IcebergFileWriter icebergFileWriter = this.icebergFileWriterFactory.createFileWriter(path, icebergSchema, new JobConf(), connectorSession,
+                hdfsContext, FileFormat.DWRF, MetricsConfig.getDefault());
+        assertNotNull(icebergFileWriter, "createFileWriter must dispatch FileFormat.DWRF to a non-null writer");
+
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, TIMESTAMP, DATE)
+                .addSequencePage(100, 0, 0, 123, 100)
+                .addSequencePage(100, 100, 100, 223, 100)
+                .addSequencePage(100, 200, 200, 323, 100)
+                .build();
+        for (Page page : input) {
+            icebergFileWriter.appendRows(page);
+        }
+        icebergFileWriter.commit();
+
+        File dwrfFile = new File(path.toString());
+        assertTrue(dwrfFile.exists(), "DWRF dispatch should produce a writable output file");
+        assertTrue(dwrfFile.length() > 0, "DWRF dispatch should produce a non-empty output file");
     }
 
     private static class TestingTypeManager
