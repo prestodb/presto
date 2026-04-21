@@ -85,7 +85,7 @@ public class TestRewriteDataFilesProcedure
                             "(5, 'foo'), (6, 'bar'), " +
                             "(8, 'bar')");
 
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 7);
 
             //The number of data files is 1, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
@@ -114,7 +114,7 @@ public class TestRewriteDataFilesProcedure
                     ".* probably connector was not able to handle provided WHERE expression");
 
             // the filter is `true` means select all files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1')", tableName, schemaName), 10);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 10);
 
             //The number of data files is 1, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 1L, 0L);
@@ -200,7 +200,7 @@ public class TestRewriteDataFilesProcedure
                             "(5, 'foo'), (6, 'bar'), " +
                             "(9, 'foo')");
 
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 7);
 
             //The number of data files is 2, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
@@ -228,7 +228,7 @@ public class TestRewriteDataFilesProcedure
                     ".* probably connector was not able to handle provided WHERE expression");
 
             // select 5 files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName), 5);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
             //The number of data files is 6, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 6L, 0L);
 
@@ -273,7 +273,7 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, schemaName),
                     ".* probably connector was not able to handle provided WHERE expression");
 
-            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName), 3);
+            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 3);
             //The number of data files is 3, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 3L, 0L);
             assertQuery("select * from " + tableName, "values(2, '1002', NULL), (5, '1005', 5), (7, '1007', 7)");
@@ -282,7 +282,7 @@ public class TestRewriteDataFilesProcedure
             assertEquals(result.getOnlyValue(), 1L);
             //The number of data files is 3, and the number of delete files is 1
             validateDataFilesAndDeleteFiles(tableName, 3L, 1L);
-            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null')", tableName, schemaName), 0);
+            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 0);
 
             //The number of data files is 2, and the number of delete files is 0
             validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
