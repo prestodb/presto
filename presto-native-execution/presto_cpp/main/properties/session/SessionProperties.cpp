@@ -297,8 +297,8 @@ SessionProperties::SessionProperties() {
       "reader is fully rolled out.",
       BOOLEAN(),
       false,
-      QueryConfig::kSelectiveNimbleReaderEnabled,
-      util::boolToLowerCaseString(c.selectiveNimbleReaderEnabled()));
+      "selective_nimble_reader_enabled",
+      "true");
 
   addSessionProperty(
       kQueryTraceEnabled,
