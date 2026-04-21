@@ -1310,7 +1310,7 @@ The ``options`` parameter accepts a map of option names to values. The following
 ========================== ======== =============== ========================================================================
 Option Name                Type     Default         Description
 ========================== ======== =============== ========================================================================
-``min-input-files``        integer  1               Minimum number of files in a partition required for rewriting.
+``min-input-files``        integer  5               Minimum number of files in a partition required for rewriting.
                                                     Partitions with fewer files are skipped. This is a **group filter**
                                                     that operates at the partition level.
 
@@ -1321,6 +1321,10 @@ Option Name                Type     Default         Description
 ``max-file-size-bytes``    long     0 (disabled)    Files larger than this threshold (in bytes) are selected for
                                                     rewriting. This is a **file filter** that operates on individual
                                                     files.
+
+``rewrite-all``            boolean  false           When set to ``true``, bypasses all filtering (both group and file
+                                                    level) and rewrites all data files in the table or selected
+                                                    partitions. Useful for simple, complete table rewrites.
 ========================== ======== =============== ========================================================================
 
 **Filter Behavior:**
@@ -1361,12 +1365,12 @@ Examples
         options => map(array['min-file-size-bytes'], array['104857600'])
     );
 
-* Rewrite only partitions with at least 5 files in table ``db.sample``::
+* Rewrite only partitions with at least 10 files in table ``db.sample``::
 
     CALL iceberg.system.rewrite_data_files(
         schema => 'db',
         table_name => 'sample',
-        options => map(array['min-input-files'], array['5'])
+        options => map(array['min-input-files'], array['10'])
     );
 
 * Rewrite small files (< 50MB) OR large files (> 1GB) in partitions with at least 3 files::
@@ -1378,6 +1382,14 @@ Examples
             array['min-file-size-bytes', 'max-file-size-bytes', 'min-input-files'],
             array['52428800', '1073741824', '3']
         )
+    );
+
+* Rewrite all data files without any filtering::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        options => map(array['rewrite-all'], array['true'])
     );
 
 * Combine options with filter and sorting::

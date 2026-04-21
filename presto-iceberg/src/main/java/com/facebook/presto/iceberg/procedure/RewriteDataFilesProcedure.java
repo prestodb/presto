@@ -75,6 +75,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMaxFileSize;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMinFileSize;
 import static com.facebook.presto.iceberg.IcebergUtil.parseMinInputFiles;
+import static com.facebook.presto.iceberg.IcebergUtil.parseRewriteAll;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
@@ -140,6 +141,7 @@ public class RewriteDataFilesProcedure
                 parseMinInputFiles(options);
                 parseMinFileSize(options);
                 parseMaxFileSize(options);
+                parseRewriteAll(options);
             }
         }
         return options;
