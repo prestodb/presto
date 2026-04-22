@@ -61,6 +61,12 @@ class ConnectorProtocol {
       const = 0;
   virtual void from_json(const json& j, std::shared_ptr<ColumnHandle>& p)
       const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ColumnHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -207,6 +213,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
   void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) const final {
     from_json_template<ColumnHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ColumnHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ColumnHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ColumnHandle>& proto) const final {
+    ColumnHandle::deserialize(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p)

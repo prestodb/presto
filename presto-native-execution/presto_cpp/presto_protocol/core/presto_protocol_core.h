@@ -316,6 +316,16 @@ struct ColumnHandle : public JsonEncodedSubclass {
   virtual bool operator<(const ColumnHandle& /* o */) const {
     throw std::runtime_error("missing operator<() in ColumnHandle subclass");
   }
+
+  static std::string serialize(const ColumnHandle& /* handle */) {
+    VELOX_NYI("ColumnHandle::serialize not implemented");
+  }
+
+  static void deserialize(
+      const std::string& /* data */,
+      std::shared_ptr<ColumnHandle>& /* handle */) {
+    VELOX_NYI("ColumnHandle::deserialize not implemented");
+  }
 };
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p);
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p);
