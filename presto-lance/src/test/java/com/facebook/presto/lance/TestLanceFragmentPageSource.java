@@ -27,6 +27,7 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -76,7 +77,9 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 4);
@@ -108,7 +111,9 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);
@@ -140,7 +145,9 @@ public class TestLanceFragmentPageSource
                 tablePath,
                 8192,
                 arrowBlockBuilder,
-                namespaceHolder.getAllocator())) {
+                namespaceHolder.getAllocator(),
+                Optional.empty(),
+                ImmutableList.of())) {
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             assertEquals(page.getChannelCount(), 2);

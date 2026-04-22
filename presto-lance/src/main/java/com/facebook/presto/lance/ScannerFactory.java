@@ -17,10 +17,11 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.lance.ipc.LanceScanner;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ScannerFactory
 {
-    LanceScanner open(BufferAllocator allocator, List<String> columns);
+    LanceScanner open(BufferAllocator allocator, List<String> columns, Optional<String> filter);
 
     void close();
 }
