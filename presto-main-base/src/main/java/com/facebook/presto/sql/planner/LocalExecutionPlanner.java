@@ -232,6 +232,8 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -475,7 +477,20 @@ public class LocalExecutionPlanner
                 .copy()
                 .configure(ORDER_MAP_ENTRIES_BY_KEYS, true)
                 .registerModule(new Jdk8Module())
-                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+
+        // Increasing max nesting depth
+        this.sortedMapObjectMapper.getFactory().setStreamWriteConstraints(
+                StreamWriteConstraints.builder()
+                        .maxNestingDepth(2000)
+                        .build());
+        try {
+            Class<?> sliceClass = Class.forName("io.airlift.slice.Slice");
+            this.sortedMapObjectMapper.addMixIn(sliceClass, SliceMixIn.class);
+        }
+        catch (ClassNotFoundException e) {
+        }
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
         this.useNewNanDefinition = requireNonNull(functionsConfig, "functionsConfig is null").getUseNewNanDefinition();
@@ -841,6 +856,15 @@ public class LocalExecutionPlanner
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
         }
+    }
+    /**
+     * MixIn to ignore Slice.getOutput() method which causes circular references with BasicSliceOutput.
+     * The circular reference chain: Slice -> BasicSliceOutput.underlyingSlice -> Slice -> ...
+     */
+    private abstract static class SliceMixIn
+    {
+        @JsonIgnore
+        abstract Object getOutput();
     }
 
     private static class IndexSourceContext
