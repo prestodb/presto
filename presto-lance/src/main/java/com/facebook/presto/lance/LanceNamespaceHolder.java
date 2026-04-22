@@ -20,6 +20,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.RecursiveDeleteOption;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -155,7 +156,7 @@ public class LanceNamespaceHolder
                 return Dataset.open(tablePath, readOptions);
             });
         }
-        catch (ExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throw new PrestoException(LanceErrorCode.LANCE_ERROR, "Failed to open dataset: " + tablePath, e.getCause());
         }
     }
