@@ -368,7 +368,7 @@ Fallback Behavior
 ^^^^^^^^^^^^^^^^^
 
 Incremental refresh automatically falls back to full refresh when incremental refresh
-is not possible (e.g., the view uses unsupported operators like OUTER JOIN, or the
+is not possible (for example, the view uses unsupported operators like OUTER JOIN, or the
 connector cannot determine partition-level staleness).
 
 When the view is already fully materialized, refresh is a no-op (no data is written).
