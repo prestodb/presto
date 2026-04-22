@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
+import static com.facebook.presto.util.MoreMath.saturatingAdd;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.max;
 import static java.lang.Math.sqrt;
@@ -279,11 +280,11 @@ public class PlanNodeStats
     {
         checkArgument(planNodeId.equals(other.getPlanNodeId()), "planNodeIds do not match. %s != %s", planNodeId, other.getPlanNodeId());
 
-        long planNodeInputPositions = this.planNodeInputPositions + other.planNodeInputPositions;
+        long planNodeInputPositions = saturatingAdd(this.planNodeInputPositions, other.planNodeInputPositions);
         DataSize planNodeInputDataSize = succinctBytes((long) ((double) this.planNodeInputDataSize.toBytes() + (double) other.planNodeInputDataSize.toBytes()));
-        long planNodeRawInputPositions = this.planNodeRawInputPositions + other.planNodeRawInputPositions;
+        long planNodeRawInputPositions = saturatingAdd(this.planNodeRawInputPositions, other.planNodeRawInputPositions);
         DataSize planNodeRawInputDataSize = succinctBytes((long) ((double) this.planNodeRawInputDataSize.toBytes() + (double) other.planNodeRawInputDataSize.toBytes()));
-        long planNodeOutputPositions = this.planNodeOutputPositions + other.planNodeOutputPositions;
+        long planNodeOutputPositions = saturatingAdd(this.planNodeOutputPositions, other.planNodeOutputPositions);
         DataSize planNodeOutputDataSize = succinctBytes((long) ((double) this.planNodeOutputDataSize.toBytes() + (double) other.planNodeOutputDataSize.toBytes()));
         DataSize planNodePeakMemorySize = succinctBytes(Math.max(this.planNodePeakMemorySize.toBytes(), other.planNodePeakMemorySize.toBytes()));
 
