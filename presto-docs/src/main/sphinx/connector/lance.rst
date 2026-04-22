@@ -6,7 +6,7 @@ Overview
 --------
 
 The Lance connector allows querying and writing data stored in
-`Lance <https://lance.org/>`_ format from Presto. Lance is a modern columnar
+`Lance <https://lance.org/>`_ format from Presto. Lance is a columnar
 data format optimized for machine learning workloads and fast random access.
 
 The connector uses the Lance Java SDK to read and write Lance datasets.
