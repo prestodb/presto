@@ -22,6 +22,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import jakarta.validation.constraints.NotNull;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
 
@@ -45,17 +46,21 @@ public class OracleClientModule
 
     @Provides
     @Singleton
-    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
+    public static ConnectionFactory connectionFactory(BaseJdbcConfig config, @NotNull OracleConfig oracleConfig)
             throws SQLException
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
-
-        return new DriverConnectionFactory(
-                new OracleDriver(),
-                config.getConnectionUrl(),
-                Optional.empty(),
-                Optional.empty(),
-                connectionProperties);
+        if (oracleConfig.isConnectionPoolEnabled()) {
+            return new OraclePoolConnectionFactory(new OracleDriver(), config, oracleConfig, connectionProperties);
+        }
+        else {
+            return new DriverConnectionFactory(
+                    new OracleDriver(),
+                    config.getConnectionUrl(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    connectionProperties);
+        }
     }
 }

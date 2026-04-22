@@ -51,7 +51,7 @@
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.49.0</dep.jdbi3.version>
-        <dep.oracle.version>19.3.0.0</dep.oracle.version>
+        <dep.oracle.version>23.26.1.0.0</dep.oracle.version>
         <dep.drift.version>${dep.airlift.version}</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
@@ -251,6 +251,14 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
                 <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc11-production</artifactId>
+                <version>${dep.oracle.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

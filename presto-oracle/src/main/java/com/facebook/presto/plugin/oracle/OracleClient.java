@@ -87,6 +87,7 @@ public class OracleClient
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
+    private final Optional<Integer> fetchSize;
 
     @Inject
     public OracleClient(
@@ -100,6 +101,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
+        this.fetchSize = oracleConfig.getFetchSize();
     }
 
     private String[] getTableTypes()
@@ -121,15 +123,6 @@ public class OracleClient
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
-    }
-
-    @Override
-    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
-            throws SQLException
-    {
-        PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(FETCH_SIZE);
-        return statement;
     }
 
     @Override
@@ -225,6 +218,15 @@ public class OracleClient
         catch (SQLException | RuntimeException e) {
             throw new PrestoException(JDBC_ERROR, "Failed fetching statistics for table: " + handle, e);
         }
+    }
+
+    @Override
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
+            throws SQLException
+    {
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(fetchSize.orElse(FETCH_SIZE));
+        return statement;
     }
 
     private String getColumnStaticsSql(JdbcTableHandle handle)
