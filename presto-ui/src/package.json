@@ -54,7 +54,7 @@
     "dagre-d3-es": "7.0.13",
     "prismjs": "^1.30.0",
     "react": "18.3.1",
-    "react-data-table-component": "^7.6.2",
+    "react-data-table-component": "^7.7.1",
     "react-dom": "18.3.1",
     "react-simple-code-editor": "^0.13.1",
     "reactable": "^1.1.0",
