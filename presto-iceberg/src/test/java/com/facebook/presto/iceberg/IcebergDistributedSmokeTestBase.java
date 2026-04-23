@@ -1691,36 +1691,40 @@ public abstract class IcebergDistributedSmokeTestBase
                 "Unsupported type for 'bucket': 1000: col_timestamp_tz_bucket: bucket\\[2\\]\\(1\\)");
         assertUpdate("drop table if exists test_bucket_transform_timestamp_tz");
 
-        //TODO: Not yet support year transform for timestamp with time zone, which was supported by Iceberg
+        // Test year transform for timestamp with time zone
         assertUpdate("create table test_year_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['year(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_year_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'year': 1000: col_timestamp_tz_year: year\\(1\\)");
+        assertUpdate("insert into test_year_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_year_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_year_transform_timestamp_tz");
 
-        //TODO: Not yet support month transform for timestamp with time zone, which was supported by Iceberg
+        // Test month transform for timestamp with time zone
         assertUpdate("create table test_month_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['month(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_month_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'month': 1000: col_timestamp_tz_month: month\\(1\\)");
+        assertUpdate("insert into test_month_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_month_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_month_transform_timestamp_tz");
 
-        //TODO: Not yet support day transform for timestamp with time zone, which was supported by Iceberg
+        // Test day transform for timestamp with time zone
         assertUpdate("create table test_day_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['day(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_day_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'day': 1000: col_timestamp_tz_day: day\\(1\\)");
+        assertUpdate("insert into test_day_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_day_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_day_transform_timestamp_tz");
 
-        //TODO: Not yet support hour transform for timestamp with time zone, which was supported by Iceberg
+        // Test hour transform for timestamp with time zone
         assertUpdate("create table test_hour_transform_timestamp_tz(col_timestamp_tz timestamp with time zone)" +
                 "with (partitioning = ARRAY['hour(col_timestamp_tz)'])");
-        assertQueryFails("insert into test_hour_transform_timestamp_tz " +
-                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))",
-                "Unsupported type for 'hour': 1000: col_timestamp_tz_hour: hour\\(1\\)");
+        assertUpdate("insert into test_hour_transform_timestamp_tz " +
+                        "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))", 1);
+        assertQuery("select * from test_hour_transform_timestamp_tz",
+                "values(CAST('2023-01-01 00:00:00.000 UTC' AS TIMESTAMP WITH TIME ZONE))");
         assertUpdate("drop table if exists test_hour_transform_timestamp_tz");
     }
 

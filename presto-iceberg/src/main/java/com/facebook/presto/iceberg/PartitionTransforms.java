@@ -34,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.encodeShortScaledValue;
@@ -43,6 +44,7 @@ import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -89,6 +91,12 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformYear),
                             ValueTransform.from(TIMESTAMP, transformYear));
                 }
+                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    LongUnaryOperator transformYear = value -> epochYear(unpackMillisUtc(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_WITH_TIME_ZONE, block, transformYear),
+                            ValueTransform.from(TIMESTAMP_WITH_TIME_ZONE, transformYear));
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
             case "month":
                 if (type.equals(DATE)) {
@@ -102,6 +110,12 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformMonth),
                             ValueTransform.from(TIMESTAMP, transformMonth));
+                }
+                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    LongUnaryOperator transformMonth = value -> epochMonth(unpackMillisUtc(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_WITH_TIME_ZONE, block, transformMonth),
+                            ValueTransform.from(TIMESTAMP_WITH_TIME_ZONE, transformMonth));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
             case "day":
@@ -117,6 +131,12 @@ public final class PartitionTransforms
                             block -> transformBlock(TIMESTAMP, block, transformDay),
                             ValueTransform.from(TIMESTAMP, transformDay));
                 }
+                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    LongUnaryOperator transformDay = value -> epochDay(unpackMillisUtc(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_WITH_TIME_ZONE, block, transformDay),
+                            ValueTransform.from(TIMESTAMP_WITH_TIME_ZONE, transformDay));
+                }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
                 if (type.equals(TIMESTAMP)) {
@@ -124,6 +144,12 @@ public final class PartitionTransforms
                     return new ColumnTransform(transform, INTEGER,
                             block -> transformBlock(TIMESTAMP, block, transformHour),
                             ValueTransform.from(TIMESTAMP, transformHour));
+                }
+                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    LongUnaryOperator transformHour = value -> epochHour(unpackMillisUtc(value));
+                    return new ColumnTransform(transform, INTEGER,
+                            block -> transformBlock(TIMESTAMP_WITH_TIME_ZONE, block, transformHour),
+                            ValueTransform.from(TIMESTAMP_WITH_TIME_ZONE, transformHour));
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
         }
