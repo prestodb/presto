@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
-import ru.yandex.clickhouse.ClickHouseDriver;
+import com.clickhouse.jdbc.ClickHouseDriver;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -52,11 +52,9 @@ public class DriverConnectionFactory
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
-        connectionProperties.setProperty("useInformationSchema", "true");
-        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
-        connectionProperties.setProperty("useUnicode", "true");
-        connectionProperties.setProperty("characterEncoding", "utf8");
-        connectionProperties.setProperty("tinyInt1isBit", "false");
+        // Note: The new com.clickhouse JDBC driver does not support the following properties
+        // that were used in the old ru.yandex.clickhouse driver:
+        // - useInformationSchema, nullCatalogMeansCurrent, useUnicode, characterEncoding, tinyInt1isBit
         return connectionProperties;
     }
 

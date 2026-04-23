@@ -280,14 +280,15 @@ public class ClickHouseClient
 
     protected Collection<String> listSchemas(Connection connection)
     {
-        try (ResultSet resultSet = connection.getMetaData().getSchemas()) {
+        // Query ClickHouse system tables directly instead of using JDBC metadata
+        // The new com.clickhouse driver may not properly implement getSchemas()
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(
+                        "SELECT name FROM system.databases WHERE name NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')")) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
-                // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema")) {
-                    schemaNames.add(schemaName);
-                }
+                String schemaName = resultSet.getString("name");
+                schemaNames.add(schemaName);
             }
             return schemaNames.build();
         }
@@ -328,24 +329,122 @@ public class ClickHouseClient
     protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
-        DatabaseMetaData metadata = connection.getMetaData();
-        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-        return metadata.getTables(
-                connection.getCatalog(),
-                escapeNamePattern(schemaName, escape).orElse(null),
-                escapeNamePattern(tableName, escape).orElse(null),
-                new String[] {"TABLE", "VIEW"});
-    }
+        // Query ClickHouse system tables directly instead of using JDBC metadata
+        // The new com.clickhouse driver may not properly implement getTables()
+        StringBuilder query = new StringBuilder(
+                "SELECT database AS TABLE_CAT, database AS TABLE_SCHEM, name AS TABLE_NAME, 'TABLE' AS TABLE_TYPE " +
+                "FROM system.tables WHERE 1=1");
 
+        if (schemaName.isPresent()) {
+            query.append(" AND database = '").append(schemaName.get().replace("'", "''")).append("'");
+        }
+
+        if (tableName.isPresent()) {
+            query.append(" AND name = '").append(tableName.get().replace("'", "''")).append("'");
+        }
+
+        Statement statement = connection.createStatement();
+        return statement.executeQuery(query.toString());
+    }
     private static ResultSet getColumns(ClickHouseTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
-        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-        return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse(null),
-                null);
+        // Query ClickHouse system tables directly instead of using JDBC metadata
+        // The new com.clickhouse driver may not properly implement getColumns()
+        String query = String.format(
+                "SELECT " +
+                "database AS TABLE_CAT, " +
+                "database AS TABLE_SCHEM, " +
+                "table AS TABLE_NAME, " +
+                "name AS COLUMN_NAME, " +
+                "position AS ORDINAL_POSITION, " +
+                "type AS TYPE_NAME, " +
+                "%s AS DATA_TYPE, " +
+                "%s AS COLUMN_SIZE, " +
+                "%s AS DECIMAL_DIGITS, " +
+                "CASE WHEN lower(type) LIKE '%%nullable%%' THEN 1 ELSE 0 END AS NULLABLE " +
+                "FROM system.columns " +
+                "WHERE database = '%s' AND table = '%s' " +
+                "ORDER BY position",
+                buildJdbcTypeMapping(),
+                buildColumnSizeMapping(),
+                buildDecimalDigitsMapping(),
+                tableHandle.getSchemaName().replace("'", "''"),
+                tableHandle.getTableName().replace("'", "''"));
+
+        Statement statement = metadata.getConnection().createStatement();
+        return statement.executeQuery(query);
+    }
+
+    /**
+     * Builds SQL CASE expression to map ClickHouse types to JDBC type codes.
+     * Uses lower(type) for case-insensitive matching.
+     * Order matters: more specific types (DateTime, UInt64) must be checked before generic ones (Date, UInt32).
+     */
+    private static String buildJdbcTypeMapping()
+    {
+        return "CASE " +
+                // Check DateTime before Date to avoid incorrect matching
+                "  WHEN lower(type) LIKE '%datetime%' THEN 93 " +  // TIMESTAMP
+                "  WHEN lower(type) LIKE '%date%' THEN 91 " +  // DATE
+                // Integer types - check larger unsigned types first
+                "  WHEN lower(type) LIKE '%uint64%' THEN -5 " +  // BIGINT (may overflow, but best available JDBC type)
+                "  WHEN lower(type) LIKE '%int64%' OR lower(type) LIKE '%uint32%' THEN -5 " +  // BIGINT
+                "  WHEN lower(type) LIKE '%int32%' OR lower(type) LIKE '%uint16%' THEN 4 " +  // INTEGER
+                "  WHEN lower(type) LIKE '%int16%' OR lower(type) LIKE '%uint8%' THEN 5 " +  // SMALLINT
+                "  WHEN lower(type) LIKE '%int8%' THEN -6 " +  // TINYINT
+                // Floating point types
+                "  WHEN lower(type) LIKE '%float64%' THEN 8 " +  // DOUBLE
+                "  WHEN lower(type) LIKE '%float32%' THEN 7 " +  // REAL
+                // Decimal types
+                "  WHEN lower(type) LIKE '%decimal%' THEN 3 " +  // DECIMAL
+                // String types - FixedString is redundant as it matches %string%
+                "  WHEN lower(type) LIKE '%string%' THEN 12 " +  // VARCHAR
+                // Default to VARCHAR for unknown types
+                "  ELSE 12 " +
+                "END";
+    }
+
+    /**
+     * Builds SQL CASE expression to map ClickHouse types to column sizes.
+     * Uses lower(type) for case-insensitive matching.
+     * Order matters: more specific types must be checked before generic ones.
+     */
+    private static String buildColumnSizeMapping()
+    {
+        return "CASE " +
+                // DateTime before Date
+                "  WHEN lower(type) LIKE '%datetime%' THEN 19 " +
+                "  WHEN lower(type) LIKE '%date%' THEN 10 " +
+                // Integer types - larger types first
+                "  WHEN lower(type) LIKE '%uint64%' THEN 20 " +  // Max digits for UInt64
+                "  WHEN lower(type) LIKE '%int64%' OR lower(type) LIKE '%uint32%' THEN 19 " +
+                "  WHEN lower(type) LIKE '%int32%' OR lower(type) LIKE '%uint16%' THEN 10 " +
+                "  WHEN lower(type) LIKE '%int16%' OR lower(type) LIKE '%uint8%' THEN 5 " +
+                "  WHEN lower(type) LIKE '%int8%' THEN 3 " +
+                // Floating point types
+                "  WHEN lower(type) LIKE '%float64%' THEN 22 " +
+                "  WHEN lower(type) LIKE '%float32%' THEN 12 " +
+                // String types - use Integer.MAX_VALUE for unbounded strings
+                "  WHEN lower(type) LIKE '%string%' THEN 2147483647 " +
+                // Default to max for unknown types
+                "  ELSE 2147483647 " +
+                "END";
+    }
+
+    /**
+     * Builds SQL CASE expression to map ClickHouse types to decimal digits.
+     * Uses lower(type) for case-insensitive matching.
+     * Note: This returns a generic value for all decimals. Ideally, we should parse
+     * precision/scale from Decimal(P,S) type definitions for accurate JDBC metadata.
+     */
+    private static String buildDecimalDigitsMapping()
+    {
+        return "CASE " +
+                "  WHEN lower(type) LIKE '%float%' THEN 7 " +
+                "  WHEN lower(type) LIKE '%double%' THEN 15 " +
+                "  ELSE 0 " +
+                "END";
     }
 
     protected static Optional<String> escapeNamePattern(Optional<String> name, Optional<String> escape)
@@ -815,10 +914,12 @@ public class ClickHouseClient
             return "Int16";
         }
         if (type == INTEGER) {
-            return "Int32";
+            // Map to UInt32 for compatibility with ClickHouse features like sample_by
+            return "UInt32";
         }
         if (type == BIGINT) {
-            return "Int64";
+            // Map to UInt64 for compatibility with ClickHouse features like sample_by
+            return "UInt64";
         }
         if (type.equals(REAL)) {
             return "Float32";
