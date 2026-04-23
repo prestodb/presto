@@ -44,6 +44,11 @@ public abstract class DistributedProcedure
         return type;
     }
 
+    public boolean useProcedureInnerScopeSession()
+    {
+        return false;
+    }
+
     /**
      * Performs the preparatory work required when starting the execution of this distributed procedure.
      * */

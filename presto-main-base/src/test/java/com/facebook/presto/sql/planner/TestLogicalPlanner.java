@@ -218,7 +218,14 @@ public class TestLogicalPlanner
                                 arguments,
                                 (session, transactionContext, procedureHandle, fragments, sortOrderIndex) -> null,
                                 (session, transactionContext, procedureHandle, fragments) -> {},
-                                ignored -> new TestProcedureRegistry.TestProcedureContext()));
+                                ignored -> new TestProcedureRegistry.TestProcedureContext())
+                        {
+                            @Override
+                            public boolean useProcedureInnerScopeSession()
+                            {
+                                return false;
+                            }
+                        });
 
                         return new Connector()
                         {

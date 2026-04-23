@@ -78,6 +78,12 @@ public class TableDataRewriteDistributedProcedure
     }
 
     @Override
+    public boolean useProcedureInnerScopeSession()
+    {
+        return true;
+    }
+
+    @Override
     public ConnectorDistributedProcedureHandle begin(ConnectorSession session, ConnectorProcedureContext procedureContext, ConnectorTableLayoutHandle tableLayoutHandle, Object[] arguments)
     {
         return this.beginCallDistributedProcedure.begin(session, procedureContext, tableLayoutHandle, arguments, getSortOrderIndex());
