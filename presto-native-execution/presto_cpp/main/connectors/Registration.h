@@ -30,12 +30,10 @@ namespace facebook::presto {
 using facebook::velox::connector::ConnectorFactory;
 
 namespace detail {
-inline std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>&
-connectorFactories() {
-  static std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>
-      factories;
-  return factories;
-}
+
+std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>&
+connectorFactories();
+
 } // namespace detail
 
 /// Adds a factory for creating connectors to the registry using connector
