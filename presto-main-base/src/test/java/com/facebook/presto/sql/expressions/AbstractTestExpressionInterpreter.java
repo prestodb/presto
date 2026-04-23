@@ -1464,7 +1464,7 @@ public abstract class AbstractTestExpressionInterpreter
                 "" +
                         "case BIGINT '1' " +
                         "when unbound_long then 1 " +
-                        "when cast(fail(8, 'ignored failure message') AS integer) then 2 " +
+                        "when cast(fail(8, 'ignored failure message') AS bigint) then 2 " +
                         "else 1 " +
                         "end");
     }
