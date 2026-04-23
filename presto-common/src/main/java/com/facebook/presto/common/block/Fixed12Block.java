@@ -45,7 +45,7 @@ public class Fixed12Block
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Fixed12Block.class).instanceSize();
     public static final int FIXED12_BYTES = Long.BYTES + Integer.BYTES;
     public static final int SIZE_IN_BYTES_PER_POSITION = FIXED12_BYTES + Byte.BYTES;
-    private static final int INT_LONGS_PER_ENTRY = 3; // 3 ints = 12 bytes = 1 long + 1 int
+    static final int INT_LONGS_PER_ENTRY = 3; // 3 ints = 12 bytes = 1 long + 1 int
 
     private final int positionOffset;
     private final int positionCount;
@@ -91,7 +91,7 @@ public class Fixed12Block
     public long getFixed12First(int position)
     {
         checkReadablePosition(position);
-        return getFixed12FirstUnchecked(position + positionOffset);
+        return getFixed12FirstUnchecked(values, position + positionOffset);
     }
 
     /**
@@ -100,17 +100,26 @@ public class Fixed12Block
     public int getFixed12Second(int position)
     {
         checkReadablePosition(position);
-        return getFixed12SecondUnchecked(position + positionOffset);
+        return getFixed12SecondUnchecked(values, position + positionOffset);
     }
 
-    long getFixed12FirstUnchecked(int internalPosition)
+    /**
+     * Gets the first component (long) at the given internal position without bounds checking.
+     * The long is reconstructed from two ints stored in little-endian order.
+     * Package-private for use by Fixed12BlockBuilder and Fixed12BlockEncoding.
+     */
+    static long getFixed12FirstUnchecked(int[] values, int internalPosition)
     {
         int baseIndex = internalPosition * INT_LONGS_PER_ENTRY;
         // Reconstruct long from two ints (little-endian: low 32 bits first, high 32 bits second)
         return (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
     }
 
-    int getFixed12SecondUnchecked(int internalPosition)
+    /**
+     * Gets the second component (int) at the given internal position without bounds checking.
+     * Package-private for use by Fixed12BlockBuilder.
+     */
+    static int getFixed12SecondUnchecked(int[] values, int internalPosition)
     {
         int baseIndex = internalPosition * INT_LONGS_PER_ENTRY;
         return values[baseIndex + 2];
@@ -125,15 +134,6 @@ public class Fixed12Block
         target[baseIndex] = (int) first; // low 32 bits
         target[baseIndex + 1] = (int) (first >> 32); // high 32 bits
         target[baseIndex + 2] = second;
-    }
-
-    /**
-     * Helper to reconstruct the first long from the int[] array at the given position.
-     */
-    static long encodeFirstAsLong(int[] values, int position)
-    {
-        int baseIndex = position * INT_LONGS_PER_ENTRY;
-        return (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
     }
 
     @Override
@@ -193,7 +193,7 @@ public class Fixed12Block
     {
         checkReadablePosition(position);
         if (offset == 0) {
-            return getFixed12FirstUnchecked(position + positionOffset);
+            return getFixed12FirstUnchecked(values, position + positionOffset);
         }
         throw new IllegalArgumentException("offset must be 0");
     }
@@ -202,7 +202,7 @@ public class Fixed12Block
     public int getInt(int position)
     {
         checkReadablePosition(position);
-        return getFixed12SecondUnchecked(position + positionOffset);
+        return getFixed12SecondUnchecked(values, position + positionOffset);
     }
 
     @Override
@@ -223,16 +223,14 @@ public class Fixed12Block
     {
         checkReadablePosition(position);
         int internalPos = position + positionOffset;
-        int baseIndex = internalPos * INT_LONGS_PER_ENTRY;
+        long first = getFixed12FirstUnchecked(values, internalPos);
+        int second = getFixed12SecondUnchecked(values, internalPos);
         if (blockBuilder instanceof Fixed12BlockBuilder) {
-            long first = (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(first, values[baseIndex + 2]);
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(first, second);
         }
         else {
-            // Fallback: write as two longs for compatibility
-            long first = (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
             blockBuilder.writeLong(first);
-            blockBuilder.writeInt(values[baseIndex + 2]);
+            blockBuilder.writeInt(second);
             blockBuilder.closeEntry();
         }
     }
@@ -338,7 +336,7 @@ public class Fixed12Block
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         assert offset == 0 : "offset must be 0";
-        return getFixed12FirstUnchecked(internalPosition);
+        return getFixed12FirstUnchecked(values, internalPosition);
     }
 
     @Override
@@ -371,22 +369,62 @@ public class Fixed12Block
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
+
         Fixed12Block other = (Fixed12Block) obj;
-        return this.positionOffset == other.positionOffset &&
-                this.positionCount == other.positionCount &&
-                Arrays.equals(this.valueIsNull, other.valueIsNull) &&
-                Arrays.equals(this.values, other.values) &&
-                this.retainedSizeInBytes == other.retainedSizeInBytes;
+        if (this.positionCount != other.positionCount) {
+            return false;
+        }
+
+        int thisStart = this.positionOffset;
+        int thisEnd = thisStart + this.positionCount;
+        int otherStart = other.positionOffset;
+        int otherEnd = otherStart + other.positionCount;
+
+        // Compare nulls over the visible range only
+        if (this.valueIsNull != null && other.valueIsNull != null) {
+            if (!Arrays.equals(this.valueIsNull, thisStart, thisEnd,
+                    other.valueIsNull, otherStart, otherEnd)) {
+                return false;
+            }
+        }
+        else if (this.valueIsNull != null || other.valueIsNull != null) {
+            // One has null tracking and the other doesn't; check if the one with tracking has any nulls
+            boolean[] nonNullArray = (this.valueIsNull != null) ? this.valueIsNull : other.valueIsNull;
+            int start = (this.valueIsNull != null) ? thisStart : otherStart;
+            int end = (this.valueIsNull != null) ? thisEnd : otherEnd;
+            for (int i = start; i < end; i++) {
+                if (nonNullArray[i]) {
+                    return false;
+                }
+            }
+        }
+
+        int thisValuesStart = this.positionOffset * INT_LONGS_PER_ENTRY;
+        int thisValuesEnd = thisValuesStart + this.positionCount * INT_LONGS_PER_ENTRY;
+        int otherValuesStart = other.positionOffset * INT_LONGS_PER_ENTRY;
+        int otherValuesEnd = otherValuesStart + other.positionCount * INT_LONGS_PER_ENTRY;
+
+        return Arrays.equals(this.values, thisValuesStart, thisValuesEnd,
+                other.values, otherValuesStart, otherValuesEnd);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(positionOffset,
-                positionCount,
-                Arrays.hashCode(valueIsNull),
-                Arrays.hashCode(values),
-                retainedSizeInBytes);
+        int thisStart = this.positionOffset;
+        int thisEnd = thisStart + this.positionCount;
+        int thisValuesStart = this.positionOffset * INT_LONGS_PER_ENTRY;
+        int thisValuesEnd = thisValuesStart + this.positionCount * INT_LONGS_PER_ENTRY;
+
+        int result = Objects.hash(positionCount);
+        // Hash only the visible range of the arrays
+        for (int i = thisStart; valueIsNull != null && i < thisEnd; i++) {
+            result = 31 * result + Boolean.hashCode(valueIsNull[i]);
+        }
+        for (int i = thisValuesStart; i < thisValuesEnd; i++) {
+            result = 31 * result + Integer.hashCode(values[i]);
+        }
+        return result;
     }
 
     private static int[] compactIntArray(int[] array, int index, int length)

@@ -28,7 +28,10 @@ import static com.facebook.presto.common.block.BlockUtil.checkValidRegion;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static com.facebook.presto.common.block.Fixed12Block.FIXED12_BYTES;
+import static com.facebook.presto.common.block.Fixed12Block.INT_LONGS_PER_ENTRY;
 import static com.facebook.presto.common.block.Fixed12Block.encodeFixed12;
+import static com.facebook.presto.common.block.Fixed12Block.getFixed12FirstUnchecked;
+import static com.facebook.presto.common.block.Fixed12Block.getFixed12SecondUnchecked;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -42,7 +45,6 @@ public class Fixed12BlockBuilder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Fixed12BlockBuilder.class).instanceSize();
     private static final Block NULL_VALUE_BLOCK = new Fixed12Block(0, 1, new boolean[] {true}, new int[3]);
-    private static final int INT_LONGS_PER_ENTRY = 3; // 3 ints = 12 bytes
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -221,7 +223,7 @@ public class Fixed12BlockBuilder
     {
         checkReadablePosition(position);
         if (offset == 0) {
-            return Fixed12Block.encodeFirstAsLong(values, position);
+            return getFixed12FirstUnchecked(values, position);
         }
         throw new IllegalArgumentException("offset must be 0");
     }
@@ -230,7 +232,7 @@ public class Fixed12BlockBuilder
     public int getInt(int position)
     {
         checkReadablePosition(position);
-        return values[position * INT_LONGS_PER_ENTRY + 2];
+        return getFixed12SecondUnchecked(values, position);
     }
 
     @Override
@@ -250,16 +252,14 @@ public class Fixed12BlockBuilder
     public void writePositionTo(int position, BlockBuilder blockBuilder)
     {
         checkReadablePosition(position);
+        long first = getFixed12FirstUnchecked(values, position);
+        int second = getFixed12SecondUnchecked(values, position);
         if (blockBuilder instanceof Fixed12BlockBuilder) {
-            int baseIndex = position * INT_LONGS_PER_ENTRY;
-            long first = (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(first, values[baseIndex + 2]);
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(first, second);
         }
         else {
-            int baseIndex = position * INT_LONGS_PER_ENTRY;
-            long first = (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
             blockBuilder.writeLong(first);
-            blockBuilder.writeInt(values[baseIndex + 2]);
+            blockBuilder.writeInt(second);
             blockBuilder.closeEntry();
         }
     }
@@ -380,8 +380,7 @@ public class Fixed12BlockBuilder
     {
         assert internalPositionInRange(internalPosition, getOffsetBase(), getPositionCount());
         assert offset == 0 : "offset must be 0";
-        int baseIndex = internalPosition * INT_LONGS_PER_ENTRY;
-        return (values[baseIndex] & 0xFFFFFFFFL) | ((long) values[baseIndex + 1] << 32);
+        return getFixed12FirstUnchecked(values, internalPosition);
     }
 
     @Override

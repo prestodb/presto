@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.common.block;
 
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.SliceInput;
+import io.airlift.slice.SliceOutput;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -367,5 +371,79 @@ public class TestFixed12Block
         Block block = builder.build();
         assertEquals(block.getEstimatedDataSizeForStats(0), Fixed12Block.FIXED12_BYTES);
         assertEquals(block.getEstimatedDataSizeForStats(1), 0);
+    }
+
+    @Test
+    public void testSliceRoundTripWithWritePositionTo()
+    {
+        Fixed12BlockBuilder builder = new Fixed12BlockBuilder(null, 5);
+        builder.writeFixed12(10L, 1);
+        builder.appendNull();
+        builder.writeFixed12(Long.MAX_VALUE, Integer.MAX_VALUE);
+        builder.writeFixed12(0L, 0);
+        builder.appendNull();
+
+        Block original = builder.build();
+
+        // Serialize positions individually using writePositionTo/readPositionFrom
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+        for (int position = 0; position < original.getPositionCount(); position++) {
+            original.writePositionTo(position, (SliceOutput) sliceOutput);
+        }
+
+        Slice slice = sliceOutput.slice();
+        SliceInput sliceInput = slice.getInput();
+
+        Fixed12BlockBuilder roundTripBuilder = new Fixed12BlockBuilder(null, original.getPositionCount());
+        for (int i = 0; i < original.getPositionCount(); i++) {
+            roundTripBuilder.readPositionFrom(sliceInput);
+        }
+
+        Block roundTripped = roundTripBuilder.build();
+        assertBlockEquals(roundTripped, original);
+    }
+
+    @Test
+    public void testSliceRoundTripNegativeValues()
+    {
+        Fixed12BlockBuilder builder = new Fixed12BlockBuilder(null, 3);
+        builder.writeFixed12(-1L, 999999);
+        builder.writeFixed12(Long.MIN_VALUE, 0);
+        builder.writeFixed12(-123456789L, 500000);
+
+        Block original = builder.build();
+
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
+        for (int position = 0; position < original.getPositionCount(); position++) {
+            original.writePositionTo(position, (SliceOutput) sliceOutput);
+        }
+
+        SliceInput sliceInput = sliceOutput.slice().getInput();
+
+        Fixed12BlockBuilder roundTripBuilder = new Fixed12BlockBuilder(null, original.getPositionCount());
+        for (int i = 0; i < original.getPositionCount(); i++) {
+            roundTripBuilder.readPositionFrom(sliceInput);
+        }
+
+        Block roundTripped = roundTripBuilder.build();
+        assertBlockEquals(roundTripped, original);
+    }
+
+    private void assertBlockEquals(Block actual, Block expected)
+    {
+        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        for (int i = 0; i < expected.getPositionCount(); i++) {
+            assertEquals(actual.isNull(i), expected.isNull(i), "Null mismatch at position " + i);
+            if (!expected.isNull(i)) {
+                assertEquals(
+                        ((Fixed12Block) actual).getFixed12First(i),
+                        ((Fixed12Block) expected).getFixed12First(i),
+                        "First value mismatch at position " + i);
+                assertEquals(
+                        ((Fixed12Block) actual).getFixed12Second(i),
+                        ((Fixed12Block) expected).getFixed12Second(i),
+                        "Second value mismatch at position " + i);
+            }
+        }
     }
 }

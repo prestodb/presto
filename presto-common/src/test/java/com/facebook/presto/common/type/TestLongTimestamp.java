@@ -126,20 +126,29 @@ public class TestLongTimestamp
     public void testToString()
     {
         // LongTimestamp.toString() uses Timestamps.formatTimestamp(12, epochMicros, picosOfMicro)
-        LongTimestamp ts = new LongTimestamp(0L, 0);
-        String str = ts.toString();
-        // Should format as a timestamp string with 12 digits of fractional precision
-        assertTrue(str.contains("1970-01-01"), "Expected epoch date in toString: " + str);
+
+        // Epoch timestamp: 1970-01-01 00:00:00.000000000000
+        LongTimestamp epoch = new LongTimestamp(0L, 0);
+        String epochStr = epoch.toString();
+        assertEquals(epochStr, "1970-01-01 00:00:00.000000000000");
+        assertEquals(epochStr.substring(epochStr.indexOf('.') + 1).length(), 12, "Expected 12 fractional digits for epoch timestamp");
+
+        // Negative timestamp just before the epoch:
+        // -1 micro = 1969-12-31 23:59:59.999999000000
+        LongTimestamp negative = new LongTimestamp(-1L, 0);
+        String negativeStr = negative.toString();
+        assertEquals(negativeStr, "1969-12-31 23:59:59.999999000000");
+        assertEquals(negativeStr.substring(negativeStr.indexOf('.') + 1).length(), 12, "Expected 12 fractional digits for negative timestamp");
     }
 
     @Test
     public void testToStringWithPositiveTimestamp()
     {
-        // 2020-01-01 00:00:00.000000 = 1577836800 seconds = 1577836800000000 micros
+        // 2020-01-01 00:00:00.000000123456 = 1577836800 seconds = 1577836800000000 micros, picosOfMicro = 123456
         LongTimestamp ts = new LongTimestamp(1577836800000000L, 123456);
         String str = ts.toString();
-        assertTrue(str.contains("2020-01-01"), "Expected 2020-01-01 in toString: " + str);
-        assertTrue(str.contains("00:00:00"), "Expected 00:00:00 in toString: " + str);
+        assertEquals(str, "2020-01-01 00:00:00.000000123456");
+        assertEquals(str.substring(str.indexOf('.') + 1).length(), 12, "Expected 12 fractional digits for positive timestamp");
     }
 
     @Test

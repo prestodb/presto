@@ -51,6 +51,17 @@ public class TestTimestampParametricType
         Type type = parametricType.createType(Collections.emptyList());
         assertTrue(type instanceof TimestampType);
         assertEquals(((TimestampType) type).getPrecision(), 3);
+
+        // Default parametric type should return the predefined constant instance
+        assertSame(type, TimestampType.TIMESTAMP);
+    }
+
+    @Test
+    public void testTypeSignatures()
+    {
+        // Lock in special-cased type signatures for backward compatibility
+        assertEquals(TimestampType.TIMESTAMP.getTypeSignature().toString(), "timestamp");
+        assertEquals(TimestampType.TIMESTAMP_MICROSECONDS.getTypeSignature().toString(), "timestamp microseconds");
     }
 
     @Test

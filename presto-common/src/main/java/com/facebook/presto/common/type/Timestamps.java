@@ -72,7 +72,10 @@ public final class Timestamps
      * Rescales a timestamp value from one precision to another.
      * <p>
      * For example, rescaling 123456 from precision 6 (microseconds) to precision 3 (milliseconds)
-     * produces 123 (truncation). Rescaling 123 from precision 3 to precision 6 produces 123000.
+     * produces 123. Rescaling 123 from precision 3 to precision 6 produces 123000.
+     * <p>
+     * When downscaling, uses floor-based division (rounds toward negative infinity) to maintain
+     * monotonic, consistent behavior for negative timestamps (pre-epoch values).
      */
     public static long rescale(long value, int fromPrecision, int toPrecision)
     {
@@ -85,14 +88,17 @@ public final class Timestamps
             return value * POWERS_OF_TEN[scaleFactor];
         }
         else {
-            // Scale down (truncation)
+            // Scale down using floorDiv for consistent behavior with negative values
             int scaleFactor = fromPrecision - toPrecision;
-            return roundDiv(value, POWERS_OF_TEN[scaleFactor]);
+            return floorDiv(value, POWERS_OF_TEN[scaleFactor]);
         }
     }
 
     /**
-     * Rounds toward zero when dividing.
+     * Divides and truncates toward zero (Java's default integer division behavior).
+     * Note: this is NOT floor division — for negative values, the result is
+     * truncated toward zero rather than toward negative infinity. For floor
+     * division, use {@link Math#floorDiv(long, long)}.
      */
     public static long roundDiv(long value, long divisor)
     {

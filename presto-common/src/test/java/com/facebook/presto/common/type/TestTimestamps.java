@@ -63,7 +63,6 @@ public class TestTimestamps
         assertEquals(PICOSECONDS_PER_MILLISECOND, 1_000_000_000L);
 
         assertEquals(NANOSECONDS_PER_MICROSECOND, 1_000L);
-
         assertEquals(PICOSECONDS_PER_MICROSECOND, 1_000_000L);
 
         assertEquals(PICOSECONDS_PER_NANOSECOND, 1_000L);
@@ -115,9 +114,26 @@ public class TestTimestamps
     @Test
     public void testRescaleDownTruncation()
     {
-        // Truncation behavior (toward zero)
+        // FloorDiv behavior (rounds toward negative infinity)
         assertEquals(rescale(1999L, 6, 3), 1L);
-        assertEquals(rescale(-1999L, 6, 3), -1L);
+        assertEquals(rescale(-1999L, 6, 3), -2L);  // floorDiv(-1999, 1000) = -2
+    }
+
+    @Test
+    public void testRescaleNegativeValues()
+    {
+        // Negative values at various precision pairs
+        assertEquals(rescale(-1500L, 3, 0), -2L);  // floorDiv(-1500, 1000) = -2
+        assertEquals(rescale(-1000L, 3, 0), -1L);
+        assertEquals(rescale(-999L, 3, 0), -1L);   // floorDiv(-999, 1000) = -1
+        assertEquals(rescale(-1L, 6, 0), -1L);     // floorDiv(-1, 1000000) = -1
+        assertEquals(rescale(-1_000_000L, 6, 0), -1L);
+        // Scale up negative values
+        assertEquals(rescale(-5L, 0, 3), -5000L);
+        assertEquals(rescale(-1L, 3, 6), -1000L);
+        // Extreme precision pairs
+        assertEquals(rescale(-1L, 12, 0), -1L);    // floorDiv(-1, 10^12) = -1
+        assertEquals(rescale(-1L, 0, 12), -1_000_000_000_000L);
     }
 
     @Test
@@ -146,6 +162,26 @@ public class TestTimestamps
 
         // Round to precision 0
         assertEquals(round(123456789012L, 0), 0L);
+    }
+
+    @Test
+    public void testRoundNegative()
+    {
+        // At max precision, negative values are preserved as-is
+        assertEquals(round(-123456789012L, 12), -123456789012L);
+
+        // Truncate toward zero for negative values at precision 9
+        assertEquals(round(-123456789012L, 9), -123456789000L);
+
+        // Truncate toward zero for negative values at precision 6
+        assertEquals(round(-123456789012L, 6), -123456000000L);
+
+        // Truncate toward zero for negative values at precision 0
+        assertEquals(round(-123456789012L, 0), 0L);
+
+        // Small negative values
+        assertEquals(round(-1L, 12), -1L);
+        assertEquals(round(-1L, 9), 0L);
     }
 
     @Test
