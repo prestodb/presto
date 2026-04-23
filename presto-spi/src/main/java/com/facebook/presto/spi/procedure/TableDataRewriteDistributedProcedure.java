@@ -152,9 +152,25 @@ public class TableDataRewriteDistributedProcedure
                 sortFieldStrings = Collections.emptyList();
             }
             else if (value instanceof List<?>) {
-                sortFieldStrings = Collections.unmodifiableList(((List<?>) value).stream()
-                        .map(String.class::cast)
-                        .collect(Collectors.toList()));
+                try {
+                    sortFieldStrings = Collections.unmodifiableList(((List<?>) value).stream()
+                            .map(element -> {
+                                if (!(element instanceof String)) {
+                                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                                            format("sorted_by array must contain only varchar elements, found: %s",
+                                                    element == null ? "null" : element.getClass().getSimpleName()));
+                                }
+                                return (String) element;
+                            })
+                            .collect(Collectors.toList()));
+                }
+                catch (PrestoException e) {
+                    throw e;
+                }
+                catch (ClassCastException e) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                            "sorted_by array must contain only varchar elements", e);
+                }
             }
             else {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "sorted_by must be an array(varchar)");
@@ -165,10 +181,27 @@ public class TableDataRewriteDistributedProcedure
 
     public static Optional<List<String>> extractZOrderColumns(List<String> sortFieldStrings)
     {
-        return sortFieldStrings.stream()
-                .map(TableDataRewriteDistributedProcedure::parse)
-                .filter(Optional::isPresent).findFirst()
-                .map(Optional::get);
+        Optional<List<String>> zorderColumns = Optional.empty();
+        for (String sortField : sortFieldStrings) {
+            if (isZorderExpression(sortField)) {
+                if (zorderColumns.isPresent()) {
+                    throw new PrestoException(
+                            INVALID_FUNCTION_ARGUMENT,
+                            "Multiple zorder(...) expressions are not supported in sorted_by");
+                }
+                zorderColumns = Optional.of(
+                        parse(sortField)
+                                .orElseThrow(() -> new PrestoException(
+                                        INVALID_FUNCTION_ARGUMENT,
+                                        "Malformed zorder(...) expression: " + sortField)));
+            }
+        }
+        return zorderColumns;
+    }
+
+    private static boolean isZorderExpression(String input)
+    {
+        return input != null && input.regionMatches(true, 0, "zorder(", 0, "zorder(".length());
     }
 
     private static Optional<List<String>> parse(String input)

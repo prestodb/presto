@@ -14,13 +14,22 @@
 package com.facebook.presto.iceberg.function;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.iceberg.util.ZOrderByteUtils;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+
+import java.util.List;
+
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static java.lang.String.format;
 
 /**
  * Presto scalar functions for Z-Order operations.
@@ -36,9 +45,8 @@ public final class IcebergZOrderFunctions
 
     private static final byte[] PRIMITIVE_EMPTY = new byte[ZOrderByteUtils.PRIMITIVE_BUFFER_SIZE];
 
-    @ScalarFunction(value = "zorder_tinyint_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderTinyintBytes(@SqlNullable @SqlType(StandardTypes.TINYINT) Long value)
+    // Private helper functions for type conversion
+    private static Slice zorderTinyintBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -46,9 +54,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.tinyintToOrderedBytes(value.byteValue());
     }
 
-    @ScalarFunction(value = "zorder_smallint_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderSmallintBytes(@SqlNullable @SqlType(StandardTypes.SMALLINT) Long value)
+    private static Slice zorderSmallintBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -56,9 +62,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.shortToOrderedBytes(value.shortValue());
     }
 
-    @ScalarFunction(value = "zorder_integer_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderIntegerBytes(@SqlNullable @SqlType(StandardTypes.INTEGER) Long value)
+    private static Slice zorderIntegerBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -66,9 +70,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.intToOrderedBytes(value.intValue());
     }
 
-    @ScalarFunction(value = "zorder_bigint_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderBigintBytes(@SqlNullable @SqlType(StandardTypes.BIGINT) Long value)
+    private static Slice zorderBigintBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -76,9 +78,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.longToOrderedBytes(value);
     }
 
-    @ScalarFunction(value = "zorder_real_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderRealBytes(@SqlNullable @SqlType(StandardTypes.REAL) Long value)
+    private static Slice zorderRealBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -86,9 +86,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.floatToOrderedBytes(Float.intBitsToFloat(value.intValue()));
     }
 
-    @ScalarFunction(value = "zorder_double_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderDoubleBytes(@SqlNullable @SqlType(StandardTypes.DOUBLE) Double value)
+    private static Slice zorderDoubleBytes(Double value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -96,9 +94,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.doubleToOrderedBytes(value);
     }
 
-    @ScalarFunction(value = "zorder_boolean_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderBooleanBytes(@SqlNullable @SqlType(StandardTypes.BOOLEAN) Boolean value)
+    private static Slice zorderBooleanBytes(Boolean value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -106,25 +102,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.booleanToOrderedBytes(value);
     }
 
-    @ScalarFunction(value = "zorder_varchar_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderVarcharBytes(@SqlNullable @SqlType(StandardTypes.VARCHAR) Slice value, @SqlType(StandardTypes.INTEGER) long length)
-    {
-        // stringToOrderedBytes already handles null by returning zero-filled array
-        return ZOrderByteUtils.stringToOrderedBytes(value, (int) length);
-    }
-
-    @ScalarFunction(value = "zorder_varbinary_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderVarbinaryBytes(@SqlNullable @SqlType(StandardTypes.VARBINARY) Slice value, @SqlType(StandardTypes.INTEGER) long length)
-    {
-        // byteTruncateOrFill already handles null by returning zero-filled array
-        return ZOrderByteUtils.byteTruncateOrFill(value, (int) length);
-    }
-
-    @ScalarFunction(value = "zorder_date_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderDateBytes(@SqlNullable @SqlType(StandardTypes.DATE) Long value)
+    private static Slice zorderDateBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -132,9 +110,7 @@ public final class IcebergZOrderFunctions
         return ZOrderByteUtils.intToOrderedBytes(value.intValue());
     }
 
-    @ScalarFunction(value = "zorder_timestamp_bytes", calledOnNullInput = true)
-    @SqlType(StandardTypes.VARBINARY)
-    public static Slice zorderTimestampBytes(@SqlNullable @SqlType(StandardTypes.TIMESTAMP) Long value)
+    private static Slice zorderTimestampBytes(Long value)
     {
         if (value == null) {
             return Slices.wrappedBuffer(PRIMITIVE_EMPTY);
@@ -143,33 +119,90 @@ public final class IcebergZOrderFunctions
     }
 
     /**
-     * Interleaves bits from an array of binary values to create a Z-order value.
+     * Computes Z-order value from a ROW of columns.
+     * Usage: zorder(ROW(col1, col2, col3, ...))
      *
-     * @param array Array of binary values (each value is the output of a zorder_*_bytes function)
-     * @param interleavedSize The size of the output in bytes
-     * @return The interleaved binary value
+     * @param rowType The type information for the row
+     * @param rowBlock The row block containing the column values
+     * @return The interleaved Z-order binary value
      */
     @ScalarFunction("zorder")
+    @TypeParameter("T")
     @SqlType(StandardTypes.VARBINARY)
     @SqlNullable
-    public static Slice zorder(@SqlType("array(varbinary)") Block array, @SqlType(StandardTypes.INTEGER) long interleavedSize)
+    public static Slice zorder(@TypeParameter("T") Type rowType, @SqlType("T") Block rowBlock)
     {
-        if (array == null || array.getPositionCount() == 0) {
-            // Return zero-filled array for empty input
-            byte[] bytes = new byte[(int) interleavedSize];
-            return Slices.wrappedBuffer(bytes);
+        if (!(rowType instanceof RowType)) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "zorder function requires a ROW type");
         }
 
-        Slice[] columnsBinary = new Slice[array.getPositionCount()];
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (array.isNull(i)) {
-                // Return zero-filled array if any column is null
-                byte[] bytes = new byte[(int) interleavedSize];
-                return Slices.wrappedBuffer(bytes);
+        RowType row = (RowType) rowType;
+        List<RowType.Field> fields = row.getFields();
+        int fieldCount = fields.size();
+
+        if (fieldCount == 0) {
+            return Slices.wrappedBuffer(new byte[0]);
+        }
+
+        // Convert each field to ordered bytes based on its type
+        Slice[] columnBytes = new Slice[fieldCount];
+        int totalSize = 0;
+
+        for (int i = 0; i < fieldCount; i++) {
+            Type fieldType = fields.get(i).getType();
+
+            if (rowBlock.isNull(i)) {
+                // Use zero-filled bytes for null values
+                columnBytes[i] = Slices.wrappedBuffer(PRIMITIVE_EMPTY);
+                totalSize += PRIMITIVE_EMPTY.length;
             }
-            columnsBinary[i] = array.getSlice(i, 0, array.getSliceLength(i));
+            else {
+                columnBytes[i] = convertFieldToOrderedBytes(fieldType, rowBlock, i);
+                totalSize += columnBytes[i].length();
+            }
         }
 
-        return ZOrderByteUtils.interleaveBits(columnsBinary, (int) interleavedSize);
+        return ZOrderByteUtils.interleaveBits(columnBytes, totalSize);
+    }
+
+    /**
+     * Converts a field from a row block to ordered bytes based on its type.
+     */
+    private static Slice convertFieldToOrderedBytes(Type fieldType, Block rowBlock, int fieldIndex)
+    {
+        String typeName = fieldType.getTypeSignature().getBase();
+
+        switch (typeName) {
+            case StandardTypes.TINYINT:
+                return zorderTinyintBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.SMALLINT:
+                return zorderSmallintBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.INTEGER:
+                return zorderIntegerBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.BIGINT:
+                return zorderBigintBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.REAL:
+                return zorderRealBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.DOUBLE:
+                return zorderDoubleBytes(fieldType.getDouble(rowBlock, fieldIndex));
+            case StandardTypes.BOOLEAN:
+                return zorderBooleanBytes(fieldType.getBoolean(rowBlock, fieldIndex));
+            case StandardTypes.DATE:
+                return zorderDateBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.TIMESTAMP:
+                return zorderTimestampBytes(fieldType.getLong(rowBlock, fieldIndex));
+            case StandardTypes.VARCHAR:
+                // Use a default length of 32 bytes for VARCHAR fields
+                Slice varcharValue = fieldType.getSlice(rowBlock, fieldIndex);
+                return ZOrderByteUtils.stringToOrderedBytes(varcharValue, 32);
+            case StandardTypes.VARBINARY:
+                // Use a default length of 32 bytes for VARBINARY fields
+                Slice varbinaryValue = fieldType.getSlice(rowBlock, fieldIndex);
+                return ZOrderByteUtils.byteTruncateOrFill(varbinaryValue, 32);
+            default:
+                throw new PrestoException(
+                        INVALID_FUNCTION_ARGUMENT,
+                        format("Cannot use column of type %s in ZOrdering, the type is unsupported. Supported types are: TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARCHAR, VARBINARY", typeName));
+        }
     }
 }

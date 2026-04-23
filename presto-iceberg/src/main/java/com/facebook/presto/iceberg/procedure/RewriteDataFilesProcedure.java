@@ -161,10 +161,21 @@ public class RewriteDataFilesProcedure
             List<String> sortFieldStrings = extractSortFieldStrings(arguments, sortOrderIndex);
             if (!sortFieldStrings.isEmpty()) {
                 zOrderColumns = extractZOrderColumns(sortFieldStrings);
-                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(),
-                        sortFieldStrings.stream()
-                                .filter(str -> !str.startsWith("zorder"))
-                                .collect(toImmutableList()));
+
+                // Validate that zorder is not mixed with regular column names
+                boolean hasZOrder = zOrderColumns.isPresent();
+                List<String> nonZOrderFields = sortFieldStrings.stream()
+                        .filter(str -> !str.startsWith("zorder"))
+                        .collect(toImmutableList());
+                boolean hasRegularColumns = !nonZOrderFields.isEmpty();
+
+                if (hasZOrder && hasRegularColumns) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            "Cannot mix zorder function with regular column names in sorted_by. " +
+                            "Use either zorder function alone or regular column names, but not both.");
+                }
+
+                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields);
                 if (specifiedSortOrder.satisfies(sortOrder)) {
                     // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
                     sortOrder = specifiedSortOrder;

@@ -17,8 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
@@ -57,6 +57,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
@@ -130,6 +131,7 @@ import static com.facebook.presto.spi.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.spi.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.spi.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.spi.plan.TableWriterNode.UpdateTarget;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndFinal;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
@@ -149,6 +151,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -327,14 +330,29 @@ public class LogicalPlanner
                 .map(TableDataRewriteAnalysisContext.class::cast)
                 .flatMap(TableDataRewriteAnalysisContext::getzOrderColumns);
         if (zOrderColumns.isPresent() && !zOrderColumns.get().isEmpty()) {
-            // todo: use the column names in `zOrderColumns` to construct a `zorder` function to replace to `to_utf8` function here.
-            VariableReferenceExpression orderCol1 = columnToVariableMap.get(zOrderColumns.get().get(0));
-            CallExpression castToVarchar = call("CAST", metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, orderCol1.getType(), VARCHAR), VARCHAR, orderCol1);
-            CallExpression varbinaryFunction = call("to_utf8", metadata.getFunctionAndTypeManager().lookupFunction("to_utf8", fromTypes(VARCHAR)), VARBINARY, castToVarchar);
+            // Validate all z-order column names exist before mapping to variables
+            List<String> invalidColumns = zOrderColumns.get().stream()
+                    .filter(columnName -> !columnToVariableMap.containsKey(columnName))
+                    .collect(toImmutableList());
+
+            if (!invalidColumns.isEmpty()) {
+                throw new PrestoException(
+                        COLUMN_NOT_FOUND,
+                        format("Z-order column(s) not found in table: %s. Available columns: %s",
+                                invalidColumns,
+                                columnToVariableMap.keySet()));
+            }
+
+            List<VariableReferenceExpression> zOrderColumnVars = zOrderColumns.get().stream()
+                    .map(columnToVariableMap::get)
+                    .collect(toImmutableList());
+
+            CallExpression zorderFunction = buildZOrderFunctionCall(zOrderColumnVars, metadata);
+
             VariableReferenceExpression output = variableAllocator.newVariable("$z_order", VARBINARY);
             Assignments assignments = Assignments.builder()
                     .putAll(identityAssignments(queryRoot.getOutputVariables()))
-                    .put(output, varbinaryFunction)
+                    .put(output, zorderFunction)
                     .build();
             queryRoot = new ProjectNode(idAllocator.getNextId(), queryRoot, assignments);
             columnNames = ImmutableList.<String>builder().addAll(columnNames).add("$z_order").build();
@@ -1140,5 +1158,35 @@ public class LogicalPlanner
                     tableLayout.get().getWriterPolicy() == MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
         return partitioningScheme;
+    }
+
+    /**
+     * Builds a zorder function call expression: zorder(ROW(col1, col2, ...))
+     *
+     * @param columns the columns to include in the z-order calculation
+     * @param metadata the metadata for function lookup
+     * @return a CallExpression representing the zorder function call
+     */
+    private static CallExpression buildZOrderFunctionCall(List<VariableReferenceExpression> columns, Metadata metadata)
+    {
+        // Create anonymous ROW type from column types
+        List<Type> columnTypes = columns.stream()
+                .map(VariableReferenceExpression::getType)
+                .collect(toImmutableList());
+        RowType rowType = RowType.anonymous(columnTypes);
+
+        // Create ROW constructor: ROW(col1, col2, ...)
+        List<RowExpression> rowArguments = columns.stream()
+                .map(var -> (RowExpression) var)
+                .collect(toImmutableList());
+        SpecialFormExpression rowConstructor = new SpecialFormExpression(
+                ROW_CONSTRUCTOR,
+                rowType,
+                rowArguments);
+
+        // Create and return zorder function call: zorder(ROW(col1, col2, ...))
+        FunctionHandle zorderFunctionHandle = metadata.getFunctionAndTypeManager()
+                .lookupFunction("zorder", fromTypes(rowType));
+        return call("zorder", zorderFunctionHandle, VARBINARY, rowConstructor);
     }
 }
