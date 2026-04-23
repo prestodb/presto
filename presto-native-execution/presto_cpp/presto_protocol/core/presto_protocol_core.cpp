@@ -952,10 +952,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<CallDistributedProcedureNode>(p);
     return;
   }
-<<<<<<< HEAD
   if (type == "com.facebook.presto.sql.planner.plan.RPCNode") {
     j = *std::static_pointer_cast<RPCNode>(p);
-=======
+    return;
+  }
   if (type == "com.facebook.presto.sql.planner.plan.TableFunctionNode") {
     j = *std::static_pointer_cast<TableFunctionNode>(p);
     return;
@@ -963,7 +963,6 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
   if (type ==
       "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode") {
     j = *std::static_pointer_cast<TableFunctionProcessorNode>(p);
->>>>>>> e96b42c4506 (feat(native) : Add TVF Native Plugin)
     return;
   }
 
@@ -1170,10 +1169,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
     p = std::static_pointer_cast<PlanNode>(k);
     return;
   }
-<<<<<<< HEAD
   if (type == "com.facebook.presto.sql.planner.plan.RPCNode") {
     std::shared_ptr<RPCNode> k = std::make_shared<RPCNode>();
-=======
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
   if (type == "com.facebook.presto.sql.planner.plan.TableFunctionNode") {
     std::shared_ptr<TableFunctionNode> k =
         std::make_shared<TableFunctionNode>();
@@ -1185,7 +1186,6 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
       "com.facebook.presto.sql.planner.plan.TableFunctionProcessorNode") {
     std::shared_ptr<TableFunctionProcessorNode> k =
         std::make_shared<TableFunctionProcessorNode>();
->>>>>>> e96b42c4506 (feat(native) : Add TVF Native Plugin)
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
