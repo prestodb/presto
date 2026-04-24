@@ -246,14 +246,11 @@ TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToHttp) {
   auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
-  ASSERT_EQ(
-      partitionedOutput->transportType(),
-      core::PartitionedOutputNode::TransportType::kHttp);
+  ASSERT_EQ(partitionedOutput->transportType(), core::TransportType::kHttp);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
-  ASSERT_EQ(
-      exchange->transportType(), core::ExchangeNode::TransportType::kHttp);
+  ASSERT_EQ(exchange->transportType(), core::TransportType::kHttp);
 }
 
 // Verify that ANY transportType on RemoteSourceNode and outputTransportType
@@ -271,13 +268,11 @@ TEST_F(PlanConverterTest, transportTypeAny) {
   auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
-  ASSERT_EQ(
-      partitionedOutput->transportType(),
-      core::PartitionedOutputNode::TransportType::kUcx);
+  ASSERT_EQ(partitionedOutput->transportType(), core::TransportType::kUcx);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
-  ASSERT_EQ(exchange->transportType(), core::ExchangeNode::TransportType::kUcx);
+  ASSERT_EQ(exchange->transportType(), core::TransportType::kUcx);
 }
 
 // Verify that HTTP transportType is explicitly propagated.
@@ -293,14 +288,11 @@ TEST_F(PlanConverterTest, transportTypeHttp) {
   auto* partitionedOutput = dynamic_cast<const core::PartitionedOutputNode*>(
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
-  ASSERT_EQ(
-      partitionedOutput->transportType(),
-      core::PartitionedOutputNode::TransportType::kHttp);
+  ASSERT_EQ(partitionedOutput->transportType(), core::TransportType::kHttp);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
-  ASSERT_EQ(
-      exchange->transportType(), core::ExchangeNode::TransportType::kHttp);
+  ASSERT_EQ(exchange->transportType(), core::TransportType::kHttp);
 }
 
 TEST_F(PlanConverterTest, batchPlanConversion) {

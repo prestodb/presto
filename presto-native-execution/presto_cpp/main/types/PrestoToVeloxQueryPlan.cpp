@@ -386,26 +386,23 @@ std::string toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
 }
 
 // Converts a Presto protocol transport type to the corresponding Velox
-// transport type.  Works for both core::ExchangeNode::TransportType and
-// core::PartitionedOutputNode::TransportType since the two Velox enums
-// share the same kHttp / kUcx values.
+// transport type.
 // Protocol ANY maps to Velox kUcx (worker uses any available transport).
 // A null shared_ptr (absent JSON field) defaults to kHttp for backward
 // compatibility with coordinators that do not send the field.
-template <typename VeloxTransportType>
-VeloxTransportType toVeloxTransportType(
+core::TransportType toVeloxTransportType(
     const std::shared_ptr<protocol::TransportType>& t) {
   if (!t) {
-    return VeloxTransportType::kHttp;
+    return core::TransportType::kHttp;
   }
   switch (*t) {
     case protocol::TransportType::HTTP:
-      return VeloxTransportType::kHttp;
+      return core::TransportType::kHttp;
     case protocol::TransportType::ANY:
-      return VeloxTransportType::kUcx;
+      return core::TransportType::kUcx;
   }
   // Unreachable; default to HTTP for safety if new values are added.
-  return VeloxTransportType::kHttp;
+  return core::TransportType::kHttp;
 }
 
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
@@ -2419,8 +2416,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   const auto partitionedOutputNodeId =
       toPartitionedOutputNodeId(fragment.root->id);
   const auto outputTransportType =
-      toVeloxTransportType<core::PartitionedOutputNode::TransportType>(
-          fragment.outputTransportType);
+      toVeloxTransportType(fragment.outputTransportType);
 
   if (auto systemPartitioningHandle =
           std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
@@ -2575,7 +2571,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       toRowType(node->outputVariables, typeParser_),
       "Presto",
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId),
-      core::PartitionedOutputNode::TransportType::kHttp);
+      core::TransportType::kHttp);
 }
 
 core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
@@ -2599,15 +2595,13 @@ core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
         sortingKeys,
         sortingOrders,
         toVeloxSerdeKind(node->encoding),
-        toVeloxTransportType<core::ExchangeNode::TransportType>(
-            node->transportType));
+        toVeloxTransportType(node->transportType));
   }
   return std::make_shared<core::ExchangeNode>(
       node->id,
       rowType,
       toVeloxSerdeKind(node->encoding),
-      toVeloxTransportType<core::ExchangeNode::TransportType>(
-          node->transportType));
+      toVeloxTransportType(node->transportType));
 }
 
 connector::CommitStrategy
@@ -2722,11 +2716,7 @@ core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
     return std::make_shared<core::ExchangeNode>(
-        node->id,
-        rowType,
-        "Presto",
-        toVeloxTransportType<core::ExchangeNode::TransportType>(
-            node->transportType));
+        node->id, rowType, "Presto", toVeloxTransportType(node->transportType));
   }
   // Partitioned shuffle exchange source.
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
