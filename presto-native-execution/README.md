@@ -139,7 +139,7 @@ by running the following script from the `presto/presto-native-execution` direct
 `./scripts/setup-adapters.sh arrow_flight`
 
 #### Lance Connector
-To enable [Lance](https://github.com/lancedb/lance) connector support, add to the `EXTRA_CMAKE_FLAGS` environment variable:
+To enable [Lance](https://github.com/lance-format/lance) connector support, add to the `EXTRA_CMAKE_FLAGS` environment variable:
 `export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_LANCE=ON"`
 
 This compiles in the C++ protocol bridge, registers the `LancePrestoToVeloxConnector`,
