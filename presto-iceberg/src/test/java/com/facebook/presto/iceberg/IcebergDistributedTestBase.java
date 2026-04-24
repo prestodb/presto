@@ -1817,7 +1817,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'])", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], options => map(array['min-input-files'], array['1']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -1840,7 +1840,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'])", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], options => map(array['min-input-files'], array['1']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 3);
             for (Object filePath : result.getOnlyColumnAsSet()) {
@@ -1864,7 +1864,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'DDDD')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'FFFF')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'], options => map(array['min-input-files'], array['1']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -1887,7 +1887,7 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'BBBB'), (4,'AAAA')", 2);
             assertUpdate("INSERT INTO " + tableName + " VALUES (9, 'CCCC'), (11,'BBBB')", 2);
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'])", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC'], options => map(array['min-input-files'], array['1']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 3);
             for (Object filePath : result.getOnlyColumnAsSet()) {
@@ -1914,7 +1914,7 @@ public abstract class IcebergDistributedTestBase
                 assertTrue(isFileSorted(String.valueOf(filePath), "id", "DESC"));
             }
 
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC', 'emp_name ASC'])", schema, tableName), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id DESC', 'emp_name ASC'], options => map(array['min-input-files'], array['1']))", schema, tableName), 7);
             MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
             assertEquals(result.getOnlyColumnAsSet().size(), 1);
             String filePath = String.valueOf(result.getOnlyValue());
@@ -1971,7 +1971,8 @@ public abstract class IcebergDistributedTestBase
                             "schema => '%s', " +
                             "table_name => '%s', " +
                             "filter => 'emp_name = ''AAAAA''', " +
-                            "sorted_by => ARRAY['id desc'])",
+                            "sorted_by => ARRAY['id desc'], " +
+                            "options => map(array['min-input-files'], array['1']))",
                     schema, tableName), 3);
 
             // Rewrite only rows with `emp_name = 'BBBBB'` and sort the rewritten data files by `id asc`
@@ -1980,7 +1981,8 @@ public abstract class IcebergDistributedTestBase
                             "schema => '%s', " +
                             "table_name => '%s', " +
                             "filter => 'emp_name = ''BBBBB''', " +
-                            "sorted_by => ARRAY['id asc'])",
+                            "sorted_by => ARRAY['id asc'], " +
+                            "options => map(array['min-input-files'], array['1']))",
                     schema, tableName), 4);
 
             // All data is still present
@@ -2412,7 +2414,8 @@ public abstract class IcebergDistributedTestBase
             assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", ".*");
             assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", ".*");
 
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch')", 3);
+            // Explicitly set min-input-files=1 since we only have 4 files and want to rewrite them
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', options => map(array['min-input-files'], array['1']))", 3);
             assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3), (5, '1005', 5)");
             icebergTable = loadTable(tableName);
             assertHasDataFiles(icebergTable.currentSnapshot(), 3);
@@ -2425,7 +2428,8 @@ public abstract class IcebergDistributedTestBase
             assertHasDataFiles(icebergTable.currentSnapshot(), 2);
             assertHasDeleteFiles(icebergTable.currentSnapshot(), 0);
 
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 2')", 1);
+            // Explicitly set min-input-files=1 since we only have 2 files and want to rewrite them
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 2', options => map(array['min-input-files'], array['1']))", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES (2, '1002', NULL), (3, '1003', 3)");
             icebergTable = loadTable(tableName);
             assertHasDataFiles(icebergTable.currentSnapshot(), 2);

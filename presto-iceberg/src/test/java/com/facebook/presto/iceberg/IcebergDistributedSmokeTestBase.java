@@ -2093,7 +2093,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
 
             // Call procedure rewrite_data_files without filter to rewrite all data files
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "')", 5);
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', options => map(array['min-input-files'], array['1']))", 5);
 
             // Then we can do metadata delete on column `c`, because all data files are rewritten under new partition spec
             assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);
@@ -2123,7 +2123,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails("DELETE FROM " + tableName + " WHERE c > 3", errorMessage);
 
             // Call procedure rewrite_data_files with filter to rewrite data files under the prior partition spec
-            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', filter => 'a in (1, 2)')", 2);
+            assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => '" + schemaName + "', filter => 'a in (1, 2)', options => map(array['min-input-files'], array['1']))", 2);
 
             // Then we can do metadata delete on column `c`, because all data files are now under new partition spec
             assertUpdate("DELETE FROM " + tableName + " WHERE c > 3", 2);

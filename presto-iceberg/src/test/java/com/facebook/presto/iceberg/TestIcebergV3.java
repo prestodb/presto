@@ -268,7 +268,7 @@ public class TestIcebergV3
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'A', 100.0), (2, 'B', 200.0), (3, 'A', 150.0), (4, 'C', 300.0)");
 
-            assertQuerySucceeds(format("CALL system.rewrite_data_files('%s', '%s')", TEST_SCHEMA, tableName));
+            assertQuerySucceeds(format("CALL system.rewrite_data_files('%s', '%s', map(array['min-input-files'], array['1']))", TEST_SCHEMA, tableName));
 
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'A', 100.0), (2, 'B', 200.0), (3, 'A', 150.0), (4, 'C', 300.0)");
