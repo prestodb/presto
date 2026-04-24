@@ -32,7 +32,9 @@ import com.google.common.collect.ImmutableSet;
 import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.Test;
 
+import java.security.Principal;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -58,6 +60,7 @@ import static com.facebook.presto.server.security.ServletSecurityUtils.AUTHORIZE
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestQuerySessionSupplier
 {
@@ -150,6 +153,72 @@ public class TestQuerySessionSupplier
                 ImmutableMap.of());
         HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
+    }
+
+    @Test
+    public void testSessionWithAuthorizedPrincipal()
+    {
+        Principal clientPrincipal = new javax.security.auth.x500.X500Principal("CN=user:testclient");
+        AuthorizedIdentity authorizedIdentity = new AuthorizedIdentity("userName", "reasonForSelect", false, clientPrincipal);
+
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "testRemote",
+                ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionBuilder(new QueryId("test_query_id"), context, warningCollectorFactory).build();
+
+        assertTrue(session.getIdentity().getPrincipal().isPresent());
+        assertEquals(session.getIdentity().getPrincipal().get(), clientPrincipal);
+        assertEquals(session.getIdentity().getSelectedUser().get(), "userName");
+    }
+
+    @Test
+    public void testSessionWithoutAuthorizedPrincipal()
+    {
+        AuthorizedIdentity authorizedIdentity = new AuthorizedIdentity("userName", "reasonForSelect", false);
+
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .build(),
+                "testRemote",
+                ImmutableMap.of(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
+                createTestTransactionManager(),
+                new AllowAllAccessControl(),
+                createTestingSessionPropertyManager(),
+                new SqlEnvironmentConfig(),
+                new SecurityConfig());
+        WarningCollectorFactory warningCollectorFactory = new WarningCollectorFactory()
+        {
+            @Override
+            public WarningCollector create(WarningHandlingLevel warningHandlingLevel)
+            {
+                return WarningCollector.NOOP;
+            }
+        };
+        Session session = sessionSupplier.createSessionBuilder(new QueryId("test_query_id"), context, warningCollectorFactory).build();
+
+        assertEquals(session.getIdentity().getPrincipal(), Optional.empty());
+        assertEquals(session.getIdentity().getSelectedUser().get(), "userName");
     }
 
     @Test(expectedExceptions = TimeZoneNotSupportedException.class)
