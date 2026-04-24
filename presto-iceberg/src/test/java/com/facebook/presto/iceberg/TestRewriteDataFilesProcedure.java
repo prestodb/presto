@@ -120,7 +120,7 @@ public class TestRewriteDataFilesProcedure
                             "(5, 'foo'), (6, 'bar'), " +
                             "(9, 'foo')");
 
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 7);
 
             table.refresh();
             assertHasSize(table.snapshots(), 8);
@@ -181,7 +181,7 @@ public class TestRewriteDataFilesProcedure
                             "(5, 'foo'), (6, 'bar'), " +
                             "(8, 'bar')");
 
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 7);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 7);
 
             table.refresh();
             assertHasSize(table.snapshots(), 8);
@@ -232,7 +232,7 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
 
             // select 5 files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 5);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 5);
             table.refresh();
             assertHasSize(table.snapshots(), 6);
             //The number of data files is 6，and the number of delete files is 0
@@ -283,7 +283,7 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
 
             // the filter is `true` means select all files to rewrite
-            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 10);
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 10);
 
             table.refresh();
             assertHasSize(table.snapshots(), 6);
@@ -386,8 +386,7 @@ public class TestRewriteDataFilesProcedure
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a > 3')", tableName, TEST_SCHEMA), ".*");
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, TEST_SCHEMA), ".*");
 
-            // Set min-input-files=1 since we have 4 files across multiple partitions
-            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 3);
+            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 3);
             table.refresh();
             assertHasSize(table.snapshots(), 5);
             //The number of data files is 3，and the number of delete files is 0
@@ -405,8 +404,7 @@ public class TestRewriteDataFilesProcedure
             //The number of data files is 3，and the number of delete files is 1
             assertHasDataFiles(table.currentSnapshot(), 3);
             assertHasDeleteFiles(table.currentSnapshot(), 1);
-            // Set min-input-files=1 to allow rewrite with filter
-            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null', options => map(array['min-input-files'], array['1']))", tableName, TEST_SCHEMA), 0);
+            assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c is null', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 0);
 
             table.refresh();
             assertHasSize(table.snapshots(), 7);
@@ -879,8 +877,7 @@ public class TestRewriteDataFilesProcedure
 
             // min-file-size-bytes filters files BELOW threshold (too small)
             // Should select the two small files and combine them
-            // Set max-file-size-bytes to Long.MAX_VALUE to disable the default maximum filter
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-input-files', 'min-file-size-bytes', 'max-file-size-bytes'], array['1', '%d', '%d']))", TEST_SCHEMA, tableName, threshold, Long.MAX_VALUE), 2);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-input-files', 'min-file-size-bytes'], array['1', '%d']))", TEST_SCHEMA, tableName, threshold), 2);
 
             table.refresh();
             // Two small files combined into one, large file unchanged = 2 total files
@@ -927,8 +924,7 @@ public class TestRewriteDataFilesProcedure
 
             // max-file-size-bytes filters files ABOVE threshold (too large)
             // Should select the two large files and combine them
-            // Set min-file-size-bytes=0 to disable the default minimum filter
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-input-files', 'min-file-size-bytes', 'max-file-size-bytes'], array['1', '0', '%d']))", TEST_SCHEMA, tableName, threshold), 10);
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['min-input-files', 'max-file-size-bytes'], array['1', '%d']))", TEST_SCHEMA, tableName, threshold), 10);
 
             table.refresh();
             // Two large files combined into one, small file unchanged = 2 total files

@@ -118,7 +118,7 @@ public class TestIcebergFileBasedSecurity
 
             // `icebergAdmin` has permission to execute `iceberg.system.rewrite_data_files` and
             // perform INSERT/DELETE operations on the target table involved in the procedure
-            assertUpdate(icebergAdmin, format("call system.rewrite_data_files('%s', '%s', map(array['min-input-files'], array['1']))", schema, tableName), 2);
+            assertUpdate(icebergAdmin, format("call system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", schema, tableName), 2);
             // `alice` and `bob` have the permission to execute `iceberg.system.rewrite_data_files`,
             // but they lack the necessary permission to perform INSERT or DELETE on the target table
             assertDenied(() -> assertUpdate(alice, format("call system.rewrite_data_files('%s', '%s')", schema, tableName)),
@@ -152,7 +152,7 @@ public class TestIcebergFileBasedSecurity
 
             // `icebergAdmin` has permission to execute `iceberg.system.rewrite_data_files` and
             // perform INSERT/DELETE operations on the target table involved in the procedure
-            assertUpdate(icebergAdmin, format("call system.rewrite_data_files('%s', '%s', map(array['min-input-files'], array['1']))", schema, tableName), 2);
+            assertUpdate(icebergAdmin, format("call system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", schema, tableName), 2);
 
             QualifiedObjectName qualifiedTableName = new QualifiedObjectName("iceberg", schema, tableName);
             assertions.executeExclusively(() -> {
