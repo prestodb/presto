@@ -153,6 +153,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUM
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
@@ -839,6 +840,7 @@ public class IcebergPageSourceProvider
                         splitContext.isCacheable());
 
         ImmutableMap.Builder<Integer, Object> metadataValues = ImmutableMap.builder();
+        ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
         for (IcebergColumnHandle icebergColumn : icebergColumns) {
             if (icebergColumn.isPathColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), utf8Slice(split.getPath()));
@@ -858,6 +860,17 @@ public class IcebergPageSourceProvider
                         Optional<String> partitionDataJson = split.getPartitionDataJson();
                         metadataValues.put(subColumn.getId(), partitionDataJson.isPresent() ? utf8Slice(partitionDataJson.get()) : EMPTY_SLICE);
                     }
+                }
+            }
+            else if (icebergColumn.hasDefaultValue()) {
+                Types.NestedField field = tableSchema.findField(icebergColumn.getId());
+                if (field != null && field.initialDefault() != null) {
+                    String defaultValueString = String.valueOf(field.initialDefault());
+                    Object prestoValue = deserializePartitionValue(
+                            icebergColumn.getType(),
+                            defaultValueString,
+                            icebergColumn.getName());
+                    defaultValues.put(icebergColumn.getId(), prestoValue);
                 }
             }
         }
@@ -944,6 +957,10 @@ public class IcebergPageSourceProvider
 
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
+        }
+        // Wrap with default value page source if there are columns with defaults
+        if (!defaultValues.build().isEmpty()) {
+            dataSource = new IcebergDefaultValuePageSource(dataSource, icebergColumns, defaultValues.build());
         }
         return dataSource;
     }

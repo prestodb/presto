@@ -1544,9 +1544,7 @@ SQL Operation                        Presto Java   Presto C++   Comments
 
 ``ALTER TABLE``                      Yes           Yes
 
-``ALTER TABLE ADD COLUMN DEFAULT``   Yes           Yes          DDL (metadata update) is supported in both. ``initial-default`` read
-                                                                support (returning the default value for historical rows) is only
-                                                                available in Presto C++. Presto Java returns ``NULL`` for historical rows.
+``ALTER TABLE ADD COLUMN DEFAULT``   Yes           Yes
 
 ``ALTER VIEW``                       Yes           Yes
 
@@ -1847,30 +1845,30 @@ To set ``write.metadata.delete-after-commit.enabled`` to true and set ``write.me
 
     ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES ("write.metadata.delete-after-commit.enabled" = true, "write.metadata.previous-versions-max" = 5);
 
-ADD COLUMN with DEFAULT (Iceberg V3, Presto C++ only)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ADD COLUMN with DEFAULT (Iceberg V3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. note::
 
-    ``ADD COLUMN DEFAULT`` read support is only available in **Presto C++** (Prestissimo).
-    Presto Java executes the DDL and stores the default in Iceberg metadata, but does **not**
-    inject the ``initial-default`` value during reads — historical rows return ``NULL`` in
-    Presto Java. Write-time handling of ``write-default`` is not yet supported in either engine.
+    ``ADD COLUMN DEFAULT`` read support is available in both **Presto Java** and **Presto C++** (Prestissimo).
+    Both engines execute the DDL, store the default in Iceberg metadata, and inject the ``initial-default``
+    value during reads for historical rows. Write-time handling of ``write-default`` is not supported
+    in either engine.
 
 Iceberg Format Version 3 supports default column values for schema evolution. When a column is
 added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
 fields in the Iceberg schema metadata. This is a metadata-only change — no data files are rewritten.
 
-During reads in Presto C++, rows written before the column was added return the ``initial-default``
-value instead of ``NULL``. This enables correct interoperability with Iceberg V3 tables created or
-evolved by other engines (e.g. Spark).
+During reads, rows written before the column was added return the ``initial-default`` value instead
+of ``NULL``. This enables correct interoperability with Iceberg V3 tables created or evolved by
+other engines, such as Spark.
 
 Example — Add a ``country`` column with a default value of ``'IN'``::
 
      ALTER TABLE iceberg.web.orders ADD COLUMN country VARCHAR DEFAULT 'IN';
 
-After this statement, a ``SELECT`` on the table in Presto C++ returns ``'IN'`` for the ``country``
-column in all rows that were written before the column was added::
+After this statement, a ``SELECT`` on the table returns ``'IN'`` for the ``country`` column in all
+rows that were written before the column was added::
 
      SELECT order_id, country FROM iceberg.web.orders;
 

@@ -147,6 +147,12 @@ public class IcebergColumnHandle
         return columnIdentity.getId() == MERGE_TARGET_ROW_ID_DATA.getId();
     }
 
+    @JsonIgnore
+    public boolean hasDefaultValue()
+    {
+        return defaultValue.isPresent();
+    }
+
     @Override
     public ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
@@ -252,11 +258,16 @@ public class IcebergColumnHandle
 
     public static IcebergColumnHandle create(Types.NestedField column, TypeManager typeManager, ColumnType columnType)
     {
+        Optional<String> defaultValue = Optional.empty();
+        if (column.initialDefault() != null) {
+            defaultValue = Optional.of(String.valueOf(column.initialDefault()));
+        }
         return new IcebergColumnHandle(
                 createColumnIdentity(column),
                 toPrestoType(column.type(), typeManager),
                 Optional.ofNullable(column.doc()),
-                columnType);
+                columnType,
+                defaultValue);
     }
 
     public static Subfield getPushedDownSubfield(IcebergColumnHandle column)
