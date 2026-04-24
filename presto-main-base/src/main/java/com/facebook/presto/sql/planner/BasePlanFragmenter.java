@@ -385,17 +385,22 @@ public abstract class BasePlanFragmenter
         setDistributionForExchange(exchange.getType(), partitioningScheme, context);
 
         // Use ANY (e.g. UCX) for worker-to-worker exchanges, but fall back to
-        // HTTP when a child fragment runs on the coordinator (which only speaks HTTP).
+        // HTTP when either side touches the coordinator (which only speaks HTTP):
+        //  - a child (producer) fragment contains coordinator-only nodes, OR
+        //  - the current (consumer) fragment runs on the coordinator.
         TransportType transportType = TransportType.HTTP;
         boolean anyChildOnCoordinator = exchange.getSources().stream()
-                .anyMatch(PlannerUtils::containsCoordinatorOnlyNode);
-        if (!anyChildOnCoordinator) {
+                .anyMatch(source -> containsCoordinatorOnlyNode(source));
+        boolean parentIsCoordinator = context.get().hasCoordinatorOnlyDistribution();
+        if (!anyChildOnCoordinator && !parentIsCoordinator) {
             transportType = TransportType.ANY;
         }
-        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s",
+        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s childOnCoord=%s parentIsCoord=%s",
                 exchange.getId(),
                 transportType,
-                context.get().getPartitioningHandle());
+                context.get().getPartitioningHandle(),
+                anyChildOnCoordinator,
+                parentIsCoordinator);
 
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
@@ -662,6 +667,11 @@ public abstract class BasePlanFragmenter
             partitioningHandle = Optional.of(COORDINATOR_DISTRIBUTION);
 
             return this;
+        }
+
+        public boolean hasCoordinatorOnlyDistribution()
+        {
+            return partitioningHandle.isPresent() && partitioningHandle.get().isCoordinatorOnly();
         }
 
         public FragmentProperties addPartitionedSource(PlanNodeId source)
