@@ -384,6 +384,8 @@ public final class SystemSessionProperties
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
+    public static final String OPTIMIZE_TOP_N_USING_ROW_ID = "optimize_top_n_using_row_id";
+    public static final String OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS = "optimize_top_n_using_row_id_min_column_savings";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2258,6 +2260,16 @@ public final class SystemSessionProperties
                         ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED,
                         "When enabled, analyze inner query on CTAS IF NOT EXISTS to populate view definitions for access control checks",
                         featuresConfig.isAlwaysAnalyzeCreateTableQueryEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_TOP_N_USING_ROW_ID,
+                        "Use $row_id late materialization for TopN over wide tables: first sort narrow keys, then semi-join to fetch full rows",
+                        false,
+                        false),
+                integerProperty(
+                        OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS,
+                        "Minimum number of non-sort-key columns required before TopN row_id optimization triggers",
+                        10,
                         false));
     }
 
@@ -3671,6 +3683,16 @@ public final class SystemSessionProperties
     public static boolean isJoinPrefilterEnabled(Session session)
     {
         return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
+    }
+
+    public static boolean isOptimizeTopNUsingRowIdEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, Boolean.class);
+    }
+
+    public static int getOptimizeTopNUsingRowIdMinColumnSavings(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, Integer.class);
     }
 
     public static boolean isPrintEstimatedStatsFromCacheEnabled(Session session)

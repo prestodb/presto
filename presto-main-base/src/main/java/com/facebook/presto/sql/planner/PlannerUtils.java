@@ -669,4 +669,85 @@ public class PlannerUtils
         }
         return hashExpression;
     }
+
+    /**
+     * Walk through Filter/Project chain to find the underlying TableScanNode.
+     */
+    public static Optional<TableScanNode> findTableScanNode(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return Optional.of((TableScanNode) node);
+        }
+        if (node instanceof FilterNode) {
+            return findTableScanNode(((FilterNode) node).getSource());
+        }
+        if (node instanceof ProjectNode) {
+            return findTableScanNode(((ProjectNode) node).getSource());
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Create a new TableScanNode with one additional column added to outputVariables and assignments.
+     */
+    public static TableScanNode addColumnToTableScan(
+            TableScanNode scanNode,
+            ColumnHandle columnHandle,
+            VariableReferenceExpression variable,
+            PlanNodeIdAllocator idAllocator)
+    {
+        List<VariableReferenceExpression> newOutputVariables = ImmutableList.<VariableReferenceExpression>builder()
+                .addAll(scanNode.getOutputVariables())
+                .add(variable)
+                .build();
+
+        Map<VariableReferenceExpression, ColumnHandle> newAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
+                .putAll(scanNode.getAssignments())
+                .put(variable, columnHandle)
+                .build();
+
+        return new TableScanNode(
+                scanNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                scanNode.getTable(),
+                newOutputVariables,
+                newAssignments,
+                scanNode.getTableConstraints(),
+                scanNode.getCurrentConstraint(),
+                scanNode.getEnforcedConstraint(),
+                scanNode.getCteMaterializationInfo());
+    }
+
+    /**
+     * Recursively propagate a new variable through a Project/Filter chain by adding
+     * identity assignments in ProjectNodes and rebuilding FilterNodes.
+     * Returns Optional.empty() if an unsupported node type is encountered.
+     */
+    public static Optional<PlanNode> addPassThroughVariable(
+            PlanNode node,
+            VariableReferenceExpression variable,
+            PlanNodeIdAllocator idAllocator)
+    {
+        if (node instanceof TableScanNode) {
+            // TableScanNode should already have the variable added via addColumnToTableScan
+            return Optional.of(node);
+        }
+        if (node instanceof FilterNode) {
+            FilterNode filterNode = (FilterNode) node;
+            return addPassThroughVariable(filterNode.getSource(), variable, idAllocator)
+                    .map(newSource -> new FilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate()));
+        }
+        if (node instanceof ProjectNode) {
+            ProjectNode projectNode = (ProjectNode) node;
+            return addPassThroughVariable(projectNode.getSource(), variable, idAllocator)
+                    .map(newSource -> {
+                        Assignments newAssignments = Assignments.builder()
+                                .putAll(projectNode.getAssignments())
+                                .put(variable, variable)
+                                .build();
+                        return new ProjectNode(idAllocator.getNextId(), newSource, newAssignments);
+                    });
+        }
+        return Optional.empty();
+    }
 }
