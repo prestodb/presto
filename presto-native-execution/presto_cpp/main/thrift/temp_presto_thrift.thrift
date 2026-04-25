@@ -583,7 +583,9 @@ struct ExecutionFailureInfo {
   1: string type;
   2: string message;
   @cpp.Ref{type = cpp.RefType.SharedMutable}
-  @thrift.DeprecatedUnvalidatedAnnotations{items = {"drift.recursive_reference": "true"}}
+  @thrift.DeprecatedUnvalidatedAnnotations{
+    items = {"drift.recursive_reference": "true"},
+  }
   3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
