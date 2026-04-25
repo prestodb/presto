@@ -240,6 +240,8 @@ public final class IcebergUtil
 
     protected static final String VIEW_OWNER = "view_owner";
 
+    public static final int DEFAULT_MIN_INPUT_FILES = 5;
+
     private IcebergUtil() {}
 
     public static boolean isIcebergTable(com.facebook.presto.hive.metastore.Table table)
@@ -1507,7 +1509,7 @@ public final class IcebergUtil
 
     /**
      * Parses and validates the min-input-files option value.
-     * Returns the parsed integer value, or 1 if the option is not present.
+     * Returns the parsed integer value, or default of {@value #DEFAULT_MIN_INPUT_FILES} if the option is not present.
      *
      * @throws IllegalArgumentException if the value is invalid
      */
@@ -1515,7 +1517,7 @@ public final class IcebergUtil
     {
         String minInputFilesStr = options.get("min-input-files");
         if (minInputFilesStr == null) {
-            return 1;
+            return DEFAULT_MIN_INPUT_FILES;
         }
 
         try {
@@ -1536,6 +1538,8 @@ public final class IcebergUtil
      * Parses and validates the min-file-size-bytes option value.
      * Returns the parsed long value, or 0 if the option is not present.
      *
+     * @param options rewrite options map
+     * @return minimum file size threshold in bytes
      * @throws IllegalArgumentException if the value is invalid
      */
     public static long parseMinFileSize(Map<String, String> options)
@@ -1544,7 +1548,6 @@ public final class IcebergUtil
         if (minFileSizeStr == null) {
             return 0;
         }
-
         try {
             long minFileSize = Long.parseLong(minFileSizeStr);
             if (minFileSize < 0) {
@@ -1571,7 +1574,6 @@ public final class IcebergUtil
         if (maxFileSizeStr == null) {
             return 0;
         }
-
         try {
             long maxFileSize = Long.parseLong(maxFileSizeStr);
             if (maxFileSize < 0) {
@@ -1587,8 +1589,22 @@ public final class IcebergUtil
     }
 
     /**
+     * Parses and validates the rewrite-all option value.
+     * Returns true if the option is set to "true", false otherwise.
+     */
+    public static boolean parseRewriteAll(Map<String, String> options)
+    {
+        String rewriteAllStr = options.get("rewrite-all");
+        if (rewriteAllStr == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(rewriteAllStr.trim());
+    }
+
+    /**
      * Filters files by partition-level criteria.
      * Selects files from partitions that have at least min-input-files files.
+     * If rewrite-all is true, skips filtering and returns all tasks.
      *
      * @param tasks all available tasks
      * @param options rewrite options map
@@ -1596,6 +1612,10 @@ public final class IcebergUtil
      */
     public static CloseableIterable<FileScanTask> filterByGroup(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
     {
+        if (parseRewriteAll(options)) {
+            return tasks;
+        }
+
         int minInputFiles = parseMinInputFiles(options);
         if (minInputFiles <= 1) {
             return tasks;
@@ -1628,6 +1648,7 @@ public final class IcebergUtil
     /**
      * Filters files by individual file criteria using OR logic.
      * Selects files that are too small (< min-file-size-bytes) OR too large (> max-file-size-bytes).
+     * If rewrite-all is true, skips filtering and returns all tasks.
      *
      * @param tasks all available tasks
      * @param options rewrite options map
@@ -1635,6 +1656,10 @@ public final class IcebergUtil
      */
     public static CloseableIterable<FileScanTask> filterByFile(CloseableIterable<FileScanTask> tasks, Map<String, String> options)
     {
+        if (parseRewriteAll(options)) {
+            return tasks;
+        }
+
         long minFileSizeBytes = parseMinFileSize(options);
         long maxFileSizeBytes = parseMaxFileSize(options);
 
