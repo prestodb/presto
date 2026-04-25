@@ -38,6 +38,7 @@ public class TestCassandraClientConfig
                 .setFetchSize(5_000)
                 .setConsistencyLevel(ConsistencyLevel.ONE)
                 .setContactPoints("")
+                .setAstraSecureConnectBundlePath(null)
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
                 .setSplitSize(1_024)
@@ -74,6 +75,7 @@ public class TestCassandraClientConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cassandra.contact-points", "host1,host2")
+                .put("cassandra.astra-secure-connect-bundle-path", "/tmp/scb.zip")
                 .put("cassandra.native-protocol-port", "9999")
                 .put("cassandra.fetch-size", "10000")
                 .put("cassandra.consistency-level", "TWO")
@@ -109,6 +111,7 @@ public class TestCassandraClientConfig
 
         CassandraClientConfig expected = new CassandraClientConfig()
                 .setContactPoints("host1", "host2")
+                .setAstraSecureConnectBundlePath("/tmp/scb.zip")
                 .setNativeProtocolPort(9999)
                 .setFetchSize(10_000)
                 .setConsistencyLevel(ConsistencyLevel.TWO)
