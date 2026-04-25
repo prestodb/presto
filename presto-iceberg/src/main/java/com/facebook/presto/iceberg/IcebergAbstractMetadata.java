@@ -418,12 +418,9 @@ public abstract class IcebergAbstractMetadata
             schema = metadata.schema();
         }
 
-        // Reject schema default values (initial-default / write-default)
-        for (Types.NestedField field : schema.columns()) {
-            if (field.initialDefault() != null || field.writeDefault() != null) {
-                throw new PrestoException(NOT_SUPPORTED, "Iceberg v3 column default values are not supported");
-            }
-        }
+        // Iceberg v3 column default values (initial-default / write-default) are supported.
+        // The Iceberg library handles applying defaults when reading files that were written
+        // before a column with a default was added via schema evolution.
 
         // Reject Iceberg table encryption
         if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
@@ -1550,8 +1547,23 @@ public abstract class IcebergAbstractMetadata
                     .ofPositionDeletes()
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(FileFormat.fromString(task.getFileFormat().name()))
-                    .withMetrics(task.getMetrics().metrics());
+                    .withFormat(FileFormat.fromString(task.getFileFormat().name()));
+
+            if (task.getFileFormat() == com.facebook.presto.iceberg.FileFormat.PUFFIN) {
+                builder.withRecordCount(task.getRecordCount().orElseThrow(() ->
+                        new VerifyException("recordCount required for deletion vector")));
+                builder.withContentOffset(task.getContentOffset().orElseThrow(() ->
+                        new VerifyException("contentOffset required for deletion vector")));
+                builder.withContentSizeInBytes(task.getContentSizeInBytes().orElseThrow(() ->
+                        new VerifyException("contentSizeInBytes required for deletion vector")));
+            }
+            else {
+                builder.withMetrics(task.getMetrics().metrics());
+            }
+
+            if (task.getReferencedDataFile().isPresent()) {
+                builder.withReferencedDataFile(task.getReferencedDataFile().get());
+            }
 
             if (!spec.fields().isEmpty()) {
                 String partitionDataJson = task.getPartitionDataJson()
