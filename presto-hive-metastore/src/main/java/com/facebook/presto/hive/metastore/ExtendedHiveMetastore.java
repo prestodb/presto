@@ -92,6 +92,29 @@ public interface ExtendedHiveMetastore
 
     MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters);
 
+    /**
+     * Atomically commit a data location change on an unpartitioned Iceberg table
+     * using compare-and-swap (CAS) semantics. Only sd.location is updated — schema,
+     * parameters, and owner are NOT modified.
+     *
+     * <p>This uses the metastore's {@code commit_table_data} API which provides true
+     * CAS semantics: the commit succeeds only if {@code previousLocation} matches the
+     * current sd.location in the metastore. This is more reliable than the
+     * {@code alter_table} path used by {@link #persistTable} for Iceberg metadata commits.
+     *
+     * @param metastoreContext the metastore context
+     * @param databaseName the database name
+     * @param tableName the table name
+     * @param newLocation the new metadata file location (sd.location)
+     * @param previousLocation CAS guard: must match current sd.location in metastore
+     * @return the metastore operation result
+     * @throws UnsupportedOperationException if the metastore implementation does not support this API
+     */
+    default MetastoreOperationResult commitTableData(MetastoreContext metastoreContext, String databaseName, String tableName, String newLocation, String previousLocation)
+    {
+        throw new UnsupportedOperationException("commitTableData is not supported by this metastore implementation");
+    }
+
     MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName);
 
     MetastoreOperationResult addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
