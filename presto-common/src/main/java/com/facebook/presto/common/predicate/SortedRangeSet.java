@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -45,6 +48,7 @@ import static java.util.stream.Collectors.toMap;
  * allows iteration across these compacted Ranges in increasing order, as well as other common
  * set-related operation.
  */
+@ThriftStruct
 public final class SortedRangeSet
         implements ValueSet
 {
@@ -61,6 +65,63 @@ public final class SortedRangeSet
         }
         this.type = type;
         this.lowIndexedRanges = lowIndexedRanges;
+    }
+
+    @ThriftConstructor
+    public SortedRangeSet(Type type, List<Range> ranges)
+    {
+        for (Range range : ranges) {
+            if (!type.equals(range.getType())) {
+                throw new IllegalArgumentException(format("Range type %s does not match type %s", range.getType(), type));
+            }
+        }
+        Collections.sort(ranges, Comparator.comparing(Range::getLow));
+
+        NavigableMap<Marker, Range> result = new TreeMap<>();
+
+        Range current = null;
+        for (Range next : ranges) {
+            if (current == null) {
+                current = next;
+                continue;
+            }
+
+            if (current.overlaps(next) || current.getHigh().isAdjacent(next.getLow())) {
+                current = current.span(next);
+            }
+            else {
+                result.put(current.getLow(), current);
+                current = next;
+            }
+        }
+
+        if (current != null) {
+            result.put(current.getLow(), current);
+        }
+
+        // TODO find a more generic way to do this
+        if (type == BOOLEAN) {
+            boolean trueAllowed = false;
+            boolean falseAllowed = false;
+            for (Map.Entry<Marker, Range> entry : result.entrySet()) {
+                if (entry.getValue().includes(Marker.exactly(BOOLEAN, true))) {
+                    trueAllowed = true;
+                }
+                if (entry.getValue().includes(Marker.exactly(BOOLEAN, false))) {
+                    falseAllowed = true;
+                }
+            }
+
+            if (trueAllowed && falseAllowed) {
+                result = new TreeMap<>();
+                result.put(Range.all(BOOLEAN).getLow(), Range.all(BOOLEAN));
+                this.type = BOOLEAN;
+                this.lowIndexedRanges = result;
+                return;
+            }
+        }
+        this.type = type;
+        this.lowIndexedRanges = result;
     }
 
     static SortedRangeSet none(Type type)
@@ -125,12 +186,14 @@ public final class SortedRangeSet
 
     @Override
     @JsonProperty
+    @ThriftField(1)
     public Type getType()
     {
         return type;
     }
 
     @JsonProperty("ranges")
+    @ThriftField(value = 2, name = "ranges")
     public List<Range> getOrderedRanges()
     {
         return new ArrayList<>(lowIndexedRanges.values());
@@ -405,7 +468,7 @@ public final class SortedRangeSet
         AtomicLong counter = new AtomicLong(0);
         return new SortedRangeSet(
                 type,
-                lowIndexedRanges.entrySet().stream()
+                (NavigableMap<Marker, Range>) lowIndexedRanges.entrySet().stream()
                         .collect(toMap(
                                 // Since map values contain all range information, we can mark all keys as 0, 1, 2... in ascending order.
                                 entry -> Marker.exactly(BIGINT, counter.incrementAndGet()),

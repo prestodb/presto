@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -26,12 +29,14 @@ import static java.util.Objects.requireNonNull;
 /**
  * A Range of values across the continuous space defined by the types of the Markers
  */
+@ThriftStruct
 public final class Range
 {
     private final Marker low;
     private final Marker high;
 
     @JsonCreator
+    @ThriftConstructor
     public Range(
             @JsonProperty("low") Marker low,
             @JsonProperty("high") Marker high)
@@ -104,12 +109,14 @@ public final class Range
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Marker getLow()
     {
         return low;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public Marker getHigh()
     {
         return high;

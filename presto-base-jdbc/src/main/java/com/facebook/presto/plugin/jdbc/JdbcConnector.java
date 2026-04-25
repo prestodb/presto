@@ -15,10 +15,24 @@ package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.drift.codec.ThriftCodecManager;
+import com.facebook.drift.codec.metadata.ThriftCatalog;
+import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
+import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
+import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
+import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
+import com.facebook.drift.codec.utils.UuidToLeachSalzBinaryEncodingThriftCodec;
+import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcPlanOptimizerProvider;
+import com.facebook.presto.server.thrift.BlockCodec;
+import com.facebook.presto.server.thrift.ConstantExpressionCodec;
+import com.facebook.presto.server.thrift.TypeCodec;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
@@ -33,6 +47,7 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.thrift.codec.ThriftCodecProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import jakarta.inject.Inject;
@@ -70,6 +85,7 @@ public class JdbcConnector
     private final RowExpressionService rowExpressionService;
     private final JdbcClient jdbcClient;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final TypeManager typeManager;
 
     @Inject
     public JdbcConnector(
@@ -83,6 +99,7 @@ public class JdbcConnector
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
+            TypeManager typeManager,
             JdbcClient jdbcClient,
             Optional<JdbcSessionPropertiesProvider> sessionPropertiesProvider)
     {
@@ -97,6 +114,7 @@ public class JdbcConnector
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.typeManager = typeManager;
         this.sessionProperties = requireNonNull(sessionPropertiesProvider, "sessionPropertiesProvider is null").map(JdbcSessionPropertiesProvider::getSessionProperties).orElse(ImmutableList.of());
     }
 
@@ -200,5 +218,27 @@ public class JdbcConnector
     public Set<ConnectorCapabilities> getCapabilities()
     {
         return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+    }
+
+    @Override
+    public ConnectorCodecProvider getConnectorCodecProvider()
+    {
+        ThriftCodecManager manager = new ThriftCodecManager();
+        ThriftCatalog catalog = manager.getCatalog();
+        manager.addCodec(new UuidToLeachSalzBinaryEncodingThriftCodec(catalog));
+        manager.addCodec(new LocaleToLanguageTagCodec(catalog));
+        manager.addCodec(new JodaDateTimeToEpochMillisThriftCodec(catalog));
+        manager.addCodec(new DurationToMillisThriftCodec(catalog));
+        manager.addCodec(new DataSizeToBytesThriftCodec(catalog));
+        manager.addCodec(new BlockCodec(new BlockEncodingManager()));
+        manager.addCodec(new TypeCodec(typeManager));
+        manager.addCodec(new ConstantExpressionCodec(typeManager, () -> manager));
+        return new ThriftCodecProvider.Builder()
+                .setThriftCodecManager(manager)
+                .setConnectorSplitType(JdbcSplit.class)
+                .setConnectorTransactionHandle(JdbcTransactionHandle.class)
+                .setConnectorTableLayoutHandle(JdbcTableLayoutHandle.class)
+                .setConnectorTableHandle(JdbcTableHandle.class)
+                .setConnectorColumnHandle(JdbcColumnHandle.class).build();
     }
 }

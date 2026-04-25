@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,6 +27,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
@@ -36,6 +40,7 @@ public final class JdbcTableHandle
     private final String tableName;
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcTableHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
@@ -51,18 +56,21 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
     }
 
     @JsonProperty
+    @ThriftField(3)
     @Nullable
     public String getCatalogName()
     {
@@ -70,6 +78,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    @ThriftField(4)
     @Nullable
     public String getSchemaName()
     {
@@ -77,6 +86,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    @ThriftField(5)
     public String getTableName()
     {
         return tableName;

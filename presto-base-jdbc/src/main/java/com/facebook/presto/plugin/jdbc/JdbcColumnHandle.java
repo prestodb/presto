@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -26,6 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class JdbcColumnHandle
         implements ColumnHandle
 {
@@ -37,6 +41,7 @@ public final class JdbcColumnHandle
     private final Optional<String> comment;
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
@@ -54,36 +59,42 @@ public final class JdbcColumnHandle
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getConnectorId()
     {
         return connectorId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public String getColumnName()
     {
         return columnName;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public JdbcTypeHandle getJdbcTypeHandle()
     {
         return jdbcTypeHandle;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public Type getColumnType()
     {
         return columnType;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public boolean isNullable()
     {
         return nullable;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public Optional<String> getComment()
     {
         return comment;
