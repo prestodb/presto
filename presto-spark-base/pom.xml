@@ -14,8 +14,8 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.jetty.version>9.4.55.v20240627</dep.jetty.version>
-        <dep.okhttp.version>4.12.0</dep.okhttp.version>
-        <dep.okio-jvm.version>3.9.1</dep.okio-jvm.version>
+        <dep.okhttp.version>5.3.2</dep.okhttp.version>
+        <dep.okio-jvm.version>3.16.4</dep.okio-jvm.version>
     </properties>
 
     <dependencyManagement>
@@ -154,7 +154,7 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <artifactId>okhttp-jvm</artifactId>
             <version>${dep.okhttp.version}</version>
         </dependency>
 
@@ -453,11 +453,15 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>org.jetbrains.kotlin:kotlin-stdlib</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
                     <ignoredNonTestScopedDependencies>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-expressions</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>it.unimi.dsi:fastutil</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:log-manager</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.squareup.okio:okio-jvm</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.jetbrains.kotlin:kotlin-stdlib</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <ignoredUnusedDeclaredDependencies>
                         <ignoredUnusedDeclaredDependency>javax.ws.rs:javax.ws.rs-api</ignoredUnusedDeclaredDependency>
