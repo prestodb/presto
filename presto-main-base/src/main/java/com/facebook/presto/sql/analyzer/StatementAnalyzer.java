@@ -1434,11 +1434,8 @@ class StatementAnalyzer
             }
             DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
             Session sessionForProcedure = session;
-            if (procedure.useProcedureInnerScopeSession()) {
-                Session.SessionBuilder sessionBuilder = Session.builder(session.clearTransaction(metadata.getFunctionAndTypeManager().getTransactionManager(), accessControl))
-                        .setCatalog(procedureName.getCatalogName());
-                session.getTransactionId().ifPresent(sessionBuilder::setTransactionId);
-                sessionForProcedure = sessionBuilder.build();
+            if (procedure.usesProcedureCatalogAsSession()) {
+                sessionForProcedure = session.useSpecifiedCatalogAsSession(procedureName.getCatalogName());
             }
             Object[] values = extractParameterValuesInOrder(call, procedure, metadata, sessionForProcedure, analysis.getParameters());
             accessControl.checkCanCallProcedure(sessionForProcedure.getRequiredTransactionId(), sessionForProcedure.getIdentity(), sessionForProcedure.getAccessControlContext(), procedureName);
