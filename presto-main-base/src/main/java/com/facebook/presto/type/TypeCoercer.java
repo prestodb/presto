@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DistinctType;
+import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -342,7 +343,7 @@ public class TypeCoercer
     private static boolean isCovariantParametrizedType(Type type)
     {
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
-        return type instanceof MapType || type instanceof ArrayType;
+        return type instanceof MapType || type instanceof ArrayType || type instanceof FunctionType;
     }
 
     private TypeCompatibility compatibility(Type fromType, Type toType)
@@ -482,6 +483,25 @@ public class TypeCoercer
 
         boolean coercible = true;
         for (int i = 0; i < fromTypeParameters.size(); i++) {
+            // Special handling for function types
+            if (fromType instanceof FunctionType && i == fromTypeParameters.size() - 1) {
+                Type fromReturnType = fromTypeParameters.get(i);
+                Type toReturnType = toTypeParameters.get(i);
+                String fromBase = fromReturnType.getTypeSignature().getBase();
+                String toBase = toReturnType.getTypeSignature().getBase();
+                // Allow coercion between numeric types
+                if ((fromBase.equals("integer") || fromBase.equals("bigint") || fromBase.equals("smallint")) && (toBase.equals("integer") || toBase.equals("bigint") || toBase.equals("smallint"))) {
+                    Type commonSuperType = fromReturnType;
+                    if (fromBase.equals("smallint") && (toBase.equals("integer") || toBase.equals("bigint"))) {
+                        commonSuperType = toReturnType;
+                    }
+                    else if (fromBase.equals("integer") && toBase.equals("bigint")) {
+                        commonSuperType = toReturnType;
+                    }
+                    commonParameterTypes.add(TypeSignatureParameter.of(commonSuperType.getTypeSignature()));
+                    continue;
+                }
+            }
             TypeCompatibility compatibility = compatibility(fromTypeParameters.get(i), toTypeParameters.get(i));
             if (!compatibility.isCompatible()) {
                 return TypeCompatibility.incompatible();
