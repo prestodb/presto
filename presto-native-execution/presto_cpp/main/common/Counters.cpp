@@ -56,6 +56,39 @@ void registerPrestoMetrics() {
       90,
       99,
       100);
+  // Tracks http client transaction create delay in range of [0, 250] with
+  // 50 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPClientNumIdleSessions,
+      5,
+      0,
+      250,
+      50,
+      90,
+      99,
+      100);
+  // Tracks http client transaction create delay in range of [0, 250] with
+  // 50 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPClientNumActiveNonFullSessions,
+      5,
+      0,
+      250,
+      50,
+      90,
+      99,
+      100);
+  // Tracks http client transaction create delay in range of [0, 250] with
+  // 50 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterHTTPClientNumFullSessions,
+      5,
+      0,
+      250,
+      50,
+      90,
+      99,
+      100);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterMemoryManagerTotalBytes, facebook::velox::StatType::AVG);
