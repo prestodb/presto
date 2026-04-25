@@ -90,7 +90,7 @@ public class TableDataRewriteDistributedProcedure
     }
 
     @Override
-    public boolean useProcedureInnerScopeSession()
+    public boolean usesProcedureCatalogAsSession()
     {
         return true;
     }
