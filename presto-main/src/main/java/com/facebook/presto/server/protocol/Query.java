@@ -76,11 +76,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
-import static com.facebook.presto.SystemSessionProperties.getExchangeCompressionCodec;
 import static com.facebook.presto.SystemSessionProperties.getQueryRetryLimit;
 import static com.facebook.presto.SystemSessionProperties.getQueryRetryMaxExecutionTime;
+import static com.facebook.presto.SystemSessionProperties.getResultCompressionCodec;
 import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
-import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
+import static com.facebook.presto.SystemSessionProperties.isResultChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.retryQueryWithHistoryBasedOptimizationEnabled;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
@@ -264,7 +264,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
-        this.serde = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session), isExchangeChecksumEnabled(session)).createPagesSerde();
+        this.serde = new PagesSerdeFactory(blockEncodingSerde, getResultCompressionCodec(session), isResultChecksumEnabled(session)).createPagesSerde();
         this.retryCircuitBreaker = retryCircuitBreaker;
         this.retryConfig = retryConfig;
     }
