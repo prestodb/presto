@@ -44,7 +44,25 @@ public abstract class DistributedProcedure
         return type;
     }
 
-    public boolean useProcedureInnerScopeSession()
+    /**
+     *Indicates whether this distributed procedure should execute using the procedure's own catalog
+     * as the effective catalog for internal execution.
+     *
+     * When this method returns (@code true), the procedure will override the catalog from the caller's
+     * session and execute using the procedure's associated catalog as the default catalog. This ensures
+     * that table resolution and metadata access are scoped to the procedure's catalog, rather than the
+     * catalog of the initiating session. This behavior is typically required for catalog-specific
+     * procedures (e.g., Iceberg maintenance procedure such as `rewrite_data_files`).
+     *
+     * When this method returns {@code false}, the procedure does not override the session catalog and
+     * instead executes in a catalog-agnostic manner. Table resolution follows the caller's session context
+     * or fully qualified identifiers, enabling cross-catalog access and federation. This mode is intended
+     * for generalized distributed procedures.
+     *
+     * @return true if the procedure must execute with its own catalog as the effective execution catalog;
+     *         false if it should respect the caller's session catalog and support cross-catalog execution
+     * */
+    public boolean usesProcedureCatalogAsSession()
     {
         return false;
     }

@@ -221,7 +221,7 @@ public class TestLogicalPlanner
                                 ignored -> new TestProcedureRegistry.TestProcedureContext())
                         {
                             @Override
-                            public boolean useProcedureInnerScopeSession()
+                            public boolean usesProcedureCatalogAsSession()
                             {
                                 return false;
                             }
