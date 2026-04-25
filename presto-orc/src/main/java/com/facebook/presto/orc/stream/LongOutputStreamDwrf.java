@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class LongOutputStreamDwrf
         implements LongOutputStream
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamDwrf.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamDwrf.class).instanceSize();
     private final StreamKind streamKind;
     private final OrcOutputBuffer buffer;
     private final boolean signed;

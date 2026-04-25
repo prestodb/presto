@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 public class DoubleSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DoubleSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DoubleSelectiveStreamReader.class).instanceSize();
 
     private static final Block NULL_BLOCK = DOUBLE.createBlockBuilder(null, 1).appendNull().build();
 

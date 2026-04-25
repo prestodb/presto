@@ -69,7 +69,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDictionarySelectiveReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionarySelectiveReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDictionarySelectiveReader.class).instanceSize();
 
     // filter evaluation states, using byte constants instead of enum as its memory efficient
     private static final byte FILTER_NOT_EVALUATED = 0;
