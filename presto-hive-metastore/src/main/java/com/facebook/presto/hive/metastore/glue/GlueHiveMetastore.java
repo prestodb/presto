@@ -372,10 +372,10 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames)
+    public Map<String, PartitionStatistics> getPartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<PartitionNameWithVersion> partitionNamesWithVersion)
     {
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(getPartitionNamesWithEmptyVersion(partitionNames))).forEach((partitionName, optionalPartition) -> {
+        getPartitionsByNames(metastoreContext, databaseName, tableName, ImmutableList.copyOf(partitionNamesWithVersion)).forEach((partitionName, optionalPartition) -> {
             Partition partition = optionalPartition.orElseThrow(() ->
                     new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), toPartitionValues(partitionName)));
             PartitionStatistics partitionStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), ImmutableMap.of());
@@ -420,7 +420,7 @@ public class GlueHiveMetastore
     @Override
     public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        PartitionStatistics currentStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
+        PartitionStatistics currentStatistics = getPartitionStatistics(metastoreContext, databaseName, tableName, ImmutableSet.of(new PartitionNameWithVersion(partitionName, Optional.empty()))).get(partitionName);
         if (currentStatistics == null) {
             throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Statistics result does not contain entry for partition: " + partitionName);
         }
