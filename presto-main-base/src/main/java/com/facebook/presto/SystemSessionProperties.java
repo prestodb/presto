@@ -381,6 +381,7 @@ public final class SystemSessionProperties
     public static final String TABLE_SCAN_SHUFFLE_PARALLELISM_THRESHOLD = "table_scan_shuffle_parallelism_threshold";
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
+    public static final String PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE = "pull_constant_projection_above_exchange";
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
@@ -2201,6 +2202,11 @@ public final class SystemSessionProperties
                         "Skip pushing down remote projection through exchange",
                         featuresConfig.isSkipPushdownThroughExchangeForRemoteProjection(),
                         false),
+                booleanProperty(
+                        PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE,
+                        "Pull constant assignments in projections above remote exchanges to reduce network I/O",
+                        featuresConfig.isPullConstantProjectionAboveExchange(),
+                        false),
                 stringProperty(
                         REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM,
                         "Regex pattern to match remote function names that should use fixed parallelism",
@@ -3816,6 +3822,11 @@ public final class SystemSessionProperties
     public static boolean isSkipPushdownThroughExchangeForRemoteProjection(Session session)
     {
         return session.getSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, Boolean.class);
+    }
+
+    public static boolean isPullConstantProjectionAboveExchange(Session session)
+    {
+        return session.getSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, Boolean.class);
     }
 
     public static String getRemoteFunctionNamesForFixedParallelism(Session session)

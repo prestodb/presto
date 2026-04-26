@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
@@ -172,7 +173,8 @@ public class PushProjectionThroughExchange
 
     private static boolean isSymbolToSymbolProjection(ProjectNode project)
     {
-        return project.getAssignments().getExpressions().stream().allMatch(e -> e instanceof VariableReferenceExpression);
+        return project.getAssignments().getExpressions().stream().allMatch(
+                e -> e instanceof VariableReferenceExpression || e instanceof ConstantExpression);
     }
 
     private static Map<VariableReferenceExpression, VariableReferenceExpression> extractExchangeOutputToInput(ExchangeNode exchange, int sourceIndex)
