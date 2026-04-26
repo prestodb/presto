@@ -189,4 +189,22 @@ public class TestLocalQueries
 
         assertQuery(enabled, sql, disabled, sql);
     }
+
+    @Test
+    public void testTopNStreamPropertyDerivation()
+    {
+        // Regression test for propagating streamPropertiesFromUniqueColumn through TopN.
+        // Without the fix, stream properties were lost after TopN, which could cause
+        // incorrect plans when downstream operators depend on stream ordering properties.
+
+        // TopN with downstream filter
+        assertQuery("SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 10) t WHERE regionkey = 1");
+
+        // TopN with downstream aggregation depending on stream properties
+        assertQuery("SELECT regionkey, count(*) FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 20) t GROUP BY regionkey");
+
+        // TopN with downstream join where ordering matters
+        assertQuery("SELECT t.nationkey, r.name FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 10) t " +
+                "JOIN region r ON t.regionkey = r.regionkey");
+    }
 }
