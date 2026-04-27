@@ -667,7 +667,8 @@ public final class StreamPropertyDerivations
             if (node.getStep().equals(TopNNode.Step.PARTIAL)) {
                 return Iterables.getOnlyElement(inputProperties);
             }
-            return StreamProperties.ordered();
+            StreamProperties input = Iterables.getOnlyElement(inputProperties);
+            return StreamProperties.ordered().withStreamPropertiesFromUniqueColumn(input.getStreamPropertiesFromUniqueColumn());
         }
 
         @Override
