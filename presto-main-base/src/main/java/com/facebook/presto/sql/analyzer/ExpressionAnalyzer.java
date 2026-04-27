@@ -252,6 +252,9 @@ public class ExpressionAnalyzer
     // This contains types of variables referenced from outer scopes.
     private final Map<NodeRef<Expression>, Type> outerScopeSymbolTypes;
 
+    private final Optional<Session> session;
+    private final Optional<Metadata> metadata;
+
     private final List<Field> sourceFields = new ArrayList<>();
 
     private ExpressionAnalyzer(
@@ -264,7 +267,9 @@ public class ExpressionAnalyzer
             Map<NodeRef<Parameter>, Expression> parameters,
             WarningCollector warningCollector,
             boolean isDescribe,
-            Map<NodeRef<Expression>, Type> outerScopeSymbolTypes)
+            Map<NodeRef<Expression>, Type> outerScopeSymbolTypes,
+            Optional<Session> session,
+            Optional<Metadata> metadata)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionAndTypeResolver is null");
         this.functionResolution = new FunctionResolution(functionAndTypeResolver);
@@ -277,6 +282,8 @@ public class ExpressionAnalyzer
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.outerScopeSymbolTypes = requireNonNull(outerScopeSymbolTypes, "outerScopeSymbolTypes is null");
+        this.session = requireNonNull(session, "session is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
@@ -481,6 +488,22 @@ public class ExpressionAnalyzer
         {
             QualifiedName name = QualifiedName.of(ImmutableList.of(new Identifier(node.getValue(), node.isDelimited())));
             Optional<ResolvedField> resolvedField = context.getContext().getScope().tryResolveField(node, name);
+
+            if (resolvedField.isPresent() && session.isPresent() && metadata.isPresent()) {
+                Field field = resolvedField.get().getField();
+                if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
+                    String catalogName = field.getOriginTable().get().getCatalogName();
+                    String originalColumnName = field.getOriginColumnName().get();
+
+                    String normalizedQuery = metadata.get().normalizeIdentifier(session.get(), catalogName, node.getValue());
+                    String normalizedColumn = metadata.get().normalizeIdentifier(session.get(), catalogName, originalColumnName);
+
+                    if (!normalizedQuery.equals(normalizedColumn)) {
+                        resolvedField = Optional.empty();
+                    }
+                }
+            }
+
             if (!resolvedField.isPresent() && outerScopeSymbolTypes.containsKey(NodeRef.of(node))) {
                 return setExpressionType(node, outerScopeSymbolTypes.get(NodeRef.of(node)));
             }
@@ -1090,7 +1113,9 @@ public class ExpressionAnalyzer
                                         parameters,
                                         warningCollector,
                                         isDescribe,
-                                        outerScopeSymbolTypes);
+                                        outerScopeSymbolTypes,
+                                        session,
+                                        metadata);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
@@ -2163,7 +2188,9 @@ public class ExpressionAnalyzer
                 analysis.getParameters(),
                 warningCollector,
                 analysis.isDescribe(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.of(session),
+                Optional.of(metadata));
     }
 
     private static ExpressionAnalyzer create(
@@ -2186,7 +2213,9 @@ public class ExpressionAnalyzer
                 analysis.getParameters(),
                 warningCollector,
                 analysis.isDescribe(),
-                outerScopeSymbolTypes);
+                outerScopeSymbolTypes,
+                Optional.of(session),
+                Optional.of(metadata));
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(FunctionAndTypeResolver functionAndTypeResolver, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)
@@ -2276,7 +2305,9 @@ public class ExpressionAnalyzer
                 parameters,
                 warningCollector,
                 isDescribe,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public static boolean isNumericType(Type type)

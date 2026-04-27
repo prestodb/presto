@@ -194,6 +194,51 @@ public class TestMySqlIntegrationMixedCaseTest
                 "Duplicate column name 'orderkey'");
     }
 
+    @Test
+    public void testColumnCaseSensitivitySingleColumn()
+            throws SQLException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mysql")
+                .setSchema("Mixed_Test_Database")
+                .build();
+        try {
+            execute("CREATE TABLE Mixed_Test_Database.case_sensitive_test (user_id INT PRIMARY KEY, Age INT, Name VARCHAR(255), city VARCHAR(255))");
+            execute("INSERT INTO Mixed_Test_Database.case_sensitive_test (user_id, Age, Name, city) VALUES (1, 39, 'Alice', 'Bangalore')");
+            assertQuery(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_test",
+                    "VALUES (1, 39, 'Alice', 'Bangalore')");
+            assertQuery(session, "SELECT Age FROM Mixed_Test_Database.case_sensitive_test", "VALUES 39");
+            assertQuery(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_test WHERE Age > 30",
+                    "VALUES (1, 39, 'Alice', 'Bangalore')");
+            assertQuery(session, "SELECT Age, Name FROM Mixed_Test_Database.case_sensitive_test",
+                    "VALUES (39, 'Alice')");
+        }
+        finally {
+            execute("DROP TABLE IF EXISTS Mixed_Test_Database.case_sensitive_test");
+        }
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+            throws SQLException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("mysql")
+                .setSchema("Mixed_Test_Database")
+                .build();
+        try {
+            execute("CREATE TABLE Mixed_Test_Database.case_sensitive_error_test (user_id INT PRIMARY KEY, Age INT, Name VARCHAR(255), city VARCHAR(255))");
+            execute("INSERT INTO Mixed_Test_Database.case_sensitive_error_test (user_id, Age, Name, city) VALUES (1, 39, 'Alice', 'Bangalore')");
+            assertQueryFails(session, "SELECT * FROM Mixed_Test_Database.case_sensitive_error_test WHERE name = 'Alice'",
+                    ".*Column 'name' cannot be resolved.*");
+            assertQueryFails(session, "SELECT NAME FROM Mixed_Test_Database.case_sensitive_error_test",
+                    ".*Column 'NAME' cannot be resolved.*");
+        }
+        finally {
+            execute("DROP TABLE IF EXISTS Mixed_Test_Database.case_sensitive_error_test");
+        }
+    }
+
     private void execute(String sql)
             throws SQLException
     {

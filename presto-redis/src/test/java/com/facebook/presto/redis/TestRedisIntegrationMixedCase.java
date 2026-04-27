@@ -220,4 +220,48 @@ public class TestRedisIntegrationMixedCase
                 .build();
         assertContains(result, expected);
     }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+    {
+        populateTestTable(1);
+        MaterializedResult result = queryRunner.execute("SELECT * FROM " + testTable);
+        assertEquals(result.getRowCount(), 1);
+        result = queryRunner.execute("SELECT name FROM " + testTable);
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "name_value_0");
+        result = queryRunner.execute("SELECT NAME FROM " + testTable);
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "NAME_value_0");
+        result = queryRunner.execute("SELECT * FROM " + testTable + " WHERE age = 25");
+        assertEquals(result.getRowCount(), 1);
+        result = queryRunner.execute("SELECT * FROM " + testTable + " WHERE name = 'name_value_0'");
+        assertEquals(result.getRowCount(), 1);
+        result = queryRunner.execute("SELECT name, NAME FROM " + testTable);
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "name_value_0");
+        assertEquals(result.getMaterializedRows().get(0).getField(1), "NAME_value_0");
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+    {
+        populateTestTable(1);
+        try {
+            queryRunner.execute("SELECT * FROM " + testTable + " WHERE address = 'Address_value_0'");
+            throw new AssertionError("Expected query to fail");
+        }
+        catch (Exception e) {
+            assertTrue(e.getMessage().contains("Column 'address' cannot be resolved") ||
+                    e.getMessage().contains("line 1:") && e.getMessage().contains("address"));
+        }
+        try {
+            queryRunner.execute("SELECT band FROM " + testTable);
+            throw new AssertionError("Expected query to fail");
+        }
+        catch (Exception e) {
+            assertTrue(e.getMessage().contains("Column 'band' cannot be resolved") ||
+                    e.getMessage().contains("line 1:") && e.getMessage().contains("band"));
+        }
+    }
 }

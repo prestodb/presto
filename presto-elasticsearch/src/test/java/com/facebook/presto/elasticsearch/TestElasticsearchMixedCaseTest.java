@@ -120,4 +120,52 @@ public class TestElasticsearchMixedCaseTest
                 .build();
         assertContains(actualRow, expectedRow);
     }
+
+    @Test
+    public void testColumnCaseSensitivityWithDuplicateColumns()
+            throws IOException
+    {
+        String indexName = "case_sensitive_test";
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("Age", 39)
+                .put("Name", "Alice")
+                .put("age", 29)
+                .put("city", "Bangalore")
+                .put("user_id", 1)
+                .build());
+        MaterializedResult result = computeActual("SELECT * FROM MySchema.case_sensitive_test");
+        assertEquals(result.getRowCount(), 1);
+        result = computeActual("SELECT Age FROM MySchema.case_sensitive_test");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 39);
+        result = computeActual("SELECT age FROM MySchema.case_sensitive_test");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 29);
+        result = computeActual("SELECT * FROM MySchema.case_sensitive_test WHERE Age > 30");
+        assertEquals(result.getRowCount(), 1);
+        result = computeActual("SELECT * FROM MySchema.case_sensitive_test WHERE age < 30");
+        assertEquals(result.getRowCount(), 1);
+        result = computeActual("SELECT Age, age FROM MySchema.case_sensitive_test");
+        assertEquals(result.getRowCount(), 1);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 39);
+        assertEquals(result.getMaterializedRows().get(0).getField(1), 29);
+    }
+
+    @Test
+    public void testColumnCaseSensitivityColumnNameError()
+            throws IOException
+    {
+        String indexName = "case_sensitive_error_test";
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("Age", 39)
+                .put("Name", "Alice")
+                .put("age", 29)
+                .put("city", "Bangalore")
+                .put("user_id", 1)
+                .build());
+        assertQueryFails("SELECT * FROM MySchema.case_sensitive_error_test WHERE name = 'Alice'",
+                ".*Column 'name' cannot be resolved.*");
+        assertQueryFails("SELECT NAME FROM MySchema.case_sensitive_error_test",
+                ".*Column 'NAME' cannot be resolved.*");
+    }
 }
