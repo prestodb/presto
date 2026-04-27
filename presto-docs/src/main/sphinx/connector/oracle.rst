@@ -74,6 +74,10 @@ Property Name                                      Description                  
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema and table        ``false``
                                                    names for the connector. When disabled, names are matched
                                                    case-insensitively using lowercase normalization.
+
+``jdbc-fetch-size``                                Number of rows to fetch from the database at a time. Higher          ``20000``
+                                                   values can improve performance for large result sets but may
+                                                   increase memory usage.
 ================================================== ==================================================================== ===========
 
 Querying Oracle
