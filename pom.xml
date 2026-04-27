@@ -56,7 +56,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.14.0</dep.joda.version>
-        <dep.tempto.version>1.55</dep.tempto.version>
+        <dep.tempto.version>1.56</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -1128,9 +1128,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet</groupId>
+                <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>14-SNAPSHOT-imjalpreet</version>
+                <version>14</version>
             </dependency>
 
             <dependency>
@@ -1226,9 +1226,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet</groupId>
-                <artifactId>presto-hive-dwrf</artifactId>
-                <version>hive4-upgrade-imjalpreet-7</version>
+                <groupId>com.facebook.hive</groupId>
+                <artifactId>hive-dwrf</artifactId>
+                <version>0.8.8</version>
             </dependency>
 
             <dependency>
@@ -2381,9 +2381,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>hive4-upgrade-imjalpreet-2</version>
+                <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2405,17 +2405,13 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
-                    <exclusion>
-                        <groupId>com.github.imjalpreet</groupId>
-                        <artifactId>presto-hive-apache</artifactId>
-                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
-                <version>hive4-upgrade-imjalpreet-2</version>
+                <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2433,9 +2429,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>hive4-upgrade-imjalpreet-2</version>
+                <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2457,9 +2453,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.imjalpreet.tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>hive4-upgrade-imjalpreet-2</version>
+                <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
