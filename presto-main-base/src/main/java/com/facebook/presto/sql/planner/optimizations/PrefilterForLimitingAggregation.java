@@ -15,7 +15,9 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -49,6 +51,7 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
@@ -80,7 +83,7 @@ import static java.lang.Boolean.TRUE;
  * CROSS JOIN (SELECT MAP_AGG(hash(userid)) m FROM (SELECT DISTINCT userid FROM Table LIMIT 1000)))
  * WHERE IF(CARDINALITY(m)=1000, m[hash(userid)], TRUE)
  * <p>
- * In addition we also add a timeout to the distinctlimit we add so that we don't get stuck trying to find the keys
+ * In addition we also add a scan cap (10x the LIMIT) before the distinctlimit to avoid scanning the entire table when distinct keys are sparse
  */
 
 public class PrefilterForLimitingAggregation
@@ -209,29 +212,61 @@ public class PrefilterForLimitingAggregation
                 return aggregationNode;
             }
 
+            // Determine whether to use hash based on key types and count
+            // Use hash for: multiple keys, VARCHAR keys, or ROW keys
+            // Use direct comparison for: single non-VARCHAR, non-ROW key
+            boolean useHash = keys.size() > 1 ||
+                    keys.get(0).getType().equals(VARCHAR) ||
+                    keys.get(0).getType() instanceof VarcharType ||
+                    keys.get(0).getType() instanceof RowType;
+
             PlanNode originalSource = aggregationNode.getSource();
             PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>());
-            // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
-            DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
+            // Add a hard row-count cap: scan at most 10x the LIMIT rows to find distinct keys.
+            // If that isn't enough, the cardinality check will pass all rows through unfiltered.
+            LimitNode scanCap = new LimitNode(
                     Optional.empty(),
                     idAllocator.getNextId(),
                     keySource,
+                    10 * count,
+                    LimitNode.Step.FINAL);
+            DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
+                    Optional.empty(),
+                    idAllocator.getNextId(),
+                    scanCap,
                     count,
                     false,
                     keys,
-                    Optional.empty(),
-                    SystemSessionProperties.getPrefilterForGroupbyLimitTimeoutMS(session));
+                    Optional.empty());
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            RowExpression leftHashExpression = getVariableHash(keys, functionAndTypeManager);
-            RowExpression rightHashExpression = getVariableHash(timedDistinctLimitNode.getOutputVariables(), functionAndTypeManager);
+            Type mapKeyType;
+            PlanNode rightProjectNode;
+            PlanNode crossJoinLhs;
+            VariableReferenceExpression lookupVariable;
 
-            Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
-            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
+            if (useHash) {
+                // Use hash-based approach for wide keys (VARCHAR, ROW) or multiple keys
+                RowExpression leftHashExpression = getVariableHash(keys, functionAndTypeManager);
+                RowExpression rightHashExpression = getVariableHash(timedDistinctLimitNode.getOutputVariables(), functionAndTypeManager);
+
+                mapKeyType = BIGINT;
+                rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
+                crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), ImmutableList.of());
+                lookupVariable = crossJoinLhs.getOutputVariables().get(crossJoinLhs.getOutputVariables().size() - 1);
+            }
+            else {
+                // Use direct key comparison for single non-VARCHAR, non-ROW key
+                mapKeyType = keys.get(0).getType();
+                rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(timedDistinctLimitNode.getOutputVariables().get(0), constant(TRUE, BOOLEAN)), ImmutableList.of());
+                crossJoinLhs = originalSource;
+                lookupVariable = keys.get(0);
+            }
+
+            Type mapType = createMapType(functionAndTypeManager, mapKeyType, BOOLEAN);
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
             PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
-            PlanNode crossJoinLhs = addProjections(originalSource, idAllocator, variableAllocator, ImmutableList.of(leftHashExpression), ImmutableList.of());
             ImmutableList.Builder<VariableReferenceExpression> crossJoinOutput = ImmutableList.builder();
 
             crossJoinOutput.addAll(crossJoinLhs.getOutputVariables());
@@ -252,7 +287,6 @@ public class PrefilterForLimitingAggregation
                     ImmutableMap.of());
 
             VariableReferenceExpression mapVariable = crossJoinRhs.getOutputVariables().get(0);
-            VariableReferenceExpression lookupVariable = crossJoinLhs.getOutputVariables().get(crossJoinLhs.getOutputVariables().size() - 1);
             RowExpression cardinality = call(functionAndTypeManager, "CARDINALITY", BIGINT, mapVariable);
             RowExpression countExpr = constant(count, BIGINT);
 

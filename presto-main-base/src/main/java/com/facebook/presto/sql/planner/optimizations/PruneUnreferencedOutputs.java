@@ -768,7 +768,7 @@ public class PruneUnreferencedOutputs
                 expectedInputs = ImmutableSet.copyOf(node.getDistinctVariables());
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
-            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable(), node.getTimeoutMillis());
+            return new DistinctLimitNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), source, node.getLimit(), node.isPartial(), node.getDistinctVariables(), node.getHashVariable());
         }
 
         @Override

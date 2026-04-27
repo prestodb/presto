@@ -322,7 +322,6 @@ public final class SystemSessionProperties
     public static final String PRE_PROCESS_METADATA_CALLS = "pre_process_metadata_calls";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
     public static final String PREFILTER_FOR_GROUPBY_LIMIT = "prefilter_for_groupby_limit";
-    public static final String PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS = "prefilter_for_groupby_limit_timeout_ms";
     public static final String OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME = "optimize_join_probe_for_empty_build_runtime";
     public static final String USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS = "use_defaults_for_correlated_aggregation_pushdown_through_outer_joins";
     public static final String MERGE_DUPLICATE_AGGREGATIONS = "merge_duplicate_aggregations";
@@ -1880,11 +1879,6 @@ public final class SystemSessionProperties
                         PREFILTER_FOR_GROUPBY_LIMIT,
                         "Prefilter aggregation source for queries that have aggregations on simple tables with filters",
                         featuresConfig.isPrefilterForGroupbyLimit(),
-                        false),
-                integerProperty(
-                        PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS,
-                        "Timeout for finding the LIMIT number of keys for group by",
-                        10000,
                         false),
                 booleanProperty(
                         FIELD_NAMES_IN_JSON_CAST_ENABLED,
@@ -3521,11 +3515,6 @@ public final class SystemSessionProperties
     public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
     {
         return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
-    }
-
-    public static int getPrefilterForGroupbyLimitTimeoutMS(Session session)
-    {
-        return session.getSystemProperty(PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS, Integer.class);
     }
 
     public static boolean isOptimizeJoinProbeForEmptyBuildRuntimeEnabled(Session session)

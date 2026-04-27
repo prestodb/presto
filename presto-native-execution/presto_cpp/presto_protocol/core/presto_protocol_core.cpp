@@ -3847,13 +3847,6 @@ void to_json(json& j, const DistinctLimitNode& p) {
       "DistinctLimitNode",
       "VariableReferenceExpression",
       "hashVariable");
-  to_json_key(
-      j,
-      "timeoutMillis",
-      p.timeoutMillis,
-      "DistinctLimitNode",
-      "int",
-      "timeoutMillis");
 }
 
 void from_json(const json& j, DistinctLimitNode& p) {
@@ -3878,13 +3871,6 @@ void from_json(const json& j, DistinctLimitNode& p) {
       "DistinctLimitNode",
       "VariableReferenceExpression",
       "hashVariable");
-  from_json_key(
-      j,
-      "timeoutMillis",
-      p.timeoutMillis,
-      "DistinctLimitNode",
-      "int",
-      "timeoutMillis");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

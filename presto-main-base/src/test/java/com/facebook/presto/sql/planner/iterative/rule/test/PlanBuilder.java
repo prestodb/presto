@@ -296,8 +296,7 @@ public class PlanBuilder
                 count,
                 false,
                 distinctSymbols,
-                Optional.empty(),
-                0);
+                Optional.empty());
     }
 
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)

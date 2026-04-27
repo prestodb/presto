@@ -150,7 +150,7 @@ public class LimitPushDown
                     node.getOutputVariables().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
                 planChanged = true;
-                return new DistinctLimitNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty(), 0);
+                return new DistinctLimitNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenSource, limit.getCount(), false, rewrittenSource.getOutputVariables(), Optional.empty());
             }
             PlanNode rewrittenNode = context.defaultRewrite(node);
             if (limit != null) {

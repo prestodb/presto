@@ -256,7 +256,7 @@ public class HashGenerationOptimizer
             // that's functionally dependent on the distinct field in the set of distinct fields of the new node to be able to propagate it downstream.
             // Currently, such precomputed hashes will be dropped by this operation.
             return new PlanWithProperties(
-                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable), node.getTimeoutMillis()),
+                    new DistinctLimitNode(node.getSourceLocation(), node.getId(), child.getNode(), node.getLimit(), node.isPartial(), node.getDistinctVariables(), Optional.of(hashVariable)),
                     ImmutableMap.of(hashComputation.get(), hashVariable));
         }
 

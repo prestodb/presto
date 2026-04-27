@@ -1053,7 +1053,6 @@ struct DistinctLimitNode : public PlanNode {
   bool partial = {};
   List<VariableReferenceExpression> distinctVariables = {};
   std::shared_ptr<VariableReferenceExpression> hashVariable = {};
-  int timeoutMillis = {};
 
   DistinctLimitNode() noexcept;
 };
