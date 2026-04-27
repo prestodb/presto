@@ -11,6 +11,38 @@
 # limitations under the License.
 cmake_minimum_required(VERSION 3.10)
 
+# Use rapids-cmake to configure CUDA architectures
+if(PRESTO_ENABLE_CUDF)
+  file(
+    READ
+    "${CMAKE_SOURCE_DIR}/velox/CMake/resolve_dependency_modules/cudf.cmake"
+    _dep_cmake_content
+  )
+  string(REGEX MATCH "VELOX_rapids_cmake_VERSION ([0-9.]+)" _match "${_dep_cmake_content}")
+  set(PRESTO_rapids_cmake_VERSION "${CMAKE_MATCH_1}")
+  message(STATUS "Rapids CMake version: ${PRESTO_rapids_cmake_VERSION}")
+  string(REGEX MATCH "VELOX_rapids_cmake_COMMIT ([0-9a-fA-F]+)" _match "${_dep_cmake_content}")
+  set(PRESTO_rapids_cmake_COMMIT "${CMAKE_MATCH_1}")
+  message(STATUS "Rapids CMake commit: ${PRESTO_rapids_cmake_COMMIT}")
+
+  set(rapids-cmake-version ${PRESTO_rapids_cmake_VERSION})
+  set(
+    rapids-cmake-url
+    "https://github.com/rapidsai/rapids-cmake/archive/${PRESTO_rapids_cmake_COMMIT}.tar.gz"
+  )
+  if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
+    file(
+      DOWNLOAD
+        https://raw.githubusercontent.com/rapidsai/rapids-cmake/${PRESTO_rapids_cmake_COMMIT}/RAPIDS.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake
+    )
+  endif()
+  include(${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(PrestoCpp)
+  enable_language(CUDA)
+endif()
+
 # set the project name
 project(PrestoCpp)
 
