@@ -136,14 +136,18 @@ public class QuerySessionSupplier
         Optional<AuthorizedIdentity> authorizedIdentity = context.getAuthorizedIdentity();
         authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
 
-        return authorizedIdentity.map(identity -> new Identity(
-                context.getIdentity().getUser(),
-                context.getIdentity().getPrincipal(),
-                context.getIdentity().getRoles(),
-                context.getIdentity().getExtraCredentials(),
-                context.getIdentity().getExtraAuthenticators(),
-                Optional.of(identity.getUserName()),
-                identity.getReasonForSelect(),
-                context.getCertificates())).orElseGet(context::getIdentity);
+        return authorizedIdentity.map(identity -> {
+            Optional<java.security.Principal> principal = identity.getAuthorizedPrincipal()
+                    .or(() -> context.getIdentity().getPrincipal());
+            return new Identity(
+                    context.getIdentity().getUser(),
+                    principal,
+                    context.getIdentity().getRoles(),
+                    context.getIdentity().getExtraCredentials(),
+                    context.getIdentity().getExtraAuthenticators(),
+                    Optional.of(identity.getUserName()),
+                    identity.getReasonForSelect(),
+                    context.getCertificates());
+        }).orElseGet(context::getIdentity);
     }
 }
