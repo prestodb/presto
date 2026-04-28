@@ -660,6 +660,18 @@ concurrency.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
+``optimize_values_join``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When enabled, optimizes joins where one side is a small ``VALUES`` clause (table literal) by
+converting the join into a map lookup. Instead of performing a hash join, the optimizer builds
+an in-memory map from the ``VALUES`` rows and rewrites the join as a projection that looks up
+each probe-side key in the map. This eliminates the join operator entirely and can significantly
+reduce CPU and memory usage for joins against small inline value sets.
+
 
 JDBC Properties
 ---------------
