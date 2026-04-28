@@ -83,7 +83,7 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final Logger LOG = Logger.get(OracleClient.class);
-    private static final int FETCH_SIZE = 1000;
+    private final int fetchSize;
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
@@ -100,6 +100,7 @@ public class OracleClient
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
+        this.fetchSize = config.getFetchSize();
     }
 
     private String[] getTableTypes()
@@ -116,11 +117,13 @@ public class OracleClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         String escape = metadata.getSearchStringEscape();
-        return metadata.getTables(
+        ResultSet resultSet = metadata.getTables(
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
+        resultSet.setFetchSize(fetchSize);
+        return resultSet;
     }
 
     @Override
@@ -128,7 +131,7 @@ public class OracleClient
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setFetchSize(FETCH_SIZE);
+        statement.setFetchSize(fetchSize);
         return statement;
     }
 
