@@ -482,6 +482,111 @@ public class TestTableScanDynamicFilter
     }
 
     @Test
+    public void testHasAnyCompleteWhenNoneComplete()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        assertFalse(composite.hasAnyComplete(Optional.empty()));
+        assertFalse(composite.hasAnyComplete(Optional.of(ImmutableSet.of(customerIdHandle))));
+    }
+
+    @Test
+    public void testHasAnyCompleteWhenOneComplete()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        // Resolve only filter1
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+
+        // Key invariant: hasAnyComplete is true while isComplete is still false.
+        assertTrue(composite.hasAnyComplete(Optional.empty()));
+        assertFalse(composite.isComplete(Optional.empty()));
+    }
+
+    @Test
+    public void testHasAnyCompleteWhenAllComplete()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", new TestColumnHandle("customer_id"),
+                "product_id", new TestColumnHandle("product_id"));
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
+
+        assertTrue(composite.hasAnyComplete(Optional.empty()));
+        assertTrue(composite.isComplete(Optional.empty()));
+    }
+
+    @Test
+    public void testHasAnyCompleteIgnoresIrrelevantCompletedFilter()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        JoinDynamicFilter filter2 = createFilter("550", "product_id");
+        filter1.setExpectedPartitions(1);
+        filter2.setExpectedPartitions(1);
+
+        TestColumnHandle customerIdHandle = new TestColumnHandle("customer_id");
+        TestColumnHandle productIdHandle = new TestColumnHandle("product_id");
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", customerIdHandle,
+                "product_id", productIdHandle);
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
+
+        // Resolve only filter2 (product_id), but ask about customer_id only.
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
+
+        Optional<Set<ColumnHandle>> relevant = Optional.of(ImmutableSet.of(customerIdHandle));
+        assertFalse(composite.hasAnyComplete(relevant),
+                "completed filter on irrelevant column should not satisfy hasAnyComplete");
+        assertTrue(composite.hasAnyComplete(Optional.of(ImmutableSet.of(productIdHandle))));
+    }
+
+    @Test
+    public void testHasAnyCompleteEmptyRelevantColumnsReturnsTrue()
+    {
+        JoinDynamicFilter filter1 = createFilter("549", "customer_id");
+        filter1.setExpectedPartitions(2); // deliberately not resolved
+
+        Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of(
+                "customer_id", new TestColumnHandle("customer_id"));
+        TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1), columnNameToHandle);
+
+        Optional<Set<ColumnHandle>> emptyRelevant = Optional.of(ImmutableSet.of());
+        assertTrue(composite.hasAnyComplete(emptyRelevant),
+                "Empty relevant column set means no filter to wait for");
+    }
+
+    @Test
     public void testIsBlockedEmptyRelevantColumnsDelegatesToAll()
     {
         JoinDynamicFilter filter1 = createFilter("549", "customer_id");

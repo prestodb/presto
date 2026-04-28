@@ -145,6 +145,13 @@ public class TableScanDynamicFilter
     }
 
     @Override
+    public boolean hasAnyComplete(Optional<Set<ColumnHandle>> relevantColumns)
+    {
+        List<JoinDynamicFilter> relevant = getRelevantFilters(relevantColumns);
+        return relevant.isEmpty() || relevant.stream().anyMatch(JoinDynamicFilter::isComplete);
+    }
+
+    @Override
     public Set<ColumnHandle> getPendingFilterColumns()
     {
         return filters.stream()

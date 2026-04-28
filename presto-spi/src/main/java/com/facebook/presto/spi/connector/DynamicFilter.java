@@ -34,6 +34,13 @@ import java.util.concurrent.TimeUnit;
  * <p>Connectors use the {@link #isBlocked()} / {@link #getCurrentPredicate()}
  * loop: wait for the future, read the predicate, repeat until
  * {@link #isComplete()}.
+ *
+ * <p>The predicate returned by {@link #getCurrentPredicate()} narrows monotonically
+ * as individual underlying filters resolve: incomplete filters contribute
+ * {@code TupleDomain.all()} (no constraint), so the intersection tightens whenever
+ * any one of them completes. Connectors can re-read the predicate on each batch to
+ * pick up later-arriving filters without blocking on the slowest one — see
+ * {@link #hasAnyComplete}.
  */
 public interface DynamicFilter
 {
@@ -95,6 +102,12 @@ public interface DynamicFilter
         }
 
         @Override
+        public boolean hasAnyComplete(Optional<Set<ColumnHandle>> relevantColumns)
+        {
+            return true;
+        }
+
+        @Override
         public String toString()
         {
             return "DynamicFilter.EMPTY";
@@ -140,4 +153,16 @@ public interface DynamicFilter
      * {@code Optional.empty()} means all columns are relevant and delegates to {@link #isComplete()}.
      */
     boolean isComplete(Optional<Set<ColumnHandle>> relevantColumns);
+
+    /**
+     * Returns true if at least one filter on a relevant column is complete.
+     * Filters on irrelevant columns are ignored. If there are no relevant filters,
+     * returns true (no waiting required).
+     *
+     * <p>Use this in preference to {@link #isComplete(Optional)} for warmup-exit
+     * gates: it lets the scan exit as soon as some useful constraint is available
+     * without blocking on the slowest filter. Late-arriving filters still narrow
+     * {@link #getCurrentPredicate()} on subsequent reads.
+     */
+    boolean hasAnyComplete(Optional<Set<ColumnHandle>> relevantColumns);
 }

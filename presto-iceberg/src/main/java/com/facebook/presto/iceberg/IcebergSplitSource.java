@@ -167,6 +167,9 @@ public class IcebergSplitSource
     private InclusiveMetricsEvaluator metricsEvaluator;
     private Map<Integer, Evaluator> partitionEvaluatorCache;
     private boolean inlineFilterActive;
+    // Last predicate applied via activateInlineFilter; used by SCANNING_FILTERED to detect
+    // narrowing when an additional filter completes after the warmup transition.
+    private TupleDomain<ColumnHandle> lastAppliedPredicate = TupleDomain.all();
 
     // Warmup state
     private OptionalInt warmupMaxWeight;
@@ -256,7 +259,7 @@ public class IcebergSplitSource
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
     {
         if (state == State.WAITING_FOR_FILTER) {
-            if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+            if (shouldExitWaiting()) {
                 transitionFromBlocking();
             }
             else {
@@ -265,7 +268,7 @@ public class IcebergSplitSource
                 CompletableFuture<?> blocked = dynamicFilter.isBlocked(relevantFilterColumns);
                 if (!blocked.isDone()) {
                     return blocked.thenApply(ignored -> {
-                        if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+                        if (shouldExitWaiting()) {
                             transitionFromBlocking();
                         }
                         return state == State.SCANNING_FILTERED ? enumerateSplitBatch(maxSize) : EMPTY_BATCH_NOT_FINISHED;
@@ -285,7 +288,7 @@ public class IcebergSplitSource
                 }
             }
 
-            if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+            if (shouldExitWaiting()) {
                 transitionToFilteredReScan();
             }
             else if (warmupMaxWeight.isPresent() && warmupWeightDispatched >= warmupMaxWeight.getAsInt()) {
@@ -300,8 +303,19 @@ public class IcebergSplitSource
             return handleWarmupPaused(maxSize);
         }
         else if (state == State.SCANNING_UNFILTERED) {
-            if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+            if (shouldExitWaiting()) {
                 transitionToFilteredScanning();
+            }
+        }
+        // Per-batch narrowing: in SCANNING_FILTERED, an additional filter may have completed
+        // since the warmup transition. Re-read the predicate and re-apply if it has narrowed.
+        // Manifest-level pruning still happens once at warmup exit; this loop adds file-level
+        // (column stats) and partition pruning for filters that arrive later, applied to
+        // not-yet-emitted splits.
+        if (state == State.SCANNING_FILTERED) {
+            TupleDomain<ColumnHandle> currentPredicate = dynamicFilter.getCurrentPredicate();
+            if (!currentPredicate.equals(lastAppliedPredicate)) {
+                activateInlineFilter(currentPredicate);
             }
         }
         return completedFuture(enumerateSplitBatch(maxSize));
@@ -309,7 +323,7 @@ public class IcebergSplitSource
 
     private CompletableFuture<ConnectorSplitBatch> handleWarmupPaused(int maxSize)
     {
-        if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+        if (shouldExitWaiting()) {
             transitionToFilteredReScan();
             return completedFuture(enumerateSplitBatch(maxSize));
         }
@@ -317,7 +331,7 @@ public class IcebergSplitSource
         CompletableFuture<?> blocked = dynamicFilter.isBlocked(relevantFilterColumns);
         if (!blocked.isDone()) {
             return blocked.thenApply(ignored -> {
-                if (dynamicFilter.isComplete(relevantFilterColumns) || hasExceededFilterWaitTime()) {
+                if (shouldExitWaiting()) {
                     transitionToFilteredReScan();
                 }
                 return state == State.SCANNING_FILTERED ? enumerateSplitBatch(maxSize) : EMPTY_BATCH_NOT_FINISHED;
@@ -331,28 +345,32 @@ public class IcebergSplitSource
     private void transitionFromBlocking()
     {
         recordFilterWaitTime();
-        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
+        // dynamicFilterApplied tracks whether any filter completion contributed —
+        // either a full completion (isComplete) or a partial one (hasAnyComplete that
+        // unblocked the gate via shouldExitWaiting). It's used at close() to decide
+        // splitsBeforeFilter accounting.
+        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns)
+                || dynamicFilter.hasAnyComplete(relevantFilterColumns);
         state = State.SCANNING_FILTERED;
 
-        if (dynamicFilterApplied) {
-            // Initialize scan with filter so Iceberg can skip manifests
-            initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
-        }
-        else {
-            // Timeout — start unfiltered scan
-            initializeScan();
-        }
+        // Always pass the current predicate. initializeScanWithDynamicFilter is a
+        // pure no-filter pass when the predicate is all(); when it has any constraint,
+        // Iceberg manifest pruning kicks in. Late-arriving filters (those that
+        // complete after this transition) tighten further via the per-batch loop in
+        // getNextBatch and via close() catch-up.
+        initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
     }
 
     private void transitionToFilteredScanning()
     {
         recordFilterWaitTime();
-        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
+        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns)
+                || dynamicFilter.hasAnyComplete(relevantFilterColumns);
         state = State.SCANNING_FILTERED;
 
-        if (dynamicFilterApplied) {
-            activateInlineFilter(dynamicFilter.getCurrentPredicate());
-        }
+        // Apply whatever predicate is currently available inline. activateInlineFilter
+        // is a no-op when predicate is all(), so this also handles the timeout case.
+        activateInlineFilter(dynamicFilter.getCurrentPredicate());
     }
 
     private void transitionToFilteredReScan()
@@ -362,18 +380,22 @@ public class IcebergSplitSource
             long pauseNanos = System.nanoTime() - warmupPauseStartNanos;
             runtimeStats.addMetricValue("dynamicFilterWarmupPauseNanos", NANO, pauseNanos);
         }
-        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns);
+        dynamicFilterApplied = dynamicFilter.isComplete(relevantFilterColumns)
+                || dynamicFilter.hasAnyComplete(relevantFilterColumns);
         state = State.SCANNING_FILTERED;
 
-        if (dynamicFilterApplied) {
+        TupleDomain<ColumnHandle> currentPredicate = dynamicFilter.getCurrentPredicate();
+        if (!currentPredicate.isAll()) {
+            // Some constraint available — re-scan with manifest pruning.
+            // Late-arriving filters narrow inline via the per-batch loop.
             reScanTriggered = true;
-            // Close current iterator, re-scan with manifest pruning
             closeCurrentIterator();
-            initializeScanWithDynamicFilter(dynamicFilter.getCurrentPredicate());
+            initializeScanWithDynamicFilter(currentPredicate);
         }
         else {
-            // Timeout — resume current iterator with inline filter
-            activateInlineFilter(dynamicFilter.getCurrentPredicate());
+            // Timeout with no useful constraint — keep the warmup iterator going unfiltered.
+            // activateInlineFilter is a no-op when predicate is all().
+            activateInlineFilter(currentPredicate);
         }
     }
 
@@ -402,15 +424,16 @@ public class IcebergSplitSource
             runtimeStats.addMetricValue("dynamicFilterExpressionOp", NONE, dfExpression.op().ordinal());
         }
 
-        runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
-        icebergConstraint.getDomains().ifPresent(domains ->
-                runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
+        // DYNAMIC_FILTER_PUSHED_INTO_SCAN and DYNAMIC_FILTER_CONSTRAINT_COLUMNS are emitted
+        // once at close() based on lastAppliedPredicate, so per-batch narrowing doesn't
+        // accumulate spurious counts.
 
         // Set up in-line evaluators for remaining files
         this.filterExpression = dfExpression;
         this.metricsEvaluator = new InclusiveMetricsEvaluator(tableSchema, dfExpression);
         this.partitionEvaluatorCache = new HashMap<>();
         this.inlineFilterActive = true;
+        this.lastAppliedPredicate = dynamicFilterConstraint;
     }
 
     private boolean taskMatchesFilter(FileScanTask task)
@@ -435,6 +458,30 @@ public class IcebergSplitSource
     {
         return filterWaitStartNanos > 0
                 && Duration.nanosSince(filterWaitStartNanos).compareTo(dynamicFilter.getWaitTimeout()) >= 0;
+    }
+
+    /**
+     * Whether the WAITING_FOR_FILTER / WARMUP_* state should exit and start producing
+     * splits. Exits when (a) all relevant filters are complete, (b) at least one is
+     * complete *and* contributes a useful (non-{@code all()}) constraint, or (c) the
+     * wait timeout has elapsed.
+     *
+     * <p>The condition is asymmetric on purpose: a single filter resolving to
+     * {@code all()} (e.g., a short-circuit) does not unblock the gate by itself —
+     * we want to wait for siblings that may carry actual pruning constraints.
+     * If every filter ends up trivial, {@code isComplete} eventually fires and the
+     * gate exits anyway.
+     */
+    private boolean shouldExitWaiting()
+    {
+        if (hasExceededFilterWaitTime()) {
+            return true;
+        }
+        if (dynamicFilter.isComplete(relevantFilterColumns)) {
+            return true;
+        }
+        return dynamicFilter.hasAnyComplete(relevantFilterColumns)
+                && !dynamicFilter.getCurrentPredicate().isAll();
     }
 
     private void recordFilterWaitTime()
@@ -481,9 +528,11 @@ public class IcebergSplitSource
                 runtimeStats.addMetricValue("dynamicFilterExpressionOp", NONE, dfExpression.op().ordinal());
             }
             filteredScan = filteredScan.filter(dfExpression);
-            runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
-            icebergConstraint.getDomains().ifPresent(domains ->
-                    runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
+            // DYNAMIC_FILTER_PUSHED_INTO_SCAN and DYNAMIC_FILTER_CONSTRAINT_COLUMNS are emitted
+            // once at close() based on lastAppliedPredicate.
+            // Record the manifest-applied predicate so the per-batch narrowing loop
+            // only re-applies inline when a *strictly newer* predicate becomes available.
+            this.lastAppliedPredicate = dynamicFilterConstraint;
         }
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
@@ -640,18 +689,43 @@ public class IcebergSplitSource
             runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_PROCESSED, NONE,
                     splitsExamined - splitsFilteredInline - reScanDedupSkipped);
 
-            // SPLITS_BEFORE_FILTER: files dispatched without the benefit of dynamic filter
+            // Catch up lastAppliedPredicate to reflect any filters that completed after
+            // the last batch. Small-table scans can dispatch all splits in one batch,
+            // so the per-batch narrowing loop never sees later-arriving filters; the
+            // metrics below should still reflect the final filter state.
+            if (state == State.SCANNING_FILTERED) {
+                TupleDomain<ColumnHandle> finalPredicate = dynamicFilter.getCurrentPredicate();
+                if (!finalPredicate.isAll() && !finalPredicate.equals(lastAppliedPredicate)) {
+                    lastAppliedPredicate = finalPredicate;
+                }
+            }
+
+            // PUSHED_INTO_SCAN and CONSTRAINT_COLUMNS: emit once based on the final
+            // applied predicate. Per-batch narrowing can call activateInlineFilter
+            // multiple times as filters resolve; without close-time emission these
+            // would accumulate spurious counts.
+            if (!lastAppliedPredicate.isAll()) {
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSHED_INTO_SCAN, NONE, 1);
+                lastAppliedPredicate.getDomains().ifPresent(domains ->
+                        runtimeStats.addMetricValue(DYNAMIC_FILTER_CONSTRAINT_COLUMNS, NONE, domains.size()));
+            }
+
+            // SPLITS_BEFORE_FILTER: files dispatched without the benefit of dynamic filter.
+            // Uses dynamicFilterApplied (= "any filter completed") as the proxy: if the
+            // filter completed at all (even resolving to all()), splits dispatched after
+            // the gate exit are counted as "after filter" — matching the original
+            // single-filter semantics for non-selective filters.
             long effectiveSplitsBeforeFilter;
             if (!relevantFilterColumns.isPresent() || relevantFilterColumns.get().isEmpty()) {
                 // No discriminating columns — filter is irrelevant for this scan
                 effectiveSplitsBeforeFilter = 0;
             }
             else if (!dynamicFilterApplied) {
-                // Filter was never applied (scan finished before filter, or timeout)
+                // Filter was never applied (scan finished before any filter completed, or timeout)
                 effectiveSplitsBeforeFilter = splitsExamined;
             }
             else {
-                // Filter was applied — count warmup or eagerly dispatched splits
+                // Filter was applied (partially or fully) — count warmup or eagerly dispatched splits
                 effectiveSplitsBeforeFilter = splitsBeforeFilter;
             }
             runtimeStats.addMetricValue(DYNAMIC_FILTER_SPLITS_BEFORE_FILTER, NONE, effectiveSplitsBeforeFilter);
