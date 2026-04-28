@@ -51,7 +51,7 @@ public class HudiRealtimeSplitConverter
             Map<String, String> customSplitInfo = ImmutableMap.<String, String>builder()
                     .put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeFileSplit.class.getName())
                     .put(HUDI_DELTA_FILEPATHS_KEY, String.join(",", hudiSplit.getDeltaLogPaths()))
-                    .put(HUDI_BASEPATH_KEY, hudiSplit.getBasePath())
+                    .put(HUDI_BASEPATH_KEY, hudiSplit.getBasePath().toString())
                     .put(HUDI_MAX_COMMIT_TIME_KEY, hudiSplit.getMaxCommitTime())
                     .build();
             return Optional.of(customSplitInfo);

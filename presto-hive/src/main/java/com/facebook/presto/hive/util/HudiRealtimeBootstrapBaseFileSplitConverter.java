@@ -52,7 +52,7 @@ public class HudiRealtimeBootstrapBaseFileSplitConverter
             HoodieRealtimeBootstrapBaseFileSplit hudiSplit = (HoodieRealtimeBootstrapBaseFileSplit) split;
 
             customSplitInfo.put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeBootstrapBaseFileSplit.class.getName());
-            customSplitInfo.put(BASE_PATH_KEY, hudiSplit.getBasePath());
+            customSplitInfo.put(BASE_PATH_KEY, hudiSplit.getBasePath().toString());
             customSplitInfo.put(MAX_COMMIT_TIME_KEY, hudiSplit.getMaxCommitTime());
             customSplitInfo.put(DELTA_FILE_PATHS_KEY, String.join(",", hudiSplit.getDeltaLogPaths()));
             customSplitInfo.put(BOOTSTRAP_FILE_SPLIT_PATH, hudiSplit.getBootstrapFileSplit().getPath().toString());

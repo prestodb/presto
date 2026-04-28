@@ -61,7 +61,7 @@ public class TestCustomSplitConversionUtils
         assertEquals(SPLIT_START_POS, recreatedSplit.getStart());
         assertEquals(SPLIT_LENGTH, recreatedSplit.getLength());
         assertEquals(SPLIT_HOSTS, recreatedSplit.getLocations());
-        assertEquals(BASE_PATH, recreatedSplit.getBasePath());
+        assertEquals(BASE_PATH, recreatedSplit.getBasePath().toString());
         assertEquals(deltaLogPaths, recreatedSplit.getDeltaLogPaths());
         assertEquals(expectedMaxCommitTime, recreatedSplit.getMaxCommitTime());
     }
@@ -87,7 +87,7 @@ public class TestCustomSplitConversionUtils
         assertEquals(SPLIT_START_POS, recreatedSplit.getStart());
         assertEquals(SPLIT_LENGTH, recreatedSplit.getLength());
         assertEquals(SPLIT_HOSTS, recreatedSplit.getLocations());
-        assertEquals(BASE_PATH, recreatedSplit.getBasePath());
+        assertEquals(BASE_PATH, recreatedSplit.getBasePath().toString());
         assertEquals(deltaLogPaths, recreatedSplit.getDeltaLogPaths());
         assertEquals(expectedMaxCommitTime, recreatedSplit.getMaxCommitTime());
     }
@@ -150,7 +150,7 @@ public class TestCustomSplitConversionUtils
         assertEquals(SPLIT_START_POS, recreatedSplit.getStart());
         assertEquals(SPLIT_LENGTH, recreatedSplit.getLength());
         assertEquals(SPLIT_HOSTS, recreatedSplit.getLocations());
-        assertEquals(BASE_PATH, recreatedSplit.getBasePath());
+        assertEquals(BASE_PATH, recreatedSplit.getBasePath().toString());
         assertEquals(deltaLogPaths, recreatedSplit.getDeltaLogPaths());
         assertEquals(maxCommitTime, recreatedSplit.getMaxCommitTime());
         assertEquals(bootstrapSourceFilePath, recreatedSplit.getBootstrapFileSplit().getPath());
