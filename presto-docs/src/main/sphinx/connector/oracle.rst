@@ -80,6 +80,35 @@ Property Name                                      Description                  
                                                    increase memory usage.
 ================================================== ==================================================================== ===========
 
+Oracle-Specific Configuration Properties
+----------------------------------------
+
+================================================== ==================================================================== ===========
+Property Name                                      Description                                                          Default
+================================================== ==================================================================== ===========
+``oracle.tls.enabled``                             Enable TLS/SSL for secure connections to Oracle database.            ``false``
+
+``oracle.tls.truststore-path``                     Path to the Java truststore file containing the Oracle server's
+                                                   SSL certificate. Required when ``oracle.tls.enabled`` is ``true``.
+
+``oracle.tls.truststore-password``                 Password for the truststore file. Required when
+                                                   ``oracle.tls.enabled`` is ``true``.
+================================================== ==================================================================== ===========
+
+TLS/SSL Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+To enable secure connections to Oracle using TLS/SSL, configure the following properties:
+
+.. code-block:: none
+
+    oracle.tls.enabled=true
+    oracle.tls.truststore-path=/path/to/truststore.jks
+    oracle.tls.truststore-password=changeit
+
+The truststore file must contain the Oracle server's SSL certificate or the certificate
+authority (CA) certificate that signed the Oracle server's certificate.
+
 Querying Oracle
 ---------------
 
