@@ -230,6 +230,16 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testHavingOnAggregateRemapped()
+    {
+        String originalViewSql = format("SELECT a as mv_a, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING SUM(a) > 10", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(mv_a) FROM %s GROUP BY c HAVING SUM(mv_a) > 10", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testMismatchingColumnTypes()
     {
         // d is registered as bigint- expect optimization to fail
