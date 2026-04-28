@@ -35,6 +35,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -206,5 +208,29 @@ public class TestLocalQueries
         // TopN with downstream join where ordering matters
         assertQuery("SELECT t.nationkey, r.name FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 10) t " +
                 "JOIN region r ON t.regionkey = r.regionkey");
+    }
+
+    @Test
+    public void testOptimizeTopNUsingRowId()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "true")
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, "1")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "false")
+                .build();
+
+        // Basic wide-table TopN (lineitem has 16 columns, well above threshold)
+        assertQuery(enabled, "SELECT * FROM lineitem ORDER BY orderkey LIMIT 10",
+                disabled, "SELECT * FROM lineitem ORDER BY orderkey LIMIT 10");
+
+        // Another wide table with DESC ordering
+        assertQuery(enabled, "SELECT * FROM orders ORDER BY orderkey DESC LIMIT 5",
+                disabled, "SELECT * FROM orders ORDER BY orderkey DESC LIMIT 5");
+
+        // TopN with filter
+        assertQuery(enabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10",
+                disabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10");
     }
 }

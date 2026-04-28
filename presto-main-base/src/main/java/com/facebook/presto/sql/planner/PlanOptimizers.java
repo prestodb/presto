@@ -196,6 +196,7 @@ import com.facebook.presto.sql.planner.optimizations.MergePartialAggregationsWit
 import com.facebook.presto.sql.planner.optimizations.MetadataDeleteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.MetadataQueryOptimizer;
 import com.facebook.presto.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
+import com.facebook.presto.sql.planner.optimizations.OptimizeTopNUsingRowId;
 import com.facebook.presto.sql.planner.optimizations.PayloadJoinOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PhysicalCteOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -845,6 +846,8 @@ public class PlanOptimizers
                                 .build()));
 
         builder.add(new JoinPrefilter(metadata));
+
+        builder.add(new OptimizeTopNUsingRowId(metadata));
 
         builder.add(
                 new IterativeOptimizer(
