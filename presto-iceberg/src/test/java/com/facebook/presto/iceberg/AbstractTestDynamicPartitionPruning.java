@@ -2165,6 +2165,63 @@ public abstract class AbstractTestDynamicPartitionPruning
     }
 
     /**
+     * Multi-filter scan analogous to the TPC-DS Q48 regression: fact_orders is
+     * joined with both a small dim ({@code dim_customers} WEST = 3 values, fast
+     * filter) and a large dim ({@code dim_high_cardinality} WEST = 90K values,
+     * slower filter). Both filters target {@code customer_id}.
+     *
+     * <p>Phase 1's gate exits warmup on the first useful constraint, so the
+     * slow 90K-row HashBuild does not stall split dispatch. Per-batch narrowing
+     * plus close-time catch-up ensures the slow filter's contribution is
+     * reflected in the final pushed predicate even though the gate exited
+     * before it completed.
+     *
+     * <p>Pre-Phase-1 the gate required all relevant filters to be complete,
+     * so the wait time was bounded below by the slowest filter's HashBuild.
+     */
+    @Test(invocationCount = 5)
+    public void testMultiFilterFastUnblocksScan()
+    {
+        String query = "SELECT f.order_id, f.amount " +
+                "FROM fact_orders f " +
+                "JOIN dim_customers c ON f.customer_id = c.customer_id " +
+                "JOIN dim_high_cardinality d ON f.customer_id = d.customer_id " +
+                "WHERE c.region = 'WEST' AND d.region = 'WEST' " +
+                "ORDER BY f.order_id";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        ResultWithQueryId<MaterializedResult> resultWithDpp = execute(session, query);
+        ResultWithQueryId<MaterializedResult> resultNoDpp = execute(dppDisabledSession(), query);
+
+        // 3 WEST customers × 100 orders each
+        assertEquals(resultWithDpp.getResult().getRowCount(), 300,
+                "Multi-filter fast unblocks: 3 WEST customers × 100 orders");
+        assertEquals(resultWithDpp.getResult().getMaterializedRows(),
+                resultNoDpp.getResult().getMaterializedRows(),
+                "Multi-filter fast unblocks: results must match no-DPP");
+
+        RuntimeStats dppStats = getRuntimeStats(resultWithDpp);
+
+        // Phase 1: scan exits warmup on the first useful constraint, not on the
+        // slowest filter's completion.
+        assertFilterResolvesWithinTimeout(dppStats, "Multi-filter fast unblocks");
+
+        // At least one filter applied (per-batch narrowing applies later filters
+        // even after the initial gate-exit).
+        assertTrue(getMetricValue(dppStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
+                "Multi-filter fast unblocks: at least one filter should be pushed");
+
+        assertDppReducesData(resultWithDpp, resultNoDpp, "Multi-filter fast unblocks");
+    }
+
+    /**
      * Verifies that a high-cardinality VARCHAR build side (90K distinct string
      * values) produces correct results when joined with a VARCHAR-partitioned
      * fact table. With broadcast join, the C++ side's VectorHasher tracks
