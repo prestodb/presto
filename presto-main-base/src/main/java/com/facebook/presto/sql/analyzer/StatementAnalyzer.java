@@ -428,6 +428,11 @@ class StatementAnalyzer
 
     public Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
+        return analyze(node, outerQueryScope, session);
+    }
+
+    public Scope analyze(Node node, Optional<Scope> outerQueryScope, Session session)
+    {
         return new Visitor(metadata, session, outerQueryScope, warningCollector).process(node, Optional.empty());
     }
 
@@ -1429,8 +1434,12 @@ class StatementAnalyzer
                 throw new SemanticException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + procedureName);
             }
             DistributedProcedure procedure = metadata.getProcedureRegistry().resolveDistributed(connectorId, toSchemaTableName(procedureName));
-            Object[] values = extractParameterValuesInOrder(call, procedure, metadata, session, analysis.getParameters());
-            accessControl.checkCanCallProcedure(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), procedureName);
+            Session sessionForProcedure = session;
+            if (procedure.usesProcedureCatalogAsSession()) {
+                sessionForProcedure = session.useSpecifiedCatalogAsSession(procedureName.getCatalogName());
+            }
+            Object[] values = extractParameterValuesInOrder(call, procedure, metadata, sessionForProcedure, analysis.getParameters());
+            accessControl.checkCanCallProcedure(sessionForProcedure.getRequiredTransactionId(), sessionForProcedure.getIdentity(), sessionForProcedure.getAccessControlContext(), procedureName);
 
             analysis.setUpdateInfo(call.getUpdateInfo());
             analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
@@ -1439,23 +1448,23 @@ class StatementAnalyzer
                 case TABLE_DATA_REWRITE:
                     TableDataRewriteDistributedProcedure tableDataRewriteDistributedProcedure = (TableDataRewriteDistributedProcedure) procedure;
                     QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
-                    QualifiedObjectName tableName = createQualifiedObjectName(session, call, qualifiedName, metadata);
+                    QualifiedObjectName tableName = createQualifiedObjectName(sessionForProcedure, call, qualifiedName, metadata);
 
                     analysis.addAccessControlCheckForTable(
                             TABLE_INSERT,
                             new AccessControlInfoForTable(
                                     accessControl,
-                                    session.getIdentity(),
-                                    session.getTransactionId(),
-                                    session.getAccessControlContext(),
+                                    sessionForProcedure.getIdentity(),
+                                    sessionForProcedure.getTransactionId(),
+                                    sessionForProcedure.getAccessControlContext(),
                                     tableName));
                     analysis.addAccessControlCheckForTable(
                             TABLE_DELETE,
                             new AccessControlInfoForTable(
                                     accessControl,
-                                    session.getIdentity(),
-                                    session.getTransactionId(),
-                                    session.getAccessControlContext(),
+                                    sessionForProcedure.getIdentity(),
+                                    sessionForProcedure.getTransactionId(),
+                                    sessionForProcedure.getAccessControlContext(),
                                     tableName));
 
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
@@ -1469,10 +1478,10 @@ class StatementAnalyzer
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
-                    analyze(querySpecification, scope);
+                    analyze(querySpecification, scope, sessionForProcedure);
                     analysis.setTargetQuery(querySpecification);
 
-                    TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
+                    TableHandle tableHandle = metadata.getHandleVersion(sessionForProcedure, tableName, Optional.empty())
                             .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
                     analysis.setCallTarget(tableHandle);
                     break;
