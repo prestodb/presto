@@ -1156,19 +1156,20 @@ public abstract class IcebergAbstractMetadata
         if (ifNotExists && branchExists) {
             return;
         }
-        long targetSnapshotId = tableVersion.map(version -> getSnapshotIdForTableVersion(icebergTable, version))
-                .orElseGet(() -> {
-                    if (icebergTable.currentSnapshot() == null) {
-                        throw new PrestoException(NOT_FOUND, format("Table %s has no current snapshot", icebergTableHandle.getSchemaTableName().getTableName()));
-                    }
-                    return icebergTable.currentSnapshot().snapshotId();
-                });
+        Optional<Long> targetSnapshotId = tableVersion
+                .map(version -> getSnapshotIdForTableVersion(icebergTable, version))
+                .or(() -> Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
         ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
         if (replace && branchExists) {
-            manageSnapshots.replaceBranch(branchName, targetSnapshotId);
+            targetSnapshotId.ifPresent(snapshotId -> manageSnapshots.replaceBranch(branchName, snapshotId));
         }
         else if (!branchExists) {
-            manageSnapshots.createBranch(branchName, targetSnapshotId);
+            if (targetSnapshotId.isPresent()) {
+                manageSnapshots.createBranch(branchName, targetSnapshotId.get());
+            }
+            else {
+                manageSnapshots.createBranch(branchName);
+            }
         }
         else {
             throw new PrestoException(ALREADY_EXISTS, format("Branch %s already exists in table %s", branchName, icebergTableHandle.getSchemaTableName().getTableName()));
