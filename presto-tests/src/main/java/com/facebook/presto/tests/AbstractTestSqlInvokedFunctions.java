@@ -68,6 +68,21 @@ public abstract class AbstractTestSqlInvokedFunctions
 
         sql = "select array_split_into_chunks(array[], 0)";
         assertQueryFails(sql, ".*Invalid slice size: 0. Size must be greater than zero.*");
+
+        // Empty arrays throw with the same message on Java and native engines.
+        sql = "select array_split_into_chunks(cast(array[] as array(integer)), 2)";
+        assertQueryFails(sql, ".*Cannot split an empty array.*");
+
+        sql = "select array_split_into_chunks(cast(array[] as array(varchar)), 1)";
+        assertQueryFails(sql, ".*Cannot split an empty array.*");
+
+        // Exact-fit boundary: chunk size equals array size.
+        sql = "select array_split_into_chunks(array[1, 2, 3], 3)";
+        assertQuery(sql, "values array[array[1, 2, 3]]");
+
+        // Boolean elements.
+        sql = "select array_split_into_chunks(array[true, false, true, false, true], 2)";
+        assertQuery(sql, "values array[array[true, false], array[true, false], array[true]]");
     }
 
     @Test
