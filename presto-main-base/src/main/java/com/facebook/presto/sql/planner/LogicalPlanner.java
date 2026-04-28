@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
@@ -53,8 +54,10 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.plan.TableWriterNode.DeleteHandle;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.ExpressionFormatter;
@@ -65,6 +68,7 @@ import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
+import com.facebook.presto.sql.analyzer.procedure.TableDataRewriteAnalysisContext;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
@@ -127,6 +131,7 @@ import static com.facebook.presto.spi.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.spi.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.spi.plan.TableWriterNode.RefreshMaterializedViewReference;
 import static com.facebook.presto.spi.plan.TableWriterNode.UpdateTarget;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndFinal;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
@@ -136,6 +141,8 @@ import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateCons
 import static com.facebook.presto.sql.planner.PlannerUtils.newVariable;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.TranslateExpressionsUtil.toRowExpression;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.google.common.base.Preconditions.checkState;
@@ -144,6 +151,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -204,12 +212,15 @@ public class LogicalPlanner
             return createAnalyzePlan(analysis, (Analyze) statement);
         }
         else if (statement instanceof Call) {
-            checkState(analysis.getDistributedProcedureType().isPresent(), "Call distributed procedure analysis is missing");
-            switch (analysis.getDistributedProcedureType().get()) {
+            Optional<DistributedProcedure.DistributedProcedureType> procedureType = analysis.getCallDistributedProcedureAnalysis()
+                    .map(Analysis.CallDistributedProcedureAnalysis::getDistributedProcedureType);
+            checkState(procedureType.isPresent(),
+                    "Call distributed procedure analysis is missing");
+            switch (procedureType.get()) {
                 case TABLE_DATA_REWRITE:
                     return createCallDistributedProcedurePlanForTableDataRewrite(analysis, (Call) statement);
                 default:
-                    throw new PrestoException(NOT_SUPPORTED, "Unsupported distributed procedure type: " + analysis.getDistributedProcedureType().get());
+                    throw new PrestoException(NOT_SUPPORTED, "Unsupported distributed procedure type: " + procedureType.get());
             }
         }
         else if (statement instanceof Insert) {
@@ -261,12 +272,19 @@ public class LogicalPlanner
 
     private RelationPlan createCallDistributedProcedurePlanForTableDataRewrite(Analysis analysis, Call statement)
     {
-        TableHandle targetTable = analysis.getCallTarget()
+        TableHandle targetTable = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .map(TableDataRewriteAnalysisContext::getCallTarget)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Target table does not exist"));
         Optional<QualifiedObjectName> procedureName = analysis.getProcedureName();
-        Optional<Object[]> procedureArguments = analysis.getProcedureArguments();
+        Optional<Object[]> procedureArguments = analysis.getCallDistributedProcedureAnalysis()
+                .map(Analysis.CallDistributedProcedureAnalysis::getProcedureArguments);
 
-        QuerySpecification querySpecification = analysis.getTargetQuery()
+        QuerySpecification querySpecification = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .map(TableDataRewriteAnalysisContext::getTargetQuery)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "The query for target table does not exist"));
         RelationPlan plan = createRelationPlan(analysis, querySpecification, new SqlPlannerContext(0));
 
@@ -306,6 +324,40 @@ public class LogicalPlanner
                 .map(columnToVariableMap::get)
                 .collect(toImmutableSet());
 
+        PlanNode queryRoot = plan.getRoot();
+        Optional<List<String>> zOrderColumns = analysis.getCallDistributedProcedureAnalysis()
+                .flatMap(Analysis.CallDistributedProcedureAnalysis::getProcedureAnalysisContext)
+                .map(TableDataRewriteAnalysisContext.class::cast)
+                .flatMap(TableDataRewriteAnalysisContext::getzOrderColumns);
+        if (zOrderColumns.isPresent() && !zOrderColumns.get().isEmpty()) {
+            // Validate all z-order column names exist before mapping to variables
+            List<String> invalidColumns = zOrderColumns.get().stream()
+                    .filter(columnName -> !columnToVariableMap.containsKey(columnName))
+                    .collect(toImmutableList());
+
+            if (!invalidColumns.isEmpty()) {
+                throw new PrestoException(
+                        COLUMN_NOT_FOUND,
+                        format("Z-order column(s) not found in table: %s. Available columns: %s",
+                                invalidColumns,
+                                columnToVariableMap.keySet()));
+            }
+
+            List<VariableReferenceExpression> zOrderColumnVars = zOrderColumns.get().stream()
+                    .map(columnToVariableMap::get)
+                    .collect(toImmutableList());
+
+            CallExpression zorderFunction = buildZOrderFunctionCall(zOrderColumnVars, metadata);
+
+            VariableReferenceExpression output = variableAllocator.newVariable("$z_order", VARBINARY);
+            Assignments assignments = Assignments.builder()
+                    .putAll(identityAssignments(queryRoot.getOutputVariables()))
+                    .put(output, zorderFunction)
+                    .build();
+            queryRoot = new ProjectNode(idAllocator.getNextId(), queryRoot, assignments);
+            columnNames = ImmutableList.<String>builder().addAll(columnNames).add("$z_order").build();
+        }
+
         CallDistributedProcedureTarget callDistributedProcedureTarget = new CallDistributedProcedureTarget(
                 procedureName.get(),
                 procedureArguments.get(),
@@ -319,12 +371,12 @@ public class LogicalPlanner
                         Optional.empty(),
                         idAllocator.getNextId(),
                         Optional.empty(),
-                        plan.getRoot(),
+                        queryRoot,
                         Optional.of(callDistributedProcedureTarget),
                         variableAllocator.newVariable("rows", BIGINT),
                         variableAllocator.newVariable("fragment", VARBINARY),
                         variableAllocator.newVariable("commitcontext", VARBINARY),
-                        plan.getRoot().getOutputVariables(),
+                        queryRoot.getOutputVariables(),
                         columnNames,
                         notNullColumnVariables,
                         partitioningScheme),
@@ -1106,5 +1158,35 @@ public class LogicalPlanner
                     tableLayout.get().getWriterPolicy() == MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
         return partitioningScheme;
+    }
+
+    /**
+     * Builds a zorder function call expression: zorder(ROW(col1, col2, ...))
+     *
+     * @param columns the columns to include in the z-order calculation
+     * @param metadata the metadata for function lookup
+     * @return a CallExpression representing the zorder function call
+     */
+    private static CallExpression buildZOrderFunctionCall(List<VariableReferenceExpression> columns, Metadata metadata)
+    {
+        // Create anonymous ROW type from column types
+        List<Type> columnTypes = columns.stream()
+                .map(VariableReferenceExpression::getType)
+                .collect(toImmutableList());
+        RowType rowType = RowType.anonymous(columnTypes);
+
+        // Create ROW constructor: ROW(col1, col2, ...)
+        List<RowExpression> rowArguments = columns.stream()
+                .map(var -> (RowExpression) var)
+                .collect(toImmutableList());
+        SpecialFormExpression rowConstructor = new SpecialFormExpression(
+                ROW_CONSTRUCTOR,
+                rowType,
+                rowArguments);
+
+        // Create and return zorder function call: zorder(ROW(col1, col2, ...))
+        FunctionHandle zorderFunctionHandle = metadata.getFunctionAndTypeManager()
+                .lookupFunction("zorder", fromTypes(rowType));
+        return call("zorder", zorderFunctionHandle, VARBINARY, rowConstructor);
     }
 }

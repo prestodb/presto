@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
@@ -25,9 +27,13 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -231,6 +237,12 @@ public class TestRewriteDataFilesProcedure
             // do not support rewrite files filtered by non-identity columns
             assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
 
+            String tableName1 = "my_table";
+            String schema = "my_schema";
+            System.out.println(getQueryRunner().execute(
+                    format("explain (type distributed) CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')",
+                            tableName1, schema)
+            ).toString());
             // select 5 files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 5);
             table.refresh();
@@ -1225,6 +1237,198 @@ public class TestRewriteDataFilesProcedure
         }
     }
 
+    @Test
+    public void testRewriteDataFilesWithZOrderFunction()
+            throws IOException
+    {
+        String tableName = "test_zorder_sorted_by";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey bigint, partkey bigint, comment varchar)");
+
+            // Insert test data with values that will show UTF-8 string sort order vs numeric order
+            // UTF-8 string order: "1" < "10" < "2" < "20" < "3" < "30"
+            // Numeric order: 1 < 2 < 3 < 10 < 20 < 30
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100, 'test1'), (10, 200, 'test10'), (2, 300, 'test2')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (20, 400, 'test20'), (3, 500, 'test3')", 2);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (30, 600, 'test30')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 3);
+
+            // Test rewrite_data_files with sorted_by using zorder function
+            // The zorder function now uses ROW type: zorder(ROW(orderkey, partkey))
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 6);
+
+            table.refresh();
+            // Verify files were rewritten into a single file
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Verify all data is still correct after rewrite
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY orderkey",
+                    "VALUES (1, 100, 'test1'), (2, 300, 'test2'), (3, 500, 'test3'), " +
+                            "(10, 200, 'test10'), (20, 400, 'test20'), (30, 600, 'test30')");
+
+            // Get the file path
+            MaterializedResult result = computeActual("SELECT file_path from \"" + tableName + "$files\"");
+            assertEquals(result.getOnlyColumnAsSet().size(), 1);
+            String filePath = String.valueOf(result.getOnlyValue());
+
+            // Verify the file is sorted by zorder(ROW(orderkey, partkey))
+            // Read both columns to verify z-order considers both dimensions
+            List<Long> orderkeys = readParquetColumn(filePath, "orderkey");
+            List<Long> partkeys = readParquetColumn(filePath, "partkey");
+
+            // Verify all rows are present
+            assertEquals(orderkeys.size(), 6, "File should contain all 6 rows");
+            assertEquals(partkeys.size(), 6, "File should contain all 6 rows");
+
+            // Compute expected z-order for our test data
+            // Input pairs: (1,100), (10,200), (2,300), (20,400), (3,500), (30,600)
+            // Z-order interleaves bits from both columns
+            // For our specific test values, the expected order after z-order sorting is:
+            // (1,100), (10,200), (2,300), (20,400), (3,500), (30,600)
+            // This demonstrates z-order considers both dimensions together
+            List<Long> expectedOrderkeys = ImmutableList.of(1L, 10L, 2L, 20L, 3L, 30L);
+            List<Long> expectedPartkeys = ImmutableList.of(100L, 200L, 300L, 400L, 500L, 600L);
+
+            assertEquals(orderkeys, expectedOrderkeys,
+                    "File should be sorted by z-order(orderkey, partkey). " +
+                            "Expected orderkeys: " + expectedOrderkeys + ", Actual: " + orderkeys);
+            assertEquals(partkeys, expectedPartkeys,
+                    "File should be sorted by z-order(orderkey, partkey). " +
+                            "Expected partkeys: " + expectedPartkeys + ", Actual: " + partkeys);
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMixedZOrderAndColumnsFails()
+    {
+        String tableName = "test_mixed_zorder_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey bigint, partkey bigint, comment varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100, 'test1'), (2, 200, 'test2')", 2);
+
+            // Test that mixing zorder with regular column names fails
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'comment'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Cannot mix zorder function with regular column names in sorted_by.*");
+
+            // Also test the reverse order
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['comment', 'zorder(orderkey, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Cannot mix zorder function with regular column names in sorted_by.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithZOrderOnDecimalFails()
+    {
+        String tableName = "test_zorder_decimal";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id bigint, price decimal(10,2), quantity bigint)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 99.99, 10), (2, 149.50, 5)", 2);
+
+            // Test that using decimal type in zorder fails
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(price, quantity)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Cannot use column of type .* in ZOrdering, the type is unsupported.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithInvalidZOrderColumnsFails()
+    {
+        String tableName = "test_invalid_zorder_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey bigint, partkey bigint, comment varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100, 'test1'), (2, 200, 'test2')", 2);
+
+            // Test that using non-existent column in zorder fails with clear error
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid_column, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Z-order column\\(s\\) not found in table: \\[invalid_column\\].*");
+
+            // Test with multiple invalid columns
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid1, invalid2, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Z-order column\\(s\\) not found in table: \\[invalid1, invalid2\\].*");
+
+            // Test with all invalid columns
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(nonexistent1, nonexistent2)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Z-order column\\(s\\) not found in table: \\[nonexistent1, nonexistent2\\].*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMalformedZOrderFails()
+    {
+        String tableName = "test_malformed_zorder";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey bigint, partkey bigint, comment varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100, 'test1'), (2, 200, 'test2')", 2);
+
+            // Test malformed zorder expression (missing closing parenthesis)
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
+
+            // Test malformed zorder expression (invalid syntax)
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey partkey)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
+
+            // Test malformed zorder expression (extra characters)
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey))'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithMultipleZOrderFails()
+    {
+        String tableName = "test_multiple_zorder";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey bigint, partkey bigint, suppkey bigint, comment varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 100, 1000, 'test1'), (2, 200, 2000, 'test2')", 2);
+
+            // Test multiple zorder expressions
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'zorder(suppkey)'], options => map(array['rewrite-all'], array['true']))",
+                            TEST_SCHEMA, tableName),
+                    ".*Multiple zorder\\(\\.\\.\\.\\) expressions are not supported in sorted_by.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(HadoopCatalog.class.getName(), ICEBERG_CATALOG, getProperties(), new Configuration());
@@ -1284,5 +1488,28 @@ public class TestRewriteDataFilesProcedure
         catch (Exception e) {
             // do nothing
         }
+    }
+
+    private List<Long> readParquetColumn(String path, String columnName)
+            throws IOException
+    {
+        List<Long> values = new ArrayList<>();
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(path);
+        Configuration configuration = new Configuration();
+
+        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), filePath)
+                .withConf(configuration)
+                .build()) {
+            Group record;
+            while ((record = reader.read()) != null) {
+                for (int i = 0; i < record.getType().getFieldCount(); i++) {
+                    if (record.getType().getFieldName(i).equals(columnName)) {
+                        values.add(record.getLong(i, 0));
+                        break;
+                    }
+                }
+            }
+        }
+        return values;
     }
 }

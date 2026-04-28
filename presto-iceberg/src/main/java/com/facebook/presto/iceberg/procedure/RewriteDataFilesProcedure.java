@@ -60,6 +60,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
@@ -67,6 +68,7 @@ import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergUtil.filterByFile;
 import static com.facebook.presto.iceberg.IcebergUtil.filterByGroup;
@@ -79,10 +81,11 @@ import static com.facebook.presto.iceberg.IcebergUtil.parseRewriteAll;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
 import static com.facebook.presto.iceberg.SortFieldUtils.parseSortFields;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.SCHEMA;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.TABLE_NAME;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -154,23 +157,25 @@ public class RewriteDataFilesProcedure
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             SortOrder sortOrder = icebergTable.sortOrder();
-            List<String> sortFieldStrings = ImmutableList.of();
-            if (sortOrderIndex.isPresent()) {
-                Object value = arguments[sortOrderIndex.getAsInt()];
-                if (value == null) {
-                    sortFieldStrings = ImmutableList.of();
+            Optional<List<String>> zOrderColumns = Optional.empty();
+            List<String> sortFieldStrings = extractSortFieldStrings(arguments, sortOrderIndex);
+            if (!sortFieldStrings.isEmpty()) {
+                zOrderColumns = extractZOrderColumns(sortFieldStrings);
+
+                // Validate that zorder is not mixed with regular column names
+                boolean hasZOrder = zOrderColumns.isPresent();
+                List<String> nonZOrderFields = sortFieldStrings.stream()
+                        .filter(str -> !str.startsWith("zorder"))
+                        .collect(toImmutableList());
+                boolean hasRegularColumns = !nonZOrderFields.isEmpty();
+
+                if (hasZOrder && hasRegularColumns) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            "Cannot mix zorder function with regular column names in sorted_by. " +
+                            "Use either zorder function alone or regular column names, but not both.");
                 }
-                else if (value instanceof List<?>) {
-                    sortFieldStrings = ((List<?>) value).stream()
-                            .map(String.class::cast)
-                            .collect(toImmutableList());
-                }
-                else {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "sorted_by must be an array(varchar)");
-                }
-            }
-            if (sortFieldStrings != null && !sortFieldStrings.isEmpty()) {
-                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), sortFieldStrings);
+
+                SortOrder specifiedSortOrder = parseSortFields(icebergTable.schema(), nonZOrderFields);
                 if (specifiedSortOrder.satisfies(sortOrder)) {
                     // If the specified sort order satisfies the target table's internal sort order, use the specified sort order
                     sortOrder = specifiedSortOrder;
@@ -181,6 +186,12 @@ public class RewriteDataFilesProcedure
             }
 
             List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
+            if (zOrderColumns.isPresent()) {
+                sortFields = ImmutableList.<SortField>builder()
+                        .addAll(sortFields)
+                        .add(new SortField(Z_ORDER.getId(), com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST))
+                        .build();
+            }
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
                     tableHandle.getIcebergTableName(),

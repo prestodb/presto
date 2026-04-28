@@ -1298,6 +1298,8 @@ Argument Name         required   type            Description
 ``sorted_by``                    array of        Specify an array of one or more columns to use for sorting. When
                                  strings         performing a rewrite, the specified sorting definition must be
                                                  compatible with the table's own sorting property, if one exists.
+                                                 Supports standard column sorting (example, ``'col ASC'``) and
+                                                 z-order sorting (example, ``'zorder(col1, col2)'``).
 
 ``options``                      map             Options to be used for data files rewrite. See options table below.
 ===================== ========== =============== =======================================================================
@@ -1402,6 +1404,18 @@ Examples
         options => map(array['min-input-files'], array['3'])
     );
 
+* Use z-order sorting for multi-dimensional data clustering::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'db',
+        table_name => 'sample',
+        sorted_by => ARRAY['zorder(customer_id, order_date)']
+    );
+
+  Z-order sorting creates a space-filling curve that interleaves bits from multiple columns,
+  providing better data locality for queries that filter on multiple dimensions. This is
+  particularly useful for tables with multiple commonly-queried columns.
+
 Rewrite Manifests
 ^^^^^^^^^^^^^^^^^
 
@@ -1443,6 +1457,72 @@ Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 
 All above procedures are supported in Presto C++.
+
+Iceberg Functions
+-----------------
+
+Z-Order Function
+^^^^^^^^^^^^^^^^
+
+The ``zorder`` function computes a z-order value for multi-dimensional data clustering.
+Z-order is a space-filling curve that interleaves bits from multiple columns to create
+a single sortable value that preserves spatial locality across multiple dimensions.
+
+**Syntax**::
+
+    zorder(ROW(column1, column2, ...)) -> varbinary
+
+**Description:**
+
+The ``zorder`` function takes a ROW containing multiple columns and returns a VARBINARY
+value representing the z-order curve value. This value can be used for sorting data to
+improve query performance when filtering on multiple columns.
+
+**Supported Column Types:**
+
+* ``TINYINT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``
+* ``REAL``, ``DOUBLE``
+* ``DECIMAL``
+* ``DATE``
+* ``TIMESTAMP``
+
+**Usage:**
+
+The ``zorder`` function is primarily used with the ``rewrite_data_files`` procedure's
+``sorted_by`` parameter to reorganize data files for better multi-dimensional query
+performance.
+
+**Examples:**
+
+* Compute z-order value for two columns::
+
+    SELECT zorder(ROW(customer_id, order_date)) FROM orders;
+
+* Use with ``rewrite_data_files`` to reorganize table data::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'sales',
+        table_name => 'orders',
+        sorted_by => ARRAY['zorder(customer_id, order_date)']
+    );
+
+* Z-order with three dimensions::
+
+    CALL iceberg.system.rewrite_data_files(
+        schema => 'analytics',
+        table_name => 'events',
+        sorted_by => ARRAY['zorder(user_id, event_time, event_type)']
+    );
+
+**Benefits:**
+
+* Improves query performance for filters on multiple columns
+* Better data locality compared to single-column sorting
+* Particularly effective for tables with multiple commonly-queried dimensions
+* Reduces the amount of data scanned when filtering on any combination of the z-ordered columns
+
+**Note:** Z-order is most effective when the columns have similar cardinality and are
+frequently used together in query predicates.
 
 SQL Support
 -----------

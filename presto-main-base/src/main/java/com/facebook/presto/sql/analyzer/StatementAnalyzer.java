@@ -89,6 +89,7 @@ import com.facebook.presto.sql.MaterializedViewUtils;
 import com.facebook.presto.sql.analyzer.Analysis.MergeAnalysis;
 import com.facebook.presto.sql.analyzer.Analysis.TableArgumentAnalysis;
 import com.facebook.presto.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
+import com.facebook.presto.sql.analyzer.procedure.TableDataRewriteAnalysisContext;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -275,6 +276,8 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static com.facebook.presto.spi.function.table.GenericTableReturnTypeSpecification.GENERIC_TABLE;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
+import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
@@ -1433,9 +1436,8 @@ class StatementAnalyzer
             accessControl.checkCanCallProcedure(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), procedureName);
 
             analysis.setUpdateInfo(call.getUpdateInfo());
-            analysis.setDistributedProcedureType(Optional.of(procedure.getType()));
-            analysis.setProcedureArguments(Optional.of(values));
-            switch (procedure.getType()) {
+            DistributedProcedure.DistributedProcedureType procedureType = procedure.getType();
+            switch (procedureType) {
                 case TABLE_DATA_REWRITE:
                     TableDataRewriteDistributedProcedure tableDataRewriteDistributedProcedure = (TableDataRewriteDistributedProcedure) procedure;
                     QualifiedName qualifiedName = QualifiedName.of(tableDataRewriteDistributedProcedure.getSchema(values), tableDataRewriteDistributedProcedure.getTableName(values));
@@ -1458,6 +1460,8 @@ class StatementAnalyzer
                                     session.getAccessControlContext(),
                                     tableName));
 
+                    List<String> sortFieldStrings = extractSortFieldStrings(values, tableDataRewriteDistributedProcedure.getSortOrderIndex());
+                    Optional<List<String>> zOrderColumns = extractZOrderColumns(sortFieldStrings);
                     String filter = tableDataRewriteDistributedProcedure.getFilter(values);
                     Expression filterExpression = sqlParser.createExpression(filter);
                     QuerySpecification querySpecification = new QuerySpecification(
@@ -1470,11 +1474,11 @@ class StatementAnalyzer
                             Optional.empty(),
                             Optional.empty());
                     analyze(querySpecification, scope);
-                    analysis.setTargetQuery(querySpecification);
 
                     TableHandle tableHandle = metadata.getHandleVersion(session, tableName, Optional.empty())
                             .orElseThrow(() -> (new SemanticException(MISSING_TABLE, call, "Table '%s' does not exist", tableName)));
-                    analysis.setCallTarget(tableHandle);
+                    TableDataRewriteAnalysisContext tableDataRewriteAnalysisContext = new TableDataRewriteAnalysisContext(tableHandle, querySpecification, zOrderColumns);
+                    analysis.setCallDistributedProcedureAnalysis(new Analysis.CallDistributedProcedureAnalysis(procedureType, values, Optional.of(tableDataRewriteAnalysisContext)));
                     break;
                 default:
                     throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported distributed procedure type: " + procedure.getType());
