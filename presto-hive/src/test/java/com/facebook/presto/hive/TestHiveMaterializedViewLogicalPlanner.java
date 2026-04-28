@@ -1336,6 +1336,167 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testBaseToViewConversionWithHavingOnGroupingKey()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "lineitem_partitioned_having_groupkey";
+        String view = "lineitem_partitioned_view_having_groupkey";
+        try {
+            queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                    table));
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode",
+                    view, table));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 7);
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING shipmode = 'AIR' ORDER BY ds, shipmode",
+                    table);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingOnAggregate()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "lineitem_partitioned_having_aggregate";
+        String view = "lineitem_partitioned_view_having_aggregate";
+        try {
+            queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                    table));
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode",
+                    view, table));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 7);
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING SUM(discount * extendedprice) > 1000 ORDER BY ds, shipmode",
+                    table);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingMixedWithWhere()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "lineitem_partitioned_having_where";
+        String view = "lineitem_partitioned_view_having_where";
+        try {
+            queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                    table));
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode",
+                    view, table));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 7);
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "WHERE ds = '2020-01-02' GROUP BY ds, shipmode " +
+                            "HAVING SUM(discount * extendedprice) > 100 ORDER BY ds, shipmode",
+                    table);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingCount()
+    {
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "lineitem_partitioned_having_count";
+        String view = "lineitem_partitioned_view_having_count";
+        try {
+            queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                            "UNION ALL " +
+                            "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                    table));
+            assertUpdate(format(
+                    "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                            "SELECT COUNT(extendedprice) as _count_extprice_, ds, shipmode FROM %s GROUP BY ds, shipmode",
+                    view, table));
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 7);
+
+            String baseQuery = format(
+                    "SELECT COUNT(extendedprice) as _count_extprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING COUNT(extendedprice) > 5 ORDER BY ds, shipmode",
+                    table);
+
+            MaterializedResult optimizedQueryResult = computeActual(queryOptimizationWithMaterializedView, baseQuery);
+            MaterializedResult baseQueryResult = computeActual(baseQuery);
+            assertEquals(optimizedQueryResult, baseQueryResult);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testBaseToViewConversionCountOptimizationWithStitching()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())

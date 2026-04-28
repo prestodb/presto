@@ -535,10 +535,7 @@ public class MaterializedViewQueryOptimizer
                 }
                 expressionsInGroupBy = Optional.of(expressionsInGroupByBuilder.build());
             }
-            // TODO: Add HAVING validation to the validator https://github.com/prestodb/presto/issues/16406
-            if (node.getHaving().isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Having clause is not supported in query optimizer");
-            }
+
             if (materializedViewInfo.getWhereClause().isPresent()) {
                 if (!node.getWhere().isPresent()) {
                     throw new IllegalStateException("Query with no where clause is not rewritable by materialized view with where clause");
