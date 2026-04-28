@@ -14,19 +14,32 @@
 package com.facebook.presto.plugin.oracle;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.RoundingMode;
+import java.util.Optional;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OracleConfig
 {
     private boolean synonymsEnabled;
+    private boolean connectionPoolEnabled;
     private int varcharMaxSize = 4000;
     private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
+    private int connectionPoolMinSize = 1;
+    private int connectionPoolMaxSize = 30;
+    private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
+    private Duration connectionPoolWaitDuration = new Duration(3, SECONDS);
+    private Integer fetchSize = 1000;
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -93,5 +106,90 @@ public class OracleConfig
     {
         this.timestampDefaultPrecision = timestampDefaultPrecision;
         return this;
+    }
+
+    @NotNull
+    public boolean isConnectionPoolEnabled()
+    {
+        return connectionPoolEnabled;
+    }
+
+    @Config("oracle.connection-pool.enabled")
+    public OracleConfig setConnectionPoolEnabled(boolean enabled)
+    {
+        this.connectionPoolEnabled = enabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getConnectionPoolMinSize()
+    {
+        return connectionPoolMinSize;
+    }
+
+    @Config("oracle.connection-pool.min-size")
+    public OracleConfig setConnectionPoolMinSize(int connectionPoolMinSize)
+    {
+        this.connectionPoolMinSize = connectionPoolMinSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getConnectionPoolMaxSize()
+    {
+        return connectionPoolMaxSize;
+    }
+
+    @Config("oracle.connection-pool.max-size")
+    public OracleConfig setConnectionPoolMaxSize(int connectionPoolMaxSize)
+    {
+        this.connectionPoolMaxSize = connectionPoolMaxSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getInactiveConnectionTimeout()
+    {
+        return inactiveConnectionTimeout;
+    }
+
+    @Config("oracle.connection-pool.inactive-timeout")
+    @ConfigDescription("How long a connection in the pool can remain idle before it is closed")
+    public OracleConfig setInactiveConnectionTimeout(Duration inactiveConnectionTimeout)
+    {
+        this.inactiveConnectionTimeout = inactiveConnectionTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getConnectionPoolWaitDuration()
+    {
+        return connectionPoolWaitDuration;
+    }
+
+    @Config("oracle.connection-pool.wait-duration")
+    @ConfigDescription("Maximum amount of time a request will wait to obtain an available connection from the pool if all connections are currently in use")
+    public OracleConfig setConnectionPoolWaitDuration(Duration connectionPoolWaitDuration)
+    {
+        this.connectionPoolWaitDuration = connectionPoolWaitDuration;
+        return this;
+    }
+
+    public Optional<@Min(0) Integer> getFetchSize()
+    {
+        return Optional.ofNullable(fetchSize);
+    }
+
+    @Config("oracle.fetch-size")
+    public OracleConfig setFetchSize(Integer fetchSize)
+    {
+        this.fetchSize = fetchSize;
+        return this;
+    }
+
+    @AssertTrue(message = "Pool min size cannot be larger than max size")
+    public boolean isPoolSizedProperly()
+    {
+        return getConnectionPoolMaxSize() >= getConnectionPoolMinSize();
     }
 }
