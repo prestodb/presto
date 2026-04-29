@@ -2982,10 +2982,41 @@ Property Value                                     Description
 File Based Authorization
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The config file is specified using JSON and is composed of three sections,
+The configuration file is specified using JSON and is composed of four sections,
 each of which is a list of rules that are matched in the order specified
 in the config file. The user is granted the privileges from the first
-matching rule. All regexes default to ``.*`` if not specified.
+matching rule. If no rule is specified with file based authorization,
+the user does not have permissions to access any of the tables or schemas, to set
+session properties or run any procedures on the catalog.
+
+All regexes default to ``.*`` if not specified provided the required fields from the
+corresponding sections are specified. For example, user ``guest`` is the owner of all the schemas,
+user ``admin`` has SELECT privilege on all the tables in all the schemas, all the users can set
+``force_local_scheduling`` session property, but no user is allowed
+to run any procedures as per the following JSON.
+
+.. code-block:: json
+
+    {
+      "schemas": [
+        {
+          "user": "guest",
+          "owner": true
+        }
+      ],
+      "tables": [
+        {
+          "user": "admin",
+          "privileges": ["SELECT"]
+        }
+      ],
+      "sessionProperties": [
+        {
+          "property": "force_local_scheduling",
+          "allow": true
+        }
+      ]
+    }
 
 Schema Rules
 ~~~~~~~~~~~~
