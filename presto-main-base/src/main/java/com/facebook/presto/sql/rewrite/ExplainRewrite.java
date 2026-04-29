@@ -14,7 +14,9 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
@@ -26,6 +28,8 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTable;
+import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
@@ -40,7 +44,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.QueryUtil.singleValueQuery;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.TEXT;
 import static com.facebook.presto.sql.tree.ExplainType.Type.IO;
@@ -66,7 +73,7 @@ final class ExplainRewrite
             String query,
             ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new Visitor(session, parser, queryExplainer, metadata.getProcedureRegistry(), warningCollector, query, viewDefinitionReferences)
+        return (Statement) new Visitor(session, metadata, parser, queryExplainer, metadata.getProcedureRegistry(), warningCollector, query, viewDefinitionReferences)
                 .process(node, null);
     }
 
@@ -74,6 +81,7 @@ final class ExplainRewrite
             extends AstVisitor<Node, Void>
     {
         private final Session session;
+        private final Metadata metadata;
         private final BuiltInQueryPreparer queryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
@@ -82,6 +90,7 @@ final class ExplainRewrite
 
         public Visitor(
                 Session session,
+                Metadata metadata,
                 SqlParser parser,
                 Optional<QueryExplainer> queryExplainer,
                 ProcedureRegistry procedureRegistry,
@@ -90,6 +99,7 @@ final class ExplainRewrite
                 ViewDefinitionReferences viewDefinitionReferences)
         {
             this.session = requireNonNull(session, "session is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.queryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"), procedureRegistry);
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -105,8 +115,15 @@ final class ExplainRewrite
                 return process(node.getStatement());
             }
 
+            Statement innerStatement = node.getStatement();
+
+            // Validate table existence for CREATE TABLE and DROP TABLE
+            if (innerStatement instanceof CreateTable || innerStatement instanceof DropTable) {
+                validateTableExistence(innerStatement);
+            }
+
             if (node.isAnalyze()) {
-                Statement statement = (Statement) process(node.getStatement(), context);
+                Statement statement = (Statement) process(innerStatement, context);
                 return new Explain(statement, node.isAnalyze(), node.isVerbose(), node.getOptions());
             }
 
@@ -133,6 +150,30 @@ final class ExplainRewrite
             }
 
             return getQueryPlan(node, planType, planFormat);
+        }
+
+        private void validateTableExistence(Statement statement)
+        {
+            if (statement instanceof CreateTable) {
+                CreateTable createTable = (CreateTable) statement;
+                if (!createTable.isNotExists()) {
+                    QualifiedObjectName tableName = createQualifiedObjectName(session, statement, createTable.getName(), metadata);
+                    Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
+                    if (tableHandle.isPresent()) {
+                        throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
+                    }
+                }
+            }
+            else if (statement instanceof DropTable) {
+                DropTable dropTable = (DropTable) statement;
+                if (!dropTable.isExists()) {
+                    QualifiedObjectName tableName = createQualifiedObjectName(session, statement, dropTable.getTableName(), metadata);
+                    Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
+                    if (!tableHandle.isPresent()) {
+                        throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+                    }
+                }
+            }
         }
 
         private Node getQueryPlan(Explain node, ExplainType.Type planType, ExplainFormat.Type planFormat)
