@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanChecker;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
@@ -104,6 +105,10 @@ public final class NativePlanChecker
             LOG.debug("Skipping native plan validation [fragment: %s, root: %s]", planFragment.getId(), planFragment.getRoot().getId());
             return;
         }
+        if (isMissingRuntimePartitioningInfo(planFragment)) {
+            LOG.debug("Skipping native plan validation [fragment: %s, reason: missing runtime partitioning info]", planFragment.getId());
+            return;
+        }
         runValidation(removeTableWriter(planFragment));
     }
 
@@ -142,6 +147,16 @@ public final class NativePlanChecker
                 planFragment.isOutputTableWriterFragment());
     }
 
+    /**
+     * Checks if the fragment is missing runtime partitioning information.
+     * Returns true when bucketToPartition is not present, as this is runtime
+     * information that gets populated during scheduling, after validation occurs.
+     */
+    private boolean isMissingRuntimePartitioningInfo(SimplePlanFragment planFragment)
+    {
+        PartitioningScheme scheme = planFragment.getPartitioningScheme();
+        return !scheme.getBucketToPartition().isPresent();
+    }
     private boolean isInternalSystemConnector(PlanNode planNode)
     {
         return planNode.accept(new CheckInternalVisitor(), null);
