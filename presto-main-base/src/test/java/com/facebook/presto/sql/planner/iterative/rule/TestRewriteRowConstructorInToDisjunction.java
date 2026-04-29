@@ -375,9 +375,9 @@ public class TestRewriteRowConstructorInToDisjunction
     }
 
     @Test
-    public void testDoesNotFireWhenNoFieldsArePartitionKeys()
+    public void testFiresWhenNoFieldsArePartitionKeys()
     {
-        tester.assertThat(new RewriteRowConstructorInToDisjunction(tester.getMetadata()))
+        PlanNode result = tester.assertThat(new RewriteRowConstructorInToDisjunction(tester.getMetadata()))
                 .setSystemProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION, "true")
                 .on(p -> {
                     VariableReferenceExpression data = p.variable("data", VARCHAR);
@@ -385,7 +385,7 @@ public class TestRewriteRowConstructorInToDisjunction
 
                     RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR));
 
-                    // ROW(data, other) IN (...) — neither is a partition key
+                    // ROW(data, other) IN (...) — neither is a partition key, but still rewrites
                     RowExpression rowIn = new SpecialFormExpression(IN, BOOLEAN, ImmutableList.of(
                             new SpecialFormExpression(ROW_CONSTRUCTOR, rowType, ImmutableList.of(data, other)),
                             new SpecialFormExpression(ROW_CONSTRUCTOR, rowType, ImmutableList.of(
@@ -401,13 +401,22 @@ public class TestRewriteRowConstructorInToDisjunction
                                             data, new TestingColumnHandle("data", 2, VARCHAR),
                                             other, new TestingColumnHandle("other", 3, VARCHAR))));
                 })
-                .doesNotFire();
+                .get();
+
+        // Should rewrite: (data = 'a' AND other = 'b')
+        assertTrue(result instanceof FilterNode);
+        FilterNode filterNode = (FilterNode) result;
+        RowExpression predicate = filterNode.getPredicate();
+        assertTrue(predicate instanceof SpecialFormExpression);
+        SpecialFormExpression andExpr = (SpecialFormExpression) predicate;
+        assertEquals(andExpr.getForm(), AND);
+        assertEquals(andExpr.getArguments().size(), 2);
     }
 
     @Test
-    public void testDoesNotFireForNoPartitionKeys()
+    public void testFiresForNonPartitionedTable()
     {
-        tester.assertThat(new RewriteRowConstructorInToDisjunction(tester.getMetadata()))
+        PlanNode result = tester.assertThat(new RewriteRowConstructorInToDisjunction(tester.getMetadata()))
                 .setSystemProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION, "true")
                 .on(p -> {
                     VariableReferenceExpression col1 = p.variable("col1", VARCHAR);
@@ -430,7 +439,16 @@ public class TestRewriteRowConstructorInToDisjunction
                                             col1, new TestingColumnHandle("col1", 0, VARCHAR),
                                             col2, new TestingColumnHandle("col2", 1, BIGINT))));
                 })
-                .doesNotFire();
+                .get();
+
+        // Should rewrite: (col1 = 'a' AND col2 = 1)
+        assertTrue(result instanceof FilterNode);
+        FilterNode filterNode = (FilterNode) result;
+        RowExpression predicate = filterNode.getPredicate();
+        assertTrue(predicate instanceof SpecialFormExpression);
+        SpecialFormExpression andExpr = (SpecialFormExpression) predicate;
+        assertEquals(andExpr.getForm(), AND);
+        assertEquals(andExpr.getArguments().size(), 2);
     }
 
     @Test

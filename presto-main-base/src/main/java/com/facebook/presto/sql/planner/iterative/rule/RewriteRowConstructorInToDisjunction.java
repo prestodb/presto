@@ -13,15 +13,10 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -29,13 +24,9 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isRewriteRowConstructorInToDisjunction;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -43,47 +34,38 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.LogicalRowExpressions.or;
-import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.planner.plan.Patterns.filter;
-import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.planner.plan.Patterns.tableScan;
 import static java.util.Objects.requireNonNull;
 
 /**
  * Rewrites predicates of the form:
  * <pre>
- *   ROW(partition_key1, partition_key2) IN (ROW('a', 1), ROW('b', 2), ...)
+ *   ROW(col1, col2) IN (ROW('a', 1), ROW('b', 2), ...)
  * </pre>
  * into:
  * <pre>
- *   (partition_key1 = 'a' AND partition_key2 = 1)
- *   OR (partition_key1 = 'b' AND partition_key2 = 2)
+ *   (col1 = 'a' AND col2 = 1)
+ *   OR (col1 = 'b' AND col2 = 2)
  *   OR ...
  * </pre>
  *
- * This transformation fires when ANY field of the left-side ROW constructor
- * is a partition key column of the underlying table. The rewrite enables
- * {@code PickTableLayout} to extract per-column domains for partition pruning,
- * which is impossible when the predicate uses ROW-level IN comparisons.
- * Fields that are not partition keys still benefit from the rewrite since the
- * domain translator can extract their constraints from the flattened AND chain.
+ * This transformation enables the domain translator to extract per-column
+ * constraints from the flattened AND/OR chain, which is impossible when the
+ * predicate uses ROW-level IN comparisons. This benefits partition pruning,
+ * predicate pushdown, and general filter evaluation.
  */
 public class RewriteRowConstructorInToDisjunction
         implements Rule<FilterNode>
 {
-    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-    private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
-    private static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
+    private static final Pattern<FilterNode> PATTERN = filter();
 
-    private final Metadata metadata;
     private final FunctionResolution functionResolution;
 
     public RewriteRowConstructorInToDisjunction(Metadata metadata)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        requireNonNull(metadata, "metadata is null");
         this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
     }
 
@@ -100,16 +82,8 @@ public class RewriteRowConstructorInToDisjunction
             return Result.empty();
         }
 
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
-        Set<VariableReferenceExpression> partitionVars = resolvePartitionVariables(
-                context.getSession(), tableScan);
-
-        if (partitionVars.isEmpty()) {
-            return Result.empty();
-        }
-
         RowExpression predicate = filterNode.getPredicate();
-        RowExpression rewritten = rewritePredicate(predicate, partitionVars);
+        RowExpression rewritten = rewritePredicate(predicate);
 
         if (predicate.equals(rewritten)) {
             return Result.empty();
@@ -122,56 +96,14 @@ public class RewriteRowConstructorInToDisjunction
                 rewritten));
     }
 
-    private Set<VariableReferenceExpression> resolvePartitionVariables(
-            com.facebook.presto.Session session,
-            TableScanNode tableScan)
-    {
-        TableHandle tableHandle = tableScan.getTable();
-        ConnectorTableMetadata tableMetadata;
-        try {
-            tableMetadata = metadata.getTableMetadata(session, tableHandle).getMetadata();
-        }
-        catch (RuntimeException e) {
-            return ImmutableSet.of();
-        }
-
-        Object partitionedByObj = tableMetadata.getProperties().get(PARTITIONED_BY_PROPERTY);
-        if (!(partitionedByObj instanceof List)) {
-            return ImmutableSet.of();
-        }
-
-        @SuppressWarnings("unchecked")
-        List<String> partitionColumnNames = (List<String>) partitionedByObj;
-        if (partitionColumnNames.isEmpty()) {
-            return ImmutableSet.of();
-        }
-
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
-        Set<ColumnHandle> partitionHandles = new HashSet<>();
-        for (String name : partitionColumnNames) {
-            ColumnHandle handle = columnHandles.get(name);
-            if (handle != null) {
-                partitionHandles.add(handle);
-            }
-        }
-
-        ImmutableSet.Builder<VariableReferenceExpression> result = ImmutableSet.builder();
-        for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : tableScan.getAssignments().entrySet()) {
-            if (partitionHandles.contains(entry.getValue())) {
-                result.add(entry.getKey());
-            }
-        }
-        return result.build();
-    }
-
     /**
      * Walks the predicate tree looking for rewritable ROW IN expressions.
      * Handles AND conjuncts at the top level and rewrites each eligible IN independently.
      */
-    private RowExpression rewritePredicate(RowExpression predicate, Set<VariableReferenceExpression> partitionVars)
+    private RowExpression rewritePredicate(RowExpression predicate)
     {
         if (predicate instanceof SpecialFormExpression && ((SpecialFormExpression) predicate).getForm() == IN) {
-            RowExpression rewritten = tryRewriteRowIn((SpecialFormExpression) predicate, partitionVars);
+            RowExpression rewritten = tryRewriteRowIn((SpecialFormExpression) predicate);
             if (rewritten != null) {
                 return rewritten;
             }
@@ -186,7 +118,7 @@ public class RewriteRowConstructorInToDisjunction
         boolean anyChanged = false;
         ImmutableList.Builder<RowExpression> newConjuncts = ImmutableList.builder();
         for (RowExpression conjunct : conjuncts) {
-            RowExpression rewritten = rewritePredicate(conjunct, partitionVars);
+            RowExpression rewritten = rewritePredicate(conjunct);
             if (!rewritten.equals(conjunct)) {
                 anyChanged = true;
             }
@@ -200,12 +132,12 @@ public class RewriteRowConstructorInToDisjunction
 
     /**
      * Attempts to rewrite a single SpecialFormExpression(IN, ...) where the first argument
-     * is a ROW_CONSTRUCTOR of partition key variables and all candidates are ROW_CONSTRUCTORs
+     * is a ROW_CONSTRUCTOR of variable references and all candidates are ROW_CONSTRUCTORs
      * of matching arity.
      *
      * Returns the rewritten expression, or null if the pattern does not match.
      */
-    private RowExpression tryRewriteRowIn(SpecialFormExpression inExpr, Set<VariableReferenceExpression> partitionVars)
+    private RowExpression tryRewriteRowIn(SpecialFormExpression inExpr)
     {
         List<RowExpression> args = inExpr.getArguments();
         if (args.size() < 2) {
@@ -227,21 +159,13 @@ public class RewriteRowConstructorInToDisjunction
             return null;
         }
 
-        // All fields must be VariableReferenceExpressions, and at least one must be a partition key
+        // All fields must be VariableReferenceExpressions
         List<VariableReferenceExpression> fieldVars = new ArrayList<>(rowFields.size());
-        boolean hasPartitionKey = false;
         for (RowExpression field : rowFields) {
             if (!(field instanceof VariableReferenceExpression)) {
                 return null;
             }
-            VariableReferenceExpression varRef = (VariableReferenceExpression) field;
-            if (partitionVars.contains(varRef)) {
-                hasPartitionKey = true;
-            }
-            fieldVars.add(varRef);
-        }
-        if (!hasPartitionKey) {
-            return null;
+            fieldVars.add((VariableReferenceExpression) field);
         }
 
         // All candidate values must be ROW_CONSTRUCTORs with matching arity
@@ -258,7 +182,7 @@ public class RewriteRowConstructorInToDisjunction
             candidateRows.add(candidate);
         }
 
-        // Build: (pk1 = v1_1 AND pk2 = v1_2) OR (pk1 = v2_1 AND pk2 = v2_2) OR ...
+        // Build: (col1 = v1_1 AND col2 = v1_2) OR (col1 = v2_1 AND col2 = v2_2) OR ...
         ImmutableList.Builder<RowExpression> disjuncts = ImmutableList.builder();
         for (SpecialFormExpression candidate : candidateRows) {
             ImmutableList.Builder<RowExpression> conjuncts = ImmutableList.builder();
