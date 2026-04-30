@@ -92,7 +92,6 @@ public class TestOAuth2Config
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
                 .setEnableRefreshTokens(true)
-                .setEnableDiscovery(false)
                 .setUserinfoCacheEnabled(true)
                 .setUserinfoCacheTtl(new Duration(5, MINUTES))
                 .setEnableDiscovery(false)
