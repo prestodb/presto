@@ -1416,14 +1416,16 @@ public class SemiTransactionalHiveMetastore
                     }
                 }
             }
-            addTableOperations.add(new CreateTableOperation(metastoreContext, table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting(), tableAndMore.getConstraints()));
-            if (!isPrestoView(table)) {
-                updateStatisticsOperations.add(new UpdateStatisticsOperation(metastoreContext,
-                        table.getSchemaTableName(),
-                        Optional.empty(),
-                        tableAndMore.getStatisticsUpdate(),
-                        false));
-            }
+            // Statistics are written inline by CreateTableOperation to avoid a race with constraint registration.
+            // HMS constraint additions trigger an internal alter_table call that can invalidate the thrift
+            // connection before a deferred UpdateStatisticsOperation runs.
+            addTableOperations.add(new CreateTableOperation(
+                    metastoreContext,
+                    table,
+                    tableAndMore.getPrincipalPrivileges(),
+                    tableAndMore.isIgnoreExisting(),
+                    tableAndMore.getConstraints(),
+                    tableAndMore.getStatisticsUpdate()));
         }
 
         private void prepareInsertExistingTable(MetastoreContext metastoreContext, HdfsContext context, TableAndMore tableAndMore)
@@ -2782,8 +2784,15 @@ public class SemiTransactionalHiveMetastore
         private final String queryId;
         private final MetastoreContext metastoreContext;
         private Optional<MetastoreOperationResult> operationResult;
+        private final PartitionStatistics statisticsUpdate;
 
-        public CreateTableOperation(MetastoreContext metastoreContext, Table newTable, PrincipalPrivileges privileges, boolean ignoreExisting, List<TableConstraint<String>> constraints)
+        public CreateTableOperation(
+                MetastoreContext metastoreContext,
+                Table newTable,
+                PrincipalPrivileges privileges,
+                boolean ignoreExisting,
+                List<TableConstraint<String>> constraints,
+                PartitionStatistics statisticsUpdate)
         {
             requireNonNull(newTable, "newTable is null");
             this.metastoreContext = requireNonNull(metastoreContext, "identity is null");
@@ -2793,6 +2802,7 @@ public class SemiTransactionalHiveMetastore
             this.constraints = requireNonNull(constraints, "constraints is null");
             this.queryId = getPrestoQueryId(newTable).orElseThrow(() -> new IllegalArgumentException("Query id is not present"));
             this.operationResult = Optional.empty();
+            this.statisticsUpdate = requireNonNull(statisticsUpdate, "statisticsUpdate is null");
         }
 
         public String getDescription()
@@ -2816,6 +2826,17 @@ public class SemiTransactionalHiveMetastore
             try {
                 operationResult = Optional.of(metastore.createTable(metastoreContext, newTable, privileges, constraints));
                 done = true;
+                // Write statistics on the same connection immediately after table creation.
+                // Deferring this to UpdateStatisticsOperation is unsafe when constraints are present:
+                // HMS registers NOT NULL constraints via an internal alter_table, which invalidates the thrift
+                // connection state and causes the deferred write to fail with TableNotFoundException.
+                if (!isPrestoView(newTable)) {
+                    metastore.updateTableStatistics(
+                            metastoreContext,
+                            newTable.getDatabaseName(),
+                            newTable.getTableName(),
+                            ignored -> statisticsUpdate);
+                }
             }
             catch (RuntimeException e) {
                 try {
