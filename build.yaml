@@ -8,7 +8,7 @@ matrix:
   ucx_version: ["1.19.1"]
   instance_types:
     arm64: r8g.16xlarge
-    amd64: m7a.16xlarge
+    amd64: m7a.32xlarge
 
 coordinator:
   arch: [arm64, amd64]
