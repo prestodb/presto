@@ -19,6 +19,7 @@ import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.units.Duration;
 import com.facebook.airlift.units.MinDuration;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -36,6 +37,8 @@ public class ClickHouseConfig
     private boolean allowDropTable;
     private int commitBatchSize;
     private boolean caseSensitiveNameMatchingEnabled;
+    @Min(1)
+    private int fetchSize = 20000;
 
     @NotNull
     public String getConnectionUrl()
@@ -186,6 +189,19 @@ public class ClickHouseConfig
     public ClickHouseConfig setCaseSensitiveNameMatching(boolean caseSensitiveNameMatchingEnabled)
     {
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
+    }
+
+    public int getFetchSize()
+    {
+        return fetchSize;
+    }
+
+    @Config("jdbc-fetch-size")
+    @ConfigDescription("Number of rows to fetch from the database at a time")
+    public ClickHouseConfig setFetchSize(int fetchSize)
+    {
+        this.fetchSize = fetchSize;
         return this;
     }
 }

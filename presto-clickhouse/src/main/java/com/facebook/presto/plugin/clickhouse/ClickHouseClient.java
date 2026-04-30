@@ -98,6 +98,7 @@ public class ClickHouseClient
     protected final Cache<ClickHouseIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
     protected final boolean caseSensitiveNameMatchingEnabled;
+    private final int fetchSize;
 
     private final boolean mapStringAsVarchar;
 
@@ -110,6 +111,7 @@ public class ClickHouseClient
         this.commitBatchSize = config.getCommitBatchSize();
         this.mapStringAsVarchar = config.isMapStringAsVarchar();
         this.caseSensitiveEnabled = config.isCaseInsensitiveNameMatching();
+        this.fetchSize = config.getFetchSize();
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
@@ -223,7 +225,9 @@ public class ClickHouseClient
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
-        return connection.prepareStatement(sql);
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(fetchSize);
+        return statement;
     }
 
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, ClickHouseSplit split, List<ClickHouseColumnHandle> columnHandles)
@@ -330,11 +334,13 @@ public class ClickHouseClient
     {
         DatabaseMetaData metadata = connection.getMetaData();
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-        return metadata.getTables(
+        ResultSet resultSet = metadata.getTables(
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, escape).orElse(null),
                 escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
+        resultSet.setFetchSize(fetchSize);
+        return resultSet;
     }
 
     private static ResultSet getColumns(ClickHouseTableHandle tableHandle, DatabaseMetaData metadata)

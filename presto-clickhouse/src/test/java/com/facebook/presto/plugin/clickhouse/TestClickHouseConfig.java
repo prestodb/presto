@@ -36,6 +36,7 @@ public class TestClickHouseConfig
     private static final String allowDropTable = "clickhouse.allow-drop-table";
     private static final String commitBatchSize = "clickhouse.commitBatchSize";
     private static final String caseSensitiveNameMatching = "case-sensitive-name-matching";
+    private static final String jdbcFetchSize = "jdbc-fetch-size";
 
     @Test
     public void testDefaults()
@@ -51,7 +52,8 @@ public class TestClickHouseConfig
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setMapStringAsVarchar(false)
                 .setCommitBatchSize(0)
-                .setCaseSensitiveNameMatching(false));
+                .setCaseSensitiveNameMatching(false)
+                .setFetchSize(20000));
     }
 
     @Test
@@ -69,6 +71,7 @@ public class TestClickHouseConfig
                 .put(allowDropTable, "true")
                 .put(commitBatchSize, "1000")
                 .put(caseSensitiveNameMatching, "true")
+                .put(jdbcFetchSize, "5000")
                 .build();
 
         ClickHouseConfig expected = new ClickHouseConfig()
@@ -82,7 +85,8 @@ public class TestClickHouseConfig
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setMapStringAsVarchar(true)
                 .setCaseSensitiveNameMatching(true)
-                .setCommitBatchSize(1000);
+                .setCommitBatchSize(1000)
+                .setFetchSize(5000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
