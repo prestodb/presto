@@ -137,8 +137,9 @@ public class QuerySessionSupplier
         authorizedIdentity = authorizedIdentity.isPresent() ? authorizedIdentity : getAuthorizedIdentity(accessControl, securityConfig, queryId, context);
 
         return authorizedIdentity.map(identity -> {
-            Optional<java.security.Principal> principal = identity.getAuthorizedPrincipal()
-                    .or(() -> context.getIdentity().getPrincipal());
+            Optional<java.security.Principal> principal = identity.getAuthorizedPrincipal().isPresent()
+                    ? identity.getAuthorizedPrincipal()
+                    : context.getIdentity().getPrincipal();
             return new Identity(
                     context.getIdentity().getUser(),
                     principal,
