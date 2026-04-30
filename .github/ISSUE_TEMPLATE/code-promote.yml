@@ -1,0 +1,22 @@
+name: Code Promote
+description: Promote code to production (rebase, build, verify, push to master/main)
+title: "code-promote"
+labels: []
+body:
+  - type: input
+    id: presto_commit
+    attributes:
+      label: Presto commit
+      description: Commit SHA in perfleap/presto to promote from
+      placeholder: "e.g., abc1234def5678"
+    validations:
+      required: true
+
+  - type: input
+    id: velox_commit
+    attributes:
+      label: Velox commit
+      description: (Optional) Commit SHA in perfleap/velox. If not specified, uses the velox submodule pointer from the presto commit.
+      placeholder: "e.g., a1b2c3d4 (leave empty to use submodule)"
+    validations:
+      required: false
