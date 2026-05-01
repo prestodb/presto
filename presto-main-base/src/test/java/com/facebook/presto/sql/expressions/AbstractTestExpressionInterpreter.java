@@ -61,7 +61,6 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
-import org.joda.time.chrono.ISOChronology;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -89,7 +88,6 @@ import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALI
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -561,11 +559,10 @@ public abstract class AbstractTestExpressionInterpreter
     @Test
     public void testCurrentTimestamp()
     {
-        ISOChronology localChronology = getChronology(TEST_SESSION.getTimeZoneKey());
-        double current = localChronology.getZone().convertUTCToLocal(TEST_SESSION.getStartTime()) / 1000.0;
-        assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ")", "true");
+        double current = TEST_SESSION.getStartTime() / 1000.0;
+        assertOptimizedEquals("current_timestamp = from_unixtime(" + current + ", '" + TEST_SESSION.getTimeZoneKey().getId() + "')", "true");
         double future = current + TimeUnit.MINUTES.toSeconds(1);
-        assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ")", "false");
+        assertOptimizedEquals("current_timestamp > from_unixtime(" + future + ", '" + TEST_SESSION.getTimeZoneKey().getId() + "')", "false");
     }
 
     @Test
