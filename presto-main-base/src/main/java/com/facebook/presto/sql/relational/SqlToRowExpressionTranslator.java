@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -129,6 +130,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -393,7 +395,7 @@ public final class SqlToRowExpressionTranslator
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + node.getType());
             }
 
             return constant(node.getValue(), type);
@@ -407,7 +409,7 @@ public final class SqlToRowExpressionTranslator
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + node.getType());
             }
 
             try {
