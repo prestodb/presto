@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.Subfield;
@@ -67,6 +68,7 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -228,12 +230,21 @@ public class Analysis
     private Optional<Expression> viewAccessorWhereClause = Optional.empty();
 
     // Maps each output Field to its originating SourceColumn(s) for column-level lineage tracking.
-    private final Multimap<Field, SourceColumn> originColumnDetails = ArrayListMultimap.create();
+    private final Multimap<Field, SourceColumn> originColumnDetails = HashMultimap.create();
 
     // Maps each analyzed Expression to the Field(s) it produces, supporting expression-level lineage.
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
 
     private Optional<List<OutputColumnMetadata>> updatedSourceColumns = Optional.empty();
+
+    // Globally accumulating indirect source columns (WHERE, JOIN, GROUP BY, HAVING, ORDER BY, DISTINCT).
+    // These affect all output columns equally.
+    private final Set<ColumnLineageEntry> indirectSourceColumns = new LinkedHashSet<>();
+
+    // Per-field indirect source columns (CONDITIONAL, WINDOW).
+    // These only affect the specific output column whose expression contains the CASE/IF or window function.
+    // Propagated through CTEs, subqueries, views, and set operations alongside direct source columns.
+    private final Multimap<Field, ColumnLineageEntry> perFieldIndirectSources = HashMultimap.create();
 
     // names of tables and aliased relations. All names are resolved case-insensitive.
     private final Map<NodeRef<Relation>, QualifiedName> relationNames = new LinkedHashMap<>();
@@ -1183,9 +1194,25 @@ public class Analysis
         return ImmutableSet.copyOf(originColumnDetails.get(field));
     }
 
+    /**
+     * Propagates all lineage (direct source columns + per-field indirect) from sourceField to newField.
+     * Use this whenever creating a new Field that represents the same column through an alias, CTE,
+     * view, or set operation to avoid missing propagation.
+     */
+    public void propagateLineage(Field newField, Field sourceField)
+    {
+        addSourceColumns(newField, getSourceColumns(sourceField));
+        addPerFieldIndirectSources(newField, getPerFieldIndirectSources(sourceField));
+    }
+
     public void addExpressionFields(Expression expression, Collection<Field> fields)
     {
         fieldLineage.putAll(NodeRef.of(expression), fields);
+    }
+
+    public Collection<Field> getExpressionFields(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression));
     }
 
     public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
@@ -1203,6 +1230,37 @@ public class Analysis
     public Optional<List<OutputColumnMetadata>> getUpdatedSourceColumns()
     {
         return updatedSourceColumns;
+    }
+
+    public void addIndirectSourceColumns(Set<ColumnLineageEntry> entries)
+    {
+        indirectSourceColumns.addAll(entries);
+    }
+
+    public Set<ColumnLineageEntry> getIndirectSourceColumns()
+    {
+        return ImmutableSet.copyOf(indirectSourceColumns);
+    }
+
+    public void addPerFieldIndirectSources(Field field, Set<ColumnLineageEntry> entries)
+    {
+        perFieldIndirectSources.putAll(field, entries);
+    }
+
+    public Set<ColumnLineageEntry> getPerFieldIndirectSources(Field field)
+    {
+        return ImmutableSet.copyOf(perFieldIndirectSources.get(field));
+    }
+
+    /**
+     * Returns the full indirect sources for a field: query-level + per-field.
+     */
+    public Set<ColumnLineageEntry> getAllIndirectSourcesForField(Field field)
+    {
+        ImmutableSet.Builder<ColumnLineageEntry> builder = ImmutableSet.builder();
+        builder.addAll(indirectSourceColumns);
+        builder.addAll(perFieldIndirectSources.get(field));
+        return builder.build();
     }
 
     public void registerTableForColumnMasking(QualifiedObjectName table, String column, String identity)

@@ -14,8 +14,11 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.SourceColumn;
+import com.facebook.presto.common.TransformationSubtype;
+import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +46,31 @@ public class TestOutput
                                         "column", "type",
                                         ImmutableSet.of(
                                                 new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))),
+                Optional.empty());
+
+        String json = codec.toJson(expected);
+        Output actual = codec.fromJson(json);
+
+        assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testRoundTripWithIndirectLineage()
+    {
+        QualifiedObjectName tableName = QualifiedObjectName.valueOf("catalog.schema.table");
+        Output expected = new Output(
+                new ConnectorId("connectorId"),
+                "schema",
+                "table",
+                Optional.of(
+                        ImmutableList.of(
+                                new OutputColumnMetadata(
+                                        "column", "type",
+                                        ImmutableSet.of(new SourceColumn(tableName, "direct_col")),
+                                        ImmutableSet.of(
+                                                new ColumnLineageEntry(tableName, "filter_col", TransformationType.INDIRECT, TransformationSubtype.FILTER),
+                                                new ColumnLineageEntry(tableName, "join_col", TransformationType.INDIRECT, TransformationSubtype.JOIN),
+                                                new ColumnLineageEntry(tableName, "cond_col", TransformationType.INDIRECT, TransformationSubtype.CONDITIONAL))))),
                 Optional.empty());
 
         String json = codec.toJson(expected);

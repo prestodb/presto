@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.SourceColumn;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.Objects;
 import java.util.Set;
 
@@ -27,13 +29,24 @@ public class OutputColumnMetadata
     private final String columnName;
     private final String columnType;
     private final Set<SourceColumn> sourceColumns;
+    private final Set<ColumnLineageEntry> indirectSourceColumns;
+
+    public OutputColumnMetadata(String columnName, String columnType, Set<SourceColumn> sourceColumns)
+    {
+        this(columnName, columnType, sourceColumns, Collections.emptySet());
+    }
 
     @JsonCreator
-    public OutputColumnMetadata(String columnName, String columnType, Set<SourceColumn> sourceColumns)
+    public OutputColumnMetadata(
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("columnType") String columnType,
+            @JsonProperty("sourceColumns") Set<SourceColumn> sourceColumns,
+            @JsonProperty("indirectSourceColumns") Set<ColumnLineageEntry> indirectSourceColumns)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.sourceColumns = requireNonNull(sourceColumns, "sourceColumns is null");
+        this.indirectSourceColumns = requireNonNull(indirectSourceColumns, "indirectSourceColumns is null");
     }
 
     @JsonProperty
@@ -54,10 +67,16 @@ public class OutputColumnMetadata
         return sourceColumns;
     }
 
+    @JsonProperty
+    public Set<ColumnLineageEntry> getIndirectSourceColumns()
+    {
+        return indirectSourceColumns;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, columnType, sourceColumns);
+        return Objects.hash(columnName, columnType, sourceColumns, indirectSourceColumns);
     }
 
     @Override
@@ -72,6 +91,7 @@ public class OutputColumnMetadata
         OutputColumnMetadata other = (OutputColumnMetadata) obj;
         return Objects.equals(columnName, other.columnName) &&
                 Objects.equals(columnType, other.columnType) &&
-                Objects.equals(sourceColumns, other.sourceColumns);
+                Objects.equals(sourceColumns, other.sourceColumns) &&
+                Objects.equals(indirectSourceColumns, other.indirectSourceColumns);
     }
 }
