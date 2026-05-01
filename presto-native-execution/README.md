@@ -345,8 +345,8 @@ Presto maintains automated GitHub Actions workflows that run daily to keep Velox
 **How It Works:**
 - **Daily Schedule**: Runs automatically at 09:00 UTC
 - **Auto-creates PR**: Creates a PR on the `velox-update` branch with the latest Velox changes
-- **CI Monitoring**: Automatically monitors CI status and notifies [@prestodb/team-velox](https://github.com/orgs/prestodb/teams/team-velox) when checks pass or fail
-- **Team Notification**: Alerts the team when new Velox changes are available
+- **Change Detection**: If a PR already exists, checks for new Velox changes and notifies the team
+- **AI Auto-fix**: Newly created PRs automatically run AI-powered build fixes (if needed)
 
 **How to Use:**
 
@@ -356,9 +356,9 @@ Presto maintains automated GitHub Actions workflows that run daily to keep Velox
    - Go to [Actions → "Advance velox PR create"](https://github.com/prestodb/presto/actions/workflows/velox-advance-pr-create.yml)
    - Click "Run workflow"
    - Options:
-     - Default: Checks for new changes and notifies if available
-     - `close_pr: true`: Forces creation of a new PR with latest changes
-     - `ai_fix: true`: Forces AI-powered build fix to run after PR creation (automatically runs on scheduled PRs)
+     - Default behavior: Checks for new changes and notifies team if available
+     - `rebase_pr: true`: Rebases existing PR on latest master and updates Velox submodule
+     - `ai_fix: true`: Forces AI-powered build fix to run (automatically runs for scheduled PRs)
 
 3. **Review and merge**: Once CI passes (you'll receive a notification), review and merge the PR
 
