@@ -128,6 +128,20 @@ SessionProperties::SessionProperties() {
       c.spillFileCreateConfig());
 
   addSessionProperty(
+      kSpillIoStatsKeySuffix,
+      "Native Execution only. Suffix appended to filesystem IoStats keys "
+      "harvested from the spill FileSystem when folded into operator "
+      "runtimeStats. Empty by default. Set to a non-empty value (e.g. "
+      "\".spill\") in deployments where the spill backend and a connector "
+      "backend share a FileSystem implementation that emits IoStats under "
+      "a globally-shared key namespace, to disambiguate spill IoStats from "
+      "connector IoStats on the same operator's runtimeStats.",
+      VARCHAR(),
+      false,
+      QueryConfig::kSpillIoStatsKeySuffix,
+      c.spillIoStatsKeySuffix());
+
+  addSessionProperty(
       kAggregationSpillFileCreateConfig,
       "Native Execution only. Config used to create aggregation spill files. "
       "This config is provided to underlying file system and the config is "
