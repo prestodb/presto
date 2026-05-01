@@ -30,18 +30,22 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=============================== ============================================================= ===============
-Property Name                   Description                                                   Default
-=============================== ============================================================= ===============
-``lance.impl``                  Namespace implementation: ``dir``                              ``dir``
-``lance.root-url``              Root storage path for Lance datasets.                          ``""``
-``lance.single-level-ns``       When ``true``, uses a single-level namespace with a            ``true``
-                                virtual ``default`` schema.
-``lance.read-batch-size``       Number of rows per Arrow batch during reads.                   ``8192``
-``lance.max-rows-per-file``     Maximum number of rows per Lance data file.                    ``1000000``
-``lance.max-rows-per-group``    Maximum number of rows per row group.                          ``100000``
-``lance.write-batch-size``      Number of rows to batch before writing to Arrow.               ``10000``
-=============================== ============================================================= ===============
+===================================== ============================================================= ===============
+Property Name                         Description                                                   Default
+===================================== ============================================================= ===============
+``lance.impl``                        Namespace implementation: ``dir``                              ``dir``
+``lance.root-url``                    Root storage path for Lance datasets.                          ``""``
+``lance.single-level-ns``             When ``true``, uses a single-level namespace with a            ``true``
+                                      virtual ``default`` schema.
+``lance.read-batch-size``             Number of rows per Arrow batch during reads.                   ``8192``
+``lance.max-rows-per-file``           Maximum number of rows per Lance data file.                    ``1000000``
+``lance.max-rows-per-group``          Maximum number of rows per row group.                          ``100000``
+``lance.write-batch-size``            Number of rows to batch before writing to Arrow.               ``10000``
+``lance.index-cache-size``            Size of Lance index cache per worker.                          ``128MB``
+``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                       ``128MB``
+``lance.dataset-cache-max-entries``   Maximum number of cached Lance datasets per worker.            ``100``
+``lance.dataset-cache-ttl``           TTL for cached Lance datasets.                                ``60m``
+===================================== ============================================================= ===============
 
 ``lance.impl``
 ^^^^^^^^^^^^^^
@@ -102,6 +106,34 @@ default is ``10000``.
 
     This property is reserved for future use and is not yet wired into the
     write path.
+
+``lance.index-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Size of the Lance index cache per worker node. The index cache stores
+scalar and vector index data to speed up filtered queries. The default is
+``128MB``.
+
+``lance.metadata-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Size of the Lance metadata cache per worker node. The metadata cache
+stores dataset and fragment metadata to reduce I/O on repeated queries. The
+default is ``128MB``.
+
+``lance.dataset-cache-max-entries``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Maximum number of Lance dataset objects cached per worker node. Caching
+datasets avoids repeated ``Dataset.open()`` calls for the same table. The
+cache is automatically invalidated on write operations. The default is ``100``.
+
+``lance.dataset-cache-ttl``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time-to-live for cached Lance dataset objects. After this duration of
+inactivity, cached datasets are evicted and their resources released. The
+default is ``60m`` (60 minutes).
 
 Data Types
 ----------

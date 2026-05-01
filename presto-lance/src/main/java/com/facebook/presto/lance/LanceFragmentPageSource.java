@@ -18,12 +18,13 @@ import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.lance.Dataset;
-import org.lance.ReadOptions;
 import org.lance.ipc.LanceScanner;
 import org.lance.ipc.ScanOptions;
 
 import java.util.List;
 import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
 
 public class LanceFragmentPageSource
         extends LanceBasePageSource
@@ -36,12 +37,14 @@ public class LanceFragmentPageSource
             List<Integer> fragments,
             String tablePath,
             int readBatchSize,
+            LanceNamespaceHolder namespaceHolder,
+            Optional<Long> datasetVersion,
             ArrowBlockBuilder arrowBlockBuilder,
             BufferAllocator parentAllocator,
             Optional<String> filter,
             List<String> filterProjectionColumns)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, filterProjectionColumns), arrowBlockBuilder, parentAllocator, filter);
     }
 
     private static class FragmentScannerFactory
@@ -50,15 +53,18 @@ public class LanceFragmentPageSource
         private final List<Integer> fragmentIds;
         private final String tablePath;
         private final int readBatchSize;
+        private final LanceNamespaceHolder namespaceHolder;
+        private final Optional<Long> datasetVersion;
         private final List<String> filterProjectionColumns;
-        private Dataset dataset;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, List<String> filterProjectionColumns)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
-            this.tablePath = tablePath;
+            this.tablePath = requireNonNull(tablePath, "tablePath is null");
             this.readBatchSize = readBatchSize;
+            this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
+            this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
             this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
         }
 
@@ -80,7 +86,7 @@ public class LanceFragmentPageSource
             optionsBuilder.fragmentIds(fragmentIds);
             filter.ifPresent(optionsBuilder::filter);
 
-            this.dataset = Dataset.open(tablePath, new ReadOptions.Builder().build());
+            Dataset dataset = namespaceHolder.getCachedDataset(tablePath, datasetVersion);
             this.scanner = dataset.newScan(optionsBuilder.build());
             return scanner;
         }
@@ -96,14 +102,7 @@ public class LanceFragmentPageSource
             catch (Exception e) {
                 log.warn(e, "Error closing lance scanner");
             }
-            try {
-                if (dataset != null) {
-                    dataset.close();
-                }
-            }
-            catch (Exception e) {
-                log.warn(e, "Error closing lance dataset");
-            }
+            // Do NOT close the dataset — the cache manages its lifecycle
         }
     }
 }

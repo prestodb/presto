@@ -98,6 +98,8 @@ public class LancePageSourceProvider
                 lanceSplit.getFragments(),
                 tablePath,
                 config.getReadBatchSize(),
+                namespaceHolder,
+                tableHandle.getDatasetVersion(),
                 arrowBlockBuilder,
                 namespaceHolder.getAllocator(),
                 filter,
