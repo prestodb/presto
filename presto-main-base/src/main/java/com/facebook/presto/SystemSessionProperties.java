@@ -54,6 +54,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrate
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -238,6 +239,8 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
+    public static final String RPC_STREAMING_MODE = "rpc_streaming_mode";
+    public static final String RPC_DISPATCH_BATCH_SIZE = "rpc_dispatch_batch_size";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -1339,6 +1342,26 @@ public final class SystemSessionProperties
                 booleanProperty(RPC_FUNCTION_OPTIMIZER_ENABLED,
                         "Enable the RPC function optimizer that rewrites RPC function calls to use async RPCNode execution",
                         true,
+                        false),
+                new PropertyMetadata<>(
+                        RPC_STREAMING_MODE,
+                        format("Streaming mode for RPC function execution. Options are %s. "
+                                        + "PER_ROW dispatches each row individually, BATCH accumulates rows and dispatches in batches.",
+                                Stream.of(RPCNode.StreamingMode.values())
+                                        .map(RPCNode.StreamingMode::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        RPCNode.StreamingMode.class,
+                        RPCNode.StreamingMode.PER_ROW,
+                        false,
+                        value -> RPCNode.StreamingMode.valueOf(((String) value).toUpperCase()),
+                        RPCNode.StreamingMode::name),
+                integerProperty(
+                        RPC_DISPATCH_BATCH_SIZE,
+                        "Batch size for RPC function dispatch in BATCH streaming mode. "
+                                + "0 means collect all rows and dispatch once at the end. "
+                                + "Values > 0 flush every N rows during input processing.",
+                        128,
                         false),
                 booleanProperty(
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
@@ -3130,6 +3153,16 @@ public final class SystemSessionProperties
     public static boolean isRpcFunctionOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, Boolean.class);
+    }
+
+    public static RPCNode.StreamingMode getRpcStreamingMode(Session session)
+    {
+        return session.getSystemProperty(RPC_STREAMING_MODE, RPCNode.StreamingMode.class);
+    }
+
+    public static int getRpcDispatchBatchSize(Session session)
+    {
+        return session.getSystemProperty(RPC_DISPATCH_BATCH_SIZE, Integer.class);
     }
 
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
