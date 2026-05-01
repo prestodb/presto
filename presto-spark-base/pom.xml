@@ -56,6 +56,16 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-built-in-worker-function-tools</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-client</artifactId>
             <exclusions>
                 <exclusion>
@@ -344,11 +354,6 @@
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-function-namespace-managers-common</artifactId>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>

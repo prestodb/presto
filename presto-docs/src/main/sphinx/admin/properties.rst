@@ -1786,3 +1786,67 @@ or HTTP/S. HTTPS are supported using the same internal communication HTTPS
 configs.
 
 To enable SSL/TLS, see :doc:`/security/internal-communication`.
+
+Driver-side Metadata Sidecar Properties
+---------------------------------------
+
+When :doc:`Presto on Spark </admin/spark>` runs on a native (Velox) execution engine,
+the driver can optionally launch a short-lived ``presto_server`` sidecar at bootstrap
+to register native-only functions into ``FunctionAndTypeManager`` before planning
+(analogous to :doc:`/plugin/native-sidecar-plugin` on the coordinator). The
+sidecar is shut down before query execution and is **disabled by default**.
+
+``built-in-sidecar-functions-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enables the bootstrap step that fetches native function metadata and registers it
+into ``FunctionAndTypeManager``. Must be paired with ``metadata-sidecar.enabled``.
+
+``metadata-sidecar.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enables the driver-side sidecar lifecycle.
+
+``metadata-sidecar.executable-path``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (unset)
+
+Absolute path to the ``presto_server`` binary on the driver host. Required when
+``metadata-sidecar.enabled=true`` unless a custom ``SidecarBinaryLocator`` binding
+is provided.
+
+``metadata-sidecar.program-arguments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (empty)
+
+Extra whitespace-separated arguments for the sidecar binary. ``--etc_dir`` is always
+added automatically.
+
+``metadata-sidecar.startup-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``duration``
+* **Default value:** ``2m``
+
+Maximum wait for the sidecar to become reachable on its HTTP port before bootstrap
+fails.
+
+``metadata-sidecar.storage-oncall-name``, ``metadata-sidecar.storage-user-name``, ``metadata-sidecar.storage-service-name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (empty)
+
+Optional values written into the sidecar's ``config.properties`` to satisfy
+required-property checks in deployment-specific native worker initialization paths.
+Leave unset if not required by your deployment.

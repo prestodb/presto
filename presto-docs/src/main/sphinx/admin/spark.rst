@@ -59,3 +59,11 @@ in Spark). These are also equal to the number of cores (4 in the example) and ar
 same as some of the ``config.properties`` settings discussed above. This is to ensure that
 a single Presto on Spark task is run in a single Spark executor (This limitation may be
 temporary and is introduced to avoid duplicating broadcasted hash tables for every task).
+
+Driver-side Metadata Sidecar
+----------------------------
+
+When the executors run on a native (Velox) execution engine, the driver can launch a
+short-lived ``presto_server`` sidecar at bootstrap to register native-only functions
+into the planner. See :ref:`Driver-side Metadata Sidecar Properties
+<admin/properties:Driver-side Metadata Sidecar Properties>` for the configuration.
