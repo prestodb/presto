@@ -23,7 +23,9 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
@@ -458,6 +460,57 @@ public class PlannerUtils
         return Optional.empty();
     }
 
+    /**
+     * Returns the set of partition column handles for the given table scan node,
+     * using the connector-agnostic DiscretePredicates API.
+     * Returns empty if the table has no layout or no discrete predicates.
+     */
+    public static Optional<Set<ColumnHandle>> getPartitionColumnHandles(Session session, Metadata metadata, TableScanNode scanNode)
+    {
+        TableLayout layout;
+        if (!scanNode.getTable().getLayout().isPresent()) {
+            try {
+                layout = metadata.getLayout(session, scanNode.getTable(), Constraint.alwaysTrue(), Optional.empty()).getLayout();
+            }
+            catch (Exception e) {
+                return Optional.empty();
+            }
+        }
+        else {
+            layout = metadata.getLayout(session, scanNode.getTable());
+        }
+
+        if (!layout.getDiscretePredicates().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(ImmutableSet.copyOf(layout.getDiscretePredicates().get().getColumns()));
+    }
+
+    /**
+     * Resolves a variable through intermediate ProjectNode/FilterNode layers
+     * down to the corresponding variable in a TableScanNode.
+     * Returns empty if the variable cannot be resolved (e.g., non-trivial expression in a projection).
+     */
+    public static Optional<VariableReferenceExpression> resolveToScanVariable(VariableReferenceExpression variable, PlanNode source)
+    {
+        if (source instanceof TableScanNode) {
+            return Optional.of(variable);
+        }
+        if (source instanceof FilterNode) {
+            return resolveToScanVariable(variable, ((FilterNode) source).getSource());
+        }
+        if (source instanceof ProjectNode) {
+            ProjectNode project = (ProjectNode) source;
+            RowExpression expr = project.getAssignments().get(variable);
+            if (expr instanceof VariableReferenceExpression) {
+                return resolveToScanVariable((VariableReferenceExpression) expr, project.getSource());
+            }
+            return Optional.empty();
+        }
+        return Optional.empty();
+    }
+
     public static boolean isFilterAboveTableScan(PlanNode node)
     {
         return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
@@ -749,5 +802,38 @@ public class PlannerUtils
                     });
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns true if the plan subtree (expected to be a Filter/Project chain
+     * above a TableScanNode) contains any non-deterministic expressions.
+     * Useful for optimizations that clone the subtree — non-deterministic
+     * expressions would produce different values in the clone vs the original.
+     */
+    public static boolean containsNonDeterministicExpression(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        PlanNode current = node;
+        while (current != null) {
+            if (current instanceof ProjectNode) {
+                for (RowExpression expression : ((ProjectNode) current).getAssignments().getExpressions()) {
+                    if (!determinismEvaluator.isDeterministic(expression)) {
+                        return true;
+                    }
+                }
+                current = ((ProjectNode) current).getSource();
+            }
+            else if (current instanceof FilterNode) {
+                if (!determinismEvaluator.isDeterministic(((FilterNode) current).getPredicate())) {
+                    return true;
+                }
+                current = ((FilterNode) current).getSource();
+            }
+            else {
+                // TableScanNode or other leaf
+                break;
+            }
+        }
+        return false;
     }
 }

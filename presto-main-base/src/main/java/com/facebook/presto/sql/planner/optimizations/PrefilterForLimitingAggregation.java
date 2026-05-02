@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -44,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -56,10 +58,13 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.addAggregation;
 import static com.facebook.presto.sql.planner.PlannerUtils.addProjections;
 import static com.facebook.presto.sql.planner.PlannerUtils.clonePlanNode;
+import static com.facebook.presto.sql.planner.PlannerUtils.containsNonDeterministicExpression;
 import static com.facebook.presto.sql.planner.PlannerUtils.createMapType;
+import static com.facebook.presto.sql.planner.PlannerUtils.getPartitionColumnHandles;
 import static com.facebook.presto.sql.planner.PlannerUtils.getTableScanNodeWithOnlyFilterAndProject;
 import static com.facebook.presto.sql.planner.PlannerUtils.getVariableHash;
 import static com.facebook.presto.sql.planner.PlannerUtils.projectExpressions;
+import static com.facebook.presto.sql.planner.PlannerUtils.resolveToScanVariable;
 import static com.facebook.presto.sql.planner.optimizations.JoinNodeUtils.typeConvert;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -178,12 +183,13 @@ public class PrefilterForLimitingAggregation
             }
 
             if (aggregationNode != null &&
-                    !aggregationNode.getGroupingKeys().isEmpty()) {
+                    !aggregationNode.getGroupingKeys().isEmpty() &&
+                    limitNode.getCount() <= 1000) {
                 Optional<TableScanNode> scanNode = getTableScanNodeWithOnlyFilterAndProject(aggregationNode.getSource());
                 // Since we duplicate the source of the aggregation - we want to restrict it to simple scan/filter/project
                 // so we can do this opportunistic optimization without too much latency/cpu overhead to support common BI usecases
-                if (scanNode.isPresent()) {
-                    PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount());
+                if (scanNode.isPresent() && !containsNonDeterministicExpression(aggregationNode.getSource(), metadata.getFunctionAndTypeManager())) {
+                    PlanNode rewrittenAggregation = addPrefilter(aggregationNode, limitNode.getCount(), scanNode.get());
                     if (rewrittenAggregation != aggregationNode) {
                         planChanged = true;
                         if (source == aggregationNode) {
@@ -202,15 +208,41 @@ public class PrefilterForLimitingAggregation
             return limitNode;
         }
 
-        private PlanNode addPrefilter(AggregationNode aggregationNode, long count)
+        private PlanNode addPrefilter(AggregationNode aggregationNode, long count, TableScanNode scanNode)
         {
             List<VariableReferenceExpression> keys = aggregationNode.getGroupingKeys().stream().collect(Collectors.toList());
             if (keys.isEmpty()) {
                 return aggregationNode;
             }
 
+            // Detect partition columns and exclude them from distinct-limit keys.
+            // Partition columns are correlated with file layout, so including them
+            // inflates the distinct-combination space without accelerating convergence.
+            Optional<Set<ColumnHandle>> partitionHandles = getPartitionColumnHandles(session, metadata, scanNode);
+            List<VariableReferenceExpression> distinctKeys = keys;
+            if (partitionHandles.isPresent()) {
+                Set<ColumnHandle> partitions = partitionHandles.get();
+                List<VariableReferenceExpression> nonPartitionKeys = keys.stream()
+                        .filter(key -> {
+                            Optional<VariableReferenceExpression> scanVar = resolveToScanVariable(key, aggregationNode.getSource());
+                            if (!scanVar.isPresent()) {
+                                return true; // can't resolve, keep the key
+                            }
+                            ColumnHandle handle = scanNode.getAssignments().get(scanVar.get());
+                            return handle == null || !partitions.contains(handle);
+                        })
+                        .collect(Collectors.toList());
+                // Only drop partition keys if at least one non-partition key remains
+                if (nonPartitionKeys.isEmpty()) {
+                    return aggregationNode;
+                }
+                if (nonPartitionKeys.size() < keys.size()) {
+                    distinctKeys = nonPartitionKeys;
+                }
+            }
+
             PlanNode originalSource = aggregationNode.getSource();
-            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, keys, new HashMap<>());
+            PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, distinctKeys, new HashMap<>());
             // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
             DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
                     Optional.empty(),
@@ -218,12 +250,12 @@ public class PrefilterForLimitingAggregation
                     keySource,
                     count,
                     false,
-                    keys,
+                    distinctKeys,
                     Optional.empty(),
                     SystemSessionProperties.getPrefilterForGroupbyLimitTimeoutMS(session));
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            RowExpression leftHashExpression = getVariableHash(keys, functionAndTypeManager);
+            RowExpression leftHashExpression = getVariableHash(distinctKeys, functionAndTypeManager);
             RowExpression rightHashExpression = getVariableHash(timedDistinctLimitNode.getOutputVariables(), functionAndTypeManager);
 
             Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
@@ -258,8 +290,14 @@ public class PrefilterForLimitingAggregation
 
             FunctionHandle equalsFunctionHandle = metadata.getFunctionAndTypeManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT));
             RowExpression foundAllEntires = call(EQUAL.name(), equalsFunctionHandle, BOOLEAN, cardinality, countExpr);
-            RowExpression mapElementAt = call(functionAndTypeManager, "element_at", BOOLEAN, mapVariable, lookupVariable);
-            RowExpression check = specialForm(IF, BOOLEAN, foundAllEntires, mapElementAt, constant(TRUE, BOOLEAN));
+            RowExpression mapLookup;
+            try {
+                mapLookup = call(functionAndTypeManager, "map_key_exists", BOOLEAN, mapVariable, lookupVariable);
+            }
+            catch (Exception e) {
+                mapLookup = call(functionAndTypeManager, "element_at", BOOLEAN, mapVariable, lookupVariable);
+            }
+            RowExpression check = specialForm(IF, BOOLEAN, foundAllEntires, mapLookup, constant(TRUE, BOOLEAN));
 
             FilterNode filterNode = new FilterNode(
                     Optional.empty(),
