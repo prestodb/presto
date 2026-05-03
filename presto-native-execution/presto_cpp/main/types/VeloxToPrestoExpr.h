@@ -119,10 +119,9 @@ class VeloxToPrestoExprConverter {
   SpecialFormExpressionPtr getDereferenceExpression(
       const velox::core::DereferenceTypedExpr* dereferenceExpr) const;
 
-  /// Converts a Velox lambda expression to a Presto RowExpression. Collects
-  /// free (captured) variables from the lambda body and delegates to
-  /// resolveLambdaExpression to produce either a plain
-  /// LambdaDefinitionExpression or a BIND-wrapped one.
+  /// Converts a Velox lambda expression to a Presto RowExpression. Lambdas
+  /// without captures become LambdaDefinitionExpression; lambdas with captures
+  /// become BIND SpecialFormExpression wrapping an expanded lambda.
   RowExpressionPtr getLambdaExpression(
       const velox::core::LambdaTypedExpr* lambdaExpr) const;
 
@@ -134,13 +133,6 @@ class VeloxToPrestoExprConverter {
   RowExpressionPtr resolveLambdaExpression(
       const velox::core::LambdaTypedExpr* lambdaExpr,
       const std::vector<FieldAccessTypedExprPtr>& freeFields) const;
-
-  /// Helper function to construct a Presto SpecialFormExpression of type BIND
-  /// that wraps an expanded lambda with the given free variables.
-  SpecialFormExpressionPtr getBindExpression(
-      const LambdaDefinitionExpressionPtr& lambdaDefinitionExpression,
-      const std::vector<FieldAccessTypedExprPtr>& freeFields,
-      const velox::TypePtr& returnType) const;
 
   /// Helper function to construct a Presto `protocol::CallExpression` from a
   /// Velox call expression.
