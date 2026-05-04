@@ -140,6 +140,8 @@ std::shared_ptr<protocol::FunctionHandle> getFunctionHandle(
 // Collects free FieldAccessTypedExpr leaf nodes from a Velox expression tree
 // that are not bound by any enclosing lambda's signature. The 'boundNames'
 // parameter contains names that are in scope from enclosing lambda signatures.
+// For x -> x + y, 'x' is a bound name from the lambda signature and 'y' is a
+// free field captured from the input.
 // Captured fields are recorded in first DFS encounter order. The exact order is
 // not semantically important to Presto, but BIND arguments and the prepended
 // lambda parameters must use the same order. 'visitedFreeFieldNames' ensures
@@ -154,7 +156,9 @@ void collectFreeFieldAccesses(
               expr)) {
     if (fieldAccess->isInputColumn() &&
         !boundNames.count(fieldAccess->name())) {
-      if (visitedFreeFieldNames.insert(fieldAccess->name()).second) {
+      const auto& name = fieldAccess->name();
+      if (visitedFreeFieldNames.find(name) == visitedFreeFieldNames.end()) {
+        visitedFreeFieldNames.insert(name);
         freeFields.push_back(fieldAccess);
       }
     }
@@ -182,6 +186,14 @@ void collectFreeFieldAccesses(
     collectFreeFieldAccesses(
         input, boundNames, freeFields, visitedFreeFieldNames);
   }
+}
+
+void collectFreeFieldAccesses(
+    const velox::core::TypedExprPtr& expr,
+    const std::unordered_set<std::string>& boundNames,
+    std::vector<FieldAccessTypedExprPtr>& freeFields) {
+  std::unordered_set<std::string> visitedFreeFieldNames;
+  collectFreeFieldAccesses(expr, boundNames, freeFields, visitedFreeFieldNames);
 }
 } // namespace
 
@@ -444,9 +456,7 @@ RowExpressionPtr VeloxToPrestoExprConverter::getLambdaExpression(
   std::unordered_set<std::string> boundNames(
       signature->names().begin(), signature->names().end());
   std::vector<FieldAccessTypedExprPtr> freeFields;
-  std::unordered_set<std::string> visitedFreeFieldNames;
-  collectFreeFieldAccesses(
-      lambdaExpr->body(), boundNames, freeFields, visitedFreeFieldNames);
+  collectFreeFieldAccesses(lambdaExpr->body(), boundNames, freeFields);
 
   return resolveLambdaExpression(lambdaExpr, freeFields);
 }
