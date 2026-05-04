@@ -1325,7 +1325,7 @@ public class PlanPrinter
         @Override
         public Void visitRPC(RPCNode node, Void context)
         {
-            addNode(node, "RPC", format("function: %s, output: %s", node.getFunctionName(), node.getOutputVariable()));
+            addNode(node, "RPC", format("function: %s, output: %s, mode: %s", node.getFunctionName(), node.getOutputVariable(), node.getStreamingMode()));
             return processChildren(node, context);
         }
 

@@ -45,6 +45,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getRpcDispatchBatchSize;
+import static com.facebook.presto.SystemSessionProperties.getRpcStreamingMode;
 import static com.facebook.presto.SystemSessionProperties.isRpcFunctionOptimizerEnabled;
 import static java.util.Objects.requireNonNull;
 
@@ -89,7 +91,7 @@ public class RpcFunctionOptimizer
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(idAllocator, variableAllocator, rpcFunctionNamesSupplier.get());
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get());
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -97,13 +99,15 @@ public class RpcFunctionOptimizer
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final Set<String> rpcFunctionNames;
         private boolean planChanged;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames)
         {
+            this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
@@ -310,10 +314,10 @@ public class RpcFunctionOptimizer
         private Optional<JsonNode> parseOptionsJson(CallExpression rpcCall)
         {
             List<RowExpression> args = rpcCall.getArguments();
-            if (args.size() < 4) {
+            if (args.size() < 3) {
                 return Optional.empty();
             }
-            ConstantExpression optionsArg = extractConstant(args.get(3));
+            ConstantExpression optionsArg = extractConstant(args.get(args.size() - 1));
             if (optionsArg == null || optionsArg.getValue() == null) {
                 return Optional.empty();
             }
@@ -334,20 +338,30 @@ public class RpcFunctionOptimizer
 
         private RPCNode.StreamingMode parseStreamingMode(CallExpression rpcCall)
         {
-            return parseOptionsJson(rpcCall)
+            // Per-function override from constant options JSON takes precedence.
+            Optional<RPCNode.StreamingMode> fromJson = parseOptionsJson(rpcCall)
                     .map(json -> json.path("streaming_mode").asText(""))
                     .filter(mode -> mode.equalsIgnoreCase("batch"))
-                    .map(mode -> RPCNode.StreamingMode.BATCH)
-                    .orElse(RPCNode.StreamingMode.PER_ROW);
+                    .map(mode -> RPCNode.StreamingMode.BATCH);
+            if (fromJson.isPresent()) {
+                return fromJson.get();
+            }
+            // Fall back to session property.
+            return getRpcStreamingMode(session);
         }
 
         private int parseDispatchBatchSize(CallExpression rpcCall)
         {
-            return parseOptionsJson(rpcCall)
+            // Per-function override from constant options JSON takes precedence.
+            Optional<Integer> fromJson = parseOptionsJson(rpcCall)
                     .map(json -> json.path("dispatch_batch_size"))
                     .filter(JsonNode::isNumber)
-                    .map(JsonNode::asInt)
-                    .orElse(0);
+                    .map(JsonNode::asInt);
+            if (fromJson.isPresent()) {
+                return fromJson.get();
+            }
+            // Fall back to session property.
+            return getRpcDispatchBatchSize(session);
         }
     }
 }
