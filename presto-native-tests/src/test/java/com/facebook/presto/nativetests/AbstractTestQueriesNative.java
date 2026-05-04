@@ -33,7 +33,6 @@ import static com.facebook.presto.SystemSessionProperties.EXPRESSION_OPTIMIZER_N
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.JOIN_PREFILTER_BUILD_SIDE;
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
-import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.REWRITE_MIN_MAX_BY_TO_TOP_N;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -175,6 +174,7 @@ public abstract class AbstractTestQueriesNative
         assertQuery("SELECT id, reduce_agg(value, 0, (a, b) -> a + b+0, (a, b) -> a + b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id", "values (1, 9), (2, 90)");
         assertQuery("SELECT id, 's' || reduce_agg(value, '', (a, b) -> concat(a, b, 's'), (a, b) -> concat(a, b, 's')) FROM ( VALUES (1, '2'), (1, '3'), (1, '4'), (2, '20'), (2, '30'), (2, '40') ) AS t(id, value) GROUP BY id",
                 "values (1, 's2s3ss4ss'), (2, 's20s30ss40ss')");
+        // TODO(https://github.com/prestodb/presto/issues/27710): Native reduce_agg accepts a non-literal initial state.
         // assertQuery("SELECT id, reduce_agg(value, array[id, value], (a, b) -> a || b, (a, b) -> a || b) FROM ( VALUES (1, 2), (1, 3), (1, 4), (2, 20), (2, 30), (2, 40) ) AS t(id, value) GROUP BY id");
     }
 
@@ -192,7 +192,7 @@ public abstract class AbstractTestQueriesNative
                 subqueryReturnedTooManyRows);
 
         // multiple subquery output projections
-        // TODO: Check why Presto C++ doesn't throw an error for below queries.
+        // TODO(https://github.com/prestodb/presto/issues/27709): Native does not throw the multiple-rows scalar subquery error for below queries.
         /*assertQueryFails(
                 "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT 'bleh' FROM region WHERE regionkey > n.regionkey)",
                 subqueryReturnedTooManyRows);
@@ -455,31 +455,15 @@ public abstract class AbstractTestQueriesNative
             });
 
             assertTrue(functions.containsKey("avg"), "Expected function names " + functions + " to contain 'avg'");
-            assertEquals(functions.get("avg").asList().size(), 7);
-            assertEquals(functions.get("avg").asList().get(0).getField(1), "decimal(a_precision,a_scale)");
-            assertEquals(functions.get("avg").asList().get(0).getField(2), "decimal(a_precision,a_scale)");
-            assertEquals(functions.get("avg").asList().get(0).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(1).getField(1), "double");
-            assertEquals(functions.get("avg").asList().get(1).getField(2), "bigint");
-            assertEquals(functions.get("avg").asList().get(1).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(2).getField(1), "double");
-            assertEquals(functions.get("avg").asList().get(2).getField(2), "double");
-            assertEquals(functions.get("avg").asList().get(2).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(3).getField(1), "double");
-            assertEquals(functions.get("avg").asList().get(3).getField(2), "integer");
-            assertEquals(functions.get("avg").asList().get(3).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(4).getField(1), "double");
-            assertEquals(functions.get("avg").asList().get(4).getField(2), "smallint");
-            assertEquals(functions.get("avg").asList().get(4).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(4).getField(1), "double");
-            assertEquals(functions.get("avg").asList().get(4).getField(2), "smallint");
-            assertEquals(functions.get("avg").asList().get(4).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(5).getField(1), "interval day to second");
-            assertEquals(functions.get("avg").asList().get(5).getField(2), "interval day to second");
-            assertEquals(functions.get("avg").asList().get(5).getField(3), "aggregate");
-            assertEquals(functions.get("avg").asList().get(6).getField(1), "real");
-            assertEquals(functions.get("avg").asList().get(6).getField(2), "real");
-            assertEquals(functions.get("avg").asList().get(6).getField(3), "aggregate");
+            List<MaterializedRow> avgFunctions = functions.get("avg").asList();
+            assertEquals(avgFunctions.size(), 7);
+            assertContainsFunctionSignature(avgFunctions, "decimal(a_precision,a_scale)", "decimal(a_precision,a_scale)", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "double", "bigint", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "double", "double", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "double", "integer", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "double", "smallint", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "interval day to second", "interval day to second", "aggregate");
+            assertContainsFunctionSignature(avgFunctions, "real", "real", "aggregate");
 
             assertTrue(functions.containsKey("abs"), "Expected function names " + functions + " to contain 'abs'");
             assertEquals(functions.get("abs").asList().get(0).getField(3), "scalar");
@@ -528,6 +512,16 @@ public abstract class AbstractTestQueriesNative
         else {
             super.testShowFunctions();
         }
+    }
+
+    private static void assertContainsFunctionSignature(List<MaterializedRow> functions, String returnType, String argumentTypes, String functionType)
+    {
+        assertTrue(
+                functions.stream()
+                        .anyMatch(row -> row.getField(1).equals(returnType) &&
+                                row.getField(2).equals(argumentTypes) &&
+                                row.getField(3).equals(functionType)),
+                "Expected functions " + functions + " to contain signature [" + returnType + ", " + argumentTypes + ", " + functionType + "]");
     }
 
     /// Custom session properties and catalog properties are not supported by native sidecar. Native execution only
@@ -605,11 +599,7 @@ public abstract class AbstractTestQueriesNative
     @Test
     public void testRemoveMapCastFailure()
     {
-        Session enableOptimization = Session.builder(getSession())
-                .setSystemProperty(REMOVE_MAP_CAST, "true")
-                .build();
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)",
-                ".*Cannot cast BIGINT '400000000000' to INTEGER. Overflow during arithmetic conversion.*");
+        assertRemoveMapCastFailure(".*Cannot cast BIGINT '400000000000' to INTEGER. Overflow during arithmetic conversion.*");
     }
 
     /// TODO: Velox does not support function signature: at_timezone(timestamp with time zone, interval day to second).
@@ -719,94 +709,7 @@ public abstract class AbstractTestQueriesNative
     @Test
     public void testScalarSubquery()
     {
-        // nested
-        assertQuery("SELECT (SELECT (SELECT (SELECT 1)))");
-
-        // aggregation
-        assertQuery("SELECT * FROM lineitem WHERE orderkey = \n" +
-                "(SELECT max(orderkey) FROM orders)");
-
-        // no output
-        assertQuery("SELECT * FROM lineitem WHERE orderkey = \n" +
-                "(SELECT orderkey FROM orders WHERE 0=1)");
-
-        // no output matching with null test
-        assertQuery("SELECT * FROM lineitem WHERE \n" +
-                "(SELECT orderkey FROM orders WHERE 0=1) " +
-                "is null");
-        assertQuery("SELECT * FROM lineitem WHERE \n" +
-                "(SELECT orderkey FROM orders WHERE 0=1) " +
-                "is not null");
-
-        // subquery results and in in-predicate
-        assertQuery("SELECT (SELECT 1) IN (1, 2, 3)");
-        assertQuery("SELECT (SELECT 1) IN (   2, 3)");
-
-        // multiple subqueries
-        assertQuery("SELECT (SELECT 1) = (SELECT 3)");
-        assertQuery("SELECT (SELECT 1) < (SELECT 3)");
-        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
-                "(SELECT min(orderkey) FROM orders)" +
-                "<" +
-                "(SELECT max(orderkey) FROM orders)");
-        assertQuery("SELECT (SELECT 1), (SELECT 2), (SELECT 3)");
-
-        // distinct
-        assertQuery("SELECT DISTINCT orderkey FROM lineitem " +
-                "WHERE orderkey BETWEEN" +
-                "   (SELECT avg(orderkey) FROM orders) - 10 " +
-                "   AND" +
-                "   (SELECT avg(orderkey) FROM orders) + 10");
-
-        // subqueries with joins
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 " +
-                "INNER JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o2 " +
-                "ON o1.orderkey " +
-                "BETWEEN (SELECT avg(orderkey) FROM orders) - 10 AND (SELECT avg(orderkey) FROM orders) + 10 " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o1 " +
-                "LEFT JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o2 " +
-                "ON o1.orderkey " +
-                "BETWEEN (SELECT avg(orderkey) FROM orders) - 10 AND (SELECT avg(orderkey) FROM orders) + 10 " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT o1.orderkey, COUNT(*) " +
-                "FROM orders o1 RIGHT JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o2 " +
-                "ON o1.orderkey " +
-                "BETWEEN (SELECT avg(orderkey) FROM orders) - 10 AND (SELECT avg(orderkey) FROM orders) + 10 " +
-                "GROUP BY o1.orderkey");
-        assertQuery("SELECT DISTINCT COUNT(*) " +
-                        "FROM (SELECT * FROM orders ORDER BY orderkey LIMIT 5) o1 " +
-                        "FULL JOIN (SELECT * FROM orders ORDER BY orderkey LIMIT 10) o2 " +
-                        "ON o1.orderkey " +
-                        "BETWEEN (SELECT avg(orderkey) FROM orders) - 10 AND (SELECT avg(orderkey) FROM orders) + 10 " +
-                        "GROUP BY o1.orderkey",
-                "VALUES 1, 10");
-
-        // subqueries with ORDER BY
-        assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
-
-        // subquery returns multiple rows
-        String multipleRowsErrorMsg = ".*Expected single row of input.*";
-        assertQueryFails("SELECT * FROM lineitem WHERE orderkey = (\n" +
-                        "SELECT orderkey FROM orders ORDER BY totalprice)",
-                multipleRowsErrorMsg);
-        assertQueryFails("SELECT orderkey, totalprice FROM orders ORDER BY (VALUES 1, 2)",
-                multipleRowsErrorMsg);
-
-        // exposes a bug in optimize hash generation because EnforceSingleNode does not
-        // support more than one column from the underlying query
-        assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
-
-        // cast scalar sub-query
-        assertQuery("SELECT 1.0/(SELECT 1), CAST(1.0 AS REAL)/(SELECT 1), 1/(SELECT 1)");
-        assertQuery("SELECT 1.0 = (SELECT 1) AND 1 = (SELECT 1), 2.0 = (SELECT 1) WHERE 1.0 = (SELECT 1) AND 1 = (SELECT 1)");
-        assertQuery("SELECT 1.0 = (SELECT 1), 2.0 = (SELECT 1), CAST(2.0 AS REAL) = (SELECT 1) WHERE 1.0 = (SELECT 1)");
-
-        // coerce correlated symbols
-        assertQuery("SELECT * FROM (VALUES 1) t(a) WHERE 1=(SELECT count(*) WHERE 1.0 = a)", "SELECT 1");
-        assertQuery("SELECT * FROM (VALUES 1.0) t(a) WHERE 1=(SELECT count(*) WHERE 1 = a)", "SELECT 1.0");
+        assertScalarSubquery(getSession(), ".*Expected single row of input.*");
     }
 
     /// TODO: Native expression optimizer is required to support system property join_prefilter_build_side in Presto
@@ -1020,7 +923,7 @@ public abstract class AbstractTestQueriesNative
 
     /// The error message for invalid map_agg function differs in Presto and Velox.
     @Override
-    @Test(enabled = false)
+    @Test
     public void testMapBlockBug()
     {
         Session session = Session.builder(getSession())
@@ -1066,6 +969,7 @@ public abstract class AbstractTestQueriesNative
     public void testMinMaxByToWindowFunction()
     {
         if (sidecarEnabled) {
+            // Native expression rewriting is applied during distributed fragment planning.
             Session enabled = Session.builder(getSession())
                     .setSystemProperty(REWRITE_MIN_MAX_BY_TO_TOP_N, "true")
                     .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")

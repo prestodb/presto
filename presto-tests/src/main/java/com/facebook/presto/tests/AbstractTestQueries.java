@@ -3759,7 +3759,11 @@ public abstract class AbstractTestQueries
     @Test
     public void testScalarSubquery()
     {
-        Session session = sessionWithLegacyTimestamp();
+        assertScalarSubquery(sessionWithLegacyTimestamp(), "(?s)Scalar sub-query has returned multiple rows.*");
+    }
+
+    protected void assertScalarSubquery(Session session, @Language("RegExp") String multipleRowsErrorMsg)
+    {
         // nested
         assertQuery("SELECT (SELECT (SELECT (SELECT 1)))");
 
@@ -3829,7 +3833,6 @@ public abstract class AbstractTestQueries
         assertQuery(session, "SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
 
         // subquery returns multiple rows
-        String multipleRowsErrorMsg = "(?s)Scalar sub-query has returned multiple rows.*";
         assertQueryFails(session, "SELECT * FROM lineitem WHERE orderkey = (\n" +
                         "SELECT orderkey FROM orders ORDER BY totalprice)",
                 multipleRowsErrorMsg);
@@ -7910,10 +7913,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testRemoveMapCastFailure()
     {
+        assertRemoveMapCastFailure("(?s).*Out of range for integer.*");
+    }
+
+    protected void assertRemoveMapCastFailure(@Language("RegExp") String expectedError)
+    {
         Session enableOptimization = Session.builder(getSession())
                 .setSystemProperty(REMOVE_MAP_CAST, "true")
                 .build();
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", "(?s).*Out of range for integer.*");
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", expectedError);
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
