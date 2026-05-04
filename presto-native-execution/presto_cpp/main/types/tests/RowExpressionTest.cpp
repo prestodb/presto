@@ -28,6 +28,8 @@ using namespace facebook::velox::core;
 
 class RowExpressionTest : public ::testing::Test {
  public:
+  static constexpr int32_t kSubqueryMultipleRowsErrorCode = 28;
+
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
   }
@@ -102,6 +104,139 @@ class RowExpressionTest : public ::testing::Test {
     )##";
 
     return result;
+  }
+
+  std::shared_ptr<protocol::ConstantExpression> makeConstantExpression(
+      const std::string& type,
+      const std::string& valueBlock) {
+    auto constant = std::make_shared<protocol::ConstantExpression>();
+    constant->type = type;
+    constant->valueBlock.data = valueBlock;
+    return constant;
+  }
+
+  std::shared_ptr<protocol::VariableReferenceExpression> makeVariableExpression(
+      const std::string& name,
+      const std::string& type) {
+    auto variable = std::make_shared<protocol::VariableReferenceExpression>();
+    variable->name = name;
+    variable->type = type;
+    return variable;
+  }
+
+  std::shared_ptr<protocol::CallExpression> makeCallExpression(
+      const std::string& name,
+      const std::string& returnType,
+      std::vector<std::shared_ptr<protocol::RowExpression>> arguments,
+      std::vector<std::string> argumentTypes) {
+    auto functionHandle = std::make_shared<protocol::BuiltInFunctionHandle>();
+    functionHandle->signature.name = name;
+    functionHandle->signature.kind = protocol::FunctionKind::SCALAR;
+    functionHandle->signature.returnType = returnType;
+    functionHandle->signature.argumentTypes = std::move(argumentTypes);
+    functionHandle->builtInFunctionKind = protocol::BuiltInFunctionKind::ENGINE;
+
+    auto call = std::make_shared<protocol::CallExpression>();
+    call->displayName = name;
+    call->functionHandle = std::move(functionHandle);
+    call->returnType = returnType;
+    call->arguments = std::move(arguments);
+    return call;
+  }
+
+  std::shared_ptr<protocol::SpecialFormExpression> makeSpecialFormExpression(
+      protocol::Form form,
+      const std::string& returnType,
+      std::vector<std::shared_ptr<protocol::RowExpression>> arguments) {
+    auto special = std::make_shared<protocol::SpecialFormExpression>();
+    special->form = form;
+    special->returnType = returnType;
+    special->arguments = std::move(arguments);
+    return special;
+  }
+
+  std::shared_ptr<protocol::RowExpression> makeScalarSubqueryFailExpression(
+      int32_t errorCode,
+      const std::string& functionName,
+      bool castFail) {
+    static const std::string kSubqueryMultipleRowsBlock =
+        "CQAAAElOVF9BUlJBWQEAAAAAHAAAAA==";
+    static const std::string kGenericErrorBlock =
+        "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA==";
+    static const std::string kDifferentMessageBlock =
+        "DgAAAFZBUklBQkxFX1dJRFRIAQAAACgAAAAAKAAAAE5vdCB0aGUgb3JpZ2luYWwgc2NhbGFyIHN1YnF1ZXJ5IG1lc3NhZ2U=";
+
+    std::shared_ptr<protocol::RowExpression> fail = makeCallExpression(
+        functionName,
+        "unknown",
+        {makeConstantExpression(
+             "integer",
+             errorCode == kSubqueryMultipleRowsErrorCode
+                 ? kSubqueryMultipleRowsBlock
+                 : kGenericErrorBlock),
+         makeConstantExpression("varchar", kDifferentMessageBlock)},
+        {"integer", "varchar"});
+    if (!castFail) {
+      return fail;
+    }
+
+    return makeCallExpression(
+        "presto.default.$operator$cast", "boolean", {fail}, {"unknown"});
+  }
+
+  std::shared_ptr<protocol::SpecialFormExpression>
+  makeScalarSubqueryGuardExpression(
+      int32_t errorCode = kSubqueryMultipleRowsErrorCode,
+      const std::string& functionName = "presto.default.fail",
+      bool castFail = true) {
+    static const std::string kTrueBlock = "CgAAAEJZVEVfQVJSQVkBAAAAAAE=";
+
+    auto trueConstant = makeConstantExpression("boolean", kTrueBlock);
+    auto when = makeSpecialFormExpression(
+        protocol::Form::WHEN,
+        "boolean",
+        {trueConstant, makeConstantExpression("boolean", kTrueBlock)});
+
+    return makeSpecialFormExpression(
+        protocol::Form::SWITCH,
+        "boolean",
+        {makeVariableExpression("is_distinct", "boolean"),
+         when,
+         makeScalarSubqueryFailExpression(errorCode, functionName, castFail)});
+  }
+
+  std::shared_ptr<protocol::CallExpression> makeBigintEqualsPredicate() {
+    return makeCallExpression(
+        "presto.default.$operator$equal",
+        "boolean",
+        {makeVariableExpression("custkey", "bigint"),
+         makeConstantExpression(
+             "bigint", "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA")},
+        {"bigint", "bigint"});
+  }
+
+  void assertIfWithScalarSubqueryGuard(const TypedExprPtr& expression) {
+    auto ifExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expression);
+    ASSERT_NE(ifExpr, nullptr);
+    ASSERT_EQ(ifExpr->type()->toString(), "BOOLEAN");
+    ASSERT_EQ(ifExpr->name(), "if");
+    ASSERT_EQ(ifExpr->inputs().size(), 3);
+
+    auto guard =
+        std::dynamic_pointer_cast<const CallTypedExpr>(ifExpr->inputs()[0]);
+    ASSERT_NE(guard, nullptr);
+    ASSERT_EQ(guard->name(), "switch");
+
+    auto predicate =
+        std::dynamic_pointer_cast<const CallTypedExpr>(ifExpr->inputs()[1]);
+    ASSERT_NE(predicate, nullptr);
+    ASSERT_EQ(predicate->name(), "presto.default.eq");
+
+    auto falseExpr =
+        std::dynamic_pointer_cast<const ConstantTypedExpr>(ifExpr->inputs()[2]);
+    ASSERT_NE(falseExpr, nullptr);
+    ASSERT_EQ(falseExpr->type()->toString(), "BOOLEAN");
+    ASSERT_FALSE(falseExpr->value().value<bool>());
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
@@ -820,6 +955,54 @@ TEST_F(RowExpressionTest, special) {
       ASSERT_EQ(cexpr->value().toJson(cexpr->type()), "\"foo\"");
     }
   }
+}
+
+TEST_F(RowExpressionTest, ScalarSubqueryMultipleRowsGuardInAndLoweredToIf) {
+  auto expression = makeSpecialFormExpression(
+      protocol::Form::AND,
+      "boolean",
+      {makeBigintEqualsPredicate(), makeScalarSubqueryGuardExpression()});
+
+  assertIfWithScalarSubqueryGuard(converter_->toVeloxExpr(expression));
+}
+
+TEST_F(
+    RowExpressionTest,
+    ScalarSubqueryMultipleRowsGuardInFirstAndPositionLoweredToIf) {
+  auto expression = makeSpecialFormExpression(
+      protocol::Form::AND,
+      "boolean",
+      {makeScalarSubqueryGuardExpression(
+           kSubqueryMultipleRowsErrorCode, "fail", false),
+       makeBigintEqualsPredicate()});
+
+  assertIfWithScalarSubqueryGuard(converter_->toVeloxExpr(expression));
+}
+
+TEST_F(RowExpressionTest, ScalarSubqueryPlainAndIsNotRewritten) {
+  static const std::string kTrueBlock = "CgAAAEJZVEVfQVJSQVkBAAAAAAE=";
+  auto expression = makeSpecialFormExpression(
+      protocol::Form::AND,
+      "boolean",
+      {makeBigintEqualsPredicate(),
+       makeConstantExpression("boolean", kTrueBlock)});
+
+  auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(
+      converter_->toVeloxExpr(expression));
+  ASSERT_NE(callExpr, nullptr);
+  ASSERT_EQ(callExpr->name(), "and");
+}
+
+TEST_F(RowExpressionTest, ScalarSubqueryOtherFailCodesAreNotRewritten) {
+  auto expression = makeSpecialFormExpression(
+      protocol::Form::AND,
+      "boolean",
+      {makeBigintEqualsPredicate(), makeScalarSubqueryGuardExpression(1)});
+
+  auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(
+      converter_->toVeloxExpr(expression));
+  ASSERT_NE(callExpr, nullptr);
+  ASSERT_EQ(callExpr->name(), "and");
 }
 
 TEST_F(RowExpressionTest, specialOr) {

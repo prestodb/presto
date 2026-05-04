@@ -1427,6 +1427,17 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Subquery returns more than one row.
         assertQueryFails("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region)", "(?s).*Expected single row of input. Received 5 rows.*");
+
+        String subqueryReturnedTooManyRows = "(?s).*Scalar sub-query has returned multiple rows.*";
+        assertQueryFails(
+                "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT 'bleh' FROM region WHERE regionkey > n.regionkey)",
+                subqueryReturnedTooManyRows);
+        assertQueryFails(
+                "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey > n.regionkey)",
+                subqueryReturnedTooManyRows);
+        assertQueryFails(
+                "SELECT name FROM nation n WHERE 1 = (SELECT 1 FROM region WHERE regionkey > n.regionkey)",
+                subqueryReturnedTooManyRows);
     }
 
     @Test
