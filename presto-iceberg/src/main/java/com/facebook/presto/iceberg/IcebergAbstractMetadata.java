@@ -418,13 +418,6 @@ public abstract class IcebergAbstractMetadata
             schema = metadata.schema();
         }
 
-        // Reject schema default values (initial-default / write-default)
-        for (Types.NestedField field : schema.columns()) {
-            if (field.initialDefault() != null || field.writeDefault() != null) {
-                throw new PrestoException(NOT_SUPPORTED, "Iceberg v3 column default values are not supported");
-            }
-        }
-
         // Reject Iceberg table encryption
         if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
             throw new PrestoException(NOT_SUPPORTED, "Iceberg table encryption is not supported");
