@@ -87,7 +87,7 @@ bool toBoolean(
   return variant.value<bool>();
 }
 
-std::unique_ptr<common::BigintRange> bigintRangeToFilter(
+std::unique_ptr<common::Filter> bigintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
     const VeloxExprConverter& exprConverter,
@@ -96,6 +96,12 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
   auto low = lowUnbounded ? std::numeric_limits<int64_t>::min()
                           : toInt64(range.low.valueBlock, exprConverter, type);
   if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    if (low == std::numeric_limits<int64_t>::max()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     low++;
   }
 
@@ -104,12 +110,18 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
       ? std::numeric_limits<int64_t>::max()
       : toInt64(range.high.valueBlock, exprConverter, type);
   if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    if (high == std::numeric_limits<int64_t>::min()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     high--;
   }
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
 }
 
-std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
+std::unique_ptr<common::Filter> hugeintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
     const VeloxExprConverter& exprConverter,
@@ -118,6 +130,12 @@ std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
   auto low = lowUnbounded ? std::numeric_limits<int128_t>::min()
                           : toInt128(range.low.valueBlock, exprConverter, type);
   if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    if (low == std::numeric_limits<int128_t>::max()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     low++;
   }
 
@@ -126,12 +144,18 @@ std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
       ? std::numeric_limits<int128_t>::max()
       : toInt128(range.high.valueBlock, exprConverter, type);
   if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    if (high == std::numeric_limits<int128_t>::min()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     high--;
   }
   return std::make_unique<common::HugeintRange>(low, high, nullAllowed);
 }
 
-std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
+std::unique_ptr<common::Filter> timestampRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
     const VeloxExprConverter& exprConverter,
@@ -141,6 +165,12 @@ std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
       ? std::numeric_limits<Timestamp>::min()
       : toTimestamp(range.low.valueBlock, exprConverter, type);
   if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    if (low == std::numeric_limits<Timestamp>::max()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     ++low;
   }
 
@@ -149,6 +179,12 @@ std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
       ? std::numeric_limits<Timestamp>::max()
       : toTimestamp(range.high.valueBlock, exprConverter, type);
   if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    if (high == std::numeric_limits<Timestamp>::min()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     --high;
   }
   return std::make_unique<common::TimestampRange>(low, high, nullAllowed);
@@ -312,7 +348,7 @@ std::unique_ptr<common::BytesRange> varcharRangeToFilter(
       nullAllowed);
 }
 
-std::unique_ptr<common::BigintRange> dateRangeToFilter(
+std::unique_ptr<common::Filter> dateRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
     const VeloxExprConverter& exprConverter,
@@ -322,6 +358,12 @@ std::unique_ptr<common::BigintRange> dateRangeToFilter(
       ? std::numeric_limits<int32_t>::min()
       : dateToInt64(range.low.valueBlock, exprConverter, type);
   if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    if (low == std::numeric_limits<int32_t>::max()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     low++;
   }
 
@@ -330,6 +372,12 @@ std::unique_ptr<common::BigintRange> dateRangeToFilter(
       ? std::numeric_limits<int32_t>::max()
       : dateToInt64(range.high.valueBlock, exprConverter, type);
   if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    if (high == std::numeric_limits<int32_t>::min()) {
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
+    }
     high--;
   }
 
@@ -622,8 +670,27 @@ std::unique_ptr<common::Filter> toFilter(
       std::vector<std::unique_ptr<common::BigintRange>> dateFilters;
       dateFilters.reserve(ranges.size());
       for (const auto& range : ranges) {
+        std::unique_ptr<common::Filter> filter =
+            dateRangeToFilter(range, nullAllowed, exprConverter, type);
+        VELOX_CHECK_NOT_NULL(filter);
+        if (filter->kind() == common::FilterKind::kAlwaysFalse ||
+            filter->kind() == common::FilterKind::kIsNull) {
+          continue;
+        }
+        auto* bigintRange = dynamic_cast<common::BigintRange*>(filter.get());
+        VELOX_CHECK_NOT_NULL(bigintRange, "Expected BigintRange filter");
         dateFilters.emplace_back(
-            dateRangeToFilter(range, nullAllowed, exprConverter, type));
+            std::unique_ptr<common::BigintRange>(
+                static_cast<common::BigintRange*>(filter.release())));
+      }
+      if (dateFilters.empty()) {
+        return nullAllowed ? std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::IsNull>())
+                           : std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::AlwaysFalse>());
+      }
+      if (dateFilters.size() == 1) {
+        return std::move(dateFilters[0]);
       }
       return std::make_unique<common::BigintMultiRange>(
           std::move(dateFilters), nullAllowed);
@@ -635,8 +702,27 @@ std::unique_ptr<common::Filter> toFilter(
       std::vector<std::unique_ptr<common::BigintRange>> bigintFilters;
       bigintFilters.reserve(ranges.size());
       for (const auto& range : ranges) {
+        std::unique_ptr<common::Filter> filter =
+            bigintRangeToFilter(range, nullAllowed, exprConverter, type);
+        VELOX_CHECK_NOT_NULL(filter);
+        if (filter->kind() == common::FilterKind::kAlwaysFalse ||
+            filter->kind() == common::FilterKind::kIsNull) {
+          continue;
+        }
+        auto* bigintRange = dynamic_cast<common::BigintRange*>(filter.get());
+        VELOX_CHECK_NOT_NULL(bigintRange, "Expected BigintRange filter");
         bigintFilters.emplace_back(
-            bigintRangeToFilter(range, nullAllowed, exprConverter, type));
+            std::unique_ptr<common::BigintRange>(
+                static_cast<common::BigintRange*>(filter.release())));
+      }
+      if (bigintFilters.empty()) {
+        return nullAllowed ? std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::IsNull>())
+                           : std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::AlwaysFalse>());
+      }
+      if (bigintFilters.size() == 1) {
+        return std::move(bigintFilters[0]);
       }
       return combineIntegerRanges(bigintFilters, nullAllowed);
     }
