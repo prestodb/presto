@@ -341,8 +341,8 @@ public class MongoMetadata
         // aggregation pipeline which can't be derived from Presto's SQL string
         throw new PrestoException(NOT_SUPPORTED,
                 "Creating views via SQL is not supported by the MongoDB connector. " +
-                        "Create the view natively in MongoDB and it will " +
-                        "be automatically discoverable as a table in Presto.");
+                        "Create the view natively in MongoDB for it to be " +
+                        "discoverable in Presto.");
     }
 
     @Override
