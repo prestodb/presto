@@ -1054,8 +1054,9 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
-            // Check if more queries can be run on the cluster based on cluster overload
-            if (clusterResourceChecker.isClusterCurrentlyOverloaded()) {
+            // Check if more queries can be run on the cluster based on cluster overload.
+            // Resource groups in cluster-overload.bypass-resource-groups skip this check.
+            if (clusterResourceChecker.isClusterCurrentlyOverloaded(id)) {
                 return false;
             }
 
