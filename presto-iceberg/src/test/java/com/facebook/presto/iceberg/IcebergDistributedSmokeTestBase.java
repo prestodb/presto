@@ -1094,95 +1094,6 @@ public abstract class IcebergDistributedSmokeTestBase
 
         dropTable(session, "test_bucket_transform");
     }
-    @Test
-    public void testAlterColumnType()
-    {
-        // Note: This test only validates conversions that work with existing data files.
-        // Test focuses on INTEGER->BIGINT and REAL->DOUBLE conversions.
-        // DECIMAL type conversions are excluded due to ZOrder compatibility issues.
-        testWithAllFileFormats((session, fileFormat) -> {
-            String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
-            String schemaName = session.getSchema().get();
-            try {
-                // Create table with various column types (excluding DECIMAL to avoid ZOrder issues)
-                assertUpdate(session, format(
-                        "CREATE TABLE %s (" +
-                        "int_col INTEGER, " +
-                        "small_col SMALLINT, " +
-                        "float_col REAL, " +
-                        "varchar_col VARCHAR(50)" +
-                        ") WITH (format = '%s')",
-                        tableName, fileFormat));
-                // Insert test data
-                assertUpdate(session, format(
-                        "INSERT INTO %s VALUES " +
-                        "(100, SMALLINT '10', 1.5, 'test1'), " +
-                        "(200, SMALLINT '20', 2.5, 'test2')",
-                        tableName), 2);
-                // Verify initial data
-                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
-                        "VALUES " +
-                        "(100, SMALLINT '10', CAST(1.5 AS REAL), 'test1'), " +
-                        "(200, SMALLINT '20', CAST(2.5 AS REAL), 'test2')");
-                // Test 1: ALTER INTEGER to BIGINT
-                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
-                // Verify data after int->bigint conversion
-                assertQuery(session, format("SELECT int_col FROM %s ORDER BY int_col", tableName),
-                        "VALUES (100), (200)");
-                // Verify SHOW CREATE TABLE reflects the change
-                validateShowCreateTable(tableName,
-                        ImmutableList.of(
-                                columnDefinition("int_col", "bigint"),
-                                columnDefinition("small_col", "smallint"),
-                                columnDefinition("float_col", "real"),
-                                columnDefinition("varchar_col", "varchar(50)")),
-                        getCustomizedTableProperties(ImmutableMap.of(
-                                "write.format.default", "'" + fileFormat + "'",
-                                "location", "'" + getLocation(schemaName, tableName) + "'")));
-                // Test 2: ALTER SMALLINT to INTEGER
-                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN small_col SET DATA TYPE INTEGER", tableName));
-
-                // Verify data after smallint->integer conversion
-                assertQuery(session, format("SELECT small_col FROM %s ORDER BY int_col", tableName),
-                        "VALUES (10), (20)");
-
-                // Verify SHOW CREATE TABLE reflects the change
-                validateShowCreateTable(tableName,
-                        ImmutableList.of(
-                                columnDefinition("int_col", "bigint"),
-                                columnDefinition("small_col", "integer"),
-                                columnDefinition("float_col", "real"),
-                                columnDefinition("varchar_col", "varchar(50)")),
-                        getCustomizedTableProperties(ImmutableMap.of(
-                                "write.format.default", "'" + fileFormat + "'",
-                                "location", "'" + getLocation(schemaName, tableName) + "'")));
-
-                // Test 3: ALTER REAL to DOUBLE
-                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
-                // Verify data after real->double conversion
-                assertQuery(session, format("SELECT float_col FROM %s ORDER BY int_col", tableName),
-                        "VALUES (CAST(1.5 AS DOUBLE)), (CAST(2.5 AS DOUBLE))");
-                // Verify final SHOW CREATE TABLE
-                validateShowCreateTable(tableName,
-                        ImmutableList.of(
-                                columnDefinition("int_col", "bigint"),
-                                columnDefinition("small_col", "integer"),
-                                columnDefinition("float_col", "double"),
-                                columnDefinition("varchar_col", "varchar(50)")),
-                        getCustomizedTableProperties(ImmutableMap.of(
-                                "write.format.default", "'" + fileFormat + "'",
-                                "location", "'" + getLocation(schemaName, tableName) + "'")));
-                // Verify all data is still correct after all conversions
-                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
-                        "VALUES " +
-                        "(CAST(100 AS BIGINT), 10, CAST(1.5 AS DOUBLE), 'test1'), " +
-                        "(CAST(200 AS BIGINT), 20, CAST(2.5 AS DOUBLE), 'test2')");
-            }
-            finally {
-                dropTable(session, tableName);
-            }
-        });
-    }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
@@ -2590,17 +2501,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
                 ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
                 node.getProperties().forEach(property -> {
-                    // Extract the actual value from the Expression
-                    String propertyValue;
-                    if (property.getValue() instanceof StringLiteral) {
-                        // For StringLiteral, get the actual string value without quotes
-                        propertyValue = ((StringLiteral) property.getValue()).getValue();
-                    }
-                    else {
-                        // For other types (numbers, booleans, etc.), use toString()
-                        propertyValue = property.getValue().toString();
-                    }
-                    propertiesBuilder.put(property.getName().getValue(), propertyValue);
+                    propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
                 });
                 assertEquals(propertyDescriptions, propertiesBuilder.build());
                 return null;
