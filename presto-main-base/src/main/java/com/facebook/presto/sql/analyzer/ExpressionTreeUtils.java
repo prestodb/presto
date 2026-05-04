@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -44,9 +45,9 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -172,8 +173,12 @@ public final class ExpressionTreeUtils
 
     public static FieldId checkAndGetColumnReferenceField(Expression expression, Multimap<NodeRef<Expression>, FieldId> columnReferences)
     {
-        checkState(columnReferences.containsKey(NodeRef.of(expression)), "Missing field reference for expression");
-        checkState(columnReferences.get(NodeRef.of(expression)).size() == 1, "Multiple field references for expression");
+        if (!columnReferences.containsKey(NodeRef.of(expression))) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Missing field reference for expression");
+        }
+        if (columnReferences.get(NodeRef.of(expression)).size() != 1) {
+            throw new PrestoException(INVALID_ARGUMENTS, "Multiple field references for expression");
+        }
 
         return columnReferences.get(NodeRef.of(expression)).iterator().next();
     }

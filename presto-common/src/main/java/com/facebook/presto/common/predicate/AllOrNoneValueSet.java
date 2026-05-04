@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -170,7 +171,7 @@ public class AllOrNoneValueSet
     private AllOrNoneValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new DataTypeMismatchException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof AllOrNoneValueSet)) {
             throw new IllegalArgumentException(String.format("ValueSet is not a AllOrNoneValueSet: %s", other.getClass()));

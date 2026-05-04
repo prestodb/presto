@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -226,10 +227,10 @@ public final class Domain
     private void checkCompatibility(Domain domain)
     {
         if (!getType().equals(domain.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched Domain types: %s vs %s", getType(), domain.getType()));
+            throw new DataTypeMismatchException(String.format("Mismatched Domain types: %s vs %s", getType(), domain.getType()));
         }
         if (values.getClass() != domain.values.getClass()) {
-            throw new IllegalArgumentException(String.format("Mismatched Domain value set classes: %s vs %s", values.getClass(), domain.values.getClass()));
+            throw new DataTypeMismatchException(String.format("Mismatched Domain value set classes: %s vs %s", values.getClass(), domain.values.getClass()));
         }
     }
 

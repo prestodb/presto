@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
@@ -289,7 +290,7 @@ public class EquatableValueSet
     private EquatableValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new DataTypeMismatchException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof EquatableValueSet)) {
             throw new IllegalStateException(String.format("ValueSet is not a EquatableValueSet: %s", other.getClass()));

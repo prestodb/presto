@@ -2561,9 +2561,11 @@ public class HiveMetadata
                         .orElseThrow(() -> new TableNotFoundException(baseTableName)))
                 .collect(toImmutableList());
 
-        baseTables.forEach(table -> checkState(
-                table.getTableType().equals(MANAGED_TABLE),
-                format("base table %s is not a managed table", table.getTableName())));
+        baseTables.forEach(table -> {
+            if (!table.getTableType().equals(MANAGED_TABLE)) {
+                throw new PrestoException(NOT_SUPPORTED, format("base table %s is not a managed table", table.getTableName()));
+            }
+        });
 
         Table materializedViewTable = metastore.getTable(metastoreContext, materializedViewName.getSchemaName(), materializedViewName.getTableName())
                 .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
