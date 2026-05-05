@@ -354,7 +354,7 @@ public class MongoMetadata
     @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
-        mongoSession.renameView(viewName, newViewName);
+        mongoSession.renameTable(viewName, newViewName);
     }
 
     @Override
