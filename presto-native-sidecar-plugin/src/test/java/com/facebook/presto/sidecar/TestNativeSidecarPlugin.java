@@ -828,6 +828,45 @@ public class TestNativeSidecarPlugin
         Instant current = getNowInstant(session);
         Instant future = getNowInstant(session);
         assertTrue(future.isAfter(current));
+
+        // Test BIND expression is preserved when lambda captures outer variable.
+        assertQueryWithSameQueryRunner(session,
+                "SELECT IF(TRY(CAST(a AS INT)) IN (1, 5), TRY(CAST(b AS DOUBLE)), 0.0) " +
+                        "FROM (VALUES " +
+                        "(varchar'1', varchar'2.1'), " +
+                        "(varchar'5', varchar'3.4'), " +
+                        "(varchar'2', varchar'9.8')) t(a, b)",
+                "VALUES CAST(2.1 AS DOUBLE), CAST(3.4 AS DOUBLE), CAST(0.0 AS DOUBLE)");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT TRANSFORM(col1, x -> IF(x, col2[2], 0)) " +
+                        "FROM (VALUES " +
+                        "(ARRAY[false], ARRAY[0, 7]), " +
+                        "(ARRAY[true], ARRAY[0, 7]), " +
+                        "(ARRAY[false], ARRAY[0, 9])) t(col1, col2)",
+                "VALUES ARRAY[0], ARRAY[7], ARRAY[0]");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT FILTER(MAP_VALUES(map1), x -> x >= ELEMENT_AT(MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), " +
+                        "COALESCE(ELEMENT_AT(other_map, name), 'low'))) AS v1, " +
+                        "FILTER(MAP_VALUES(map1), x -> x >= ELEMENT_AT(MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), " +
+                        "COALESCE(ELEMENT_AT(other_map, name), 'low'))) AS v2 " +
+                        "FROM (SELECT MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN (SELECT MAP() AS other_map) risk_map",
+                "VALUES (ARRAY[100000], ARRAY[100000])");
+        assertQueryWithSameQueryRunner(session,
+                "SELECT COALESCE(TRY(TRANSFORM_VALUES(id, (k, v) -> k / v)), MAP()) " +
+                        "FROM (VALUES " +
+                        "(MAP(ARRAY[1, 2], ARRAY[0, 0])), " +
+                        "(MAP(ARRAY[1, 2], ARRAY[1, 2])), " +
+                        "(MAP(ARRAY[28, 56], ARRAY[2, 4])), " +
+                        "(MAP(ARRAY[5, 7], ARRAY[2, 3])), " +
+                        "(MAP(ARRAY[4, 5], ARRAY[0, 0])), " +
+                        "(MAP(ARRAY[12, 72], ARRAY[3, 6]))) AS t (id)",
+                "VALUES " +
+                        "MAP(), " +
+                        "MAP(ARRAY[1, 2], ARRAY[1, 1]), " +
+                        "MAP(ARRAY[28, 56], ARRAY[14, 14]), " +
+                        "MAP(ARRAY[5, 7], ARRAY[2, 2]), " +
+                        "MAP(), " +
+                        "MAP(ARRAY[12, 72], ARRAY[4, 12])");
     }
 
     @Test
