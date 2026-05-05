@@ -907,7 +907,7 @@ public class TestAddExchangesPlansWithFunctions
                         .build(),
                 anyTree(
                         exchange(REMOTE_STREAMING, GATHER,
-                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
+                                anyTree(
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation")))))));
