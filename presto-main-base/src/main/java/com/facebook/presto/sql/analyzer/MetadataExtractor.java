@@ -22,6 +22,7 @@ import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Analyze;
+import com.facebook.presto.sql.tree.CreateVectorIndex;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.Identifier;
@@ -249,6 +250,21 @@ public class MetadataExtractor
 
             context.addTable(tableName);
             return super.visitAnalyze(node, context);
+        }
+
+        @Override
+        protected Void visitCreateVectorIndex(CreateVectorIndex node, MetadataExtractorContext context)
+        {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName(), metadata);
+            if (tableName.getObjectName().isEmpty()) {
+                throw new SemanticException(MISSING_TABLE, node, "Table name is empty");
+            }
+            if (tableName.getSchemaName().isEmpty()) {
+                throw new SemanticException(MISSING_SCHEMA, node, "Schema name is empty");
+            }
+
+            context.addTable(tableName);
+            return super.visitCreateVectorIndex(node, context);
         }
 
         @Override
