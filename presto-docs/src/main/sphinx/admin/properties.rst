@@ -1589,6 +1589,91 @@ Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tab
 
 The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.
 
+Cluster Overload Properties
+---------------------------
+
+These properties control cluster-overload throttling, which monitors worker CPU and
+memory utilization and throttles query admission when the cluster is under heavy load.
+Cluster-overload throttling is independent of per-resource-group concurrency, memory,
+and CPU limits, which continue to apply regardless of these settings.
+
+``cluster-overload.enable-throttling``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enables cluster-overload throttling. When enabled, the coordinator periodically
+checks worker health and prevents new queries from starting when the cluster is
+overloaded. When disabled, no overload checks are performed and all queries are
+admitted immediately (subject to other admission gates such as resource group limits).
+
+``cluster-overload.overload-policy-type``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``overload_worker_cnt_based_throttling``, ``overload_worker_pct_based_throttling``
+* **Default value:** ``overload_worker_cnt_based_throttling``
+
+The policy used to determine whether the cluster is overloaded.
+``overload_worker_cnt_based_throttling`` declares the cluster overloaded when the
+number of overloaded workers exceeds ``cluster-overload.allowed-overload-workers-cnt``.
+``overload_worker_pct_based_throttling`` declares it overloaded when the fraction of
+overloaded workers exceeds ``cluster-overload.allowed-overload-workers-pct``.
+
+``cluster-overload.allowed-overload-workers-cnt``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+Maximum number of workers that may be in an overloaded state before the cluster is
+considered overloaded. Only used when ``cluster-overload.overload-policy-type`` is set
+to ``overload_worker_cnt_based_throttling``.
+
+``cluster-overload.allowed-overload-workers-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.01``
+
+Maximum fraction of workers (between 0 and 1) that may be in an overloaded state
+before the cluster is considered overloaded. Only used when
+``cluster-overload.overload-policy-type`` is set to
+``overload_worker_pct_based_throttling``.
+
+``cluster.overload-check-cache-ttl-secs``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``5``
+
+How frequently (in seconds) the coordinator re-evaluates the cluster overload state.
+Between checks, the most recently computed state is cached and reused.
+
+``cluster-overload.bypass-resource-groups``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** (empty)
+
+Comma-separated list of fully-qualified resource group ids (dot-separated segments,
+such as ``global.admin, global.etl.priority``) that bypass cluster-overload throttling.
+Listed groups are still subject to all other admission gates — per-group concurrency,
+memory, and CPU limits continue to apply.
+
+A resource group bypasses throttling when it lies on the same root-to-leaf path as any
+configured entry: equal to a listed group, an ancestor of one, or a descendant of one.
+Sibling groups that do not appear in the list remain throttled. Path-based matching is
+required because the admission check runs at every ancestor in the resource group
+hierarchy; without it a non-listed ancestor would veto a listed leaf group.
+
+The bypass set is snapshotted at coordinator startup; changes require a coordinator
+restart. A ``throttlingBypassCount`` JMX counter on ``ClusterResourceChecker`` tracks
+how many times the bypass was applied.
+
+Malformed entries (such as ``global..admin``) cause a startup failure.
+
 Resource Manager Properties
 ---------------------------
 
