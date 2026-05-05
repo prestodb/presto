@@ -2589,8 +2589,8 @@ public abstract class IcebergDistributedSmokeTestBase
             Optional<String> commentDescription,
             Map<String, String> propertyDescriptions)
     {
-        // Quote schema name if it contains dots (nested namespace)
-        String schemaIdentifier = schema.contains(".") ? format("\"%s\"", schema) : schema;
+        // Quote schema name if it contains dots (nested namespace) and is not already quoted
+        String schemaIdentifier = schema.contains(".") && !schema.startsWith("\"") ? format("\"%s\"", schema) : schema;
         MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schemaIdentifier, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
