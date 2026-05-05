@@ -5,7 +5,7 @@
 matrix:
   arch: [arm64, amd64]
   cuda_version: ["13.0"]
-  ucx_version: ["1.19.1"]
+  ucx_version: ["1.20.0"]
   instance_types:
     arm64: r8g.16xlarge
     amd64: m7a.32xlarge
