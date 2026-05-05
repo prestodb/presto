@@ -348,7 +348,7 @@ public class MongoMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        mongoSession.dropView(viewName);
+        mongoSession.dropTable(viewName);
     }
 
     @Override

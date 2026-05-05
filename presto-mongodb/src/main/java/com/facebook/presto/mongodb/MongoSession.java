@@ -752,14 +752,6 @@ public class MongoSession
         tableCache.invalidate(table.getSchemaTableName());
     }
 
-    public void dropView(SchemaTableName viewName)
-    {
-        deleteTableMetadata(viewName);
-        // Drop the actual MongoDB view object
-        getCollection(viewName).drop();
-        tableCache.invalidate(viewName);
-    }
-
     public void renameView(SchemaTableName viewName, SchemaTableName newViewName)
     {
         String schemaName = viewName.getSchemaName();
