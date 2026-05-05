@@ -20,3 +20,12 @@ body:
       placeholder: "e.g., main or a1b2c3d4 (leave empty to use submodule)"
     validations:
       required: false
+
+  - type: checkboxes
+    id: promote_to_master
+    attributes:
+      label: Promote to master
+      description: When checked, the verified code will be force-pushed to master/main and images retagged as master-*. When unchecked, code is pushed to the "current" branch and images are retagged as current-* instead.
+      options:
+        - label: Promote to master/main (production)
+          required: false
