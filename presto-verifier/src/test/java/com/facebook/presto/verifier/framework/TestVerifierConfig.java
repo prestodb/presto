@@ -57,7 +57,8 @@ public class TestVerifierConfig
                 .setSaveSnapshot(false)
                 .setFunctionSubstitutes(null)
                 .setValidateStringAsDouble(false)
-                .setJsonParseSafetyWrapperEnabled(false));
+                .setJsonParseSafetyWrapperEnabled(false)
+                .setQueryRewriterFactory("default"));
     }
 
     @Test
@@ -94,6 +95,7 @@ public class TestVerifierConfig
                 .put("function-substitutes", "/approx_distinct(c)/count(c)/")
                 .put("validate-string-as-double", "true")
                 .put("json-parse-safety-wrapper-enabled", "true")
+                .put("query-rewriter-factory", "custom-rewriter")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -125,7 +127,8 @@ public class TestVerifierConfig
                 .setSaveSnapshot(true)
                 .setFunctionSubstitutes("/approx_distinct(c)/count(c)/")
                 .setValidateStringAsDouble(true)
-                .setJsonParseSafetyWrapperEnabled(true);
+                .setJsonParseSafetyWrapperEnabled(true)
+                .setQueryRewriterFactory("custom-rewriter");
 
         assertFullMapping(properties, expected);
     }

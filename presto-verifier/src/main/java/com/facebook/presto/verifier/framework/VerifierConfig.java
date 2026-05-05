@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.FunctionCallSubstitute;
+import static com.facebook.presto.verifier.rewrite.VerificationQueryRewriterFactory.VERIFICATION_QUERY_REWRITER_FACTORY;
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
 import static java.util.Locale.ENGLISH;
 
@@ -73,6 +74,8 @@ public class VerifierConfig
     private boolean jsonParseSafetyWrapperEnabled;
 
     private Multimap<String, FunctionCallSubstitute> functionSubstitutes = ImmutableMultimap.of();
+
+    private String queryRewriterFactory = VERIFICATION_QUERY_REWRITER_FACTORY;
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -483,6 +486,22 @@ public class VerifierConfig
     public VerifierConfig setFunctionSubstitutes(String functionSubstitutes)
     {
         this.functionSubstitutes = FunctionCallRewriter.validateAndConstructFunctionCallSubstituteMap(functionSubstitutes);
+        return this;
+    }
+
+    @NotNull
+    public String getQueryRewriterFactory()
+    {
+        return queryRewriterFactory;
+    }
+
+    @ConfigDescription("The type of QueryRewriterFactory to use. Defaults to 'default' to use the bundled" +
+            " VerificationQueryRewriterFactory. Set to a custom string to disable the default and allow binding" +
+            " your own implementation.")
+    @Config("query-rewriter-factory")
+    public VerifierConfig setQueryRewriterFactory(String queryRewriterFactory)
+    {
+        this.queryRewriterFactory = queryRewriterFactory;
         return this;
     }
 }
