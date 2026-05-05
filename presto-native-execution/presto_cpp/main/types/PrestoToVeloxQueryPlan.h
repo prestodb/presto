@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/tvf/core/TableFunctionProcessorNode.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
@@ -210,6 +211,11 @@ class VeloxQueryPlanConverterBase {
   // RPC function calls (e.g., llm_inference) in the query plan.
   velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::RPCNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  std::shared_ptr<const tvf::TableFunctionProcessorNode> toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::TableFunctionProcessorNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
