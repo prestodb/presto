@@ -138,9 +138,9 @@ that catalog name instead of ``oracle`` in the above examples.
 Type mapping
 ------------
 
-PrestoDB and Oracle each support types that the other does not. When reading from Oracle, Presto converts
-the data types from Oracle to equivalent Presto data types.
-Refer to the following section for type mapping in each direction.
+PrestoDB and Oracle each support types that the other does not. When reading from or writing to Oracle, Presto converts
+the data types from Oracle to equivalent Presto data types, and from Presto to equivalent Oracle data types.
+Refer to the following sections for type mapping in each direction.
 
 Oracle to PrestoDB type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -153,8 +153,64 @@ The connector maps Oracle types to the corresponding PrestoDB types:
 
   * - Oracle type
     - PrestoDB type
+  * - ``NUMBER(p, s)``
+    - ``DECIMAL(p, s)`` (or ``BIGINT`` if ``s = 0`` and within range)
+  * - ``FLOAT``
+    - ``DOUBLE``
+  * - ``BINARY_FLOAT``
+    - ``REAL``
+  * - ``BINARY_DOUBLE``
+    - ``DOUBLE``
+  * - ``CHAR(n)``, ``NCHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR2(n)``, ``NVARCHAR2(n)``
+    - ``VARCHAR(n)``
+  * - ``CLOB``, ``NCLOB``
+    - ``VARCHAR``
   * - ``BLOB``
     - ``VARBINARY``
+  * - ``RAW(n)``, ``LONG RAW``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``TIMESTAMP``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+
+No other types are supported.
+
+PrestoDB to Oracle type mapping
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The connector maps PrestoDB types to the corresponding Oracle types:
+
+.. list-table:: PrestoDB to Oracle type mapping
+  :widths: 50, 50
+  :header-rows: 1
+
+  * - PrestoDB type
+    - Oracle type
+  * - ``BOOLEAN``
+    - ``NUMBER(1)``
+  * - ``TINYINT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``
+    - ``NUMBER``
+  * - ``REAL``
+    - ``BINARY_FLOAT``
+  * - ``DOUBLE``
+    - ``BINARY_DOUBLE``
+  * - ``DECIMAL(p, s)``
+    - ``NUMBER(p, s)``
+  * - ``CHAR(n)``
+    - ``CHAR(n)``
+  * - ``VARCHAR(n)``
+    - ``VARCHAR2(n)``
+  * - ``VARBINARY``
+    - ``BLOB``
+  * - ``DATE``
+    - ``DATE``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP``
+
+No other types are supported.
 
 Oracle Connector Limitations
 ----------------------------
