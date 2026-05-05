@@ -886,17 +886,14 @@ public class TestAddExchangesPlansWithFunctions
     public void testRemoteFunctionFixedParallelismWithUnionAll()
     {
         // Test that REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM works correctly when
-        // a UNION ALL exists below the remote function projection (via an aggregation
-        // that prevents the remote function from being pushed below the union).
+        // a UNION ALL exists below the remote function projection.
         // Previously this crashed with "UnsupportedOperationException: not yet implemented: UnionNode"
         // because derivePropertiesRecursively walked into the UnionNode.
         assertNativeDistributedPlanWithSession(
-                "SELECT remote_foo(name) FROM (" +
-                        "  SELECT name, COUNT(*) AS cnt FROM (" +
-                        "    SELECT name FROM nation WHERE nationkey < 5" +
+                "SELECT remote_foo(nationkey) FROM (" +
+                        "    SELECT nationkey FROM nation WHERE nationkey < 5" +
                         "    UNION ALL" +
-                        "    SELECT name FROM nation WHERE nationkey >= 20" +
-                        "  ) GROUP BY name" +
+                        "    SELECT nationkey FROM nation WHERE nationkey >= 20" +
                         ")",
                 testSessionBuilder()
                         .setCatalog("tpch")
@@ -907,7 +904,7 @@ public class TestAddExchangesPlansWithFunctions
                         .build(),
                 anyTree(
                         exchange(REMOTE_STREAMING, GATHER,
-                                project(ImmutableMap.of("remote_foo", expression("remote_foo(name)")),
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(nationkey)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation")))))));
