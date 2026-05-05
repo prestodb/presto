@@ -891,12 +891,12 @@ public class TestAddExchangesPlansWithFunctions
         // Previously this crashed with "UnsupportedOperationException: not yet implemented: UnionNode"
         // because derivePropertiesRecursively walked into the UnionNode.
         assertNativeDistributedPlanWithSession(
-                "SELECT remote_foo(n_name) FROM (" +
-                        "  SELECT n_name, COUNT(*) AS cnt FROM (" +
-                        "    SELECT n_name FROM nation WHERE n_nationkey < 5" +
+                "SELECT remote_foo(name) FROM (" +
+                        "  SELECT name, COUNT(*) AS cnt FROM (" +
+                        "    SELECT name FROM nation WHERE nationkey < 5" +
                         "    UNION ALL" +
-                        "    SELECT n_name FROM nation WHERE n_nationkey >= 20" +
-                        "  ) GROUP BY n_name" +
+                        "    SELECT name FROM nation WHERE nationkey >= 20" +
+                        "  ) GROUP BY name" +
                         ")",
                 testSessionBuilder()
                         .setCatalog("tpch")
@@ -907,7 +907,7 @@ public class TestAddExchangesPlansWithFunctions
                         .build(),
                 anyTree(
                         exchange(REMOTE_STREAMING, GATHER,
-                                project(ImmutableMap.of("remote_foo", expression("remote_foo(n_name)")),
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(name)")),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation")))))));
