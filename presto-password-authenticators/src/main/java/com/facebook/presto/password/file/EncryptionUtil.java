@@ -36,6 +36,7 @@ public final class EncryptionUtil
 {
     private static final Logger LOG = Logger.get(EncryptionUtil.class);
     private static final int BCRYPT_MIN_COST = 8;
+    private static final int BCRYPT_MAX_PASSWORD_LENGTH = 72;
     private static final int PBKDF2_MIN_ITERATIONS = 1000;
 
     private EncryptionUtil() {}
@@ -57,6 +58,9 @@ public final class EncryptionUtil
 
     public static boolean doesBCryptPasswordMatch(String inputPassword, String hashedPassword)
     {
+        if (inputPassword.getBytes(UTF_8).length > BCRYPT_MAX_PASSWORD_LENGTH) {
+            return false;
+        }
         return BCrypt.verifyer().verify(inputPassword.toCharArray(), hashedPassword).verified;
     }
 
