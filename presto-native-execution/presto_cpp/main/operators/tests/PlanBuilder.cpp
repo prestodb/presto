@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
@@ -71,6 +72,14 @@ std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleReadNode(
   return [&outputType](
              PlanNodeId nodeId, PlanNodePtr /* source */) -> PlanNodePtr {
     return std::make_shared<ShuffleReadNode>(nodeId, outputType);
+  };
+}
+
+std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)>
+addMaterializedExchangeNode(const velox::RowTypePtr& outputType) {
+  return [&outputType](
+             PlanNodeId nodeId, PlanNodePtr /* source */) -> PlanNodePtr {
+    return std::make_shared<MaterializedExchangeNode>(nodeId, outputType);
   };
 }
 

@@ -13,15 +13,18 @@
 # limitations under the License.
 add_library(
   presto_operators
+  BinarySortableSerializer.cpp
+  BroadcastExchangeSource.cpp
+  BroadcastFile.cpp
+  BroadcastWrite.cpp
+  MaterializedExchange.cpp
+  MaterializedOutput.cpp
+  MaterializedOutputBuffer.cpp
+  LocalShuffle.cpp
   PartitionAndSerialize.cpp
   ShuffleExchangeSource.cpp
   ShuffleRead.cpp
   ShuffleWrite.cpp
-  LocalShuffle.cpp
-  BroadcastWrite.cpp
-  BroadcastFile.cpp
-  BroadcastExchangeSource.cpp
-  BinarySortableSerializer.cpp
 )
 
 target_link_libraries(

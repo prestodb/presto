@@ -17,6 +17,7 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
 #include "velox/core/QueryCtx.h"
@@ -31,6 +32,8 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/MaterializedExchange.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
@@ -2629,6 +2632,49 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     return planFragment;
   }
 
+  // MaterializedOutput path: flat-buffer operator with shared
+  // MaterializedOutputBuffer. Replaces the PartitionAndSerialize +
+  // LocalPartition + ShuffleWrite pipeline when enabled.
+  const bool exchangeMaterializationEnabled =
+      SystemConfig::instance()->exchangeMaterializationEnabled();
+  if (exchangeMaterializationEnabled && !fragment.outputOrderingScheme) {
+    auto* shuffleFactory =
+        operators::ShuffleInterfaceFactory::factory(shuffleName_);
+    VELOX_CHECK_NOT_NULL(
+        shuffleFactory,
+        "ShuffleInterface factory '{}' not registered",
+        shuffleName_);
+    auto shuffleWriterPool = velox::memory::memoryManager()->addLeafPool(
+        fmt::format("_sys.exchange_writer.{}", taskId));
+    auto shuffleWriter = shuffleFactory->createWriter(
+        *serializedShuffleWriteInfo_, shuffleWriterPool.get());
+
+    auto sharedWriter =
+        std::shared_ptr<operators::ShuffleWriter>(std::move(shuffleWriter));
+    const auto drainThreshold =
+        SystemConfig::instance()
+            ->exchangeMaterializationPerPartitionBufferSize();
+    auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
+        partitionedOutputNode->numPartitions(),
+        std::move(sharedWriter),
+        std::move(shuffleWriterPool),
+        /*maxBufferedBytes=*/640UL * 1024 * 1024,
+        drainThreshold);
+
+    auto materializedOutputNode =
+        std::make_shared<operators::MaterializedOutputNode>(
+            partitionedOutputNode->id(),
+            partitionedOutputNode->keys(),
+            partitionedOutputNode->numPartitions(),
+            partitionedOutputNode->outputType(),
+            partitionedOutputNode->partitionFunctionSpecPtr(),
+            partitionedOutputNode->sources()[0],
+            std::move(buffer));
+
+    planFragment.planNode = std::move(materializedOutputNode);
+    return planFragment;
+  }
+
   // Convert outputOrderingScheme to sortingKeys and sortingOrders
   std::optional<std::vector<velox::core::SortOrder>> sortingOrders;
   std::optional<std::vector<velox::core::FieldAccessTypedExprPtr>> sortingKeys;
@@ -2682,6 +2728,15 @@ core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     return std::make_shared<core::ExchangeNode>(node->id, rowType, "Presto");
   }
   // Partitioned shuffle exchange source.
+  // Use MaterializedExchangeNode when batch exchange I/O is enabled, unless the
+  // exchange is sorted (sorted shuffle falls back to ShuffleWrite on the
+  // write side, so the read side must also use ShuffleReadNode).
+  const bool exchangeMaterializationEnabled =
+      SystemConfig::instance()->exchangeMaterializationEnabled();
+  if (exchangeMaterializationEnabled && !node->orderingScheme) {
+    return std::make_shared<operators::MaterializedExchangeNode>(
+        node->id, rowType);
+  }
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
 }
 
@@ -2702,6 +2757,12 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+  registry.Register(
+      "MaterializedOutputNode",
+      presto::operators::MaterializedOutputNode::create);
+  registry.Register(
+      "MaterializedExchangeNode",
+      presto::operators::MaterializedExchangeNode::create);
 }
 
 void parseSqlFunctionHandle(
