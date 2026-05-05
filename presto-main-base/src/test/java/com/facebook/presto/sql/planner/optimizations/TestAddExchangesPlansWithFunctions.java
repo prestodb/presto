@@ -907,7 +907,7 @@ public class TestAddExchangesPlansWithFunctions
                         .build(),
                 anyTree(
                         exchange(REMOTE_STREAMING, GATHER,
-                                anyTree(
+                                project(
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
                                                         tableScan("nation")))))));
