@@ -355,6 +355,11 @@ Name                                        Description
 
                                             Declare the function arguments as identifiers if they need to be applied to
                                             the function substitute.
+``query-rewriter-factory``                  Defines the ``QueryRewriterFactory`` implementation to bind at startup.
+                                            Defaults to ``default``, which will use ``VerificationQueryRewriterFactory``.
+                                            Anyone extending or overriding ``QueryRewriter`` with their own implementation
+                                            can use a unique config value to control binding their own ``QueryRewriterFactory``
+                                            implementation and disable the default binding.
 =========================================== ===============================================================================
 
 

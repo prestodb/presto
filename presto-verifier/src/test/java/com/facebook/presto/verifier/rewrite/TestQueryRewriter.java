@@ -218,6 +218,69 @@ public class TestQueryRewriter
     }
 
     @Test
+    public void testRewriteDelete()
+    {
+        assertShadowed(
+                getQueryRewriter(),
+                "DELETE FROM test_table WHERE a > 10 AND b = 'foo'",
+                "local.tmp",
+                ImmutableList.of("CREATE TABLE %s\n" +
+                        "WITH (\n" +
+                        "   p_int = 30,\n" +
+                        "   p_long = 4294967297,\n" +
+                        "   p_double = 1.5E0,\n" +
+                        "   p_varchar = 'test',\n" +
+                        "   p_bool = true\n" +
+                        ") AS SELECT *\n" +
+                        "FROM\n" +
+                        "  test_table"),
+                "DELETE FROM %s WHERE a > 10 AND b = 'foo'",
+                ImmutableList.of("DROP TABLE IF EXISTS %s"));
+    }
+
+    @Test
+    public void testRewriteDeleteWithoutWhere()
+    {
+        assertShadowed(
+                getQueryRewriter(),
+                "DELETE FROM test_table",
+                "local.tmp",
+                ImmutableList.of("CREATE TABLE %s\n" +
+                        "WITH (\n" +
+                        "   p_int = 30,\n" +
+                        "   p_long = 4294967297,\n" +
+                        "   p_double = 1.5E0,\n" +
+                        "   p_varchar = 'test',\n" +
+                        "   p_bool = true\n" +
+                        ") AS SELECT *\n" +
+                        "FROM\n" +
+                        "  test_table"),
+                "DELETE FROM %s",
+                ImmutableList.of("DROP TABLE IF EXISTS %s"));
+    }
+
+    @Test
+    public void testRewriteDeleteWithFunctionsAndJson()
+    {
+        assertShadowed(
+                getQueryRewriter(),
+                "DELETE FROM test_table WHERE lower(json_extract_scalar(json_parse(payload), '$.status')) = 'deleted'",
+                "local.tmp",
+                ImmutableList.of("CREATE TABLE %s\n" +
+                        "WITH (\n" +
+                        "   p_int = 30,\n" +
+                        "   p_long = 4294967297,\n" +
+                        "   p_double = 1.5E0,\n" +
+                        "   p_varchar = 'test',\n" +
+                        "   p_bool = true\n" +
+                        ") AS SELECT *\n" +
+                        "FROM\n" +
+                        "  test_table"),
+                "DELETE FROM %s WHERE lower(json_extract_scalar(TRY(json_parse(payload)), '$.status')) = 'deleted'",
+                ImmutableList.of("DROP TABLE IF EXISTS %s"));
+    }
+
+    @Test
     public void testTemporaryTableName()
     {
         QueryRewriter tableNameRewriter = getQueryRewriter(new QueryRewriteConfig().setTablePrefix("tmp"), VERIFIER_CONFIG);
