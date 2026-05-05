@@ -2589,7 +2589,9 @@ public abstract class IcebergDistributedSmokeTestBase
             Optional<String> commentDescription,
             Map<String, String> propertyDescriptions)
     {
-        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
+        // Quote schema name if it contains dots (nested namespace)
+        String schemaIdentifier = schema.contains(".") ? format("\"%s\"", schema) : schema;
+        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schemaIdentifier, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
         SqlParser parser = new SqlParser();
