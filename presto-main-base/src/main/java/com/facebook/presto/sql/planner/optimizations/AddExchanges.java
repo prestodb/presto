@@ -282,9 +282,10 @@ public class AddExchanges
                             .anyMatch(x -> pattern.matcher(((CallExpression) x).getFunctionHandle().getName()).matches())) {
                         int taskCount = getRemoteFunctionFixedParallelismTaskCount(session);
                         checkState(taskCount > 0, "taskCount should be larger than 0");
-                        PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, planWithProperties.getNode(), taskCount);
-                        newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
-                        return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+                        PlanNode exchangeNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, planWithProperties.getNode(), taskCount);
+                        ActualProperties exchangeProperties = deriveProperties(exchangeNode, planWithProperties.getProperties());
+                        PlanNode newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(exchangeNode));
+                        return new PlanWithProperties(newNode, deriveProperties(newNode, exchangeProperties));
                     }
                 }
             }

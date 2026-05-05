@@ -883,6 +883,37 @@ public class TestAddExchangesPlansWithFunctions
     }
 
     @Test
+    public void testRemoteFunctionFixedParallelismWithUnionAll()
+    {
+        // Test that REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM works correctly when
+        // a UNION ALL exists below the remote function projection (via an aggregation
+        // that prevents the remote function from being pushed below the union).
+        // Previously this crashed with "UnsupportedOperationException: not yet implemented: UnionNode"
+        // because derivePropertiesRecursively walked into the UnionNode.
+        assertNativeDistributedPlanWithSession(
+                "SELECT remote_foo(n_name) FROM (" +
+                        "  SELECT n_name, COUNT(*) AS cnt FROM (" +
+                        "    SELECT n_name FROM nation WHERE n_nationkey < 5" +
+                        "    UNION ALL" +
+                        "    SELECT n_name FROM nation WHERE n_nationkey >= 20" +
+                        "  ) GROUP BY n_name" +
+                        ")",
+                testSessionBuilder()
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .setSystemProperty(REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM, "dummy.unittest.remote_foo")
+                        .setSystemProperty(REMOTE_FUNCTIONS_ENABLED, "true")
+                        .setSystemProperty(SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION, "true")
+                        .build(),
+                anyTree(
+                        exchange(REMOTE_STREAMING, GATHER,
+                                project(ImmutableMap.of("remote_foo", expression("remote_foo(n_name)")),
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                anyTree(
+                                                        tableScan("nation")))))));
+    }
+
+    @Test
     public void testRemoteFunctionNamesForFixedParallelismWithComplexRegex()
     {
         // Test complex regex pattern with character classes
