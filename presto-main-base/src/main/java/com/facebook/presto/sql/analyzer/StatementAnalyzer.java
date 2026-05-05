@@ -2801,7 +2801,9 @@ class StatementAnalyzer
 
                     Map<String, Map<SchemaTableName, String>> directColumnMappings = materializedViewDefinition.get().getDirectColumnMappingsAsMap();
 
-                    // Get base query domain we have mapped from view query- if there are not direct mappings, don't filter partition count for predicate
+                    // Rewrite view column domains to base table column domains. Skip columns
+                    // with no direct mapping (computed columns). Bail out entirely if a column
+                    // maps to multiple base tables since the target column name is ambiguous.
                     boolean mappedToOneTable = true;
                     Map<String, Domain> rewrittenDomain = new HashMap<>();
 
@@ -2814,7 +2816,11 @@ class StatementAnalyzer
                             }
                         }
 
-                        if (baseTableMapping == null || baseTableMapping.size() != 1) {
+                        if (baseTableMapping == null || baseTableMapping.isEmpty()) {
+                            continue;
+                        }
+
+                        if (baseTableMapping.size() != 1) {
                             mappedToOneTable = false;
                             break;
                         }

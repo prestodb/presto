@@ -2344,6 +2344,68 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testMaterializedViewPartitionKeyFilterWithDerivedColumn()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned";
+        String view = "orders_view_derived";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, totalprice, '2020-01-01' AS ds FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, totalprice, '2020-01-02' AS ds FROM orders WHERE orderkey > 1000 AND orderkey < 2000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, totalprice, '2020-01-03' AS ds FROM orders WHERE orderkey > 2000 AND orderkey < 3000", table));
+
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT max(totalprice) as max_price, orderkey, orderkey * 100 as derived_key, ds FROM %s GROUP BY orderkey, ds", view, table));
+
+            assertTrue(getQueryRunner().tableExists(getSession(), view));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 255);
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS, "true")
+                    .setCatalogSessionProperty(HIVE_CATALOG, MATERIALIZED_VIEW_MISSING_PARTITIONS_THRESHOLD, Integer.toString(1))
+                    .build();
+
+            // Filter on both ds (directly mapped partition column) and derived_key (computed column).
+            // The derived column should be skipped during domain extraction, not poison the entire
+            // partition filtering. The ds filter should still be applied to reduce missing partitions.
+            String viewQueryWithDerivedFilter = format(
+                    "SELECT max_price, orderkey FROM %s WHERE ds < '2020-01-03' AND derived_key > 0 ORDER BY orderkey", view);
+            String baseQueryWithFilter = format(
+                    "SELECT max(totalprice) as max_price, orderkey FROM %s WHERE ds < '2020-01-03' GROUP BY orderkey ORDER BY orderkey", table);
+
+            MaterializedResult baseResult = computeActual(session, baseQueryWithFilter);
+            MaterializedResult viewResult = computeActual(session, viewQueryWithDerivedFilter);
+
+            assertEquals(baseResult, viewResult);
+
+            // With threshold=1 and 2 missing partitions (2020-01-02, 2020-01-03), without the ds filter
+            // we'd see TOO_MANY_PARTITIONS_MISSING and fall back to base table scan only.
+            // With the fix, ds < '2020-01-03' reduces missing partitions to 1 (just 2020-01-02),
+            // so the MV optimization kicks in with stitching (exchange of base table + view).
+            assertPlan(session, viewQueryWithDerivedFilter, anyTree(exchange(
+                    anyTree(constrainedTableScan(
+                            table,
+                            ImmutableMap.of("ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))),
+                            ImmutableMap.of())),
+                    anyTree(constrainedTableScan(
+                            view,
+                            ImmutableMap.of(),
+                            ImmutableMap.of())))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewAvgRewrite()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
