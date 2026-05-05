@@ -360,6 +360,7 @@ public class MongoSession
         }
 
         tableCache.invalidate(oldName);
+        tableCache.invalidate(newName);
     }
 
     @VisibleForTesting
@@ -750,41 +751,6 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
-    }
-
-    public void renameView(SchemaTableName viewName, SchemaTableName newViewName)
-    {
-        String schemaName = viewName.getSchemaName();
-        String tableName = viewName.getTableName();
-
-        MongoDatabase db = client.getDatabase(schemaName);
-
-        // Read current _schema entry to get pipeline + viewOn
-        Document metadata = db.getCollection(schemaCollection)
-                .findOneAndDelete(new Document(TABLE_NAME_KEY, tableName));
-        requireNonNull(metadata, "View not found in schema collection: " + viewName);
-
-        String viewOnCollection = metadata.getString("viewOn");
-        List<Document> pipeline = metadata.getList("pipeline", Document.class);
-
-        // Drop old MongoDB view object
-        getCollection(viewName).drop();
-
-        // Recreate under new name
-        String newSchemaName = newViewName.getSchemaName();
-        String newTableName = newViewName.getTableName();
-        MongoDatabase newDb = client.getDatabase(newSchemaName);
-        newDb.createView(newTableName, viewOnCollection, pipeline);
-
-        // Write new _schema entry
-        metadata.put(TABLE_NAME_KEY, newTableName);
-        metadata.remove("_id");
-        MongoCollection<Document> newSchema = newDb.getCollection(schemaCollection);
-        newSchema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
-        newSchema.insertOne(metadata);
-
-        tableCache.invalidate(viewName);
-        tableCache.invalidate(newViewName);
     }
 
     public List<SchemaTableName> listViews(String schemaName)
