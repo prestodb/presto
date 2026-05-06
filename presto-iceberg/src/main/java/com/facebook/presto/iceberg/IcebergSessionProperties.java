@@ -72,6 +72,7 @@ public final class IcebergSessionProperties
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
     public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
     public static final String MATERIALIZED_VIEW_STORAGE_PREFIX = "materialized_view_storage_prefix";
+    public static final String MATERIALIZED_VIEW_DEFAULT_STORAGE_SCHEMA = "materialized_view_default_storage_schema";
     public static final String MAX_PARTITIONS_PER_WRITER = "max_partitions_per_writer";
     public static final String MATERIALIZED_VIEW_MAX_CHANGED_PARTITIONS = "materialized_view_max_changed_partitions";
 
@@ -244,6 +245,13 @@ public final class IcebergSessionProperties
                                 "When a custom table name is provided, it takes precedence over this prefix.",
                         icebergConfig.getMaterializedViewStoragePrefix(),
                         false))
+                .add(stringProperty(
+                        MATERIALIZED_VIEW_DEFAULT_STORAGE_SCHEMA,
+                        "Default schema for materialized view storage tables when the storage_schema " +
+                                "table property is not set. When unset (null), storage tables are created in the " +
+                                "same schema as the materialized view.",
+                        icebergConfig.getMaterializedViewDefaultStorageSchema(),
+                        false))
                 .add(integerProperty(
                         MATERIALIZED_VIEW_MAX_CHANGED_PARTITIONS,
                         "Maximum number of changed partitions to track for materialized view staleness detection. " +
@@ -402,6 +410,11 @@ public final class IcebergSessionProperties
     public static String getMaterializedViewStoragePrefix(ConnectorSession session)
     {
         return session.getProperty(MATERIALIZED_VIEW_STORAGE_PREFIX, String.class);
+    }
+
+    public static Optional<String> getMaterializedViewDefaultStorageSchema(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(MATERIALIZED_VIEW_DEFAULT_STORAGE_SCHEMA, String.class));
     }
 
     public static int getMaterializedViewMaxChangedPartitions(ConnectorSession session)
