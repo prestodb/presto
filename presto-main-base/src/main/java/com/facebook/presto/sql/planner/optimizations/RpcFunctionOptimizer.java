@@ -91,7 +91,17 @@ public class RpcFunctionOptimizer
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get());
+        // Read the user-supplied RIFT reuse tier from the session and pass it to
+        // the rewriter so it can be propagated into every RPCNode produced by the
+        // optimizer. The session property is registered in presto-facebook-trunk
+        // (InternalSessionProperties#META_AI_RIFT_REUSE_TIER) but is read here via
+        // session.getSystemProperty to avoid a cross-module dependency.
+        String riftTier = session.getSystemProperty("meta_ai_rift_reuse_tier", String.class);
+        if (riftTier == null) {
+            riftTier = "";
+        }
+
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), riftTier);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -103,14 +113,16 @@ public class RpcFunctionOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final Set<String> rpcFunctionNames;
+        private final String riftTier;
         private boolean planChanged;
 
-        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, String riftTier)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            this.riftTier = requireNonNull(riftTier, "riftTier is null");
         }
 
         public boolean isPlanChanged()
@@ -210,7 +222,7 @@ public class RpcFunctionOptimizer
                         extracted.resultVar,
                         streamingMode,
                         dispatchBatchSize,
-                        "");
+                        riftTier);
 
                 currentSource = rpcNode;
             }
