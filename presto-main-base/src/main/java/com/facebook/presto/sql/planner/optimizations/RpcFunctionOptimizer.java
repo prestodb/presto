@@ -209,7 +209,8 @@ public class RpcFunctionOptimizer
                         argumentColumns.build(),
                         extracted.resultVar,
                         streamingMode,
-                        dispatchBatchSize);
+                        dispatchBatchSize,
+                        "");
 
                 currentSource = rpcNode;
             }
