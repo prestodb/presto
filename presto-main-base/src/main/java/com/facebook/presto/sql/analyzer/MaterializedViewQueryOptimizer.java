@@ -186,6 +186,13 @@ public class MaterializedViewQueryOptimizer
             return rewriteQuerySpecificationIfCompatible(node, (Table) ((AliasedRelation) from).getRelation());
         }
 
+        if (from instanceof Join) {
+            Node result = rewriteQuerySpecificationWithJoinIfCompatible(node, from);
+            if (result != node) {
+                return result;
+            }
+        }
+
         Relation newFrom = processSameType(from);
         if (from == newFrom) {
             return node;
@@ -412,10 +419,15 @@ public class MaterializedViewQueryOptimizer
     {
         MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
-        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getSchema(), materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
         return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
+    }
+
+    private Node rewriteQuerySpecificationWithJoinIfCompatible(QuerySpecification querySpecification, Relation joinRelation)
+    {
+        return new MaterializedViewJoinQueryRewriter(metadata, session, sqlParser).tryRewrite(querySpecification, joinRelation);
     }
 
     private class QuerySpecificationRewriter
