@@ -20,6 +20,7 @@
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/ExprUtils.h"
+#include "velox/expression/NullIfExpr.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
@@ -858,7 +859,10 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 
   if (pexpr->form == protocol::Form::NULL_IF) {
-    VELOX_UNREACHABLE("NULL_IF not supported in specialForm");
+    VELOX_USER_CHECK_EQ(args.size(), 2, "NULL_IF requires exactly 2 arguments");
+    auto commonType = args[1]->type();
+    return std::make_shared<NullIfTypedExpr>(
+        std::move(args[0]), std::move(args[1]), std::move(commonType));
   }
 
   auto form = std::string(json(pexpr->form));

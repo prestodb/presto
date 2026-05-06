@@ -926,6 +926,19 @@ public final class SqlToRowExpressionTranslator
                 // if (equal(cast(first as <common type>), cast(second as <common type>)), cast(null as firstType), first)
                 return specialForm(IF, returnType, equal, constantNull(returnType), firstArgWithoutCast);
             }
+            if (!second.getType().equals(first.getType())) {
+                Optional<Type> commonType = functionAndTypeResolver.getCommonSuperType(first.getType(), second.getType());
+                if (!commonType.isPresent()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", first.getType(), second.getType());
+                }
+                if (!second.getType().equals(commonType.get())) {
+                    second = call(
+                            getSourceLocation(node),
+                            CAST.name(),
+                            functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.get()),
+                            commonType.get(), second);
+                }
+            }
             return specialForm(getSourceLocation(node), NULL_IF, returnType, first, second);
         }
 
