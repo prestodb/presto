@@ -142,6 +142,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -246,6 +247,16 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(admin, "DROP TABLE new_schema.test");
 
         assertUpdate(admin, "DROP SCHEMA new_schema");
+
+        executeExclusively(() -> {
+            try {
+                getQueryRunner().getAccessControl().deny(privilege(admin.getUser(), "test", CREATE_SCHEMA));
+                assertQueryFails(admin, "CREATE SCHEMA invalid_catalog.test", "Catalog does not exist: invalid_catalog");
+            }
+            finally {
+                getQueryRunner().getAccessControl().reset();
+            }
+        });
     }
 
     @Test
