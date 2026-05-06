@@ -263,11 +263,10 @@ public class MongoSession
 
     private List<Document> getColumnMetadata(Document doc)
     {
-        Object fields = doc.get(FIELDS_KEY);
-        if (fields instanceof List) {
-            return (List<Document>) fields;
+        if (!doc.containsKey(FIELDS_KEY)) {
+            return ImmutableList.of();
         }
-        return ImmutableList.of();
+        return (List<Document>) doc.get(FIELDS_KEY);
     }
 
     public MongoCollection<Document> getCollection(SchemaTableName tableName)
