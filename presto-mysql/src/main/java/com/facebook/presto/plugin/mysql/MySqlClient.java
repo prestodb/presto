@@ -361,7 +361,7 @@ public class MySqlClient
                 tableName));
 
         List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
-                .map(MySqlClient::toViewColumn)
+                .map(jdbcColumn -> new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType()))
                 .collect(toImmutableList());
 
         return new ViewDefinition(
@@ -371,11 +371,6 @@ public class MySqlClient
                 columns,
                 Optional.of(owner),
                 runAsInvoker);
-    }
-
-    private static ViewDefinition.ViewColumn toViewColumn(JdbcColumnHandle jdbcColumn)
-    {
-        return new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType());
     }
 
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
