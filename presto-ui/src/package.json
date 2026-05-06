@@ -35,7 +35,7 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "jquery": "3.7.1",
+    "jquery": "4.0.0",
     "prettier": "^3.6.2",
     "style-loader": "^4.0.0",
     "ts-jest": "^29.4.9",
