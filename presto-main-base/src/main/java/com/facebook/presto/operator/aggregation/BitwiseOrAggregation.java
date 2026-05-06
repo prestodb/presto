@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.InputFunction;
 import com.facebook.presto.spi.function.OutputFunction;
 import com.facebook.presto.spi.function.SqlType;
 
-@AggregationFunction("bitwise_or_agg")
+@AggregationFunction(value = "bitwise_or_agg", isDistinctSensitive = false)
 public class BitwiseOrAggregation
 {
     private BitwiseOrAggregation() {}

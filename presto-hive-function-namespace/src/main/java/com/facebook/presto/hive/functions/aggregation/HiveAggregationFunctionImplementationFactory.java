@@ -76,7 +76,8 @@ public class HiveAggregationFunctionImplementationFactory
                 ImmutableList.of(intermediateType),
                 outputType,
                 true,
-                false);
+                false,
+                true);
 
         HiveAccumulatorInvoker invocationContext = new HiveAccumulatorInvoker(
                 partialEvaluatorSupplier,
