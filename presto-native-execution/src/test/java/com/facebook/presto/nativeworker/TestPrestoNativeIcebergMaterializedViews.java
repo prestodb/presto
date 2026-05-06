@@ -47,6 +47,7 @@ public class TestPrestoNativeIcebergMaterializedViews
 
         serverUri = restServer.getBaseUrl().toString();
         super.init();
+        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS test_schema");
     }
 
     @AfterClass(alwaysRun = true)

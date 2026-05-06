@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropTable;
@@ -30,6 +31,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -47,8 +50,17 @@ public class DropTableTask
     public ListenableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
-        Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
+        if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", tableName.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(tableName.getCatalogSchemaName())) {
+            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", tableName.getSchemaName());
+        }
+
+        Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
@@ -56,7 +68,7 @@ public class DropTableTask
             return immediateFuture(null);
         }
 
-        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadataResolver.getMaterializedView(tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", tableName);

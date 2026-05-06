@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.security.AccessControl;
@@ -58,6 +59,8 @@ import static com.facebook.presto.spi.StandardMaterializedViewProperties.isCross
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
@@ -87,8 +90,17 @@ public class CreateMaterializedViewTask
     public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
-        Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
+        if (!metadataResolver.catalogExists(viewName.getCatalogName())) {
+            throw new SemanticException(MISSING_CATALOG, "Catalog '%s' does not exist", viewName.getCatalogName());
+        }
+
+        if (!metadataResolver.schemaExists(viewName.getCatalogSchemaName())) {
+            throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", viewName.getSchemaName());
+        }
+
+        Optional<TableHandle> viewHandle = metadataResolver.getTableHandle(viewName);
         if (viewHandle.isPresent()) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, statement, "Materialized view '%s' already exists", viewName);
