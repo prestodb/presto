@@ -13,9 +13,13 @@
  */
 #include <gtest/gtest.h>
 
+#include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
+#include "presto_cpp/main/operators/MaterializedExchange.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
@@ -87,6 +91,9 @@ class PlanConverterTest : public ::testing::Test {
         std::make_unique<HivePrestoToVeloxConnector>("hive"));
     registerPrestoToVeloxConnector(
         std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+    operators::ShuffleInterfaceFactory::registerFactory(
+        std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+        std::make_unique<operators::LocalPersistentShuffleFactory>());
   }
 
   void TearDown() override {
@@ -255,4 +262,45 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
   shuffleReadNode =
       std::dynamic_pointer_cast<const operators::ShuffleReadNode>(curNode);
   ASSERT_NE(shuffleReadNode, nullptr);
+}
+
+TEST_F(PlanConverterTest, batchPlanConversionExchangeWrite) {
+  filesystems::registerLocalFileSystem();
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationEnabled), "true");
+  auto root = assertToBatchVeloxQueryPlan(
+      "ScanAggBatch.json",
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+      std::make_shared<std::string>(fmt::format(
+          "{{\n"
+          "  \"rootPath\": \"{}\",\n"
+          "  \"numPartitions\": {},\n"
+          "  \"queryId\": \"test_query\",\n"
+          "  \"shuffleId\": 0\n"
+          "}}",
+          exec::test::TempDirectoryPath::create()->getPath(),
+          10)),
+      std::make_shared<std::string>("/tmp"));
+
+  auto materializedOutput =
+      std::dynamic_pointer_cast<const operators::MaterializedOutputNode>(root);
+  ASSERT_NE(materializedOutput, nullptr);
+  ASSERT_EQ(materializedOutput->sources().size(), 1);
+
+  auto curNode = assertToBatchVeloxQueryPlan(
+      "FinalAgg.json",
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+      nullptr,
+      std::make_shared<std::string>("/tmp"));
+
+  std::shared_ptr<const operators::MaterializedExchangeNode>
+      materializedExchangeNode;
+  while (!curNode->sources().empty()) {
+    curNode = curNode->sources().back();
+  }
+  materializedExchangeNode =
+      std::dynamic_pointer_cast<const operators::MaterializedExchangeNode>(
+          curNode);
+  ASSERT_NE(materializedExchangeNode, nullptr);
 }
