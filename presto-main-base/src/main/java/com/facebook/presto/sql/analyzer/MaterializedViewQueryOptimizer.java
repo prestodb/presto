@@ -46,7 +46,6 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
@@ -54,7 +53,6 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.GroupingElement;
-import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IfExpression;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -75,13 +73,11 @@ import com.facebook.presto.sql.tree.QueryBody;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.QueryWithMVRewriteCandidates;
 import com.facebook.presto.sql.tree.Relation;
-import com.facebook.presto.sql.tree.Rollup;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SimpleCaseExpression;
-import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
@@ -116,9 +112,7 @@ import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefi
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSortItemPrefix;
 import static com.facebook.presto.sql.MaterializedViewUtils.ASSOCIATIVE_REWRITE_FUNCTIONS;
-import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
 import static com.facebook.presto.sql.MaterializedViewUtils.NON_ASSOCIATIVE_REWRITE_FUNCTIONS;
-import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
 import static com.facebook.presto.sql.MaterializedViewUtils.resolveTableName;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -674,8 +668,6 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitFunctionCall(FunctionCall node, Void context)
         {
-            ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
-
             Map<Expression, Identifier> baseToViewColumnMap = materializedViewInfo.getBaseToViewColumnMap();
 
             if (NON_ASSOCIATIVE_REWRITE_FUNCTIONS.containsKey(node.getName())) {
@@ -687,8 +679,9 @@ public class MaterializedViewQueryOptimizer
                     throw new SemanticException(NOT_SUPPORTED, node, "Unsupported function for materialized view rewrite: " + node.getName());
                 }
                 // Scalar function (CONCAT, JSON_EXTRACT, ABS, etc.) — rewrite arguments recursively
+                ImmutableList.Builder<Expression> scalarArgs = ImmutableList.builder();
                 for (Expression argument : node.getArguments()) {
-                    rewrittenArguments.add((Expression) process(argument, context));
+                    scalarArgs.add((Expression) process(argument, context));
                 }
                 return new FunctionCall(
                         node.getName(),
@@ -697,27 +690,25 @@ public class MaterializedViewQueryOptimizer
                         node.getOrderBy(),
                         node.isDistinct(),
                         node.isIgnoreNulls(),
-                        rewrittenArguments.build());
+                        scalarArgs.build());
             }
 
             if (baseToViewColumnMap.containsKey(node)) {
                 Identifier derivedColumn = baseToViewColumnMap.get(node);
-
-                if (node.getName().equals(COUNT)) {
-                    return rewriteCountAsSum(node, derivedColumn);
+                if (node.isDistinct()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
                 }
-                // TODO: We should be able to add more functions (e.g. BOOL_AND, BOOL_OR) to simple associative case
-                rewrittenArguments.add(derivedColumn);
-            }
-            else {
-                if (materializedViewInfo.getGroupBy().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Materialized view does not pre-compute aggregate: " + node.getName());
-                }
-                for (Expression argument : node.getArguments()) {
-                    rewrittenArguments.add((Expression) process(argument, context));
-                }
+                return MaterializedViewUtils.rewriteAssociativeFunction(node, derivedColumn);
             }
 
+            if (materializedViewInfo.getGroupBy().isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Materialized view does not pre-compute aggregate: " + node.getName());
+            }
+
+            ImmutableList.Builder<Expression> rewrittenArguments = ImmutableList.builder();
+            for (Expression argument : node.getArguments()) {
+                rewrittenArguments.add((Expression) process(argument, context));
+            }
             return new FunctionCall(
                     node.getName(),
                     node.getWindow(),
@@ -863,7 +854,9 @@ public class MaterializedViewQueryOptimizer
         {
             ImmutableList.Builder<GroupingElement> rewrittenGroupBy = ImmutableList.builder();
             for (GroupingElement element : node.getGroupingElements()) {
-                rewrittenGroupBy.add((GroupingElement) process(removeGroupingElementPrefix(element, removablePrefix), context));
+                rewrittenGroupBy.add(MaterializedViewExpressionRewriter.rewriteGroupingElement(
+                        removeGroupingElementPrefix(element, removablePrefix),
+                        expr -> (Expression) process(removeExpressionPrefix(expr, removablePrefix), context)));
             }
             return new GroupBy(node.isDistinct(), rewrittenGroupBy.build());
         }
@@ -874,58 +867,17 @@ public class MaterializedViewQueryOptimizer
             ImmutableList.Builder<SortItem> rewrittenOrderBy = ImmutableList.builder();
             for (SortItem sortItem : node.getSortItems()) {
                 sortItem = removeSortItemPrefix(sortItem, removablePrefix);
-                // Ordinal references (e.g. ORDER BY 3) refer to SELECT items which are already validated
                 Expression sortKey = sortItem.getSortKey();
                 if (!(sortKey instanceof LongLiteral)
                         && !materializedViewInfo.getBaseToViewColumnMap().containsKey(sortKey)) {
                     throw new IllegalStateException(format("Sort key %s is not present in materialized view select fields", sortKey));
                 }
-                rewrittenOrderBy.add((SortItem) process(sortItem, context));
+                rewrittenOrderBy.add(new SortItem(
+                        (Expression) process(sortItem.getSortKey(), context),
+                        sortItem.getOrdering(),
+                        sortItem.getNullOrdering()));
             }
             return new OrderBy(rewrittenOrderBy.build());
-        }
-
-        @Override
-        protected Node visitSortItem(SortItem node, Void context)
-        {
-            return new SortItem((Expression) process(node.getSortKey(), context), node.getOrdering(), node.getNullOrdering());
-        }
-
-        @Override
-        protected Node visitSimpleGroupBy(SimpleGroupBy node, Void context)
-        {
-            return new SimpleGroupBy(rewriteGroupByExpressions(node.getExpressions(), context));
-        }
-
-        @Override
-        protected Node visitCube(Cube node, Void context)
-        {
-            return new Cube(rewriteGroupByExpressions(node.getExpressions(), context));
-        }
-
-        @Override
-        protected Node visitRollup(Rollup node, Void context)
-        {
-            return new Rollup(rewriteGroupByExpressions(node.getExpressions(), context));
-        }
-
-        @Override
-        protected Node visitGroupingSets(GroupingSets node, Void context)
-        {
-            ImmutableList.Builder<List<Expression>> rewrittenSets = ImmutableList.builder();
-            for (List<Expression> set : node.getSets()) {
-                rewrittenSets.add(rewriteGroupByExpressions(set, context));
-            }
-            return new GroupingSets(rewrittenSets.build());
-        }
-
-        private List<Expression> rewriteGroupByExpressions(List<Expression> expressions, Void context)
-        {
-            ImmutableList.Builder<Expression> rewritten = ImmutableList.builder();
-            for (Expression column : expressions) {
-                rewritten.add((Expression) process(removeExpressionPrefix(column, removablePrefix), context));
-            }
-            return rewritten.build();
         }
 
         private boolean validateExpressionForGroupBy(Set<Expression> groupByOfMaterializedView, Expression expression)
@@ -949,37 +901,6 @@ public class MaterializedViewQueryOptimizer
         {
             return !functionCall.getWindow().isPresent()
                     && builtInScalarFunctionNames.contains(functionCall.getName().getSuffix().toLowerCase(Locale.ENGLISH));
-        }
-
-        /**
-         * This is special-cased for now as COUNT is the only non-associative
-         * function supported by materialized view rewrites. In the future, we will want to
-         * support more non-associative functions and explore more
-         * extensible options.
-         * <p>
-         * Functions in optimized materialized view queries are by default expanded to
-         * func(column_derived_from_func_in_mv). This only works for associative
-         * functions. Count is non-associative: COUNT(x \ union y) != COUNT(Count(x), COUNT(y)).
-         * Rather, COUNT(x \ union y) == SUM(COUNT(x), COUNT(y). This is what we do here.
-         */
-        private FunctionCall rewriteCountAsSum(FunctionCall node, Expression derivedColumnName)
-        {
-            if (!node.getName().equals(COUNT)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Provided function was not COUNT");
-            }
-
-            if (node.isDistinct()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
-            }
-
-            return new FunctionCall(
-                    SUM,
-                    node.getWindow(),
-                    node.getFilter(),
-                    node.getOrderBy(),
-                    node.isDistinct(),
-                    node.isIgnoreNulls(),
-                    ImmutableList.of(derivedColumnName));
         }
 
         private RowExpression convertToRowExpression(Expression expression, Scope scope)
