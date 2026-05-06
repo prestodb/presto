@@ -404,6 +404,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
     public static final String REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION = "rewrite_row_constructor_in_to_disjunction";
+    public static final String PUSH_FILTER_THROUGH_SELECTING_AGGREGATION = "push_filter_through_selecting_aggregation";
     public static final String ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED = "always_analyze_create_table_query_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -2279,6 +2280,10 @@ public final class SystemSessionProperties
                         "Rewrite ROW(...) IN (ROW(...), ...) into OR of ANDs for partition pruning",
                         featuresConfig.isRewriteRowConstructorInToDisjunction(),
                         false),
+                booleanProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION,
+                        "Push HAVING-style filter on MAX/MIN/ARBITRARY aggregate output below the aggregation when the predicate direction matches the aggregate",
+                        featuresConfig.isPushFilterThroughSelectingAggregation(),
+                        false),
                 booleanProperty(
                         ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED,
                         "When enabled, analyze inner query on CTAS IF NOT EXISTS to populate view definitions for access control checks",
@@ -3896,6 +3901,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteRowConstructorInToDisjunction(Session session)
     {
         return session.getSystemProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION, Boolean.class);
+    }
+
+    public static boolean isPushFilterThroughSelectingAggregation(Session session)
+    {
+        return session.getSystemProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION, Boolean.class);
     }
 
     public static boolean isAlwaysAnalyzeCreateTableQueryEnabled(Session session)
