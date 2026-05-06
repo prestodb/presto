@@ -48,10 +48,14 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static java.lang.Math.min;
 import static java.util.Arrays.asList;
 import static java.util.Arrays.stream;
@@ -235,11 +239,154 @@ public final class LogicalRowExpressions
 
         conjuncts = removeDuplicates(conjuncts);
 
+        Optional<RowExpression> protectedConjuncts = protectScalarSubqueryMultipleRowsChecks(conjuncts);
+        if (protectedConjuncts.isPresent()) {
+            return protectedConjuncts.get();
+        }
+
         if (conjuncts.contains(FALSE_CONSTANT)) {
             return FALSE_CONSTANT;
         }
-
         return and(conjuncts);
+    }
+
+    private static Optional<RowExpression> protectScalarSubqueryMultipleRowsChecks(List<RowExpression> conjuncts)
+    {
+        List<RowExpression> checks = new ArrayList<>();
+        List<RowExpression> predicates = new ArrayList<>();
+
+        for (RowExpression conjunct : conjuncts) {
+            Optional<GuardedPredicate> guardedPredicate = tryGetScalarSubqueryMultipleRowsGuardedPredicate(conjunct);
+            if (guardedPredicate.isPresent()) {
+                checks.add(guardedPredicate.get().getCheck());
+                predicates.add(guardedPredicate.get().getPredicate());
+            }
+            else if (isScalarSubqueryMultipleRowsCheck(conjunct)) {
+                checks.add(conjunct);
+            }
+            else {
+                predicates.add(conjunct);
+            }
+        }
+
+        if (checks.isEmpty()) {
+            return Optional.empty();
+        }
+
+        RowExpression predicate = predicates.contains(FALSE_CONSTANT) ? FALSE_CONSTANT :
+                predicates.isEmpty() ? TRUE_CONSTANT : and(predicates);
+        for (int i = checks.size() - 1; i >= 0; i--) {
+            predicate = new SpecialFormExpression(IF, BOOLEAN, checks.get(i), predicate, FALSE_CONSTANT);
+        }
+        return Optional.of(predicate);
+    }
+
+    private static Optional<GuardedPredicate> tryGetScalarSubqueryMultipleRowsGuardedPredicate(RowExpression expression)
+    {
+        if (!(expression instanceof SpecialFormExpression)) {
+            return Optional.empty();
+        }
+
+        SpecialFormExpression specialForm = (SpecialFormExpression) expression;
+        if (specialForm.getForm() != IF || specialForm.getArguments().size() != 3 ||
+                !isScalarSubqueryMultipleRowsCheck(specialForm.getArguments().get(0)) ||
+                !FALSE_CONSTANT.equals(specialForm.getArguments().get(2))) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new GuardedPredicate(specialForm.getArguments().get(0), specialForm.getArguments().get(1)));
+    }
+
+    private static boolean isScalarSubqueryMultipleRowsCheck(RowExpression expression)
+    {
+        if (!(expression instanceof SpecialFormExpression)) {
+            return false;
+        }
+
+        SpecialFormExpression specialForm = (SpecialFormExpression) expression;
+        return specialForm.getForm() == SWITCH &&
+                specialForm.getArguments().size() == 3 &&
+                isTrueWhenClause(specialForm.getArguments().get(1)) &&
+                isScalarSubqueryMultipleRowsFail(specialForm.getArguments().get(2));
+    }
+
+    private static boolean isTrueWhenClause(RowExpression expression)
+    {
+        if (!(expression instanceof SpecialFormExpression)) {
+            return false;
+        }
+
+        SpecialFormExpression specialForm = (SpecialFormExpression) expression;
+        return specialForm.getForm() == WHEN &&
+                specialForm.getArguments().size() == 2 &&
+                TRUE_CONSTANT.equals(specialForm.getArguments().get(0)) &&
+                TRUE_CONSTANT.equals(specialForm.getArguments().get(1));
+    }
+
+    private static boolean isScalarSubqueryMultipleRowsFail(RowExpression expression)
+    {
+        if (!(expression instanceof CallExpression)) {
+            return false;
+        }
+
+        CallExpression call = (CallExpression) expression;
+        if (isCast(call) && call.getArguments().size() == 1) {
+            return isScalarSubqueryMultipleRowsFail(call.getArguments().get(0));
+        }
+        if (!isFail(call) || call.getArguments().size() < 2) {
+            return false;
+        }
+        if (!(call.getArguments().get(0) instanceof ConstantExpression)) {
+            return false;
+        }
+
+        ConstantExpression errorCode = (ConstantExpression) call.getArguments().get(0);
+        return INTEGER.equals(errorCode.getType()) &&
+                errorCode.getValue() != null &&
+                ((Number) errorCode.getValue()).longValue() == SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode();
+    }
+
+    private static boolean isCast(CallExpression call)
+    {
+        return call.getDisplayName().equalsIgnoreCase("CAST") ||
+                call.getFunctionHandle().getName().endsWith("$operator$cast");
+    }
+
+    private static boolean isFail(CallExpression call)
+    {
+        return isFailFunctionName(call.getDisplayName()) ||
+                isFailFunctionName(call.getFunctionHandle().getName());
+    }
+
+    private static boolean isFailFunctionName(String name)
+    {
+        if (name.equals("fail")) {
+            return true;
+        }
+        int lastDot = name.lastIndexOf('.');
+        return lastDot >= 0 && name.substring(lastDot + 1).equals("fail");
+    }
+
+    private static final class GuardedPredicate
+    {
+        private final RowExpression check;
+        private final RowExpression predicate;
+
+        private GuardedPredicate(RowExpression check, RowExpression predicate)
+        {
+            this.check = check;
+            this.predicate = predicate;
+        }
+
+        private RowExpression getCheck()
+        {
+            return check;
+        }
+
+        private RowExpression getPredicate()
+        {
+            return predicate;
+        }
     }
 
     public RowExpression combineDisjuncts(RowExpression... expressions)

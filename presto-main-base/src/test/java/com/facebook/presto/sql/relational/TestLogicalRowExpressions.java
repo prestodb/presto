@@ -15,12 +15,16 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slices;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -39,14 +43,18 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractPredicates;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -97,6 +105,35 @@ public class TestLogicalRowExpressions
         assertEquals(
                 extractPredicates(and(and(and(a, b), and(c, d)), e)),
                 ImmutableList.of(a, b, c, d, e));
+    }
+
+    @Test
+    public void testScalarSubqueryMultipleRowsGuard()
+    {
+        RowExpression guard = scalarSubqueryMultipleRowsGuard(
+                StandardErrorCode.SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode());
+
+        assertEquals(
+                logicalRowExpressions.combineConjuncts(a, guard),
+                new SpecialFormExpression(IF, BOOLEAN, guard, a, FALSE_CONSTANT));
+
+        assertEquals(
+                logicalRowExpressions.combineConjuncts(guard, a),
+                new SpecialFormExpression(IF, BOOLEAN, guard, a, FALSE_CONSTANT));
+
+        assertEquals(
+                logicalRowExpressions.combineConjuncts(guard, a, FALSE_CONSTANT),
+                new SpecialFormExpression(IF, BOOLEAN, guard, FALSE_CONSTANT, FALSE_CONSTANT));
+
+        assertEquals(
+                logicalRowExpressions.combineConjuncts(new SpecialFormExpression(IF, BOOLEAN, guard, a, FALSE_CONSTANT), b),
+                new SpecialFormExpression(IF, BOOLEAN, guard, and(a, b), FALSE_CONSTANT));
+
+        RowExpression otherFailGuard = scalarSubqueryMultipleRowsGuard(
+                StandardErrorCode.GENERIC_USER_ERROR.toErrorCode().getCode());
+        assertEquals(
+                logicalRowExpressions.combineConjuncts(a, otherFailGuard),
+                and(a, otherFailGuard));
     }
 
     @Test
@@ -563,5 +600,21 @@ public class TestLogicalRowExpressions
     private RowExpression not(RowExpression expression)
     {
         return new CallExpression("not", new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()).notFunction(), BOOLEAN, ImmutableList.of(expression));
+    }
+
+    private RowExpression scalarSubqueryMultipleRowsGuard(int errorCode)
+    {
+        RowExpression fail = call(
+                "fail",
+                functionAndTypeManager.lookupFunction("fail", fromTypes(INTEGER, VARCHAR)),
+                UNKNOWN,
+                new ConstantExpression((long) errorCode, INTEGER),
+                new ConstantExpression(Slices.utf8Slice("not the exact message"), VARCHAR));
+        return new SpecialFormExpression(
+                SWITCH,
+                BOOLEAN,
+                name("is_distinct"),
+                new SpecialFormExpression(WHEN, BOOLEAN, TRUE_CONSTANT, TRUE_CONSTANT),
+                call("CAST", functionAndTypeManager.lookupCast(CastType.CAST, UNKNOWN, BOOLEAN), BOOLEAN, fail));
     }
 }
