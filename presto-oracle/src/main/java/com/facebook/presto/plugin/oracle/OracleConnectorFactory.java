@@ -17,7 +17,6 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcConnector;
 import com.facebook.presto.plugin.jdbc.JdbcHandleResolver;
-import com.facebook.presto.plugin.jdbc.JdbcModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
@@ -27,8 +26,6 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.util.Modules;
 
 import java.util.Map;
 
@@ -37,8 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Oracle-specific connector factory.
- * This factory creates Oracle connectors with the proper module configuration,
- * using Modules.override() to replace the default JdbcMetadataFactory with OracleMetadataFactory.
+ * This factory creates Oracle connectors with the proper module configuration.
  */
 public class OracleConnectorFactory
         implements ConnectorFactory
@@ -61,11 +57,6 @@ public class OracleConnectorFactory
         requireNonNull(requiredConfig, "requiredConfig is null");
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
-            // Use Modules.override() to replace JdbcMetadataFactory binding
-            // This allows OracleMetadataFactory to be used instead of the default
-            Module module = Modules.override(new JdbcModule(catalogName))
-                    .with(new OracleMetadataOverrideModule());
-
             Bootstrap app = new Bootstrap(
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
@@ -73,8 +64,7 @@ public class OracleConnectorFactory
                         binder.bind(StandardFunctionResolution.class).toInstance(context.getStandardFunctionResolution());
                         binder.bind(RowExpressionService.class).toInstance(context.getRowExpressionService());
                     },
-                    module,
-                    new OracleClientModule());
+                    new OracleClientModule(catalogName));
 
             Injector injector = app
                     .doNotInitializeLogging()

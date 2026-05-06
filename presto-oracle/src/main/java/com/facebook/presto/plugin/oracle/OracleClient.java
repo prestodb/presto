@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
@@ -35,10 +35,14 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -88,26 +92,24 @@ public class OracleClient
         extends BaseJdbcClient
 {
     private static final Logger LOG = Logger.get(OracleClient.class);
+    private static final JsonCodec<ViewDefinition> VIEW_CODEC = JsonCodec.jsonCodec(ViewDefinition.class);
     private final int fetchSize;
 
     private final boolean synonymsEnabled;
     private final int numberDefaultScale;
-    private final TypeManager typeManager;
 
     @Inject
     public OracleClient(
             JdbcConnectorId connectorId,
             BaseJdbcConfig config,
             OracleConfig oracleConfig,
-            ConnectionFactory connectionFactory,
-            TypeManager typeManager)
+            ConnectionFactory connectionFactory)
     {
         super(connectorId, config, "\"", connectionFactory);
 
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
         this.numberDefaultScale = oracleConfig.getNumberDefaultScale();
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fetchSize = config.getFetchSize();
     }
 
@@ -384,7 +386,7 @@ public class OracleClient
     /**
      * Get views from Oracle ALL_VIEWS system table.
      * This method retrieves view definitions for the specified schema and table names
-     * and stores them in a simple JSON format
+     * and stores them in a simple JSON format.
      * This avoids the "stale view" issue by not including column type information.
      */
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, JdbcIdentity identity, List<SchemaTableName> tableNames)
@@ -404,9 +406,11 @@ public class OracleClient
             for (SchemaTableName tableName : tableNames) {
                 String remoteSchema = toRemoteSchemaName(session, identity, connection, tableName.getSchemaName());
                 String remoteTable = toRemoteTableName(session, identity, connection, remoteSchema, tableName.getTableName());
+                String normalizedSchema = normalizeIdentifier(session, remoteSchema);
+                String normalizedTable = normalizeIdentifier(session, remoteTable);
                 tableNamePairs.add(String.format("('%s', '%s')",
-                        remoteSchema.toUpperCase(ENGLISH).replace("'", "''"),
-                        remoteTable.toUpperCase(ENGLISH).replace("'", "''")));
+                        normalizedSchema.toUpperCase(ENGLISH).replace("'", "''"),
+                        normalizedTable.toUpperCase(ENGLISH).replace("'", "''")));
             }
             sql.append(String.join(", ", tableNamePairs));
             sql.append(")");
@@ -414,15 +418,15 @@ public class OracleClient
             try (PreparedStatement statement = connection.prepareStatement(sql.toString());
                     ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
-                    String schemaName = resultSet.getString("OWNER");
+                    String owner = resultSet.getString("OWNER");
                     String tableName = resultSet.getString("VIEW_NAME");
                     String oracleViewSql = resultSet.getString("TEXT");
 
                     // Fetch column metadata for the view
-                    List<String> columnJsonList = new ArrayList<>();
+                    List<ViewDefinition.ViewColumn> columns = new ArrayList<>();
                     try (ResultSet columnsResultSet = connection.getMetaData().getColumns(
                             null,
-                            schemaName,
+                            owner,
                             tableName,
                             null)) {
                         while (columnsResultSet.next()) {
@@ -438,51 +442,32 @@ public class OracleClient
                                 Type prestoType = readMapping.get().getType();
                                 // Normalize column name
                                 String normalizedColumnName = normalizeIdentifier(session, columnName);
-                                // Escape for JSON
-                                String escapedColumnName = normalizedColumnName
-                                        .replace("\\", "\\\\")
-                                        .replace("\"", "\\\"");
-                                String escapedTypeName = prestoType.getDisplayName()
-                                        .replace("\\", "\\\\")
-                                        .replace("\"", "\\\"");
-                                columnJsonList.add(String.format(
-                                        "{\"name\":\"%s\",\"type\":\"%s\"}",
-                                        escapedColumnName,
-                                        escapedTypeName));
+                                columns.add(new ViewDefinition.ViewColumn(normalizedColumnName, prestoType));
                             }
                         }
                     }
 
                     // Normalize identifiers according to Oracle rules
-                    schemaName = normalizeIdentifier(session, schemaName);
-                    tableName = normalizeIdentifier(session, tableName);
+                    String normalizedSchema = normalizeIdentifier(session, owner);
+                    String normalizedTable = normalizeIdentifier(session, tableName);
 
-                    SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
+                    SchemaTableName viewName = new SchemaTableName(normalizedSchema, normalizedTable);
 
-                    // Use session user as the view owner
-                    String owner = session.getUser();
+                    // Create ViewDefinition and serialize it
+                    ViewDefinition viewDefinition = new ViewDefinition(
+                            oracleViewSql,
+                            Optional.of(connectorId),
+                            Optional.of(normalizedSchema),
+                            columns,
+                            Optional.of(owner),
+                            false);
 
-                    // Create a proper ViewDefinition JSON with all required fields including columns
-                    String escapedSql = oracleViewSql
-                            .replace("\\", "\\\\")
-                            .replace("\"", "\\\"")
-                            .replace("\n", "\\n")
-                            .replace("\r", "\\r");
-
-                    String columnsJson = String.join(",", columnJsonList);
-
-                    String prestoViewData = String.format(
-                            "{\"originalSql\":\"%s\",\"catalog\":\"%s\",\"schema\":\"%s\",\"columns\":[%s],\"owner\":\"%s\",\"runAsInvoker\":false}",
-                            escapedSql,
-                            connectorId,  // Use connector ID as catalog
-                            schemaName,
-                            columnsJson,
-                            owner);
+                    String viewData = VIEW_CODEC.toJson(viewDefinition);
 
                     views.put(viewName, new ConnectorViewDefinition(
                             viewName,
                             Optional.of(owner),
-                            prestoViewData));
+                            viewData));
                 }
             }
 
@@ -545,7 +530,14 @@ public class OracleClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             // Extract the original SQL from ViewDefinition JSON
-            String viewSql = extractOriginalSql(viewData);
+            String viewSql;
+            try {
+                viewSql = extractOriginalSql(viewData);
+            }
+            catch (Exception e) {
+                throw new PrestoException(JDBC_ERROR,
+                    "Failed to parse view definition. ViewData: " + viewData + ", Error: " + e.getMessage(), e);
+            }
 
             // Remove catalog prefix from table references (oracle.schema.table -> schema.table)
             viewSql = removeCatalogPrefix(viewSql);
@@ -606,46 +598,18 @@ public class OracleClient
      */
     private String extractOriginalSql(String viewData)
     {
-        int startIndex = viewData.indexOf("\"originalSql\":\"");
-        if (startIndex == -1) {
-            throw new PrestoException(JDBC_ERROR, "Invalid view data: missing originalSql");
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode viewDefinition = mapper.readTree(viewData);
+            JsonNode originalSqlNode = viewDefinition.get("originalSql");
+            if (originalSqlNode == null || originalSqlNode.isNull()) {
+                throw new PrestoException(JDBC_ERROR, "Missing 'originalSql' field in view data");
+            }
+            return originalSqlNode.asText();
         }
-        startIndex += "\"originalSql\":\"".length();
-
-        StringBuilder sql = new StringBuilder();
-        boolean escaped = false;
-        for (int i = startIndex; i < viewData.length(); i++) {
-            char c = viewData.charAt(i);
-            if (escaped) {
-                if (c == 'n') {
-                    sql.append('\n');
-                }
-                else if (c == 't') {
-                    sql.append('\t');
-                }
-                else if (c == 'r') {
-                    sql.append('\r');
-                }
-                else if (c == '"' || c == '\\') {
-                    sql.append(c);
-                }
-                else {
-                    sql.append('\\').append(c);
-                }
-                escaped = false;
-            }
-            else if (c == '\\') {
-                escaped = true;
-            }
-            else if (c == '"') {
-                break;
-            }
-            else {
-                sql.append(c);
-            }
+        catch (JsonProcessingException e) {
+            throw new PrestoException(JDBC_ERROR, "Failed to parse view data: " + e.getMessage(), e);
         }
-
-        return sql.toString();
     }
 
     /**
