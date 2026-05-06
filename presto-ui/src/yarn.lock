@@ -7608,10 +7608,10 @@ vary@~1.1.2:
   resolved "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz"
   integrity sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==
 
-vis-timeline@^7.7.3:
-  version "7.7.3"
-  resolved "https://registry.npmjs.org/vis-timeline/-/vis-timeline-7.7.3.tgz"
-  integrity sha512-hGMzTttdOFWaw1PPlJuCXU2/4UjnsIxT684Thg9fV6YU1JuKZJs3s3BrJgZ4hO3gu5i1hsMe1YIi96o+eNT0jg==
+vis-timeline@^8.5.0:
+  version "8.5.0"
+  resolved "https://registry.yarnpkg.com/vis-timeline/-/vis-timeline-8.5.0.tgz#0d9fb5cc892235768a17f842ba6c1d4b6c808c48"
+  integrity sha512-u0+UUuk8qJTxf2SdQ0z0ckCjtks0ECRrjAipbmCZd6vEPf6USGXxeoi7ilRilTU8iVzVE3P0W5TLWzei5KuPfQ==
 
 w3c-xmlserializer@^4.0.0:
   version "4.0.0"
