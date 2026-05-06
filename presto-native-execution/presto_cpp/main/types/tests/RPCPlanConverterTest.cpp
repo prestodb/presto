@@ -171,3 +171,34 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   ASSERT_EQ(veloxRpcNode->constantInputs().size(), 1);
   EXPECT_EQ(veloxRpcNode->constantInputs()[0], nullptr);
 }
+
+// Test that the riftTier field set on the protocol RPCNode is round-tripped
+// through plan conversion to the resulting core::RPCNode. This guards the
+// coordinator-to-worker tier injection plumbing added for RIFT-on-MAST.
+TEST_F(RPCPlanConverterTest, rpcNodeRiftTierRoundTrip) {
+  // Register the RPC function so plan conversion succeeds.
+  exec_rpc::AsyncRPCFunctionRegistry::testingClear();
+  exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
+      "fb_llm_inference", []() noexcept { return nullptr; });
+
+  // Build the protocol plan with a non-default riftTier value.
+  std::shared_ptr<protocol::ValuesNode> valuesNode = makeValuesNode();
+  std::shared_ptr<protocol::RPCNode> rpcNode = makeRPCNode(valuesNode);
+  ASSERT_NE(rpcNode, nullptr);
+  const std::string kExpectedRiftTier = "my_test_tier";
+  rpcNode->riftTier = kExpectedRiftTier;
+
+  // Convert the plan.
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  const core::PlanNodePtr veloxPlan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(rpcNode),
+      nullptr,
+      "20260124_042527_00001_gp3te.1.0.0.0");
+
+  // Verify the riftTier round-tripped to the core::RPCNode.
+  ASSERT_NE(veloxPlan, nullptr);
+  std::shared_ptr<const core::RPCNode> veloxRpcNode =
+      std::dynamic_pointer_cast<const core::RPCNode>(veloxPlan);
+  ASSERT_NE(veloxRpcNode, nullptr);
+  EXPECT_EQ(veloxRpcNode->riftTier(), kExpectedRiftTier);
+}
