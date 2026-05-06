@@ -326,12 +326,12 @@ public class MySqlClient
                 try (Statement statement = connection.createStatement();
                         ResultSet resultSet = statement.executeQuery(sql)) {
                     while (resultSet.next()) {
-                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, schemaName, tableName);
+                        String owner = resultSet.getString("DEFINER");
+                        ViewDefinition viewDefinition = getViewDefinition(resultSet, session, connectorId, schemaTableName, schemaName, tableName, owner);
 
                         SchemaTableName viewName = new SchemaTableName(schemaName, tableName);
                         String viewData = VIEW_CODEC.toJson(viewDefinition);
 
-                        String owner = resultSet.getString("DEFINER");
                         views.put(viewName, new ConnectorViewDefinition(
                                 viewName,
                                 Optional.of(owner),
@@ -346,10 +346,9 @@ public class MySqlClient
         return views.build();
     }
 
-    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String schemaName, String tableName)
+    private ViewDefinition getViewDefinition(ResultSet resultSet, ConnectorSession session, String connectorId, SchemaTableName schemaTableName, String schemaName, String tableName, String owner)
             throws SQLException
     {
-        String owner = resultSet.getString("DEFINER");
         boolean runAsInvoker = "INVOKER".equals(resultSet.getString("SECURITY_TYPE"));
         // StatementAnalyzer can't parse sql with back ticks, so we replace them here
         String viewSql = resultSet.getString("VIEW_DEFINITION").replace('`', '"');
