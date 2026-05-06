@@ -356,8 +356,8 @@ public class MySqlClient
         List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
                 connectorId,
                 schemaTableName,
-                schemaName,
                 null,
+                schemaName,
                 tableName));
 
         List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
