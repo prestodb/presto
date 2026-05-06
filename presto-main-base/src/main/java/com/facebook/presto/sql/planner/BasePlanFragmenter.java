@@ -389,18 +389,18 @@ public abstract class BasePlanFragmenter
         //  - a child (producer) fragment contains coordinator-only nodes, OR
         //  - the current (consumer) fragment runs on the coordinator.
         TransportType transportType = TransportType.HTTP;
-        boolean anyChildOnCoordinator = exchange.getSources().stream()
-                .anyMatch(source -> containsCoordinatorOnlyNode(source));
-        boolean parentIsCoordinator = context.get().hasCoordinatorOnlyDistribution();
-        if (!anyChildOnCoordinator && !parentIsCoordinator) {
+        boolean producerOnCoordinator = exchange.getSources().stream()
+                .anyMatch(PlannerUtils::containsCoordinatorOnlyNode);
+        boolean consumerOnCoordinator = context.get().hasCoordinatorOnlyDistribution();
+        if (!producerOnCoordinator && !consumerOnCoordinator) {
             transportType = TransportType.ANY;
         }
-        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s childOnCoord=%s parentIsCoord=%s",
+        log.debug("[ANY_EXCHANGE] exchange=%s transport=%s partitioning=%s producerOnCoord=%s consumerOnCoord=%s",
                 exchange.getId(),
                 transportType,
                 context.get().getPartitioningHandle(),
-                anyChildOnCoordinator,
-                parentIsCoordinator);
+                producerOnCoordinator,
+                consumerOnCoordinator);
 
         ImmutableList.Builder<SubPlan> builder = ImmutableList.builder();
         for (int sourceIndex = 0; sourceIndex < exchange.getSources().size(); sourceIndex++) {
