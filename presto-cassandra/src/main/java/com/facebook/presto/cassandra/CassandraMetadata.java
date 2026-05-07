@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ProtocolVersion;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -69,7 +68,6 @@ public class CassandraMetadata
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
-    private final ProtocolVersion protocolVersion;
     private boolean caseSensitiveNameMatchingEnabled;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -87,7 +85,6 @@ public class CassandraMetadata
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
-        this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
         this.caseSensitiveNameMatchingEnabled = requireNonNull(config, "config is null").isCaseSensitiveNameMatchingEnabled();
     }
 
@@ -270,6 +267,9 @@ public class CassandraMetadata
         }
 
         cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
+
+        // Refresh metadata after DROP to ensure schema cache is updated in Driver 4.x
+        cassandraSession.refreshSchema();
     }
 
     @Override
@@ -307,10 +307,12 @@ public class CassandraMetadata
             String columnName = columns.get(i);
             String finalColumnName = validColumnName(normalizeIdentifier(session, columnName));
             Type type = types.get(i);
+            // validColumnName already quotes the column name to handle reserved keywords
+            // getCqlTypeName() returns the appropriate CQL type name (e.g., "int" for DATE to avoid reserved keyword)
             queryBuilder.append(", ")
                     .append(finalColumnName)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ROOT));
+                    .append(toCassandraType(type).getCqlTypeName());
         }
         queryBuilder.append(") ");
 
@@ -320,6 +322,16 @@ public class CassandraMetadata
 
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
+
+        // Driver 4.x: Force metadata refresh to ensure table is visible
+        try {
+            Thread.sleep(100); // Small delay to ensure Cassandra has processed the DDL
+            cassandraSession.refreshSchema(); // Force schema refresh
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting for table creation", e);
+        }
 
         // set a rollback to delete the created table in case of an abort / failure.
         setRollback(schemaName, tableName);
@@ -362,7 +374,21 @@ public class CassandraMetadata
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return Optional.empty();
+        // Sum up row counts from all fragments
+        long totalRows = fragments.stream()
+                .map(CassandraWriteMetadata::fromSlice)
+                .mapToLong(CassandraWriteMetadata::getRowsWritten)
+                .sum();
+
+        // Return metadata with total row count
+        return Optional.of(new ConnectorOutputMetadata()
+        {
+            @Override
+            public Object getInfo()
+            {
+                return totalRows;
+            }
+        });
     }
 
     @Override
@@ -389,7 +415,11 @@ public class CassandraMetadata
 
     private void setRollback(String schemaName, String tableName)
     {
-        checkState(rollbackAction.compareAndSet(null, () -> cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName))), "rollback action is already set");
+        checkState(rollbackAction.compareAndSet(null, () -> {
+            cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", schemaName, tableName));
+            // Refresh metadata after DROP to ensure schema cache is updated in Driver 4.x
+            cassandraSession.refreshSchema();
+        }), "rollback action is already set");
     }
 
     private void clearRollback()

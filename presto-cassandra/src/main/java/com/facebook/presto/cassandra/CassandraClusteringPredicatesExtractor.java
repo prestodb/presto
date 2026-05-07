@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.VersionNumber;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -38,7 +37,7 @@ public class CassandraClusteringPredicatesExtractor
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
 
-    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    public CassandraClusteringPredicatesExtractor(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, String cassandraVersion)
     {
         this.clusteringColumns = ImmutableList.copyOf(clusteringColumns);
         this.predicates = requireNonNull(predicates, "predicates is null");
@@ -62,7 +61,7 @@ public class CassandraClusteringPredicatesExtractor
         return TupleDomain.withColumnDomains(notPushedDown);
     }
 
-    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, VersionNumber cassandraVersion)
+    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, String cassandraVersion)
     {
         ImmutableMap.Builder<ColumnHandle, Domain> domainsBuilder = ImmutableMap.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
@@ -142,7 +141,7 @@ public class CassandraClusteringPredicatesExtractor
                 break;
             }
             // IN restriction only on last clustering column for Cassandra version = 2.1
-            if (predicateString.contains(" IN (") && cassandraVersion.compareTo(VersionNumber.parse("2.2.0")) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
+            if (predicateString.contains(" IN (") && compareVersions(cassandraVersion, "2.2.0") < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
                 break;
             }
             clusteringColumnSql.add(predicateString);
@@ -156,6 +155,25 @@ public class CassandraClusteringPredicatesExtractor
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
         return new ClusteringPushDownResult(domainsBuilder.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
+    }
+    /**
+     * Simple version comparison for Cassandra version strings (e.g., "2.1.0", "2.2.0")
+     * Returns negative if v1 < v2, zero if v1 == v2, positive if v1 > v2
+     */
+    private static int compareVersions(String v1, String v2)
+    {
+        String[] parts1 = v1.split("\\.");
+        String[] parts2 = v2.split("\\.");
+        int length = Math.max(parts1.length, parts2.length);
+
+        for (int i = 0; i < length; i++) {
+            int num1 = i < parts1.length ? Integer.parseInt(parts1[i]) : 0;
+            int num2 = i < parts2.length ? Integer.parseInt(parts2[i]) : 0;
+            if (num1 != num2) {
+                return num1 - num2;
+            }
+        }
+        return 0;
     }
 
     private static class ClusteringPushDownResult

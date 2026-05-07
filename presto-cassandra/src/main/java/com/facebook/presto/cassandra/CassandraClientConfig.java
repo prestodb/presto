@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.ProtocolVersion;
-import com.datastax.driver.core.SocketOptions;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
@@ -37,14 +35,23 @@ import java.util.Optional;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@DefunctConfig({"cassandra.thrift-port", "cassandra.partitioner", "cassandra.thrift-connection-factory-class", "cassandra.transport-factory-options",
-        "cassandra.no-host-available-retry-count", "cassandra.max-schema-refresh-threads", "cassandra.schema-cache-ttl",
-        "cassandra.schema-refresh-interval"})
+@DefunctConfig({
+        "cassandra.thrift-port",
+        "cassandra.partitioner",
+        "cassandra.thrift-connection-factory-class",
+        "cassandra.transport-factory-options",
+        "cassandra.no-host-available-retry-count",
+        "cassandra.max-schema-refresh-threads",
+        "cassandra.schema-cache-ttl",
+        "cassandra.schema-refresh-interval",
+        "cassandra.protocol-version",
+        "cassandra.load-policy.use-white-list",
+        "cassandra.load-policy.white-list.addresses"})
 public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
+    private DefaultConsistencyLevel consistencyLevel = DefaultConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
@@ -54,8 +61,8 @@ public class CassandraClientConfig
     private boolean allowDropTable;
     private String username;
     private String password;
-    private Duration clientReadTimeout = new Duration(SocketOptions.DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS);
-    private Duration clientConnectTimeout = new Duration(SocketOptions.DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS);
+    private Duration clientReadTimeout = new Duration(12000, MILLISECONDS);
+    private Duration clientConnectTimeout = new Duration(5000, MILLISECONDS);
     private Integer clientSoLinger;
     private RetryPolicyType retryPolicy = RetryPolicyType.DEFAULT;
     private boolean useDCAware;
@@ -64,17 +71,15 @@ public class CassandraClientConfig
     private boolean dcAwareAllowRemoteDCsForLocal;
     private boolean useTokenAware;
     private boolean tokenAwareShuffleReplicas;
-    private boolean useWhiteList;
-    private List<String> whiteListAddresses = ImmutableList.of();
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-    private ProtocolVersion protocolVersion = ProtocolVersion.V3;
     private boolean tlsEnabled;
     private File truststorePath;
     private String truststorePassword;
     private File keystorePath;
     private String keystorePassword;
+    private File secureConnectBundle;
     private boolean caseSensitiveNameMatchingEnabled;
 
     @NotNull
@@ -111,13 +116,13 @@ public class CassandraClientConfig
     }
 
     @NotNull
-    public ConsistencyLevel getConsistencyLevel()
+    public DefaultConsistencyLevel getConsistencyLevel()
     {
         return consistencyLevel;
     }
 
     @Config("cassandra.consistency-level")
-    public CassandraClientConfig setConsistencyLevel(ConsistencyLevel level)
+    public CassandraClientConfig setConsistencyLevel(DefaultConsistencyLevel level)
     {
         this.consistencyLevel = level;
         return this;
@@ -339,30 +344,6 @@ public class CassandraClientConfig
         return this;
     }
 
-    public boolean isUseWhiteList()
-    {
-        return this.useWhiteList;
-    }
-
-    @Config("cassandra.load-policy.use-white-list")
-    public CassandraClientConfig setUseWhiteList(boolean useWhiteList)
-    {
-        this.useWhiteList = useWhiteList;
-        return this;
-    }
-
-    public List<String> getWhiteListAddresses()
-    {
-        return whiteListAddresses;
-    }
-
-    @Config("cassandra.load-policy.white-list.addresses")
-    public CassandraClientConfig setWhiteListAddresses(String commaSeparatedList)
-    {
-        this.whiteListAddresses = SPLITTER.splitToList(commaSeparatedList);
-        return this;
-    }
-
     @NotNull
     public Duration getNoHostAvailableRetryTimeout()
     {
@@ -399,19 +380,6 @@ public class CassandraClientConfig
     public CassandraClientConfig setSpeculativeExecutionDelay(Duration speculativeExecutionDelay)
     {
         this.speculativeExecutionDelay = speculativeExecutionDelay;
-        return this;
-    }
-
-    @NotNull
-    public ProtocolVersion getProtocolVersion()
-    {
-        return protocolVersion;
-    }
-
-    @Config("cassandra.protocol-version")
-    public CassandraClientConfig setProtocolVersion(ProtocolVersion version)
-    {
-        this.protocolVersion = version;
         return this;
     }
 
@@ -474,6 +442,20 @@ public class CassandraClientConfig
     public CassandraClientConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
+        return this;
+    }
+
+    public Optional<File> getSecureConnectBundle()
+    {
+        return Optional.ofNullable(secureConnectBundle);
+    }
+
+    @Config("cassandra.cloud.secure-connect-bundle")
+    @ConfigDescription("Path to secure connect bundle ZIP file for DataStax Astra. " +
+            "When specified, contact-points are ignored.")
+    public CassandraClientConfig setSecureConnectBundle(File secureConnectBundle)
+    {
+        this.secureConnectBundle = secureConnectBundle;
         return this;
     }
 

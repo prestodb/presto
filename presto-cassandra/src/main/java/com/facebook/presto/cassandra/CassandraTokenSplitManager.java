@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.TokenRange;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -133,18 +133,51 @@ public class CassandraTokenSplitManager
 
     private List<String> getEndpoints(String keyspace, TokenRange tokenRange)
     {
-        Set<Host> endpoints = session.getReplicas(keyspace, tokenRange);
+        Set<Node> endpoints = session.getReplicas(keyspace, tokenRange);
         return unmodifiableList(endpoints.stream()
-                .map(Host::toString)
+                .map(node -> {
+                    java.net.InetSocketAddress socketAddress = (java.net.InetSocketAddress) node.getEndPoint().resolve();
+                    return socketAddress.getAddress().getHostAddress();
+                })
                 .collect(toList()));
     }
 
     private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
     {
         checkArgument(!range.isEmpty(), "tokenRange must not be empty");
-        String startToken = range.getStart().toString();
-        String endToken = range.getEnd().toString();
+        // Driver 4.x returns tokens in format "Murmur3Token(value)", need to extract the numeric value for CQL queries
+        String startToken = stripTokenWrapper(range.getStart().toString());
+        String endToken = stripTokenWrapper(range.getEnd().toString());
         return new TokenSplit(startToken, endToken, endpoints);
+    }
+
+    /**
+     * Strip the "Murmur3Token(...)" wrapper from token strings returned by driver 4.x.
+     * Driver 3.x returned raw numeric values, but driver 4.x wraps them.
+     */
+    private static String stripTokenWrapper(String token)
+    {
+        if (token.startsWith("Murmur3Token(") && token.endsWith(")")) {
+            return token.substring(13, token.length() - 1);
+        }
+        return token;
+    }
+
+    /**
+     * Extract the numeric token value from the token string.
+     * In Cassandra driver 4.x, tokens are formatted as "Murmur3Token(value)" or "RandomToken(value)".
+     * This method extracts just the numeric value.
+     */
+    static String extractTokenValue(String tokenString)
+    {
+        // Check if the token is in the new format (e.g., "Murmur3Token(-9223372036854775808)")
+        int openParen = tokenString.indexOf('(');
+        int closeParen = tokenString.indexOf(')');
+        if (openParen > 0 && closeParen > openParen) {
+            return tokenString.substring(openParen + 1, closeParen);
+        }
+        // If not in the new format, return as-is (for backward compatibility)
+        return tokenString;
     }
 
     public static class TokenSplit

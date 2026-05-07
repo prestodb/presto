@@ -18,7 +18,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
@@ -35,23 +34,16 @@ import static org.testng.Assert.assertTrue;
 public class TestCassandraIntergrationMixedCase
         extends AbstractTestQueryFramework
 {
-    private CassandraServer server;
     private CassandraSession session;
     private static final String KEYSPACE = "test_connector";
 
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        this.server = new CassandraServer();
+        CassandraServer server = SharedCassandraServer.getInstance();
         this.session = server.getSession();
         createKeyspace(session, KEYSPACE);
         return CassandraQueryRunner.createCassandraQueryRunner(server, ImmutableMap.of("case-sensitive-name-matching", "true"));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        server.close();
     }
 
     @Test
