@@ -19,6 +19,7 @@ import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.assertj.core.api.AssertionsForClassTypes;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
@@ -275,6 +276,65 @@ public class TestPostgreSqlIntegrationSmokeTest
                 "VALUES ('column_a', 'first field'), ('column_b', null), ('column_c', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
+    }
+
+    @Test
+    public void testExecuteProcedure()
+    {
+        String tableName = "test_execute";
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+        try {
+            assertUpdate("CALL system.execute('CREATE TABLE " + schemaTableName + "(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, a int)')");
+            AssertionsForClassTypes.assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute('INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
+
+            assertUpdate("CALL system.execute('UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 2), (2, 21)");
+
+            assertUpdate("CALL system.execute('DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute('DROP TABLE " + schemaTableName + "')");
+            AssertionsForClassTypes.assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithNamedArgument()
+    {
+        String tableName = "test_execute_named";
+        String schemaTableName = getSession().getSchema().orElseThrow() + "." + tableName;
+        try {
+            assertUpdate("CALL system.execute(QUERY => 'CREATE TABLE " + schemaTableName + "(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, a int)')");
+            AssertionsForClassTypes.assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (1)')");
+            assertUpdate("CALL system.execute(QUERY => 'INSERT INTO " + schemaTableName + "(a) VALUES (21)')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 1), (2, 21)");
+
+            assertUpdate("CALL system.execute(QUERY => 'UPDATE " + schemaTableName + " SET a = 2 where id = 1')");
+            assertQuery("SELECT * FROM " + schemaTableName, "VALUES (1, 2), (2, 21)");
+
+            assertUpdate("CALL system.execute(QUERY => 'DELETE FROM " + schemaTableName + "')");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + schemaTableName);
+
+            assertUpdate("CALL system.execute(QUERY => 'DROP TABLE " + schemaTableName + "')");
+            AssertionsForClassTypes.assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
+        }
+    }
+
+    @Test
+    public void testExecuteProcedureWithInvalidQuery()
+    {
+        assertQueryFails("CALL system.execute('SELECT 1')", "(?s)Failed to execute query.*");
+        assertQueryFails("CALL system.execute('invalid')", "(?s)Failed to execute query.*");
     }
 
     private AutoCloseable withSchema(String schema)

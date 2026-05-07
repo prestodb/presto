@@ -109,6 +109,38 @@ To enable secure connections to Oracle using TLS/SSL, configure the following pr
 The truststore file must contain the Oracle server's SSL certificate or the certificate
 authority (CA) certificate that signed the Oracle server's certificate.
 
+
+Procedures
+----------
+
+Use the :doc:`/sql/call` statement to perform data manipulation or administrative tasks. Procedures are available in the ``system`` schema of the catalog.
+
+Execute Procedure
+^^^^^^^^^^^^^^^^^
+
+Underlying datasources may support some operation or SQL syntax which is not supported by Presto, either at the parser level or at the connector level.
+Trying to run such SQL statements in Presto can result in errors during parsing or analysing. For example, Oracle supports the DELETE statement which is not
+supported in the Oracle connector. Running this procedure enables users to do a SQL passthrough to the underlying database, and Presto just acts as a middle man
+for passing the statement.
+
+The following arguments are available:
+
+============= ========== =============== =======================================================================
+Argument Name Required   Type            Description
+============= ========== =============== =======================================================================
+``QUERY``     Yes        string          SQL statement to run
+============= ========== =============== =======================================================================
+
+Examples:
+
+* Delete a row from table `employees` where `employee_id = 101`::
+
+    CALL oracle.system.execute('delete from employees where employee_id = 101')
+
+    CALL oracle.system.execute(QUERY => 'delete from employees where employee_id = 101')
+
+
+
 Querying Oracle
 ---------------
 
