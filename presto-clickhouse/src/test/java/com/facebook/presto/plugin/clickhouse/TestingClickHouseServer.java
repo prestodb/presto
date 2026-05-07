@@ -23,7 +23,7 @@ import java.sql.Statement;
 public class TestingClickHouseServer
         implements Closeable
 {
-    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:23.12.2.59";
+    private static final String CLICKHOUSE_IMAGE = "clickhouse/clickhouse-server:24.3.3.102";
     private final ClickHouseContainer dockerContainer;
 
     public TestingClickHouseServer()

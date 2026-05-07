@@ -19,17 +19,22 @@
 
     <dependencies>
         <dependency>
-            <groupId>ru.yandex.clickhouse</groupId>
+            <groupId>com.clickhouse</groupId>
             <artifactId>clickhouse-jdbc</artifactId>
-            <version>0.3.2</version>
+            <version>0.9.6</version>
+            <classifier>all</classifier>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -77,6 +82,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.java.dev.jna</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
