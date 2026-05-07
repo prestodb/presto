@@ -16,6 +16,7 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -46,6 +47,7 @@ public class FloatBatchStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(FloatBatchStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
+    private final Type type;
 
     private int readOffset;
     private int nextBatchSize;
@@ -63,7 +65,7 @@ public class FloatBatchStreamReader
     public FloatBatchStreamReader(Type type, StreamDescriptor streamDescriptor)
             throws OrcCorruptionException
     {
-        requireNonNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, t -> t == REAL || t == DOUBLE);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
     }
@@ -99,23 +101,28 @@ public class FloatBatchStreamReader
 
         if (dataStream == null && presentStream != null) {
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
         }
 
-        BlockBuilder builder = REAL.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
         if (presentStream == null) {
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.nextVector(REAL, nextBatchSize, builder);
+            dataStream.nextVector(type, nextBatchSize, builder);
         }
         else {
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    REAL.writeLong(builder, floatToRawIntBits(dataStream.next()));
+                    if (type instanceof DoubleType) {
+                        type.writeDouble(builder, Float.valueOf(dataStream.next()).doubleValue());
+                    }
+                    else {
+                        type.writeLong(builder, floatToRawIntBits(dataStream.next()));
+                    }
                 }
                 else {
                     builder.appendNull();

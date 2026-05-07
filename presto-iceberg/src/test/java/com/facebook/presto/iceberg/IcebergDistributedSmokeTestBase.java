@@ -1150,16 +1150,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 // Reading behavior varies by format:
                 // - Parquet: Works correctly (automatic type coercion)
                 // - ORC: Fails with IntArrayBlock error (no automatic coercion)
-                if (fileFormat == FileFormat.PARQUET) {
-                    assertQuery(session, format("SELECT float_col FROM %s ORDER BY int_col", tableName),
-                            "VALUES (CAST(1.5 AS DOUBLE)), (CAST(2.5 AS DOUBLE))");
-                }
-                else {
-                    assertQueryFails(
-                            session,
-                            format("SELECT float_col FROM %s ORDER BY int_col", tableName),
-                            "com.facebook.presto.common.block.IntArrayBlock");
-                }
+                assertQuery(session, format("SELECT float_col FROM %s ORDER BY int_col", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE)), (CAST(2.5 AS DOUBLE))");
 
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 2)", tableName));
                 // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
@@ -1171,6 +1163,25 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("bigint_col", "bigint")),
                         null,
                         null);
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(15,2)), CAST(1000 AS BIGINT)), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(15,2)), CAST(2000 AS BIGINT))");
+
+                assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN decimal_col SET DATA TYPE decimal(24, 2)");
+                // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(24,2)), CAST(1000 AS BIGINT)), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(24,2)), CAST(2000 AS BIGINT))");
 
                 assertQueryFails(
                         session,
@@ -1181,36 +1192,6 @@ public abstract class IcebergDistributedSmokeTestBase
                 dropTable(session, tableName);
             }
         });
-    }
-
-    @Test
-    public void testAlterColumnTypeDecimalRepresentationChangeFailsForExistingData()
-    {
-        Session session = getSession();
-        String tableName = "test_alter_column_type_decimal_repr_parquet";
-        try {
-            assertUpdate(session, format(
-                    "CREATE TABLE %s (" +
-                            "decimal_col DECIMAL(10, 2)" +
-                            ") WITH (format = '%s')",
-                    tableName, FileFormat.PARQUET));
-
-            assertUpdate(session, format(
-                    "INSERT INTO %s VALUES " +
-                            "(DECIMAL '123.45'), " +
-                            "(DECIMAL '234.56')",
-                    tableName), 2);
-
-            assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(24, 2)", tableName));
-
-            assertQueryFails(
-                    session,
-                    format("SELECT decimal_col FROM %s", tableName),
-                    "com.facebook.presto.common.type.LongDecimalType");
-        }
-        finally {
-            dropTable(session, tableName);
-        }
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)

@@ -14,9 +14,11 @@
 package com.facebook.presto.parquet.reader;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.LongDecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 
+import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -44,7 +46,12 @@ public class ShortDecimalColumnReader
             else {
                 decimalValue = getShortDecimalValue(valuesReader.readBytes().getBytes());
             }
-            type.writeLong(blockBuilder, decimalValue);
+            if (type instanceof LongDecimalType) {
+                type.writeSlice(blockBuilder, encodeUnscaledValue(decimalValue));
+            }
+            else {
+                type.writeLong(blockBuilder, decimalValue);
+            }
         }
         else if (isValueNull()) {
             blockBuilder.appendNull();

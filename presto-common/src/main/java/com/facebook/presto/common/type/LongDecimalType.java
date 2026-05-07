@@ -17,10 +17,13 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.Int128ArrayBlockBuilder;
+import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+
+import java.math.BigInteger;
 
 import static com.facebook.presto.common.block.Int128ArrayBlock.INT128_BYTES;
 import static com.facebook.presto.common.type.Decimals.MAX_PRECISION;
@@ -29,7 +32,7 @@ import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.UNSCA
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.compare;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 
-final class LongDecimalType
+public final class LongDecimalType
         extends DecimalType
 {
     LongDecimalType(int precision, int scale)
@@ -76,6 +79,10 @@ final class LongDecimalType
     {
         if (block.isNull(position)) {
             return null;
+        }
+        if (block instanceof LongArrayBlock) {
+            long unscaledValue = block.getLong(position);
+            return new SqlDecimal(BigInteger.valueOf(unscaledValue), getPrecision(), getScale());
         }
         Slice slice = getSlice(block, position);
         return new SqlDecimal(decodeUnscaledValue(slice), getPrecision(), getScale());
