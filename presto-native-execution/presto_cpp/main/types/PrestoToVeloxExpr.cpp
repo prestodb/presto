@@ -561,6 +561,11 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
 std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::ConstantExpression> pexpr) const {
   const auto type = typeParser_->parse(pexpr->type);
+  if (type->isDecimal()) {
+    return std::make_shared<ConstantTypedExpr>(
+        protocol::readBlock(type, pexpr->valueBlock.data, pool_));
+  }
+
   switch (type->kind()) {
     case TypeKind::ROW:
       [[fallthrough]];

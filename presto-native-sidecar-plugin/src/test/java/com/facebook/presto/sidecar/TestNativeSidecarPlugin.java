@@ -870,6 +870,33 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testNativeExpressionOptimizerPreservesDecimalPrecision()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+
+        for (String query : ImmutableList.of(
+                "SELECT CAST('123456789012345678.123456789012345678' AS DECIMAL(36, 18))",
+                "SELECT CAST(DECIMAL '123456789012345678.123456789012345678' AS VARCHAR)",
+                "SELECT DECIMAL '123456789012345678.123456789012345678' + DECIMAL '0.000000000000000001'",
+                "SELECT DECIMAL '123456789012345678.123456789012345678' = DECIMAL '123456789012345678.123456789012345678'",
+                "SELECT IF(true, DECIMAL '123456789012345678.123456789012345678', DECIMAL '0.000000000000000001')",
+                "SELECT CASE WHEN false THEN DECIMAL '0.000000000000000001' ELSE DECIMAL '123456789012345678.123456789012345678' END",
+                "SELECT COALESCE(CAST(NULL AS DECIMAL(36, 18)), DECIMAL '123456789012345678.123456789012345678')",
+                "SELECT ARRAY[DECIMAL '123456789012345678.123456789012345678', DECIMAL '0.000000000000000001']",
+                "SELECT MAP(ARRAY['amount'], ARRAY[DECIMAL '123456789012345678.123456789012345678'])",
+                "SELECT ROW(DECIMAL '123456789012345678.123456789012345678', ARRAY[DECIMAL '0.000000000000000001'])",
+                "SELECT TRANSFORM(ARRAY[DECIMAL '1.000000000000000001'], x -> x + DECIMAL '0.000000000000000001')",
+                "SELECT IF(flag, amount, DECIMAL '0.000000000000000001') " +
+                        "FROM (VALUES " +
+                        "(true, DECIMAL '123456789012345678.123456789012345678'), " +
+                        "(false, DECIMAL '999999999999999999.999999999999999999')) t(flag, amount)")) {
+            assertQueryWithSameQueryRunner(session, query, getSession());
+        }
+    }
+
+    @Test
     public void testMergeKHyperLogLog()
     {
         assertQuery(
