@@ -1094,6 +1094,106 @@ public abstract class IcebergDistributedSmokeTestBase
         dropTable(session, "test_bucket_transform");
     }
 
+    @Test
+    public void testAlterColumnType()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "int_col INTEGER, " +
+                                "float_col REAL, " +
+                                "decimal_col DECIMAL(10, 2), " +
+                                "bigint_col BIGINT" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(100, REAL '1.5', DECIMAL '123.45', 1000), " +
+                                "(200, REAL '2.5', DECIMAL '234.56', 2000)",
+                        tableName), 2);
+
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(10,2)), CAST(1000 AS BIGINT)), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(10,2)), CAST(2000 AS BIGINT))");
+
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                assertQuery(session, format("SELECT int_col FROM %s ORDER BY int_col", tableName),
+                        "VALUES (CAST(100 AS BIGINT)), (CAST(200 AS BIGINT))");
+                // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint")),
+                        null,
+                        null);
+
+                // REAL → DOUBLE conversion: Schema change succeeds, but reading data behavior varies by format
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+                // Verify that the schema was updated to DOUBLE
+                // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint")),
+                        null,
+                        null);
+
+                // Reading behavior varies by format:
+                // - Parquet: Works correctly (automatic type coercion)
+                // - ORC: Fails with IntArrayBlock error (no automatic coercion)
+                assertQuery(session, format("SELECT float_col FROM %s ORDER BY int_col", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE)), (CAST(2.5 AS DOUBLE))");
+
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 2)", tableName));
+                // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(15,2)"),
+                                columnDefinition("bigint_col", "bigint")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(15,2)), CAST(1000 AS BIGINT)), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(15,2)), CAST(2000 AS BIGINT))");
+
+                assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN decimal_col SET DATA TYPE decimal(24, 2)");
+                // Validate column definitions after ALTER COLUMN (skip property validation as it may vary)
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(24,2)), CAST(1000 AS BIGINT)), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(24,2)), CAST(2000 AS BIGINT))");
+
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN bigint_col SET DATA TYPE INTEGER", tableName),
+                        "Failed to set column type: Cannot change column type: bigint_col: long -> int");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);
