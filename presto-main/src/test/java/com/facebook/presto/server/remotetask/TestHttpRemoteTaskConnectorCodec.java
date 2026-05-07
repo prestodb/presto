@@ -25,6 +25,8 @@ import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DataSizeToBytesThriftCodec;
+import com.facebook.drift.protocol.TBinaryProtocol;
+import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.codec.utils.DurationToMillisThriftCodec;
 import com.facebook.drift.codec.utils.JodaDateTimeToEpochMillisThriftCodec;
 import com.facebook.drift.codec.utils.LocaleToLanguageTagCodec;
@@ -1484,6 +1486,55 @@ public class TestHttpRemoteTaskConnectorCodec
         public Class<? extends ConnectorMergeTableHandle> getMergeTableHandleClass()
         {
             throw new UnsupportedOperationException("Merge table handles not supported");
+        }
+    }
+
+    @Test(timeOut = 50000)
+    public void testTaskUpdateRequestThriftSerialization()
+            throws Exception
+    {
+        AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
+        TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, TestHttpRemoteTaskWithEventLoop.FailureScenario.NO_FAILURE);
+
+        String connectorName = "test-thrift-task-update";
+        Injector injector = createInjectorWithCodec(connectorName, testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = injector.getInstance(HttpRemoteTaskFactory.class);
+        ThriftCodec<TaskUpdateRequest> thriftCodec = injector.getInstance(Key.get(new TypeLiteral<ThriftCodec<TaskUpdateRequest>>() {}));
+
+        RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
+        try {
+            testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
+            remoteTask.start();
+
+            // Add a split to trigger task update
+            Lifespan lifespan = driverGroup(1);
+            TestConnectorWithCodecSplit codecSplit = new TestConnectorWithCodecSplit("thrift-test", 42);
+            remoteTask.addSplits(ImmutableMultimap.of(
+                    TaskTestUtils.TABLE_SCAN_NODE_ID,
+                    new Split(new ConnectorId(connectorName), TestingTransactionHandle.create(), codecSplit, lifespan, NON_CACHEABLE)));
+
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID) != null);
+            TestHttpRemoteTaskWithEventLoop.poll(() -> testingTaskResource.getTaskSource(TaskTestUtils.TABLE_SCAN_NODE_ID).getSplits().size() == 1);
+
+            TaskUpdateRequest taskUpdateRequest = testingTaskResource.getLastTaskUpdateRequest();
+            assertNotNull(taskUpdateRequest, "TaskUpdateRequest should not be null");
+
+            // Test Thrift serialization round-trip
+            TMemoryBuffer transport = new TMemoryBuffer(100 * 1024);
+            TBinaryProtocol protocol = new TBinaryProtocol(transport);
+            thriftCodec.write(taskUpdateRequest, protocol);
+
+            TaskUpdateRequest deserializedRequest = thriftCodec.read(protocol);
+            assertEquals(deserializedRequest.getSession().getUser(), taskUpdateRequest.getSession().getUser(),
+                    "Deserialized user should match original");
+            assertEquals(deserializedRequest.getSources().size(), taskUpdateRequest.getSources().size(),
+                    "Deserialized sources size should match original");
+            assertEquals(deserializedRequest.getOutputIds().getType(), taskUpdateRequest.getOutputIds().getType(),
+                    "Deserialized output buffer type should match original");
+        }
+        finally {
+            remoteTask.cancel();
+            httpRemoteTaskFactory.stop();
         }
     }
 }
