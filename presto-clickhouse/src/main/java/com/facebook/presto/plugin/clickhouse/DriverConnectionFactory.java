@@ -52,11 +52,8 @@ public class DriverConnectionFactory
         if (config.getConnectionPassword() != null) {
             connectionProperties.setProperty("password", config.getConnectionPassword());
         }
-        connectionProperties.setProperty("useInformationSchema", "true");
-        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
-        connectionProperties.setProperty("useUnicode", "true");
-        connectionProperties.setProperty("characterEncoding", "utf8");
-        connectionProperties.setProperty("tinyInt1isBit", "false");
+        // ClickHouse JDBC driver specific properties
+        connectionProperties.setProperty("client_name", "presto");
         return connectionProperties;
     }
 
