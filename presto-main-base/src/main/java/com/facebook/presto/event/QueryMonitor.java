@@ -623,13 +623,7 @@ public class QueryMonitor
                     .filter(Objects::nonNull)
                     .findFirst();
 
-            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns()
-                    .map(columns -> columns.stream()
-                            .map(column -> new OutputColumnMetadata(
-                                    column.getColumnName(),
-                                    column.getColumnType(),
-                                    column.getSourceColumns()))
-                            .collect(toImmutableList()));
+            Optional<List<OutputColumnMetadata>> outputColumnsMetadata = queryInfo.getOutput().get().getColumns();
 
             output = Optional.of(
                     new QueryOutputMetadata(
