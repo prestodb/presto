@@ -24,8 +24,8 @@
     <dependency>
       <groupId>com.facebook.presto.spark</groupId>
       <artifactId>spark-core</artifactId>
-      <version>3.4.1-1</version>
-      <scope>compile</scope>
+      <version>3.4.1-2</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
