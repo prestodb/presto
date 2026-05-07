@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.stream;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
 
@@ -63,7 +64,12 @@ public class FloatInputStream
             throws IOException
     {
         for (int i = 0; i < items; i++) {
-            type.writeLong(builder, floatToRawIntBits(next()));
+            if (type instanceof DoubleType) {
+                type.writeDouble(builder, Float.valueOf(next()).doubleValue());
+            }
+            else {
+                type.writeLong(builder, floatToRawIntBits(next()));
+            }
         }
     }
 }
