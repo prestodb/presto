@@ -108,6 +108,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
@@ -115,6 +116,7 @@ import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.ReplacePartitions;
+import org.apache.iceberg.RewriteFiles;
 import org.apache.iceberg.RowDelta;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
@@ -130,21 +132,30 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.UpdateSchema;
+import org.apache.iceberg.deletes.BaseDVFileWriter;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.io.OutputFileFactory;
+import org.apache.iceberg.puffin.BlobMetadata;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.util.CharSequenceSet;
+import org.apache.iceberg.util.ContentFileUtil;
+import org.apache.iceberg.util.Pair;
 import org.apache.iceberg.view.View;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -156,6 +167,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -268,17 +280,13 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.transformValues;
-import static java.lang.Long.parseLong;
-import static java.lang.String.format;
-import static java.time.Duration.ofDays;
-import static java.util.Collections.singletonList;
-import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.DataOperations.APPEND;
 import static org.apache.iceberg.DataOperations.REPLACE;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -288,6 +296,12 @@ import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
+
+import static java.lang.Long.parseLong;
+import static java.lang.String.format;
+import static java.time.Duration.ofDays;
+import static java.util.Collections.singletonList;
+import static java.util.Objects.requireNonNull;
 
 public abstract class IcebergAbstractMetadata
         implements IcebergTransactionMetadata
@@ -417,6 +431,10 @@ public abstract class IcebergAbstractMetadata
         if (schema == null) {
             schema = metadata.schema();
         }
+
+        // Iceberg v3 column default values (initial-default / write-default) are supported.
+        // The Iceberg library handles applying defaults when reading files that were written
+        // before a column with a default was added via schema evolution.
 
         // Reject Iceberg table encryption
         if (!metadata.encryptionKeys().isEmpty() || snapshot.keyId() != null || metadata.properties().containsKey("encryption.key-id")) {
@@ -767,16 +785,53 @@ public abstract class IcebergAbstractMetadata
                 .map(slice -> commitTaskCodec.fromJson(slice.getBytes()))
                 .collect(toImmutableList());
 
-        RowDelta rowDelta = icebergTable.newRowDelta();
-        writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
-        Optional<String> branchName = writableTableHandle.getTableName().getBranchName();
-        if (branchName.isPresent()) {
-            rowDelta.toBranch(branchName.get());
-        }
-
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
-        commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFiles));
+        Optional<String> branchName = writableTableHandle.getTableName().getBranchName();
+
+        // Phase 1: Merge DVs that conflict with existing DVs via RewriteFiles
+        Map<String, org.apache.iceberg.DeleteFile> existingDVs = findExistingDVs(icebergTable);
+        Set<String> mergedDataFiles = new HashSet<>();
+        if (!existingDVs.isEmpty()) {
+            Set<org.apache.iceberg.DeleteFile> oldDVsToRemove = new HashSet<>();
+            Set<org.apache.iceberg.DeleteFile> mergedDVsToAdd = new HashSet<>();
+            for (CommitTaskData task : commitTasks) {
+                if (task.getFileFormat() == com.facebook.presto.iceberg.FileFormat.PUFFIN &&
+                        task.getReferencedDataFile().isPresent() &&
+                        existingDVs.containsKey(task.getReferencedDataFile().get())) {
+                    String dataFile = task.getReferencedDataFile().get();
+                    org.apache.iceberg.DeleteFile existingDV = existingDVs.get(dataFile);
+                    org.apache.iceberg.DeleteFile mergedDV = createMergedDeletionVector(
+                            task, existingDV, icebergTable);
+                    oldDVsToRemove.add(existingDV);
+                    mergedDVsToAdd.add(mergedDV);
+                    mergedDataFiles.add(dataFile);
+                    writtenFiles.add(mergedDV.path().toString());
+                    referencedDataFiles.add(dataFile);
+                }
+            }
+            if (!oldDVsToRemove.isEmpty()) {
+                RewriteFiles rewriteFiles = icebergTable.newRewrite()
+                        .rewriteFiles(ImmutableSet.of(), oldDVsToRemove, ImmutableSet.of(), mergedDVsToAdd);
+                writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot)
+                        .ifPresent(s -> rewriteFiles.validateFromSnapshot(s.snapshotId()));
+                branchName.ifPresent(rewriteFiles::toBranch);
+                rewriteFiles.commit();
+            }
+        }
+
+        // Phase 2: Process remaining tasks via RowDelta
+        RowDelta rowDelta = icebergTable.newRowDelta();
+        writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
+        branchName.ifPresent(b -> rowDelta.toBranch(b));
+        for (CommitTaskData task : commitTasks) {
+            if (task.getFileFormat() == com.facebook.presto.iceberg.FileFormat.PUFFIN &&
+                    task.getReferencedDataFile().isPresent() &&
+                    mergedDataFiles.contains(task.getReferencedDataFile().get())) {
+                continue;
+            }
+            handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFiles);
+        }
 
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
         if (this.transactionContext.getIsolationLevel() == SERIALIZABLE) {
@@ -845,9 +900,118 @@ public abstract class IcebergAbstractMetadata
             deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
         }
 
+        // For PUFFIN deletion vectors: set content offset, content size, record count,
+        // and referenced data file path. These fields enable the Iceberg library to
+        // correctly read the DV blob from the PUFFIN container file.
+        if (task.getFileFormat() == com.facebook.presto.iceberg.FileFormat.PUFFIN) {
+            task.getContentOffset().ifPresent(deleteBuilder::withContentOffset);
+            task.getContentSizeInBytes().ifPresent(deleteBuilder::withContentSizeInBytes);
+            task.getRecordCount().ifPresent(deleteBuilder::withRecordCount);
+            task.getReferencedDataFile().ifPresent(deleteBuilder::withReferencedDataFile);
+        }
+
         rowDelta.addDeletes(deleteBuilder.build());
         writtenFiles.add(task.getPath());
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
+    }
+
+    private Map<String, org.apache.iceberg.DeleteFile> findExistingDVs(Table icebergTable)
+    {
+        Map<String, org.apache.iceberg.DeleteFile> existingDVs = new HashMap<>();
+        Snapshot currentSnapshot = icebergTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            return existingDVs;
+        }
+        try {
+            for (ManifestFile manifest : currentSnapshot.deleteManifests(icebergTable.io())) {
+                try (CloseableIterable<org.apache.iceberg.DeleteFile> deleteFiles =
+                        ManifestFiles.readDeleteManifest(manifest, icebergTable.io(), icebergTable.specs())) {
+                    for (org.apache.iceberg.DeleteFile deleteFile : deleteFiles) {
+                        if (ContentFileUtil.isDV(deleteFile) && deleteFile.referencedDataFile() != null) {
+                            existingDVs.put(ContentFileUtil.referencedDataFileLocation(deleteFile), deleteFile);
+                        }
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            // Rethrow rather than swallow: silently producing an empty existingDVs map
+            // would skip the Phase 1 DV-merge below, leaving the previous DV live alongside
+            // the freshly written one — a spec violation (file-scoped DVs must be 1:1 per
+            // data file) that yields incorrect read results. Failing the commit is safer.
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to scan existing deletion vectors", e);
+        }
+        return existingDVs;
+    }
+
+    private org.apache.iceberg.DeleteFile createMergedDeletionVector(
+            CommitTaskData newTask,
+            org.apache.iceberg.DeleteFile existingDV,
+            Table icebergTable)
+    {
+        PartitionSpec partitionSpec = icebergTable.specs().get(newTask.getPartitionSpecId());
+        Type[] partitionColumnTypes = partitionSpec.fields().stream()
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
+        org.apache.iceberg.StructLike partition = newTask.getPartitionDataJson().isPresent()
+                ? PartitionData.fromJson(newTask.getPartitionDataJson().get(), partitionColumnTypes)
+                : null;
+
+        String dataFile = newTask.getReferencedDataFile()
+                .orElseThrow(() -> new VerifyException("Deletion vector commit task is missing the referenced data file path"));
+
+        // Decode the new DV produced by IcebergDeletionVectorPageSink.
+        PositionDeleteIndex newPositions = readDeletionVectorIndex(icebergTable, newTask.getPath(), null);
+
+        // The OutputFileFactory inherits FileIO/EncryptionManager/LocationProvider from the table.
+        OutputFileFactory fileFactory = OutputFileFactory.builderFor(icebergTable, 0, 0L)
+                .format(FileFormat.PUFFIN)
+                .operationId(UUID.randomUUID().toString())
+                .build();
+
+        // Loader supplies the existing DV positions (with provenance) for the matching data file path.
+        java.util.function.Function<String, PositionDeleteIndex> loader = path ->
+                path.equals(dataFile) ? readDeletionVectorIndex(icebergTable, existingDV.path().toString(), existingDV) : null;
+
+        try (BaseDVFileWriter writer = new BaseDVFileWriter(fileFactory, loader)) {
+            newPositions.forEach(pos -> writer.delete(dataFile, pos, partitionSpec, partition));
+            writer.close();
+            List<org.apache.iceberg.DeleteFile> produced = writer.result().deleteFiles();
+            checkState(!produced.isEmpty(), "BaseDVFileWriter produced no DeleteFile for data file %s", dataFile);
+            return produced.get(0);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to write merged deletion vector", e);
+        }
+        catch (UncheckedIOException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to write merged deletion vector", e.getCause());
+        }
+    }
+
+    private static PositionDeleteIndex readDeletionVectorIndex(Table icebergTable, String dvPath, org.apache.iceberg.DeleteFile attribution)
+    {
+        try (PuffinReader reader = Puffin.read(icebergTable.io().newInputFile(dvPath)).build()) {
+            // Iceberg V3 file-scoped deletion vectors contain exactly one Puffin blob per file.
+            // Asserting this protects against malformed inputs and matches the spec.
+            List<BlobMetadata> blobs = reader.fileMetadata().blobs();
+            if (blobs.isEmpty()) {
+                return PositionDeleteIndex.empty();
+            }
+            checkState(blobs.size() == 1,
+                    "Iceberg V3 deletion vector file %s expected to contain exactly one blob but found %s",
+                    dvPath, blobs.size());
+            for (Pair<BlobMetadata, ByteBuffer> pair : reader.readAll(blobs)) {
+                ByteBuffer blobData = pair.second();
+                byte[] bytes = new byte[blobData.remaining()];
+                blobData.get(bytes);
+                return PositionDeleteIndex.deserialize(bytes, attribution);
+            }
+            return PositionDeleteIndex.empty();
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to read deletion vector: " + dvPath, e);
+        }
     }
 
     private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, Consumer<DataFile> dataFileConsumer, ImmutableSet.Builder<String> writtenFiles)
@@ -911,12 +1075,19 @@ public abstract class IcebergAbstractMetadata
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
 
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    "Iceberg table updates require at least format version 2");
+        }
+
+        // V3+ tables use deletion vectors natively (inherently merge-on-read).
+        // V2 tables require explicit merge-on-read mode configuration.
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
-                    "Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+                    "Iceberg V2 table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
 
@@ -935,7 +1106,7 @@ public abstract class IcebergAbstractMetadata
 
         Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = transformValues(icebergTable.specs(), partitionSpec -> toPrestoPartitionSpec(partitionSpec, typeManager));
 
-        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle, partitionSpecs);
+        return new IcebergMergeTableHandle(icebergTableHandle, insertHandle, partitionSpecs, formatVersion);
     }
 
     @Override
@@ -1512,7 +1683,8 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED,
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
-        if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
+        // V3+ tables use deletion vectors natively; V2 requires explicit merge-on-read mode.
+        if (formatVersion < 3 && getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.");
         }
         validateTableMode(session, icebergTable);
@@ -1544,8 +1716,23 @@ public abstract class IcebergAbstractMetadata
                     .ofPositionDeletes()
                     .withPath(task.getPath())
                     .withFileSizeInBytes(task.getFileSizeInBytes())
-                    .withFormat(FileFormat.fromString(task.getFileFormat().name()))
-                    .withMetrics(task.getMetrics().metrics());
+                    .withFormat(FileFormat.fromString(task.getFileFormat().name()));
+
+            if (task.getFileFormat() == com.facebook.presto.iceberg.FileFormat.PUFFIN) {
+                builder.withRecordCount(task.getRecordCount().orElseThrow(() ->
+                        new VerifyException("recordCount required for deletion vector")));
+                builder.withContentOffset(task.getContentOffset().orElseThrow(() ->
+                        new VerifyException("contentOffset required for deletion vector")));
+                builder.withContentSizeInBytes(task.getContentSizeInBytes().orElseThrow(() ->
+                        new VerifyException("contentSizeInBytes required for deletion vector")));
+            }
+            else {
+                builder.withMetrics(task.getMetrics().metrics());
+            }
+
+            if (task.getReferencedDataFile().isPresent()) {
+                builder.withReferencedDataFile(task.getReferencedDataFile().get());
+            }
 
             if (!spec.fields().isEmpty()) {
                 String partitionDataJson = task.getPartitionDataJson()
@@ -1792,17 +1979,41 @@ public abstract class IcebergAbstractMetadata
                     format("Iceberg table updates for format version %s are not supported yet", formatVersion));
         }
 
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        // V3+ tables use deletion vectors natively (inherently merge-on-read).
+        // V2 tables require explicit merge-on-read mode configuration.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new RuntimeException("Iceberg table updates require at least format version 2");
+        }
+
+        if (formatVersion < 3 &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
-            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+            throw new RuntimeException("Iceberg V2 table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
-        return handle
-                .withUpdatedColumns(updatedColumns.stream()
+
+        Optional<Map<String, String>> storageProps = handle.getStorageProperties();
+        if (storageProps.isPresent() && !storageProps.get().containsKey("format-version")) {
+            Map<String, String> enhanced = new HashMap<>(storageProps.get());
+            enhanced.put("format-version", String.valueOf(formatVersion));
+            storageProps = Optional.of(enhanced);
+        }
+
+        return new IcebergTableHandle(
+                handle.getSchemaName(),
+                handle.getIcebergTableName(),
+                handle.isSnapshotSpecified(),
+                handle.getOutputPath(),
+                storageProps,
+                handle.getTableSchemaJson(),
+                handle.getPartitionSpecId(),
+                handle.getEqualityFieldIds(),
+                handle.getSortOrder(),
+                updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                handle.getMaterializedViewName());
     }
 
     @Override

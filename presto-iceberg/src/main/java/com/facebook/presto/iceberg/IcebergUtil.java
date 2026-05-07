@@ -168,23 +168,6 @@ import static com.google.common.collect.Streams.mapWithIndex;
 import static com.google.common.collect.Streams.stream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static java.lang.Double.doubleToLongBits;
-import static java.lang.Double.doubleToRawLongBits;
-import static java.lang.Double.longBitsToDouble;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Float.parseFloat;
-import static java.lang.Integer.parseInt;
-import static java.lang.Long.parseLong;
-import static java.lang.Math.toIntExact;
-import static java.lang.Math.ulp;
-import static java.lang.String.format;
-import static java.util.Collections.emptyIterator;
-import static java.util.Comparator.comparing;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -221,11 +204,29 @@ import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Double.doubleToRawLongBits;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.Double.parseDouble;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
+import static java.lang.Float.parseFloat;
+import static java.lang.Integer.parseInt;
+import static java.lang.Long.parseLong;
+import static java.lang.Math.toIntExact;
+import static java.lang.Math.ulp;
+import static java.lang.String.format;
+import static java.util.Collections.emptyIterator;
+import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 public final class IcebergUtil
 {
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
-    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
+    public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
@@ -564,10 +565,19 @@ public final class IcebergUtil
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {
-            return Optional.ofNullable(table.properties());
+            Map<String, String> properties = table.properties();
+            if (properties != null && table instanceof BaseTable) {
+                int formatVersion = ((BaseTable) table).operations().current().formatVersion();
+                if (!properties.containsKey("format-version")) {
+                    Map<String, String> enhanced = new HashMap<>(properties);
+                    enhanced.put("format-version", String.valueOf(formatVersion));
+                    return Optional.of(enhanced);
+                }
+            }
+            return Optional.ofNullable(properties);
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch properties for table %s: %s", table.name(), e.getMessage()));
+            log.warn(String.format("Unable to fetch properties for table %s: %s", table.name(), e));
             return Optional.empty();
         }
     }
@@ -578,7 +588,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.currentSnapshot());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
+            log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e));
             return Optional.empty();
         }
     }
@@ -589,7 +599,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.location());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
+            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e));
             return Optional.empty();
         }
     }
@@ -603,7 +613,7 @@ public final class IcebergUtil
                     .collect(toImmutableList());
         }
         catch (Exception e) {
-            log.warn(String.format("Unable to fetch sort fields for table %s: %s", table.name(), e.getMessage()));
+            log.warn(String.format("Unable to fetch sort fields for table %s: %s", table.name(), e));
             return ImmutableList.of();
         }
     }
@@ -709,7 +719,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.schema());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
+            log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e));
             return Optional.empty();
         }
     }
@@ -801,7 +811,10 @@ public final class IcebergUtil
             case TIME:
             case TIMESTAMP:
                 return singleValue(prestoType, MICROSECONDS.toMillis((Long) value));
+            case TIMESTAMP_NANO:
+                return singleValue(prestoType, Math.floorDiv((Long) value, 1000L));
             case STRING:
+            case VARIANT:
                 return singleValue(prestoType, utf8Slice(value.toString()));
             case FLOAT:
                 return singleValue(prestoType, (long) floatToRawIntBits((Float) value));

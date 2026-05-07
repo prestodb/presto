@@ -43,6 +43,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTa
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toIcebergPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toIcebergSchema;
 import static com.google.common.collect.Maps.transformValues;
+
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSinkProvider
@@ -134,6 +135,7 @@ public class IcebergPageSinkProvider
                 tableHandle.getFileFormat(),
                 partitionSpecs,
                 pageSink,
-                tableHandle.getInputColumns().size());
+                tableHandle.getInputColumns().size(),
+                merge.getFormatVersion());
     }
 }

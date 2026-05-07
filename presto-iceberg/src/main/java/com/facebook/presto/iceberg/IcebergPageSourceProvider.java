@@ -45,6 +45,7 @@ import com.facebook.presto.iceberg.changelog.ChangelogPageSource;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.delete.DeleteFilter;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
+import com.facebook.presto.iceberg.delete.IcebergDeletionVectorPageSink;
 import com.facebook.presto.iceberg.delete.PositionDeleteFilter;
 import com.facebook.presto.iceberg.delete.RowPredicate;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -70,6 +71,7 @@ import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -95,7 +97,12 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.deletes.PositionDeleteIndex;
+import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.puffin.BlobMetadata;
+import org.apache.iceberg.puffin.Puffin;
+import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -186,10 +193,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
-import static java.time.ZoneOffset.UTC;
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 import static org.apache.iceberg.MetadataColumns.FILE_PATH;
@@ -197,6 +200,11 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
+
+import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -888,17 +896,33 @@ public class IcebergPageSourceProvider
         verify(storageProperties.isPresent(), "storageProperties are null");
 
         LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
-        Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
-                partitionSpec,
-                split.getPartitionDataJson(),
-                locationProvider,
-                fileWriterFactory,
-                hdfsEnvironment,
-                hdfsContext,
-                jsonCodec,
-                session,
-                split.getPath(),
-                split.getFileFormat());
+        int tableFormatVersion = Integer.parseInt(
+                storageProperties.get().getOrDefault("format-version", "2"));
+        Supplier<ConnectorPageSink> deleteSinkSupplier;
+        if (tableFormatVersion >= 3) {
+            deleteSinkSupplier = () -> new IcebergDeletionVectorPageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath());
+        }
+        else {
+            deleteSinkSupplier = () -> new IcebergDeletePageSink(
+                    partitionSpec,
+                    split.getPartitionDataJson(),
+                    locationProvider,
+                    fileWriterFactory,
+                    hdfsEnvironment,
+                    hdfsContext,
+                    jsonCodec,
+                    session,
+                    split.getPath(),
+                    split.getFileFormat());
+        }
         boolean storeDeleteFilePath = icebergColumns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
         Supplier<List<DeleteFilter>> deleteFilters = memoize(() -> {
             // If equality deletes are optimized into a join they don't need to be applied here
@@ -1011,30 +1035,35 @@ public class IcebergPageSourceProvider
 
         for (DeleteFile delete : deleteFiles) {
             if (delete.content() == POSITION_DELETES) {
-                if (startRowPosition.isPresent()) {
-                    byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+                if (delete.format() == FileFormat.PUFFIN) {
+                    readDeletionVector(session, delete, deletedRows);
+                }
+                else {
+                    if (startRowPosition.isPresent()) {
+                        byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());
+                        Optional<Long> positionLowerBound = Optional.ofNullable(lowerBoundBytes)
+                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-                    byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
-                    Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
-                            .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
+                        byte[] upperBoundBytes = delete.getUpperBounds().get(DELETE_FILE_POS.fieldId());
+                        Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
+                                .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-                    if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
-                            (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
-                        continue;
+                        if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
+                                (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
+                            continue;
+                        }
                     }
-                }
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
-                    readPositionDeletes(pageSource, targetPath, deletedRows);
-                }
-                catch (IOException e) {
-                    throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
+                    try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
+                        readPositionDeletes(pageSource, targetPath, deletedRows);
+                    }
+                    catch (IOException e) {
+                        throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg delete file: %s", delete.path()), e);
+                    }
                 }
                 if (storeDeleteFilePath) {
                     filters.add(new PositionDeleteFilter(deletedRows, delete.path()));
-                    deletedRows = new Roaring64Bitmap(); // Reset the deleted rows for the next file
+                    deletedRows = new Roaring64Bitmap();
                 }
             }
             else if (delete.content() == EQUALITY_DELETES) {
@@ -1061,6 +1090,34 @@ public class IcebergPageSourceProvider
         }
 
         return filters;
+    }
+
+    private void readDeletionVector(
+            ConnectorSession session,
+            DeleteFile delete,
+            LongBitmapDataProvider deletedRows)
+    {
+        HdfsContext hdfsContext = new HdfsContext(session);
+        InputFile inputFile = new HdfsInputFile(new Path(delete.path()), hdfsEnvironment, hdfsContext);
+        try (PuffinReader reader = hdfsEnvironment.doAs(session.getUser(), () -> Puffin.read(inputFile).build())) {
+            List<BlobMetadata> blobMetadataList = reader.fileMetadata().blobs();
+            if (blobMetadataList.isEmpty()) {
+                return;
+            }
+            for (org.apache.iceberg.util.Pair<BlobMetadata, ByteBuffer> pair : reader.readAll(blobMetadataList)) {
+                ByteBuffer blobData = pair.second();
+                byte[] bytes = new byte[blobData.remaining()];
+                blobData.get(bytes);
+                // Iceberg V3 DVs use the spec-compliant 64-bit Roaring portable bitmap with magic
+                // / length / CRC framing. Decode via Iceberg's native deserializer (matches what
+                // IcebergDeletionVectorPageSink writes via BaseDVFileWriter).
+                PositionDeleteIndex index = PositionDeleteIndex.deserialize(bytes, delete);
+                index.forEach((java.util.function.LongConsumer) deletedRows::addLong);
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, format("Cannot open Iceberg deletion vector file: %s", delete.path()), e);
+        }
     }
 
     private ConnectorPageSource openDeletes(
@@ -1128,6 +1185,37 @@ public class IcebergPageSourceProvider
                         predicate,
                         readerOptions,
                         ORC,
+                        getOrcMaxBufferSize(session),
+                        getOrcStreamBufferSize(session),
+                        getOrcLazyReadSmallRanges(session),
+                        isOrcBloomFiltersEnabled(session),
+                        hiveClientConfig.getDomainCompactionThreshold(),
+                        orcFileTailSource,
+                        stripeMetadataSourceFactory,
+                        fileFormatDataSourceStats,
+                        Optional.empty(),
+                        dwrfEncryptionProvider);
+            case DWRF:
+                OrcReaderOptions dwrfReaderOptions = OrcReaderOptions.builder()
+                        .withMaxMergeDistance(getOrcMaxMergeDistance(session))
+                        .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
+                        .withMaxBlockSize(getOrcMaxReadBlockSize(session))
+                        .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .build();
+
+                return createBatchOrcPageSource(
+                        hdfsEnvironment,
+                        session.getUser(),
+                        hdfsEnvironment.getConfiguration(hdfsContext, path),
+                        path,
+                        start,
+                        length,
+                        isCacheable,
+                        dataColumns,
+                        typeManager,
+                        predicate,
+                        dwrfReaderOptions,
+                        OrcEncoding.DWRF,
                         getOrcMaxBufferSize(session),
                         getOrcStreamBufferSize(session),
                         getOrcLazyReadSmallRanges(session),
