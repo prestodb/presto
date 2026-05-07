@@ -195,7 +195,7 @@ public abstract class AbstractTestBinaryFunctions
 
         // Test grouping by hash values
         assertQueryWithSameQueryRunner(
-                "SELECT fnv1a_32(to_utf8(x)), COUNT(*) FROM (VALUES 'a', 'b', 'a', 'c', 'b') t(x) GROUP BY fnv1a_32(to_utf8(x)) ORDER BY COUNT(*) DESC",
+                "SELECT fnv1a_32(to_utf8(x)), COUNT(*) FROM (VALUES 'a', 'b', 'a', 'c', 'b') t(x) GROUP BY fnv1a_32(to_utf8(x)) ORDER BY COUNT(*) DESC, fnv1a_32(to_utf8(x))",
                 "VALUES (-468965076, CAST(2 AS BIGINT)), (-418632219, CAST(2 AS BIGINT)), (-435409838, CAST(1 AS BIGINT))");
     }
     /**
@@ -214,10 +214,10 @@ public abstract class AbstractTestBinaryFunctions
                 "SELECT fnv1a_64(from_hex('FF') || from_hex('FF') || from_hex('FF'))",
                 "SELECT fnv1a_64(from_hex('FFFFFF'))");
 
-        // Test with all zeros
-        assertQueryWithSameQueryRunner("SELECT fnv1_32(from_hex('00000000'))", "SELECT fnv1_32(from_hex('00000000'))");
+        // Test with all zeros - expected value computed from FNV-1 32-bit algorithm
+        assertQueryWithSameQueryRunner("SELECT fnv1_32(from_hex('00000000'))", "SELECT -1069883733");
 
-        // Test with all ones
-        assertQueryWithSameQueryRunner("SELECT fnv1a_32(from_hex('FFFFFFFF'))", "SELECT fnv1a_32(from_hex('FFFFFFFF'))");
+        // Test with all ones - expected value computed from FNV-1a 32-bit algorithm
+        assertQueryWithSameQueryRunner("SELECT fnv1a_32(from_hex('FFFFFFFF'))", "SELECT 1169726326");
     }
 }
