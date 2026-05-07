@@ -67,6 +67,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE = "native_max_page_partitioning_buffer_size";
     public static final String NATIVE_PARTITIONED_OUTPUT_EAGER_FLUSH = "native_partitioned_output_eager_flush";
     public static final String NATIVE_MAX_OUTPUT_BUFFER_SIZE = "native_max_output_buffer_size";
+    public static final String NATIVE_MIN_SHUFFLE_COMPRESSION_PAGE_SIZE_BYTES = "native_min_shuffle_compression_page_size_bytes";
     public static final String NATIVE_QUERY_TRACE_ENABLED = "native_query_trace_enabled";
     public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
     public static final String NATIVE_QUERY_TRACE_NODE_ID = "native_query_trace_node_id";
@@ -346,6 +347,11 @@ public class NativeWorkerSessionPropertyProvider
                         "Native Execution only. If true, the PartitionedOutput operator will flush rows eagerly, without " +
                                 "waiting until buffers reach certain size. Default is false.",
                         false,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_MIN_SHUFFLE_COMPRESSION_PAGE_SIZE_BYTES,
+                        "Native Execution only. Minimum serialized page size in bytes to attempt shuffle compression.",
+                        0,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MAX_LOCAL_EXCHANGE_PARTITION_COUNT,

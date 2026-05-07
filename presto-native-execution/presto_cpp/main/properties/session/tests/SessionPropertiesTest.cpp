@@ -94,6 +94,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
        core::QueryConfig::kMaxPartitionedOutputBufferSize},
       {SessionProperties::kPartitionedOutputEagerFlush,
        core::QueryConfig::kPartitionedOutputEagerFlush},
+      {SessionProperties::kMinShuffleCompressionPageSizeBytes,
+       core::QueryConfig::kMinShuffleCompressionPageSizeBytes},
       {SessionProperties::kLegacyTimestamp,
        core::QueryConfig::kAdjustTimestampToTimezone},
       {SessionProperties::kDriverCpuTimeSliceLimitMs,
