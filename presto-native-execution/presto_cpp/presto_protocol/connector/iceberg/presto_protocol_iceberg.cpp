@@ -321,7 +321,8 @@ static const std::pair<FileFormat, json> FileFormat_enum_table[] =
         {FileFormat::PARQUET, "PARQUET"},
         {FileFormat::AVRO, "AVRO"},
         {FileFormat::METADATA, "METADATA"},
-        {FileFormat::PUFFIN, "PUFFIN"}};
+        {FileFormat::PUFFIN, "PUFFIN"},
+        {FileFormat::DWRF, "DWRF"}};
 void to_json(json& j, const FileFormat& e) {
   static_assert(std::is_enum<FileFormat>::value, "FileFormat must be an enum!");
   const auto* it = std::find_if(
