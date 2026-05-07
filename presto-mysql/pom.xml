@@ -74,16 +74,6 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-        </dependency>
-
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

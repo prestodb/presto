@@ -89,6 +89,7 @@ public class MySqlClient
      */
     private static final String SQL_STATE_ER_TABLE_EXISTS_ERROR = "42S01";
     private static final JsonCodec<ViewDefinition> VIEW_CODEC = JsonCodec.jsonCodec(ViewDefinition.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Inject
     public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
@@ -356,12 +357,12 @@ public class MySqlClient
         List<JdbcColumnHandle> jdbcColumns = super.getColumns(session, new JdbcTableHandle(
                 connectorId,
                 schemaTableName,
-                null,
                 schemaName,
+                null,
                 tableName));
 
         List<ViewDefinition.ViewColumn> columns = jdbcColumns.stream()
-                .map(jdbcColumn -> new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType()))
+                .map(MySqlClient::toViewColumn)
                 .collect(toImmutableList());
 
         return new ViewDefinition(
@@ -371,6 +372,11 @@ public class MySqlClient
                 columns,
                 Optional.of(owner),
                 runAsInvoker);
+    }
+
+    private static ViewDefinition.ViewColumn toViewColumn(JdbcColumnHandle jdbcColumn)
+    {
+        return new ViewDefinition.ViewColumn(jdbcColumn.getColumnName(), jdbcColumn.getColumnType());
     }
 
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
@@ -425,13 +431,7 @@ public class MySqlClient
         // Deserialize the Presto-internal ViewDefinition JSON to extract originalSql
         String originalSql;
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode viewDefinition = mapper.readTree(viewData);
-            JsonNode originalSqlNode = viewDefinition.get("originalSql");
-            if (originalSqlNode == null || originalSqlNode.isNull()) {
-                throw new PrestoException(JDBC_ERROR, "Missing 'originalSql' field in view data");
-            }
-            originalSql = originalSqlNode.asText();
+            originalSql = OBJECT_MAPPER.readTree(viewData).get("originalSql").asText();
         }
         catch (JsonProcessingException e) {
             throw new PrestoException(JDBC_ERROR, "Failed to parse view data: " + e.getMessage(), e);
