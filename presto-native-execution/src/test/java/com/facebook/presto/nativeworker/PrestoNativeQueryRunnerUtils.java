@@ -688,7 +688,8 @@ public class PrestoNativeQueryRunnerUtils
                                 "presto.version=testversion%n" +
                                 "plan-consistency-check-enabled=true%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=0%n", discoveryUri);
+                                "http-server.http.port=0%n" +
+                                "http-server.bind-to-node-internal-address-only-enabled=true%n", discoveryUri);
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +

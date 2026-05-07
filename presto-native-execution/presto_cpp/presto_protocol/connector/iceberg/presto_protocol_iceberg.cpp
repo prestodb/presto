@@ -387,6 +387,13 @@ void to_json(json& j, const DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  to_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 
 void from_json(const json& j, DeleteFile& p) {
@@ -424,6 +431,13 @@ void from_json(const json& j, DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  from_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {

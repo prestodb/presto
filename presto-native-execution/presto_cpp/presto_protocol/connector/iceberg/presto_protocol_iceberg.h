@@ -98,6 +98,7 @@ struct DeleteFile {
   List<Integer> equalityFieldIds = {};
   Map<Integer, String> lowerBounds = {};
   Map<Integer, String> upperBounds = {};
+  int64_t dataSequenceNumber = {};
 };
 void to_json(json& j, const DeleteFile& p);
 void from_json(const json& j, DeleteFile& p);
