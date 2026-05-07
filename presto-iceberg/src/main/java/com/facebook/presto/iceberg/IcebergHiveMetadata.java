@@ -725,7 +725,7 @@ public class IcebergHiveMetadata
         InputFile inputFile = new HdfsInputFile(metadataLocation, hdfsEnvironment, hdfsContext);
         TableMetadata tableMetadata;
         try {
-            tableMetadata = TableMetadataParser.read(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext), inputFile);
+            tableMetadata = TableMetadataParser.read(inputFile);
         }
         catch (Exception e) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Unable to read metadata file %s", metadataLocation), e);

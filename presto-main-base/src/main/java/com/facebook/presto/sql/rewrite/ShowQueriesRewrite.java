@@ -98,7 +98,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -580,8 +579,7 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
 
-                List<ColumnMetadata> allowedColumns = new ArrayList<>();
-                allowedColumns = accessControl.filterColumns(
+                List<ColumnMetadata> allowedColumns = accessControl.filterColumns(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),

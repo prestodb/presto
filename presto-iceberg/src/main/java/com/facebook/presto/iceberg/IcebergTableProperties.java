@@ -14,6 +14,8 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.JsonType;
+import com.facebook.presto.iceberg.derivedColumn.DerivedColumnUDFSpecList;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.session.PropertyMetadata;
@@ -33,6 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
@@ -96,6 +99,9 @@ public class IcebergTableProperties
     public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
     public static final String TARGET_SPLIT_SIZE = TableProperties.SPLIT_SIZE;
 
+    public static final String DERIVED_COLUMNS = "derived-columns";
+    public static final String DERIVED_COLUMN_UDF_SPEC = "derived-columns.spec.udf.json";
+
     private static final String DEPRECATION_WARNING_MESSAGE = "The table property \"%s\" has been " +
             "deprecated. Please migrate to using \"%s\". This will become an error in future versions";
 
@@ -117,6 +123,8 @@ public class IcebergTableProperties
             .add(METADATA_DELETE_AFTER_COMMIT_ENABLED)
             .add(METADATA_PREVIOUS_VERSIONS_MAX)
             .add(HIVE_LOCK_ENABLED)
+            .add(DERIVED_COLUMN_UDF_SPEC)
+            .add(DERIVED_COLUMNS)
             .add(TableProperties.METADATA_PREVIOUS_VERSIONS_MAX)
             .build();
 
@@ -231,6 +239,26 @@ public class IcebergTableProperties
                         "Compression codec for ORC format",
                         null,
                         false))
+                .add(new PropertyMetadata<>(
+                        DERIVED_COLUMNS,
+                        "These columns are special because they are auto populated based on user supplied UDF expression.",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(toImmutableList()),
+                        value -> value))
+                .add(new PropertyMetadata<>(
+                        DERIVED_COLUMN_UDF_SPEC,
+                        "The UDF specification for each derived column as a json",
+                        JsonType.JSON,
+                        DerivedColumnUDFSpecList.class,
+                        new DerivedColumnUDFSpecList(ImmutableList.of()),
+                        false,
+                        value -> jsonCodec(DerivedColumnUDFSpecList.class).fromJson(value.toString()),
+                        value -> jsonCodec(DerivedColumnUDFSpecList.class).toJson(value)))
                 .build();
 
         deprecatedPropertyMetadata = baseTableProperties.stream()
@@ -251,7 +279,7 @@ public class IcebergTableProperties
                 .addAll(deprecatedPropertyMetadata.values().iterator())
                 .build();
 
-        columnProperties = ImmutableList.of(
+        ImmutableList.Builder<PropertyMetadata<?>> columnPropertiesBuilder = ImmutableList.<PropertyMetadata<?>>builder().add(
                 new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
                         "This column's partition transforms, supports both string expressions (e.g., 'bucket(4)') and array expressions (e.g. ARRAY['bucket(4)', 'identity'])",
@@ -264,6 +292,7 @@ public class IcebergTableProperties
                                 .collect(toImmutableList()),
                         value -> value)
                         .withAdditionalTypeHandler(VARCHAR, ImmutableList::of));
+        columnProperties = columnPropertiesBuilder.build();
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -310,6 +339,19 @@ public class IcebergTableProperties
     }
 
     @SuppressWarnings("unchecked")
+    public List<String> getDerivedColumns(Map<String, Object> tableProperties)
+    {
+        List<String> derivedColumns = (List<String>) tableProperties.get(DERIVED_COLUMNS);
+        return derivedColumns == null ? ImmutableList.of() : ImmutableList.copyOf(derivedColumns);
+    }
+
+    @SuppressWarnings("unchecked")
+    public DerivedColumnUDFSpecList getDerivedColumnUDFSpec(Map<String, Object> tableProperties)
+    {
+        return (DerivedColumnUDFSpecList) tableProperties.get(DERIVED_COLUMN_UDF_SPEC);
+    }
+
+    @SuppressWarnings("unchecked")
     public static List<String> getSortOrder(Map<String, Object> tableProperties)
     {
         List<String> sortedBy = (List<String>) tableProperties.get(SORTED_BY_PROPERTY);
@@ -325,6 +367,7 @@ public class IcebergTableProperties
     {
         return (String) tableProperties.get(WRITE_DATA_LOCATION);
     }
+
     public static Optional<String> isHiveLocksEnabled(Map<String, Object> tableProperties)
     {
         return tableProperties.containsKey(HIVE_LOCK_ENABLED) ? Optional.of(String.valueOf(tableProperties.get(HIVE_LOCK_ENABLED))) : Optional.empty();

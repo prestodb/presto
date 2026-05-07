@@ -207,6 +207,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressio
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_UDF_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
@@ -1031,7 +1033,8 @@ public abstract class IcebergAbstractMetadata
         properties.put(TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
         properties.put(TableProperties.SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
-
+        properties.put(DERIVED_COLUMNS, IcebergUtil.getDerivedColumns(icebergTable));
+        properties.put(DERIVED_COLUMN_UDF_SPEC, IcebergUtil.getDerivedColumnUDFSpec(icebergTable));
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
         if (sortOrder != null && sortOrder.isSorted()) {

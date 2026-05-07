@@ -485,7 +485,7 @@ public class HiveTableOperations
                             config.getTableRefreshMaxRetryTime().toMillis(),
                             config.getTableRefreshBackoffScaleFactor())
                     .run(metadataLocation -> newMetadata.set(
-                            TableMetadataParser.read(fileIO, fileIO.newCachedInputFile(metadataLocation))));
+                            TableMetadataParser.read(fileIO.newCachedInputFile(metadataLocation))));
         }
         catch (RuntimeException e) {
             throw new TableNotFoundException(getSchemaTableName(), "Table metadata is missing", e);
