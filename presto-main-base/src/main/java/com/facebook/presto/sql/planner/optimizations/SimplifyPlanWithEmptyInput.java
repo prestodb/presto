@@ -38,6 +38,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -397,6 +398,12 @@ public class SimplifyPlanWithEmptyInput
 
         @Override
         public PlanNode visitGroupId(GroupIdNode node, RewriteContext<Void> context)
+        {
+            return convertToEmptyNodeIfInputEmpty(node, context);
+        }
+
+        @Override
+        public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
         {
             return convertToEmptyNodeIfInputEmpty(node, context);
         }
