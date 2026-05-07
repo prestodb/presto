@@ -81,6 +81,15 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kSpillFileCreateConfig =
       "native_spill_file_create_config";
 
+  /// Suffix appended to filesystem IoStats keys harvested from the spill
+  /// FileSystem when folded into operator runtimeStats. Empty by default.
+  /// Set to a non-empty value (e.g. ".spill") in deployments where the
+  /// spill backend and a connector backend share a FileSystem implementation
+  /// that emits IoStats under a globally-shared key namespace, to prevent
+  /// silent collisions on TableScan/TableWriter operators.
+  static constexpr const char* kSpillIoStatsKeySuffix =
+      "native_spill_io_stats_key_suffix";
+
   /// Config used to create aggregation spill files. This config is provided to
   /// underlying file system and the config is free form.
   static constexpr const char* kAggregationSpillFileCreateConfig =
