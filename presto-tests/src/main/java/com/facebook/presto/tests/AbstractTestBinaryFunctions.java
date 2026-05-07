@@ -215,9 +215,9 @@ public abstract class AbstractTestBinaryFunctions
                 "SELECT fnv1a_64(from_hex('FFFFFF'))");
 
         // Test with all zeros - expected value computed from FNV-1 32-bit algorithm
-        assertQueryWithSameQueryRunner("SELECT fnv1_32(from_hex('00000000'))", "SELECT -1069883733");
+        assertQueryWithSameQueryRunner("SELECT fnv1_32(from_hex('00000000'))", "SELECT 1268118805");
 
         // Test with all ones - expected value computed from FNV-1a 32-bit algorithm
-        assertQueryWithSameQueryRunner("SELECT fnv1a_32(from_hex('FFFFFFFF'))", "SELECT 1169726326");
+        assertQueryWithSameQueryRunner("SELECT fnv1a_32(from_hex('FFFFFFFF'))", "SELECT -485093455");
     }
 }
