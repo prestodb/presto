@@ -1052,6 +1052,13 @@ public abstract class AbstractTestNativeGeneralQueries
         // from_base64, to_base64.
         assertQuery("SELECT from_base64(to_base64(cast(comment as varbinary))) FROM orders");
 
+        // from_base32, to_base32.
+        assertQuery("SELECT to_base32(cast(comment as varbinary)) FROM orders ORDER BY orderkey LIMIT 10");
+        assertQuery("SELECT from_base32(to_base32(cast(comment as varbinary))) FROM orders");
+        assertQuery("SELECT to_base32(cast('' as varbinary))");
+        assertQuery("SELECT to_base32(cast(null as varbinary))");
+        assertQuery("SELECT from_base32(cast(null as varchar))");
+
         // from_big_endian_32, to_big_endian_32.
         assertQuery("SELECT to_big_endian_32(null)");
         assertQuery("SELECT to_big_endian_32(1)");
