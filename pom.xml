@@ -58,7 +58,7 @@
         <dep.joda.version>2.14.0</dep.joda.version>
         <dep.tempto.version>1.55</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
-        <dep.lucene.version>9.12.0</dep.lucene.version>
+        <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.parquet.version>1.16.0</dep.parquet.version>
         <dep.iceberg.version>1.10.1</dep.iceberg.version>
