@@ -59,11 +59,61 @@ pre {
 /** Bootstrap overrides **/
 /** =================== **/
 
-#legend > div{
+#legend {
+    padding: 10px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#legend .legend-bars {
+    display: flex;
+    width: 800px;
+    margin-bottom: 5px;
+}
+
+#legend .legend-bars .bar {
+    border-style: solid;
+    border-width: 1px;
     width: 200px;
-    margin-left: 60px;
+    height: 4px;
+    flex-shrink: 0;
+}
+
+#legend .legend-labels {
+    display: flex;
+    width: 800px;
+    justify-content: space-between;
+}
+
+#legend .legend-labels .text {
     font-size: 14px;
-    color:#999999;
+    color: #999999;
+    white-space: nowrap;
+}
+
+#legend .red {
+    background-color: #F2DEDE;
+    border-color: #F2AEAE;
+}
+
+#legend .green {
+    background-color: #DFF0DB;
+    border-color: #B8F0AA;
+}
+
+#legend .blue {
+    background-color: #E3E9FC;
+    border-color: #B0C3FC;
+}
+
+#legend .orange {
+    background-color: #FFA500;
+    border-color: #B0C3FC;
+}
+
+#legend .empty {
+    border-style: none;
 }
 
 .search-bar{
@@ -158,7 +208,7 @@ pre {
 }
 
 .dropdown-menu > li > a:hover {
-    color: #fff; 
+    color: #fff;
     background-color: #d7d4d4;
 }
 
@@ -254,7 +304,6 @@ pre {
 .navbar img {
     width: 40px;
     height: auto;
-    
 }
 
 .navbar-cluster-info {
