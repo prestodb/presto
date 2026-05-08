@@ -204,8 +204,8 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_TARGET_ROW
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewDefaultStorageSchema;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
