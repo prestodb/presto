@@ -152,6 +152,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertTrue;
 
@@ -998,6 +999,8 @@ public class TestHiveLogicalPlanner
                 "id bigint, " +
                 "a array(bigint), " +
                 "b map(varchar, bigint), " +
+                "f map(double, bigint), " +
+                "g map(real, bigint), " +
                 "c row(" +
                 "a bigint, " +
                 "b row(x bigint), " +
@@ -1034,6 +1037,9 @@ public class TestHiveLogicalPlanner
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.e['foo'] = 1",
                 ImmutableMap.of(new Subfield("c.e[\"foo\"]"), singleValue(BIGINT, 1L)));
+
+        assertNoPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE f[CAST(0.99 AS DOUBLE)] = 1", "f");
+        assertNoPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE g[CAST(0.99 AS REAL)] = 1", "g");
 
         assertPushdownFilterOnSubfields("SELECT * FROM test_pushdown_filter_on_subfields WHERE c.a IS NOT NULL AND c.c IS NOT NULL",
                 ImmutableMap.of(new Subfield("c.a"), notNull(BIGINT), new Subfield("c.c"), notNull(new ArrayType(BIGINT))));
@@ -1089,6 +1095,8 @@ public class TestHiveLogicalPlanner
                 "a map(bigint, bigint), " +
                 "b map(bigint, map(bigint, varchar)), " +
                 "c map(varchar, bigint), \n" +
+                "d map(double, bigint), \n" +
+                "e map(real, bigint), \n" +
                 "y map(bigint, row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)))," +
                 "z map(bigint, map(bigint, row(p bigint, e row(e1 bigint, e2 varchar)))))");
 
@@ -1116,6 +1124,12 @@ public class TestHiveLogicalPlanner
 
         assertPushdownSubfields("SELECT mod(c['cat'], 2) FROM test_pushdown_map_subscripts WHERE c['dog'] > 10", "test_pushdown_map_subscripts",
                 ImmutableMap.of("c", toSubfields("c[\"cat\"]", "c[\"dog\"]")));
+
+        assertPushdownSubfields("SELECT d[CAST(0.99 AS DOUBLE)] FROM test_pushdown_map_subscripts", "test_pushdown_map_subscripts",
+                ImmutableMap.of());
+
+        assertPushdownSubfields("SELECT e[CAST(0.99 AS REAL)] FROM test_pushdown_map_subscripts", "test_pushdown_map_subscripts",
+                ImmutableMap.of());
 
         // No subfield pruning
         assertPushdownSubfields("SELECT map_keys(a)[1] FROM test_pushdown_map_subscripts", "test_pushdown_map_subscripts",
@@ -1501,6 +1515,11 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("x", toSubfields()));
         assertUpdate("DROP TABLE test_pushdown_map_subfields");
 
+        assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x map(double, double))");
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_subset(x, array[CAST(0.99 AS DOUBLE), CAST(1.01 AS DOUBLE)]) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of());
+        assertUpdate("DROP TABLE test_pushdown_map_subfields");
+
         assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x array(map(integer, double)))");
         assertPushdownSubfields(mapSubset, "SELECT t.id, transform(x, mp -> map_subset(mp, array[1, 2, 3])) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
                 ImmutableMap.of("x", toSubfields("x[*][1]", "x[*][2]", "x[*][3]")));
@@ -1569,6 +1588,11 @@ public class TestHiveLogicalPlanner
                 ImmutableMap.of("x", toSubfields()));
         assertPushdownSubfields(mapSubset, "SELECT t.id, map_filter(x, (k, v) -> contains(array[id], k)) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
                 ImmutableMap.of("x", toSubfields()));
+        assertUpdate("DROP TABLE test_pushdown_map_subfields");
+
+        assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x map(double, double))");
+        assertPushdownSubfields(mapSubset, "SELECT t.id, map_filter(x, (k, v) -> k = CAST(0.99 AS DOUBLE)) FROM test_pushdown_map_subfields t", "test_pushdown_map_subfields",
+                ImmutableMap.of());
         assertUpdate("DROP TABLE test_pushdown_map_subfields");
 
         assertUpdate("CREATE TABLE test_pushdown_map_subfields(id integer, x array(map(integer, double)))");
@@ -2590,6 +2614,25 @@ public class TestHiveLogicalPlanner
                         withColumnDomains(predicateDomains),
                         TRUE_CONSTANT,
                         predicateDomains.keySet().stream().map(Subfield::getRootName).collect(toImmutableSet())));
+    }
+
+    private void assertNoPushdownFilterOnSubfields(String query, String predicateColumnName)
+    {
+        String tableName = "test_pushdown_filter_on_subfields";
+        assertPlan(pushdownFilterAndNestedColumnFilterEnabled(), query,
+                output(exchange(PlanMatchPattern.tableScan(tableName))),
+                plan -> {
+                    TableScanNode tableScan = searchFrom(plan.getRoot())
+                            .where(node -> isTableScanNode(node, tableName))
+                            .findOnlyElement();
+
+                    assertTrue(tableScan.getTable().getLayout().isPresent());
+                    HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableScan.getTable().getLayout().get();
+
+                    assertEquals(layoutHandle.getPredicateColumns().keySet(), ImmutableSet.of(predicateColumnName));
+                    assertEquals(layoutHandle.getDomainPredicate(), TupleDomain.all());
+                    assertNotEquals(layoutHandle.getRemainingPredicate(), TRUE_CONSTANT);
+                });
     }
 
     private void assertParquetDereferencePushDown(String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
