@@ -78,7 +78,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kDebugMemoryPoolWarnThresholdBytes,
        core::QueryConfig::kDebugMemoryPoolWarnThresholdBytes},
       {SessionProperties::kSelectiveNimbleReaderEnabled,
-       core::QueryConfig::kSelectiveNimbleReaderEnabled},
+       "selective_nimble_reader_enabled"},
       {SessionProperties::kQueryTraceEnabled,
        core::QueryConfig::kQueryTraceEnabled},
       {SessionProperties::kQueryTraceDir, core::QueryConfig::kQueryTraceDir},
