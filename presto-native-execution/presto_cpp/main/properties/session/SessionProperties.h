@@ -266,6 +266,10 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kShuffleCompressionCodec =
       "exchange_compression_codec";
 
+  /// Minimum serialized page size in bytes to attempt shuffle compression.
+  static constexpr const char* kMinShuffleCompressionPageSizeBytes =
+      "native_min_shuffle_compression_page_size_bytes";
+
   /// If set to true, enables scaled processing for table scans.
   static constexpr const char* kTableScanScaledProcessingEnabled =
       "native_table_scan_scaled_processing_enabled";
