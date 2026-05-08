@@ -18,6 +18,8 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
 #include "velox/row/CompactRow.h"
+#include "velox/vector/DecodedVector.h"
+#include "velox/vector/SelectivityVector.h"
 
 namespace facebook::presto::operators {
 
@@ -30,6 +32,7 @@ class MaterializedOutputNode : public velox::core::PlanNode {
       velox::RowTypePtr outputType,
       std::shared_ptr<const velox::core::PartitionFunctionSpec>
           partitionFunctionSpec,
+      bool replicateNullsAndAny,
       velox::core::PlanNodePtr source,
       std::shared_ptr<MaterializedOutputBuffer> buffer)
       : velox::core::PlanNode(id),
@@ -37,6 +40,7 @@ class MaterializedOutputNode : public velox::core::PlanNode {
         keys_(std::move(keys)),
         outputType_(std::move(outputType)),
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
+        replicateNullsAndAny_(replicateNullsAndAny),
         sources_{std::move(source)},
         buffer_(std::move(buffer)) {}
 
@@ -58,6 +62,10 @@ class MaterializedOutputNode : public velox::core::PlanNode {
 
   const auto& partitionFunctionSpec() const {
     return partitionFunctionSpec_;
+  }
+
+  bool isReplicateNullsAndAny() const {
+    return replicateNullsAndAny_;
   }
 
   const velox::RowTypePtr& outputType() const override {
@@ -84,6 +92,7 @@ class MaterializedOutputNode : public velox::core::PlanNode {
   const velox::RowTypePtr outputType_;
   const std::shared_ptr<const velox::core::PartitionFunctionSpec>
       partitionFunctionSpec_;
+  const bool replicateNullsAndAny_;
   const std::vector<velox::core::PlanNodePtr> sources_;
   const std::shared_ptr<MaterializedOutputBuffer> buffer_;
 };
@@ -150,10 +159,36 @@ class MaterializedOutput : public velox::exec::Operator {
   std::unique_ptr<folly::IOBuf> buildRowGroup(
       const std::vector<int32_t>& rowIndices);
 
+  // True when the plan requested replicateNullsAndAny AND broadcasting
+  // would actually produce extra entries (i.e., more than one destination).
+  bool shouldReplicate() const {
+    return replicateNullsAndAny_ && numDestinations_ > 1;
+  }
+
+  // Mark rows whose key columns contain a null. Used by
+  // expandReplicateRows() when shouldReplicate() is true.
+  void collectNullRows(const velox::RowVector& rawInput, int32_t numRows);
+
+  // Pick which input rows need to be broadcast: the very first row of the
+  // operator's lifetime (the "any" sentinel) plus every null-keyed row.
+  std::vector<int32_t> selectRowsToReplicate(int32_t numInputRows);
+
+  // For each row in rowsToExpand, append (numDestinations_ - 1) extra
+  // (offset, size, partition) entries pointing to the same flat-buffer
+  // slice — the row ends up at every destination.
+  void appendReplicaEntries(
+      int32_t serializeStartRow,
+      const std::vector<int32_t>& rowsToExpand);
+
+  // Orchestrates selectRowsToReplicate + appendReplicaEntries.
+  void expandReplicateRows(int32_t serializeStartRow, int32_t numInputRows);
+
   // Immutable config — declaration order must match constructor init order.
   const int32_t numDestinations_;
   const std::vector<velox::column_index_t> outputChannels_;
+  const std::vector<velox::column_index_t> keyChannels_;
   std::unique_ptr<velox::core::PartitionFunction> partitionFunction_;
+  const bool replicateNullsAndAny_;
   MaterializedOutputBuffer* const buffer_;
 
   // Flush threshold: clamp(numPartitions * kDefaultAvgRowSize, 1MB, 10MB).
@@ -171,6 +206,15 @@ class MaterializedOutput : public velox::exec::Operator {
   // Reusable per-batch buffers.
   velox::RowVectorPtr output_;
   std::vector<uint32_t> partitions_;
+
+  // Replicate-nulls-and-any state. Mirrors Velox PartitionedOutput.
+  // Tracks rows whose key columns contain NULLs (which must be broadcast
+  // to all partitions) and whether the "any" sentinel row has already been
+  // broadcast across the operator's lifetime.
+  velox::SelectivityVector rows_;
+  velox::SelectivityVector nullRows_;
+  std::vector<velox::DecodedVector> decodedVectors_;
+  bool replicatedAny_{false};
 
   // Flat buffer model — rows are serialized into a pool-tracked
   // contiguous buffer with parallel arrays tracking offsets, sizes,

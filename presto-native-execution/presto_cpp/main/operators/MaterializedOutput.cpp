@@ -44,6 +44,7 @@ folly::dynamic MaterializedOutputNode::serialize() const {
   obj["numPartitions"] = numPartitions_;
   obj["keys"] = ISerializable::serialize(keys_);
   obj["partitionFunctionSpec"] = partitionFunctionSpec_->serialize();
+  obj["replicateNullsAndAny"] = replicateNullsAndAny_;
   obj["outputType"] = outputType_->serialize();
   obj["sources"] = ISerializable::serialize(sources_);
   return obj;
@@ -71,6 +72,12 @@ core::PlanNodePtr MaterializedOutputNode::create(
 
   auto outputType = ISerializable::deserialize<RowType>(obj["outputType"]);
 
+  // replicateNullsAndAny defaults to false for backward compatibility with
+  // serialized plans produced before the field existed.
+  const bool replicateNullsAndAny = obj.count("replicateNullsAndAny") != 0
+      ? obj["replicateNullsAndAny"].asBool()
+      : false;
+
   // Buffer cannot be deserialized — it is set externally by the plan
   // converter.
   return std::make_shared<MaterializedOutputNode>(
@@ -79,6 +86,7 @@ core::PlanNodePtr MaterializedOutputNode::create(
       static_cast<int>(obj["numPartitions"].asInt()),
       std::move(outputType),
       std::move(partitionFunctionSpec),
+      replicateNullsAndAny,
       std::move(source),
       std::shared_ptr<MaterializedOutputBuffer>{});
 }
@@ -98,11 +106,14 @@ MaterializedOutput::MaterializedOutput(
           planNode->sources()[0]->outputType(),
           planNode->outputType(),
           planNode->outputType())),
+      keyChannels_(
+          toChannels(planNode->sources()[0]->outputType(), planNode->keys())),
       partitionFunction_(
           numDestinations_ == 1 ? nullptr
                                 : planNode->partitionFunctionSpec()->create(
                                       numDestinations_,
                                       /*localExchange=*/false)),
+      replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
       buffer_(planNode->buffer()),
       targetSizeInBytes_(
           std::clamp(
@@ -254,6 +265,93 @@ void MaterializedOutput::serializeRows(
   }
 }
 
+void MaterializedOutput::collectNullRows(
+    const RowVector& rawInput,
+    int32_t numRows) {
+  rows_.resize(numRows);
+  rows_.setAll();
+
+  nullRows_.resize(numRows);
+  nullRows_.clearAll();
+
+  decodedVectors_.resize(keyChannels_.size());
+
+  for (size_t keyIdx = 0; keyIdx < keyChannels_.size(); ++keyIdx) {
+    const auto keyChannel = keyChannels_[keyIdx];
+    if (keyChannel == kConstantChannel) {
+      continue;
+    }
+    const auto& keyVector = rawInput.childAt(keyChannel);
+    if (keyVector->mayHaveNulls()) {
+      auto& decoded = decodedVectors_[keyIdx];
+      decoded.decode(*keyVector, rows_);
+      if (auto* rawNulls = decoded.nulls(&rows_)) {
+        velox::bits::orWithNegatedBits(
+            nullRows_.asMutableRange().bits(), rawNulls, 0, numRows);
+      }
+    }
+  }
+  nullRows_.updateBounds();
+}
+
+std::vector<int32_t> MaterializedOutput::selectRowsToReplicate(
+    int32_t numInputRows) {
+  // Replicate semantics (mirrors Velox PartitionedOutput): the very first
+  // input row across the operator's lifetime ("any") is broadcast to all
+  // partitions, plus every row whose key columns contain a null.
+  std::vector<int32_t> rowsToExpand;
+  int32_t loopStart = 0;
+  if (!replicatedAny_) {
+    rowsToExpand.push_back(0);
+    replicatedAny_ = true;
+    loopStart = 1;
+  }
+  for (int32_t i = loopStart; i < numInputRows; ++i) {
+    if (nullRows_.isValid(i)) {
+      rowsToExpand.push_back(i);
+    }
+  }
+  return rowsToExpand;
+}
+
+void MaterializedOutput::appendReplicaEntries(
+    int32_t serializeStartRow,
+    const std::vector<int32_t>& rowsToExpand) {
+  // For each replicate row, we keep the existing single-partition entry and
+  // append N-1 additional entries that point to the same flat-buffer slice —
+  // flushBatch's per-partition grouping does the rest.
+  const auto extra =
+      static_cast<size_t>(numDestinations_ - 1) * rowsToExpand.size();
+  rowOffsets_.reserve(rowOffsets_.size() + extra);
+  rowSizes_.reserve(rowSizes_.size() + extra);
+  rowPartitions_.reserve(rowPartitions_.size() + extra);
+
+  for (int32_t i : rowsToExpand) {
+    const int32_t rowIdx = serializeStartRow + i;
+    const int64_t offset = rowOffsets_[rowIdx];
+    const int32_t size = rowSizes_[rowIdx];
+    // Force the existing entry to partition 0 so the appended 1..N-1 give
+    // exactly one entry per destination — no duplicate sends.
+    rowPartitions_[rowIdx] = 0;
+    for (uint32_t p = 1; p < static_cast<uint32_t>(numDestinations_); ++p) {
+      rowOffsets_.push_back(offset);
+      rowSizes_.push_back(size);
+      rowPartitions_.push_back(p);
+      ++rowCount_;
+    }
+  }
+}
+
+void MaterializedOutput::expandReplicateRows(
+    int32_t serializeStartRow,
+    int32_t numInputRows) {
+  const auto rowsToExpand = selectRowsToReplicate(numInputRows);
+  if (rowsToExpand.empty()) {
+    return;
+  }
+  appendReplicaEntries(serializeStartRow, rowsToExpand);
+}
+
 void MaterializedOutput::addInput(RowVectorPtr input) {
   // Save a reference to the raw input before initializeInput() projects it.
   // The partition function's key channels are set up relative to inputType
@@ -271,8 +369,19 @@ void MaterializedOutput::addInput(RowVectorPtr input) {
 
   computePartitions(*rawInput, numRows);
 
+  // Collect null-key rows BEFORE serialization so the replicate-expansion
+  // step can read them.
+  if (shouldReplicate()) {
+    collectNullRows(*rawInput, numRows);
+  }
+
+  const int32_t serializeStartRow = rowCount_;
   row::CompactRow compactRow(output_);
   serializeRows(compactRow, numRows);
+
+  if (shouldReplicate()) {
+    expandReplicateRows(serializeStartRow, numRows);
+  }
 
   output_.reset();
 
