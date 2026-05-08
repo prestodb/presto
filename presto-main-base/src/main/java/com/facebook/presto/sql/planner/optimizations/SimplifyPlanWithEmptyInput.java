@@ -405,6 +405,12 @@ public class SimplifyPlanWithEmptyInput
         @Override
         public PlanNode visitExchange(ExchangeNode node, RewriteContext<Void> context)
         {
+            // ExchangeNode is safe to convert to empty when all its inputs are empty.
+            // An exchange simply redistributes rows from its sources according to its
+            // partitioning scheme. If all sources are empty (no rows), the exchange will
+            // produce no rows regardless of the distribution type (GATHER, REPARTITION, etc.)
+            // or partitioning scheme. Converting it to an empty ValuesNode preserves semantics
+            // while allowing the optimizer to prune the entire subtree.
             return convertToEmptyNodeIfInputEmpty(node, context);
         }
 
