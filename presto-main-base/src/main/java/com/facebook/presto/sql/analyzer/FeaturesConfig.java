@@ -3195,7 +3195,7 @@ public class FeaturesConfig
     }
 
     @Config("optimizer.optimize-row-in-predicate")
-    @ConfigDescription("Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates for partition pruning")
+    @ConfigDescription("Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates to help the domain translator extract constraints")
     public FeaturesConfig setOptimizeRowInPredicate(boolean optimizeRowInPredicate)
     {
         this.optimizeRowInPredicate = optimizeRowInPredicate;

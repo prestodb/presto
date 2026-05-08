@@ -2276,7 +2276,7 @@ public final class SystemSessionProperties
                         featuresConfig.getTryFunctionCatchableErrors(),
                         false),
                 booleanProperty(OPTIMIZE_ROW_IN_PREDICATE,
-                        "Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates for partition pruning",
+                        "Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates to help the domain translator extract constraints",
                         featuresConfig.isOptimizeRowInPredicate(),
                         false),
                 booleanProperty(

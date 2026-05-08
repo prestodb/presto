@@ -668,11 +668,11 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 
 Rewrites ``ROW(c1, c2, ...) IN (ROW(v1_1, v1_2, ...), ROW(v2_1, v2_2, ...), ...)`` to add per-column
 ``IN`` predicates (``c1 IN (v1_1, v2_1, ...) AND c2 IN (v1_2, v2_2, ...) AND ...``) alongside the original
-disjunctive ``OR`` of ``AND`` clauses expansion. ``ROW NOT IN`` is rewritten symmetrically with per-column ``NOT IN``
-disjuncts plus the original ``ROW NOT IN`` as a safety net. The added simple predicates let the domain
-translator extract per-column constraints, enabling partition pruning, predicate pushdown, and join
-optimization. Only fires when the filter sits on a table scan (optionally through projections), and
-runs once before table layout selection.
+disjunctive OR of AND clauses expansion. ``ROW NOT IN`` is rewritten symmetrically with per-column ``NOT IN``
+disjuncts plus the original ``ROW NOT IN`` as a safety net. The added simple predicates help the domain
+translator extract per-column constraints for optimization. Only fires when the filter sits on a table scan
+(optionally through projections), and runs once before table layout selection. This optimization is
+flag-controlled and adds a small overhead from the extra predicates.
 
 
 JDBC Properties

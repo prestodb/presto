@@ -264,9 +264,10 @@ public class TestOptimizeRowInPredicate
     @Test
     public void testRewriteEnablesPerColumnDomainExtractionForPartitionKeys()
     {
-        // The whole reason the rewrite exists: domain translator extracts NO per-column constraints
-        // from a raw ROW IN, but extracts both columns once the per-column IN predicates are added.
-        // This is what unlocks partition pruning at PickTableLayout.
+        // The rewrite helps the domain translator extract per-column constraints from ROW IN.
+        // Without the rewrite, the domain translator yields no per-column TupleDomain from a raw
+        // ROW IN. After the rewrite, per-column IN predicates allow the domain translator to
+        // extract constraints for each column.
         VariableReferenceExpression pk1 = new VariableReferenceExpression(Optional.empty(), "pk1", VARCHAR);
         VariableReferenceExpression pk2 = new VariableReferenceExpression(Optional.empty(), "pk2", BIGINT);
         SpecialFormExpression originalRowIn = rowIn(pk1, pk2);
@@ -318,7 +319,7 @@ public class TestOptimizeRowInPredicate
     public void testRewriteSkippedWhenFilterIsNotOnTableScan()
     {
         // Filter sits on a Values node (not a TableScan / Project chain) — rewrite must not fire,
-        // since per-column predicates have no partition-pruning benefit there.
+        // since per-column predicates are only useful when they can reach the table scan.
         tester().assertThat(new OptimizeRowInPredicate(tester().getMetadata()))
                 .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "true")
                 .on(p -> {

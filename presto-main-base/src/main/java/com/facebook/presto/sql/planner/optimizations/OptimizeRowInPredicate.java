@@ -48,8 +48,9 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Rewrites ROW constructor IN / NOT IN predicates so the domain translator can extract
- * per-column constraints. Runs once over the plan before {@code PickTableLayout} so the
- * added simple predicates surface to the connector for partition pruning.
+ * per-column constraints. This helps the domain translator handle multi-column IN predicates
+ * by adding simple per-column IN/NOT IN predicates alongside the original predicate.
+ * The optimization is flag-controlled and adds a small overhead from the extra predicates.
  *
  * <p>ROW IN:
  * <pre>
@@ -72,7 +73,7 @@ import static java.util.Objects.requireNonNull;
  * trailing disjunct in the NOT IN case) for correctness.
  *
  * <p>Only fires when the filter sits directly on a TableScan (optionally through ProjectNodes) —
- * the per-column predicates only pay off when they reach a connector that can use them.
+ * the per-column predicates help the domain translator extract constraints for optimization.
  */
 public class OptimizeRowInPredicate
         implements PlanOptimizer
@@ -121,8 +122,8 @@ public class OptimizeRowInPredicate
             PlanNode rewrittenSource = context.rewrite(node.getSource());
 
             // Only rewrite filters that sit directly on a TableScan (optionally through ProjectNodes).
-            // The whole point is to expose per-column predicates to the connector for partition pruning,
-            // so applying it elsewhere just bloats the predicate without any payoff.
+            // The per-column predicates help the domain translator extract constraints. Applying it
+            // elsewhere just adds overhead without benefit.
             RowExpression predicate = node.getPredicate();
             RowExpression rewritten = isFilterOnScan(rewrittenSource) ? rewritePredicate(predicate) : predicate;
 
