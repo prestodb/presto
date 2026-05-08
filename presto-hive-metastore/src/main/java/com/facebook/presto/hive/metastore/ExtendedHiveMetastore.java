@@ -92,6 +92,41 @@ public interface ExtendedHiveMetastore
 
     MetastoreOperationResult persistTable(MetastoreContext metastoreContext, String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Supplier<PartitionStatistics> update, Map<String, String> additionalParameters);
 
+    /**
+     * Atomically commit an Iceberg metadata location change using compare-and-swap
+     * (CAS) semantics.
+     *
+     * <p>For Iceberg tables, the CAS guard applies to the table's
+     * {@code metadata_location} parameter (the source of truth for the current
+     * Iceberg metadata file pointer): the commit succeeds only if
+     * {@code previousMetadataLocation} matches the current {@code metadata_location}
+     * value in the metastore. Implementations may update other table fields as
+     * required by the underlying metastore API; callers must not assume that only
+     * a specific field changes.
+     *
+     * <p>This is more reliable than the {@code alter_table} path used by
+     * {@link #persistTable} for Iceberg metadata commits, which has weak
+     * last-writer-wins semantics under concurrent commits.
+     *
+     * <p>CAS failures (i.e. when {@code previousMetadataLocation} does not match
+     * the metastore's current value) MUST be surfaced as a thrown exception.
+     * Implementations must not silently no-op on a CAS mismatch — callers rely
+     * on this for correctness.
+     *
+     * @param metastoreContext the metastore context
+     * @param databaseName the database name
+     * @param tableName the table name
+     * @param newMetadataLocation the new Iceberg metadata file location to commit
+     * @param previousMetadataLocation CAS guard: must match the current
+     *     {@code metadata_location} value in the metastore
+     * @return the metastore operation result
+     * @throws UnsupportedOperationException if the metastore implementation does not support this API
+     */
+    default MetastoreOperationResult commitTableData(MetastoreContext metastoreContext, String databaseName, String tableName, String newMetadataLocation, String previousMetadataLocation)
+    {
+        throw new UnsupportedOperationException("commitTableData is not supported by this metastore implementation");
+    }
+
     MetastoreOperationResult renameTable(MetastoreContext metastoreContext, String databaseName, String tableName, String newDatabaseName, String newTableName);
 
     MetastoreOperationResult addColumn(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName, HiveType columnType, String columnComment);
