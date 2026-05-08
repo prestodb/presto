@@ -162,7 +162,8 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
   std::vector<RowVectorPtr> runExchangeWrite(
       const std::vector<RowVectorPtr>& data,
       int numPartitions,
-      int numDrivers) {
+      int numDrivers,
+      bool replicateNullsAndAny = false) {
     auto dataType = asRowType(data[0]->type());
     auto writeInfoStr =
         localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
@@ -208,6 +209,7 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
         numPartitions,
         dataType,
         partitionFunctionSpec,
+        replicateNullsAndAny,
         valuesNode,
         buffer);
 
@@ -432,6 +434,88 @@ TEST_F(MaterializedExchangeTest, bufferMemoryTracking) {
 
   buffer->abort();
   cleanupDirectory(shuffleDir->getPath());
+}
+
+// Verifies replicateNullsAndAny: rows whose key columns are NULL must be
+// broadcast to every partition (plus the very first row of each operator
+// instance — the "any" sentinel). Without this, queries like full outer
+// joins produce wrong results.
+TEST_F(MaterializedExchangeTest, replicateNullsAndAny) {
+  // Input: 6 rows, key column has nulls at rows 2 and 4.
+  // With numPartitions=4 and replicate=true:
+  //   - Row 0 ("any") → broadcast to all 4 partitions
+  //   - Rows 2, 4 (null keys) → broadcast to all 4 partitions
+  //   - Rows 1, 3, 5 → routed by hash to one partition each
+  auto data = makeRowVector({
+      makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 4, std::nullopt, 6}),
+      makeFlatVector<std::string>({"a", "b", "c", "d", "e", "f"}),
+  });
+
+  const int numPartitions = 4;
+  const int numDrivers = 1;
+
+  // Run with replicate=true.
+  runExchangeWrite(
+      {data}, numPartitions, numDrivers, /*replicateNullsAndAny=*/true);
+  auto actual = runExchangeRead(numPartitions, asRowType(data->type()));
+
+  // Flatten actual into a single per-row count keyed by the data column.
+  // Each input row should appear:
+  //   - Replicated rows (row 0 + null-keyed rows 2, 4): numPartitions times
+  //   - Non-replicated rows (rows 1, 3, 5): exactly 1 time
+  std::map<std::string, int> dataValueCounts;
+  for (const auto& vec : actual) {
+    auto* dataVector = vec->childAt(1)->as<SimpleVector<StringView>>();
+    for (vector_size_t i = 0; i < vec->size(); ++i) {
+      ++dataValueCounts[std::string(dataVector->valueAt(i).getString())];
+    }
+  }
+
+  // Replicated: "a" (row 0, "any"), "c" (null key), "e" (null key)
+  EXPECT_EQ(dataValueCounts["a"], numPartitions)
+      << "Row 0 (the 'any' sentinel) must be broadcast to all partitions";
+  EXPECT_EQ(dataValueCounts["c"], numPartitions)
+      << "Row 2 (null key) must be broadcast to all partitions";
+  EXPECT_EQ(dataValueCounts["e"], numPartitions)
+      << "Row 4 (null key) must be broadcast to all partitions";
+  // Non-replicated: hash-routed to one partition each.
+  EXPECT_EQ(dataValueCounts["b"], 1) << "Row 1 must go to one partition";
+  EXPECT_EQ(dataValueCounts["d"], 1) << "Row 3 must go to one partition";
+  EXPECT_EQ(dataValueCounts["f"], 1) << "Row 5 must go to one partition";
+
+  cleanupDirectory(tempDir_->getPath());
+}
+
+// Negative control for the test above: same input, replicate=false. Each
+// row should appear exactly once across all partitions (no broadcast).
+TEST_F(MaterializedExchangeTest, replicateNullsAndAnyDisabled) {
+  auto data = makeRowVector({
+      makeNullableFlatVector<int32_t>({1, 2, std::nullopt, 4, std::nullopt, 6}),
+      makeFlatVector<std::string>({"a", "b", "c", "d", "e", "f"}),
+  });
+
+  const int numPartitions = 4;
+  const int numDrivers = 1;
+
+  runExchangeWrite(
+      {data}, numPartitions, numDrivers, /*replicateNullsAndAny=*/false);
+  auto actual = runExchangeRead(numPartitions, asRowType(data->type()));
+
+  std::map<std::string, int> dataValueCounts;
+  for (const auto& vec : actual) {
+    auto* dataVector = vec->childAt(1)->as<SimpleVector<StringView>>();
+    for (vector_size_t i = 0; i < vec->size(); ++i) {
+      ++dataValueCounts[std::string(dataVector->valueAt(i).getString())];
+    }
+  }
+
+  for (const std::string& v : {"a", "b", "c", "d", "e", "f"}) {
+    EXPECT_EQ(dataValueCounts[v], 1)
+        << "Row '" << v
+        << "' should not be replicated when replicateNullsAndAny=false";
+  }
+
+  cleanupDirectory(tempDir_->getPath());
 }
 
 } // namespace facebook::presto::operators::test

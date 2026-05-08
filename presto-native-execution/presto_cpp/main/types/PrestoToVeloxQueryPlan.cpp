@@ -2668,6 +2668,7 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
             partitionedOutputNode->numPartitions(),
             partitionedOutputNode->outputType(),
             partitionedOutputNode->partitionFunctionSpecPtr(),
+            partitionedOutputNode->isReplicateNullsAndAny(),
             partitionedOutputNode->sources()[0],
             std::move(buffer));
 
