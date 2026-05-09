@@ -40,6 +40,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -61,11 +62,15 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import io.airlift.slice.Slices;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +94,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isCoordinatorOnlyDistribution;
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtils.fromListMultimap;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -390,9 +396,57 @@ public class PlannerUtils
         else if (planNode instanceof ProjectNode) {
             return cloneProjectNode((ProjectNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap, planNodeIdAllocator);
         }
+        else if (planNode instanceof UnionNode) {
+            return cloneUnionNode((UnionNode) planNode, session, metadata, planNodeIdAllocator, fieldsToKeep, varMap);
+        }
 
         checkState(false, "Currently cannot clone: " + planNode.getClass().getName() + " nodes.");
         return null;
+    }
+
+    private static PlanNode cloneUnionNode(UnionNode unionNode, Session session, Metadata metadata, PlanNodeIdAllocator idAllocator, List<VariableReferenceExpression> fieldsToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap)
+    {
+        int numSources = unionNode.getSources().size();
+        List<PlanNode> clonedSources = new ArrayList<>();
+        List<Map<VariableReferenceExpression, VariableReferenceExpression>> legVarMaps = new ArrayList<>();
+
+        for (int i = 0; i < numSources; i++) {
+            Map<VariableReferenceExpression, VariableReferenceExpression> sourceMap = unionNode.sourceVariableMap(i);
+            Map<VariableReferenceExpression, VariableReferenceExpression> legVarMap = new HashMap<>();
+
+            List<VariableReferenceExpression> legFieldsToKeep = fieldsToKeep.stream()
+                    .map(sourceMap::get)
+                    .filter(v -> v != null)
+                    .collect(toImmutableList());
+
+            PlanNode clonedLeg = clonePlanNode(unionNode.getSources().get(i), session, metadata, idAllocator, legFieldsToKeep, legVarMap);
+            clonedSources.add(clonedLeg);
+            legVarMaps.add(legVarMap);
+        }
+
+        ImmutableListMultimap.Builder<VariableReferenceExpression, VariableReferenceExpression> newOutputToInputs = ImmutableListMultimap.builder();
+        ImmutableList.Builder<VariableReferenceExpression> newOutputVars = ImmutableList.builder();
+
+        for (VariableReferenceExpression outputVar : unionNode.getOutputVariables()) {
+            VariableReferenceExpression newOutputVar = varMap.getOrDefault(outputVar, outputVar);
+            varMap.putIfAbsent(outputVar, newOutputVar);
+            newOutputVars.add(newOutputVar);
+
+            List<VariableReferenceExpression> originalInputs = unionNode.getVariableMapping().get(outputVar);
+            for (int i = 0; i < numSources; i++) {
+                VariableReferenceExpression originalInput = originalInputs.get(i);
+                VariableReferenceExpression clonedInput = legVarMaps.get(i).getOrDefault(originalInput, originalInput);
+                newOutputToInputs.put(newOutputVar, clonedInput);
+            }
+        }
+
+        ListMultimap<VariableReferenceExpression, VariableReferenceExpression> multimap = newOutputToInputs.build();
+        return new UnionNode(
+                unionNode.getSourceLocation(),
+                idAllocator.getNextId(),
+                clonedSources,
+                newOutputVars.build(),
+                fromListMultimap(multimap));
     }
 
     public static String getPlanString(PlanNode planNode, Session session, TypeProvider types, Metadata metadata, boolean isVerboseOptimizerInfoEnabled)
@@ -529,6 +583,19 @@ public class PlannerUtils
     }
 
     /**
+     * Like {@link #isScanFilterProject(PlanNode)}, but additionally accepts a {@link UnionNode}
+     * whose every source is itself a scan/filter/project subtree. Use this from optimizers that
+     * specifically support cloning UNION ALL probe sides (e.g. JoinPrefilter's complex-probe-side
+     * mode). Other callers should keep using {@link #isScanFilterProject} so they don't silently
+     * gain UNION ALL handling without being audited.
+     */
+    public static boolean isScanFilterProjectOrUnion(PlanNode node)
+    {
+        return isScanFilterProject(node) ||
+                node instanceof UnionNode && ((UnionNode) node).getSources().stream().allMatch(PlannerUtils::isScanFilterProjectOrUnion);
+    }
+
+    /**
      * Returns true if the scan-filter-project plan subtree contains only deterministic
      * expressions in all filters and projections. This check is critical for optimizations
      * that clone the subtree (e.g., JoinPrefilter), because cloning a subtree with
@@ -538,10 +605,22 @@ public class PlannerUtils
     public static boolean isDeterministicScanFilterProject(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
     {
         DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-        return isDeterministicPlanSubtree(node, determinismEvaluator);
+        return isDeterministicPlanSubtree(node, determinismEvaluator, false);
     }
 
-    private static boolean isDeterministicPlanSubtree(PlanNode node, DeterminismEvaluator determinismEvaluator)
+    /**
+     * Like {@link #isDeterministicScanFilterProject}, but additionally accepts a UnionNode
+     * whose every source is itself a deterministic scan/filter/project (or another such Union)
+     * subtree. Pair with {@link #isScanFilterProjectOrUnion} when the caller specifically
+     * supports cloning UNION ALL probe sides.
+     */
+    public static boolean isDeterministicScanFilterProjectOrUnion(PlanNode node, FunctionAndTypeManager functionAndTypeManager)
+    {
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+        return isDeterministicPlanSubtree(node, determinismEvaluator, true);
+    }
+
+    private static boolean isDeterministicPlanSubtree(PlanNode node, DeterminismEvaluator determinismEvaluator, boolean allowUnion)
     {
         if (node instanceof TableScanNode) {
             return true;
@@ -549,12 +628,16 @@ public class PlannerUtils
         else if (node instanceof FilterNode) {
             FilterNode filterNode = (FilterNode) node;
             return determinismEvaluator.isDeterministic(filterNode.getPredicate())
-                    && isDeterministicPlanSubtree(filterNode.getSource(), determinismEvaluator);
+                    && isDeterministicPlanSubtree(filterNode.getSource(), determinismEvaluator, allowUnion);
         }
         else if (node instanceof ProjectNode) {
             ProjectNode projectNode = (ProjectNode) node;
             return projectNode.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)
-                    && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator);
+                    && isDeterministicPlanSubtree(projectNode.getSource(), determinismEvaluator, allowUnion);
+        }
+        else if (allowUnion && node instanceof UnionNode) {
+            return ((UnionNode) node).getSources().stream()
+                    .allMatch(source -> isDeterministicPlanSubtree(source, determinismEvaluator, allowUnion));
         }
         return false;
     }

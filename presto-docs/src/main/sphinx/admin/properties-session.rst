@@ -731,6 +731,20 @@ concurrency.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
+``join_prefilter_build_side_with_complex_probe_side``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Extends the ``join_prefilter_build_side`` optimization to clone more complex probe-side
+patterns (``UNION ALL``, cross join, ``UNNEST``, aggregation) when building the prefilter,
+and to push the prefilter ``SemiJoin`` below right-side aggregations so the build side is
+filtered before grouping. Only takes effect when ``join_prefilter_build_side`` is also
+enabled. Disabled by default because cloning additional probe-side work adds planning
+and runtime overhead, which only pays off when the build side is large enough to dominate
+the join cost.
+
 
 JDBC Properties
 ---------------
