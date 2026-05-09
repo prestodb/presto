@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+#include "velox/connectors/hive/FileConfig.h"
 #include "velox/core/QueryConfig.h"
 
 using namespace facebook::presto;
@@ -78,7 +79,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       {SessionProperties::kDebugMemoryPoolWarnThresholdBytes,
        core::QueryConfig::kDebugMemoryPoolWarnThresholdBytes},
       {SessionProperties::kSelectiveNimbleReaderEnabled,
-       core::QueryConfig::kSelectiveNimbleReaderEnabled},
+       connector::hive::FileConfig::kSelectiveNimbleReaderEnabledSession},
       {SessionProperties::kQueryTraceEnabled,
        core::QueryConfig::kQueryTraceEnabled},
       {SessionProperties::kQueryTraceDir, core::QueryConfig::kQueryTraceDir},
