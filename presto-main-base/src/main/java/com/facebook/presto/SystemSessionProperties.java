@@ -177,6 +177,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
+    public static final String PUSH_AGGREGATION_THROUGH_DISJOINT_UNION = "push_aggregation_through_disjoint_union";
     public static final String SIMPLIFY_COALESCE_OVER_JOIN_KEYS = "simplify_coalesce_over_join_keys";
     public static final String PUSHDOWN_THROUGH_UNNEST = "pushdown_through_unnest";
     public static final String SIMPLIFY_AGGREGATIONS_OVER_CONSTANT = "simplify_aggregations_over_constant";
@@ -958,6 +959,11 @@ public final class SystemSessionProperties
                         PUSH_SEMI_JOIN_THROUGH_UNION,
                         "Allow pushing semi joins through union",
                         featuresConfig.isPushSemiJoinThroughUnion(),
+                        false),
+                booleanProperty(
+                        PUSH_AGGREGATION_THROUGH_DISJOINT_UNION,
+                        "Push aggregation completely below UNION ALL when at least one grouping key has constant values that are disjoint across union branches, eliminating the final aggregation",
+                        featuresConfig.isPushAggregationThroughDisjointUnion(),
                         false),
                 booleanProperty(
                         SIMPLIFY_COALESCE_OVER_JOIN_KEYS,
@@ -2767,6 +2773,11 @@ public final class SystemSessionProperties
     public static boolean isPushSemiJoinThroughUnion(Session session)
     {
         return session.getSystemProperty(PUSH_SEMI_JOIN_THROUGH_UNION, Boolean.class);
+    }
+
+    public static boolean isPushAggregationThroughDisjointUnion(Session session)
+    {
+        return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_DISJOINT_UNION, Boolean.class);
     }
 
     public static boolean isSimplifyCoalesceOverJoinKeys(Session session)

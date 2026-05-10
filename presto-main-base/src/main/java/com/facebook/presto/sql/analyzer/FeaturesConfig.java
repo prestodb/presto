@@ -159,6 +159,7 @@ public class FeaturesConfig
     private boolean pushAggregationThroughJoin = true;
     private boolean pushPartialAggregationThroughJoin;
     private boolean pushSemiJoinThroughUnion;
+    private boolean pushAggregationThroughDisjointUnion;
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
@@ -1728,6 +1729,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushSemiJoinThroughUnion(boolean pushSemiJoinThroughUnion)
     {
         this.pushSemiJoinThroughUnion = pushSemiJoinThroughUnion;
+        return this;
+    }
+
+    public boolean isPushAggregationThroughDisjointUnion()
+    {
+        return pushAggregationThroughDisjointUnion;
+    }
+
+    @Config("optimizer.push-aggregation-through-disjoint-union")
+    @ConfigDescription("Push aggregation completely below UNION ALL when at least one grouping key has constant values that are disjoint across union branches, eliminating the final aggregation")
+    public FeaturesConfig setPushAggregationThroughDisjointUnion(boolean pushAggregationThroughDisjointUnion)
+    {
+        this.pushAggregationThroughDisjointUnion = pushAggregationThroughDisjointUnion;
         return this;
     }
 

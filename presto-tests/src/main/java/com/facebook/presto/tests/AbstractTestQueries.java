@@ -77,6 +77,7 @@ import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_
 import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_DISJOINT_UNION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
@@ -1546,6 +1547,47 @@ public abstract class AbstractTestQueries
                 "SELECT n.nationkey * 2, n.nationkey + r.regionkey, r.name FROM nation n CROSS JOIN region r",
                 // Multiple expressions per side
                 "SELECT n.nationkey * 2, length(n.name), r.regionkey * 10, length(r.name) FROM nation n CROSS JOIN region r",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
+    public void testPushAggregationThroughDisjointUnion()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_DISJOINT_UNION, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_DISJOINT_UNION, "false")
+                .build();
+
+        String[] queries = {
+                // Two-branch disjoint constants on the grouping key
+                "SELECT count(*), x FROM (SELECT 1 x UNION ALL SELECT 2 x) t GROUP BY x ORDER BY x",
+                // Three branches, multiple aggregates
+                "SELECT count(*), sum(v), x FROM (SELECT 1 x, 10 v UNION ALL SELECT 2 x, 20 v UNION ALL SELECT 3 x, 30 v) t GROUP BY x ORDER BY x",
+                // Per-branch aggregation over rows from a real source, with disjoint constant region tag
+                "SELECT region, count(*), sum(nationkey) FROM (" +
+                        "SELECT nationkey, 'us' AS region FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 'eu' AS region FROM nation WHERE regionkey = 3 " +
+                        "UNION ALL SELECT nationkey, 'asia' AS region FROM nation WHERE regionkey = 2) t " +
+                        "GROUP BY region ORDER BY region",
+                // DISTINCT and FILTER aggregation modifiers must remain correct after pushdown
+                "SELECT region, count(DISTINCT nationkey), sum(nationkey) FILTER (WHERE nationkey > 5) FROM (" +
+                        "SELECT nationkey, 'us' AS region FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 'eu' AS region FROM nation WHERE regionkey = 3) t " +
+                        "GROUP BY region ORDER BY region",
+                // Negative case: overlapping constants — the rule must not fire and results must still match
+                "SELECT count(*), x FROM (SELECT 1 x UNION ALL SELECT 1 x) t GROUP BY x",
+                // Negative case: one branch has a non-constant key
+                "SELECT count(*), x FROM (SELECT 1 x UNION ALL SELECT nationkey AS x FROM nation) t GROUP BY x ORDER BY x",
+                // Global aggregation must not be pushed (no GROUP BY)
+                "SELECT count(*), sum(x) FROM (SELECT 1 x UNION ALL SELECT 2 x) t",
+                // Multiple grouping keys, one disjoint
+                "SELECT count(*), x, y FROM (SELECT 1 x, nationkey y FROM nation UNION ALL SELECT 2 x, nationkey y FROM nation) t GROUP BY x, y ORDER BY x, y",
         };
 
         for (String query : queries) {
