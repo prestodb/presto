@@ -302,7 +302,7 @@ public class FeaturesConfig
     private boolean pullUpExpressionFromLambda;
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
-    private boolean rewriteRowConstructorInToDisjunction;
+    private boolean optimizeRowInPredicate;
     private boolean optimizeConditionalApproxDistinct = true;
 
     private boolean preProcessMetadataCalls;
@@ -3189,16 +3189,16 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isRewriteRowConstructorInToDisjunction()
+    public boolean isOptimizeRowInPredicate()
     {
-        return this.rewriteRowConstructorInToDisjunction;
+        return this.optimizeRowInPredicate;
     }
 
-    @Config("optimizer.rewrite-row-constructor-in-to-disjunction")
-    @ConfigDescription("Rewrite ROW(...) IN (ROW(...), ...) into OR of ANDs for partition pruning")
-    public FeaturesConfig setRewriteRowConstructorInToDisjunction(boolean rewriteRowConstructorInToDisjunction)
+    @Config("optimizer.optimize-row-in-predicate")
+    @ConfigDescription("Optimize ROW(...) IN/NOT IN (ROW(...), ...) by adding per-column IN/NOT IN predicates to help the domain translator extract constraints")
+    public FeaturesConfig setOptimizeRowInPredicate(boolean optimizeRowInPredicate)
     {
-        this.rewriteRowConstructorInToDisjunction = rewriteRowConstructorInToDisjunction;
+        this.optimizeRowInPredicate = optimizeRowInPredicate;
         return this;
     }
 

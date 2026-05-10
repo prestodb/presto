@@ -72,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRA
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
@@ -8605,5 +8606,72 @@ public abstract class AbstractTestQueries
         assertQueryWithSameQueryRunner(enabledSession,
                 "SELECT max_by(totalprice, orderkey) FROM orders",
                 disabledSession);
+    }
+
+    @Test
+    public void testOptimizeRowInPredicate()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "false")
+                .build();
+
+        // Multi-column ROW IN
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE (orderstatus, custkey) IN (('O', 370), ('F', 781), ('P', 1234))",
+                disabled);
+
+        // ROW IN as part of a larger AND conjunction — rewriter must walk into the AND
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE (orderstatus, custkey) IN (('O', 370), ('F', 781)) AND totalprice > 1000",
+                disabled);
+
+        // Single-row candidate (degenerate but legal)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE (orderstatus, custkey) IN (('O', 370))",
+                disabled);
+
+        // Three columns
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE (orderstatus, custkey, orderpriority) IN (('O', 370, '5-LOW'), ('F', 781, '1-URGENT'))",
+                disabled);
+
+        // Partition-key-shaped on lineitem (returnflag + linestatus is the canonical TPCH "partition" demo)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM lineitem WHERE (returnflag, linestatus) IN (('A', 'F'), ('N', 'O'), ('R', 'F'))",
+                disabled);
+
+        // Two-column with extra filter on a non-key column
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderkey FROM orders WHERE (orderstatus, custkey) IN (('O', 370), ('F', 781)) AND totalprice > 100000 ORDER BY orderkey LIMIT 10",
+                disabled);
+    }
+
+    @Test
+    public void testOptimizeRowNotInPredicate()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "false")
+                .build();
+
+        // Multi-column ROW NOT IN — restrict to a small partition first to bound the result
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE orderstatus = 'O' AND (orderstatus, custkey) NOT IN (('O', 370), ('F', 781), ('P', 1234))",
+                disabled);
+
+        // ROW NOT IN with AND
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM orders WHERE orderstatus = 'O' AND (orderstatus, custkey) NOT IN (('O', 370), ('F', 781)) AND totalprice > 1000",
+                disabled);
+
+        // Partition-key-shaped NOT IN on lineitem
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT count(*) FROM lineitem WHERE (returnflag, linestatus) NOT IN (('N', 'O'))",
+                disabled);
     }
 }
