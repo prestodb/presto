@@ -1054,6 +1054,14 @@ public class PlanOptimizers
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
             builder.add(new CteProjectionAndPredicatePushDown(metadata, expressionOptimizerManager)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
+            // Run a final empty-input cleanup before AddExchanges so empty subtrees produced by the
+            // intermediate optimizers above (predicate pushdown, join elimination, CTE rewrite, etc.)
+            // are pruned before exchanges wrap them. Running this *before* AddExchanges keeps the
+            // optimizer free of any Exchange-shaped pruning concerns that would otherwise interact
+            // poorly with write-side subtrees (TableWriter / TableFinish rely on the Exchange chain
+            // beneath them being preserved even when the source is statically empty, e.g.
+            // CREATE TABLE ... AS SELECT ... WITH NO DATA).
+            builder.add(new SimplifyPlanWithEmptyInput());
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchangesForSingleNodeExecution(metadata)));
         }
@@ -1156,9 +1164,6 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())));
-
-        // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
-        builder.add(new SimplifyPlanWithEmptyInput());
 
         builder.add(
                 new IterativeOptimizer(
