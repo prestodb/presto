@@ -375,8 +375,11 @@ public class TestDynamicFilterService
                 ImmutableMap.of(filterId, buildVar));
 
         // Before: filter cannot complete (expectedPartitions = MAX_VALUE)
-        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
-                ImmutableMap.of(filterId, com.facebook.presto.common.predicate.Domain.singleValue(BIGINT, 1L))));
+        filter.addPartitionByFilterId(
+                com.facebook.presto.execution.TaskId.valueOf("query.0.0.0.0"),
+                TupleDomain.withColumnDomains(
+                        ImmutableMap.of(filterId, com.facebook.presto.common.predicate.Domain.singleValue(BIGINT, 1L))),
+                true);
         assertFalse(filter.isComplete(), "Filter should not complete before setExpectedPartitions is called");
 
         // Act: setExpectedPartitionsForFilters should process the JoinNode

@@ -21,15 +21,18 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.connector.DynamicFilter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +59,13 @@ import static java.util.Objects.requireNonNull;
  *
  * <p>Constraints are stored keyed by filter ID and translated to column names
  * at the boundary via {@link #getCurrentConstraintByColumnName()}.
+ *
+ * <p>Completion is gated on per-task <i>finalization</i>, not on contribution
+ * count. A build-side task may emit multiple non-final contributions while the
+ * hash table is still being constructed (Velox's progressive narrowing); only
+ * the latest contribution per task is retained, and the merge is finalized
+ * once {@link #expectedPartitions} distinct tasks have reported a final
+ * contribution.
  */
 @ThreadSafe
 public class JoinDynamicFilter
@@ -69,7 +79,9 @@ public class JoinDynamicFilter
     private final boolean extendedMetrics;
 
     @GuardedBy("this")
-    private final List<TupleDomain<String>> partitionsByFilterId;
+    private final Map<TaskId, TupleDomain<String>> latestByTask = new HashMap<>();
+    @GuardedBy("this")
+    private final Set<TaskId> finalizedTasks = new HashSet<>();
     private final CompletableFuture<TupleDomain<String>> constraintByFilterIdFuture;
 
     private final AtomicBoolean timeoutStarted = new AtomicBoolean(false);
@@ -110,7 +122,6 @@ public class JoinDynamicFilter
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.extendedMetrics = extendedMetrics;
 
-        this.partitionsByFilterId = new ArrayList<>();
         this.constraintByFilterIdFuture = new CompletableFuture<>();
     }
 
@@ -127,13 +138,7 @@ public class JoinDynamicFilter
         if (!filterId.isEmpty()) {
             runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_EXPECTED_PARTITIONS, filterId), NONE, expectedPartitions);
         }
-        if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
-            mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
-            maybeShortCircuit();
-            fullyResolved = true;
-            constraintByFilterIdFuture.complete(mergedConstraint);
-            recordCollectionCompleted();
-        }
+        tryCompleteResolution();
     }
 
     /**
@@ -182,28 +187,66 @@ public class JoinDynamicFilter
         return fullyResolved;
     }
 
-    public synchronized void addPartitionByFilterId(TupleDomain<String> tupleDomain)
+    /**
+     * Records a contribution from {@code sourceTaskId}. Replaces any prior
+     * contribution from the same task (progressive narrowing emits multiple
+     * intermediate domains during the build). When {@code isFinal} is true
+     * the task is added to {@link #finalizedTasks} and the merge may complete.
+     */
+    public synchronized void addPartitionByFilterId(TaskId sourceTaskId, TupleDomain<String> tupleDomain, boolean isFinal)
     {
+        requireNonNull(sourceTaskId, "sourceTaskId is null");
         requireNonNull(tupleDomain, "tupleDomain is null");
         if (!collectionStarted) {
             collectionStartNanos = System.nanoTime();
             collectionStarted = true;
         }
 
-        // Accept partitions even after future completion for getCurrentConstraintByColumnName()
-        partitionsByFilterId.add(tupleDomain);
+        // Replace, don't append: progressive-narrowing partials from the same
+        // task supersede each other. The final emission is the source of truth.
+        latestByTask.put(sourceTaskId, tupleDomain);
+        if (isFinal) {
+            finalizedTasks.add(sourceTaskId);
+        }
+
         runtimeStats.addMetricValue(DYNAMIC_FILTER_PARTITIONS_RECEIVED, NONE, 1);
         if (!filterId.isEmpty()) {
             runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_RECEIVED, filterId), NONE, 1);
         }
 
-        if (!constraintByFilterIdFuture.isDone() && partitionsByFilterId.size() >= expectedPartitions) {
-            mergedConstraint = collapseIfOversized(TupleDomain.columnWiseUnion(partitionsByFilterId));
-            maybeShortCircuit();
-            fullyResolved = true;
-            constraintByFilterIdFuture.complete(mergedConstraint);
-            recordCollectionCompleted();
+        tryCompleteResolution();
+    }
+
+    /**
+     * Marks {@code sourceTaskId} as finalized without changing its latest
+     * contribution. Used when a fetcher response declares a filter id complete
+     * via {@code completedFilterIds} after the domain was already delivered as
+     * a partial contribution. If the task has never sent a contribution this
+     * is a no-op; callers must instead deliver {@code TupleDomain.none()} with
+     * {@code isFinal=true} via {@link #addPartitionByFilterId} for the empty-build
+     * case.
+     */
+    public synchronized void markFinalForTask(TaskId sourceTaskId)
+    {
+        requireNonNull(sourceTaskId, "sourceTaskId is null");
+        if (latestByTask.containsKey(sourceTaskId) && finalizedTasks.add(sourceTaskId)) {
+            tryCompleteResolution();
         }
+    }
+
+    @GuardedBy("this")
+    private void tryCompleteResolution()
+    {
+        if (constraintByFilterIdFuture.isDone() || finalizedTasks.size() < expectedPartitions) {
+            return;
+        }
+
+        TupleDomain<String> union = TupleDomain.columnWiseUnion(ImmutableList.copyOf(latestByTask.values()));
+        mergedConstraint = collapseIfOversized(union);
+        maybeShortCircuit();
+        fullyResolved = true;
+        constraintByFilterIdFuture.complete(mergedConstraint);
+        recordCollectionCompleted();
     }
 
     private TupleDomain<String> collapseIfOversized(TupleDomain<String> tupleDomain)
@@ -372,7 +415,7 @@ public class JoinDynamicFilter
 
     public synchronized boolean hasData()
     {
-        return !partitionsByFilterId.isEmpty();
+        return !latestByTask.isEmpty();
     }
 
     public static DynamicFilter createDisabled()
@@ -381,14 +424,15 @@ public class JoinDynamicFilter
     }
 
     @Override
-    public String toString()
+    public synchronized String toString()
     {
         return toStringHelper(this)
                 .add("filterId", filterId)
                 .add("columnName", columnName)
                 .add("waitTimeout", waitTimeout)
                 .add("expectedPartitions", expectedPartitions)
-                .add("receivedPartitions", partitionsByFilterId.size())
+                .add("contributingTasks", latestByTask.size())
+                .add("finalizedTasks", finalizedTasks.size())
                 .add("complete", fullyResolved)
                 .toString();
     }

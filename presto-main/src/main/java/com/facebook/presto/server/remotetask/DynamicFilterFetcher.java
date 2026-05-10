@@ -215,28 +215,41 @@ public class DynamicFilterFetcher
             }
         }
 
+        Set<String> completedThisResponse = response.getCompletedFilterIds();
+
         if (!filters.isEmpty()) {
             dynamicFilterStats.getFiltersCollected().update(filters.size());
 
             for (Map.Entry<String, TupleDomain<String>> entry : filters.entrySet()) {
                 String filterId = entry.getKey();
                 TupleDomain<String> filterDomain = entry.getValue();
+                boolean isFinal = completedThisResponse.contains(filterId);
                 resolveFilter(filterId)
-                        .ifPresent(f -> f.addPartitionByFilterId(filterDomain));
+                        .ifPresent(f -> f.addPartitionByFilterId(taskId, filterDomain, isFinal));
                 deliveredFilterIds.add(filterId);
             }
 
             sendDeleteRequest(responseVersion);
         }
 
-        for (String filterId : response.getCompletedFilterIds()) {
+        for (String filterId : completedThisResponse) {
             if (!deliveredFilterIds.contains(filterId)) {
                 if (extendedMetrics) {
                     emitExtendedMetric(format("%s[%s][%s]", DYNAMIC_FILTER_COMPLETED_ID_DELIVERED, filterId, taskSuffix), 1);
                 }
+                // Filter declared complete with no domain ever sent — the build was empty.
+                // Send none() with isFinal=true so the coordinator records a finalized
+                // contribution from this task.
                 resolveFilter(filterId)
-                        .ifPresent(f -> f.addPartitionByFilterId(TupleDomain.none()));
+                        .ifPresent(f -> f.addPartitionByFilterId(taskId, TupleDomain.none(), true));
                 deliveredFilterIds.add(filterId);
+            }
+            else if (!filters.containsKey(filterId)) {
+                // Filter id was previously delivered as a partial contribution and
+                // is not in this response's filter map. Mark the task finalized
+                // without re-sending the domain — the prior partial was the final.
+                resolveFilter(filterId)
+                        .ifPresent(f -> f.markFinalForTask(taskId));
             }
         }
 

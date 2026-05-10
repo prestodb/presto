@@ -412,6 +412,151 @@ public class TestDynamicFilterFetcher
      * integer value. If the Block round-trips with getValue() == null, the
      * coordinator crashes with NPE in JoinDynamicFilter.addPartitionByFilterId.
      */
+    @Test(timeOut = 30000)
+    public void testFilterWithDataAndCompletedIdMarksAsFinal()
+            throws Exception
+    {
+        // A response that carries the filter id in BOTH `filters` and
+        // `completedFilterIds` should mark the contribution as final.
+        // expectedPartitions=1 + isFinal=true should resolve the filter.
+        String filterId = "f1";
+        QueryId queryId = new QueryId("test");
+
+        DynamicFilterService dynamicFilterService = new DynamicFilterService();
+        JoinDynamicFilter joinFilter = new JoinDynamicFilter(
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+        joinFilter.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
+
+        TupleDomain<String> filterDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(filterId, Domain.singleValue(BIGINT, 42L)));
+        DynamicFilterResponse response = DynamicFilterResponse.completed(
+                ImmutableMap.of(filterId, filterDomain),
+                1L,
+                ImmutableSet.of(filterId));
+
+        AtomicInteger fetchCount = new AtomicInteger();
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            if ("DELETE".equals(request.getMethod())) {
+                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+            fetchCount.incrementAndGet();
+            return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(response));
+        });
+
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher.start();
+
+        poll(() -> fetchCount.get() >= 1);
+        Thread.sleep(500);
+
+        assertTrue(joinFilter.isComplete(),
+                "Filter should complete when delivered with isFinal=true");
+        TupleDomain<String> constraint = joinFilter.getCurrentConstraintByColumnName();
+        assertFalse(constraint.isAll(), "Constraint should reflect the delivered domain");
+    }
+
+    @Test(timeOut = 30000)
+    public void testPartialThenCompletedIdMarksAsFinal()
+            throws Exception
+    {
+        // First response: filter id appears in `filters` only (partial).
+        // Second response: filter id appears in `completedFilterIds` only (final).
+        // The fetcher must call markFinalForTask for the second case so the
+        // filter completes using the partial domain as the final.
+        String filterId = "f1";
+        QueryId queryId = new QueryId("test");
+
+        DynamicFilterService dynamicFilterService = new DynamicFilterService();
+        JoinDynamicFilter joinFilter = new JoinDynamicFilter(
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+        joinFilter.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
+
+        TupleDomain<String> partialDomain = TupleDomain.withColumnDomains(
+                ImmutableMap.of(filterId, Domain.singleValue(BIGINT, 42L)));
+        DynamicFilterResponse partialResponse = DynamicFilterResponse.incomplete(
+                ImmutableMap.of(filterId, partialDomain),
+                1L);
+        DynamicFilterResponse completionResponse = DynamicFilterResponse.completed(
+                ImmutableMap.of(),
+                2L,
+                ImmutableSet.of(filterId));
+
+        AtomicInteger fetchCount = new AtomicInteger();
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            if ("DELETE".equals(request.getMethod())) {
+                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+            int count = fetchCount.incrementAndGet();
+            if (count == 1) {
+                return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(partialResponse));
+            }
+            return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(completionResponse));
+        });
+
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher.start();
+
+        poll(() -> fetchCount.get() >= 2);
+        Thread.sleep(500);
+
+        assertTrue(joinFilter.isComplete(),
+                "Filter should complete after the second response marks the prior partial as final");
+        TupleDomain<String> constraint = joinFilter.getCurrentConstraintByColumnName();
+        assertFalse(constraint.isAll(),
+                "Final constraint should be the prior partial domain, not all()");
+        assertEquals(constraint,
+                TupleDomain.withColumnDomains(ImmutableMap.of("col1", Domain.singleValue(BIGINT, 42L))),
+                "Final constraint should be the partial domain delivered earlier");
+    }
+
+    @Test(timeOut = 30000)
+    public void testEmptyBuildPathDeliversNoneAsFinal()
+            throws Exception
+    {
+        // The empty-build path: filter id appears in `completedFilterIds` only
+        // and was never previously delivered. The fetcher must deliver
+        // TupleDomain.none() with isFinal=true so the coordinator records a
+        // finalized contribution from this task.
+        String filterId = "f1";
+        QueryId queryId = new QueryId("test");
+
+        DynamicFilterService dynamicFilterService = new DynamicFilterService();
+        JoinDynamicFilter joinFilter = new JoinDynamicFilter(
+                filterId, "col1", new Duration(10, SECONDS), DEFAULT_MAX_SIZE_BYTES, new DynamicFilterStats(), new RuntimeStats(), false);
+        joinFilter.setExpectedPartitions(1);
+        dynamicFilterService.registerFilter(queryId, filterId, joinFilter);
+
+        DynamicFilterResponse response = DynamicFilterResponse.completed(
+                ImmutableMap.of(),
+                1L,
+                ImmutableSet.of(filterId));
+
+        AtomicInteger fetchCount = new AtomicInteger();
+        TestingHttpClient httpClient = new TestingHttpClient(request -> {
+            if ("DELETE".equals(request.getMethod())) {
+                return new TestingResponse(OK, ImmutableListMultimap.of(), new byte[0]);
+            }
+            fetchCount.incrementAndGet();
+            return new TestingResponse(OK, contentType(JSON_UTF_8), codec.toJsonBytes(response));
+        });
+
+        fetcher = createFetcher(httpClient, new Duration(30, SECONDS), dynamicFilterService);
+        fetcher.start();
+
+        poll(() -> fetchCount.get() >= 1);
+        Thread.sleep(500);
+
+        assertTrue(joinFilter.hasData(),
+                "Empty-build path must record a contribution (none())");
+        assertTrue(joinFilter.isComplete(),
+                "Empty-build delivery is final and must complete the filter");
+        TupleDomain<String> constraint = joinFilter.getCurrentConstraintByColumnName();
+        assertTrue(constraint.isNone(),
+                "Empty-build contribution should produce a none() constraint");
+    }
+
     @Test
     public void testRangeFilterRoundTrip()
             throws Exception

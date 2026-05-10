@@ -1631,6 +1631,16 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertFilterResolvesWithinTimeout(cbStats, "Cost-based");
     }
 
+    /**
+     * Range-fallback filters complete normally once every expected build task has
+     * reported a finalized contribution. The merged constraint is then collapsed
+     * to a single [min, max] range to keep its serialized footprint under
+     * {@code distributed_dynamic_filter_max_size}. With per-task finalization
+     * gating in {@link com.facebook.presto.execution.scheduler.JoinDynamicFilter}
+     * the partial-range over-pruning that produced the TPC-DS Q21 wrong-results
+     * is no longer possible: only finalized contributions count toward completion,
+     * and the merge runs over each task's latest emission.
+     */
     @Test(invocationCount = 10)
     public void testSizeBasedFallbackToRange()
     {
@@ -1640,7 +1650,8 @@ public abstract class AbstractTestDynamicPartitionPruning
                 "WHERE c.region = 'WEST' " +
                 "ORDER BY f.order_id";
 
-        // Run with a tiny max-size to force the coordinator to collapse discrete values to range.
+        // 1B max-size forces the merged constraint to exceed the size budget on any
+        // non-trivial domain, exercising the collapse-to-range completion path.
         Session tinyMaxSizeSession = Session.builder(getSession())
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
                 .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "5s")
@@ -1656,10 +1667,10 @@ public abstract class AbstractTestDynamicPartitionPruning
         ResultWithQueryId<MaterializedResult> noDppResult = execute(dppDisabledSession(), query);
 
         assertEquals(tinyResult.getResult().getRowCount(), 300,
-                "Collapsed-range DPP should still return all 300 WEST rows");
+                "Range-collapsed DPP must still return all 300 WEST rows");
         assertEquals(tinyResult.getResult().getMaterializedRows(),
                 noDppResult.getResult().getMaterializedRows(),
-                "Collapsed-range DPP must produce identical results to no-DPP");
+                "Range-collapsed DPP must produce identical results to no-DPP");
 
         RuntimeStats tinyStats = getRuntimeStats(tinyResult);
         assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE) > 0,
@@ -1669,17 +1680,19 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertNotNull(filterInfo, "Should resolve a dynamic filter from the plan");
         String perFilterKey = format(DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE_TEMPLATE, filterInfo.filterId);
         assertTrue(getMetricValue(tinyStats, perFilterKey) > 0,
-                format("Per-filter fallback metric %s should be emitted", perFilterKey));
+                format("Per-filter fallback-to-range metric %s should be emitted", perFilterKey));
 
+        // The filter completes via finalized contributions, so it reaches the probe
+        // and gets pushed; collection time is non-zero and timeout did not fire.
         assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_PUSHED_INTO_SCAN) >= 1,
-                "Range-collapsed filter should still be pushed into Iceberg scan");
+                "Range-collapsed filter should still be pushed into the scan");
         assertTrue(getMetricValue(tinyStats, DYNAMIC_FILTER_COLLECTION_TIME_NANOS) > 0,
-                "Filter should have completed collection (not timed out)");
+                "Filter collection time should be recorded for the finalized merge");
 
         ResultWithQueryId<MaterializedResult> normalResult = execute(dppBlockingSession(), query);
         RuntimeStats normalStats = getRuntimeStats(normalResult);
         assertEquals(getMetricValue(normalStats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE), 0,
-                "With default (1MB) max-size, no fallback should occur for 3 integer values");
+                "With default (1MB) max-size, no fallback-to-range should occur for 3 integer values");
     }
 
     @Test(invocationCount = 10)
@@ -2162,6 +2175,39 @@ public abstract class AbstractTestDynamicPartitionPruning
         assertEquals(resultWithDpp.getResult().getMaterializedRows(),
                 resultNoDpp.getResult().getMaterializedRows(),
                 "High-cardinality: DPP and no-DPP results must match");
+    }
+
+    @Test(invocationCount = 10)
+    public void testQ21RangeFallbackHighNdvBroadcastReturnsAllMatchingRows()
+    {
+        Session q21Session = Session.builder(getSession())
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_WAIT_TIME, "10s")
+                .setSystemProperty(DISTRIBUTED_DYNAMIC_FILTER_MAX_SIZE, "1B")
+                .setSystemProperty("join_distribution_type", "BROADCAST")
+                .setSystemProperty("verbose_runtime_stats_enabled", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_extended_metrics", "true")
+                .setCatalogSessionProperty("iceberg", "dynamic_filter_warmup_enabled", "false")
+                .build();
+
+        String dppQuery =
+                "SELECT f.customer_id, f.order_id, f.amount " +
+                        "FROM fact_orders f " +
+                        "JOIN dim_high_cardinality d ON f.customer_id = d.customer_id " +
+                        "WHERE d.region = 'WEST' " +
+                        "ORDER BY f.order_id";
+
+        ResultWithQueryId<MaterializedResult> dpp = execute(q21Session, dppQuery);
+        ResultWithQueryId<MaterializedResult> noDpp = execute(dppDisabledSession(), dppQuery);
+
+        assertEquals(dpp.getResult().getRowCount(), 1000);
+        assertEquals(dpp.getResult().getMaterializedRows(), noDpp.getResult().getMaterializedRows());
+
+        // Push and collection-time metrics aren't asserted: with a 90K-NDV build and
+        // a 1000-row probe, the probe often finishes before the build, leaving no
+        // splits for the resolved filter to be pushed against.
+        RuntimeStats stats = getRuntimeStats(dpp);
+        assertTrue(getMetricValue(stats, DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE) > 0);
     }
 
     /**
