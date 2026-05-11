@@ -79,6 +79,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
@@ -141,6 +142,7 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
@@ -192,6 +194,7 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_EXPIRATION_
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES;
 import static org.apache.iceberg.LocationProviders.locationsFor;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
@@ -218,6 +221,7 @@ import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_FOLDER_STORAGE_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
+import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
@@ -241,6 +245,10 @@ public final class IcebergUtil
     protected static final String VIEW_OWNER = "view_owner";
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
+
+    private static final Schema LINEAGE_ONLY_SCHEMA = new Schema(LAST_UPDATED_SEQUENCE_NUMBER);
+    private static final InclusiveMetricsEvaluator MATCH_ALL_LINEAGE_EVALUATOR =
+            new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, alwaysTrue());
 
     private IcebergUtil() {}
 
@@ -645,9 +653,8 @@ public final class IcebergUtil
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
-    // Strip the constraints on metadata columns like "$path", "$data_sequence_number" from the list.
-    // Also strips row lineage columns (_row_id, _last_updated_sequence_number) which cannot be
-    // pushed to Iceberg's manifest filter because they are not part of the physical table schema.
+    // Row-lineage columns are stripped because Iceberg's Binder rejects field ids absent from
+    // the table schema; they are evaluated at the split level instead.
     public static <U> TupleDomain<IcebergColumnHandle> getNonMetadataColumnConstraints(TupleDomain<U> allConstraints)
     {
         return allConstraints.transform(c -> {
@@ -661,10 +668,21 @@ public final class IcebergUtil
 
     public static <U> TupleDomain<IcebergColumnHandle> getMetadataColumnConstraints(TupleDomain<U> allConstraints)
     {
-        return allConstraints.transform(c -> isMetadataColumnId(((IcebergColumnHandle) c).getId()) ? (IcebergColumnHandle) c : null);
+        return allConstraints.transform(c -> {
+            IcebergColumnHandle handle = (IcebergColumnHandle) c;
+            if (isMetadataColumnId(handle.getId()) || handle.isLastUpdatedSequenceNumberColumn()) {
+                return handle;
+            }
+            return null;
+        });
     }
 
-    public static boolean metadataColumnsMatchPredicates(TupleDomain<IcebergColumnHandle> constraints, String path, long dataSequenceNumber)
+    public static boolean metadataColumnsMatchPredicates(
+            TupleDomain<IcebergColumnHandle> constraints,
+            String path,
+            long dataSequenceNumber,
+            ContentFile<?> file,
+            InclusiveMetricsEvaluator lineageEvaluator)
     {
         if (constraints.isAll()) {
             return true;
@@ -673,16 +691,57 @@ public final class IcebergUtil
         boolean matches = true;
         if (constraints.getDomains().isPresent()) {
             for (Map.Entry<IcebergColumnHandle, Domain> constraint : constraints.getDomains().get().entrySet()) {
-                if (constraint.getKey() == PATH_COLUMN_HANDLE) {
-                    matches &= constraint.getValue().includesNullableValue(utf8Slice(path));
+                IcebergColumnHandle handle = constraint.getKey();
+                Domain domain = constraint.getValue();
+                if (handle == PATH_COLUMN_HANDLE) {
+                    matches &= domain.includesNullableValue(utf8Slice(path));
                 }
-                else if (constraint.getKey() == DATA_SEQUENCE_NUMBER_COLUMN_HANDLE) {
-                    matches &= constraint.getValue().includesNullableValue(dataSequenceNumber);
+                else if (handle == DATA_SEQUENCE_NUMBER_COLUMN_HANDLE) {
+                    matches &= domain.includesNullableValue(dataSequenceNumber);
+                }
+                else if (handle.isLastUpdatedSequenceNumberColumn()) {
+                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator);
                 }
             }
         }
 
         return matches;
+    }
+
+    // The fallback branches handle cases where InclusiveMetricsEvaluator would over-include:
+    // V2/no-row-lineage files (column always null) and V3 pre-compaction (effective value =
+    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader).
+    private static boolean lastUpdatedSequenceNumberMatches(
+            Domain domain,
+            long dataSequenceNumber,
+            ContentFile<?> file,
+            InclusiveMetricsEvaluator evaluator)
+    {
+        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+        Map<Integer, ByteBuffer> lowerBounds = file.lowerBounds();
+        Map<Integer, ByteBuffer> upperBounds = file.upperBounds();
+        if (lowerBounds != null && lowerBounds.containsKey(fieldId)
+                && upperBounds != null && upperBounds.containsKey(fieldId)) {
+            return evaluator.eval(file);
+        }
+        if (file instanceof DataFile && ((DataFile) file).firstRowId() == null) {
+            return domain.isNullAllowed();
+        }
+        return domain.includesNullableValue(dataSequenceNumber);
+    }
+
+    public static InclusiveMetricsEvaluator buildLastUpdatedSequenceNumberEvaluator(TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
+        if (metadataColumnConstraints.getDomains().isEmpty()) {
+            return MATCH_ALL_LINEAGE_EVALUATOR;
+        }
+        Domain domain = metadataColumnConstraints.getDomains().get().get(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE);
+        if (domain == null) {
+            return MATCH_ALL_LINEAGE_EVALUATOR;
+        }
+        Expression expression = toIcebergExpression(TupleDomain.withColumnDomains(
+                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)));
+        return new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, expression);
     }
 
     public static PartitionSet getPartitions(

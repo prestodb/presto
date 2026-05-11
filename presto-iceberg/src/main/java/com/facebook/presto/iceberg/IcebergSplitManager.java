@@ -114,15 +114,20 @@ public class IcebergSplitManager
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
-            TableScan tableScan = icebergTable.newScan()
+            // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
+            //      propagate it at split level so the parquet pushdown can leverage it.
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints = getMetadataColumnConstraints(layoutHandle.getValidPredicate());
+
+            TableScan baseScan = icebergTable.newScan()
                     .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .filter(toIcebergExpression(predicate))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
+            // Iceberg's planFiles() strips column stats unless includeColumnStats() is requested.
+            final TableScan tableScan = hasLastUpdatedSequenceNumberConstraint(metadataColumnConstraints)
+                    ? baseScan.includeColumnStats()
+                    : baseScan;
 
-            // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
-            //      propagate it at split level so the parquet pushdown can leverage it.
-            TupleDomain<IcebergColumnHandle> metadataColumnConstraints = getMetadataColumnConstraints(layoutHandle.getValidPredicate());
             return procedureContext
                     .flatMap(context -> context.customizeSplitSource(session, tableScan, metadataColumnConstraints))
                     .orElseGet(() -> new IcebergSplitSource(
@@ -130,6 +135,13 @@ public class IcebergSplitManager
                             tableScan,
                             metadataColumnConstraints));
         }
+    }
+
+    private static boolean hasLastUpdatedSequenceNumberConstraint(TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
+    {
+        return metadataColumnConstraints.getDomains()
+                .map(domains -> domains.keySet().stream().anyMatch(IcebergColumnHandle::isLastUpdatedSequenceNumberColumn))
+                .orElse(false);
     }
 
     @Managed

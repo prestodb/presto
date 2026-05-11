@@ -28,6 +28,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 
@@ -43,6 +44,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
+import static com.facebook.presto.iceberg.IcebergUtil.buildLastUpdatedSequenceNumberEvaluator;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getFirstRowId;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
@@ -68,6 +70,7 @@ public class IcebergSplitSource
     private final long affinitySchedulingFileSectionSize;
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
+    private final InclusiveMetricsEvaluator lineageEvaluator;
 
     public IcebergSplitSource(
             ConnectorSession session,
@@ -85,6 +88,7 @@ public class IcebergSplitSource
     {
         requireNonNull(session, "session is null");
         this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
+        this.lineageEvaluator = buildLastUpdatedSequenceNumberEvaluator(metadataColumnConstraints);
         this.targetSplitSize = targetSplitSize;
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
@@ -105,7 +109,12 @@ public class IcebergSplitSource
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
             IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
-            if (metadataColumnsMatchPredicates(metadataColumnConstraints, icebergSplit.getPath(), icebergSplit.getDataSequenceNumber())) {
+            if (metadataColumnsMatchPredicates(
+                    metadataColumnConstraints,
+                    icebergSplit.getPath(),
+                    icebergSplit.getDataSequenceNumber(),
+                    task.file(),
+                    lineageEvaluator)) {
                 splits.add(icebergSplit);
             }
         }
