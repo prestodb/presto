@@ -69,10 +69,10 @@ public class TestJoinDynamicFilter
         filter.setExpectedPartitions(2);
 
         // Add two finalized contributions from distinct tasks
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
-        filter.addPartitionByFilterId(TASK_1, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
 
         assertTrue(filter.isComplete());
 
@@ -121,20 +121,20 @@ public class TestJoinDynamicFilter
         assertFalse(filter.isComplete());
 
         // One partition finalized (partial w.r.t. expected) — should still return all()
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
         assertFalse(filter.isComplete());
 
         // Two partitions finalized (still partial) — should still return all()
-        filter.addPartitionByFilterId(TASK_1, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
         assertFalse(filter.isComplete());
 
         // All three partitions finalized — now returns actual constraint
-        filter.addPartitionByFilterId(TASK_2, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))));
         assertTrue(filter.isComplete());
         TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
         assertFalse(constraint.isAll(), "Fully resolved filter should return actual constraint, not all()");
@@ -160,8 +160,8 @@ public class TestJoinDynamicFilter
                 false);
         filter.setExpectedPartitions(2);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
         filter.startTimeout();
         Thread.sleep(300);
@@ -188,8 +188,8 @@ public class TestJoinDynamicFilter
                 false);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("", Domain.singleValue(INTEGER, 10L))));
 
         assertTrue(filter.isComplete());
 
@@ -244,8 +244,8 @@ public class TestJoinDynamicFilter
         CompletableFuture<?> blocked = filter.isBlocked();
         assertFalse(blocked.isDone());
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
         assertTrue(blocked.isDone());
 
         assertEquals(filter.isBlocked(), DynamicFilter.NOT_BLOCKED);
@@ -290,8 +290,8 @@ public class TestJoinDynamicFilter
                 true);
         filter.setExpectedPartitions(2);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
         filter.startTimeout();
         Thread.sleep(300);
@@ -327,8 +327,8 @@ public class TestJoinDynamicFilter
                 true);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
 
         assertTrue(filter.isComplete());
 
@@ -352,7 +352,7 @@ public class TestJoinDynamicFilter
                 true);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.none(), true);
+        filter.addPartitionByFilterId(TupleDomain.none());
 
         assertTrue(filter.isComplete());
 
@@ -395,8 +395,8 @@ public class TestJoinDynamicFilter
                 false);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
 
         assertTrue(filter.isComplete());
 
@@ -448,8 +448,8 @@ public class TestJoinDynamicFilter
         for (long i = 0; i < 100; i++) {
             values.add(i);
         }
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, values))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, values))));
 
         assertTrue(filter.isComplete());
 
@@ -476,8 +476,8 @@ public class TestJoinDynamicFilter
         filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L, 4L, 5L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L, 4L, 5L)))));
 
         assertTrue(filter.isComplete());
 
@@ -506,8 +506,8 @@ public class TestJoinDynamicFilter
         filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
         assertTrue(filter.isComplete());
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
@@ -538,8 +538,8 @@ public class TestJoinDynamicFilter
         filter.setExpectedPartitions(1);
 
         // Build side only covers subset [1, 2, 3] — cannot short-circuit
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
         assertTrue(filter.isComplete());
 
@@ -574,8 +574,8 @@ public class TestJoinDynamicFilter
         // No probeColumnDomain set — should never short-circuit
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
         assertTrue(filter.isComplete());
 
@@ -608,8 +608,8 @@ public class TestJoinDynamicFilter
         filter.setProbeColumnDomain(Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L)));
 
         // Add partitions before setting expected count
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
         assertFalse(filter.isComplete());
 
         // Setting expected = 1 triggers completion through setExpectedPartitions path
@@ -643,8 +643,8 @@ public class TestJoinDynamicFilter
         filter.setExpectedPartitions(1);
 
         // Build side collects exactly the same values
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
 
         assertTrue(filter.isComplete());
         assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all(),
@@ -670,7 +670,7 @@ public class TestJoinDynamicFilter
         filter.setExpectedPartitions(1);
 
         // Build side produces none() (empty build)
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.none(), true);
+        filter.addPartitionByFilterId(TupleDomain.none());
 
         assertTrue(filter.isComplete());
 
@@ -699,8 +699,8 @@ public class TestJoinDynamicFilter
                 false);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
 
         assertTrue(filter.isComplete(),
                 "Range-fallback merge with finalized contributions must complete");
@@ -729,8 +729,8 @@ public class TestJoinDynamicFilter
                 false);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
 
         assertTrue(filter.isComplete());
 
@@ -755,10 +755,10 @@ public class TestJoinDynamicFilter
                 runtimeStats,
                 false);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))), true);
-        filter.addPartitionByFilterId(TASK_1, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(30L, 40L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))));
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(30L, 40L)))));
 
         filter.setExpectedPartitions(2);
 
@@ -792,85 +792,6 @@ public class TestJoinDynamicFilter
     }
 
     @Test
-    public void testProgressiveNarrowingWithMultipleContributionsFromSameTask()
-    {
-        // Multiple non-final contributions from the same task should keep only the latest.
-        // Simulates Velox HashBuild emitting partial filters during build.
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(1);
-
-        // Partial 1
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))),
-                false);
-        assertFalse(filter.isComplete(), "Non-final contribution must not complete the filter");
-
-        // Partial 2 — wider; replaces partial 1
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))),
-                false);
-        assertFalse(filter.isComplete());
-
-        // Final — completes
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L, 40L)))),
-                true);
-        assertTrue(filter.isComplete());
-
-        // Final constraint reflects ONLY the latest contribution (the final one),
-        // not the union of all four intermediate emissions.
-        assertEquals(filter.getCurrentConstraintByColumnName(),
-                TupleDomain.withColumnDomains(ImmutableMap.of("col_a",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L, 40L)))));
-    }
-
-    @Test
-    public void testFinalizationViaMarkFinalForTask()
-    {
-        // markFinalForTask on a task that already sent a partial: completion uses
-        // the partial as final.
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(1);
-
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 42L))),
-                false);
-        assertFalse(filter.isComplete());
-
-        filter.markFinalForTask(TASK_0);
-        assertTrue(filter.isComplete());
-        assertEquals(filter.getCurrentConstraintByColumnName(),
-                TupleDomain.withColumnDomains(ImmutableMap.of("col_a", Domain.singleValue(INTEGER, 42L))));
-    }
-
-    @Test
-    public void testMarkFinalForTaskWithNoPriorContributionIsNoop()
-    {
-        // markFinalForTask on a task with no prior contribution must NOT count
-        // toward finalizedTasks. The empty-build path is the caller's responsibility:
-        // it must deliver TupleDomain.none() with isFinal=true.
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(1);
-
-        filter.markFinalForTask(TASK_0);
-        assertFalse(filter.isComplete(),
-                "markFinalForTask without a prior contribution must not complete the filter");
-    }
-
-    @Test
     public void testPartitionedJoinRequiresAllTasksFinalized()
     {
         // expectedPartitions=3: completion only when 3 distinct tasks have finalized.
@@ -881,16 +802,16 @@ public class TestJoinDynamicFilter
                 new DynamicFilterStats(), runtimeStats, false);
         filter.setExpectedPartitions(3);
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
         assertFalse(filter.isComplete(), "1 of 3 finalized — not complete");
 
-        filter.addPartitionByFilterId(TASK_1, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
         assertFalse(filter.isComplete(), "2 of 3 finalized — not complete");
 
-        filter.addPartitionByFilterId(TASK_2, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))));
         assertTrue(filter.isComplete(), "3 of 3 finalized — complete");
 
         assertEquals(filter.getCurrentConstraintByColumnName(),
@@ -899,65 +820,25 @@ public class TestJoinDynamicFilter
     }
 
     @Test
-    public void testNonFinalContributionsDoNotCompleteEvenIfThresholdReached()
+    public void testRangeFallbackCompletesOnAllContributionsReceived()
     {
-        // 3 partial contributions from 3 different tasks must NOT complete an
-        // expectedPartitions=3 filter, because none are finalized.
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(3);
-
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))), false);
-        filter.addPartitionByFilterId(TASK_1,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))), false);
-        filter.addPartitionByFilterId(TASK_2,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549", Domain.singleValue(INTEGER, 30L))), false);
-
-        assertFalse(filter.isComplete(),
-                "Three partial contributions must not complete; only finalized ones count");
-        assertEquals(filter.getCurrentConstraintByColumnName(), TupleDomain.all());
-    }
-
-    @Test
-    public void testRangeFallbackCompletesOnAllFinalized()
-    {
-        // The Q21 reproducer at the unit-test level. expectedPartitions=2, both tasks
-        // emit partial then final. The merge falls back to range. Final constraint is
-        // the union of the two final contributions (correct), not just one.
+        // Q21 wrong-results regression: expectedPartitions=2 with both tasks
+        // contributing — the merge falls back to range. Final constraint is
+        // the union of both contributions, collapsed to a single [min,max] span.
         RuntimeStats runtimeStats = new RuntimeStats();
         JoinDynamicFilter filter = new JoinDynamicFilter(
                 "549", "col_a", DEFAULT_TIMEOUT, 1L /* force range */,
                 new DynamicFilterStats(), runtimeStats, false);
         filter.setExpectedPartitions(2);
 
-        // t0 partial (would over-prune if applied)
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L)))), false);
-        assertFalse(filter.isComplete());
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
+                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))));
+        assertFalse(filter.isComplete(), "1 of 2 received");
 
-        // t1 partial
-        filter.addPartitionByFilterId(TASK_1,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(50L, 60L)))), false);
-        assertFalse(filter.isComplete());
-
-        // t0 final
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L, 30L)))), true);
-        assertFalse(filter.isComplete(), "Only 1 of 2 finalized");
-
-        // t1 final
-        filter.addPartitionByFilterId(TASK_1,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.multipleValues(INTEGER, ImmutableList.of(50L, 60L, 70L)))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
+                        Domain.multipleValues(INTEGER, ImmutableList.of(50L, 60L, 70L)))));
         assertTrue(filter.isComplete());
 
-        // Range from 10 to 70 (union of both finals, collapsed to range due to size limit)
         TupleDomain<String> constraint = filter.getCurrentConstraintByColumnName();
         assertFalse(constraint.isAll());
         Domain domain = constraint.getDomains().get().get("col_a");
@@ -970,23 +851,6 @@ public class TestJoinDynamicFilter
     }
 
     @Test
-    public void testMarkFinalForTaskOnUnknownTaskIsNoOp()
-    {
-        // Empty-build finalization requires addPartitionByFilterId(taskId, none(), true);
-        // markFinalForTask alone on an unseen task is insufficient.
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(1);
-
-        filter.markFinalForTask(TASK_0);
-
-        assertFalse(filter.isComplete());
-        assertFalse(filter.hasData());
-    }
-
-    @Test
     public void testLateFinalizationAfterFutureCompleteIsNoOp()
     {
         RuntimeStats runtimeStats = new RuntimeStats();
@@ -995,50 +859,16 @@ public class TestJoinDynamicFilter
                 new DynamicFilterStats(), runtimeStats, false);
         filter.setExpectedPartitions(1);
 
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 42L))),
-                true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
+                        Domain.singleValue(INTEGER, 42L))));
         assertTrue(filter.isComplete());
 
         TupleDomain<String> resolvedConstraint = filter.getCurrentConstraintByColumnName();
 
-        filter.addPartitionByFilterId(TASK_1,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 100L))),
-                true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(ImmutableMap.of("549",
+                        Domain.singleValue(INTEGER, 100L))));
 
         assertEquals(filter.getCurrentConstraintByColumnName(), resolvedConstraint);
     }
 
-    @Test
-    public void testRefinalizationOfSameTaskIsIdempotent()
-    {
-        RuntimeStats runtimeStats = new RuntimeStats();
-        JoinDynamicFilter filter = new JoinDynamicFilter(
-                "549", "col_a", DEFAULT_TIMEOUT, DEFAULT_MAX_SIZE_BYTES,
-                new DynamicFilterStats(), runtimeStats, false);
-        filter.setExpectedPartitions(2);
-
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 10L))),
-                true);
-        assertFalse(filter.isComplete());
-
-        filter.addPartitionByFilterId(TASK_0,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 10L))),
-                true);
-        assertFalse(filter.isComplete());
-
-        filter.markFinalForTask(TASK_0);
-        assertFalse(filter.isComplete());
-
-        filter.addPartitionByFilterId(TASK_1,
-                TupleDomain.withColumnDomains(ImmutableMap.of("549",
-                        Domain.singleValue(INTEGER, 20L))),
-                true);
-        assertTrue(filter.isComplete());
-    }
 }

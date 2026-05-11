@@ -21,18 +21,15 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.connector.DynamicFilter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,14 +55,10 @@ import static java.util.Objects.requireNonNull;
  * the SPI-facing wrapper is {@link TableScanDynamicFilter}.
  *
  * <p>Constraints are stored keyed by filter ID and translated to column names
- * at the boundary via {@link #getCurrentConstraintByColumnName()}.
- *
- * <p>Completion is gated on per-task <i>finalization</i>, not on contribution
- * count. A build-side task may emit multiple non-final contributions while the
- * hash table is still being constructed (Velox's progressive narrowing); only
- * the latest contribution per task is retained, and the merge is finalized
- * once {@link #expectedPartitions} distinct tasks have reported a final
- * contribution.
+ * at the boundary via {@link #getCurrentConstraintByColumnName()}. Each build-side
+ * task contributes exactly one filter (its complete hash-table key set, or
+ * {@link TupleDomain#none()} for an empty build); the merge fires once
+ * {@link #expectedPartitions} contributions have arrived.
  */
 @ThreadSafe
 public class JoinDynamicFilter
@@ -79,9 +72,7 @@ public class JoinDynamicFilter
     private final boolean extendedMetrics;
 
     @GuardedBy("this")
-    private final Map<TaskId, TupleDomain<String>> latestByTask = new HashMap<>();
-    @GuardedBy("this")
-    private final Set<TaskId> finalizedTasks = new HashSet<>();
+    private final List<TupleDomain<String>> partitionsByFilterId = new ArrayList<>();
     private final CompletableFuture<TupleDomain<String>> constraintByFilterIdFuture;
 
     private final AtomicBoolean timeoutStarted = new AtomicBoolean(false);
@@ -187,27 +178,15 @@ public class JoinDynamicFilter
         return fullyResolved;
     }
 
-    /**
-     * Records a contribution from {@code sourceTaskId}. Replaces any prior
-     * contribution from the same task (progressive narrowing emits multiple
-     * intermediate domains during the build). When {@code isFinal} is true
-     * the task is added to {@link #finalizedTasks} and the merge may complete.
-     */
-    public synchronized void addPartitionByFilterId(TaskId sourceTaskId, TupleDomain<String> tupleDomain, boolean isFinal)
+    public synchronized void addPartitionByFilterId(TupleDomain<String> tupleDomain)
     {
-        requireNonNull(sourceTaskId, "sourceTaskId is null");
         requireNonNull(tupleDomain, "tupleDomain is null");
         if (!collectionStarted) {
             collectionStartNanos = System.nanoTime();
             collectionStarted = true;
         }
 
-        // Replace, don't append: progressive-narrowing partials from the same
-        // task supersede each other. The final emission is the source of truth.
-        latestByTask.put(sourceTaskId, tupleDomain);
-        if (isFinal) {
-            finalizedTasks.add(sourceTaskId);
-        }
+        partitionsByFilterId.add(tupleDomain);
 
         runtimeStats.addMetricValue(DYNAMIC_FILTER_PARTITIONS_RECEIVED, NONE, 1);
         if (!filterId.isEmpty()) {
@@ -217,31 +196,14 @@ public class JoinDynamicFilter
         tryCompleteResolution();
     }
 
-    /**
-     * Marks {@code sourceTaskId} as finalized without changing its latest
-     * contribution. Used when a fetcher response declares a filter id complete
-     * via {@code completedFilterIds} after the domain was already delivered as
-     * a partial contribution. If the task has never sent a contribution this
-     * is a no-op; callers must instead deliver {@code TupleDomain.none()} with
-     * {@code isFinal=true} via {@link #addPartitionByFilterId} for the empty-build
-     * case.
-     */
-    public synchronized void markFinalForTask(TaskId sourceTaskId)
-    {
-        requireNonNull(sourceTaskId, "sourceTaskId is null");
-        if (latestByTask.containsKey(sourceTaskId) && finalizedTasks.add(sourceTaskId)) {
-            tryCompleteResolution();
-        }
-    }
-
     @GuardedBy("this")
     private void tryCompleteResolution()
     {
-        if (constraintByFilterIdFuture.isDone() || finalizedTasks.size() < expectedPartitions) {
+        if (constraintByFilterIdFuture.isDone() || partitionsByFilterId.size() < expectedPartitions) {
             return;
         }
 
-        TupleDomain<String> union = TupleDomain.columnWiseUnion(ImmutableList.copyOf(latestByTask.values()));
+        TupleDomain<String> union = TupleDomain.columnWiseUnion(partitionsByFilterId);
         mergedConstraint = collapseIfOversized(union);
         maybeShortCircuit();
         fullyResolved = true;
@@ -415,7 +377,7 @@ public class JoinDynamicFilter
 
     public synchronized boolean hasData()
     {
-        return !latestByTask.isEmpty();
+        return !partitionsByFilterId.isEmpty();
     }
 
     public static DynamicFilter createDisabled()
@@ -431,8 +393,7 @@ public class JoinDynamicFilter
                 .add("columnName", columnName)
                 .add("waitTimeout", waitTimeout)
                 .add("expectedPartitions", expectedPartitions)
-                .add("contributingTasks", latestByTask.size())
-                .add("finalizedTasks", finalizedTasks.size())
+                .add("receivedPartitions", partitionsByFilterId.size())
                 .add("complete", fullyResolved)
                 .toString();
     }

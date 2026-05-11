@@ -457,13 +457,12 @@ public class TestDynamicFilterFetcher
     }
 
     @Test(timeOut = 30000)
-    public void testPartialThenCompletedIdMarksAsFinal()
+    public void testFilterDeliveredOncePerTaskAcrossMultiplePolls()
             throws Exception
     {
-        // First response: filter id appears in `filters` only (partial).
-        // Second response: filter id appears in `completedFilterIds` only (final).
-        // The fetcher must call markFinalForTask for the second case so the
-        // filter completes using the partial domain as the final.
+        // First response delivers the filter; second response repeats it via
+        // completedFilterIds only. The fetcher's per-task dedup must prevent a
+        // second contribution.
         String filterId = "f1";
         QueryId queryId = new QueryId("test");
 
@@ -517,8 +516,7 @@ public class TestDynamicFilterFetcher
     {
         // The empty-build path: filter id appears in `completedFilterIds` only
         // and was never previously delivered. The fetcher must deliver
-        // TupleDomain.none() with isFinal=true so the coordinator records a
-        // finalized contribution from this task.
+        // TupleDomain.none() so the coordinator records a contribution.
         String filterId = "f1";
         QueryId queryId = new QueryId("test");
 

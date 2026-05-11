@@ -55,8 +55,8 @@ public class TestTableScanDynamicFilter
 
         assertFalse(composite.isComplete());
 
-        filter.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
 
         assertTrue(composite.isComplete());
         assertEquals(
@@ -82,8 +82,8 @@ public class TestTableScanDynamicFilter
 
         assertFalse(composite.isComplete());
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
         assertFalse(composite.isComplete());
         assertEquals(
@@ -91,8 +91,8 @@ public class TestTableScanDynamicFilter
                 TupleDomain.withColumnDomains(
                         ImmutableMap.of((ColumnHandle) customerIdHandle, Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 11L)))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 11L)))));
 
         assertTrue(composite.isComplete());
         assertEquals(
@@ -125,8 +125,8 @@ public class TestTableScanDynamicFilter
         assertEquals(composite.getCurrentPredicate(), TupleDomain.all());
         assertFalse(composite.isComplete());
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("797", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("797", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
         assertEquals(
                 composite.getCurrentPredicate(),
@@ -134,8 +134,8 @@ public class TestTableScanDynamicFilter
                         ImmutableMap.of((ColumnHandle) customerIdHandle, Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
         assertFalse(composite.isComplete());
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("798", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 11L)))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("798", Domain.multipleValues(INTEGER, ImmutableList.of(10L, 11L)))));
 
         assertEquals(
                 composite.getCurrentPredicate(),
@@ -145,8 +145,8 @@ public class TestTableScanDynamicFilter
                                 (ColumnHandle) productIdHandle, Domain.multipleValues(INTEGER, ImmutableList.of(10L, 11L)))));
         assertFalse(composite.isComplete());
 
-        filter3.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("799", Domain.singleValue(INTEGER, 100L))), true);
+        filter3.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("799", Domain.singleValue(INTEGER, 100L))));
 
         assertEquals(
                 composite.getCurrentPredicate(),
@@ -173,16 +173,16 @@ public class TestTableScanDynamicFilter
 
         assertFalse(composite.isComplete());
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
         assertFalse(composite.isComplete());
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
         assertFalse(composite.isComplete());
 
-        filter2.addPartitionByFilterId(TASK_1, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 20L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 20L))));
         assertTrue(composite.isComplete());
     }
 
@@ -201,11 +201,11 @@ public class TestTableScanDynamicFilter
                 "product_id", productIdHandle);
         TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
 
         composite.isBlocked();
         Thread.sleep(300);
@@ -276,10 +276,10 @@ public class TestTableScanDynamicFilter
         CompletableFuture<?> blocked = composite.isBlocked();
         assertFalse(blocked.isDone());
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
 
         assertTrue(blocked.isDone());
         assertTrue(composite.isComplete());
@@ -304,11 +304,11 @@ public class TestTableScanDynamicFilter
         Map<String, ColumnHandle> columnNameToHandle = ImmutableMap.of("col", colHandle);
         TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)))));
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.multipleValues(INTEGER, ImmutableList.of(4L, 5L, 6L)))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.multipleValues(INTEGER, ImmutableList.of(4L, 5L, 6L)))));
 
         assertTrue(composite.isComplete());
 
@@ -368,8 +368,8 @@ public class TestTableScanDynamicFilter
         assertFalse(blocked1.isDone());
         assertFalse(composite.isComplete());
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
         assertTrue(blocked1.isDone());
         assertFalse(composite.isComplete());
 
@@ -381,8 +381,8 @@ public class TestTableScanDynamicFilter
         CompletableFuture<?> blocked2 = composite.isBlocked();
         assertFalse(blocked2.isDone());
 
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
         assertTrue(blocked2.isDone());
         assertTrue(composite.isComplete());
 
@@ -415,14 +415,14 @@ public class TestTableScanDynamicFilter
         assertEquals(pending, ImmutableSet.of(customerIdHandle, productIdHandle));
 
         // Resolve one
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
         pending = composite.getPendingFilterColumns();
         assertEquals(pending, ImmutableSet.of(productIdHandle));
 
         // Resolve both
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
         pending = composite.getPendingFilterColumns();
         assertTrue(pending.isEmpty());
     }
@@ -448,8 +448,8 @@ public class TestTableScanDynamicFilter
         assertFalse(blocked.isDone());
 
         // Resolve the relevant filter
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
         assertTrue(blocked.isDone());
 
         // Even though product_id filter is pending, isBlocked with relevant=customer_id returns NOT_BLOCKED
@@ -477,8 +477,8 @@ public class TestTableScanDynamicFilter
         assertFalse(composite.isComplete()); // global still false
 
         // Resolve relevant filter only
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
 
         assertTrue(composite.isComplete(relevantColumns));
         assertFalse(composite.isComplete()); // global still false because product_id pending
@@ -519,8 +519,8 @@ public class TestTableScanDynamicFilter
         TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
 
         // Resolve only filter1
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
 
         // Key invariant: hasAnyComplete is true while isComplete is still false.
         assertTrue(composite.hasAnyComplete(Optional.empty()));
@@ -540,10 +540,10 @@ public class TestTableScanDynamicFilter
                 "product_id", new TestColumnHandle("product_id"));
         TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
 
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
 
         assertTrue(composite.hasAnyComplete(Optional.empty()));
         assertTrue(composite.isComplete(Optional.empty()));
@@ -565,8 +565,8 @@ public class TestTableScanDynamicFilter
         TableScanDynamicFilter composite = new TableScanDynamicFilter(ImmutableList.of(filter1, filter2), columnNameToHandle);
 
         // Resolve only filter2 (product_id), but ask about customer_id only.
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
 
         Optional<Set<ColumnHandle>> relevant = Optional.of(ImmutableSet.of(customerIdHandle));
         assertFalse(composite.hasAnyComplete(relevant),
@@ -606,8 +606,8 @@ public class TestTableScanDynamicFilter
         assertFalse(composite.isComplete(allRelevant), "Optional.empty() should consider all columns and return false");
 
         // Resolve the filter
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
 
         assertTrue(blocked.isDone(), "Should unblock after filter resolves");
         assertTrue(composite.isComplete(allRelevant), "Should be complete after filter resolves");
@@ -677,10 +677,10 @@ public class TestTableScanDynamicFilter
         composite.isBlocked(Optional.of(ImmutableSet.of(customerIdHandle)));
 
         // Resolve both filters
-        filter1.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))), true);
-        filter2.addPartitionByFilterId(TASK_0, TupleDomain.withColumnDomains(
-                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))), true);
+        filter1.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 1L))));
+        filter2.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("550", Domain.singleValue(INTEGER, 10L))));
 
         // getCurrentPredicate should include ALL resolved filters, not just relevant ones
         assertEquals(
