@@ -117,6 +117,7 @@
         <dep.datasketches-memory.version>2.2.0</dep.datasketches-memory.version>
         <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
         <dep.io.opentelemetry.version>1.58.0</dep.io.opentelemetry.version>
+        <dep.jjwt.version>0.13.0</dep.jjwt.version>
 
         <release.autoPublish>true</release.autoPublish>
     </properties>
@@ -1645,18 +1646,18 @@
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
-                <version>0.11.5</version>
+                <version>${dep.jjwt.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-impl</artifactId>
-                <version>0.11.5</version>
+                <version>${dep.jjwt.version}</version>
                 <scope>runtime</scope>
             </dependency>
             <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-jackson</artifactId>
-                <version>0.11.5</version>
+                <version>${dep.jjwt.version}</version>
             </dependency>
 
             <dependency>

@@ -18,6 +18,11 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.jsonwebtoken.CompressionCodec;
 import io.jsonwebtoken.CompressionException;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.copyOfRange;
 
@@ -25,6 +30,12 @@ public class ZstdCodec
         implements CompressionCodec
 {
     public static final String CODEC_NAME = "ZSTD";
+
+    @Override
+    public String getId()
+    {
+        return CODEC_NAME;
+    }
 
     @Override
     public String getAlgorithmName()
@@ -43,11 +54,31 @@ public class ZstdCodec
     }
 
     @Override
+    public OutputStream compress(OutputStream outputStream)
+            throws CompressionException
+    {
+        throw new UnsupportedOperationException("Stream compression not supported");
+    }
+
+    @Override
     public byte[] decompress(byte[] bytes)
             throws CompressionException
     {
         byte[] output = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(bytes, 0, bytes.length))];
         new ZstdDecompressor().decompress(bytes, 0, bytes.length, output, 0, output.length);
         return output;
+    }
+
+    @Override
+    public InputStream decompress(InputStream inputStream)
+            throws CompressionException
+    {
+        try {
+            byte[] bytes = inputStream.readAllBytes();
+            return new ByteArrayInputStream(decompress(bytes));
+        }
+        catch (IOException e) {
+            throw new CompressionException("Failed to decompress input stream", e);
+        }
     }
 }

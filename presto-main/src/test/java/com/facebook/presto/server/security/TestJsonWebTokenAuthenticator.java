@@ -37,8 +37,9 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
-import static io.jsonwebtoken.SignatureAlgorithm.HS256;
 import static io.jsonwebtoken.security.Keys.secretKeyFor;
+
+import javax.crypto.SecretKey;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.Base64.getMimeDecoder;
 import static java.util.Base64.getMimeEncoder;
@@ -89,11 +90,12 @@ public class TestJsonWebTokenAuthenticator
     private static String createJsonWebToken(Path keyFile, String principal, AuthorizedIdentity authorizedIdentity)
             throws IOException
     {
-        byte[] key = getMimeDecoder().decode(readAllBytes(keyFile.toAbsolutePath()));
+        byte[] keyBytes = getMimeDecoder().decode(readAllBytes(keyFile.toAbsolutePath()));
+        SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(keyBytes);
         return Jwts.builder()
-                .signWith(HS256, key)
-                .setHeaderParam(KEY_ID, KEY_ID_FOO)
-                .setSubject(principal)
+                .signWith(key, Jwts.SIG.HS256)
+                .header().keyId(KEY_ID_FOO).and()
+                .subject(principal)
                 .claim(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity)
                 .compact();
     }

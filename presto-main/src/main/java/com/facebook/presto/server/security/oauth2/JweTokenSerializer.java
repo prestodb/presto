@@ -156,10 +156,10 @@ public class JweTokenSerializer
         }
 
         JwtBuilder jwt = newJwtBuilder()
-                .setExpiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
+                .expiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
                 .claim(principalField, claimsMap.get(principalField).toString())
-                .setAudience(audience)
-                .setIssuer(issuer)
+                .audience().add(audience).and()
+                .issuer(issuer)
                 .claim(ACCESS_TOKEN_KEY, tokenPair.getAccessToken())
                 .claim(EXPIRATION_TIME_KEY, tokenPair.getExpiration())
                 .claim(REFRESH_TOKEN_KEY, tokenPair.getRefreshToken().orElseThrow(JweTokenSerializer::throwExceptionForNonExistingRefreshToken))
