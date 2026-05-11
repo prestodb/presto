@@ -15,7 +15,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
-        <dep.lucene.version>8.11.3</dep.lucene.version>
     </properties>
 
     <dependencies>
@@ -333,7 +332,7 @@
 
         <dependency>
             <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers-common</artifactId>
+            <artifactId>lucene-analysis-common</artifactId>
             <version>${dep.lucene.version}</version>
         </dependency>
 
