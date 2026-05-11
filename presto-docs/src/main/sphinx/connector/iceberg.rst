@@ -771,6 +771,75 @@ When this column is used, deleted rows will not be filtered out of the results.
      file:/path/to/table/data/delete_file_d8510b3e-510a-4fc2-b2b2-e59ead7fd386.parquet |         0
      NULL                                                                              |         1
 
+Row Lineage Columns
+^^^^^^^^^^^^^^^^^^^
+
+Iceberg format version 3 introduces row lineage: two metadata columns that allow
+you to trace the origin of every row back to a specific file and snapshot.
+These columns are ``NULL`` for tables that use format version 1 or 2.  When an
+existing V1/V2 table is upgraded to V3, Iceberg automatically backfills the
+``firstRowId`` metadata on all existing data files so that the columns become
+non-``NULL`` for every row, including rows written before the upgrade.
+
+``_row_id`` column
+~~~~~~~~~~~~~~~~~~
+A globally unique, monotonically increasing ``BIGINT`` identifier for each row.
+The value is derived from the data file's ``firstRowId`` (stored in the Iceberg
+manifest) plus the row's ordinal position within that file
+(``firstRowId + position_in_file``).  Row IDs are stable across reads and are
+unique within the table at any given point in time.
+
+.. code-block:: sql
+
+    SELECT _row_id, id, value FROM my_v3_table ORDER BY _row_id;
+
+.. code-block:: text
+
+     _row_id | id | value
+    ---------+----+-------
+           0 |  1 | one
+           1 |  2 | two
+
+For V1/V2 tables the column returns ``NULL``:
+
+.. code-block:: sql
+
+    SELECT _row_id FROM my_v2_table ORDER BY id;
+
+.. code-block:: text
+
+     _row_id
+    ---------
+     NULL
+     NULL
+
+``_last_updated_sequence_number`` column
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The Iceberg data sequence number of the snapshot in which this row was last
+written (inserted or updated).  All rows written in the same ``APPEND`` or
+``OVERWRITE`` commit share the same sequence number.  Later commits produce
+higher sequence numbers, so you can use this column to determine the relative
+write order of rows across snapshots.
+
+.. code-block:: sql
+
+    SELECT _last_updated_sequence_number, id, value
+    FROM my_v3_table
+    ORDER BY _row_id;
+
+.. code-block:: text
+
+     _last_updated_sequence_number | id | value
+    -------------------------------+----+-------
+                                 1 |  1 | one
+                                 2 |  2 | two
+
+The example above shows two rows written in separate commits: ``id = 1`` was
+committed first (sequence number 1) and ``id = 2`` was committed next (sequence
+number 2).
+
+For V1/V2 tables the column returns ``NULL``.
+
 Presto C++ Support
 ^^^^^^^^^^^^^^^^^^
 

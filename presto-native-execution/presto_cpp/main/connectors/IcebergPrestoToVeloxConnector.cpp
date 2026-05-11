@@ -15,8 +15,11 @@
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
+#include <algorithm>
+
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -93,6 +96,26 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
+
+    // Iceberg metadata columns for row lineage (_row_id,
+    // _last_updated_sequence_number) are not included in the table's
+    // dataColumns but may exist physically in the written files (e.g. after
+    // MERGE/UPDATE). We add them to finalDataColumns if they are requested in
+    // columnHandles, so the reader can match them with Parquet schema.
+    for (const auto& handle : columnHandles) {
+      if ((handle->name() ==
+               velox::connector::hive::iceberg::IcebergMetadataColumn::
+                   kRowIdColumnName ||
+           handle->name() ==
+               velox::connector::hive::iceberg::IcebergMetadataColumn::
+                   kLastUpdatedSequenceNumberColumnName) &&
+          std::find(names.begin(), names.end(), handle->name()) ==
+              names.end()) {
+        names.emplace_back(handle->name());
+        types.push_back(velox::BIGINT());
+      }
+    }
+
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
@@ -211,9 +234,15 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   }
 
   std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
-      {"$path", icebergSplit->path}};
+      {"$path", icebergSplit->path},
+      {velox::connector::hive::iceberg::IcebergMetadataColumn::
+           kDataSequenceNumberInfoColumn,
+       std::to_string(icebergSplit->dataSequenceNumber)}};
+  if (icebergSplit->firstRowId >= 0) {
+    infoColumns[velox::connector::hive::iceberg::IcebergMetadataColumn::
+                    kFirstRowIdInfoColumn] =
+        std::to_string(icebergSplit->firstRowId);
+  }
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
