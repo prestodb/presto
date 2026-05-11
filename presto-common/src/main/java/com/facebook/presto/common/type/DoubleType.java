@@ -114,13 +114,22 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position)).closeEntry();
+            if (block instanceof IntArrayBlock) {
+                float flt = intBitsToFloat(block.getInt(position));
+                blockBuilder.writeLong(doubleToLongBits(flt)).closeEntry();
+            }
+            else {
+                blockBuilder.writeLong(block.getLong(position)).closeEntry();
+            }
         }
     }
 
     @Override
     public double getDouble(Block block, int position)
     {
+        if (block instanceof IntArrayBlock) {
+            return intBitsToFloat(block.getInt(position));
+        }
         return longBitsToDouble(block.getLong(position));
     }
 

@@ -45,6 +45,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.parquet.column.ParquetProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -87,6 +88,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -1094,10 +1097,25 @@ public abstract class IcebergDistributedSmokeTestBase
         dropTable(session, "test_bucket_transform");
     }
 
-    @Test
-    public void testAlterColumnType()
+    @DataProvider(name = "batchReadAndParquetVersions")
+    public Object[][] batchReadAndParquetVersions()
+    {
+        return new Object[][] {
+                {true, PARQUET_1_0},
+                {false, PARQUET_1_0},
+                {true, PARQUET_2_0},
+                {false, PARQUET_2_0}
+        };
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnType(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
     {
         testWithAllFileFormats((session, fileFormat) -> {
+            session = Session.builder(session)
+                    .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                    .build();
             String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
             String schemaName = session.getSchema().get();
             try {
@@ -1127,8 +1145,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
                 // Test 1: INTEGER → BIGINT conversion
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
-                assertQuery(session, format("SELECT int_col FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(100 AS BIGINT)), (CAST(200 AS BIGINT)), (NULL)");
+                assertQuery(session, format("SELECT int_col, typeof(int_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(100 AS BIGINT), 'bigint'), (CAST(200 AS BIGINT), 'bigint'), (NULL, 'bigint')");
                 validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
                         ImmutableList.of(
                                 columnDefinition("int_col", "bigint"),
@@ -1152,8 +1170,8 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("decimal_boundary", "decimal(18,5)")),
                         null,
                         null);
-                assertQuery(session, format("SELECT float_col FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(1.5 AS DOUBLE)), (CAST(2.5 AS DOUBLE)), (NULL)");
+                assertQuery(session, format("SELECT float_col, typeof(float_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE), 'double'), (CAST(2.5 AS DOUBLE), 'double'), (NULL, 'double')");
 
                 // Test 3: DECIMAL(10,2) → DECIMAL(15,2) - ShortDecimal to ShortDecimal
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 2)", tableName));
@@ -1167,8 +1185,8 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("decimal_boundary", "decimal(18,5)")),
                         null,
                         null);
-                assertQuery(session, format("SELECT decimal_col FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(123.45 AS DECIMAL(15,2))), (CAST(234.56 AS DECIMAL(15,2))), (NULL)");
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(15,2)), 'decimal(15,2)'), (CAST(234.56 AS DECIMAL(15,2)), 'decimal(15,2)'), (NULL, 'decimal(15,2)')");
 
                 // Test 4: DECIMAL(15,2) → DECIMAL(24,2) - ShortDecimal to LongDecimal (crossing precision 18 boundary)
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(24, 2)", tableName));
@@ -1182,8 +1200,8 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("decimal_boundary", "decimal(18,5)")),
                         null,
                         null);
-                assertQuery(session, format("SELECT decimal_col FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(123.45 AS DECIMAL(24,2))), (CAST(234.56 AS DECIMAL(24,2))), (NULL)");
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(24,2)), 'decimal(24,2)'), (CAST(234.56 AS DECIMAL(24,2)), 'decimal(24,2)'), (NULL, 'decimal(24,2)')");
 
                 // Test 5: DECIMAL(10,3) → DECIMAL(18,3) - ShortDecimal to ShortDecimal at boundary
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_short SET DATA TYPE DECIMAL(18, 3)", tableName));
@@ -1197,8 +1215,8 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("decimal_boundary", "decimal(18,5)")),
                         null,
                         null);
-                assertQuery(session, format("SELECT decimal_short FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(999.123 AS DECIMAL(18,3))), (CAST(888.456 AS DECIMAL(18,3))), (NULL)");
+                assertQuery(session, format("SELECT decimal_short, typeof(decimal_short) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(999.123 AS DECIMAL(18,3)), 'decimal(18,3)'), (CAST(888.456 AS DECIMAL(18,3)), 'decimal(18,3)'), (NULL, 'decimal(18,3)')");
 
                 // Test 6: DECIMAL(18,5) → DECIMAL(19,5) - ShortDecimal to LongDecimal at precision 18→19 boundary
                 assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_boundary SET DATA TYPE DECIMAL(19, 5)", tableName));
@@ -1212,8 +1230,8 @@ public abstract class IcebergDistributedSmokeTestBase
                                 columnDefinition("decimal_boundary", "decimal(19,5)")),
                         null,
                         null);
-                assertQuery(session, format("SELECT decimal_boundary FROM %s ORDER BY int_col NULLS LAST", tableName),
-                        "VALUES (CAST(123456789012.12345 AS DECIMAL(19,5))), (CAST(987654321098.54321 AS DECIMAL(19,5))), (NULL)");
+                assertQuery(session, format("SELECT decimal_boundary, typeof(decimal_boundary) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123456789012.12345 AS DECIMAL(19,5)), 'decimal(19,5)'), (CAST(987654321098.54321 AS DECIMAL(19,5)), 'decimal(19,5)'), (NULL, 'decimal(19,5)')");
 
                 // Test 7: Verify all columns together after all conversions
                 assertQuery(session, format("SELECT * FROM %s ORDER BY int_col NULLS LAST", tableName),
@@ -1234,12 +1252,16 @@ public abstract class IcebergDistributedSmokeTestBase
         });
     }
 
-    @Test
-    public void testAlterColumnTypeWithSpecialFloatValues()
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnTypeWithSpecialFloatValues(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
     {
         testWithAllFileFormats((session, fileFormat) -> {
             String tableName = "test_alter_special_float_" + fileFormat.name().toLowerCase(ENGLISH);
             try {
+                session = Session.builder(session)
+                        .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                        .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                        .build();
                 assertUpdate(session, format(
                         "CREATE TABLE %s (id INTEGER, float_col REAL) WITH (format = '%s')",
                         tableName, fileFormat));
