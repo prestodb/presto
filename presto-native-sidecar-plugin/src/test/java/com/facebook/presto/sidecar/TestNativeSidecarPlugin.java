@@ -897,6 +897,26 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testNativeSidecarDecimalArrayConcatPreservesDecimalType()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPRESSION_OPTIMIZER_NAME, "native")
+                .build();
+
+        for (String query : ImmutableList.of(
+                "SELECT ARRAY[DECIMAL '1.0'] || DECIMAL '2.0'",
+                "SELECT DECIMAL '2.0' || ARRAY[DECIMAL '1.0']",
+                "SELECT concat(ARRAY[DECIMAL '1.0'], DECIMAL '2.0')",
+                "SELECT concat(DECIMAL '2.0', ARRAY[DECIMAL '1.0'])",
+                "SELECT typeof(ARRAY[DECIMAL '1.0'] || DECIMAL '2.0')",
+                "SELECT typeof(DECIMAL '2.0' || ARRAY[DECIMAL '1.0'])",
+                "SELECT ARRAY[DECIMAL '123456789012345678.123456789012345678'] || DECIMAL '0.000000000000000001'",
+                "SELECT typeof(ARRAY[DECIMAL '123456789012345678.123456789012345678'] || DECIMAL '0.000000000000000001')")) {
+            assertQueryWithSameQueryRunner(session, query, getSession());
+        }
+    }
+
+    @Test
     public void testMergeKHyperLogLog()
     {
         assertQuery(
