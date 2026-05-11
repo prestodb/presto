@@ -49,4 +49,14 @@ public interface TypeManager
      * Checks for the existence of this type.
      */
     boolean hasType(TypeSignature signature);
+
+    default void addType(Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void addParametricType(ParametricType parametricType)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
