@@ -1336,6 +1336,99 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testBaseToViewConversionWithHavingOnGroupingKey()
+    {
+        String table = "lineitem_partitioned_having_groupkey";
+        String view = "lineitem_partitioned_view_having_groupkey";
+        Session session = sessionWithMaterializedViewRewrite();
+        try {
+            createPartitionedHavingFixture(table, view,
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode");
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING shipmode = 'AIR' ORDER BY ds, shipmode",
+                    table);
+
+            assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            dropHavingFixture(table, view);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingOnAggregate()
+    {
+        String table = "lineitem_partitioned_having_aggregate";
+        String view = "lineitem_partitioned_view_having_aggregate";
+        Session session = sessionWithMaterializedViewRewrite();
+        try {
+            createPartitionedHavingFixture(table, view,
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode");
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING SUM(discount * extendedprice) > 1000 ORDER BY ds, shipmode",
+                    table);
+
+            assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            dropHavingFixture(table, view);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingMixedWithWhere()
+    {
+        String table = "lineitem_partitioned_having_where";
+        String view = "lineitem_partitioned_view_having_where";
+        Session session = sessionWithMaterializedViewRewrite();
+        try {
+            createPartitionedHavingFixture(table, view,
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s GROUP BY ds, shipmode");
+
+            String baseQuery = format(
+                    "SELECT SUM(discount * extendedprice) as _discount_multi_extendedprice_, ds, shipmode FROM %s " +
+                            "WHERE ds = '2020-01-02' GROUP BY ds, shipmode " +
+                            "HAVING SUM(discount * extendedprice) > 100 ORDER BY ds, shipmode",
+                    table);
+
+            assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            dropHavingFixture(table, view);
+        }
+    }
+
+    @Test
+    public void testBaseToViewConversionWithHavingCount()
+    {
+        String table = "lineitem_partitioned_having_count";
+        String view = "lineitem_partitioned_view_having_count";
+        Session session = sessionWithMaterializedViewRewrite();
+        try {
+            createPartitionedHavingFixture(table, view,
+                    "SELECT COUNT(extendedprice) as _count_extprice_, ds, shipmode FROM %s GROUP BY ds, shipmode");
+
+            String baseQuery = format(
+                    "SELECT COUNT(extendedprice) as _count_extprice_, ds, shipmode FROM %s " +
+                            "GROUP BY ds, shipmode HAVING COUNT(extendedprice) > 5 ORDER BY ds, shipmode",
+                    table);
+
+            assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
+        }
+        finally {
+            dropHavingFixture(table, view);
+        }
+    }
+
+    @Test
     public void testBaseToViewConversionCountOptimizationWithStitching()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())
@@ -3648,5 +3741,36 @@ public class TestHiveMaterializedViewLogicalPlanner
             metastore.dropTable(metastoreContext, originalTable.getDatabaseName(), originalTable.getTableName(), false);
             metastore.createTable(metastoreContext, alteredTable, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), emptyList());
         }
+    }
+
+    private Session sessionWithMaterializedViewRewrite()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+    }
+
+    private void createPartitionedHavingFixture(String table, String view, String mvSelectFormat)
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        queryRunner.execute(format(
+                "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " +
+                        "SELECT discount, extendedprice, '2020-01-01' as ds, shipmode FROM lineitem WHERE orderkey < 1000 " +
+                        "UNION ALL " +
+                        "SELECT discount, extendedprice, '2020-01-02' as ds, shipmode FROM lineitem WHERE orderkey > 1000",
+                table));
+        assertUpdate(format(
+                "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds', 'shipmode']) AS " + mvSelectFormat,
+                view, table));
+        assertTrue(getQueryRunner().tableExists(getSession(), view));
+        setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+        assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view), 7);
+        assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view), 7);
+    }
+
+    private void dropHavingFixture(String table, String view)
+    {
+        getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+        getQueryRunner().execute("DROP TABLE IF EXISTS " + table);
     }
 }
