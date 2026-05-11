@@ -2766,10 +2766,10 @@ The following catalog properties affect how materialized view storage tables are
 ====================================================== ============================================================= ========================
 Property Name                                          Description                                                   Default
 ====================================================== ============================================================= ========================
-``iceberg.materialized-view-storage-prefix``           Prefix applied to auto-generated storage table names.        ``__mv_storage__``
+``iceberg.materialized-view-storage-prefix``           Prefix applied to auto-generated storage table names.         ``__mv_storage__``
 
-``iceberg.materialized-view-default-storage-schema``   Schema in which storage tables are created when the          (the view's own
-                                                       per-view ``storage_schema`` property is not set. Point at    schema)
+``iceberg.materialized-view-default-storage-schema``   Schema in which storage tables are created when the           (the view's own
+                                                       per-view ``storage_schema`` property is not set. Point at     schema)
                                                        a locked-down schema to keep storage tables out of users'
                                                        reach without affecting materialized view reads.
 ====================================================== ============================================================= ========================
