@@ -1351,6 +1351,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     table);
 
             assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             dropHavingFixture(table, view);
@@ -1397,6 +1398,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     table);
 
             assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             dropHavingFixture(table, view);
@@ -1419,6 +1421,7 @@ public class TestHiveMaterializedViewLogicalPlanner
                     table);
 
             assertEquals(computeActual(session, baseQuery), computeActual(baseQuery));
+            assertPlan(session, baseQuery, anyTree(constrainedTableScan(view, ImmutableMap.of())));
         }
         finally {
             dropHavingFixture(table, view);
