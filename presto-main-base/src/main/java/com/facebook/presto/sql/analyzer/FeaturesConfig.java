@@ -89,6 +89,7 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
+    private boolean partitionAwareGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -685,6 +686,19 @@ public class FeaturesConfig
     public FeaturesConfig setRecoverableGroupedExecutionEnabled(boolean recoverableGroupedExecutionEnabled)
     {
         this.recoverableGroupedExecutionEnabled = recoverableGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isPartitionAwareGroupedExecutionEnabled()
+    {
+        return partitionAwareGroupedExecutionEnabled;
+    }
+
+    @Config("partition-aware-grouped-execution-enabled")
+    @ConfigDescription("Schedule each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory for bucketed + partitioned tables")
+    public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
+    {
+        this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
         return this;
     }
 

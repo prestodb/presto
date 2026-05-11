@@ -536,6 +536,8 @@ public class TestHiveSplitManager
                 new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
+                hiveClientConfig.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 new TestingHiveTransactionManager(metadataFactory),
                 new NamenodeStats(),
                 hdfsEnvironment,
@@ -683,6 +685,8 @@ public class TestHiveSplitManager
                 new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
+                hiveClientConfig.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 new TestingHiveTransactionManager(metadataFactory),
                 new NamenodeStats(),
                 hdfsEnvironment,

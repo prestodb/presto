@@ -464,7 +464,14 @@ public class PlanPrinter
             builder.append(indentString(1)).append(format("Output ordering: %s%n", fragment.getOutputOrderingScheme()));
         }
         builder.append(indentString(1)).append(format("Output encoding: %s%n", fragment.getPartitioningScheme().getEncoding()));
-        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
+        StageExecutionDescriptor stageExecDesc = fragment.getStageExecutionDescriptor();
+        if (stageExecDesc.isStageGroupedExecution() && stageExecDesc.getTotalLifespans() > 0) {
+            builder.append(indentString(1)).append(format("Stage Execution Strategy: %s, Total Lifespans: %s%n",
+                    stageExecDesc.getStageExecutionStrategy(), stageExecDesc.getTotalLifespans()));
+        }
+        else {
+            builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", stageExecDesc.getStageExecutionStrategy()));
+        }
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
         builder.append(

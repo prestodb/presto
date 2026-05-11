@@ -845,3 +845,41 @@ For example, when enabled, the following query::
 
 is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
 reducing both CPU and memory usage.
+
+``grouped_execution``
+^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use grouped execution when possible. Grouped execution schedules bucketed table operations
+in lifespans (one per bucket), reducing memory usage by processing a subset of data at a time.
+This is required for queries on bucketed tables that use join, aggregation, or window functions
+with compatible bucket layouts.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-enabled\`\``.
+
+``partition_aware_grouped_execution``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, schedules each (bucket, partition-values) pair as
+a separate lifespan instead of processing all partitions per bucket in a single lifespan. This
+reduces per-lifespan hash table size for joins and aggregations on bucketed + partitioned tables.
+
+For example, with 8 buckets and 3 ``ds`` partitions, standard grouped execution creates 8 lifespans
+(one per bucket, each processing all 3 partitions). Partition-aware grouped execution creates 24
+lifespans (8 buckets x 3 partitions), each processing one bucket for one partition value.
+
+The feature activates when:
+
+* The table is both bucketed and partitioned
+* Partition columns appear as equi-join keys (for example, ``t1.ds = t2.ds``) or GROUP BY keys
+* At least 2 distinct partition values exist (single partition provides no benefit)
+
+When partition-aware execution is not applicable (for example: non-partitioned tables, no partition
+columns in join conditions), the query falls back to standard grouped execution automatically.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.

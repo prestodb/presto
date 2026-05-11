@@ -355,8 +355,17 @@ public class SectionExecutionFactory
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
+                List<Map<String, String>> partitionValuesList =
+                        plan.getFragment().getStageExecutionDescriptor().getGroupedExecutionPartitionValues();
                 if (groupedExecutionForStage) {
-                    connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
+                    if (!partitionValuesList.isEmpty()) {
+                        // Partition-aware grouped execution: connector creates compound (bucket, partitionValues) handles
+                        connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(
+                                session, partitioningHandle, partitionValuesList);
+                    }
+                    else {
+                        connectorPartitionHandles = nodePartitioningManager.listPartitionHandles(session, partitioningHandle);
+                    }
                     checkState(!ImmutableList.of(NOT_PARTITIONED).equals(connectorPartitionHandles));
                 }
                 else {
@@ -390,7 +399,17 @@ public class SectionExecutionFactory
                     // Partitioned remote source requires nodePartitionMap
                     NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
                     if (groupedExecutionForStage) {
-                        checkState(connectorPartitionHandles.size() == nodePartitionMap.getBucketToPartition().length);
+                        int bucketCount = nodePartitionMap.getBucketToPartition().length;
+                        if (!partitionValuesList.isEmpty()) {
+                            checkState(connectorPartitionHandles.size() == bucketCount * partitionValuesList.size(),
+                                    "connectorPartitionHandles size (%s) must equal bucketCount (%s) * partitionCount (%s)",
+                                    connectorPartitionHandles.size(), bucketCount, partitionValuesList.size());
+                        }
+                        else {
+                            checkState(connectorPartitionHandles.size() == bucketCount,
+                                    "connectorPartitionHandles size (%s) must equal bucketCount (%s)",
+                                    connectorPartitionHandles.size(), bucketCount);
+                        }
                     }
                     stageNodeList = nodePartitionMap.getPartitionToNode();
                     bucketNodeMap = nodePartitionMap.asBucketNodeMap();

@@ -141,6 +141,12 @@
         </dependency>
 
         <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -191,6 +197,7 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift:concurrent</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:json</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.airlift:stats</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>joda-time:joda-time</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-cache</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-common</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.facebook.presto:presto-hive-metastore</ignoredNonTestScopedDependency>

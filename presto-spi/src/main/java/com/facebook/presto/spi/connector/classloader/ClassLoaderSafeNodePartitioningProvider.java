@@ -26,6 +26,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.ToIntFunction;
 
 import static java.util.Objects.requireNonNull;
@@ -60,6 +61,14 @@ public final class ClassLoaderSafeNodePartitioningProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listPartitionHandles(transactionHandle, session, partitioningHandle);
+        }
+    }
+
+    @Override
+    public List<ConnectorPartitionHandle> listPartitionHandles(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle, List<Map<String, String>> partitionValues)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listPartitionHandles(transactionHandle, session, partitioningHandle, partitionValues);
         }
     }
 

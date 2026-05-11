@@ -18,12 +18,14 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.DateStatistics;
@@ -58,11 +60,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import io.airlift.slice.Slice;
 import jakarta.inject.Inject;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
+import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -77,6 +81,7 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -110,6 +115,8 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -134,6 +141,8 @@ public class HiveSplitManager
 {
     public static final String OBJECT_NOT_READABLE = "object_not_readable";
 
+    private final DateTimeZone timeZone;
+    private final TypeManager typeManager;
     private final HiveTransactionManager hiveTransactionManager;
     private final NamenodeStats namenodeStats;
     private final HdfsEnvironment hdfsEnvironment;
@@ -156,6 +165,7 @@ public class HiveSplitManager
             HiveClientConfig hiveClientConfig,
             CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveTransactionManager hiveTransactionManager,
+            TypeManager typeManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
@@ -165,6 +175,8 @@ public class HiveSplitManager
             PartitionSkippabilityChecker partitionSkippabilityChecker)
     {
         this(
+                hiveClientConfig.getDateTimeZone(),
+                typeManager,
                 hiveTransactionManager,
                 namenodeStats,
                 hdfsEnvironment,
@@ -184,6 +196,8 @@ public class HiveSplitManager
     }
 
     public HiveSplitManager(
+            DateTimeZone timeZone,
+            TypeManager typeManager,
             HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -201,6 +215,8 @@ public class HiveSplitManager
             HiveEncryptionInformationProvider encryptionInformationProvider,
             PartitionSkippabilityChecker partitionSkippabilityChecker)
     {
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -316,6 +332,20 @@ public class HiveSplitManager
                 splitSchedulingContext.schedulerUsesHostAddresses(),
                 layout.isPartialAggregationsPushedDown());
 
+        // Validate that partition-aware column mapping only references actual partition columns.
+        // This catches bugs where DiscretePredicates returns non-partition columns.
+        Map<String, String> partitionColumnMapping = splitSchedulingContext.getPartitionColumnMapping();
+        if (!partitionColumnMapping.isEmpty()) {
+            Set<String> actualPartitionColumnNames = layout.getPartitionColumns().stream()
+                    .map(col -> ((HiveColumnHandle) col).getName())
+                    .collect(ImmutableSet.toImmutableSet());
+            for (String col : partitionColumnMapping.keySet()) {
+                checkState(actualPartitionColumnNames.contains(col),
+                        "Partition-aware column '%s' is not a partition column of table %s.%s. Actual partition columns: %s",
+                        col, tableName.getSchemaName(), tableName.getTableName(), actualPartitionColumnNames);
+            }
+        }
+
         HiveSplitSource splitSource = computeSplitSource(splitSchedulingContext, table, session, hiveSplitLoader, ratio);
         hiveSplitLoader.start(splitSource);
 
@@ -392,18 +422,51 @@ public class HiveSplitManager
                         splitScanRatio);
                 break;
             case GROUPED_SCHEDULING:
-                splitSource = HiveSplitSource.bucketed(
-                        session,
-                        table.getDatabaseName(),
-                        table.getTableName(),
-                        cacheQuotaRequirement,
-                        getHiveMaxInitialSplitSize(session),
-                        maxOutstandingSplits,
-                        maxOutstandingSplitsSize,
-                        hiveSplitLoader,
-                        executor,
-                        new CounterStat(),
-                        splitScanRatio);
+                Map<String, String> partitionColumnMapping = splitSchedulingContext.getPartitionColumnMapping();
+                if (!partitionColumnMapping.isEmpty()) {
+                    Map<String, Type> partitionColumnTypes = table.getPartitionColumns().stream()
+                            .filter(col -> partitionColumnMapping.containsKey(col.getName()))
+                            .collect(toImmutableMap(
+                                    Column::getName,
+                                    col -> typeManager.getType(col.getType().getTypeSignature())));
+                    Function<HivePartitionKey, String> partitionValueNormalizer = key -> {
+                        Type type = checkNotNull(partitionColumnTypes.get(key.getName()),
+                                "No type found for partition column: %s", key.getName());
+                        NullableValue parsed = HiveUtil.parsePartitionValue(key, type, timeZone);
+                        checkState(!parsed.isNull(),
+                                "Unexpected null partition value for column: %s", key.getName());
+                        Object value = parsed.getValue();
+                        return value instanceof Slice ? ((Slice) value).toStringUtf8() : String.valueOf(value);
+                    };
+                    splitSource = HiveSplitSource.bucketedPartitionAware(
+                            session,
+                            table.getDatabaseName(),
+                            table.getTableName(),
+                            cacheQuotaRequirement,
+                            getHiveMaxInitialSplitSize(session),
+                            maxOutstandingSplits,
+                            maxOutstandingSplitsSize,
+                            hiveSplitLoader,
+                            executor,
+                            new CounterStat(),
+                            splitScanRatio,
+                            partitionColumnMapping,
+                            partitionValueNormalizer);
+                }
+                else {
+                    splitSource = HiveSplitSource.bucketed(
+                            session,
+                            table.getDatabaseName(),
+                            table.getTableName(),
+                            cacheQuotaRequirement,
+                            getHiveMaxInitialSplitSize(session),
+                            maxOutstandingSplits,
+                            maxOutstandingSplitsSize,
+                            hiveSplitLoader,
+                            executor,
+                            new CounterStat(),
+                            splitScanRatio);
+                }
                 break;
             case REWINDABLE_GROUPED_SCHEDULING:
                 splitSource = HiveSplitSource.bucketedRewindable(
