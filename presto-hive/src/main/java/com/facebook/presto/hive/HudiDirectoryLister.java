@@ -97,11 +97,11 @@ public class HudiDirectoryLister
                 .filterCompletedInstants()
                 .filter(instant -> MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
                 .lastInstant()
-                .map(HoodieInstant::getTimestamp).orElseGet(() -> metaClient.getActiveTimeline()
+                .map(HoodieInstant::requestedTime).orElseGet(() -> metaClient.getActiveTimeline()
                         .getCommitsTimeline()
                         .filterCompletedInstants()
                         .lastInstant()
-                        .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found")));
+                        .map(HoodieInstant::requestedTime).orElseThrow(() -> new RuntimeException("No active instant found")));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(storageConf);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)

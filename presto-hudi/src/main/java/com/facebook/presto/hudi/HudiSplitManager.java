@@ -121,7 +121,7 @@ public class HudiSplitManager
         StorageConfiguration<Configuration> storageConf = getStorageConfWithCopy(conf);
         HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder().setConf(storageConf).setBasePath(table.getPath()).build();
         HoodieTimeline timeline = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants();
-        String timestamp = timeline.lastInstant().map(HoodieInstant::getTimestamp).orElse(null);
+        String timestamp = timeline.lastInstant().map(HoodieInstant::requestedTime).orElse(null);
         if (timestamp == null) {
             // no completed instant for current table
             return new FixedSplitSource(ImmutableList.of());
