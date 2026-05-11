@@ -848,7 +848,7 @@ public class PropertyDerivations
                 if (value instanceof VariableReferenceExpression) {
                     ConstantExpression existingConstantValue = constants.get(value);
                     if (existingConstantValue != null) {
-                        constants.put(output, new ConstantExpression(((VariableReferenceExpression) value).getSourceLocation(), value, expression.getType()));
+                        constants.put(output, existingConstantValue);
                     }
                 }
                 else if (!(value instanceof RowExpression)) {
