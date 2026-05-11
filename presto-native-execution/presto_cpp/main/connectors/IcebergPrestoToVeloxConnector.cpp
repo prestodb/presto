@@ -15,14 +15,27 @@
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
+#include <algorithm>
+#include <unordered_set>
+
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
 
 namespace {
+
+// Row-lineage columns are not included in a table's dataColumns but may exist
+// physically in written files. Centralizing the names here means adding a new
+// lineage column only requires updating this one set.
+const std::unordered_set<std::string> kRowLineageColumnNames = {
+    velox::connector::hive::iceberg::IcebergMetadataColumn::kRowIdColumnName,
+    velox::connector::hive::iceberg::IcebergMetadataColumn::
+        kLastUpdatedSequenceNumberColumnName,
+};
 
 velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     const presto::protocol::iceberg::FileContent content) {
@@ -93,6 +106,20 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
+
+    // Row-lineage columns are not included in the table's dataColumns but may
+    // exist physically in the written files (e.g. after MERGE/UPDATE). Add any
+    // requested lineage columns to finalDataColumns so the reader can match
+    // them with the Parquet schema.
+    for (const auto& handle : columnHandles) {
+      if (kRowLineageColumnNames.count(handle->name()) &&
+          std::find(names.begin(), names.end(), handle->name()) ==
+              names.end()) {
+        names.emplace_back(handle->name());
+        types.push_back(handle->dataType());
+      }
+    }
+
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
@@ -211,9 +238,15 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   }
 
   std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
-      {"$path", icebergSplit->path}};
+      {"$path", icebergSplit->path},
+      {velox::connector::hive::iceberg::IcebergMetadataColumn::
+           kDataSequenceNumberInfoColumn,
+       std::to_string(icebergSplit->dataSequenceNumber)}};
+  if (icebergSplit->firstRowId >= 0) {
+    infoColumns[velox::connector::hive::iceberg::IcebergMetadataColumn::
+                    kFirstRowIdInfoColumn] =
+        std::to_string(icebergSplit->firstRowId);
+  }
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
