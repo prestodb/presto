@@ -13,14 +13,10 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tpch.TpchConnectorFactory;
-import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public class TestDateTimeScalarFunctions
         extends AbstractTestDateTimeScalarFunctions
@@ -29,23 +25,6 @@ public class TestDateTimeScalarFunctions
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createLocalQueryRunner();
-    }
-
-    public static LocalQueryRunner createLocalQueryRunner()
-    {
-        Session defaultSession = testSessionBuilder()
-                .setCatalog("local")
-                .setSchema(TINY_SCHEMA_NAME)
-                .build();
-
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
-
-        localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
-                new TpchConnectorFactory(1),
-                ImmutableMap.of());
-
-        return localQueryRunner;
+        return new LocalQueryRunner(testSessionBuilder().build());
     }
 }
