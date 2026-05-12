@@ -33,15 +33,20 @@ import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.GroupingElement;
+import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Relation;
+import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
@@ -401,6 +406,63 @@ public final class MaterializedViewUtils
         else {
             return combineDisjuncts(disjuncts);
         }
+    }
+
+    public static FunctionCall rewriteCountAsSum(FunctionCall countCall, Expression derivedColumnExpression)
+    {
+        if (!countCall.getName().equals(COUNT)) {
+            throw new SemanticException(NOT_SUPPORTED, countCall, "Provided function was not COUNT");
+        }
+        if (countCall.isDistinct()) {
+            throw new SemanticException(NOT_SUPPORTED, countCall, "COUNT(DISTINCT) is not supported for materialized view query rewrite optimization");
+        }
+        return new FunctionCall(
+                SUM,
+                countCall.getWindow(),
+                countCall.getFilter(),
+                countCall.getOrderBy(),
+                countCall.isDistinct(),
+                countCall.isIgnoreNulls(),
+                ImmutableList.of(derivedColumnExpression));
+    }
+
+    public static FunctionCall rewriteAssociativeFunction(FunctionCall node, Expression derivedColumnExpression)
+    {
+        if (node.getName().equals(COUNT)) {
+            return rewriteCountAsSum(node, derivedColumnExpression);
+        }
+        return new FunctionCall(
+                node.getName(),
+                node.getWindow(),
+                node.getFilter(),
+                node.getOrderBy(),
+                node.isDistinct(),
+                node.isIgnoreNulls(),
+                ImmutableList.of(derivedColumnExpression));
+    }
+
+    public static GroupingElement rewriteGroupingElement(GroupingElement element, java.util.function.Function<Expression, Expression> rewriter)
+    {
+        List<Expression> rewritten = element.getExpressions().stream()
+                .map(rewriter)
+                .collect(toImmutableList());
+        if (element instanceof SimpleGroupBy) {
+            return new SimpleGroupBy(rewritten);
+        }
+        if (element instanceof Cube) {
+            return new Cube(rewritten);
+        }
+        if (element instanceof Rollup) {
+            return new Rollup(rewritten);
+        }
+        if (element instanceof GroupingSets) {
+            ImmutableList.Builder<List<Expression>> rewrittenSets = ImmutableList.builder();
+            for (List<Expression> set : ((GroupingSets) element).getSets()) {
+                rewrittenSets.add(set.stream().map(rewriter).collect(toImmutableList()));
+            }
+            return new GroupingSets(rewrittenSets.build());
+        }
+        return element;
     }
 
     public static Relation resolveTableName(Relation relation, Session session, Metadata metadata)
