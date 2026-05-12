@@ -32,7 +32,9 @@ import static java.util.Objects.requireNonNull;
 public final class DeltaColumnHandle
         implements ColumnHandle
 {
-    private final String name;
+    private final Long id;
+    private final String physicalName;
+    private final String logicalName;
     private final TypeSignature dataType;
     private final ColumnType columnType;
     private final Optional<Subfield> subfield;
@@ -46,21 +48,47 @@ public final class DeltaColumnHandle
 
     @JsonCreator
     public DeltaColumnHandle(
-            @JsonProperty("columnName") String name,
+            @JsonProperty("id") Long id,
+            @JsonProperty("physicalName") String physicalName,
+            @JsonProperty("columnName") String logicalName,
             @JsonProperty("dataType") TypeSignature dataType,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("subfield") Optional<Subfield> subfield)
     {
-        this.name = requireNonNull(name, "columnName is null");
+        this.id = id;
+        this.physicalName = physicalName;
+        this.logicalName = requireNonNull(logicalName, "logicalName is null");
         this.dataType = requireNonNull(dataType, "dataType is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.subfield = requireNonNull(subfield, "subfield is null");
     }
 
     @JsonProperty
-    public String getName()
+    public Long getId()
     {
-        return name;
+        return this.id;
+    }
+
+    @JsonProperty
+    public String getPhysicalName()
+    {
+        return this.physicalName;
+    }
+
+    @JsonProperty
+    public String getLogicalName()
+    {
+        return this.logicalName;
+    }
+
+    /**
+     * Returns the appropriate name based on the column mapping of the table
+     * This will return the physical name if column mapping is enabled, the logical name otherwise
+     * @return a {@link String} representing the name of the column
+     */
+    public String getSourceName()
+    {
+        return this.physicalName == null ? this.logicalName : this.physicalName;
     }
 
     @JsonProperty
@@ -85,7 +113,9 @@ public final class DeltaColumnHandle
     public String toString()
     {
         ToStringHelper stringHelper = toStringHelper(this)
-                .add("name", name)
+                .add("id", this.id)
+                .add("physicalName", this.physicalName)
+                .add("logicalName", this.logicalName)
                 .add("dataType", dataType)
                 .add("columnType", columnType);
 
@@ -108,7 +138,9 @@ public final class DeltaColumnHandle
         }
 
         DeltaColumnHandle that = (DeltaColumnHandle) o;
-        return name.equals(that.name) &&
+        return Objects.equals(this.id, that.id) &&
+                Objects.equals(this.physicalName, that.physicalName) &&
+                this.logicalName.equals(that.logicalName) &&
                 dataType.equals(that.dataType) &&
                 columnType == that.columnType &&
                 subfield.equals(that.subfield);
@@ -117,7 +149,7 @@ public final class DeltaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, dataType, columnType, subfield);
+        return Objects.hash(this.id, this.physicalName, this.logicalName, dataType, columnType, subfield);
     }
 
     /**
