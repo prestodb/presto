@@ -15,6 +15,10 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.testing.QueryRunner;
@@ -31,6 +35,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.REST;
@@ -1889,6 +1894,126 @@ public class TestIcebergMaterializedViewOptimizer
             assertUpdate("DROP TABLE IF EXISTS jexjb_c");
             assertUpdate("DROP TABLE IF EXISTS jexjb_b");
             assertUpdate("DROP TABLE IF EXISTS jexjb_a");
+        }
+    }
+
+    @Test
+    public void testBoundedRefreshPushesSequencePredicateIntoLayout()
+    {
+        String base = "plan_bounded_base";
+        String mv = "plan_bounded_mv";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id BIGINT, v BIGINT) WITH (format_version = '3')", base));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, 100)", base), 1);
+            assertUpdate(String.format(
+                    "CREATE MATERIALIZED VIEW %s WITH (max_snapshots_per_refresh = 2) AS SELECT id, v FROM %s",
+                    mv, base));
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mv, 1);
+
+            // 5 inserts (seq=2..6) over watermark seq=1, bound=2: picks the 3rd-oldest ancestor (seq=3).
+            for (int i = 2; i <= 6; i++) {
+                assertUpdate(String.format("INSERT INTO %s VALUES (%d, %d)", base, i, i * 100), 1);
+            }
+
+            PlanMatchPattern boundedScan = project(filter(
+                    "\"_last_updated_sequence_number\" <= BIGINT '3'",
+                    constrainedTableScan(
+                            base,
+                            ImmutableMap.of("_last_updated_sequence_number",
+                                    Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 3L)), false)),
+                            ImmutableMap.of("_last_updated_sequence_number", "_last_updated_sequence_number"))));
+
+            assertPlan("REFRESH MATERIALIZED VIEW " + mv,
+                    output(tableFinish(
+                            exchange(node(TableWriterNode.class,
+                                    exchange(exchange(boundedScan)))))));
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
+            assertUpdate("DROP TABLE IF EXISTS " + base);
+        }
+    }
+
+    @Test
+    public void testUnboundedRefreshHasNoSequencePredicate()
+    {
+        String base = "plan_unbounded_base";
+        String mv = "plan_unbounded_mv";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id BIGINT, v BIGINT) WITH (format_version = '3')", base));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, 100)", base), 1);
+            assertUpdate(String.format(
+                    "CREATE MATERIALIZED VIEW %s AS SELECT id, v FROM %s", mv, base));
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mv, 1);
+
+            assertUpdate(String.format("INSERT INTO %s VALUES (2, 200)", base), 1);
+
+            assertPlan("REFRESH MATERIALIZED VIEW " + mv,
+                    output(tableFinish(
+                            exchange(node(TableWriterNode.class,
+                                    exchange(exchange(tableScan(base))))))));
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
+            assertUpdate("DROP TABLE IF EXISTS " + base);
+        }
+    }
+
+    @Test
+    public void testV2BoundedRefreshHasNoSequencePredicate()
+    {
+        // V2 lacks per-row lineage; the bound is silently ignored.
+        String base = "plan_v2_base";
+        String mv = "plan_v2_mv";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id BIGINT, v BIGINT)", base));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, 100)", base), 1);
+            assertUpdate(String.format(
+                    "CREATE MATERIALIZED VIEW %s WITH (max_snapshots_per_refresh = 2) AS SELECT id, v FROM %s",
+                    mv, base));
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mv, 1);
+
+            for (int i = 2; i <= 6; i++) {
+                assertUpdate(String.format("INSERT INTO %s VALUES (%d, %d)", base, i, i * 100), 1);
+            }
+
+            assertPlan("REFRESH MATERIALIZED VIEW " + mv,
+                    output(tableFinish(
+                            exchange(node(TableWriterNode.class,
+                                    exchange(exchange(tableScan(base))))))));
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
+            assertUpdate("DROP TABLE IF EXISTS " + base);
+        }
+    }
+
+    @Test
+    public void testStitchingOfStaleBoundedMvHasNoSequencePredicate()
+    {
+        // Stale-read stitching must not inherit the seq predicate — it would drop rows the query needs.
+        String base = "plan_stitch_base";
+        String mv = "plan_stitch_mv";
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id BIGINT, v BIGINT) WITH (format_version = '3')", base));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, 100)", base), 1);
+            assertUpdate(String.format(
+                    "CREATE MATERIALIZED VIEW %s WITH (max_snapshots_per_refresh = 2) AS SELECT id, v FROM %s",
+                    mv, base));
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mv, 1);
+
+            for (int i = 2; i <= 6; i++) {
+                assertUpdate(String.format("INSERT INTO %s VALUES (%d, %d)", base, i, i * 100), 1);
+            }
+
+            // Invariant: the TableScan on the base must carry no _last_updated_sequence_number constraint.
+            assertPlan("SELECT id, v FROM " + mv + " ORDER BY id",
+                    output(exchange(exchange(node(SortNode.class,
+                            exchange(tableScan(base)))))));
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
+            assertUpdate("DROP TABLE IF EXISTS " + base);
         }
     }
 }

@@ -20,7 +20,9 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampType;
@@ -154,6 +156,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -190,6 +193,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStalenessWindow;
@@ -204,6 +208,7 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_TARGET_ROW
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewDefaultMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewDefaultStorageSchema;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
@@ -216,6 +221,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
+import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -275,6 +281,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.transformValues;
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.time.Duration.ofDays;
@@ -289,6 +296,8 @@ import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
+import static org.apache.iceberg.util.SnapshotUtil.ancestorIdsBetween;
+import static org.apache.iceberg.util.SnapshotUtil.isAncestorOf;
 
 public abstract class IcebergAbstractMetadata
         implements IcebergTransactionMetadata
@@ -310,6 +319,7 @@ public abstract class IcebergAbstractMetadata
     protected static final String PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR = "presto.materialized_view.stale_read_behavior";
     protected static final String PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW = "presto.materialized_view.staleness_window";
     protected static final String PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE = "presto.materialized_view.refresh_type";
+    protected static final String PRESTO_MATERIALIZED_VIEW_MAX_SNAPSHOTS_PER_REFRESH = "presto.materialized_view.max_snapshots_per_refresh";
 
     protected static final int CURRENT_MATERIALIZED_VIEW_FORMAT_VERSION = 1;
 
@@ -410,7 +420,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         TableMetadata metadata = table.operations().current();
-        if (metadata.formatVersion() < 3) {
+        if (metadata.formatVersion() < MIN_FORMAT_VERSION_FOR_ROW_LINEAGE) {
             return;
         }
 
@@ -1895,6 +1905,10 @@ public abstract class IcebergAbstractMetadata
                             .ifPresent(window -> properties.put(PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW, window.toString()));
                     getRefreshType(materializedViewProperties)
                             .ifPresent(refreshType -> properties.put(PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE, refreshType.name()));
+                    OptionalInt maxSnapshotsPerRefresh = getMaxSnapshotsPerRefresh(materializedViewProperties);
+                    if (maxSnapshotsPerRefresh.isPresent()) {
+                        properties.put(PRESTO_MATERIALIZED_VIEW_MAX_SNAPSHOTS_PER_REFRESH, Integer.toString(maxSnapshotsPerRefresh.getAsInt()));
+                    }
 
                     for (SchemaTableName baseTable : viewDefinition.getBaseTables()) {
                         properties.put(getBaseTableViewPropertyName(baseTable), "0");
@@ -2111,7 +2125,9 @@ public abstract class IcebergAbstractMetadata
             lastFreshTime = Optional.of(lastRefreshSnapshot.timestampMillis());
         }
 
-        Map<SchemaTableName, List<TupleDomain<String>>> dataDisjuncts = new HashMap<>();
+        OptionalInt maxSnapshotsPerRefresh = resolveMaxSnapshotsPerRefresh(session, props);
+
+        ImmutableMap.Builder<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesByBase = ImmutableMap.builder();
         for (SchemaTableName baseTable : definition.get().getBaseTables()) {
             Table baseIcebergTable = getIcebergTable(session, baseTable);
             long currentSnapshotId = baseIcebergTable.currentSnapshot() != null
@@ -2126,32 +2142,53 @@ public abstract class IcebergAbstractMetadata
             }
             long recordedSnapshotId = parseLong(recordedSnapshotStr);
 
-            if (currentSnapshotId != recordedSnapshotId) {
-                Optional<List<TupleDomain<String>>> partitionConstraints = detectChangedPartitions(
-                        session,
-                        baseTable,
-                        recordedSnapshotId,
-                        currentSnapshotId);
-
-                if (partitionConstraints.isEmpty()) {
-                    // Couldn't determine changed partitions, treat as not materialized
-                    return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of(), lastFreshTime);
-                }
-                dataDisjuncts.put(baseTable, partitionConstraints.get());
+            if (currentSnapshotId == recordedSnapshotId) {
+                continue;
             }
+
+            // Rollback or branch reset can strand the watermark off HEAD's ancestry; the diff is
+            // meaningless, so signal NOT_MATERIALIZED to force a full refresh.
+            if (currentSnapshotId != 0 && !isAncestorOf(baseIcebergTable, currentSnapshotId, recordedSnapshotId)) {
+                return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of(), lastFreshTime);
+            }
+
+            long targetSnapshotId = chooseTargetSnapshot(baseIcebergTable, recordedSnapshotId, maxSnapshotsPerRefresh)
+                    .orElse(currentSnapshotId);
+
+            // Partition disjuncts must cover (watermark, HEAD] — not (watermark, target] — so stale-read
+            // stitching sees every dirty partition. The bound narrows refresh work via
+            // incrementalRefreshPredicate, which only the refresh path applies.
+            Optional<List<TupleDomain<String>>> partitionConstraints = detectChangedPartitions(
+                    session,
+                    baseTable,
+                    recordedSnapshotId,
+                    currentSnapshotId);
+
+            if (partitionConstraints.isEmpty()) {
+                // Couldn't determine changed partitions, treat as not materialized
+                return new MaterializedViewStatus(NOT_MATERIALIZED, ImmutableMap.of(), lastFreshTime);
+            }
+
+            TupleDomain<String> incrementalRefreshPredicate = TupleDomain.all();
+            if (targetSnapshotId != currentSnapshotId) {
+                long targetSequenceNumber = baseIcebergTable.snapshot(targetSnapshotId).sequenceNumber();
+                incrementalRefreshPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                        MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(),
+                        Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BigintType.BIGINT, targetSequenceNumber)), false)));
+            }
+
+            // We pass an empty list of column names for now as they are not used when legacy_materialized_views=false.
+            predicatesByBase.put(baseTable, new MaterializedViewStatus.MaterializedDataPredicates(
+                    partitionConstraints.get(),
+                    ImmutableList.of(),
+                    incrementalRefreshPredicate));
         }
 
-        if (dataDisjuncts.isEmpty()) {
+        Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> staleBases = predicatesByBase.build();
+        if (staleBases.isEmpty()) {
             return new MaterializedViewStatus(FULLY_MATERIALIZED, ImmutableMap.of(), lastFreshTime);
         }
-
-        Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesMap = dataDisjuncts.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        // We pass an empty list of column names for now as they are not used when legacy_materialized_views=false
-                        entry -> new MaterializedViewStatus.MaterializedDataPredicates(entry.getValue(), ImmutableList.of())));
-
-        return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, predicatesMap, lastFreshTime);
+        return new MaterializedViewStatus(PARTIALLY_MATERIALIZED, staleBases, lastFreshTime);
     }
 
     private Optional<List<TupleDomain<String>>> detectChangedPartitions(
@@ -2199,6 +2236,52 @@ public abstract class IcebergAbstractMetadata
                 changedPartitions.get());
 
         return Optional.of(partitionConstraints);
+    }
+
+    /**
+     * Returns the snapshot id a bounded refresh should advance a base's watermark to, or empty
+     * if no bounded target applies (V2 base, already at HEAD, watermark off HEAD's ancestry, or
+     * unbounded). Callers fall through to HEAD with {@code orElse(currentSnapshotId)}.
+     */
+    static OptionalLong chooseTargetSnapshot(Table baseTable, long watermark, OptionalInt maxSnapshots)
+    {
+        Snapshot currentSnapshot = baseTable.currentSnapshot();
+        if (currentSnapshot == null) {
+            return OptionalLong.empty();
+        }
+        if (opsFromTable(baseTable).current().formatVersion() < MIN_FORMAT_VERSION_FOR_ROW_LINEAGE) {
+            return OptionalLong.empty();
+        }
+        long head = currentSnapshot.snapshotId();
+        if (head == watermark) {
+            return OptionalLong.empty();
+        }
+        // Without this guard, ancestorIdsBetween walks to the root when watermark isn't on HEAD's
+        // ancestry (rollback, branch reset, sentinel 0, expired snapshot) and the caller rewinds.
+        if (!isAncestorOf(baseTable, head, watermark)) {
+            return OptionalLong.empty();
+        }
+        // ancestorIdsBetween returns HEAD-first over the half-open range (watermark, HEAD].
+        List<Long> ancestorIds = ImmutableList.copyOf(ancestorIdsBetween(head, watermark, baseTable::snapshot));
+        if (ancestorIds.isEmpty()) {
+            return OptionalLong.empty();
+        }
+        if (maxSnapshots.isEmpty() || ancestorIds.size() <= maxSnapshots.getAsInt()) {
+            return OptionalLong.of(ancestorIds.get(0));
+        }
+        return OptionalLong.of(ancestorIds.get(ancestorIds.size() - maxSnapshots.getAsInt()));
+    }
+
+    /**
+     * Persisted MV property wins; otherwise session default applies.
+     */
+    static OptionalInt resolveMaxSnapshotsPerRefresh(ConnectorSession session, Map<String, String> viewProperties)
+    {
+        String persisted = viewProperties.get(PRESTO_MATERIALIZED_VIEW_MAX_SNAPSHOTS_PER_REFRESH);
+        if (persisted != null) {
+            return OptionalInt.of(parseInt(persisted));
+        }
+        return getMaterializedViewDefaultMaxSnapshotsPerRefresh(session);
     }
 
     private Optional<Set<StructLike>> collectChangedPartitions(
@@ -2419,14 +2502,26 @@ public abstract class IcebergAbstractMetadata
         properties.put(PRESTO_MATERIALIZED_VIEW_LAST_REFRESH_SNAPSHOT_ID, String.valueOf(newSnapshotId));
 
         if (definition.isPresent()) {
+            Map<String, String> viewProperties = getViewMetadata(session, materializedViewName)
+                    .map(IcebergViewMetadata::getProperties)
+                    .orElse(ImmutableMap.of());
+            OptionalInt maxSnapshotsPerRefresh = resolveMaxSnapshotsPerRefresh(session, viewProperties);
+
             for (SchemaTableName baseTable : definition.get().getBaseTables()) {
                 try {
                     Table baseIcebergTable = getIcebergTable(session, baseTable);
-                    long baseSnapshotId = baseIcebergTable.currentSnapshot() != null
-                            ? baseIcebergTable.currentSnapshot().snapshotId()
-                            : 0L;
+                    Snapshot baseHeadSnapshot = baseIcebergTable.currentSnapshot();
                     String key = getBaseTableViewPropertyName(baseTable);
-                    properties.put(key, baseSnapshotId + "");
+                    if (baseHeadSnapshot == null) {
+                        properties.put(key, "0");
+                        continue;
+                    }
+                    long baseHeadId = baseHeadSnapshot.snapshotId();
+                    String recordedSnapshotStr = viewProperties.get(key);
+                    long recordedSnapshotId = recordedSnapshotStr == null ? 0L : parseLong(recordedSnapshotStr);
+                    long newWatermark = chooseTargetSnapshot(baseIcebergTable, recordedSnapshotId, maxSnapshotsPerRefresh)
+                            .orElse(baseHeadId);
+                    properties.put(key, Long.toString(newWatermark));
                 }
                 catch (Exception e) {
                     log.warn(e, "Failed to capture snapshot for base table %s during refresh of materialized view %s", baseTable, materializedViewName);

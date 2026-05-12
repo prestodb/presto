@@ -523,47 +523,51 @@ Session Properties
 
 Session properties set behavior changes for queries executed within the given session.
 
-===================================================== ======================================================================= =================== =============================================
-Property Name                                         Description                                                             Presto Java Support Presto C++ Support
-===================================================== ======================================================================= =================== =============================================
-``iceberg.delete_as_join_rewrite_enabled``            Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
-                                                      ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
+======================================================= ======================================================================= =================== =============================================
+Property Name                                           Description                                                             Presto Java Support Presto C++ Support
+======================================================= ======================================================================= =================== =============================================
+``iceberg.delete_as_join_rewrite_enabled``              Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
+                                                        ``iceberg.delete-as-join-rewrite-enabled`` in the current session.
 
-                                                      Deprecated: This property is deprecated and will be removed.  Use
-                                                      ``iceberg.delete_as_join_rewrite_max_delete_columns`` instead.
-``iceberg.delete_as_join_rewrite_max_delete_columns`` Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
-                                                      ``iceberg.delete-as-join-rewrite-max-delete-columns`` in the
-                                                      current session.
-``iceberg.hive_statistics_merge_strategy``            Overrides the behavior of the connector property                        Yes                 Yes
-                                                      ``iceberg.hive-statistics-merge-strategy`` in the current session.
-``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property                        Yes                 Yes
-                                                      ``iceberg.rows-for-metadata-optimization-threshold`` in the current
-                                                      session.
-``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.     Yes                 Yes
-                                                      Set to 0 to use the value in each Iceberg table's
-                                                      ``read.split.target-size`` property.
-``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or                                 Yes                 Yes
-                                                      ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
-                                                      this configuration property will change the size of a file chunk that
-                                                      is hashed to a particular node when determining the which worker to
-                                                      assign a split to. Splits which read data from the same file within
-                                                      the same chunk will hash to the same node. A smaller chunk size will
-                                                      result in a higher probability splits being distributed evenly across
-                                                      the cluster, but reduce locality. 
-                                                      See :ref:`develop/connectors:Node Selection Strategy`.
-``iceberg.parquet_dereference_pushdown_enabled``      Overrides the behavior of the connector property                        Yes                 No
-                                                      ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
-``materialized_view_storage_table_name_prefix``       Prefix for automatically generated materialized view storage table      Yes                 No
-                                                      names. Default: ``__mv_storage__``
-``materialized_view_missing_base_table_behavior``     Behavior when a base table referenced by a materialized view is         Yes                 No
-                                                      missing. Valid values: ``FAIL``, ``IGNORE``. Default: ``FAIL``
-``materialized_view_max_changed_partitions``          Maximum number of changed partitions to track for materialized          Yes                 No
-                                                      view staleness detection. If the number of changed partitions
-                                                      exceeds this threshold, the materialized view falls back to a
-                                                      full recompute. Default: ``100``
-``max_partitions_per_writer``                         Overrides the behavior of the connector property                        Yes                 No
-                                                      ``iceberg.max-partitions-per-writer`` in the current session.
-===================================================== ======================================================================= =================== =============================================
+                                                        Deprecated: This property is deprecated and will be removed.  Use
+                                                        ``iceberg.delete_as_join_rewrite_max_delete_columns`` instead.
+``iceberg.delete_as_join_rewrite_max_delete_columns``   Overrides the behavior of the connector property                        Yes                 No, Equality delete read is not supported
+                                                        ``iceberg.delete-as-join-rewrite-max-delete-columns`` in the
+                                                        current session.
+``iceberg.hive_statistics_merge_strategy``              Overrides the behavior of the connector property                        Yes                 Yes
+                                                        ``iceberg.hive-statistics-merge-strategy`` in the current session.
+``iceberg.rows_for_metadata_optimization_threshold``    Overrides the behavior of the connector property                        Yes                 Yes
+                                                        ``iceberg.rows-for-metadata-optimization-threshold`` in the current
+                                                        session.
+``iceberg.target_split_size_bytes``                     Overrides the target split size for all tables in a query in bytes.     Yes                 Yes
+                                                        Set to 0 to use the value in each Iceberg table's
+                                                        ``read.split.target-size`` property.
+``iceberg.affinity_scheduling_file_section_size``       When the ``node_selection_strategy`` or                                 Yes                 Yes
+                                                        ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
+                                                        this configuration property will change the size of a file chunk that
+                                                        is hashed to a particular node when determining the which worker to
+                                                        assign a split to. Splits which read data from the same file within
+                                                        the same chunk will hash to the same node. A smaller chunk size will
+                                                        result in a higher probability splits being distributed evenly across
+                                                        the cluster, but reduce locality. 
+                                                        See :ref:`develop/connectors:Node Selection Strategy`.
+``iceberg.parquet_dereference_pushdown_enabled``        Overrides the behavior of the connector property                        Yes                 No
+                                                        ``iceberg.enable-parquet-dereference-pushdown`` in the current session.
+``materialized_view_storage_table_name_prefix``         Prefix for automatically generated materialized view storage table      Yes                 No
+                                                        names. Default: ``__mv_storage__``
+``materialized_view_missing_base_table_behavior``       Behavior when a base table referenced by a materialized view is         Yes                 No
+                                                        missing. Valid values: ``FAIL``, ``IGNORE``. Default: ``FAIL``
+``materialized_view_max_changed_partitions``            Maximum number of changed partitions to track for materialized          Yes                 No
+                                                        view staleness detection. If the number of changed partitions
+                                                        exceeds this threshold, the materialized view falls back to a
+                                                        full recompute. Default: ``100``
+``materialized_view_default_max_snapshots_per_refresh`` Default upper bound on snapshots consumed per base table per            Yes                 No
+                                                        refresh when the materialized view does not override it via the
+                                                        ``max_snapshots_per_refresh`` table property. ``0`` means
+                                                        unbounded. Default: ``0``
+``max_partitions_per_writer``                           Overrides the behavior of the connector property                        Yes                 No
+                                                        ``iceberg.max-partitions-per-writer`` in the current session.
+======================================================= ======================================================================= =================== =============================================
 
 Caching Support
 ---------------
@@ -2848,21 +2852,27 @@ refresh behavior. Storage naming and location properties apply at materialized
 view creation time and can be overridden per-view by using the ``storage_schema`` and
 ``storage_table`` table properties.
 
-====================================================== ============================================================= ========================
-Property Name                                          Description                                                   Default
-====================================================== ============================================================= ========================
-``iceberg.materialized-view-storage-prefix``           Prefix applied to auto-generated storage table names.         ``__mv_storage__``
+=============================================================== ============================================================= ========================
+Property Name                                                   Description                                                   Default
+=============================================================== ============================================================= ========================
+``iceberg.materialized-view-storage-prefix``                    Prefix applied to auto-generated storage table names.         ``__mv_storage__``
 
-``iceberg.materialized-view-default-storage-schema``   Schema in which storage tables are created when the           (the view's own
-                                                       per-view ``storage_schema`` property is not set. Point at     schema)
-                                                       a locked-down schema to keep storage tables out of users'
-                                                       reach without affecting materialized view reads.
+``iceberg.materialized-view-default-storage-schema``            Schema in which storage tables are created when the           (the view's own
+                                                                per-view ``storage_schema`` property is not set. Point at     schema)
+                                                                a locked-down schema to keep storage tables out of users'
+                                                                reach without affecting materialized view reads.
 
-``iceberg.materialized-view-max-changed-partitions``   Maximum number of changed partitions to track for             ``100``
-                                                       materialized view staleness detection. If the number of
-                                                       changed partitions exceeds this threshold, the materialized
-                                                       view falls back to a full recompute.
-====================================================== ============================================================= ========================
+``iceberg.materialized-view-max-changed-partitions``            Maximum number of changed partitions to track for             ``100``
+                                                                materialized view staleness detection. If the number of
+                                                                changed partitions exceeds this threshold, the materialized
+                                                                view falls back to a full recompute.
+
+``iceberg.materialized-view-default-max-snapshots-per-refresh`` Default upper bound on snapshots consumed per base table per  ``0`` (unbounded)
+                                                                ``REFRESH MATERIALIZED VIEW`` when the view does not override
+                                                                it via the ``max_snapshots_per_refresh`` table property.
+                                                                Requires Iceberg V3 row lineage; V2 tables fall back to
+                                                                unbounded refresh.
+=============================================================== ============================================================= ========================
 
 Table Properties
 ^^^^^^^^^^^^^^^^
@@ -2890,6 +2900,12 @@ Property Name                                              Description
                                                            (always recompute entire view), ``INCREMENTAL`` (recompute only stale
                                                            partitions when possible, fall back to full otherwise). When not set,
                                                            uses the ``materialized_view_default_refresh_type`` session property.
+
+``max_snapshots_per_refresh``                              Upper bound on snapshots consumed per base table per
+                                                           ``REFRESH MATERIALIZED VIEW``. ``0`` means unbounded. Defaults to the
+                                                           ``materialized_view_default_max_snapshots_per_refresh`` session
+                                                           property. Requires Iceberg V3 row lineage; V2 tables fall back to
+                                                           unbounded refresh.
 ========================================================== ============================================================================
 
 The storage table inherits standard Iceberg table properties for partitioning, sorting, and file format.
