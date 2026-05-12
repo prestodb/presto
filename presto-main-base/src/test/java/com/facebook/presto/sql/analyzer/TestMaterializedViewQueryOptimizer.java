@@ -800,6 +800,145 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testBaseQueryWithoutGroupByNotRewrittenToMVWithGroupByAlias()
+    {
+        // MV uses aliases in GROUP BY — base query without GROUP BY must NOT be rewritten
+        String originalViewSql = format("SELECT a as mv_a, count(b) as cb, c as mv_c FROM %s GROUP BY mv_a, mv_c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Same scenario with a single aliased GROUP BY column
+        originalViewSql = format("SELECT a as mv_a, b FROM %s GROUP BY mv_a, b", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testBaseQueryWithoutGroupByScalarExpressionsNotRewritten()
+    {
+        // Scalar expressions wrapping GROUP BY columns must NOT be rewritten when base query has no GROUP BY.
+        // The MV collapses rows via GROUP BY, so reading scalar expressions of those columns loses duplicates.
+        String originalViewSql = format("SELECT a, b, SUM(c) AS total FROM %s GROUP BY a, b", BASE_TABLE_1);
+
+        // REJECT: arithmetic on GROUP BY columns
+        String baseQuerySql = format("SELECT a + b FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: CAST of a GROUP BY column
+        baseQuerySql = format("SELECT CAST(a AS VARCHAR) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: IF expression wrapping GROUP BY columns
+        baseQuerySql = format("SELECT IF(a > 0, b, 0) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: scalar function on GROUP BY column
+        baseQuerySql = format("SELECT ABS(a) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: COALESCE on GROUP BY columns
+        baseQuerySql = format("SELECT COALESCE(a, b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: CASE expression on GROUP BY columns
+        baseQuerySql = format("SELECT CASE WHEN a > 0 THEN b ELSE 0 END FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: NULLIF on GROUP BY column
+        baseQuerySql = format("SELECT NULLIF(a, 0) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: nested scalar (ABS(a + b))
+        baseQuerySql = format("SELECT ABS(a + b) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: comparison expression on GROUP BY columns
+        baseQuerySql = format("SELECT a > b FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: NOT expression on GROUP BY column
+        baseQuerySql = format("SELECT NOT (a > 0) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: IS NULL on GROUP BY column
+        baseQuerySql = format("SELECT a IS NULL FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: IN predicate on GROUP BY column
+        baseQuerySql = format("SELECT a IN (1, 2, 3) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Valid: aggregate without GROUP BY is still a valid rollup
+        baseQuerySql = format("SELECT SUM(c) FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Valid: COUNT rollup without GROUP BY
+        String originalViewSqlCount = format("SELECT a, COUNT(b) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SUM(cnt) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSqlCount, BASE_TABLE_1, VIEW_1);
+
+        // Valid: scalar expression with GROUP BY in base query is fine
+        baseQuerySql = format("SELECT a + b, SUM(c) FROM %s GROUP BY a, b", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a + b, SUM(total) FROM %s GROUP BY a, b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithGroupByAliasedMVColumns()
+    {
+        // MV uses aliases in GROUP BY — base query with GROUP BY should still rewrite via rollup
+        String originalViewSql = format("SELECT a as mv_a, c as mv_c, SUM(b) as total FROM %s GROUP BY mv_a, mv_c", BASE_TABLE_1);
+
+        // Exact same GROUP BY as MV
+        String baseQuerySql = format("SELECT a, c, SUM(b) FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT mv_a as a, mv_c as c, SUM(total) FROM %s GROUP BY mv_a, mv_c", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Rollup: query groups by subset of MV GROUP BY
+        baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, SUM(total) FROM %s GROUP BY mv_a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Aggregate-only rollup (no GROUP BY in query)
+        baseQuerySql = format("SELECT SUM(b) FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SUM(total) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: bare GROUP BY columns without GROUP BY — MV collapses rows
+        baseQuerySql = format("SELECT a, c FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: single aliased GROUP BY column without GROUP BY
+        baseQuerySql = format("SELECT a FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: scalar expression on aliased GROUP BY column without GROUP BY
+        baseQuerySql = format("SELECT a + c FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: CAST of aliased GROUP BY column without GROUP BY
+        baseQuerySql = format("SELECT CAST(a AS VARCHAR) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: query groups by column NOT in MV GROUP BY
+        baseQuerySql = format("SELECT SUM(b), d FROM %s GROUP BY d", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: query selects column not in MV
+        baseQuerySql = format("SELECT a, d FROM %s GROUP BY a, d", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: aggregate not pre-computed in MV
+        baseQuerySql = format("SELECT MAX(b) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: IF expression on aliased GROUP BY column without GROUP BY
+        baseQuerySql = format("SELECT IF(a > 0, c, 0) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithGroupByCube()
     {
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
