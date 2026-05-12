@@ -28,7 +28,11 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import jakarta.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
@@ -38,11 +42,37 @@ public class SqlServerClient
         extends BaseJdbcClient
 {
     private static final Joiner DOT_JOINER = Joiner.on(".");
+    private final int fetchSize;
 
     @Inject
     public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
+        this.fetchSize = config.getFetchSize();
+    }
+
+    @Override
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        String escape = metadata.getSearchStringEscape();
+        ResultSet resultSet = metadata.getTables(
+                connection.getCatalog(),
+                escapeNamePattern(schemaName, Optional.of(escape)).orElse(null),
+                escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
+                new String[] {"TABLE", "VIEW"});
+        resultSet.setFetchSize(fetchSize);
+        return resultSet;
+    }
+
+    @Override
+    public PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
+            throws SQLException
+    {
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setFetchSize(fetchSize);
+        return statement;
     }
 
     @Override
