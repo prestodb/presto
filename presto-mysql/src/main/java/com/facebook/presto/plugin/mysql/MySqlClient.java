@@ -51,7 +51,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -403,23 +402,6 @@ public class MySqlClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
-    }
-
-    public List<SchemaTableName> listSchemasForViews(ConnectorSession session)
-    {
-        List<SchemaTableName> allTableNames = new ArrayList<>();
-        JdbcIdentity identity = JdbcIdentity.from(session);
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            Collection<String> schemaNames = listSchemas(connection);
-            for (String schema : schemaNames) {
-                List<SchemaTableName> tablesNames = listViews(session, Optional.ofNullable(schema));
-                allTableNames.addAll(tablesNames);
-            }
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-        return allTableNames;
     }
 
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
