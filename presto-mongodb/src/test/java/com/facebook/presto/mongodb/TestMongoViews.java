@@ -17,7 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.testcontainers.containers.GenericContainer;
@@ -53,7 +54,7 @@ public class TestMongoViews
         String host = mongoContainer.getContainerIpAddress();
         Integer port = mongoContainer.getMappedPort(mongoContainerInternalPort);
 
-        mongoClient = new MongoClient(host, port);
+        mongoClient = MongoClients.create("mongodb://" + host + ":" + port);
         super.init();
     }
 

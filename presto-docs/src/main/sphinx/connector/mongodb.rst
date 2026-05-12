@@ -6,7 +6,8 @@ This connector allows the use of MongoDB collections as tables in Presto.
 
 .. note::
 
-    MongoDB 2.6+ is supported although it is highly recommend to use 3.0 or later.
+    This connector uses MongoDB Java Sync Driver version 5.6.5, for which MongoDB 4.2 or above is recommended. Supported MongoDB server versions should follow the driver compatibility matrix in the MongoDB documentation:
+    https://www.mongodb.com/docs/drivers/compatibility/?driver-language=java&java-driver-framework=java-sync#mongodb-server-compatibility-5
 
 Configuration
 -------------
@@ -39,7 +40,7 @@ Property Name                         Description                               
 ===================================== ============================================================== ===========
 ``mongodb.seeds``                     List of all MongoDB servers
 ``mongodb.schema-collection``         A collection which contains schema information                 ``_schema``
-``mongodb.credentials``               List of credentials
+``mongodb.credentials``               Authentication credential
 ``mongodb.min-connections-per-host``  The minimum size of the connection pool per host               ``0``
 ``mongodb.connections-per-host``      The maximum size of the connection pool per host               ``100``
 ``mongodb.max-wait-time``             The maximum wait time                                          ``120000ms``
@@ -81,7 +82,7 @@ This property is optional; the default is ``_schema``.
 ``mongodb.credentials``
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-A comma separated list of ``username:password@collection`` credentials
+Authentication credential in the format ``username:password@authenticationDatabase``.
 
 This property is optional; no default value.
 
@@ -180,8 +181,7 @@ This property is optional; the default is ``PRIMARY``.
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The write concern to use. The available values are
-``ACKNOWLEDGED``, ``FSYNC_SAFE``, ``FSYNCED``, ``JOURNAL_SAFE``, ``JOURNALED``, ``MAJORITY``,
-``NORMAL``, ``REPLICA_ACKNOWLEDGED``, ``REPLICAS_SAFE`` and ``UNACKNOWLEDGED``.
+``ACKNOWLEDGED``, ``JOURNALED``, ``MAJORITY``, ``UNACKNOWLEDGED``, ``W1``, ``W2`` and ``W3``.
 
 This property is optional; the default is ``ACKNOWLEDGED``.
 
