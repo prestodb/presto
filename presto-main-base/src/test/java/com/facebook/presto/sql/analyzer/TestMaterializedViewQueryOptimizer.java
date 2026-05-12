@@ -2082,6 +2082,116 @@ public class TestMaterializedViewQueryOptimizer
                 });
     }
 
+    @Test
+    public void testCollectorPopulatedOnSuccessfulRewrite()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(TEST_SESSION, session -> {
+                    Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
+
+                    metadata.createMaterializedView(
+                            session,
+                            TPCH_CATALOG,
+                            null,
+                            createStubConnectorMaterializedViewDefinition(
+                                    VIEW_1,
+                                    originalViewSql,
+                                    SESSION_SCHEMA,
+                                    ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, BASE_TABLE_1))),
+                            false);
+
+                    new MaterializedViewQueryOptimizer(
+                            metadata, session, SQL_PARSER, accessControl, domainTranslator)
+                            .process(baseQuery);
+
+                    List<com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo> rewriteInfos =
+                            session.getMaterializedViewInfoCollector().getRewriteInfos();
+
+                    assertEquals(rewriteInfos.isEmpty(), false, "Rewrite info should be populated after successful rewrite");
+
+                    boolean hasSuccess = rewriteInfos.stream().anyMatch(r -> "SUCCESS".equals(r.getStatus()));
+                    assertEquals(hasSuccess, true, "Should have a SUCCESS rewrite entry");
+
+                    com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo successInfo =
+                            rewriteInfos.stream().filter(r -> "SUCCESS".equals(r.getStatus())).findFirst().get();
+                    assertEquals(successInfo.getBaseTableName(), BASE_TABLE_1);
+
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, BASE_TABLE_1));
+                });
+    }
+
+    @Test
+    public void testCollectorPopulatedOnIncompatibleShape()
+    {
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        // HAVING clause is rejected by MaterializedViewRewriteQueryShapeValidator
+        String baseQuerySql = format("SELECT a, count(b) FROM %s GROUP BY a HAVING count(b) > 1", BASE_TABLE_1);
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(TEST_SESSION, session -> {
+                    Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
+
+                    metadata.createMaterializedView(
+                            session,
+                            TPCH_CATALOG,
+                            null,
+                            createStubConnectorMaterializedViewDefinition(
+                                    VIEW_1,
+                                    originalViewSql,
+                                    SESSION_SCHEMA,
+                                    ImmutableList.of(new SchemaTableName(SESSION_SCHEMA, BASE_TABLE_1))),
+                            false);
+
+                    new MaterializedViewQueryOptimizer(
+                            metadata, session, SQL_PARSER, accessControl, domainTranslator)
+                            .process(baseQuery);
+
+                    List<com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo> rewriteInfos =
+                            session.getMaterializedViewInfoCollector().getRewriteInfos();
+
+                    assertEquals(rewriteInfos.isEmpty(), false, "Rewrite info should be populated for incompatible shape");
+
+                    boolean hasIncompatible = rewriteInfos.stream().anyMatch(r -> "INCOMPATIBLE_SHAPE".equals(r.getStatus()));
+                    assertEquals(hasIncompatible, true, "Should have an INCOMPATIBLE_SHAPE rewrite entry");
+
+                    com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo info =
+                            rewriteInfos.stream().filter(r -> "INCOMPATIBLE_SHAPE".equals(r.getStatus())).findFirst().get();
+                    assertEquals(info.getBaseTableName(), BASE_TABLE_1);
+
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, BASE_TABLE_1));
+                });
+    }
+
+    @Test
+    public void testCollectorEmptyWhenNoMvReferenced()
+    {
+        // Query a table that has no referenced MVs (t7 is never used as a base table for any MV)
+        String baseQuerySql = format("SELECT a, b FROM %s", BASE_TABLE_7);
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(TEST_SESSION, session -> {
+                    Query baseQuery = (Query) SQL_PARSER.createStatement(baseQuerySql, createParsingOptions(session));
+
+                    new MaterializedViewQueryOptimizer(
+                            metadata, session, SQL_PARSER, accessControl, domainTranslator)
+                            .process(baseQuery);
+
+                    List<com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo> rewriteInfos =
+                            session.getMaterializedViewInfoCollector().getRewriteInfos();
+
+                    assertEquals(rewriteInfos.isEmpty(), true, "No rewrite info when no MVs exist for the table");
+                });
+    }
+
     private MaterializedViewDefinition createStubConnectorMaterializedViewDefinition(String viewName, String viewSql, String schema, List<SchemaTableName> baseTables)
     {
         return new MaterializedViewDefinition(

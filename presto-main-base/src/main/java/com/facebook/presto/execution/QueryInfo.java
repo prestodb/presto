@@ -23,6 +23,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.eventlistener.CTEInformation;
+import com.facebook.presto.spi.eventlistener.MaterializedViewStatistics;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -97,6 +98,7 @@ public class QueryInfo
     private final StatsAndCosts planStatsAndCosts;
     private final List<PlanOptimizerInformation> optimizerInformation;
     private final List<CTEInformation> cteInformationList;
+    private final Optional<MaterializedViewStatistics> materializedViewStatistics;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
     private final Set<String> windowFunctions;
@@ -144,6 +146,7 @@ public class QueryInfo
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
             @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
             @JsonProperty("cteInformation") List<CTEInformation> cteInformationList,
+            @JsonProperty("materializedViewStatistics") @Nullable MaterializedViewStatistics materializedViewStatistics,
             @JsonProperty("scalarFunctions") Set<String> scalarFunctions,
             @JsonProperty("aggregateFunctions") Set<String> aggregateFunctions,
             @JsonProperty("windowFunctions") Set<String> windowFunctions,
@@ -227,6 +230,7 @@ public class QueryInfo
         this.planStatsAndCosts = planStatsAndCosts;
         this.optimizerInformation = optimizerInformation;
         this.cteInformationList = cteInformationList;
+        this.materializedViewStatistics = Optional.ofNullable(materializedViewStatistics);
         this.scalarFunctions = scalarFunctions;
         this.aggregateFunctions = aggregateFunctions;
         this.windowFunctions = windowFunctions;
@@ -471,6 +475,12 @@ public class QueryInfo
     public List<CTEInformation> getCteInformationList()
     {
         return cteInformationList;
+    }
+
+    @JsonProperty
+    public Optional<MaterializedViewStatistics> getMaterializedViewStatistics()
+    {
+        return materializedViewStatistics;
     }
 
     @JsonProperty

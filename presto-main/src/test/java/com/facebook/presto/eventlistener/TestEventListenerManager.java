@@ -218,7 +218,8 @@ public class TestEventListenerManager
                 prestoSparkExecutionContext,
                 hboPlanHash,
                 planIdNodeMap,
-                Optional.of(updateInfo.getUpdateObject()));
+                Optional.of(updateInfo.getUpdateObject()),
+                Optional.empty());
     }
 
     public static QueryStatistics createDummyQueryStatistics()

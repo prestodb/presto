@@ -29,6 +29,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo;
+import com.facebook.presto.spi.eventlistener.MaterializedViewRewriteInfo.RewriteStatus;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -365,6 +367,11 @@ public class MaterializedViewQueryOptimizer
 
         if (errorMessage.isPresent()) {
             log.warn("Rewrite failed for base table %s with error message { %s }. ", baseTable.getName(), errorMessage.get());
+            session.getMaterializedViewInfoCollector().addRewriteInfo(new MaterializedViewRewriteInfo(
+                    baseTable.getName().toString(),
+                    "",
+                    RewriteStatus.INCOMPATIBLE_SHAPE,
+                    errorMessage.get()));
             return querySpecification;
         }
 
@@ -375,13 +382,15 @@ public class MaterializedViewQueryOptimizer
         // TODO: Select the most compatible and efficient materialized view for query rewrite optimization https://github.com/prestodb/presto/issues/16431
         // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
 
+        String baseTableName = baseTable.getName().toString();
+
         if (isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
-            return rewriteWithAllCandidates(querySpecification, referencedMaterializedViews);
+            return rewriteWithAllCandidates(querySpecification, referencedMaterializedViews, baseTableName);
         }
 
         // Default path: return the first compatible MV
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
-            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, querySpecification);
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, querySpecification, baseTableName);
             if (rewrittenQuerySpecification != querySpecification) {
                 return rewrittenQuerySpecification;
             }
@@ -391,12 +400,13 @@ public class MaterializedViewQueryOptimizer
 
     private QueryBody rewriteWithAllCandidates(
             QuerySpecification originalQuery,
-            List<QualifiedObjectName> referencedMaterializedViews)
+            List<QualifiedObjectName> referencedMaterializedViews,
+            String baseTableName)
     {
         ImmutableList.Builder<QueryWithMVRewriteCandidates.MVRewriteCandidate> candidates = ImmutableList.builder();
 
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
-            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, originalQuery);
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, originalQuery, baseTableName);
             if (rewrittenQuerySpecification != originalQuery) {
                 candidates.add(new QueryWithMVRewriteCandidates.MVRewriteCandidate(
                         rewrittenQuerySpecification,
@@ -414,14 +424,14 @@ public class MaterializedViewQueryOptimizer
         return new QueryWithMVRewriteCandidates(originalQuery, candidateList);
     }
 
-    private QuerySpecification getRewrittenQuerySpecification(QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
+    private QuerySpecification getRewrittenQuerySpecification(QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification, String baseTableName)
     {
         MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
         Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
-        return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
+        return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName, baseTableName).rewrite(originalQuerySpecification);
     }
 
     private class QuerySpecificationRewriter
@@ -430,6 +440,7 @@ public class MaterializedViewQueryOptimizer
         private final Table materializedView;
         private final Query materializedViewQuery;
         private final QualifiedObjectName materializedViewName;
+        private final String baseTableName;
 
         private MaterializedViewInfo materializedViewInfo;
         private Optional<Identifier> removablePrefix = Optional.empty();
@@ -438,11 +449,13 @@ public class MaterializedViewQueryOptimizer
         QuerySpecificationRewriter(
                 Table materializedView,
                 Query materializedViewQuery,
-                QualifiedObjectName materializedViewName)
+                QualifiedObjectName materializedViewName,
+                String baseTableName)
         {
             this.materializedView = requireNonNull(materializedView, "materialized view is null");
             this.materializedViewQuery = requireNonNull(materializedViewQuery, "materialized view query is null");
             this.materializedViewName = requireNonNull(materializedViewName, "materialized view name is null");
+            this.baseTableName = requireNonNull(baseTableName, "base table name is null");
         }
 
         public QuerySpecification rewrite(QuerySpecification querySpecification)
@@ -461,6 +474,11 @@ public class MaterializedViewQueryOptimizer
 
                 if (!isMaterializedViewDataConsistencyEnabled(session)) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    session.getMaterializedViewInfoCollector().addRewriteInfo(new MaterializedViewRewriteInfo(
+                            baseTableName,
+                            materializedViewName.toString(),
+                            RewriteStatus.SUCCESS,
+                            null));
                     return rewrittenQuerySpecification;
                 }
 
@@ -468,12 +486,27 @@ public class MaterializedViewQueryOptimizer
                 MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(querySpecification);
                 if (materializedViewStatus.isPartiallyMaterialized() || materializedViewStatus.isFullyMaterialized()) {
                     session.getRuntimeStats().addMetricValue(OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT, NONE, 1);
+                    session.getMaterializedViewInfoCollector().addRewriteInfo(new MaterializedViewRewriteInfo(
+                            baseTableName,
+                            materializedViewName.toString(),
+                            RewriteStatus.SUCCESS,
+                            null));
                     return rewrittenQuerySpecification;
                 }
                 session.getRuntimeStats().addMetricValue(MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT, NONE, 1);
+                session.getMaterializedViewInfoCollector().addRewriteInfo(new MaterializedViewRewriteInfo(
+                        baseTableName,
+                        materializedViewName.toString(),
+                        RewriteStatus.MV_STATUS_CHECK_FAILED,
+                        "Too many partitions missing"));
                 return querySpecification;
             }
             catch (Exception e) {
+                session.getMaterializedViewInfoCollector().addRewriteInfo(new MaterializedViewRewriteInfo(
+                        baseTableName,
+                        materializedViewName.toString(),
+                        RewriteStatus.EXCEPTION,
+                        e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
                 return querySpecification;
             }
         }

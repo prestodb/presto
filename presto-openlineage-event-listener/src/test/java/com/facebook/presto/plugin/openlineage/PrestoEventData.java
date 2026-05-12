@@ -149,7 +149,8 @@ public final class PrestoEventData
                 Optional.empty(), // prestoSparkExecutionContext
                 Collections.emptyMap(), // hboPlanHash
                 Optional.empty(), // planNodeIdMap
-                Optional.empty()); // qualifiedName
+                Optional.empty(), // qualifiedName
+                Optional.empty()); // materializedViewStatistics
 
         queryCreatedEvent = new QueryCreatedEvent(
                 Instant.parse("2025-04-28T11:23:55.384424Z"),

@@ -387,6 +387,7 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getPlan).map(Plan::getStatsAndCosts).orElseGet(StatsAndCosts::empty),
                 session.getOptimizerInformationCollector().getOptimizationInfo(),
                 ImmutableList.of(),
+                null,
                 planAndMore.map(PlanAndMore::getInvokedScalarFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedAggregateFunctions).orElseGet(ImmutableSet::of),
                 planAndMore.map(PlanAndMore::getInvokedWindowFunctions).orElseGet(ImmutableSet::of),
