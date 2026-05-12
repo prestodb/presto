@@ -36,6 +36,7 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodePoolType;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
+import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanFragmentId;
@@ -66,6 +67,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -343,9 +346,32 @@ public class SectionExecutionFactory
             boolean hasDpp = isDistributedDynamicFilterEnabled(session)
                     && !dynamicFilterService.getAllFiltersForQuery(session.getQueryId()).isEmpty();
 
-            // Broadcast joins: all tasks receive identical build data, so one partition suffices
             if (hasDpp) {
-                setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), 1);
+                // Replicated joins: sized to 1 upfront. Partitioned/local joins need every
+                // task's slice; size from the actual task count once the scheduler reaches
+                // FINISHED_TASK_SCHEDULING.
+                forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isReplicated) -> {
+                    if (isReplicated) {
+                        filter.setExpectedPartitions(1);
+                    }
+                });
+                AtomicBoolean partitionedExpectedSet = new AtomicBoolean();
+                stageExecution.addStateChangeListener(newState -> {
+                    if (newState.ordinal() < StageExecutionState.FINISHED_TASK_SCHEDULING.ordinal()) {
+                        return;
+                    }
+                    if (!partitionedExpectedSet.compareAndSet(false, true)) {
+                        return;
+                    }
+                    int actualTaskCount = stageExecution.getAllTasks().size();
+                    if (actualTaskCount > 0) {
+                        forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isReplicated) -> {
+                            if (!isReplicated) {
+                                filter.setExpectedPartitions(actualTaskCount);
+                            }
+                        });
+                    }
+                });
             }
 
             return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker, hasDpp);
@@ -550,29 +576,26 @@ public class SectionExecutionFactory
     @VisibleForTesting
     static void setExpectedPartitionsForFilters(DynamicFilterService dynamicFilterService, QueryId queryId, PlanNode root, int taskCount)
     {
-        List<JoinNode> joinNodes = PlanNodeSearcher.searchFrom(root)
-                .where(node -> node instanceof JoinNode)
-                .findAll().stream()
-                .map(node -> (JoinNode) node)
-                .collect(toImmutableList());
+        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, (filter, isReplicated) -> filter.setExpectedPartitions(taskCount));
+    }
 
-        for (JoinNode joinNode : joinNodes) {
+    @VisibleForTesting
+    static void forEachJoinDynamicFilter(
+            DynamicFilterService dynamicFilterService,
+            QueryId queryId,
+            PlanNode root,
+            BiConsumer<JoinDynamicFilter, Boolean> action)
+    {
+        for (JoinNode joinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof JoinNode).<JoinNode>findAll()) {
+            boolean isReplicated = joinNode.getDistributionType().map(JoinDistributionType.REPLICATED::equals).orElse(false);
             for (String filterId : joinNode.getDynamicFilters().keySet()) {
-                dynamicFilterService.getFilter(queryId, filterId)
-                        .ifPresent(filter -> filter.setExpectedPartitions(taskCount));
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(filter -> action.accept(filter, isReplicated));
             }
         }
-
-        List<SemiJoinNode> semiJoinNodes = PlanNodeSearcher.searchFrom(root)
-                .where(node -> node instanceof SemiJoinNode)
-                .findAll().stream()
-                .map(node -> (SemiJoinNode) node)
-                .collect(toImmutableList());
-
-        for (SemiJoinNode semiJoinNode : semiJoinNodes) {
+        for (SemiJoinNode semiJoinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof SemiJoinNode).<SemiJoinNode>findAll()) {
+            boolean isReplicated = semiJoinNode.getDistributionType().map(SemiJoinNode.DistributionType.REPLICATED::equals).orElse(false);
             for (String filterId : semiJoinNode.getDynamicFilters().keySet()) {
-                dynamicFilterService.getFilter(queryId, filterId)
-                        .ifPresent(filter -> filter.setExpectedPartitions(taskCount));
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(filter -> action.accept(filter, isReplicated));
             }
         }
     }
