@@ -18,6 +18,9 @@
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#ifdef PRESTO_ENABLE_NIMBLE
+#include "fb_velox/dwio/nimble/writer/NimbleWriter.h"
+#endif
 #include "presto_cpp/main/Announcer.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
@@ -1598,6 +1601,9 @@ void PrestoServer::registerMemoryArbitrators() {
 void PrestoServer::registerFileReadersAndWriters() {
   velox::dwrf::registerDwrfReaderFactory();
   velox::dwrf::registerDwrfWriterFactory();
+#ifdef PRESTO_ENABLE_NIMBLE
+  velox::nimble::registerNimbleWriterFactory();
+#endif
   velox::orc::registerOrcReaderFactory();
   velox::parquet::registerParquetReaderFactory();
   velox::parquet::registerParquetWriterFactory();
@@ -1612,6 +1618,9 @@ void PrestoServer::registerFileReadersAndWriters() {
 void PrestoServer::unregisterFileReadersAndWriters() {
   velox::dwrf::unregisterDwrfReaderFactory();
   velox::dwrf::unregisterDwrfWriterFactory();
+#ifdef PRESTO_ENABLE_NIMBLE
+  velox::nimble::unregisterNimbleWriterFactory();
+#endif
   velox::parquet::unregisterParquetReaderFactory();
   velox::parquet::unregisterParquetWriterFactory();
   if (SystemConfig::instance()->textWriterEnabled()) {
