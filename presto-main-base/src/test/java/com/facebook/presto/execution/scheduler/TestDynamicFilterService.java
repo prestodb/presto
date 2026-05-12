@@ -50,7 +50,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -392,75 +392,18 @@ public class TestDynamicFilterService
     }
 
     @Test
-    public void testForEachJoinDynamicFilterSeesReplicatedJoins()
+    public void testForEachJoinDynamicFilterVisitsEveryFilter()
     {
-        QueryId queryId = QueryId.valueOf("test_for_each_replicated");
-        String filterId = "rep";
+        QueryId queryId = QueryId.valueOf("test_for_each_visits");
+        String filterId = "f";
         JoinDynamicFilter filter = createTestFilterWithId(filterId);
         service.registerFilter(queryId, filterId, filter);
 
-        SectionExecutionFactory.forEachJoinDynamicFilter(
-                service, queryId, joinNodeWithDistribution(filterId, JoinDistributionType.REPLICATED),
-                (f, isReplicated) -> {
-                    if (isReplicated) {
-                        f.setExpectedPartitions(1);
-                    }
-                });
-
-        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
-                ImmutableMap.of(filterId, com.facebook.presto.common.predicate.Domain.singleValue(BIGINT, 1L))));
-        assertTrue(filter.isComplete(), "Replicated filter should complete after one contribution");
-    }
-
-    @Test
-    public void testForEachJoinDynamicFilterSeesPartitionedJoins()
-    {
-        QueryId queryId = QueryId.valueOf("test_for_each_partitioned");
-        String filterId = "part";
-        JoinDynamicFilter filter = createTestFilterWithId(filterId);
-        service.registerFilter(queryId, filterId, filter);
-
+        Set<String> seen = new HashSet<>();
         SectionExecutionFactory.forEachJoinDynamicFilter(
                 service, queryId, joinNodeWithDistribution(filterId, JoinDistributionType.PARTITIONED),
-                (f, isReplicated) -> {
-                    if (!isReplicated) {
-                        f.setExpectedPartitions(3);
-                    }
-                });
-
-        for (int i = 1; i <= 2; i++) {
-            filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
-                    ImmutableMap.of(filterId, com.facebook.presto.common.predicate.Domain.singleValue(BIGINT, (long) i))));
-            assertFalse(filter.isComplete(), i + " of 3");
-        }
-        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
-                ImmutableMap.of(filterId, com.facebook.presto.common.predicate.Domain.singleValue(BIGINT, 3L))));
-        assertTrue(filter.isComplete(), "3 of 3");
-    }
-
-    @Test
-    public void testForEachJoinDynamicFilterReportsDistributionType()
-    {
-        // Verifies the isReplicated argument the walker passes to its consumer matches
-        // each JoinNode's distribution type — the load-bearing signal callers branch on.
-        QueryId queryId = QueryId.valueOf("test_for_each_distribution");
-        String replicatedFilterId = "rep";
-        String partitionedFilterId = "part";
-        JoinDynamicFilter replicated = createTestFilterWithId(replicatedFilterId);
-        JoinDynamicFilter partitioned = createTestFilterWithId(partitionedFilterId);
-        service.registerFilter(queryId, replicatedFilterId, replicated);
-        service.registerFilter(queryId, partitionedFilterId, partitioned);
-
-        Map<String, Boolean> seen = new HashMap<>();
-        SectionExecutionFactory.forEachJoinDynamicFilter(
-                service, queryId, joinNodeWithDistribution(replicatedFilterId, JoinDistributionType.REPLICATED),
-                (f, isReplicated) -> seen.put(f.getFilterId(), isReplicated));
-        SectionExecutionFactory.forEachJoinDynamicFilter(
-                service, queryId, joinNodeWithDistribution(partitionedFilterId, JoinDistributionType.PARTITIONED),
-                (f, isReplicated) -> seen.put(f.getFilterId(), isReplicated));
-
-        assertEquals(seen.get(replicatedFilterId), Boolean.TRUE);
-        assertEquals(seen.get(partitionedFilterId), Boolean.FALSE);
+                f -> seen.add(f.getFilterId()));
+        assertEquals(seen, ImmutableSet.of(filterId));
     }
 
     private JoinNode joinNodeWithDistribution(String filterId, JoinDistributionType distributionType)
