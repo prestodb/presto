@@ -1589,6 +1589,37 @@ Valid values are ``FAIL`` (throw an error) or ``USE_VIEW_QUERY`` (query base tab
 
 The corresponding session property is :ref:`admin/properties-session:\`\`materialized_view_stale_read_behavior\`\``.
 
+Grouped Execution Properties
+----------------------------
+
+``grouped-execution-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Enables grouped execution for queries on bucketed tables. Grouped execution schedules
+operations in lifespans (one per bucket), processing a subset of data at a time to
+reduce memory usage.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`grouped_execution\`\``.
+
+``partition-aware-grouped-execution-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped-execution-enabled``, schedules each (bucket, partition-values)
+pair as a separate lifespan instead of processing all partitions per bucket in a single lifespan.
+This reduces per-lifespan hash table size for joins and aggregations on bucketed + partitioned tables.
+
+The feature activates when partition columns appear as equi-join keys or GROUP BY keys, and at
+least 2 distinct partition values exist. When not applicable, queries fall back to standard
+grouped execution automatically.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`partition_aware_grouped_execution\`\``.
+
 Cluster Overload Properties
 ---------------------------
 

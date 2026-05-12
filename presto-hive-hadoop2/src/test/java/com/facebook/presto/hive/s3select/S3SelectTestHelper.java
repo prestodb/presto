@@ -182,6 +182,8 @@ public class S3SelectTestHelper
                 new HiveTableWritabilityChecker(config));
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
+                config.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,

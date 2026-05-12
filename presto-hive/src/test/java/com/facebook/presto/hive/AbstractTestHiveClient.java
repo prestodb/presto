@@ -1063,6 +1063,8 @@ public abstract class AbstractTestHiveClient
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
         splitManager = new HiveSplitManager(
+                hiveClientConfig.getDateTimeZone(),
+                FUNCTION_AND_TYPE_MANAGER,
                 transactionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,

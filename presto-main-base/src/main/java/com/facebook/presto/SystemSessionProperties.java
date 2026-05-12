@@ -113,6 +113,7 @@ public final class SystemSessionProperties
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
+    public static final String PARTITION_AWARE_GROUPED_EXECUTION = "partition_aware_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -552,6 +553,11 @@ public final class SystemSessionProperties
                         RECOVERABLE_GROUPED_EXECUTION,
                         "Experimental: Use recoverable grouped execution when possible",
                         featuresConfig.isRecoverableGroupedExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        PARTITION_AWARE_GROUPED_EXECUTION,
+                        "When enabled, schedules each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory usage for bucketed + partitioned tables",
+                        featuresConfig.isPartitionAwareGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -2437,6 +2443,11 @@ public final class SystemSessionProperties
     public static boolean isRecoverableGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(RECOVERABLE_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isPartitionAwareGroupedExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(PARTITION_AWARE_GROUPED_EXECUTION, Boolean.class);
     }
 
     public static double getMaxFailedTaskPercentage(Session session)

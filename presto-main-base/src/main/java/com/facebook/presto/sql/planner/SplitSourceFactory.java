@@ -156,11 +156,15 @@ public class SplitSourceFactory
         {
             // get dataSource for table
             TableHandle table = node.getTable();
+            Map<String, String> partitionColumnMapping = stageExecutionDescriptor.isScanGroupedExecution(node.getId())
+                    ? stageExecutionDescriptor.getPartitionColumnMapping(node.getId())
+                    : ImmutableMap.of();
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     table,
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()),
-                    warningCollector);
+                    warningCollector,
+                    partitionColumnMapping);
 
             SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
 

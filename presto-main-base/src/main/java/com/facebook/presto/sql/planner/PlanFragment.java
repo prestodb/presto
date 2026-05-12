@@ -31,11 +31,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -301,6 +303,16 @@ public class PlanFragment
 
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
+        return withFixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, ImmutableList.of());
+    }
+
+    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues)
+    {
+        return withFixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, ImmutableMap.of());
+    }
+
+    public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues, Map<PlanNodeId, Map<String, String>> partitionColumnMappings)
+    {
         return new PlanFragment(
                 id,
                 root,
@@ -309,7 +321,7 @@ public class PlanFragment
                 tableScanSchedulingOrder,
                 partitioningScheme,
                 outputOrderingScheme,
-                StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
+                StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, partitionColumnMappings),
                 outputTableWriterFragment,
                 outputTransportType,
                 statsAndCosts,
@@ -318,22 +330,15 @@ public class PlanFragment
 
     public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
-        return new PlanFragment(
-                id,
-                root,
-                variables,
-                partitioning,
-                tableScanSchedulingOrder,
-                partitioningScheme,
-                outputOrderingScheme,
-                StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans),
-                outputTableWriterFragment,
-                outputTransportType,
-                statsAndCosts,
-                jsonRepresentation);
+        return withDynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, ImmutableList.of());
     }
 
-    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
+    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues)
+    {
+        return withDynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, ImmutableMap.of());
+    }
+
+    public PlanFragment withDynamicLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues, Map<PlanNodeId, Map<String, String>> partitionColumnMappings)
     {
         return new PlanFragment(
                 id,
@@ -343,7 +348,34 @@ public class PlanFragment
                 tableScanSchedulingOrder,
                 partitioningScheme,
                 outputOrderingScheme,
-                StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans),
+                StageExecutionDescriptor.dynamicLifespanScheduleGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, partitionColumnMappings),
+                outputTableWriterFragment,
+                outputTransportType,
+                statsAndCosts,
+                jsonRepresentation);
+    }
+
+    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
+    {
+        return withRecoverableGroupedExecution(capableTableScanNodes, totalLifespans, ImmutableList.of());
+    }
+
+    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues)
+    {
+        return withRecoverableGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, ImmutableMap.of());
+    }
+
+    public PlanFragment withRecoverableGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans, List<Map<String, String>> partitionValues, Map<PlanNodeId, Map<String, String>> partitionColumnMappings)
+    {
+        return new PlanFragment(
+                id,
+                root,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                outputOrderingScheme,
+                StageExecutionDescriptor.recoverableGroupedExecution(capableTableScanNodes, totalLifespans, partitionValues, partitionColumnMappings),
                 outputTableWriterFragment,
                 outputTransportType,
                 statsAndCosts,

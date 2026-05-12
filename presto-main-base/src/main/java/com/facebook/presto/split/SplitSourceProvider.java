@@ -19,8 +19,16 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 
+import java.util.Map;
+
 public interface SplitSourceProvider
 {
     SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector);
+
+    default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
+    {
+        throw new UnsupportedOperationException("partition-aware grouped execution requires an implementation that supports partitionColumnMapping");
+    }
+
     SplitSource getSplits(Session session, TableFunctionHandle tableFunctionHandle);
 }
