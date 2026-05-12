@@ -2154,6 +2154,7 @@ struct RPCNode : public PlanNode {
   VariableReferenceExpression outputVariable = {};
   RPCNodeStreamingMode streamingMode = {};
   Integer dispatchBatchSize = {};
+  String riftTier = {};
 
   RPCNode() noexcept;
 };
