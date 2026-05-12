@@ -241,7 +241,7 @@ public class TestDeltaScanOptimizations
     private static Map<String, Domain> transform(TupleDomain<ColumnHandle> constraint)
     {
         return constraint.transform(DeltaColumnHandle.class::cast)
-                .transform(DeltaColumnHandle::getName)
+                .transform(DeltaColumnHandle::getLogicalName)
                 .getDomains().get();
     }
 
@@ -249,7 +249,7 @@ public class TestDeltaScanOptimizations
     {
         return ((DeltaTableLayoutHandle) tableScan.getTable().getLayout().get())
                 .getPredicate()
-                .transform(DeltaColumnHandle::getName)
+                .transform(DeltaColumnHandle::getLogicalName)
                 .getDomains()
                 .get();
     }

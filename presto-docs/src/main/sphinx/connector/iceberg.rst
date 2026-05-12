@@ -2836,6 +2836,22 @@ Storage
 
 Materialized views use a dedicated Iceberg storage table to persist the pre-computed results. By default, the storage table is created with the prefix ``__mv_storage__`` followed by the materialized view name in the same schema as the view.
 
+Catalog Configuration
+^^^^^^^^^^^^^^^^^^^^^
+
+The following catalog properties affect how materialized view storage tables are named and located. They apply at materialized view creation time and can be overridden per-view via the ``storage_schema`` and ``storage_table`` table properties.
+
+====================================================== ============================================================= ========================
+Property Name                                          Description                                                   Default
+====================================================== ============================================================= ========================
+``iceberg.materialized-view-storage-prefix``           Prefix applied to auto-generated storage table names.         ``__mv_storage__``
+
+``iceberg.materialized-view-default-storage-schema``   Schema in which storage tables are created when the           (the view's own
+                                                       per-view ``storage_schema`` property is not set. Point at     schema)
+                                                       a locked-down schema to keep storage tables out of users'
+                                                       reach without affecting materialized view reads.
+====================================================== ============================================================= ========================
+
 Table Properties
 ^^^^^^^^^^^^^^^^
 

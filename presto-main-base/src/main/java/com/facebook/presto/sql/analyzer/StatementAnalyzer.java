@@ -928,12 +928,13 @@ class StatementAnalyzer
                     buildSubqueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
                     : viewQuery;
             // Check if the owner has SELECT permission on the base tables
+            String ownerSessionSchema = isLegacyMaterializedViews(session) ? view.getSchema() : viewName.getSchemaName();
             StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
                     analysis,
                     metadata,
                     sqlParser,
                     accessControl,
-                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), view.getSchema()),
+                    buildOwnerSession(session, view.getOwner(), metadata.getSessionPropertyManager(), viewName.getCatalogName(), ownerSessionSchema),
                     warningCollector);
             queryAnalyzer.analyze(refreshQuery, Scope.create());
 
@@ -2659,7 +2660,7 @@ class StatementAnalyzer
 
                 Session materializedViewSession = createViewSession(
                         Optional.of(materializedViewName.getCatalogName()),
-                        Optional.of(materializedViewDefinition.getSchema()),
+                        Optional.of(materializedViewName.getSchemaName()),
                         queryIdentity);
 
                 StatementAnalyzer materializedViewAnalyzer = new StatementAnalyzer(
@@ -2671,8 +2672,31 @@ class StatementAnalyzer
                         warningCollector);
                 materializedViewAnalyzer.analyze(viewQuery, scope);
 
-                Scope queryScope = process(dataTable, scope);
-                RelationType relationType = queryScope.getRelationType().withOnlyVisibleFields().withAlias(materializedViewName.getObjectName(), null);
+                // The storage table is a system-managed implementation detail; access control on it
+                // is bypassed during MV expansion. Direct access by name still goes through the
+                // outer analyzer's accessControl.
+                StatementAnalyzer storageTableAnalyzer = new StatementAnalyzer(
+                        analysis,
+                        metadata,
+                        sqlParser,
+                        new AllowAllAccessControl(),
+                        session,
+                        warningCollector);
+                Scope queryScope = storageTableAnalyzer.analyze(dataTable, scope);
+                // Re-point each field's originTable at the MV name (as processView does) so the
+                // outer ExpressionAnalyzer records column refs against the MV, not the storage table.
+                List<Field> outputFields = queryScope.getRelationType().withOnlyVisibleFields().getAllFields().stream()
+                        .map(field -> Field.newQualified(
+                                field.getNodeLocation(),
+                                QualifiedName.of(materializedViewName.getObjectName()),
+                                field.getName(),
+                                field.getType(),
+                                field.isHidden(),
+                                Optional.of(materializedViewName),
+                                field.getOriginColumnName(),
+                                field.isAliased()))
+                        .collect(toImmutableList());
+                RelationType relationType = new RelationType(outputFields);
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
 
                 Scope accessControlScope = Scope.builder()

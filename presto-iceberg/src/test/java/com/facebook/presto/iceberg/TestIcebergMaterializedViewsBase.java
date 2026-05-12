@@ -19,6 +19,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -27,6 +28,8 @@ import java.io.File;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STALE_DATA;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -4913,6 +4916,138 @@ public abstract class TestIcebergMaterializedViewsBase
             MaterializedResult withStorageResult = computeActual(withStorageSession, query);
             MaterializedResult skipStorageResult = computeActual(skipStorageSession, query);
             assertEqualsIgnoreOrder(skipStorageResult.getMaterializedRows(), withStorageResult.getMaterializedRows());
+        }
+    }
+
+    @Test
+    public void testDefaultStorageSchemaConfig()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_storage_isolated");
+        assertUpdate("CREATE TABLE test_default_storage_schema_base (id BIGINT, name VARCHAR)");
+        assertUpdate("INSERT INTO test_default_storage_schema_base VALUES (1, 'Alice'), (2, 'Bob')", 2);
+
+        Session sessionWithDefaultSchema = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "materialized_view_default_storage_schema", "mv_storage_isolated")
+                .build();
+
+        assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW test_default_storage_schema_mv AS " +
+                "SELECT id, name FROM test_default_storage_schema_base");
+
+        try {
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 0");
+            assertQueryFails("SELECT * FROM \"__mv_storage__test_default_storage_schema_mv\"", ".*does not exist.*");
+
+            assertMaterializedViewQuery(
+                    "SELECT * FROM test_default_storage_schema_mv ORDER BY id",
+                    "VALUES (1, 'Alice'), (2, 'Bob')");
+
+            assertRefreshAndFullyMaterialized("test_default_storage_schema_mv", 2);
+            assertQuery("SELECT COUNT(*) FROM mv_storage_isolated.\"__mv_storage__test_default_storage_schema_mv\"", "SELECT 2");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW test_default_storage_schema_mv");
+            assertUpdate("DROP TABLE test_default_storage_schema_base");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_storage_isolated");
+        }
+    }
+
+    @Test
+    public void testSecurityDefinerDoesNotRequireStorageAccessForReader()
+    {
+        assertUpdate("CREATE TABLE mv_storage_acl_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO mv_storage_acl_base VALUES (1, 100), (2, 200), (3, 300)", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW mv_storage_acl_mv SECURITY DEFINER AS " +
+                "SELECT id, value FROM mv_storage_acl_base");
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_storage_acl_mv", 3);
+
+        try {
+            getQueryRunner().getAccessControl().deny(
+                    privilege("restricted_user", "__mv_storage__mv_storage_acl_mv", SELECT_COLUMN),
+                    privilege("restricted_user", "mv_storage_acl_base", SELECT_COLUMN));
+
+            Session restrictedSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setIdentity(new Identity("restricted_user", Optional.empty()))
+                    .build();
+
+            assertQuery(restrictedSession,
+                    "SELECT id, value FROM mv_storage_acl_mv ORDER BY id",
+                    "VALUES (1, 100), (2, 200), (3, 300)");
+
+            assertQueryFails(
+                    restrictedSession,
+                    "SELECT * FROM \"__mv_storage__mv_storage_acl_mv\"",
+                    ".*Access Denied.*");
+        }
+        finally {
+            getQueryRunner().getAccessControl().reset();
+            assertUpdate("DROP MATERIALIZED VIEW mv_storage_acl_mv");
+            assertUpdate("DROP TABLE mv_storage_acl_base");
+        }
+    }
+
+    @Test
+    public void testStorageSchemaLockdownEndToEnd()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS mv_locked_storage");
+        assertUpdate("CREATE TABLE storage_lockdown_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO storage_lockdown_base VALUES (1, 100), (2, 200), (3, 300)", 3);
+
+        Session sessionWithDefaultSchema = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "materialized_view_default_storage_schema", "mv_locked_storage")
+                .build();
+
+        assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW storage_lockdown_definer_mv SECURITY DEFINER AS " +
+                "SELECT id, value FROM storage_lockdown_base");
+        assertUpdate(sessionWithDefaultSchema, "CREATE MATERIALIZED VIEW storage_lockdown_invoker_mv SECURITY INVOKER AS " +
+                "SELECT id, value FROM storage_lockdown_base");
+
+        String definerStorage = "__mv_storage__storage_lockdown_definer_mv";
+        String invokerStorage = "__mv_storage__storage_lockdown_invoker_mv";
+
+        try {
+            // Wildcard deny matches every identity, including the MV creator.
+            getQueryRunner().getAccessControl().deny(
+                    privilege(definerStorage, SELECT_COLUMN),
+                    privilege(invokerStorage, SELECT_COLUMN));
+
+            Session restrictedSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setIdentity(new Identity("restricted_user", Optional.empty()))
+                    .build();
+
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW storage_lockdown_definer_mv", 3);
+            assertUpdate(sessionWithDefaultSchema, "REFRESH MATERIALIZED VIEW storage_lockdown_invoker_mv", 3);
+
+            assertQuery(getSession(),
+                    "SELECT id, value FROM storage_lockdown_definer_mv ORDER BY id",
+                    "VALUES (1, 100), (2, 200), (3, 300)");
+            assertQuery(restrictedSession,
+                    "SELECT id, value FROM storage_lockdown_definer_mv ORDER BY id",
+                    "VALUES (1, 100), (2, 200), (3, 300)");
+
+            assertQuery(getSession(),
+                    "SELECT id, value FROM storage_lockdown_invoker_mv ORDER BY id",
+                    "VALUES (1, 100), (2, 200), (3, 300)");
+            assertQuery(restrictedSession,
+                    "SELECT id, value FROM storage_lockdown_invoker_mv ORDER BY id",
+                    "VALUES (1, 100), (2, 200), (3, 300)");
+
+            for (String storageTable : ImmutableList.of(definerStorage, invokerStorage)) {
+                String fullyQualified = "mv_locked_storage.\"" + storageTable + "\"";
+                assertQueryFails(getSession(),
+                        "SELECT * FROM " + fullyQualified,
+                        ".*Access Denied.*");
+                assertQueryFails(restrictedSession,
+                        "SELECT * FROM " + fullyQualified,
+                        ".*Access Denied.*");
+            }
+        }
+        finally {
+            getQueryRunner().getAccessControl().reset();
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW storage_lockdown_definer_mv");
+            assertUpdate(sessionWithDefaultSchema, "DROP MATERIALIZED VIEW storage_lockdown_invoker_mv");
+            assertUpdate("DROP TABLE storage_lockdown_base");
+            assertUpdate("DROP SCHEMA IF EXISTS mv_locked_storage");
         }
     }
 

@@ -41,10 +41,7 @@ public final class MaterializedViewRewriteQueryShapeValidator
 
         public Optional<String> validateMaterializedViewOptimizationQueryShape(QuerySpecification querySpecification)
         {
-            if (querySpecification.getHaving().isPresent()) {
-                errorMessage = Optional.of("Query shape invalid: HAVING is not supported for materialized view optimizations");
-            }
-            else if (!querySpecification.getFrom().isPresent()) {
+            if (!querySpecification.getFrom().isPresent()) {
                 errorMessage = Optional.of("Query shape invalid: QuerySpecification without from clause is not supported for materialized view optimization");
             }
             else {

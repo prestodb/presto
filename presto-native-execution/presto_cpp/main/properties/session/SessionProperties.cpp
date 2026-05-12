@@ -372,6 +372,15 @@ SessionProperties::SessionProperties() {
       QueryConfig::kPartitionedOutputEagerFlush,
       "false");
 
+  addSessionProperty(
+      kMinShuffleCompressionPageSizeBytes,
+      "Native Execution only. Minimum serialized page size in bytes to attempt "
+      "shuffle compression.",
+      INTEGER(),
+      false,
+      QueryConfig::kMinShuffleCompressionPageSizeBytes,
+      std::to_string(c.minShuffleCompressionPageSizeBytes()));
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.

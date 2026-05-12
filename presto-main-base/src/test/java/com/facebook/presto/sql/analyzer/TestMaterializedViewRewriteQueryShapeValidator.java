@@ -52,11 +52,11 @@ public class TestMaterializedViewRewriteQueryShapeValidator
     }
 
     @Test
-    public void havingClause()
+    public void havingClauseAllowed()
     {
-        assertFails(
-                "SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING COUNT(x) < 10",
-                "Query shape invalid: HAVING is not supported for materialized view optimizations");
+        assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING y > 'a'");
+        assertSucceeds("SELECT SUM(x) AS sum_x, y FROM tbl GROUP BY y HAVING COUNT(x) < 10");
+        assertSucceeds("SELECT SUM(x) AS sum_x, y, z FROM tbl GROUP BY y, z HAVING y > 'a' AND SUM(x) > 10");
     }
 
     private static void assertFails(String baseQuerySql, String expectedErrorMessage)

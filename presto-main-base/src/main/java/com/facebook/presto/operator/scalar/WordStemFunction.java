@@ -20,7 +20,7 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import org.tartarus.snowball.SnowballProgram;
+import org.tartarus.snowball.SnowballStemmer;
 import org.tartarus.snowball.ext.ArmenianStemmer;
 import org.tartarus.snowball.ext.BasqueStemmer;
 import org.tartarus.snowball.ext.CatalanStemmer;
@@ -52,7 +52,7 @@ public final class WordStemFunction
 {
     private WordStemFunction() {}
 
-    private static final Map<Slice, Supplier<SnowballProgram>> STEMMERS = ImmutableMap.<Slice, Supplier<SnowballProgram>>builder()
+    private static final Map<Slice, Supplier<SnowballStemmer>> STEMMERS = ImmutableMap.<Slice, Supplier<SnowballStemmer>>builder()
             .put(utf8Slice("ca"), CatalanStemmer::new)
             .put(utf8Slice("da"), DanishStemmer::new)
             .put(utf8Slice("de"), German2Stemmer::new)
@@ -90,14 +90,14 @@ public final class WordStemFunction
     @SqlType("varchar(x)")
     public static Slice wordStem(@SqlType("varchar(x)") Slice slice, @SqlType("varchar(2)") Slice language)
     {
-        Supplier<SnowballProgram> stemmer = STEMMERS.get(language);
+        Supplier<SnowballStemmer> stemmer = STEMMERS.get(language);
         if (stemmer == null) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unknown stemmer language: " + language.toStringUtf8());
         }
         return wordStem(slice, stemmer.get());
     }
 
-    private static Slice wordStem(Slice slice, SnowballProgram stemmer)
+    private static Slice wordStem(Slice slice, SnowballStemmer stemmer)
     {
         stemmer.setCurrent(slice.toStringUtf8());
         return stemmer.stem() ? utf8Slice(stemmer.getCurrent()) : slice;

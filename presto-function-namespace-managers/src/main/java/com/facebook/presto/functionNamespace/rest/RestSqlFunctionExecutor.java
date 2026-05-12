@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.Type;
@@ -75,7 +76,7 @@ public class RestSqlFunctionExecutor
 {
     private BlockEncodingSerde blockEncodingSerde;
     private static PagesSerde pageSerde;
-    private HttpClient httpClient;
+    private final HttpClient httpClient;
     private final RestBasedFunctionNamespaceManagerConfig restBasedFunctionNamespaceManagerConfig;
     public static final String PRESTO_PAGES = "application/X-presto-pages";
 
@@ -97,7 +98,7 @@ public class RestSqlFunctionExecutor
     {
         checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.pageSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
+        pageSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Override
@@ -114,8 +115,14 @@ public class RestSqlFunctionExecutor
         RestFunctionHandle restFunctionHandle = (RestFunctionHandle) functionHandle;
         SqlFunctionId functionId = functionHandle.getFunctionId();
         String functionVersion = functionHandle.getVersion();
-        DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) input.getRetainedSizeInBytes());
-        writeSerializedPage(sliceOutput, pageSerde.serialize(input));
+
+        Block[] blocks = new Block[channels.size()];
+        for (int i = 0; i < channels.size(); i++) {
+            blocks[i] = input.getBlock(channels.get(i));
+        }
+        Page functionInput = new Page(input.getPositionCount(), blocks);
+        DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) functionInput.getRetainedSizeInBytes());
+        writeSerializedPage(sliceOutput, pageSerde.serialize(functionInput));
         try {
             Request request = preparePost()
                     .setUri(getExecutionEndpoint(restFunctionHandle, functionId, functionVersion))
