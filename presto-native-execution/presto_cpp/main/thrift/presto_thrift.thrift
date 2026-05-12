@@ -15,6 +15,9 @@
 include "thrift/annotation/cpp.thrift"
 include "thrift/annotation/thrift.thrift"
 
+@thrift.AllowLegacyMissingUris
+package;
+
 namespace cpp2 facebook.presto.thrift
 
 enum TaskState {
@@ -585,7 +588,9 @@ struct ExecutionFailureInfo {
   1: string type;
   2: string message;
   @cpp.Ref{type = cpp.RefType.SharedMutable}
-  @thrift.DeprecatedUnvalidatedAnnotations{items = {"drift.recursive_reference": "true"}}
+  @thrift.DeprecatedUnvalidatedAnnotations{
+    items = {"drift.recursive_reference": "true"},
+  }
   3: optional ExecutionFailureInfo cause;
   4: list<ExecutionFailureInfo> suppressed;
   5: list<string> stack;
