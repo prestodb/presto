@@ -40,6 +40,17 @@ static variant toTypedVariant(int64_t value, const TypePtr& type) {
   }
 }
 
+/// Widens running min/max across calls. convertFilter is invoked once per
+/// driver; the bounds must span the union of all drivers, not be overwritten
+/// by whichever was last.
+static void expandMin(std::optional<variant>& v, variant candidate) {
+  if (!v || candidate < *v) v = std::move(candidate);
+}
+
+static void expandMax(std::optional<variant>& v, variant candidate) {
+  if (!v || *v < candidate) v = std::move(candidate);
+}
+
 } // namespace
 
 /// Extracts filter data from a common::Filter and adds to the accumulators.
@@ -57,8 +68,8 @@ void convertFilter(
       for (auto v : f.values()) {
         discreteValues.push_back(toTypedVariant(v, type));
       }
-      minValue = toTypedVariant(f.min(), type);
-      maxValue = toTypedVariant(f.max(), type);
+      expandMin(minValue, toTypedVariant(f.min(), type));
+      expandMax(maxValue, toTypedVariant(f.max(), type));
       break;
     }
     case common::FilterKind::kBigintValuesUsingBitmask: {
@@ -71,15 +82,15 @@ void convertFilter(
       }
       if (!vals.empty()) {
         auto [minIt, maxIt] = std::minmax_element(vals.begin(), vals.end());
-        minValue = toTypedVariant(*minIt, type);
-        maxValue = toTypedVariant(*maxIt, type);
+        expandMin(minValue, toTypedVariant(*minIt, type));
+        expandMax(maxValue, toTypedVariant(*maxIt, type));
       }
       break;
     }
     case common::FilterKind::kBigintRange: {
       const auto& f = static_cast<const common::BigintRange&>(filter);
-      minValue = toTypedVariant(f.lower(), type);
-      maxValue = toTypedVariant(f.upper(), type);
+      expandMin(minValue, toTypedVariant(f.lower(), type));
+      expandMax(maxValue, toTypedVariant(f.upper(), type));
       // Single-value range (lower == upper) is a discrete value.
       // This happens when createBigintValues is called with 1 element.
       if (f.lower() == f.upper()) {
@@ -98,10 +109,10 @@ void convertFilter(
     case common::FilterKind::kBytesRange: {
       const auto& f = static_cast<const common::BytesRange&>(filter);
       if (!f.isLowerUnbounded()) {
-        minValue = variant(f.lower());
+        expandMin(minValue, variant(f.lower()));
       }
       if (!f.isUpperUnbounded()) {
-        maxValue = variant(f.upper());
+        expandMax(maxValue, variant(f.upper()));
       }
       break;
     }
