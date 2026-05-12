@@ -280,7 +280,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new TableSubquery(processSameType(newQuery));
+        return new TableSubquery(newQuery);
     }
 
     @Override
@@ -291,7 +291,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new AliasedRelation(processSameType(newRelation), node.getAlias(), node.getColumnNames());
+        return new AliasedRelation(newRelation, node.getAlias(), node.getColumnNames());
     }
 
     @Override
@@ -336,7 +336,7 @@ public class MaterializedViewQueryOptimizer
             return node;
         }
 
-        return new WithQuery(node.getName(), processSameType(node.getQuery()), node.getColumnNames());
+        return new WithQuery(node.getName(), newQuery, node.getColumnNames());
     }
 
     private <T extends Node> List<T> processNodes(List<T> nodes)
@@ -1078,7 +1078,7 @@ public class MaterializedViewQueryOptimizer
 
                 Table table;
                 if (from instanceof Table) {
-                    table = (Table) querySpecification.getFrom().get();
+                    table = (Table) from;
                 }
                 else if (from instanceof AliasedRelation && ((AliasedRelation) from).getRelation() instanceof Table) {
                     table = (Table) ((AliasedRelation) from).getRelation();
