@@ -980,6 +980,18 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding session property is :ref:`admin/properties-session:\`\`push_partial_aggregation_through_join\`\``.
 
+``optimizer.push-semi-join-through-union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes semi-joins through ``UNION`` sources so that each union
+branch performs the semi-join independently. This can improve performance for
+``IN`` and ``EXISTS`` queries where the semi-join probe side is a ``UNION``.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`push_semi_join_through_union\`\``.
+
 ``optimizer.push-projection-through-cross-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1063,6 +1075,31 @@ join and thereby produces more optimal plans.
 
 Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
 constant value.
+
+``optimizer.simplify-aggregations-over-constant``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, replaces supported aggregation functions over constant arguments
+with constant expressions. This can improve performance for queries that apply
+aggregations such as ``MIN``, ``MAX``, ``ARBITRARY``, or ``APPROX_DISTINCT`` to
+constant inputs.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`simplify_aggregations_over_constant\`\``.
+
+``optimizer.simplify-coalesce-over-join-keys``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, simplifies redundant ``COALESCE`` expressions over equi-join keys
+based on join type. This can produce simpler plans and enable additional join
+optimizations, including bucketed join optimizations.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`simplify_coalesce_over_join_keys\`\``.
 
 ``optimizer.history-based-optimizer-plan-canonicalization-strategies``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1173,6 +1210,18 @@ during query optimization. When set to ``false``, this parameter prevents histog
 being collected by ``ANALYZE``, and also prevents the existing histograms from being used
 during query optimization. This behavior can be controlled on a per-query basis using the
 ``optimizer_use_histograms`` session property.
+
+``optimizer.skip-pushdown-through-exchange-for-remote-projection``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, skips pushing remote projections through exchange nodes. This can
+preserve exchanges around projections that call external functions, where fixed
+parallelism or exchange placement is needed to control execution.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`skip_pushdown_through_exchange_for_remote_projection\`\``.
 
 ``optimizer.table-scan-shuffle-parallelism-threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
