@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -53,6 +54,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -298,10 +301,29 @@ public class PartitionTable
             return Float.floatToIntBits((Float) value);
         }
         if (type instanceof Types.TimestampType) {
+            // Iceberg TIMESTAMP without adjustToUTC maps to Presto TIMESTAMP
+            // (millisecond precision). The raw partition value is in micros;
+            // convert to millis to match the column's wire representation.
+            // Iceberg TIMESTAMP with adjustToUTC maps to TIMESTAMP_WITH_TIME_ZONE
+            // and is left untouched here for compatibility with existing behavior.
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
             if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
                 return MICROSECONDS.toMillis((long) value);
             }
+        }
+        if (type instanceof Types.TimestampNanoType) {
+            // Iceberg TIMESTAMP_NANO partition values arrive in nanoseconds.
+            //   - Without adjustToUTC: Presto type is TIMESTAMP_MICROSECONDS, so
+            //     floor-divide nanos by 1000 to convert to micros.
+            //   - With adjustToUTC: Presto type is TIMESTAMP_WITH_TIME_ZONE, so
+            //     convert nanos to millisUtc and pack with the UTC zone key to
+            //     match the packed long representation Presto uses for that type.
+            com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
+            long nanos = (long) value;
+            if (prestoType instanceof TimestampWithTimeZoneType) {
+                return packDateTimeWithZone(Math.floorDiv(nanos, 1_000_000L), UTC_KEY);
+            }
+            return Math.floorDiv(nanos, 1000L);
         }
         if (type instanceof Types.TimeType) {
             return MICROSECONDS.toMillis((long) value);

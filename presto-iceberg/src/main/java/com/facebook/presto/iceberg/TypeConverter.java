@@ -124,6 +124,12 @@ public final class TypeConverter
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
                 return TimestampType.TIMESTAMP;
+            case TIMESTAMP_NANO:
+                Types.TimestampNanoType tsNanoType = (Types.TimestampNanoType) type.asPrimitiveType();
+                if (tsNanoType.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
+                return TimestampType.TIMESTAMP_MICROSECONDS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
             case UUID:
@@ -405,6 +411,7 @@ public final class TypeConverter
             case DATE:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
+            case TIMESTAMP_NANO:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
