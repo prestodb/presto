@@ -68,18 +68,7 @@ public class MySqlMetadata
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         List<SchemaTableName> tableNames;
-
-        if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(
-                    new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
-        }
-        else if (prefix.getSchemaName() != null) {
-            tableNames = mySqlClient.listViews(session, Optional.of(prefix.getSchemaName()));
-        }
-        else {
-            tableNames = mySqlClient.listViews(session, Optional.empty());
-        }
-
+        tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         return mySqlClient.getViews(session, tableNames);
     }
 }
