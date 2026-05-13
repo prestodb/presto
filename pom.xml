@@ -2899,6 +2899,33 @@
                     <version>0.5.1</version>
                 </plugin>
 
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>animal-sniffer-maven-plugin</artifactId>
+                    <version>1.24</version>
+                    <configuration>
+                        <signature>
+                            <groupId>org.codehaus.mojo.signature</groupId>
+                            <artifactId>java18</artifactId>
+                            <version>1.0</version>
+                        </signature>
+                        <ignores>
+                            <!-- MethodHandle.invoke / invokeExact are polymorphic-signature
+                                 methods that animal-sniffer cannot statically resolve. -->
+                            <ignore>java.lang.invoke.MethodHandle</ignore>
+                        </ignores>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>check-java8-api</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
             </plugins>
         </pluginManagement>
 
