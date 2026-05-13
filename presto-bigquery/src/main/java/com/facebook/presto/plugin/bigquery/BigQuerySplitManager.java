@@ -26,7 +26,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
-import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
@@ -35,6 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static com.google.cloud.bigquery.storage.v1.ReadSession;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
