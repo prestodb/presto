@@ -29,6 +29,7 @@ env:
   RUN_AI_FIX: ${{ github.event.inputs.ai_fix == 'true' }}
   GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
   GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  DEPENDENCY_IMAGE_TAG: ${{ vars.DEPENDENCY_IMAGE_TAG || '0.297-202602271419-160459b8' }}
 
 jobs:
   create-pr:
@@ -337,9 +338,9 @@ jobs:
   ai-fix:
     needs: create-pr
     if: needs.create-pr.outputs.pr_created == 'true' || github.event.inputs.ai_fix == 'true'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     container:
-      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
+      image: prestodb/presto-native-dependency:${{ env.DEPENDENCY_IMAGE_TAG }}
     env:
       CCACHE_DIR: "${{ github.workspace }}/.ccache"
       CMAKE_BUILD_OPTIONS: |
