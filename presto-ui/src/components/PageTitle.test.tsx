@@ -18,26 +18,39 @@ import { PageTitle } from "./PageTitle";
 import { setupPageTitleTest } from "../__tests__/fixtures/infoFixtures";
 
 describe("PageTitle", () => {
+    let originalLocation: Location;
+
+    beforeAll(() => {
+        originalLocation = window.location;
+    });
+
     beforeEach(() => {
         jest.clearAllMocks();
         jest.useFakeTimers();
 
-        // Mock window.location using Object.defineProperty for better type safety
-        // Currently only mocking 'protocol' as that's all the component checks
-        // Add other properties (href, hostname, pathname, etc.) if component needs them
-        Object.defineProperty(window, "location", {
-            value: {
-                protocol: "http:",
-                // Add other properties here as needed
-            },
-            writable: true,
-            configurable: true,
-        });
+        // Added mock window.location for Jest(30.3.0) for compatibility reason
+        // delete and redefine approach that works with the new Jest version
+        delete (window as any).location;
+        (window as any).location = {
+            protocol: "http:",
+            href: "http://localhost",
+            host: "localhost",
+            hostname: "localhost",
+            port: "",
+            pathname: "/",
+            search: "",
+            hash: "",
+            origin: "http://localhost",
+        };
     });
 
     afterEach(() => {
         jest.runOnlyPendingTimers();
         jest.useRealTimers();
+    });
+
+    afterAll(() => {
+        (window as any).location = originalLocation;
     });
 
     describe("Rendering", () => {
@@ -188,5 +201,3 @@ describe("PageTitle", () => {
         });
     });
 });
-
-// Made with Bob
