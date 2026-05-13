@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1.BigQueryStorageClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.common.collect.ImmutableList;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.mock;
 public class TestReadRowsHelper
 {
     // it is not used, we just need the reference
-    BigQueryStorageClient client = mock(BigQueryStorageClient.class);
+    BigQueryReadClient client = mock(BigQueryReadClient.class);
     private ReadRowsRequest.Builder request = ReadRowsRequest.newBuilder().setReadStream("test");
 
     @Test
@@ -72,7 +72,7 @@ public class TestReadRowsHelper
     {
         Iterator<MockResponsesBatch> responses;
 
-        MockReadRowsHelper(BigQueryStorageClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
+        MockReadRowsHelper(BigQueryReadClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
         {
             super(client, request, maxReadRowsRetries);
             this.responses = responses.iterator();

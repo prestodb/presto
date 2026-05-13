@@ -29,7 +29,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.google.cloud.bigquery.storage.v1.BigQueryStorageClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
 import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 import com.google.common.collect.ImmutableList;
@@ -79,7 +79,7 @@ public class BigQueryResultPageSource
 {
     static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
     private static final Logger log = Logger.get(BigQueryResultPageSource.class);
-    private final BigQueryStorageClient bigQueryStorageClient;
+    private final BigQueryReadClient bigQueryReadClient;
     private final BigQuerySplit split;
     private final List<String> columnNames;
     private final ImmutableList<Type> columnTypes;
@@ -90,12 +90,12 @@ public class BigQueryResultPageSource
     private long completedPositions;
 
     public BigQueryResultPageSource(
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClientFactory bigQueryReadClientFactory,
             int maxReadRowsRetries,
             BigQuerySplit split,
             ImmutableList<BigQueryColumnHandle> columns)
     {
-        this.bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient();
+        this.bigQueryReadClient = bigQueryReadClientFactory.createBigQueryStorageClient();
         this.split = split;
         requireNonNull(columns, "columns is null");
         this.columnNames = columns.stream()
@@ -110,7 +110,7 @@ public class BigQueryResultPageSource
         log.debug("Starting to read from %s", split.getStreamName());
         ReadRowsRequest.Builder readRowsRequest = ReadRowsRequest.newBuilder()
                 .setReadStream(split.getStreamName());
-        responses = new ReadRowsHelper(bigQueryStorageClient, readRowsRequest, maxReadRowsRetries).readRows();
+        responses = new ReadRowsHelper(bigQueryReadClient, readRowsRequest, maxReadRowsRetries).readRows();
         closed = false;
     }
 
@@ -276,7 +276,7 @@ public class BigQueryResultPageSource
     public void close()
             throws IOException
     {
-        bigQueryStorageClient.close();
+        bigQueryReadClient.close();
         closed = true;
     }
 
