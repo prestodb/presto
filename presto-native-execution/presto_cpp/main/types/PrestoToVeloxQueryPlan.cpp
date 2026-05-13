@@ -2644,21 +2644,29 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         shuffleFactory,
         "ShuffleInterface factory '{}' not registered",
         shuffleName_);
-    auto shuffleWriterPool = velox::memory::memoryManager()->addLeafPool(
-        fmt::format("_sys.exchange_writer.{}", taskId));
+    const auto useSystemMemory =
+        SystemConfig::instance()
+            ->exchangeMaterializationOutputBufferUseSystemMemory();
+    auto shuffleWriterPool = useSystemMemory
+        ? velox::memory::memoryManager()->addLeafPool(
+              fmt::format("_sys.exchange_writer.{}", taskId))
+        : queryCtx_->pool()->addLeafChild(
+              fmt::format("exchange_writer.{}", taskId));
     auto shuffleWriter = shuffleFactory->createWriter(
         *serializedShuffleWriteInfo_, shuffleWriterPool.get());
 
     auto sharedWriter =
         std::shared_ptr<operators::ShuffleWriter>(std::move(shuffleWriter));
+    const auto maxBufferedBytes =
+        SystemConfig::instance()->exchangeMaterializationOutputBufferMaxBytes();
     const auto drainThreshold =
         SystemConfig::instance()
-            ->exchangeMaterializationPerPartitionBufferSize();
+            ->exchangeMaterializationOutputBufferPerPartitionMaxBytes();
     auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
         partitionedOutputNode->numPartitions(),
         std::move(sharedWriter),
         std::move(shuffleWriterPool),
-        /*maxBufferedBytes=*/640UL * 1024 * 1024,
+        maxBufferedBytes,
         drainThreshold);
 
     auto materializedOutputNode =

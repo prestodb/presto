@@ -677,12 +677,29 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationPartitioningRowBatchBufferSize{
           "exchange.materialization.partitioning-row-batch-buffer-size"};
 
+  /// MaterializedOutputBuffer total size in bytes. Needed until reclaim is
+  /// implemented; acts as the backpressure cap for the output buffer.
+  /// The per-partition drain threshold is dynamically computed as
+  /// min(output-buffer.per-partition-max-bytes, output-buffer.max-bytes /
+  /// numPartitions). Default: 1GB.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferMaxBytes{
+          "exchange.materialization.output-buffer.max-bytes"};
+
   /// MaterializedOutputBuffer per-partition drain threshold in bytes. When a
   /// partition accumulates this much data, it is drained to the writer.
   /// Default: 130KB.
   static constexpr std::string_view
-      kExchangeMaterializationPerPartitionBufferSize{
-          "exchange.materialization.per-partition-buffer-size"};
+      kExchangeMaterializationOutputBufferPerPartitionMaxBytes{
+          "exchange.materialization.output-buffer.per-partition-max-bytes"};
+
+  /// When true, MaterializedOutputBuffer uses a system memory pool (outside
+  /// the arbitrator). When false, uses an operator pool under the query's
+  /// memory hierarchy (visible to the arbitrator).
+  /// Default: false.
+  static constexpr std::string_view
+      kExchangeMaterializationOutputBufferUseSystemMemory{
+          "exchange.materialization.output-buffer.use-system-memory"};
 
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
@@ -1141,7 +1158,11 @@ class SystemConfig : public ConfigBase {
 
   int64_t exchangeMaterializationPartitioningRowBatchBufferSize() const;
 
-  int64_t exchangeMaterializationPerPartitionBufferSize() const;
+  int64_t exchangeMaterializationOutputBufferMaxBytes() const;
+
+  int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
+
+  bool exchangeMaterializationOutputBufferUseSystemMemory() const;
 
   bool enableSerializedPageChecksum() const;
 

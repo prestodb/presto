@@ -61,8 +61,10 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
       maxBufferedBytes_(maxBufferedBytes),
       continueBufferedBytes_(maxBufferedBytes * 9 / 10),
       partitionDrainThreshold_(
-          partitionDrainThreshold > 0 ? partitionDrainThreshold
-                                      : kDefaultDrainThreshold),
+          std::min(
+              partitionDrainThreshold > 0 ? partitionDrainThreshold
+                                          : kDefaultDrainThreshold,
+              maxBufferedBytes / numPartitions)),
       writer_(std::move(writer)),
       pool_(std::move(pool)),
       collectCountPerPartition_(numPartitions) {
@@ -74,6 +76,16 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
   }
   VELOX_CHECK_GT(numPartitions, 0, "Must have at least one partition");
   VELOX_CHECK_NOT_NULL(writer_, "ShuffleWriter must be non-null");
+  LOG(INFO) << fmt::format(
+      "MaterializedOutputBuffer: partitions={}, maxBufferedBytes={}MB, "
+      "effectiveDrainThreshold={}KB (configured={}KB), pool={}",
+      numPartitions_,
+      maxBufferedBytes_ >> 20,
+      partitionDrainThreshold_ >> 10,
+      (partitionDrainThreshold > 0 ? partitionDrainThreshold
+                                   : kDefaultDrainThreshold) >>
+          10,
+      pool_->name());
 }
 
 MaterializedOutputBuffer::~MaterializedOutputBuffer() {
