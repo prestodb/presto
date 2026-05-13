@@ -124,7 +124,7 @@ public class HudiPartitionSplitGenerator
             HudiPartition partition,
             HudiSplitWeightProvider splitWeightProvider)
     {
-        HudiFile baseFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
+        HudiFile baseFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileSize())).orElse(null);
         if (null == baseFile && table.getTableType() == HudiTableType.COW) {
             return Optional.empty();
         }
