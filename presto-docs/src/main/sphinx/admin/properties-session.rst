@@ -412,6 +412,18 @@ performance by allowing the aggregation to pre-reduce data before the join is pe
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-partial-aggregation-through-join\`\``.
 
+``push_semi_join_through_union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes semi-joins through ``UNION`` sources so that each union
+branch performs the semi-join independently. This can improve performance for
+``IN`` and ``EXISTS`` queries where the semi-join probe side is a ``UNION``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-semi-join-through-union\`\``.
+
 ``push_projection_through_cross_join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -522,6 +534,31 @@ right side. This avoids data shuffle since both sides are already co-partitioned
 the join key.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
+
+``simplify_aggregations_over_constant``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, replaces supported aggregation functions over constant arguments
+with constant expressions. This can improve performance for queries that apply
+aggregations such as ``MIN``, ``MAX``, ``ARBITRARY``, or ``APPROX_DISTINCT`` to
+constant inputs.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.simplify-aggregations-over-constant\`\``.
+
+``simplify_coalesce_over_join_keys``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, simplifies redundant ``COALESCE`` expressions over equi-join keys
+based on join type. This can produce simpler plans and enable additional join
+optimizations, including bucketed join optimizations.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.simplify-coalesce-over-join-keys\`\``.
 
 ``verbose_optimizer_info_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -643,6 +680,18 @@ around matching remote function projections. If not set, the default hash partit
 This property is only effective when ``remote_function_names_for_fixed_parallelism`` is set to a non-empty pattern.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.remote-function-fixed-parallelism-task-count\`\``.
+
+``skip_pushdown_through_exchange_for_remote_projection``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, skips pushing remote projections through exchange nodes. This can
+preserve exchanges around projections that call external functions, where fixed
+parallelism or exchange placement is needed to control execution.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.skip-pushdown-through-exchange-for-remote-projection\`\``.
 
 ``local_exchange_parent_preference_strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

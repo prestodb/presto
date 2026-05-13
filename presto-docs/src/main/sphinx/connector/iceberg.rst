@@ -557,6 +557,10 @@ Property Name                                         Description               
                                                       names. Default: ``__mv_storage__``
 ``materialized_view_missing_base_table_behavior``     Behavior when a base table referenced by a materialized view is         Yes                 No
                                                       missing. Valid values: ``FAIL``, ``IGNORE``. Default: ``FAIL``
+``materialized_view_max_changed_partitions``          Maximum number of changed partitions to track for materialized          Yes                 No
+                                                      view staleness detection. If the number of changed partitions
+                                                      exceeds this threshold, the materialized view falls back to a
+                                                      full recompute. Default: ``100``
 ``max_partitions_per_writer``                         Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.max-partitions-per-writer`` in the current session.
 ===================================================== ======================================================================= =================== =============================================
@@ -2839,7 +2843,10 @@ Materialized views use a dedicated Iceberg storage table to persist the pre-comp
 Catalog Configuration
 ^^^^^^^^^^^^^^^^^^^^^
 
-The following catalog properties affect how materialized view storage tables are named and located. They apply at materialized view creation time and can be overridden per-view via the ``storage_schema`` and ``storage_table`` table properties.
+The following catalog properties affect materialized view storage tables and
+refresh behavior. Storage naming and location properties apply at materialized
+view creation time and can be overridden per-view by using the ``storage_schema`` and
+``storage_table`` table properties.
 
 ====================================================== ============================================================= ========================
 Property Name                                          Description                                                   Default
@@ -2850,6 +2857,11 @@ Property Name                                          Description              
                                                        per-view ``storage_schema`` property is not set. Point at     schema)
                                                        a locked-down schema to keep storage tables out of users'
                                                        reach without affecting materialized view reads.
+
+``iceberg.materialized-view-max-changed-partitions``   Maximum number of changed partitions to track for             ``100``
+                                                       materialized view staleness detection. If the number of
+                                                       changed partitions exceeds this threshold, the materialized
+                                                       view falls back to a full recompute.
 ====================================================== ============================================================= ========================
 
 Table Properties
