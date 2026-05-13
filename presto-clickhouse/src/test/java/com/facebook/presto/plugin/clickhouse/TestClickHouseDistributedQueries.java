@@ -63,11 +63,23 @@ public class TestClickHouseDistributedQueries
                 TpchTable.getTables());
     }
 
+    @Override
     @AfterClass(alwaysRun = true)
-    public final void destroy()
+    public void close()
+            throws Exception
     {
-        if (clickhouseServer != null) {
-            clickhouseServer.close();
+        try {
+            // Close QueryRunner first via parent's close() method
+            // This ensures all queries and background tasks are stopped
+            super.close();
+        }
+        finally {
+            // Then close the ClickHouse server
+            // This prevents "connection refused" errors during QueryRunner shutdown
+            if (clickhouseServer != null) {
+                clickhouseServer.close();
+                clickhouseServer = null;
+            }
         }
     }
 
