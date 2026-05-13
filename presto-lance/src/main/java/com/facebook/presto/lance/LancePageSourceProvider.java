@@ -69,7 +69,7 @@ public class LancePageSourceProvider
                 .map(LanceColumnHandle.class::cast)
                 .collect(toImmutableList());
 
-        String tablePath = namespaceHolder.getTablePath(tableHandle.getTableName());
+        String tablePath = lanceSplit.getDatasetPath();
 
         // Build filter from predicate pushdown
         TupleDomain<ColumnHandle> predicate = layoutHandle.getTupleDomain();

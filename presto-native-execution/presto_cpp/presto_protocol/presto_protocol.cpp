@@ -18,6 +18,9 @@
 #include "presto_cpp/presto_protocol/connector/arrow_flight/presto_protocol_arrow_flight.cpp"
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.cpp"
 #include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.cpp"
+#ifdef PRESTO_ENABLE_LANCE
+#include "presto_cpp/presto_protocol/connector/lance/presto_protocol_lance.cpp"
+#endif
 #include "presto_cpp/presto_protocol/connector/tpcds/presto_protocol_tpcds.cpp"
 #include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.cpp"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.cpp"
