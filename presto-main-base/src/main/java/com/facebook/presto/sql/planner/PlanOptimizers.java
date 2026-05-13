@@ -106,7 +106,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushOffsetThroughProject;
-import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
+import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchangeRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughCrossJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
@@ -1111,9 +1111,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(
-                                new PushPartialAggregationThroughJoin(),
-                                new PushPartialAggregationThroughExchange(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(new PushPartialAggregationThroughJoin())
+                                .addAll(new PushPartialAggregationThroughExchangeRuleSet(metadata.getFunctionAndTypeManager(), featuresConfig.isNativeExecutionEnabled()).rules())
+                                .build()),
                 // MergePartialAggregationsWithFilter should immediately follow PushPartialAggregationThroughExchange
                 new MergePartialAggregationsWithFilter(metadata.getFunctionAndTypeManager()),
                 new IterativeOptimizer(
