@@ -39,7 +39,7 @@ public final class JwtUtil
 
     public static JwtParserBuilder newJwtParserBuilder()
     {
-        return Jwts.parserBuilder()
-                .deserializeJsonWith(JWT_DESERIALIZER);
+        return Jwts.parser()
+                .json(JWT_DESERIALIZER);
     }
 }
