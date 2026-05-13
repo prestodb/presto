@@ -24,7 +24,9 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -121,6 +123,7 @@ import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
@@ -177,7 +180,6 @@ import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Float.parseFloat;
@@ -1451,11 +1453,14 @@ public final class IcebergUtil
             if (type instanceof TimestampType || type instanceof TimeType) {
                 return MICROSECONDS.toMillis((long) value);
             }
+            else if (type instanceof TimestampWithTimeZoneType) {
+                return packDateTimeWithZone(MICROSECONDS.toMillis((long) value), TimeZoneKey.UTC_KEY);
+            }
             else if (value instanceof BigDecimal) {
                 return ((BigDecimal) value).unscaledValue().longValue();
             }
             else if (value instanceof Float && type instanceof RealType) {
-                return (long) floatToIntBits((Float) value);
+                return (long) floatToRawIntBits((Float) value);
             }
             else {
                 return ((Number) value).longValue();
