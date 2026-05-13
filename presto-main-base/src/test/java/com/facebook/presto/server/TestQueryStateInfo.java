@@ -316,6 +316,7 @@ public class TestQueryStateInfo
                 StatsAndCosts.empty(),
                 ImmutableList.of(),
                 ImmutableList.of(),
+                null,
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
