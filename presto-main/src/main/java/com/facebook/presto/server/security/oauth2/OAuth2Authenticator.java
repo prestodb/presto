@@ -56,10 +56,6 @@ public class OAuth2Authenticator
         this.client = requireNonNull(client, "service is null");
         requireNonNull(config, "oauth2Config is null");
         this.principalField = config.getPrincipalField();
-        Optional<String> authorizationEndpoint = config.getAuthorizationEndpoint();
-        if (authorizationEndpoint.isEmpty()) {
-            authorizationEndpoint = Optional.of(config.getIssuer());
-        }
         this.tokenRefresher = requireNonNull(tokenRefresher, "tokenRefresher is null");
         this.tokenPairSerializer = requireNonNull(tokenPairSerializer, "tokenPairSerializer is null");
     }
