@@ -425,8 +425,7 @@ public class TestIcebergLogicalPlanner
                             + "max(boolean_data), min(boolean_data), count(boolean_data), "
                             + "max(float_data), min(float_data), count(float_data), "
                             + "max(double_data), min(double_data), count(double_data), "
-                            + "max(decimal_data), min(decimal_data), count(decimal_data), "
-                            + "max(binary_data), min(binary_data), count(binary_data)"
+                            + "max(decimal_data), min(decimal_data), count(decimal_data)"
                             + " FROM " + tableName;
 
             ImmutableMap.Builder<String, ExpressionMatcher> assignmentsBuilder = ImmutableMap.<String, ExpressionMatcher>builder()
@@ -444,8 +443,6 @@ public class TestIcebergLogicalPlanner
                     .put("min(double_data)", expression("DOUBLE '2.222222'"))
                     .put("max(decimal_data)", expression("DECIMAL '66.66'"))
                     .put("min(decimal_data)", expression("DECIMAL '11.11'"))
-                    .put("max(binary_data)", expression("X'55 55'"))
-                    .put("min(binary_data)", expression("X'11 11'"))
                     .put("count_3", expression("5"));
             assertPlan(session, select,
                     anyNot(AggregationNode.class, strictProject(
@@ -466,25 +463,28 @@ public class TestIcebergLogicalPlanner
                 .build();
         String tableName = "aggregation_push_down_" + randomTableSuffix();
         try {
-            assertUpdate(session, format("CREATE TABLE %s (id bigint, data varchar, d date, ts timestamp) with(partitioning = ARRAY['id'])", tableName));
-            assertUpdate(session, format("INSERT INTO %s VALUES (1, '1', date '2021-11-10', null),"
-                            + "(1, '2', date '2021-11-11', timestamp '2021-11-11 22:22:22'), "
-                            + "(2, '3', date '2021-11-12', timestamp '2021-11-12 22:22:22'), "
-                            + "(2, '4', date '2021-11-13', timestamp '2021-11-13 22:22:22'), "
-                            + "(3, '5', null, timestamp '2021-11-14 22:22:22'), "
-                            + "(3, '6', date '2021-11-14', null)",
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data varchar, d date, ts timestamp, tz timestamp with time zone) with(partitioning = ARRAY['id'])", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, '1', date '2021-11-10', null, TIMESTAMP '1969-12-01 00:00:00.000000 UTC'),"
+                            + "(1, '2', date '2021-11-11', timestamp '2021-11-11 22:22:22', TIMESTAMP '1984-12-08 00:10:00 Asia/Shanghai'), "
+                            + "(2, '3', date '2021-11-12', timestamp '2021-11-12 22:22:22', TIMESTAMP '2001-09-01 10:10:00 America/Los_Angeles'), "
+                            + "(2, '4', date '2021-11-13', timestamp '2021-11-13 22:22:22', TIMESTAMP '2025-01-01 08:07:00 Asia/Shanghai'), "
+                            + "(3, '5', null, timestamp '2021-11-14 22:22:22', null), "
+                            + "(3, '6', date '2021-11-14', null, null)",
                     tableName), 6);
-            assertQuery(session, "select max(ts), max(data) from " + tableName, "values(timestamp '2021-11-14 22:22:22', '6')");
-            assertQuery(session, "select max(ts) from " + tableName, "values(timestamp '2021-11-14 22:22:22')");
+            assertQuery(session, "select max(ts), max(data), max(tz) from " + tableName, "values(timestamp '2021-11-14 22:22:22', '6', TIMESTAMP '2025-01-01 00:07:00.000 UTC')");
+            assertQuery(session, "select max(ts), min(tz) from " + tableName, "values(timestamp '2021-11-14 22:22:22', TIMESTAMP '1969-12-01 00:00:00.000 UTC')");
+            assertQuery(session, "select max(ts), min(tz) from " + tableName + " where id > 1", "values(timestamp '2021-11-14 22:22:22', TIMESTAMP '2001-09-01 17:10:00.000 UTC')");
 
-            @Language("SQL") String select = "SELECT max(d), min(d), count(d), max(ts), min(ts), count(ts) FROM " + tableName;
+            @Language("SQL") String select = "SELECT max(d), min(d), count(d), max(ts), min(ts), count(ts), max(tz), min(tz) FROM " + tableName;
             ImmutableMap.Builder<String, ExpressionMatcher> assignmentsBuilder = ImmutableMap.<String, ExpressionMatcher>builder()
                     .put("count", expression("5"))
                     .put("max(d)", expression("DATE '2021-11-14'"))
                     .put("min(d)", expression("DATE '2021-11-10'"))
                     .put("max(ts)", expression("TIMESTAMP '2021-11-14 22:22:22.000'"))
                     .put("min(ts)", expression("TIMESTAMP '2021-11-11 22:22:22.000'"))
-                    .put("count_2", expression("4"));
+                    .put("count_2", expression("4"))
+                    .put("max(tz)", expression("TIMESTAMP '2025-01-01 00:07:00.000 UTC'"))
+                    .put("min(tz)", expression("TIMESTAMP '1969-12-01 00:00:00.000 UTC'"));
             assertPlan(session, select,
                     anyNot(AggregationNode.class, strictProject(
                             assignmentsBuilder.build(),
@@ -633,6 +633,48 @@ public class TestIcebergLogicalPlanner
                     anyNot(AggregationNode.class, strictProject(
                             ImmutableMap.of("count", expression("6"),
                                     "max", expression("6666")),
+                            anyTree(values()))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregateNotPushDownForVarbinaryType()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session session = getSession();
+        String schemaName = session.getSchema().get();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(session, format("CREATE TABLE %s (id bigint, data varbinary)", tableName));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, x'1111'), (1, x'2222'), (2, x'3333'), (2, x'4444'), (3, x'5555'), (3, x'6666') ",
+                    tableName), 6);
+            assertPlan(session, "SELECT MAX(id), MAX(data) FROM " + tableName,
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_max_id", functionCall("max", ImmutableList.of("partial_max_id")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_max_id", functionCall("max", ImmutableList.of("id")),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("id", "data"))))))));
+
+            assertPlan(session, "SELECT COUNT(data) FROM " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6")),
+                            anyTree(values()))));
+
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "full"));
+            assertPlan(session, "SELECT COUNT(data), MAX(data) FROM " + tableName,
+                    anyNot(AggregationNode.class, strictProject(
+                            ImmutableMap.of("count", expression("6"),
+                                    "max", expression("X'66 66'")),
                             anyTree(values()))));
         }
         finally {

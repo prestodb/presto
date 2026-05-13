@@ -134,7 +134,6 @@ public class IcebergAggregationOptimizer
                 return context.defaultRewrite(node);
             }
 
-            // verify all outputs of table scan are partition keys
             TableScanNode tableScan = result.get();
             IcebergTableHandle tableHandle = (IcebergTableHandle) tableScan.getTable().getConnectorHandle();
             Table table = IcebergUtil.getIcebergTable(getConnectorMetadata(tableScan.getTable()),
@@ -180,7 +179,7 @@ public class IcebergAggregationOptimizer
             // supported functions are only MIN/MAX/COUNT aggregates
             for (AggregationNode.Aggregation aggregation : node.getAggregations().values()) {
                 if (aggregation.isDistinct() || aggregation.getMask().isPresent() || allowedFunctions.keySet().stream().noneMatch(
-                        pred -> pred.test(aggregation.getFunctionHandle())) && !aggregation.isDistinct()) {
+                        pred -> pred.test(aggregation.getFunctionHandle()))) {
                     return false;
                 }
             }
@@ -299,7 +298,7 @@ public class IcebergAggregationOptimizer
                     }
                     else if (mode instanceof MetricsModes.Truncate) {
                         // lower_bounds and upper_bounds may be truncated, so disable push down
-                        if (aggregate.type().typeId() == Type.TypeID.STRING) {
+                        if (aggregate.type().typeId() == Type.TypeID.STRING || aggregate.type().typeId() == Type.TypeID.BINARY) {
                             if (aggregate.op() == Expression.Operation.MAX
                                     || aggregate.op() == Expression.Operation.MIN) {
                                 LOGGER.info(
