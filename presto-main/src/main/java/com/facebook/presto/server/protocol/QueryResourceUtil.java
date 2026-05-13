@@ -28,7 +28,9 @@ import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.CacheControl;
 import jakarta.ws.rs.core.Context;
@@ -47,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -83,6 +86,9 @@ import static java.util.stream.Collectors.toList;
 public final class QueryResourceUtil
 {
     private static final Logger log = Logger.get(QueryResourceUtil.class);
+    public static final String X_FORWARDED_HOST = "X-Forwarded-Host";
+    public static final String X_FORWARDED_PORT = "X-Forwarded-Port";
+    private static final Splitter FORWARDED_HEADER_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
     private static final JsonCodec<List<Object>> LIST_JSON_CODEC = listJsonCodec(Object.class);
@@ -220,6 +226,74 @@ public final class QueryResourceUtil
         return backendUri;
     }
 
+    public static ExternalUriInfo createExternalUriInfo(UriInfo uriInfo, String xForwardedProto, String xForwardedHost, String xForwardedPort, boolean useForwardedHeaders)
+    {
+        String scheme = getScheme(xForwardedProto, uriInfo);
+        if (!useForwardedHeaders || isNullOrEmpty(xForwardedHost)) {
+            return new ExternalUriInfo(scheme, Optional.empty(), OptionalInt.empty());
+        }
+
+        try {
+            HostAndPort forwardedHost = HostAndPort.fromString(getFirstForwardedHeaderValue(xForwardedHost));
+            OptionalInt forwardedPort = parseForwardedPort(forwardedHost, xForwardedPort);
+            return new ExternalUriInfo(scheme, Optional.of(forwardedHost.getHost()), forwardedPort);
+        }
+        catch (RuntimeException e) {
+            log.warn(e, "Ignoring invalid forwarded host or port headers while building statement response URIs");
+            return new ExternalUriInfo(scheme, Optional.empty(), OptionalInt.empty());
+        }
+    }
+
+    public static UriBuilder getExternalUriBuilder(UriInfo uriInfo, ExternalUriInfo externalUriInfo)
+    {
+        UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
+                .scheme(externalUriInfo.getScheme());
+
+        if (externalUriInfo.getHost().isPresent()) {
+            uriBuilder.host(externalUriInfo.getHost().get());
+            if (externalUriInfo.getPort().isPresent()) {
+                uriBuilder.port(externalUriInfo.getPort().getAsInt());
+            }
+            else {
+                uriBuilder.port(-1);
+            }
+        }
+
+        return uriBuilder;
+    }
+
+    public static String getRequestHost(UriInfo uriInfo, ExternalUriInfo externalUriInfo)
+    {
+        return externalUriInfo.getHost().orElseGet(() -> uriInfo.getBaseUri().getHost());
+    }
+
+    private static OptionalInt parseForwardedPort(HostAndPort forwardedHost, String xForwardedPort)
+    {
+        if (forwardedHost.hasPort()) {
+            return OptionalInt.of(forwardedHost.getPort());
+        }
+
+        if (isNullOrEmpty(xForwardedPort)) {
+            return OptionalInt.empty();
+        }
+
+        try {
+            return OptionalInt.of(Integer.parseInt(getFirstForwardedHeaderValue(xForwardedPort)));
+        }
+        catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid X-Forwarded-Port header", e);
+        }
+    }
+
+    private static String getFirstForwardedHeaderValue(String headerValue)
+    {
+        List<String> values = FORWARDED_HEADER_SPLITTER.splitToList(headerValue);
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Forwarded header value is empty");
+        }
+        return values.get(0);
+    }
+
     private static String urlEncode(String value)
     {
         try {
@@ -301,20 +375,18 @@ public final class QueryResourceUtil
         return value;
     }
 
-    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
+    private static URI getQueryHtmlUri(QueryId queryId, UriInfo uriInfo, ExternalUriInfo externalUriInfo, String xPrestoPrefixUrl)
     {
-        URI uri = uriInfo.getRequestUriBuilder()
-                .scheme(getScheme(xForwardedProto, uriInfo))
+        URI uri = getExternalUriBuilder(uriInfo, externalUriInfo)
                 .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
         return prependUri(uri, xPrestoPrefixUrl);
     }
 
-    public static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl, boolean binaryResults)
+    public static URI getQueuedUri(QueryId queryId, String slug, long token, UriInfo uriInfo, ExternalUriInfo externalUriInfo, String xPrestoPrefixUrl, boolean binaryResults)
     {
-        UriBuilder uriBuilder = uriInfo.getBaseUriBuilder()
-                .scheme(getScheme(xForwardedProto, uriInfo))
+        UriBuilder uriBuilder = getExternalUriBuilder(uriInfo, externalUriInfo)
                 .replacePath("/v1/statement/queued")
                 .path(queryId.toString())
                 .path(String.valueOf(token))
@@ -337,7 +409,7 @@ public final class QueryResourceUtil
             URI nextUri,
             Optional<QueryError> queryError,
             UriInfo uriInfo,
-            String xForwardedProto,
+            ExternalUriInfo externalUriInfo,
             String xPrestoPrefixUrl,
             Duration elapsedTime,
             Optional<Duration> queuedTime,
@@ -347,7 +419,7 @@ public final class QueryResourceUtil
                 .orElseGet(() -> queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
         return new QueryResults(
                 queryId.toString(),
-                getQueryHtmlUri(queryId, uriInfo, xForwardedProto, xPrestoPrefixUrl),
+                getQueryHtmlUri(queryId, uriInfo, externalUriInfo, xPrestoPrefixUrl),
                 null,
                 nextUri,
                 null,
@@ -364,5 +436,34 @@ public final class QueryResourceUtil
                 ImmutableList.of(),
                 null,
                 null);
+    }
+
+    public static final class ExternalUriInfo
+    {
+        private final String scheme;
+        private final Optional<String> host;
+        private final OptionalInt port;
+
+        private ExternalUriInfo(String scheme, Optional<String> host, OptionalInt port)
+        {
+            this.scheme = requireNonNull(scheme, "scheme is null");
+            this.host = requireNonNull(host, "host is null");
+            this.port = requireNonNull(port, "port is null");
+        }
+
+        public String getScheme()
+        {
+            return scheme;
+        }
+
+        public Optional<String> getHost()
+        {
+            return host;
+        }
+
+        public OptionalInt getPort()
+        {
+            return port;
+        }
     }
 }

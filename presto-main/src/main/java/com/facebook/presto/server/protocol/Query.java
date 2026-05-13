@@ -37,6 +37,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.server.RetryConfig;
+import com.facebook.presto.server.protocol.QueryResourceUtil.ExternalUriInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -86,6 +87,7 @@ import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanS
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
+import static com.facebook.presto.server.protocol.QueryResourceUtil.getExternalUriBuilder;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -352,7 +354,7 @@ class Query
         return removedSessionFunctions;
     }
 
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize, boolean binaryResults)
+    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, ExternalUriInfo externalUriInfo, Duration wait, DataSize targetResultSize, boolean binaryResults)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -368,7 +370,7 @@ class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, scheme, targetResultSize, binaryResults), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResultWithRetry(token, uriInfo, externalUriInfo, targetResultSize, binaryResults), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -421,9 +423,9 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
+    private synchronized QueryResults getNextResultWithRetry(long token, UriInfo uriInfo, ExternalUriInfo externalUriInfo, DataSize targetResultSize, boolean binaryResults)
     {
-        QueryResults queryResults = getNextResult(token, uriInfo, scheme, targetResultSize, binaryResults);
+        QueryResults queryResults = getNextResult(token, uriInfo, externalUriInfo, targetResultSize, binaryResults);
 
         if (queryResults.getError() == null) {
             return queryResults;
@@ -461,7 +463,7 @@ class Query
 
         // build a new query with next uri
         // we expect failed nodes have been removed from discovery server upon query failure
-        URI nextUri = createRetryUri(scheme, uriInfo);
+        URI nextUri = createRetryUri(externalUriInfo, uriInfo);
 
         return new QueryResults(
                 queryId.toString(),
@@ -481,7 +483,7 @@ class Query
                 queryResults.getUpdateCount());
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize, boolean binaryResults)
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, ExternalUriInfo externalUriInfo, DataSize targetResultSize, boolean binaryResults)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -491,8 +493,7 @@ class Query
 
         verify(nextToken.isPresent(), "Can not generate next result when next token is not present");
         verify(token == nextToken.getAsLong(), "Expected token to equal next token");
-        URI queryHtmlUri = uriInfo.getRequestUriBuilder()
-                .scheme(scheme)
+        URI queryHtmlUri = getExternalUriBuilder(uriInfo, externalUriInfo)
                 .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
@@ -596,7 +597,7 @@ class Query
 
         URI nextResultsUri = null;
         if (nextToken.isPresent()) {
-            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong(), binaryResults);
+            nextResultsUri = createNextResultsUri(externalUriInfo, uriInfo, nextToken.getAsLong(), binaryResults);
         }
 
         // update catalog, schema, and path
@@ -626,7 +627,7 @@ class Query
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
                 queryHtmlUri,
-                findCancelableLeafStage(queryInfo),
+                createPartialCancelUri(queryInfo, uriInfo, externalUriInfo),
                 nextResultsUri,
                 columns,
                 data,
@@ -685,10 +686,9 @@ class Query
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken, boolean binaryResults)
+    private synchronized URI createNextResultsUri(ExternalUriInfo externalUriInfo, UriInfo uriInfo, long nextToken, boolean binaryResults)
     {
-        UriBuilder uri = uriInfo.getBaseUriBuilder()
-                .scheme(scheme)
+        UriBuilder uri = getExternalUriBuilder(uriInfo, externalUriInfo)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
                 .path(String.valueOf(nextToken))
@@ -704,7 +704,7 @@ class Query
         return uri.build();
     }
 
-    private synchronized URI createRetryUri(String scheme, UriInfo uriInfo)
+    private synchronized URI createRetryUri(ExternalUriInfo externalUriInfo, UriInfo uriInfo)
     {
         // Check if we have external retry URL information
         if (retryUrl.isPresent()) {
@@ -720,8 +720,7 @@ class Query
         }
 
         // Use the default retry mechanism
-        UriBuilder uri = uriInfo.getBaseUriBuilder()
-                .scheme(scheme)
+        UriBuilder uri = getExternalUriBuilder(uriInfo, externalUriInfo)
                 .replacePath("/v1/statement/queued/retry")
                 .path(queryId.toString())
                 .replaceQuery("");
@@ -732,13 +731,21 @@ class Query
         return uri.build();
     }
 
-    private static URI findCancelableLeafStage(QueryInfo queryInfo)
+    private static URI createPartialCancelUri(QueryInfo queryInfo, UriInfo uriInfo, ExternalUriInfo externalUriInfo)
     {
-        // if query is running, find the leaf-most running stage
-        return queryInfo.getOutputStage().map(Query::findCancelableLeafStage).orElse(null);
+        StageInfo cancelableStage = queryInfo.getOutputStage().map(Query::findCancelableLeafStage).orElse(null);
+        if (cancelableStage == null) {
+            return null;
+        }
+
+        return getExternalUriBuilder(uriInfo, externalUriInfo)
+                .replacePath("/v1/stage")
+                .path(cancelableStage.getStageId().toString())
+                .replaceQuery("")
+                .build();
     }
 
-    private static URI findCancelableLeafStage(StageInfo stage)
+    private static StageInfo findCancelableLeafStage(StageInfo stage)
     {
         // if this stage is already done, we can't cancel it
         if (stage.getLatestAttemptExecutionInfo().getState().isDone()) {
@@ -748,14 +755,14 @@ class Query
         // attempt to find a cancelable sub stage
         // check in reverse order since build side of a join will be later in the list
         for (StageInfo subStage : Lists.reverse(stage.getSubStages())) {
-            URI leafStage = findCancelableLeafStage(subStage);
+            StageInfo leafStage = findCancelableLeafStage(subStage);
             if (leafStage != null) {
                 return leafStage;
             }
         }
 
         // no matching sub stage, so return this stage
-        return stage.getSelf();
+        return stage;
     }
 
     private boolean retryConditionsMet(QueryResults queryResults)
