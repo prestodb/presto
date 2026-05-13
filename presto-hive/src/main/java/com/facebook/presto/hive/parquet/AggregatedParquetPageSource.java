@@ -60,6 +60,7 @@ public class AggregatedParquetPageSource
     private boolean completed;
     private long readTimeNanos;
     private long completedBytes;
+    private long decompressedPositions;
 
     public AggregatedParquetPageSource(List<HiveColumnHandle> columnHandles, ParquetMetadata parquetMetadata, TypeManager typeManager, StandardFunctionResolution functionResolution)
     {
@@ -243,6 +244,19 @@ public class AggregatedParquetPageSource
     public long getSystemMemoryUsage()
     {
         return 0;
+    }
+
+    @Override
+    public long getDecompressedBytes()
+    {
+        // For aggregated page source, there's no decompression - just return completed bytes
+        return completedBytes;
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return decompressedPositions;
     }
 
     @Override
