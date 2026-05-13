@@ -50,13 +50,7 @@ public interface TypeManager
      */
     boolean hasType(TypeSignature signature);
 
-    default void addType(Type type)
-    {
-        throw new UnsupportedOperationException();
-    }
+    void addType(Type type);
 
-    default void addParametricType(ParametricType parametricType)
-    {
-        throw new UnsupportedOperationException();
-    }
+    void addParametricType(ParametricType parametricType);
 }

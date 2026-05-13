@@ -305,6 +305,18 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public void addType(Type type)
+            {
+                FunctionAndTypeManager.this.addType(type);
+            }
+
+            @Override
+            public void addParametricType(ParametricType parametricType)
+            {
+                FunctionAndTypeManager.this.addParametricType(parametricType);
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -652,6 +664,7 @@ public class FunctionAndTypeManager
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
+    @Override
     public void addType(Type type)
     {
         TypeSignatureBase typeSignatureBase = type.getTypeSignature().getTypeSignatureBase();
@@ -659,6 +672,7 @@ public class FunctionAndTypeManager
         servingTypeManager.get().addType(type);
     }
 
+    @Override
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
