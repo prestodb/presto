@@ -403,6 +403,33 @@ public final class MaterializedViewUtils
         }
     }
 
+    public static FunctionCall rewriteCountAsSum(FunctionCall countCall, Expression derivedColumnExpression)
+    {
+        return new FunctionCall(
+                SUM,
+                countCall.getWindow(),
+                countCall.getFilter(),
+                countCall.getOrderBy(),
+                countCall.isDistinct(),
+                countCall.isIgnoreNulls(),
+                ImmutableList.of(derivedColumnExpression));
+    }
+
+    public static FunctionCall rewriteAssociativeFunction(FunctionCall node, Expression derivedColumnExpression)
+    {
+        if (node.getName().equals(COUNT)) {
+            return rewriteCountAsSum(node, derivedColumnExpression);
+        }
+        return new FunctionCall(
+                node.getName(),
+                node.getWindow(),
+                node.getFilter(),
+                node.getOrderBy(),
+                node.isDistinct(),
+                node.isIgnoreNulls(),
+                ImmutableList.of(derivedColumnExpression));
+    }
+
     public static Relation resolveTableName(Relation relation, Session session, Metadata metadata)
     {
         if (!(relation instanceof Table)) {
