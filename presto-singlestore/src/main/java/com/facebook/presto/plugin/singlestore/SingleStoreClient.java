@@ -76,6 +76,7 @@ public class SingleStoreClient
         Properties connectionProperties = DriverConnectionFactory.basicConnectionProperties(config);
         String connectionAttributes = String.format("_connector_name:%s", "SingleStore Presto Connector");
         connectionProperties.setProperty("connectionAttributes", connectionAttributes);
+        connectionProperties.setProperty("tinyInt1isBit", "false");
         return connectionProperties;
     }
 
@@ -150,18 +151,12 @@ public class SingleStoreClient
                 return "longtext";
             }
             if (varcharType.getLengthSafe() <= 21844) {
-                // 21844 is the maximum length a singlestore varchar supports.
                 return super.toSqlType(type);
             }
-            if (varcharType.getLengthSafe() <= 5592405) { // 16MB
+            if (varcharType.getLengthSafe() <= 16777215) {
                 return "mediumtext";
             }
-            if (varcharType.getLengthSafe() <= 1431655765) { // 100MB to 1GB
-                return "longtext"; // max = 1431655765
-            }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported column width: " + varcharType.getLengthSafe());
-            }
+            return "longtext";
         }
 
         return super.toSqlType(type);
