@@ -590,6 +590,83 @@ bool isTrueConstant(const TypedExprPtr& expression) {
   return false;
 }
 
+bool isScalarSubqueryMultipleRowsFail(const TypedExprPtr& expression) {
+  if (auto cast = std::dynamic_pointer_cast<const CastTypedExpr>(expression)) {
+    return isScalarSubqueryMultipleRowsFail(cast->inputs()[0]);
+  }
+
+  auto call = std::dynamic_pointer_cast<const CallTypedExpr>(expression);
+  auto isFail = [](const std::string& name) {
+    if (name == "fail") {
+      return true;
+    }
+    const auto lastDot = name.rfind('.');
+    return lastDot != std::string::npos &&
+        name.compare(lastDot + 1, std::string::npos, "fail") == 0;
+  };
+  if (!call || !isFail(call->name()) || call->inputs().size() < 2) {
+    return false;
+  }
+
+  auto errorCode =
+      std::dynamic_pointer_cast<const ConstantTypedExpr>(call->inputs()[0]);
+  if (!errorCode || errorCode->isNull() ||
+      errorCode->type()->kind() != TypeKind::INTEGER) {
+    return false;
+  }
+
+  // Mirrors StandardErrorCode.SUBQUERY_MULTIPLE_ROWS.
+  static constexpr int32_t kSubqueryMultipleRowsErrorCode = 0x0000'001C;
+  return errorCode->value().value<int32_t>() == kSubqueryMultipleRowsErrorCode;
+}
+
+bool isScalarSubqueryMultipleRowsCheck(const TypedExprPtr& expression) {
+  auto call = std::dynamic_pointer_cast<const CallTypedExpr>(expression);
+  return call && call->name() == "switch" && call->inputs().size() == 3 &&
+      isTrueConstant(call->inputs()[1]) &&
+      isScalarSubqueryMultipleRowsFail(call->inputs()[2]);
+}
+
+std::optional<TypedExprPtr> convertScalarSubqueryAndExpr(
+    const velox::TypePtr& returnType,
+    const std::vector<TypedExprPtr>& args) {
+  std::vector<TypedExprPtr> checks;
+  std::vector<TypedExprPtr> predicates;
+  checks.reserve(args.size());
+  predicates.reserve(args.size());
+
+  for (const auto& arg : args) {
+    if (isScalarSubqueryMultipleRowsCheck(arg)) {
+      checks.emplace_back(arg);
+    } else {
+      predicates.emplace_back(arg);
+    }
+  }
+
+  if (checks.empty()) {
+    return std::nullopt;
+  }
+
+  TypedExprPtr predicate;
+  if (predicates.empty()) {
+    predicate = std::make_shared<ConstantTypedExpr>(velox::BOOLEAN(), true);
+  } else if (predicates.size() == 1) {
+    predicate = predicates[0];
+  } else {
+    predicate = std::make_shared<CallTypedExpr>(
+        returnType, std::move(predicates), "and");
+  }
+
+  const auto falseExpr =
+      std::make_shared<ConstantTypedExpr>(velox::BOOLEAN(), false);
+  for (auto it = checks.rbegin(); it != checks.rend(); ++it) {
+    predicate = std::make_shared<CallTypedExpr>(
+        returnType, std::vector<TypedExprPtr>{*it, predicate, falseExpr}, "if");
+  }
+
+  return predicate;
+}
+
 std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
     const TypedExprPtr& a,
     const TypedExprPtr& b) {
@@ -846,6 +923,13 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
 
   if (pexpr->form == protocol::Form::SWITCH) {
     return convertSwitchExpr(returnType, std::move(args));
+  }
+
+  if (pexpr->form == protocol::Form::AND) {
+    auto converted = convertScalarSubqueryAndExpr(returnType, args);
+    if (converted.has_value()) {
+      return converted.value();
+    }
   }
 
   if (pexpr->form == protocol::Form::DEREFERENCE) {
