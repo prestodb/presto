@@ -56,6 +56,8 @@ class MaterializedOutputBuffer {
       "materializedOutputBuffer.bufferPoolPeakBytes";
   static constexpr std::string_view kTotalCollectCalls =
       "materializedOutputBuffer.totalCollectCalls";
+  static constexpr std::string_view kPeakBufferedBytes =
+      "materializedOutputBuffer.peakBufferedBytes";
 
   MaterializedOutputBuffer(
       int32_t numPartitions,
@@ -199,6 +201,8 @@ class MaterializedOutputBuffer {
   std::atomic<int64_t> totalDrainedBytes_{0};
   std::atomic<int64_t> drainCount_{0};
   std::atomic<int64_t> backpressureCount_{0};
+  std::atomic<int64_t> peakBufferedBytes_{0};
+  std::atomic<int64_t> lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;
 };
 
