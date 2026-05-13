@@ -74,6 +74,8 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
+import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -504,6 +506,20 @@ public class PushdownSubfields
 
         @Override
         public PlanNode visitUpdate(UpdateNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getSource().getOutputVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<Context> context)
+        {
+            context.get().variables.addAll(node.getSource().getOutputVariables());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getSource().getOutputVariables());
             return context.defaultRewrite(node, context.get());

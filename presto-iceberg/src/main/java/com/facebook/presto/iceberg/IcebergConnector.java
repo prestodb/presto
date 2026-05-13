@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.hive.HiveTransactionHandle;
 import com.facebook.presto.iceberg.function.IcebergBucketFunction;
+import com.facebook.presto.iceberg.function.VariantFunctions;
 import com.facebook.presto.iceberg.function.changelog.ApplyChangelogFunction;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
@@ -50,6 +51,7 @@ import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTA
 import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.collect.Sets.immutableEnumSet;
+
 import static java.util.Objects.requireNonNull;
 
 public class IcebergConnector
@@ -256,6 +258,7 @@ public class IcebergConnector
                 .add(ApplyChangelogFunction.class)
                 .add(IcebergBucketFunction.class)
                 .add(IcebergBucketFunction.Bucket.class)
+                .add(VariantFunctions.class)
                 .build();
     }
 

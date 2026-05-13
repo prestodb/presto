@@ -344,9 +344,21 @@ public class HiveTableOperations
                 if (base == null) {
                     metastore.createTable(metastoreContext, table, privileges, emptyList());
                 }
+                else if (config.getCommitTableDataEnabled()) {
+                    // Use commit_table_data CAS API for atomic metadata-pointer swap.
+                    // This is more reliable than alter_table for Iceberg metadata
+                    // commits because it provides true compare-and-swap semantics on
+                    // the table's metadata_location parameter.
+                    try {
+                        metastore.commitTableData(metastoreContext, database, tableName, newMetadataLocation, currentMetadataLocation);
+                    }
+                    catch (UnsupportedOperationException e) {
+                        log.warn("commitTableData not supported by metastore, falling back to persistTable for %s.%s", database, tableName);
+                        persistTableFallback(metastoreContext, table, privileges, base);
+                    }
+                }
                 else {
-                    PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
-                    metastore.persistTable(metastoreContext, database, tableName, table, privileges, () -> tableStats, useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
+                    persistTableFallback(metastoreContext, table, privileges, base);
                 }
             }
             catch (AlreadyExistsException e) {
@@ -658,5 +670,24 @@ public class HiveTableOperations
 
     public enum CommitStatus {
         SUCCESS, FAILED, UNKNOWN
+    }
+
+    /**
+     * Persists the table metadata via the standard {@code persistTable} path,
+     * preserving existing table statistics and the HMS env-context (when not
+     * using HMS-side locking). Used both for the non-CAS commit path and as
+     * the fallback when the metastore does not support {@code commitTableData}.
+     */
+    private void persistTableFallback(MetastoreContext metastoreContext, Table table, PrincipalPrivileges privileges, TableMetadata base)
+    {
+        PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, database, tableName);
+        metastore.persistTable(
+                metastoreContext,
+                database,
+                tableName,
+                table,
+                privileges,
+                () -> tableStats,
+                useHMSLock ? ImmutableMap.of() : hmsEnvContext(base.metadataFileLocation()));
     }
 }

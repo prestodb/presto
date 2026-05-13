@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
+import com.facebook.presto.iceberg.delete.IcebergDeletionVectorPageSink;
 import com.facebook.presto.spi.ConnectorMergeSink;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
@@ -46,6 +47,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.plugin.base.util.Closables.closeAllSuppress;
 import static com.facebook.presto.spi.connector.MergePage.createDeleteAndInsertPages;
+
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -63,6 +65,7 @@ public class IcebergMergeSink
     private final Map<Integer, PartitionSpec> partitionsSpecs;
     private final ConnectorPageSink insertPageSink;
     private final int columnCount;
+    private final int formatVersion;
     private final Map<Slice, FileDeletion> fileDeletions = new HashMap<>();
 
     public IcebergMergeSink(
@@ -74,7 +77,8 @@ public class IcebergMergeSink
             FileFormat fileFormat,
             Map<Integer, PartitionSpec> partitionsSpecs,
             ConnectorPageSink insertPageSink,
-            int columnCount)
+            int columnCount,
+            int formatVersion)
     {
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
@@ -85,6 +89,7 @@ public class IcebergMergeSink
         this.partitionsSpecs = requireNonNull(partitionsSpecs, "partitionsSpecs is null");
         this.insertPageSink = requireNonNull(insertPageSink, "insertPageSink is null");
         this.columnCount = columnCount;
+        this.formatVersion = formatVersion;
     }
 
     /**
@@ -129,7 +134,7 @@ public class IcebergMergeSink
 
             try {
                 fileDeletions.forEach((dataFilePath, deletion) -> {
-                    ConnectorPageSink sink = createPositionDeletePageSink(
+                    ConnectorPageSink sink = createDeleteSink(
                             dataFilePath.toStringUtf8(),
                             partitionsSpecs.get(deletion.partitionSpecId()),
                             deletion.partitionDataJson());
@@ -149,8 +154,21 @@ public class IcebergMergeSink
         insertPageSink.abort();
     }
 
-    private ConnectorPageSink createPositionDeletePageSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
+    private ConnectorPageSink createDeleteSink(String dataFilePath, PartitionSpec partitionSpec, String partitionDataJson)
     {
+        // V3+ tables use deletion vectors (PUFFIN format) for more efficient row-level deletes.
+        // V2 tables use traditional position delete files (Parquet format).
+        if (formatVersion >= 3) {
+            return new IcebergDeletionVectorPageSink(
+                    partitionSpec,
+                    Optional.of(partitionDataJson),
+                    locationProvider,
+                    hdfsEnvironment,
+                    new HdfsContext(session),
+                    jsonCodec,
+                    session,
+                    dataFilePath);
+        }
         return new IcebergDeletePageSink(
                 partitionSpec,
                 Optional.of(partitionDataJson),
