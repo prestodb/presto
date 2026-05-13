@@ -24,10 +24,11 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.ReadOptions;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
-import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
+import com.google.cloud.bigquery.storage.v1.BigQueryStorageClient;
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
+import com.google.cloud.bigquery.storage.v1.ReadSession.TableReadOptions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -66,42 +67,36 @@ public class ReadSessionCreator
         this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
     }
 
-    public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
+    public ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
     {
         TableInfo tableDetails = bigQueryClient.getTable(table);
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
         try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
-            ReadOptions.TableReadOptions.Builder readOptions = ReadOptions.TableReadOptions.newBuilder()
+            TableReadOptions.Builder readOptions = TableReadOptions.newBuilder()
                     .addAllSelectedFields(selectedFields);
             filter.ifPresent(readOptions::setRowRestriction);
 
-            TableReferenceProto.TableReference tableReference = toTableReference(actualTable.getTableId());
+            String tableString = format("projects/%s/datasets/%s/tables/%s",
+                    actualTable.getTableId().getProject(),
+                    actualTable.getTableId().getDataset(),
+                    actualTable.getTableId().getTable());
 
-            Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
-                    Storage.CreateReadSessionRequest.newBuilder()
+            ReadSession.Builder sessionBuilder = ReadSession.newBuilder()
+                    .setTable(tableString)
+                    .setDataFormat(DataFormat.AVRO)
+                    .setReadOptions(readOptions);
+
+            ReadSession readSession = bigQueryStorageClient.createReadSession(
+                    CreateReadSessionRequest.newBuilder()
                             .setParent("projects/" + bigQueryClient.getProjectId())
-                            .setFormat(Storage.DataFormat.AVRO)
-                            .setRequestedStreams(parallelism)
-                            .setReadOptions(readOptions)
-                            .setTableReference(tableReference)
-                            // The BALANCED sharding strategy causes the server to
-                            // assign roughly the same number of rows to each stream.
-                            .setShardingStrategy(Storage.ShardingStrategy.BALANCED)
+                            .setReadSession(sessionBuilder)
+                            .setMaxStreamCount(parallelism)
                             .build());
 
             return readSession;
         }
-    }
-
-    TableReferenceProto.TableReference toTableReference(TableId tableId)
-    {
-        return TableReferenceProto.TableReference.newBuilder()
-                .setProjectId(tableId.getProject())
-                .setDatasetId(tableId.getDataset())
-                .setTableId(tableId.getTable())
-                .build();
     }
 
     TableInfo getActualTable(

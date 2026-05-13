@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsRequest;
-import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadRowsResponse;
+import com.google.cloud.bigquery.storage.v1.BigQueryStorageClient;
+import com.google.cloud.bigquery.storage.v1.ReadRowsRequest;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -52,7 +52,7 @@ public class ReadRowsHelper
             catch (RuntimeException e) {
                 // if relevant, retry the read, from the last read position
                 if (BigQueryUtil.isRetryable(e) && retries < maxReadRowsRetries) {
-                    request.getReadPositionBuilder().setOffset(readRowsCount);
+                    request.setOffset(readRowsCount);
                     serverResponses = fetchResponses(request);
                     retries++;
                 }

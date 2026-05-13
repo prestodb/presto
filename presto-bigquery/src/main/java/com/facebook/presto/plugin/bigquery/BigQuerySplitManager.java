@@ -34,7 +34,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
