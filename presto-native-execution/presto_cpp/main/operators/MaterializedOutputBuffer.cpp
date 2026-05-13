@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 
+#include <fmt/format.h>
 #include <glog/logging.h>
 #include <algorithm>
 #include <cstring>
@@ -115,6 +116,12 @@ bool MaterializedOutputBuffer::maybeApplyBackpressure(
       promises_.push_back(std::move(promise));
       *future = std::move(semiFuture);
       ++backpressureCount_;
+      LOG(INFO) << fmt::format(
+          "MaterializedOutputBuffer backpressure: bufferedBytes={}MB >= "
+          "max={}MB, waitingDrivers={}",
+          bufferedBytes_ >> 20,
+          maxBufferedBytes_ >> 20,
+          promises_.size());
       return true;
     }
   }
@@ -137,14 +144,29 @@ bool MaterializedOutputBuffer::enqueue(
       "enqueue called after finishAndClose when pool is not aborted");
 
   auto rowGroupBytes = static_cast<int64_t>(rowGroup->computeChainDataLength());
-  bufferedBytes_ += rowGroupBytes;
+  auto currentBytes = (bufferedBytes_ += rowGroupBytes);
+  int64_t peak = peakBufferedBytes_;
+  while (currentBytes > peak &&
+         !peakBufferedBytes_.compare_exchange_weak(peak, currentBytes)) {
+  }
 
   auto drainedBytes =
       partitionBuffers_[partition]->enqueue(partition, std::move(rowGroup));
 
   if (drainedBytes > 0) {
     ++drainCount_;
-    totalDrainedBytes_ += drainedBytes;
+    auto totalDrained = (totalDrainedBytes_ += drainedBytes);
+    auto currentGB = totalDrained >> 30;
+    int64_t lastGB = lastLoggedDrainedGB_;
+    if (currentGB > lastGB &&
+        lastLoggedDrainedGB_.compare_exchange_strong(lastGB, currentGB)) {
+      LOG(INFO) << fmt::format(
+          "MaterializedOutputBuffer progress: totalDrained={}GB, "
+          "drainCount={}, bufferedBytes={}MB",
+          currentGB,
+          static_cast<int64_t>(drainCount_),
+          bufferedBytes_ >> 20);
+    }
     auto prevTotal = bufferedBytes_.fetch_sub(drainedBytes);
     if (prevTotal >= continueBufferedBytes_ &&
         (prevTotal - drainedBytes) < continueBufferedBytes_) {
@@ -245,7 +267,8 @@ void MaterializedOutputBuffer::abort() {
   }
   maybeUnblockProducers(promises);
 
-  // Tell the writer to abort.
+  LOG(INFO)
+      << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
   writer_->noMoreData(/*success=*/false);
 }
 
@@ -259,11 +282,20 @@ void MaterializedOutputBuffer::setNumDrivers(uint32_t numDrivers) {
 
 bool MaterializedOutputBuffer::noMoreDrivers() {
   bool isLast = false;
+  uint32_t finished = 0;
+  uint32_t total = 0;
   {
     std::lock_guard<std::mutex> lock(stateMutex_);
     ++numFinishedDrivers_;
-    isLast = numDrivers_ > 0 && numFinishedDrivers_ >= numDrivers_;
+    finished = numFinishedDrivers_;
+    total = numDrivers_;
+    isLast = total > 0 && finished >= total;
   }
+  LOG(INFO) << fmt::format(
+      "MaterializedOutputBuffer noMoreDrivers: {}/{} finished, isLast={}",
+      finished,
+      total,
+      isLast);
   if (isLast) {
     finishAndClose();
   }
@@ -272,6 +304,13 @@ bool MaterializedOutputBuffer::noMoreDrivers() {
 
 void MaterializedOutputBuffer::maybeUnblockProducers(
     std::vector<velox::ContinuePromise>& promises) {
+  if (!promises.empty()) {
+    LOG(INFO) << fmt::format(
+        "MaterializedOutputBuffer resumed: unblocked {} drivers, "
+        "bufferedBytes={}MB",
+        promises.size(),
+        bufferedBytes_ >> 20);
+  }
   for (auto& promise : promises) {
     promise.setValue();
   }
@@ -281,8 +320,28 @@ void MaterializedOutputBuffer::finishAndClose() {
   if (finished_.exchange(true)) {
     return;
   }
+  LOG(INFO) << fmt::format(
+      "MaterializedOutputBuffer finishAndClose: draining, bufferedBytes={}MB",
+      bufferedBytes_ >> 20);
   drainAll();
+  LOG(INFO) << "MaterializedOutputBuffer: calling writer noMoreData(true)";
   writer_->noMoreData(/*success=*/true);
+  int64_t totalCollects = 0;
+  for (int32_t i = 0; i < numPartitions_; ++i) {
+    totalCollects += collectCountPerPartition_[i];
+  }
+  LOG(INFO) << fmt::format(
+      "MaterializedOutputBuffer progress: totalDrained={}GB, "
+      "drainCount={}, bufferedBytes={}MB",
+      totalDrainedBytes_ >> 30,
+      static_cast<int64_t>(drainCount_),
+      bufferedBytes_ >> 20);
+  LOG(INFO) << fmt::format(
+      "MaterializedOutputBuffer closed: "
+      "backpressureCount={}, collectCalls={}, peakBufferedBytes={}MB",
+      static_cast<int64_t>(backpressureCount_),
+      totalCollects,
+      peakBufferedBytes_ >> 20);
 }
 
 folly::F14FastMap<std::string, int64_t> MaterializedOutputBuffer::stats()
@@ -301,6 +360,7 @@ folly::F14FastMap<std::string, int64_t> MaterializedOutputBuffer::stats()
     totalCollects += collectCountPerPartition_[i];
   }
   writerStats[std::string(kTotalCollectCalls)] = totalCollects;
+  writerStats[std::string(kPeakBufferedBytes)] = peakBufferedBytes_;
   return writerStats;
 }
 
