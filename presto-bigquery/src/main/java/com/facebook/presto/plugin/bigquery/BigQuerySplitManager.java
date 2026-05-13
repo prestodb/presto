@@ -46,7 +46,7 @@ public class BigQuerySplitManager
     private static final Logger log = Logger.get(BigQuerySplitManager.class);
 
     private final BigQueryClient bigQueryClient;
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
     private final OptionalInt parallelism;
     private final ReadSessionCreatorConfig readSessionCreatorConfig;
     private final NodeManager nodeManager;
@@ -55,13 +55,13 @@ public class BigQuerySplitManager
     public BigQuerySplitManager(
             BigQueryConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory,
+            BigQueryReadClientFactory bigQueryReadClientFactory,
             NodeManager nodeManager)
     {
         requireNonNull(config, "config cannot be null");
 
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient cannot be null");
-        this.bigQueryStorageClientFactory = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory cannot be null");
+        this.bigQueryReadClientFactory = requireNonNull(bigQueryReadClientFactory, "bigQueryReadClientFactory cannot be null");
         this.parallelism = config.getParallelism();
         this.readSessionCreatorConfig = config.createReadSessionCreatorConfig();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager cannot be null");
@@ -98,7 +98,7 @@ public class BigQuerySplitManager
                 .map(column -> ((BigQueryColumnHandle) column).getName())
                 .collect(toImmutableList());
 
-        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryStorageClientFactory)
+        ReadSession readSession = new ReadSessionCreator(readSessionCreatorConfig, bigQueryClient, bigQueryReadClientFactory)
                 .create(tableId, projectedColumnsNames, filter, actualParallelism);
 
         return readSession.getStreamsList().stream()

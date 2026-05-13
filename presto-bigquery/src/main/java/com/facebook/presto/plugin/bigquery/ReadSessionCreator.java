@@ -24,7 +24,7 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
-import com.google.cloud.bigquery.storage.v1.BigQueryStorageClient;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
 import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
 import com.google.cloud.bigquery.storage.v1.DataFormat;
 import com.google.cloud.bigquery.storage.v1.ReadSession;
@@ -55,16 +55,16 @@ public class ReadSessionCreator
 
     private final ReadSessionCreatorConfig config;
     private final BigQueryClient bigQueryClient;
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
 
     public ReadSessionCreator(
             ReadSessionCreatorConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory)
+            BigQueryReadClientFactory bigQueryReadClientFactory)
     {
         this.config = config;
         this.bigQueryClient = bigQueryClient;
-        this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
+        this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     }
 
     public ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
@@ -73,7 +73,7 @@ public class ReadSessionCreator
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
-        try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
+        try (BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.createBigQueryStorageClient()) {
             TableReadOptions.Builder readOptions = TableReadOptions.newBuilder()
                     .addAllSelectedFields(selectedFields);
             filter.ifPresent(readOptions::setRowRestriction);
@@ -88,7 +88,7 @@ public class ReadSessionCreator
                     .setDataFormat(DataFormat.AVRO)
                     .setReadOptions(readOptions);
 
-            ReadSession readSession = bigQueryStorageClient.createReadSession(
+            ReadSession readSession = bigQueryReadClient.createReadSession(
                     CreateReadSessionRequest.newBuilder()
                             .setParent("projects/" + bigQueryClient.getProjectId())
                             .setReadSession(sessionBuilder)
