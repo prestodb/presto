@@ -539,7 +539,7 @@ public class MaterializedViewQueryOptimizer
                                     throw new IllegalStateException("GROUP BY ordinal references non-single-column select item");
                                 }
                             }
-                            if (!groupByOfMaterializedView.get().contains(resolved) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(resolved)) {
+                            if (!isExpressionInMvGroupBy(resolved, groupByOfMaterializedView.get()) || !materializedViewInfo.getBaseToViewColumnMap().containsKey(resolved)) {
                                 throw new IllegalStateException(format("Grouping element %s is not present in materialized view groupBy field", element));
                             }
                             // Store the resolved expression so visitSingleColumn can match against it
@@ -619,7 +619,7 @@ public class MaterializedViewQueryOptimizer
             Optional<Set<Expression>> groupByOfMaterializedView = materializedViewInfo.getGroupBy();
             // TODO: Replace this logic with rule-based validation framework.
             if (groupByOfMaterializedView.isPresent() &&
-                    validateExpressionForGroupBy(groupByOfMaterializedView.get(), expression) &&
+                    !isRewritableWithMvGroupBy(groupByOfMaterializedView.get(), expression) &&
                     (!expressionsInGroupBy.isPresent() || !expressionsInGroupBy.get().contains(expression))) {
                 throw new IllegalStateException("Query a column presents in materialized view group by: " + expression.toString());
             }
@@ -925,21 +925,47 @@ public class MaterializedViewQueryOptimizer
             return rewritten.build();
         }
 
-        private boolean validateExpressionForGroupBy(Set<Expression> groupByOfMaterializedView, Expression expression)
+        private boolean isRewritableWithMvGroupBy(Set<Expression> mvGroupBy, Expression expression)
         {
-            boolean canRewrite = expression instanceof FunctionCall
+            // Dimension column — MV collapses rows on this column, not rewritable
+            // without matching GROUP BY in the base query
+            if (isExpressionInMvGroupBy(expression, mvGroupBy)) {
+                return false;
+            }
+
+            // Rewritable aggregate (SUM, COUNT, MIN, MAX, AVG) — rollup is always safe
+            if (expression instanceof FunctionCall
                     && (ASSOCIATIVE_REWRITE_FUNCTIONS.contains(((FunctionCall) expression).getName())
-                    || MaterializedViewUtils.validateNonAssociativeFunctionRewrite((FunctionCall) expression, materializedViewInfo.getBaseToViewColumnMap()));
+                    || MaterializedViewUtils.validateNonAssociativeFunctionRewrite(
+                            (FunctionCall) expression, materializedViewInfo.getBaseToViewColumnMap()))) {
+                return true;
+            }
 
-            // Scalar expressions (IF, CASE, COALESCE, scalar functions like CONCAT/ABS/JSON_EXTRACT)
-            // are valid in SELECT — the rewriter handles them by rewriting leaf identifiers.
-            // Only known built-in scalar functions qualify; unknown/plugin functions are not assumed scalar.
-            boolean isScalar = !(expression instanceof Identifier)
-                    && (!(expression instanceof FunctionCall) || isScalarFunction((FunctionCall) expression));
+            // Non-dimension column mapped in MV — safe to rewrite
+            if (materializedViewInfo.getBaseToViewColumnMap().containsKey(expression)) {
+                return true;
+            }
 
-            // If a selected column is not present in GROUP BY node of the query.
-            // It must be 1) be selected in the materialized view and 2) not present in GROUP BY node of the materialized view
-            return groupByOfMaterializedView.contains(expression) || !(materializedViewInfo.getBaseToViewColumnMap().containsKey(expression) || canRewrite || isScalar);
+            // Scalar expression (IF, CAST, ABS, arithmetic, etc.) — safe only when
+            // the base query has GROUP BY. Without GROUP BY, the MV collapses rows
+            // and these expressions would silently lose duplicates.
+            if (expressionsInGroupBy.isPresent()
+                    && !(expression instanceof Identifier)
+                    && (!(expression instanceof FunctionCall) || isScalarFunction((FunctionCall) expression))) {
+                return true;
+            }
+
+            // Unrecognized expression — not rewritable
+            return false;
+        }
+
+        private boolean isExpressionInMvGroupBy(Expression expression, Set<Expression> mvGroupBy)
+        {
+            if (mvGroupBy.contains(expression)) {
+                return true;
+            }
+            Identifier viewColumn = materializedViewInfo.getBaseToViewColumnMap().get(expression);
+            return viewColumn != null && mvGroupBy.contains(viewColumn);
         }
 
         private boolean isScalarFunction(FunctionCall functionCall)
