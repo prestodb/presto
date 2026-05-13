@@ -89,6 +89,8 @@ system| runtime| queries| created| timestamp| YES| null| null|
 system| runtime| queries| started| timestamp| YES| null| null|
 system| runtime| queries| last_heartbeat| timestamp| YES| null| null|
 system| runtime| queries| end| timestamp| YES| null| null|
+system| runtime| queries| total_cpu_time| bigint| YES| null| null|
+system| runtime| queries| total_memory| double| YES| null| null|
 system| runtime| tasks| node_id| varchar| YES| null| null|
 system| runtime| tasks| task_id| varchar| YES| null| null|
 system| runtime| tasks| stage_execution_id| varchar| YES| null| null|
