@@ -2845,7 +2845,7 @@ Catalog Configuration
 
 The following catalog properties affect materialized view storage tables and
 refresh behavior. Storage naming and location properties apply at materialized
-view creation time and can be overridden per-view via the ``storage_schema`` and
+view creation time and can be overridden per-view by using the ``storage_schema`` and
 ``storage_table`` table properties.
 
 ====================================================== ============================================================= ========================
