@@ -300,4 +300,43 @@ public class TestSimplifyPlanWithEmptyInput
                         ImmutableList.of("orderkey", "count"),
                         values("orderkey", "count")));
     }
+
+    @Test
+    public void testWideUnionAllAllBranchesEmpty()
+    {
+        // Sanity test for wide UNION ALL with many empty branches: must collapse to
+        // a single empty Values rather than leaving N idle empty Values nodes that
+        // would each spawn a single-task no-op operator at runtime.
+        String sql = "SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false " +
+                "UNION ALL SELECT orderkey FROM orders WHERE false";
+        assertPlan(sql, enableOptimization(),
+                output(ImmutableList.of("orderkey"), values("orderkey")));
+    }
+
+    @Test
+    public void testProjectOverEmptyUnderLocalExchangeIsCollapsed()
+    {
+        // Validates the see-through isEmptyNode path: a Project sitting over a
+        // LocalExchange-wrapping-empty (the shape produced post-AddLocalExchanges
+        // when the connector PHYSICAL stage prunes a TableScan to empty) must be
+        // recognized as having an empty input and be dropped, leaving just a
+        // single empty Values that the surrounding plan can collapse further.
+        //
+        // This SQL forces a Project (cast + constant column) over an empty source,
+        // and we verify the entire chain collapses to the expected plan rather
+        // than leaving a dangling Project + LocalExchange + emptyValues.
+        assertPlan(
+                "SELECT CAST(orderkey AS varchar) AS k, 'tag' AS t " +
+                        "FROM (SELECT orderkey FROM orders WHERE false)",
+                enableOptimization(),
+                output(ImmutableList.of("k", "t"), values("k", "t")));
+    }
 }
