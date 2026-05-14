@@ -45,7 +45,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testPartialAggregationAdded()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
@@ -70,7 +70,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testNoPartialAggregationWhenDisabled()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "NEVER")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a");
@@ -90,7 +90,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testNoPartialAggregationWhenReductionBelowThreshold()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", DOUBLE);
@@ -116,7 +116,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testNoPartialAggregationWhenReductionBelowThresholdUsingPartialAggregationStats()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .on(p -> constructAggregation(p))
@@ -132,7 +132,7 @@ public class TestPushPartialAggregationThroughExchange
     public void testNoPartialAggregationWhenReductionAboveThresholdUsingPartialAggregationStats()
     {
         // when use_partial_aggregation_history=true, we use row count reduction (instead of bytes) to decide if partial aggregation is useful
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .on(p -> constructAggregation(p))
@@ -147,7 +147,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testNoPartialAggregationWhenRowReductionBelowThreshold()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .on(p -> constructAggregation(p))
@@ -162,7 +162,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testPartialAggregationWhenRowReductionAboveThreshold()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .setSystemProperty(USE_PARTIAL_AGGREGATION_HISTORY, "true")
                 .on(p -> constructAggregation(p))
@@ -181,7 +181,7 @@ public class TestPushPartialAggregationThroughExchange
     @Test
     public void testPartialAggregationEnabledWhenNotConfident()
     {
-        tester().assertThat(new PushPartialAggregationThroughExchange(getFunctionManager(), false))
+        tester().assertThat(new PushPartialAggregationThroughExchangeRuleSet(getFunctionManager(), false).withoutProjectionRule())
                 .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "AUTOMATIC")
                 .on(p -> {
                     VariableReferenceExpression a = p.variable("a", DOUBLE);
