@@ -291,6 +291,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kAggregationSpillEnabled, true),
           BOOL_PROP(kOrderBySpillEnabled, true),
           NUM_PROP(kMaxSpillBytes, 100UL << 30), // 100GB
+          NUM_PROP(kBroadcastExchangeSourceReadBufferBytes, 1 << 20), // 1MB
           BOOL_PROP(kBroadcastJoinTableCachingEnabled, false),
           BOOL_PROP(kExchangeLazyFetchingEnabled, false),
           NUM_PROP(kRequestDataSizesMaxWaitSec, 10),
@@ -460,6 +461,11 @@ bool SystemConfig::aggregationSpillEnabled() const {
 
 bool SystemConfig::orderBySpillEnabled() const {
   return optionalProperty<bool>(kOrderBySpillEnabled).value();
+}
+
+uint64_t SystemConfig::broadcastExchangeSourceReadBufferBytes() const {
+  return optionalProperty<uint64_t>(kBroadcastExchangeSourceReadBufferBytes)
+      .value();
 }
 
 bool SystemConfig::broadcastJoinTableCachingEnabled() const {

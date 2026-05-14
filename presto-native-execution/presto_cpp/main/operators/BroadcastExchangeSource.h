@@ -30,7 +30,9 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       const std::shared_ptr<BroadcastFileReader>& reader,
       velox::memory::MemoryPool* pool)
-      : ExchangeSource(taskId, destination, queue, pool), reader_(reader) {}
+      : ExchangeSource(taskId, destination, queue, pool), reader_(reader) {
+    VELOX_CHECK_NOT_NULL(reader_);
+  }
 
   bool shouldRequestLocked() override {
     return !atEnd_;
@@ -43,7 +45,9 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
   folly::SemiFuture<Response> requestDataSizes(
       std::chrono::microseconds maxWait) override;
 
-  void close() override {}
+  void close() override {
+    finish();
+  }
 
   bool supportsMetrics() const override {
     return true;
@@ -63,6 +67,16 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
       velox::memory::MemoryPool* pool);
 
  private:
+  void checkFinish() {
+    if (atEnd_) {
+      finish();
+    }
+  }
+
+  void finish() {
+    reader_->close();
+  }
+
   const std::shared_ptr<BroadcastFileReader> reader_;
 };
 } // namespace facebook::presto::operators

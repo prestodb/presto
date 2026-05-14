@@ -902,6 +902,12 @@ class SystemConfig : public ConfigBase {
       "order-by-spill-enabled"};
   static constexpr std::string_view kMaxSpillBytes{"max-spill-bytes"};
 
+  /// Input stream buffer size in bytes for reading broadcast files. Controls
+  /// per-source memory footprint when many broadcast sources are active.
+  /// Default: 1MB.
+  static constexpr std::string_view kBroadcastExchangeSourceReadBufferBytes{
+      "broadcast-exchange-source-read-buffer-bytes"};
+
   /// When enabled, hash tables built for broadcast joins are cached and reused
   /// across tasks within the same query and stage.
   static constexpr std::string_view kBroadcastJoinTableCachingEnabled{
@@ -1303,6 +1309,8 @@ class SystemConfig : public ConfigBase {
   bool aggregationSpillEnabled() const;
 
   bool orderBySpillEnabled() const;
+
+  uint64_t broadcastExchangeSourceReadBufferBytes() const;
 
   bool broadcastJoinTableCachingEnabled() const;
 
