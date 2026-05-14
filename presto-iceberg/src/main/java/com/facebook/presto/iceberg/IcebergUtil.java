@@ -512,13 +512,34 @@ public final class IcebergUtil
                 .anyMatch(snapshot -> snapshot.snapshotId() == id);
     }
 
+    /**
+     * Sanitizes table properties by converting deprecated properties that cause errors in Iceberg 1.9.0+.
+     *
+     * @param properties the original properties map
+     * @param tableName the table name for logging purposes
+     * @return a new map with deprecated properties converted to their new equivalents
+     */
+    public static Map<String, String> sanitizeProperties(Map<String, String> properties, String tableName)
+    {
+        Map<String, String> sanitized = new HashMap<>(properties);
+        if (sanitized.containsKey(OBJECT_STORE_PATH)) {
+            log.warn("Table %s uses deprecated property '%s'. Converting to '%s' for Iceberg library compatibility.", tableName, OBJECT_STORE_PATH, WRITE_DATA_LOCATION);
+            if (!sanitized.containsKey(WRITE_DATA_LOCATION)) {
+                sanitized.put(WRITE_DATA_LOCATION, sanitized.get(OBJECT_STORE_PATH));
+            }
+            sanitized.remove(OBJECT_STORE_PATH);
+        }
+        return sanitized;
+    }
+
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
     {
         if (storageProperties.containsKey(WRITE_LOCATION_PROVIDER_IMPL)) {
             throw new PrestoException(NOT_SUPPORTED, "Table " + schemaTableName + " specifies " + storageProperties.get(WRITE_LOCATION_PROVIDER_IMPL) +
                     " as a location provider. Writing to Iceberg tables with custom location provider is not supported.");
         }
-        return locationsFor(tableLocation, storageProperties);
+        Map<String, String> sanitizedProperties = sanitizeProperties(storageProperties, schemaTableName.toString());
+        return locationsFor(tableLocation, sanitizedProperties);
     }
 
     public static TableScan buildTableScan(Table icebergTable, MetadataTableType metadataTableType, RuntimeStats runtimeStats)

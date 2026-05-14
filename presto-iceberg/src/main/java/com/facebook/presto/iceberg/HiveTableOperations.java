@@ -441,7 +441,8 @@ public class HiveTableOperations
     public LocationProvider locationProvider()
     {
         TableMetadata metadata = current();
-        return LocationProviders.locationsFor(metadata.location(), metadata.properties());
+        Map<String, String> sanitizedProperties = IcebergUtil.sanitizeProperties(metadata.properties(), database + "." + tableName);
+        return LocationProviders.locationsFor(metadata.location(), sanitizedProperties);
     }
 
     private Table getTable()

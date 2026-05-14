@@ -5113,4 +5113,31 @@ public abstract class IcebergDistributedTestBase
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
+
+    @Test
+    public void testDeprecatedObjectStoragePathProperty()
+            throws IOException
+    {
+        String tableName = "test_deprecated_property";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR)");
+            assertUpdate("CALL system.set_table_property('" + getSession().getSchema().get() + "', '" + tableName + "', 'write.object-storage.enabled', 'true')");
+            assertUpdate("CALL system.set_table_property('" + getSession().getSchema().get() + "', '" + tableName + "', 'write.object-storage.path', '" + dataWriteLocation + "')");
+            Table icebergTable = loadTable(tableName);
+            assertTrue(icebergTable.properties().containsKey("write.object-storage.enabled"));
+            assertTrue(icebergTable.properties().containsKey("write.object-storage.path"));
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'test')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'test')");
+            assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES (1)");
+        }
+        finally {
+            try {
+                assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
+    }
 }
