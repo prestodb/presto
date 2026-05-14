@@ -316,7 +316,7 @@ Import the Presto coordinator's certificate into client's truststore. See :ref:`
 Also make sure to include ``--truststore-*`` properties when running Presto CLI as suggested in :ref:`cli_execution`.
 
 javax.net.ssl.SSLPeerUnverifiedException: Hostname <some_host_name> not verified
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This error implies the Common Name in the imported coordinator's certificate in the client's truststore does not match the hostname
 provided with ``--server`` flag. Modify the ``--server`` option to use the same hostname that is mentioned as the Common Name
