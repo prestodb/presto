@@ -17,10 +17,12 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.VariantField;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -29,6 +31,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.JSON;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
@@ -55,47 +58,67 @@ public class ColumnIOConverter
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
         int repetitionLevel = columnRepetitionLevel(columnIO);
         int definitionLevel = columnDefinitionLevel(columnIO);
-        if (ROW.equals(type.getTypeSignature().getBase())) {
-            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> parameters = type.getTypeParameters();
-            ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            List<TypeSignatureParameter> fields = type.getTypeSignature().getParameters();
-            boolean structHasParameters = false;
-            for (int i = 0; i < fields.size(); i++) {
-                NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
-                String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
-                structHasParameters |= field.isPresent();
-                fieldsBuilder.add(field);
-            }
-            if (structHasParameters) {
-                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
-            }
-            return Optional.empty();
-        }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
-            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            MapType mapType = (MapType) type;
-            GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
-            if (keyValueColumnIO.getChildrenCount() != 2) {
+        if (columnIO instanceof GroupColumnIO) {
+            if (ROW.equals(type.getTypeSignature().getBase())) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                List<Type> parameters = type.getTypeParameters();
+                ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
+                List<TypeSignatureParameter> fields = type.getTypeSignature().getParameters();
+                boolean structHasParameters = false;
+                for (int i = 0; i < fields.size(); i++) {
+                    NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
+                    String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
+                    Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
+                    structHasParameters |= field.isPresent();
+                    fieldsBuilder.add(field);
+                }
+                if (structHasParameters) {
+                    return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
+                }
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
-        }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
-            GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
-            List<Type> types = type.getTypeParameters();
-            if (groupColumnIO.getChildrenCount() != 1) {
-                return Optional.empty();
+            else if (MAP.equals(type.getTypeSignature().getBase())) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                MapType mapType = (MapType) type;
+                GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
+                if (keyValueColumnIO.getChildrenCount() != 2) {
+                    return Optional.empty();
+                }
+                Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
+                Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
             }
-            Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+            else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                List<Type> types = type.getTypeParameters();
+                if (groupColumnIO.getChildrenCount() != 1) {
+                    return Optional.empty();
+                }
+                Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+            }
+            else if (JSON.equals(type.getTypeSignature().getBase())) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                if (groupColumnIO.getChildrenCount() != 2) {
+                    return Optional.empty();
+                }
+                Optional<Field> value = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(0));
+                if (!value.isPresent()) {
+                    throw new IllegalArgumentException("Value field is missing for variant type: " + type);
+                }
+                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, groupColumnIO.getChild(1));
+                if (!metadata.isPresent()) {
+                    throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
+                }
+                return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, value.get(), metadata.get()));
+            }
         }
-        PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
-        RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        else if (columnIO instanceof PrimitiveColumnIO) {
+            PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
+            RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
+            return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        }
+        return Optional.empty();
     }
 
     public static Optional<ColumnIO> findNestedColumnIO(ColumnIO columnIO, List<String> path)
