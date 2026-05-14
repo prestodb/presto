@@ -196,6 +196,22 @@ public class NativeTypeManager
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public void addType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
+    }
+
+    @Override
+    public void addParametricType(ParametricType parametricType)
+    {
+        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
+        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
+        parametricTypes.putIfAbsent(name, parametricType);
+    }
+
     private void addAllTypes(List<Type> typesList, List<ParametricType> parametricTypesList)
     {
         typesList.forEach(this::addType);
@@ -205,20 +221,6 @@ public class NativeTypeManager
     private Type instantiateParametricType(ExactTypeSignature exactTypeSignature)
     {
         return typeManager.instantiateParametricType(exactTypeSignature.getTypeSignature());
-    }
-
-    private void addType(Type type)
-    {
-        requireNonNull(type, "type is null");
-        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
-        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
-    }
-
-    private void addParametricType(ParametricType parametricType)
-    {
-        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
-        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
-        parametricTypes.putIfAbsent(name, parametricType);
     }
 
     private static <T> List<T> filterSupportedTypes(

@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -301,6 +302,18 @@ public class FunctionAndTypeManager
             public boolean hasType(TypeSignature signature)
             {
                 return FunctionAndTypeManager.this.hasType(signature);
+            }
+
+            @Override
+            public void addType(Type type)
+            {
+                FunctionAndTypeManager.this.addType(type);
+            }
+
+            @Override
+            public void addParametricType(ParametricType parametricType)
+            {
+                FunctionAndTypeManager.this.addParametricType(parametricType);
             }
 
             @Override
@@ -651,18 +664,20 @@ public class FunctionAndTypeManager
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
+    @Override
     public void addType(Type type)
     {
         TypeSignatureBase typeSignatureBase = type.getTypeSignature().getTypeSignatureBase();
         checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
-        builtInTypeAndFunctionNamespaceManager.addType(type);
+        servingTypeManager.get().addType(type);
     }
 
+    @Override
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
         checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
-        builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
+        servingTypeManager.get().addParametricType(parametricType);
     }
 
     @VisibleForTesting
@@ -1069,8 +1084,9 @@ public class FunctionAndTypeManager
 
     private Map<String, ParametricType> getServingTypeManagerParametricTypes()
     {
+        // While loading the parametric types, the name is in lowercase.
         return servingTypeManager.get().getParametricTypes().stream()
-                .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+                .collect(toImmutableMap(parametricType -> parametricType.getName().toLowerCase(Locale.ENGLISH), parametricType -> parametricType));
     }
 
     private Collection<? extends SqlFunction> getFunctions(

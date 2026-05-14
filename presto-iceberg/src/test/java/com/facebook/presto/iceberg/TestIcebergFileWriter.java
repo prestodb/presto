@@ -19,6 +19,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -194,6 +195,18 @@ public class TestIcebergFileWriter
         public boolean hasType(TypeSignature signature)
         {
             return getType(signature) != null;
+        }
+
+        @Override
+        public void addType(Type type)
+        {
+            throw new UnsupportedOperationException("Adding a type is not supported ");
+        }
+
+        @Override
+        public void addParametricType(ParametricType parametricType)
+        {
+            throw new UnsupportedOperationException("Adding a parametric type is not supported ");
         }
     }
 }

@@ -554,6 +554,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
         this(blockEncodingSerde, functionsConfig, types, functionAndTypeManager, true);
     }
+
     public BuiltInTypeAndFunctionNamespaceManager(
             BlockEncodingSerde blockEncodingSerde,
             FunctionsConfig functionsConfig,
@@ -1312,6 +1313,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         return ImmutableList.copyOf(types.values());
     }
 
+    @Override
     public void addType(Type type)
     {
         requireNonNull(type, "type is null");
@@ -1319,6 +1321,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 
+    @Override
     public void addParametricType(ParametricType parametricType)
     {
         String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
