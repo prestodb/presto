@@ -455,7 +455,7 @@ public class IcebergPageSink
         }
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            return ((TimestampType) type).getStorageUnit() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -469,14 +469,14 @@ public class IcebergPageSink
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
             long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            Instant instant = Instant.ofEpochSecond(timestampType.getStorageUnit().toSeconds(timestampValue),
+                    timestampType.getStorageUnit().toNanos(timestampValue % timestampType.getStorageUnit().convert(1, SECONDS)));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            return timestampType.getStorageUnit().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
+                    timestampType.getStorageUnit().convert(localDateTime.getNano(), NANOSECONDS);
         }
         return value;
     }

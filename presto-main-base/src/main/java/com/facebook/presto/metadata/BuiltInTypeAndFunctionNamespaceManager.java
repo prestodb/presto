@@ -268,7 +268,9 @@ import com.facebook.presto.type.SmallintOperators;
 import com.facebook.presto.type.TDigestOperators;
 import com.facebook.presto.type.TimeOperators;
 import com.facebook.presto.type.TimeWithTimeZoneOperators;
+import com.facebook.presto.type.TimestampMicrosecondsOperators;
 import com.facebook.presto.type.TimestampOperators;
+import com.facebook.presto.type.TimestampParametricType;
 import com.facebook.presto.type.TimestampWithTimeZoneOperators;
 import com.facebook.presto.type.TinyintOperators;
 import com.facebook.presto.type.UnknownOperators;
@@ -332,6 +334,7 @@ import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -646,6 +649,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(TIME);
         addType(TIME_WITH_TIME_ZONE);
         addType(TIMESTAMP);
+        addParametricType(TimestampParametricType.TIMESTAMP);
+        addType(TIMESTAMP_MICROSECONDS);
         addType(TIMESTAMP_WITH_TIME_ZONE);
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
@@ -836,6 +841,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(TimeOperators.TimeDistinctFromOperator.class)
                 .scalars(TimestampOperators.class)
                 .scalar(TimestampOperators.TimestampDistinctFromOperator.class)
+                .scalars(TimestampMicrosecondsOperators.class)
+                .scalar(TimestampMicrosecondsOperators.TimestampMicrosecondsDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
