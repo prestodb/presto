@@ -237,7 +237,11 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationPartitioningRowBatchBufferSize,
               16L << 20),
-          NUM_PROP(kExchangeMaterializationPerPartitionBufferSize, 130L * 1024),
+          NUM_PROP(kExchangeMaterializationOutputBufferMaxBytes, 1L << 30),
+          NUM_PROP(
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
+              130L * 1024),
+          BOOL_PROP(kExchangeMaterializationOutputBufferUseSystemMemory, false),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
@@ -779,10 +783,22 @@ int64_t SystemConfig::exchangeMaterializationPartitioningRowBatchBufferSize()
       .value_or(16L << 20);
 }
 
-int64_t SystemConfig::exchangeMaterializationPerPartitionBufferSize() const {
+int64_t SystemConfig::exchangeMaterializationOutputBufferMaxBytes() const {
+  return optionalProperty<int64_t>(kExchangeMaterializationOutputBufferMaxBytes)
+      .value_or(1L << 30);
+}
+
+int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
+    const {
   return optionalProperty<int64_t>(
-             kExchangeMaterializationPerPartitionBufferSize)
+             kExchangeMaterializationOutputBufferPerPartitionMaxBytes)
       .value_or(130L * 1024);
+}
+
+bool SystemConfig::exchangeMaterializationOutputBufferUseSystemMemory() const {
+  return optionalProperty<bool>(
+             kExchangeMaterializationOutputBufferUseSystemMemory)
+      .value_or(false);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
