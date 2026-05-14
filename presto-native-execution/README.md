@@ -352,7 +352,7 @@ Presto maintains automated GitHub Actions workflows that run daily to keep Velox
 
 1. **Check for existing PR**: Look for an open PR with title `chore(ci): Advance velox <date>`
 
-2. **Manually trigger workflow** (if needed):
+2. **Manually trigger workflow**
    - Go to [Actions → "Advance velox PR create"](https://github.com/prestodb/presto/actions/workflows/velox-advance-pr-create.yml)
    - Click "Run workflow"
    - Options:
