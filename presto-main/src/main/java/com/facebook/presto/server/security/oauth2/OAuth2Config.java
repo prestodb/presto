@@ -51,6 +51,7 @@ public class OAuth2Config
     private boolean enableDiscovery = true;
     private boolean userinfoCacheEnabled;
     private Duration userinfoCacheTtl = new Duration(10, TimeUnit.MINUTES);
+    private Optional<String> authorizationEndpoint = Optional.empty();
 
     public Optional<String> getStateKey()
     {
@@ -251,6 +252,19 @@ public class OAuth2Config
     {
         this.enableDiscovery = enableDiscovery;
         return this;
+    }
+
+    @Config("http-server.authentication.oauth2.authorization-endpoint")
+    @ConfigDescription("Use for IdPs that have separate authorization endpoints and issuers")
+    public OAuth2Config setAuthorizationEndpoint(String authorizationEndpoint)
+    {
+        this.authorizationEndpoint = Optional.ofNullable(authorizationEndpoint);
+        return this;
+    }
+
+    public Optional<String> getAuthorizationEndpoint()
+    {
+        return authorizationEndpoint;
     }
 
     public boolean isUserinfoCacheEnabled()
