@@ -412,6 +412,48 @@ public class TestIcebergRowLineage
         }
     }
 
+    @Test
+    public void testDisjointOrRangesPruneMiddleFile()
+            throws Exception
+    {
+        String tableName = "test_lineage_disjoint_or";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            appendOneRow(table, 3, "three");
+
+            List<long[]> idAndSeq = readIdAndSequenceNumber(tableName);
+            long seq1 = sequenceNumberForId(idAndSeq, 1);
+            long seq2 = sequenceNumberForId(idAndSeq, 2);
+            long seq3 = sequenceNumberForId(idAndSeq, 3);
+            assertTrue(seq1 < seq2 && seq2 < seq3, "sequence numbers must increase per commit");
+
+            String disjointPredicate = " WHERE \"_last_updated_sequence_number\" <= " + seq1
+                    + " OR \"_last_updated_sequence_number\" >= " + seq3;
+
+            int splitsAll = completedSplitsFor("SELECT id FROM " + tableName);
+            int splitsDisjoint = completedSplitsFor("SELECT id FROM " + tableName + disjointPredicate);
+            assertTrue(splitsAll > splitsDisjoint,
+                    "expected disjoint OR to prune middle file but unrestricted=" + splitsAll
+                            + " disjoint=" + splitsDisjoint);
+
+            MaterializedResult result = computeActual("SELECT id FROM " + tableName + disjointPredicate + " ORDER BY id");
+            List<Integer> ids = new ArrayList<>();
+            for (MaterializedRow row : result.getMaterializedRows()) {
+                ids.add((Integer) row.getField(0));
+            }
+            assertEquals(ids, ImmutableList.of(1, 3));
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
     private static final Schema PUSHDOWN_TABLE_SCHEMA = new Schema(
             Types.NestedField.required(1, "id", Types.IntegerType.get()),
             Types.NestedField.optional(2, "value", Types.StringType.get()));
