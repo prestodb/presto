@@ -316,12 +316,92 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
              }
              EXPECT_EQ(expectedBytes, config.maxExchangeBufferSize());
            }},
+
+      {.veloxConfigKey = core::QueryConfig::kMaxLocalExchangeBufferSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kMaxLocalExchangeBufferSize),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue),
+                 config.maxLocalExchangeBufferSize());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kParallelOutputJoinBuildRowsEnabled,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kParallelOutputJoinBuildRowsEnabled),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true",
+                 config.parallelOutputJoinBuildRowsEnabled());
+           }},
+
+      {.veloxConfigKey =
+           core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoull(expectedValue),
+                 config.hashProbeBloomFilterPushdownMaxSize());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey = std::string(SystemConfig::kTaskWriterCount),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(std::stoi(expectedValue), config.taskWriterCount());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kTaskPartitionedWriterCount,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kTaskPartitionedWriterCount),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 std::stoi(expectedValue), config.taskPartitionedWriterCount());
+           }},
+
+      {.veloxConfigKey = core::QueryConfig::kExchangeLazyFetchingEnabled,
+       .sessionPropertyKey = std::nullopt,
+       .systemConfigKey =
+           std::string(SystemConfig::kExchangeLazyFetchingEnabled),
+       .sessionValue = "",
+       .differentSessionValue = "",
+       .validator =
+           [](const core::QueryConfig& config,
+              const std::string& expectedValue) {
+             EXPECT_EQ(
+                 expectedValue == "true", config.exchangeLazyFetchingEnabled());
+           }},
   };
 
   // CRITICAL: This count MUST match the exact number of entries in
   // veloxToPrestoConfigMapping If this assertion fails, it means a new
   // mapping was added and this test needs to be updated
-  const size_t kExpectedMappingCount = 17;
+  const size_t kExpectedMappingCount = 23;
   EXPECT_EQ(kExpectedMappingCount, testCases.size());
 
   // Test each mapping to ensure session properties override system configs
@@ -790,6 +870,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   expectedExactConfigs += 2; // kAdjustTimestampToTimezone,
                              // kDriverCpuTimeSliceLimitMs
   expectedExactConfigs += 1; // kSessionStartTime
+  expectedExactConfigs += 1; // kSessionTimezone (always added)
 
   // Use exact matching to catch any config additions/removals
   EXPECT_EQ(veloxConfigs.size(), expectedExactConfigs)
