@@ -26,8 +26,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
-import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanFragmentId;
@@ -35,11 +35,13 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -50,6 +52,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +68,7 @@ import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -392,21 +396,54 @@ public class TestDynamicFilterService
     }
 
     @Test
-    public void testForEachJoinDynamicFilterVisitsEveryFilter()
+    public void testForEachJoinDynamicFilterFlagsReplicateBuildAsBroadcast()
     {
-        QueryId queryId = QueryId.valueOf("test_for_each_visits");
+        QueryId queryId = QueryId.valueOf("test_replicate_build");
         String filterId = "f";
         JoinDynamicFilter filter = createTestFilterWithId(filterId);
         service.registerFilter(queryId, filterId, filter);
 
-        Set<String> seen = new HashSet<>();
+        Map<String, Boolean> seen = new HashMap<>();
         SectionExecutionFactory.forEachJoinDynamicFilter(
-                service, queryId, joinNodeWithDistribution(filterId, JoinDistributionType.PARTITIONED),
-                f -> seen.add(f.getFilterId()));
-        assertEquals(seen, ImmutableSet.of(filterId));
+                service, queryId, joinNodeWithRemoteBuild(filterId, REPLICATE),
+                (f, isBroadcastBuild) -> seen.put(f.getFilterId(), isBroadcastBuild));
+        assertEquals(seen.get(filterId), Boolean.TRUE);
     }
 
-    private JoinNode joinNodeWithDistribution(String filterId, JoinDistributionType distributionType)
+    @Test
+    public void testForEachJoinDynamicFilterFlagsRepartitionBuildAsNonBroadcast()
+    {
+        QueryId queryId = QueryId.valueOf("test_repartition_build");
+        String filterId = "f";
+        JoinDynamicFilter filter = createTestFilterWithId(filterId);
+        service.registerFilter(queryId, filterId, filter);
+
+        Map<String, Boolean> seen = new HashMap<>();
+        SectionExecutionFactory.forEachJoinDynamicFilter(
+                service, queryId, joinNodeWithRemoteBuild(filterId, REPARTITION),
+                (f, isBroadcastBuild) -> seen.put(f.getFilterId(), isBroadcastBuild));
+        assertEquals(seen.get(filterId), Boolean.FALSE);
+    }
+
+    @Test
+    public void testForEachJoinDynamicFilterFlagsLocalBuildAsNonBroadcast()
+    {
+        // Co-located joins (e.g. a self-join inside a SOURCE_DISTRIBUTION fragment) have
+        // no RemoteSourceNode in the build subtree — each task only sees its own scan
+        // slice, so this must be treated as non-broadcast.
+        QueryId queryId = QueryId.valueOf("test_local_build");
+        String filterId = "f";
+        JoinDynamicFilter filter = createTestFilterWithId(filterId);
+        service.registerFilter(queryId, filterId, filter);
+
+        Map<String, Boolean> seen = new HashMap<>();
+        SectionExecutionFactory.forEachJoinDynamicFilter(
+                service, queryId, joinNodeWithLocalBuild(filterId),
+                (f, isBroadcastBuild) -> seen.put(f.getFilterId(), isBroadcastBuild));
+        assertEquals(seen.get(filterId), Boolean.FALSE);
+    }
+
+    private JoinNode joinNodeWithRemoteBuild(String filterId, ExchangeNode.Type buildExchangeType)
     {
         VariableReferenceExpression probeVar = new VariableReferenceExpression(Optional.empty(), "probe", BIGINT);
         VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "build", BIGINT);
@@ -415,19 +452,42 @@ public class TestDynamicFilterService
                 ImmutableList.of(probeVar), false, Optional.empty(), REPARTITION);
         RemoteSourceNode buildSource = new RemoteSourceNode(
                 Optional.empty(), new PlanNodeId("build_src"), new PlanFragmentId(2),
-                ImmutableList.of(buildVar), false, Optional.empty(), REPARTITION);
+                ImmutableList.of(buildVar), false, Optional.empty(), buildExchangeType);
+        return joinNode(filterId, probeSource, buildSource, probeVar, buildVar);
+    }
+
+    private JoinNode joinNodeWithLocalBuild(String filterId)
+    {
+        VariableReferenceExpression probeVar = new VariableReferenceExpression(Optional.empty(), "probe", BIGINT);
+        VariableReferenceExpression buildVar = new VariableReferenceExpression(Optional.empty(), "build", BIGINT);
+        RemoteSourceNode probeSource = new RemoteSourceNode(
+                Optional.empty(), new PlanNodeId("probe_src"), new PlanFragmentId(1),
+                ImmutableList.of(probeVar), false, Optional.empty(), REPARTITION);
+        // Local subtree: a ValuesNode standing in for any in-fragment scan/project chain.
+        ValuesNode localBuild = new ValuesNode(
+                Optional.empty(),
+                new PlanNodeId("local_build"),
+                ImmutableList.of(buildVar),
+                ImmutableList.of(),
+                Optional.empty());
+        return joinNode(filterId, probeSource, localBuild, probeVar, buildVar);
+    }
+
+    private JoinNode joinNode(String filterId, PlanNode probe, PlanNode build,
+            VariableReferenceExpression probeVar, VariableReferenceExpression buildVar)
+    {
         return new JoinNode(
                 Optional.empty(),
                 new PlanNodeId("join"),
                 INNER,
-                probeSource,
-                buildSource,
+                probe,
+                build,
                 ImmutableList.of(new EquiJoinClause(probeVar, buildVar)),
                 ImmutableList.of(probeVar, buildVar),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(distributionType),
+                Optional.empty(),
                 ImmutableMap.of(filterId, buildVar));
     }
 

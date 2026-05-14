@@ -67,7 +67,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -346,22 +346,31 @@ public class SectionExecutionFactory
                     && !dynamicFilterService.getAllFiltersForQuery(session.getQueryId()).isEmpty();
 
             if (hasDpp) {
-                // JoinNode.getDistributionType() reflects the planner's intent and does not
-                // discriminate execution-side: even joins labeled REPLICATED can have each
-                // task producing its own filter slice when the build is co-located in this
-                // fragment. Wait for every task and size from the actual count once the
-                // scheduler reaches FINISHED_TASK_SCHEDULING.
-                AtomicBoolean expectedPartitionsSet = new AtomicBoolean();
+                // Build crosses a REPLICATE exchange: every task sees the same data, so a
+                // single finalized contribution is the complete filter — set 1 upfront and
+                // avoid the slow-task-tail synchronization penalty. Local/co-located/REPARTITION
+                // builds give each task its own slice; size those from the actual task count
+                // once the scheduler reaches FINISHED_TASK_SCHEDULING.
+                forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isBroadcastBuild) -> {
+                    if (isBroadcastBuild) {
+                        filter.setExpectedPartitions(1);
+                    }
+                });
+                AtomicBoolean nonBroadcastSized = new AtomicBoolean();
                 stageExecution.addStateChangeListener(newState -> {
                     if (newState.ordinal() < StageExecutionState.FINISHED_TASK_SCHEDULING.ordinal()) {
                         return;
                     }
-                    if (!expectedPartitionsSet.compareAndSet(false, true)) {
+                    if (!nonBroadcastSized.compareAndSet(false, true)) {
                         return;
                     }
                     int actualTaskCount = stageExecution.getAllTasks().size();
                     if (actualTaskCount > 0) {
-                        setExpectedPartitionsForFilters(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), actualTaskCount);
+                        forEachJoinDynamicFilter(dynamicFilterService, session.getQueryId(), plan.getFragment().getRoot(), (filter, isBroadcastBuild) -> {
+                            if (!isBroadcastBuild) {
+                                filter.setExpectedPartitions(actualTaskCount);
+                            }
+                        });
                     }
                 });
             }
@@ -568,7 +577,7 @@ public class SectionExecutionFactory
     @VisibleForTesting
     static void setExpectedPartitionsForFilters(DynamicFilterService dynamicFilterService, QueryId queryId, PlanNode root, int taskCount)
     {
-        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, filter -> filter.setExpectedPartitions(taskCount));
+        forEachJoinDynamicFilter(dynamicFilterService, queryId, root, (filter, isBroadcastBuild) -> filter.setExpectedPartitions(taskCount));
     }
 
     @VisibleForTesting
@@ -576,18 +585,34 @@ public class SectionExecutionFactory
             DynamicFilterService dynamicFilterService,
             QueryId queryId,
             PlanNode root,
-            Consumer<JoinDynamicFilter> action)
+            BiConsumer<JoinDynamicFilter, Boolean> action)
     {
         for (JoinNode joinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof JoinNode).<JoinNode>findAll()) {
+            boolean isBroadcastBuild = buildSubtreeIsReplicated(joinNode.getRight());
             for (String filterId : joinNode.getDynamicFilters().keySet()) {
-                dynamicFilterService.getFilter(queryId, filterId).ifPresent(action);
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(f -> action.accept(f, isBroadcastBuild));
             }
         }
         for (SemiJoinNode semiJoinNode : PlanNodeSearcher.searchFrom(root).where(node -> node instanceof SemiJoinNode).<SemiJoinNode>findAll()) {
+            boolean isBroadcastBuild = buildSubtreeIsReplicated(semiJoinNode.getFilteringSource());
             for (String filterId : semiJoinNode.getDynamicFilters().keySet()) {
-                dynamicFilterService.getFilter(queryId, filterId).ifPresent(action);
+                dynamicFilterService.getFilter(queryId, filterId).ifPresent(f -> action.accept(f, isBroadcastBuild));
             }
         }
+    }
+
+    // True iff the build crosses into this fragment via a REPLICATE exchange —
+    // every task receives the same build data, so one finalized contribution is
+    // the complete filter. A local build (no RemoteSourceNode in the subtree)
+    // or a REPARTITION build means each task sees its own slice and the merge
+    // must wait for all contributions.
+    private static boolean buildSubtreeIsReplicated(PlanNode buildSubtree)
+    {
+        return PlanNodeSearcher.searchFrom(buildSubtree)
+                .where(node -> node instanceof RemoteSourceNode)
+                .<RemoteSourceNode>findFirst()
+                .map(node -> node.getExchangeType() == REPLICATE)
+                .orElse(false);
     }
 
     private static ListenableFuture<?> whenAllStages(Collection<SqlStageExecution> stageExecutions, Predicate<StageExecutionState> predicate)
