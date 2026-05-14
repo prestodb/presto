@@ -599,7 +599,7 @@ public class TestIcebergLogicalPlanner
     }
 
     @Test
-    public void testAggregateNotPushDownForVarcharType()
+    public void testMinMaxAggregateNotPushDownForVarcharType()
     {
         QueryRunner queryRunner = getQueryRunner();
         Session session = getSession();
@@ -607,7 +607,9 @@ public class TestIcebergLogicalPlanner
         String tableName = "aggregation_push_down_" + randomTableSuffix();
         try {
             assertUpdate(session, format("CREATE TABLE %s (id bigint, data varchar)", tableName));
-            assertUpdate(session, format("INSERT INTO %s VALUES (1, '1111'), (1, '2222'), (2, '3333'), (2, '4444'), (3, '5555'), (3, '6666') ",
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "truncate(5)"));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, '111111'), (1, '2222'), (2, '3333'), (2, '4444'), (3, '5555'), (3, '666666') ",
                     tableName), 6);
             assertPlan(session, "SELECT MAX(id), MAX(data) FROM " + tableName,
                     anyTree(
@@ -621,6 +623,8 @@ public class TestIcebergLogicalPlanner
                                                                     "partial_max_data", functionCall("max", ImmutableList.of("data"))),
                                                             PARTIAL,
                                                             strictTableScan(tableName, identityMap("id", "data"))))))));
+            assertQuery(session, "SELECT MAX(id), MAX(data), MIN(data) FROM " + tableName,
+                    "VALUES (3, '666666', '111111')");
 
             assertPlan(session, "SELECT COUNT(data) FROM " + tableName,
                     anyNot(AggregationNode.class, strictProject(
@@ -630,10 +634,19 @@ public class TestIcebergLogicalPlanner
             queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
                     schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "full"));
             assertPlan(session, "SELECT COUNT(data), MAX(data) FROM " + tableName,
-                    anyNot(AggregationNode.class, strictProject(
-                            ImmutableMap.of("count", expression("6"),
-                                    "max", expression("6666")),
-                            anyTree(values()))));
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count_data", functionCall("count", ImmutableList.of("partial_count_data")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count_data", functionCall("count", ImmutableList.of("data")),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+            assertQuery(session, "SELECT COUNT(data), MAX(data), MIN(data) FROM " + tableName,
+                    "VALUES (6, '666666', '111111')");
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
@@ -641,7 +654,7 @@ public class TestIcebergLogicalPlanner
     }
 
     @Test
-    public void testAggregateNotPushDownForVarbinaryType()
+    public void testMinMaxAggregateNotPushDownForVarbinaryType()
     {
         QueryRunner queryRunner = getQueryRunner();
         Session session = getSession();
@@ -649,7 +662,9 @@ public class TestIcebergLogicalPlanner
         String tableName = "aggregation_push_down_" + randomTableSuffix();
         try {
             assertUpdate(session, format("CREATE TABLE %s (id bigint, data varbinary)", tableName));
-            assertUpdate(session, format("INSERT INTO %s VALUES (1, x'1111'), (1, x'2222'), (2, x'3333'), (2, x'4444'), (3, x'5555'), (3, x'6666') ",
+            queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
+                    schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "truncate(4)"));
+            assertUpdate(session, format("INSERT INTO %s VALUES (1, x'1111111111'), (1, x'2222'), (2, x'3333'), (2, x'4444'), (3, x'5555'), (3, x'6666666666') ",
                     tableName), 6);
             assertPlan(session, "SELECT MAX(id), MAX(data) FROM " + tableName,
                     anyTree(
@@ -663,6 +678,8 @@ public class TestIcebergLogicalPlanner
                                                                     "partial_max_data", functionCall("max", ImmutableList.of("data"))),
                                                             PARTIAL,
                                                             strictTableScan(tableName, identityMap("id", "data"))))))));
+            assertQuery(session, "SELECT MAX(id), MAX(data), MIN(data) FROM " + tableName,
+                    "VALUES (3, x'6666666666', x'1111111111')");
 
             assertPlan(session, "SELECT COUNT(data) FROM " + tableName,
                     anyNot(AggregationNode.class, strictProject(
@@ -672,10 +689,19 @@ public class TestIcebergLogicalPlanner
             queryRunner.execute(format("call system.set_table_property('%s', '%s', '%s', '%s')",
                     schemaName, tableName, TableProperties.DEFAULT_WRITE_METRICS_MODE, "full"));
             assertPlan(session, "SELECT COUNT(data), MAX(data) FROM " + tableName,
-                    anyNot(AggregationNode.class, strictProject(
-                            ImmutableMap.of("count", expression("6"),
-                                    "max", expression("X'66 66'")),
-                            anyTree(values()))));
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count_data", functionCall("count", ImmutableList.of("partial_count_data")),
+                                            "final_max_data", functionCall("max", ImmutableList.of("partial_max_data"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count_data", functionCall("count", ImmutableList.of("data")),
+                                                                    "partial_max_data", functionCall("max", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+            assertQuery(session, "SELECT COUNT(data), MAX(data), MIN(data) FROM " + tableName,
+                    "VALUES (6, x'6666666666', x'1111111111')");
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);

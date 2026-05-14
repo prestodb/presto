@@ -296,16 +296,15 @@ public class IcebergAggregationOptimizer
                             return false;
                         }
                     }
-                    else if (mode instanceof MetricsModes.Truncate) {
-                        // lower_bounds and upper_bounds may be truncated, so disable push down
-                        if (aggregate.type().typeId() == Type.TypeID.STRING || aggregate.type().typeId() == Type.TypeID.BINARY) {
-                            if (aggregate.op() == Expression.Operation.MAX
-                                    || aggregate.op() == Expression.Operation.MIN) {
-                                LOGGER.info(
-                                        "Skipping aggregate pushdown: Cannot produce min or max from truncated values for column %s",
-                                        colName);
-                                return false;
-                            }
+                    else if (aggregate.type().typeId() == Type.TypeID.STRING || aggregate.type().typeId() == Type.TypeID.BINARY) {
+                        // lower_bounds and upper_bounds may have been truncated before, so disable push down
+                        // regardless of the current mode
+                        if (aggregate.op() == Expression.Operation.MAX
+                                || aggregate.op() == Expression.Operation.MIN) {
+                            LOGGER.info(
+                                    "Skipping aggregate pushdown: Cannot produce min or max from truncated values for column %s",
+                                    colName);
+                            return false;
                         }
                     }
                 }
