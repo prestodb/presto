@@ -135,7 +135,7 @@ public class TestNativeExpressionOptimizer
         double epochSeconds = instant.toEpochMilli() / 1000.0;
 
         assertOptimizedEquals(
-                "now() = from_unixtime(" + epochSeconds + ", '" + session.getTimeZoneKey().getId() + "')",
+                "now() = from_unixtime(" + epochSeconds + ")",
                 "true",
                 session);
         assertOptimizedEquals(
