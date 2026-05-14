@@ -87,6 +87,12 @@ class ConnectorProtocol {
   virtual void from_json(
       const json& j,
       std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const = 0;
+  virtual void serialize(
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& proto,
+      std::string& thrift) const = 0;
+  virtual void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& proto) const = 0;
 
   virtual void to_json(
       json& j,
@@ -266,6 +272,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       const json& j,
       std::shared_ptr<ConnectorDistributedProcedureHandle>& p) const final {
     from_json_template<ConnectorDistributedProcedureHandleType>(j, p);
+  }
+  void serialize(
+      const std::shared_ptr<ConnectorDistributedProcedureHandle>& proto,
+      std::string& thrift) const final {
+    serializeTemplate<ConnectorDistributedProcedureHandleType>(proto, thrift);
+  }
+  void deserialize(
+      const std::string& thrift,
+      std::shared_ptr<ConnectorDistributedProcedureHandle>& proto) const final {
+    deserializeTemplate<ConnectorDistributedProcedureHandleType>(thrift, proto);
   }
 
   void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p)

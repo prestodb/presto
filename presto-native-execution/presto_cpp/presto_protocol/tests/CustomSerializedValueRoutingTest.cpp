@@ -38,11 +38,11 @@ static std::string readUTF(std::istringstream& iss) {
 // Dummy to_json / from_json stubs so that ConnectorProtocolTemplate compiles.
 // These paths are never exercised — customSerializedValue routes via
 // deserialize() instead.
-#define DUMMY_JSON_SERDE(Type)                                \
-  void to_json(json&, const Type&) {                          \
+#define DUMMY_JSON_SERDE(Type)                                     \
+  void to_json(json&, const Type&) {                               \
     VELOX_NYI("Not needed for customSerializedValueRouting test"); \
-  }                                                           \
-  void from_json(const json&, Type&) {                        \
+  }                                                                \
+  void from_json(const json&, Type&) {                             \
     VELOX_NYI("Not needed for customSerializedValueRouting test"); \
   }
 
@@ -74,6 +74,9 @@ DEFINE_TEST_HANDLE(TestTableHandle, ConnectorTableHandle)
 DEFINE_TEST_HANDLE(TestTableLayoutHandle, ConnectorTableLayoutHandle)
 DEFINE_TEST_HANDLE(TestColumnHandle, ColumnHandle)
 DEFINE_TEST_HANDLE(TestInsertTableHandle, ConnectorInsertTableHandle)
+DEFINE_TEST_HANDLE(
+    TestDistributedProcedureHandle,
+    ConnectorDistributedProcedureHandle)
 DEFINE_TEST_HANDLE(TestOutputTableHandle, ConnectorOutputTableHandle)
 DEFINE_TEST_HANDLE(TestSplit, ConnectorSplit)
 DEFINE_TEST_HANDLE(TestPartitioningHandle, ConnectorPartitioningHandle)
@@ -97,7 +100,7 @@ using TestConnectorProtocol = ConnectorProtocolTemplate<
     TestSplit,
     TestPartitioningHandle,
     TestTransactionHandle,
-    NotImplemented,
+    TestDistributedProcedureHandle,
     TestDeleteTableHandle,
     TestIndexHandle>;
 
@@ -146,6 +149,10 @@ TEST_ROUTING(
     connectorInsertTableHandle,
     ConnectorInsertTableHandle,
     TestInsertTableHandle)
+TEST_ROUTING(
+    connectorDistributedProcedureHandle,
+    ConnectorDistributedProcedureHandle,
+    TestDistributedProcedureHandle)
 TEST_ROUTING(
     connectorOutputTableHandle,
     ConnectorOutputTableHandle,
