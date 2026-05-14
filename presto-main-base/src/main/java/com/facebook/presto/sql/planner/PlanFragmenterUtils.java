@@ -25,6 +25,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.Partitioning;
@@ -267,11 +268,11 @@ public class PlanFragmenterUtils
         // equal, the column names are also equal, so last-wins produces the same result.
         ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableScanNode> scanNodeOpt = findTableScanNode(fragment.getRoot(), scanNodeId);
-            if (!scanNodeOpt.isPresent()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            if (!tableHandleOpt.isPresent()) {
                 return Optional.empty();
             }
-            Map<String, ColumnHandle> nameToHandle = metadata.getColumnHandles(session, scanNodeOpt.get().getTable());
+            Map<String, ColumnHandle> nameToHandle = metadata.getColumnHandles(session, tableHandleOpt.get());
             for (Map.Entry<String, ColumnHandle> entry : nameToHandle.entrySet()) {
                 builder.put(entry.getValue(), entry.getKey());
             }
@@ -336,11 +337,11 @@ public class PlanFragmenterUtils
             Map<PlanNodeId, Map<String, String>> perScanMappings)
     {
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableScanNode> scanNodeOpt = findTableScanNode(fragment.getRoot(), scanNodeId);
-            if (!scanNodeOpt.isPresent()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            if (!tableHandleOpt.isPresent()) {
                 continue;
             }
-            TableLayout scanLayout = metadata.getLayout(session, scanNodeOpt.get().getTable());
+            TableLayout scanLayout = metadata.getLayout(session, tableHandleOpt.get());
             if (!scanLayout.getDiscretePredicates().isPresent()) {
                 continue;
             }
@@ -368,11 +369,11 @@ public class PlanFragmenterUtils
     {
         Set<Map<String, String>> combinedDistinctValues = null;
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableScanNode> scanNodeOpt = findTableScanNode(fragment.getRoot(), scanNodeId);
-            if (!scanNodeOpt.isPresent()) {
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            if (!tableHandleOpt.isPresent()) {
                 return ImmutableList.of();
             }
-            TableLayout layout = metadata.getLayout(session, scanNodeOpt.get().getTable());
+            TableLayout layout = metadata.getLayout(session, tableHandleOpt.get());
             if (!layout.getDiscretePredicates().isPresent()) {
                 return ImmutableList.of();
             }
@@ -425,11 +426,16 @@ public class PlanFragmenterUtils
         return ImmutableList.copyOf(combinedDistinctValues);
     }
 
-    private static Optional<TableScanNode> findTableScanNode(PlanNode root, PlanNodeId targetId)
+    private static Optional<TableHandle> findSourceNodeTableHandle(PlanNode root, PlanNodeId targetId)
     {
         for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
-            if (node instanceof TableScanNode && node.getId().equals(targetId)) {
-                return Optional.of((TableScanNode) node);
+            if (node.getId().equals(targetId)) {
+                if (node instanceof TableScanNode) {
+                    return Optional.of(((TableScanNode) node).getTable());
+                }
+                if (node instanceof IndexSourceNode) {
+                    return Optional.of(((IndexSourceNode) node).getTableHandle());
+                }
             }
         }
         return Optional.empty();
