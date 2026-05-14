@@ -305,6 +305,8 @@ void PrestoServer::run() {
   initializeVeloxMemory();
   initializeThreadPools();
 
+  registerDynamicFunctions();
+
   auto catalogNames = registerVeloxConnectors(fs::path(configDirectoryPath_));
 
   initializeHttpServer();
@@ -316,7 +318,6 @@ void PrestoServer::run() {
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
   registerTraceNodeFactories();
-  registerDynamicFunctions();
   registerExchangeSources();
 
   initializeTaskResources();

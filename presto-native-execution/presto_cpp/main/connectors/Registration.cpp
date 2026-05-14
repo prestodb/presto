@@ -38,6 +38,17 @@ constexpr char const* kIcebergConnectorName = "iceberg";
 
 } // namespace
 
+namespace detail {
+
+std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>&
+connectorFactories() {
+  static std::unordered_map<std::string, std::shared_ptr<ConnectorFactory>>
+      factories;
+  return factories;
+}
+
+} // namespace detail
+
 std::vector<std::string> listConnectorFactories() {
   std::vector<std::string> names;
   const auto& factories = detail::connectorFactories();
