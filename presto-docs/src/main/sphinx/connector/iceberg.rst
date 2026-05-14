@@ -614,7 +614,7 @@ Session properties set behavior changes for queries executed within the given se
 
        ``materialized_view_default_max_snapshots_per_refresh``
      - Default upper bound on snapshots consumed per base table per refresh when the
-       materialized view does not override it via the ``max_snapshots_per_refresh``
+       materialized view does not override it with the ``max_snapshots_per_refresh``
        table property. ``0`` means unbounded. Default: ``0``
      - Yes
      - Yes
@@ -2939,7 +2939,7 @@ view creation time and can be overridden per-view by using the ``storage_schema`
 
        ``iceberg.materialized-view-default-max-snapshots-per-refresh``
      - Default upper bound on snapshots consumed per base table per
-       ``REFRESH MATERIALIZED VIEW`` when the view does not override it via the
+       ``REFRESH MATERIALIZED VIEW`` when the view does not override it with the
        ``max_snapshots_per_refresh`` table property. Requires Iceberg V3 row lineage;
        V2 tables fall back to unbounded refresh.
      - ``0`` (unbounded)
