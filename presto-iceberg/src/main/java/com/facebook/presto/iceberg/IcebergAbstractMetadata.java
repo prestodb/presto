@@ -195,6 +195,7 @@ import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getS
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStalenessWindow;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageSchema;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStorageTable;
+import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.serializeForUpdate;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DELETE_FILE_PATH;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
@@ -2061,6 +2062,22 @@ public abstract class IcebergAbstractMetadata
                 dropTable(session, storageTableHandle);
             }
         }
+    }
+
+    @Override
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
+    {
+        if (!getMaterializedView(session, viewName).isPresent()) {
+            throw new PrestoException(NOT_FOUND, "Materialized view does not exist: " + viewName);
+        }
+
+        ImmutableMap.Builder<String, String> updates = ImmutableMap.builder();
+        for (Map.Entry<String, Object> entry : properties.entrySet()) {
+            Map.Entry<String, String> serialized = serializeForUpdate(entry.getKey(), entry.getValue());
+            updates.put(serialized.getKey(), serialized.getValue());
+        }
+
+        updateIcebergViewProperties(session, viewName, updates.build());
     }
 
     @Override

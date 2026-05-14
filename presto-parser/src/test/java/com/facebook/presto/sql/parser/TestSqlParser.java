@@ -1896,6 +1896,11 @@ public class TestSqlParser
         assertInvalidStatement("ALTER TABLE a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
         assertStatement("ALTER TABLE IF EXISTS b SET PROPERTIES (foo=12345)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("12345"))), true));
         assertInvalidStatement("ALTER TABLE IF EXISTS b SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
+
+        assertStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES (staleness_window='1h')", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("staleness_window"), new StringLiteral("1h"))), false));
+        assertStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES (staleness_window='1h', refresh_type='FULL')", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("staleness_window"), new StringLiteral("1h")), new Property(new Identifier("refresh_type"), new StringLiteral("FULL"))), false));
+        assertStatement("ALTER MATERIALIZED VIEW IF EXISTS b SET PROPERTIES (max_snapshots_per_refresh=5)", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("max_snapshots_per_refresh"), new LongLiteral("5"))), true));
+        assertInvalidStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
     }
 
     @Test

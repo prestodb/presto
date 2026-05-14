@@ -95,6 +95,8 @@ statement
         viewSecurity?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
     | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
+    | ALTER MATERIALIZED VIEW (IF EXISTS)? qualifiedName
+        SET PROPERTIES properties                                      #setMaterializedViewProperties
     | REFRESH MATERIALIZED VIEW qualifiedName
         (WHERE where=booleanExpression)?                               #refreshMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName

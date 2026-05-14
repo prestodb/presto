@@ -617,6 +617,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+        finally {
+            stats.recordSetTablePropertiesCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix)
     {
         long startTime = System.nanoTime();
