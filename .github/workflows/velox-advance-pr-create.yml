@@ -1,0 +1,514 @@
+name: Advance velox PR create
+
+on:
+  schedule:
+    # yamllint disable-line rule:quoted-strings
+    - cron: '0 9 * * *' # Daily at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      rebase_pr:
+        description: Rebase existing PR on master and update velox
+        required: false
+        default: false
+        type: boolean
+      ai_fix:
+        description: Force run AI fix
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  NOTIFICATION_GROUP: ${{ vars.VELOX_UPDATE_NOTIFICATION_GROUP || '@prestodb/team-velox' }}
+  BASE_BRANCH: ${{ github.event_name == 'schedule' && 'master' || github.ref_name }}
+  VELOX_UPDATE_BRANCH: velox-update
+  REBASE_PR: ${{ github.event.inputs.rebase_pr == 'true' }}
+  RUN_AI_FIX: ${{ github.event.inputs.ai_fix == 'true' }}
+  GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
+  GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  DEPENDENCY_IMAGE_TAG: ${{ vars.DEPENDENCY_IMAGE_TAG || '0.297-202602271419-160459b8' }}
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      pr_created: ${{ steps.create_pr.outputs.pr_number != '' }}
+      pr_number: ${{ steps.create_pr.outputs.pr_number }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          ref: ${{ env.BASE_BRANCH }}
+          persist-credentials: false
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check existing PR
+        id: check_pr
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Check if PR already exists for this branch
+          EXISTING_PR=$(gh pr list --head "${{ env.VELOX_UPDATE_BRANCH }}" --base "${{ env.BASE_BRANCH }}" --state open --json number,url --jq '.[0]')
+
+          if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+            echo "PR_EXISTS=true" >> $GITHUB_ENV
+            echo "pr_number=$(echo "$EXISTING_PR" | jq -r '.number')" >> $GITHUB_OUTPUT
+            echo "pr_url=$(echo "$EXISTING_PR" | jq -r '.url')" >> $GITHUB_OUTPUT
+            echo "Found existing PR: $(echo "$EXISTING_PR" | jq -r '.url')"
+          else
+            echo "PR_EXISTS=false" >> $GITHUB_ENV
+            echo "No existing PR found"
+          fi
+
+      - name: Validate PR exists for rebase
+        if: env.REBASE_PR == 'true'
+        run: |
+          if [ "${{ env.PR_EXISTS }}" != "true" ]; then
+            echo "❌ Error: rebase_pr is enabled but no existing PR found"
+            echo "Cannot update PR - no PR exists for branch ${{ env.VELOX_UPDATE_BRANCH }}"
+            exit 1
+          fi
+          echo "✅ Found existing PR #${{ steps.check_pr.outputs.pr_number }} for update"
+
+      - name: Rebase PR on master
+        if: env.PR_EXISTS == 'true' && env.REBASE_PR == 'true'
+        id: rebase_pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Fetch the PR branch
+          git fetch origin "${{ env.VELOX_UPDATE_BRANCH }}"
+          git checkout "${{ env.VELOX_UPDATE_BRANCH }}"
+
+          # Fetch latest master
+          git fetch origin master
+
+          # Try to rebase on master
+          echo "Attempting to rebase ${{ env.VELOX_UPDATE_BRANCH }} on master..."
+          if git rebase origin/master; then
+            echo "✅ Rebase successful without conflicts"
+          else
+            echo "❌ Error: Rebase has conflicts"
+            CONFLICT_FILES=$(git diff --name-only --diff-filter=U)
+            echo "Conflicted files:"
+            echo "$CONFLICT_FILES"
+            git rebase --abort
+            echo ""
+            echo "Please resolve conflicts manually."
+            exit 1
+          fi
+
+          echo "rebase_success=true" >> $GITHUB_OUTPUT
+
+      - name: Update velox submodule
+        if: steps.rebase_pr.outputs.rebase_success == 'true'
+        id: update_velox
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Update velox submodule to latest commit
+          echo "Updating velox submodule to latest commit..."
+          cd presto-native-execution/velox
+          git fetch origin main
+          LATEST_VELOX_COMMIT=$(git rev-parse origin/main)
+          git checkout origin/main
+          cd ../..
+
+          # Commit the velox update
+          git add presto-native-execution/velox
+          if git diff --cached --quiet; then
+            echo "Velox already at latest commit"
+            VELOX_UPDATED=false
+          else
+            git commit -m "chore: Update velox submodule to latest"
+            echo "✅ Velox submodule updated to $LATEST_VELOX_COMMIT"
+            VELOX_UPDATED=true
+          fi
+
+          # Push the updated branch
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git push -f origin "${{ env.VELOX_UPDATE_BRANCH }}"
+
+          echo "updated_pr_number=${{ steps.check_pr.outputs.pr_number }}" >> $GITHUB_OUTPUT
+          echo "velox_updated=$VELOX_UPDATED" >> $GITHUB_OUTPUT
+          echo "✅ Successfully updated PR #${{ steps.check_pr.outputs.pr_number }}"
+
+          # Add comment to PR about the update
+          gh pr comment ${{ steps.check_pr.outputs.pr_number }} --body "🔄 **PR Updated**
+
+          - ✅ Rebased on latest \`master\` branch
+          - $(if [ \"$VELOX_UPDATED\" = \"true\" ]; then echo ✅ Velox submodule updated to latest commit; else echo ℹ️ Velox already at latest commit; fi)"
+
+      - name: Check Velox changes
+        id: check_new_changes
+        run: |
+          # Get current and latest velox commits
+          cd presto-native-execution/velox
+
+          # Fetch latest from velox main branch
+          git fetch origin main
+          LATEST_COMMIT=$(git rev-parse origin/main)
+
+          # Get latest commit details
+          echo "latest_commit=$LATEST_COMMIT" >> $GITHUB_OUTPUT
+          echo "latest_commit_short=$(git rev-parse --short $LATEST_COMMIT)" >> $GITHUB_OUTPUT
+          echo "latest_date=$(git show -s --format=%ci $LATEST_COMMIT | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          echo "latest_title=$(git show -s --format=%s $LATEST_COMMIT)" >> $GITHUB_OUTPUT
+
+          # Only check for new changes if PR exists and we're not creating a new one
+          if [ "${{ env.PR_EXISTS }}" = "true" ]; then
+            # Get current commit from PR branch (fetch from main presto repo)
+            cd ../..
+            if git fetch origin "${{ env.VELOX_UPDATE_BRANCH }}" 2>/dev/null; then
+              CURRENT_COMMIT=$(git ls-tree "origin/${{ env.VELOX_UPDATE_BRANCH }}" presto-native-execution/velox | awk '{print $3}')
+              echo "Using velox commit from PR branch"
+            else
+              CURRENT_COMMIT=$(git -C presto-native-execution/velox rev-parse HEAD)
+              echo "PR branch not found, using base branch's velox commit"
+            fi
+            cd presto-native-execution/velox
+
+            # Get current commit details
+            echo "current_commit=$CURRENT_COMMIT" >> $GITHUB_OUTPUT
+            echo "current_commit_short=$(git rev-parse --short $CURRENT_COMMIT)" >> $GITHUB_OUTPUT
+            echo "current_date=$(git show -s --format=%ci $CURRENT_COMMIT | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+            echo "current_title=$(git show -s --format=%s $CURRENT_COMMIT)" >> $GITHUB_OUTPUT
+
+            # Check if new changes are available
+            if [ "$CURRENT_COMMIT" != "$LATEST_COMMIT" ]; then
+              echo "new_changes_available=true" >> $GITHUB_OUTPUT
+              echo "New Velox changes available"
+            else
+              echo "new_changes_available=false" >> $GITHUB_OUTPUT
+              echo "Velox is up to date"
+            fi
+          else
+            # When creating new PR or no PR exists, don't check for changes
+            echo "new_changes_available=false" >> $GITHUB_OUTPUT
+            echo "Will create PR with latest velox commit"
+          fi
+
+      - name: Notify new changes
+        if: steps.check_new_changes.outputs.new_changes_available == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+          CURRENT_COMMIT: ${{ steps.check_new_changes.outputs.current_commit }}
+          CURRENT_COMMIT_SHORT: ${{ steps.check_new_changes.outputs.current_commit_short }}
+          CURRENT_DATE: ${{ steps.check_new_changes.outputs.current_date }}
+          CURRENT_TITLE: ${{ steps.check_new_changes.outputs.current_title }}
+          LATEST_COMMIT: ${{ steps.check_new_changes.outputs.latest_commit }}
+          LATEST_COMMIT_SHORT: ${{ steps.check_new_changes.outputs.latest_commit_short }}
+          LATEST_DATE: ${{ steps.check_new_changes.outputs.latest_date }}
+          LATEST_TITLE: ${{ steps.check_new_changes.outputs.latest_title }}
+        run: |
+          # Notify about new changes without creating a new PR
+          # Note: pr_number is only set when a PR was found and not closed
+          VELOX_REPO="https://github.com/facebookincubator/velox"
+
+          gh pr comment ${{ steps.check_pr.outputs.pr_number }} --body "🔔 **New Velox Changes Available**
+
+          New changes are available in the Velox repository:
+
+          - **Current commit:** \`$CURRENT_COMMIT_SHORT\` $CURRENT_DATE [$CURRENT_TITLE]($VELOX_REPO/commits/$CURRENT_COMMIT)
+          - **Latest commit:** \`$LATEST_COMMIT_SHORT\` $LATEST_DATE [$LATEST_TITLE]($VELOX_REPO/commits/$LATEST_COMMIT)
+
+          ${{ env.NOTIFICATION_GROUP }} To update this PR with the latest changes, re-run this workflow with \`rebase_pr: true\`."
+
+      - name: Create PR
+        if: env.PR_EXISTS != 'true'
+        id: create_pr
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+          LATEST_COMMIT: ${{ steps.check_new_changes.outputs.latest_commit }}
+          LATEST_COMMIT_SHORT: ${{ steps.check_new_changes.outputs.latest_commit_short }}
+          LATEST_DATE: ${{ steps.check_new_changes.outputs.latest_date }}
+          LATEST_TITLE: ${{ steps.check_new_changes.outputs.latest_title }}
+        run: |
+          # Update velox submodule to latest
+          git -C presto-native-execution/velox checkout main
+          git -C presto-native-execution/velox pull
+
+          # Check if there are actual changes
+          if git diff --quiet presto-native-execution/velox; then
+            echo "No changes detected in Velox submodule" >> $GITHUB_STEP_SUMMARY
+            echo "No changes detected in Velox submodule"
+            exit 0
+          fi
+
+          # Push changes to branch
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git switch -C "${{ env.VELOX_UPDATE_BRANCH }}"
+          git add presto-native-execution/velox
+          git commit -m "chore(ci): Advance velox ($(date +'%Y-%m-%d'))"
+          git push -f origin "${{ env.VELOX_UPDATE_BRANCH }}"
+
+          # Create new PR
+          PR_TITLE="chore(ci): Advance velox ($(date +'%Y-%m-%d'))"
+          VELOX_REPO="https://github.com/facebookincubator/velox"
+
+          cat > /tmp/pr_body.txt <<EOF
+          **Velox Update Information:**
+          - **Commit:** \`$LATEST_COMMIT_SHORT\` $LATEST_DATE [$LATEST_TITLE]($VELOX_REPO/commits/$LATEST_COMMIT)
+
+          ---
+
+          \`\`\`
+          == NO RELEASE NOTE ==
+          \`\`\`
+
+          ## Summary by Sourcery
+
+          Chores:
+          - Update the Velox dependency reference under presto-native-execution to the latest desired commit.
+          EOF
+
+          PR_URL=$(gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.txt --base "${{ env.BASE_BRANCH }}" --head "${{ env.VELOX_UPDATE_BRANCH }}")
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "Created new PR #$PR_NUMBER: $PR_URL"
+
+      - name: Summary
+        if: always()
+        env:
+          CURRENT_COMMIT: ${{ steps.check_new_changes.outputs.current_commit }}
+          CURRENT_COMMIT_SHORT: ${{ steps.check_new_changes.outputs.current_commit_short }}
+          CURRENT_DATE: ${{ steps.check_new_changes.outputs.current_date }}
+          CURRENT_TITLE: ${{ steps.check_new_changes.outputs.current_title }}
+          LATEST_COMMIT: ${{ steps.check_new_changes.outputs.latest_commit }}
+          LATEST_COMMIT_SHORT: ${{ steps.check_new_changes.outputs.latest_commit_short }}
+          LATEST_DATE: ${{ steps.check_new_changes.outputs.latest_date }}
+          LATEST_TITLE: ${{ steps.check_new_changes.outputs.latest_title }}
+        run: |
+          # Generate job summary
+          VELOX_REPO="https://github.com/facebookincubator/velox"
+          echo "## Create PR Job Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ env.REBASE_PR }}" = "true" ]; then
+            # PR was updated with rebase
+            if [ -n "${{ steps.update_velox.outputs.updated_pr_number }}" ]; then
+              echo "✅ PR #${{ steps.update_velox.outputs.updated_pr_number }} updated successfully" >> $GITHUB_STEP_SUMMARY
+              echo "- Rebased on latest master" >> $GITHUB_STEP_SUMMARY
+              if [ "${{ steps.update_velox.outputs.velox_updated }}" = "true" ]; then
+                echo "- Velox submodule updated to latest" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- Velox already at latest" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "📝 Pull Request: ${{ steps.check_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Failed to update PR" >> $GITHUB_STEP_SUMMARY
+            fi
+          elif [ "${{ env.PR_EXISTS }}" = "true" ]; then
+            # Existing PR found, not updating
+            echo "ℹ️ Existing PR found" >> $GITHUB_STEP_SUMMARY
+            echo "📝 Pull Request: ${{ steps.check_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ steps.check_new_changes.outputs.new_changes_available }}" = "true" ]; then
+              echo "🔔 **New Velox changes available:**" >> $GITHUB_STEP_SUMMARY
+              echo "- **Current commit:** \`$CURRENT_COMMIT_SHORT\` $CURRENT_DATE [$CURRENT_TITLE]($VELOX_REPO/commits/$CURRENT_COMMIT)" >> $GITHUB_STEP_SUMMARY
+              echo "- **Latest commit:** \`$LATEST_COMMIT_SHORT\` $LATEST_DATE [$LATEST_TITLE]($VELOX_REPO/commits/$LATEST_COMMIT)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "💡 Re-run with \`rebase_pr: true\` to update the PR" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ Velox is up to date at commit: \`$CURRENT_COMMIT_SHORT\` $CURRENT_DATE [$CURRENT_TITLE]($VELOX_REPO/commits/$CURRENT_COMMIT)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            # No PR existed, new PR created
+            echo "✅ Velox submodule updated to commit: \`$LATEST_COMMIT_SHORT\` $LATEST_DATE [$LATEST_TITLE]($VELOX_REPO/commits/$LATEST_COMMIT)" >> $GITHUB_STEP_SUMMARY
+            echo "📝 Pull Request: ${{ steps.create_pr.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  ai-fix:
+    needs: create-pr
+    if: needs.create-pr.outputs.pr_created == 'true' || github.event.inputs.ai_fix == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: prestodb/presto-native-dependency:${{ env.DEPENDENCY_IMAGE_TAG }}
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CMAKE_BUILD_OPTIONS: |
+        -B _build/release
+        -GNinja
+        -DTREAT_WARNINGS_AS_ERRORS=1
+        -DENABLE_ALL_WARNINGS=1
+        -DCMAKE_BUILD_TYPE=Release
+        -DPRESTO_ENABLE_TESTING=ON
+        -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON
+        -DPRESTO_ENABLE_JWT=ON
+        -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS
+        -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER
+        -DCMAKE_PREFIX_PATH=/usr/local
+        -DThrift_ROOT=/usr/local
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        -DMAX_LINK_JOBS=4
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout velox-update branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELOX_UPDATE_BRANCH }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup Git
+        run: |
+          git config --global --add safe.directory ${GITHUB_WORKSPACE}
+          git config --global user.email "${{ env.GIT_CI_EMAIL }}"
+          git config --global user.name "${{ env.GIT_CI_USER }}"
+
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Install Github CLI
+        run: |
+          curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
+          rpm -iv gh_2.63.2_linux_amd64.rpm
+          rm -f gh_2.63.2_linux_amd64.rpm
+
+      - name: Restore ccache
+        uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-velox-advance-pr-ai-fix
+
+      - name: Zero ccache statistics
+        run: ccache -sz
+
+      - name: Try build engine
+        id: build
+        continue-on-error: true
+        run: |
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-execution
+
+          # Capture both stdout and stderr to build log
+          {
+            cmake $CMAKE_BUILD_OPTIONS 2>&1
+            ninja -C _build/release -j 4 2>&1
+          } | tee ${GITHUB_WORKSPACE}/build_errors.log
+
+          # Return the actual exit code
+          exit ${PIPESTATUS[0]}
+
+      - name: Ccache after build
+        run: ccache -s
+
+      - name: Save ccache
+        uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-velox-advance-pr-ai-fix
+
+      - name: Install OpenCode and fix build issues
+        if: steps.build.outcome == 'failure'
+        env:
+          OPENCODE_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS: 7200000 # 2 hours timeout for build commands
+        run: |
+          # Install OpenCode
+          curl -fsSL https://opencode.ai/install | bash
+
+          # Create OpenCode config directory
+          mkdir -p $HOME/.config/opencode
+
+          # Create OpenCode config file
+          cat > $HOME/.config/opencode/opencode.json <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "permission": "allow"
+          }
+          EOF
+
+          # Source OpenCode to make it available in PATH
+          export PATH="$HOME/.opencode/bin:$PATH"
+
+          # Enable gcc-toolset-12 for OpenCode to use
+          source /opt/rh/gcc-toolset-12/enable
+
+          # Extract last 200 lines of build errors for context
+          tail -n 200 ${GITHUB_WORKSPACE}/build_errors.log > ${GITHUB_WORKSPACE}/build_errors_summary.log
+
+          # Run OpenCode to fix build issues with error context
+          opencode run "Fix the build issues in presto-native-execution. Build errors are in build_errors_summary.log.
+
+          Requirements:
+          1. Do NOT modify the velox submodule (presto-native-execution/velox directory)
+          2. Only fix issues in presto-native-execution code outside velox
+          3. After fixing, create a git commit with your changes
+          4. Generate a summary file ADVANCE_VELOX_FIX.md in presto-native-execution describing:
+             - What issues were found
+             - What changes were made to fix them
+             - Any important notes about the fixes
+          5. Do NOT commit the ADVANCE_VELOX_FIX.md file
+          6. Before fix, investigate recent velox git history
+
+          Build and verify command(stash the changes in velox and then build):
+          cd presto-native-execution/velox && git stash
+          cd ..
+          cmake $CMAKE_BUILD_OPTIONS
+          ninja -C _build/release -j 4
+          "
+
+      - name: Push fixes to velox-update branch
+        if: steps.build.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin ${{ env.VELOX_UPDATE_BRANCH }} || echo "No changes to push"
+
+      - name: Verify build after fix
+        if: steps.build.outcome == 'failure'
+        run: |
+          source /opt/rh/gcc-toolset-12/enable
+          cd presto-native-execution
+          # make sure all changes only in presto
+          (cd velox && git stash)
+          cmake $CMAKE_BUILD_OPTIONS
+          ninja -C _build/release -j 4
+
+      - name: Post fix summary to PR
+        if: steps.build.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f presto-native-execution/ADVANCE_VELOX_FIX.md ]; then
+            gh pr comment ${{ needs.create-pr.outputs.pr_number }} --body-file presto-native-execution/ADVANCE_VELOX_FIX.md
+          else
+            echo "No fix summary file found"
+          fi
+
+      - name: AI Fix Summary
+        if: always()
+        run: |
+          echo "## AI Fix Job Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            echo "✅ Build succeeded on first attempt - no fixes needed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.build.outcome }}" = "failure" ]; then
+            echo "🔧 Build failed initially - OpenCode AI attempted to fix the issues" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the 'Verify build after fix' step to see if the fixes were successful" >> $GITHUB_STEP_SUMMARY
+          fi
