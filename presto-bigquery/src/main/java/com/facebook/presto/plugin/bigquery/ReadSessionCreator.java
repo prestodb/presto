@@ -73,7 +73,7 @@ public class ReadSessionCreator
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
-        try (BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.createBigQueryStorageClient()) {
+        try (BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.createBigQueryReadClient()) {
             TableReadOptions.Builder readOptions = TableReadOptions.newBuilder()
                     .addAllSelectedFields(selectedFields);
             filter.ifPresent(readOptions::setRowRestriction);

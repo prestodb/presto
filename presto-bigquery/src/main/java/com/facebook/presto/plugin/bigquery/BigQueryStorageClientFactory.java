@@ -41,7 +41,7 @@ public class BigQueryReadClientFactory
         this.headerProvider = headerProvider;
     }
 
-    BigQueryReadClient createBigQueryStorageClient()
+    BigQueryReadClient createBigQueryReadClient()
     {
         try {
             BigQueryReadSettings.Builder clientSettings = BigQueryReadSettings.newBuilder()

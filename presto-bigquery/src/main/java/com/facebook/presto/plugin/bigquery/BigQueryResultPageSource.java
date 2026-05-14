@@ -95,7 +95,7 @@ public class BigQueryResultPageSource
             BigQuerySplit split,
             ImmutableList<BigQueryColumnHandle> columns)
     {
-        this.bigQueryReadClient = bigQueryReadClientFactory.createBigQueryStorageClient();
+        this.bigQueryReadClient = bigQueryReadClientFactory.createBigQueryReadClient();
         this.split = split;
         requireNonNull(columns, "columns is null");
         this.columnNames = columns.stream()

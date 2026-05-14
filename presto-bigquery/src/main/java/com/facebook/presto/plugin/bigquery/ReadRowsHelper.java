@@ -32,7 +32,7 @@ public class ReadRowsHelper
     public ReadRowsHelper(BigQueryReadClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries)
     {
         this.client = requireNonNull(client, "client cannot be null");
-        this.request = requireNonNull(request, "client cannot be null");
+        this.request = requireNonNull(request, "request cannot be null");
         this.maxReadRowsRetries = maxReadRowsRetries;
     }
 
