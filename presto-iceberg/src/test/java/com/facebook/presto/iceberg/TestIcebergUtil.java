@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -40,6 +45,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_POSITIVE_INFINITE;
@@ -49,6 +55,8 @@ import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
+import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
+import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
@@ -421,6 +429,20 @@ public class TestIcebergUtil
 
         assertThat(HiveCompressionCodec.LZ4.getParquetCompressionCodec()).isNotNull();
         assertThat(HiveCompressionCodec.ZSTD.getParquetCompressionCodec()).isNotNull();
+    }
+
+    @Test
+    public void testRoutesLastUpdatedSequenceNumberToMetadataConstraints()
+    {
+        Domain leSeqTen = Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 10L)), false);
+        TupleDomain<IcebergColumnHandle> all = TupleDomain.withColumnDomains(
+                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, leSeqTen));
+
+        TupleDomain<IcebergColumnHandle> nonMetadata = getNonMetadataColumnConstraints(all);
+        TupleDomain<IcebergColumnHandle> metadata = getMetadataColumnConstraints(all);
+
+        assertThat(nonMetadata.getDomains().get()).doesNotContainKey(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE);
+        assertThat(metadata.getDomains().get()).containsEntry(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, leSeqTen);
     }
 
     @Test
