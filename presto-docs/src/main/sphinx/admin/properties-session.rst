@@ -454,6 +454,28 @@ in an already heavily loaded system.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-table-write-through-union\`\``.
 
+``push_aggregation_through_disjoint_union``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, pushes a ``GROUP BY`` aggregation completely below a ``UNION ALL`` whenever at
+least one grouping key has a constant value within each branch and those constant values are
+distinct across branches. Because every group is then fully contained in a single branch, the
+top-level aggregation can be eliminated entirely; each branch computes its own ``SINGLE``-step
+aggregation and the results are simply re-unioned.
+
+For example, ``SELECT count(*), x FROM (SELECT 1 x UNION ALL SELECT 2 x) GROUP BY x`` is
+rewritten so that the ``count`` is computed independently inside each branch and the two
+already-aggregated rows are unioned, with no final aggregation on top.
+
+Only fires for single-grouping-set aggregations with deterministic arguments and at least two
+union branches. ``GROUPING SETS``, ``ROLLUP``, ``CUBE``, and global (no-``GROUP BY``)
+aggregations are not pushed.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.push-aggregation-through-disjoint-union\`\``.
+
 ``join_reordering_strategy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

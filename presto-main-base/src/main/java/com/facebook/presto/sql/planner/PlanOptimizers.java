@@ -96,6 +96,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
 import com.facebook.presto.sql.planner.iterative.rule.PullUpExpressionInLambdaRules;
+import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughDisjointUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownFilterExpressionEvaluationThroughCrossJoin;
@@ -556,6 +557,12 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushAggregationThroughDisjointUnion(metadata.getFunctionAndTypeManager()))),
                 new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
                 new ReplaceConstantVariableReferencesWithConstants(metadata.getFunctionAndTypeManager()),
                 simplifyRowExpressionOptimizer,
