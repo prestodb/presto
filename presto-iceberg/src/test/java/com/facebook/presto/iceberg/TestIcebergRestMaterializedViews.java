@@ -18,10 +18,12 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.RESTCatalog;
+import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.iceberg.view.View;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
@@ -131,11 +133,11 @@ public class TestIcebergRestMaterializedViews
 
             getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
             long watermarkAfterFirst = baseWatermark(mv, base);
-            assertAdvanceLeq(watermarkAfterInitial, watermarkAfterFirst, headBeforeFirstBoundedRefresh, 2, base);
+            assertAdvanceLeq(watermarkAfterInitial, watermarkAfterFirst, 2, base);
 
             getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
             long watermarkAfterSecond = baseWatermark(mv, base);
-            assertAdvanceLeq(watermarkAfterFirst, watermarkAfterSecond, headBeforeFirstBoundedRefresh, 2, base);
+            assertAdvanceLeq(watermarkAfterFirst, watermarkAfterSecond, 2, base);
 
             getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
             long watermarkAfterThird = baseWatermark(mv, base);
@@ -593,14 +595,15 @@ public class TestIcebergRestMaterializedViews
         }
     }
 
-    private static void assertAdvanceLeq(long oldWatermark, long newWatermark, long head, int bound, String baseTable)
+    private void assertAdvanceLeq(long oldWatermark, long newWatermark, int bound, String baseTable)
     {
-        if (oldWatermark == newWatermark) {
+        Table table = catalog.loadTable(TableIdentifier.of(Namespace.of(SCHEMA), baseTable));
+        int advance = Iterables.size(SnapshotUtil.ancestorIdsBetween(newWatermark, oldWatermark, table::snapshot));
+        if (advance == 0) {
             fail("expected watermark to advance from " + oldWatermark + " on base " + baseTable);
         }
-        if (newWatermark == head) {
-            return;
+        if (advance > bound) {
+            fail(format("expected advance on base %s to be <= %d snapshots, got %d", baseTable, bound, advance));
         }
-        assertNotEquals(newWatermark, oldWatermark);
     }
 }
