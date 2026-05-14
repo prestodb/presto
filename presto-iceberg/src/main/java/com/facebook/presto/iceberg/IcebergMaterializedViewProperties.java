@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
@@ -23,10 +24,14 @@ import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +48,7 @@ public class IcebergMaterializedViewProperties
     public static final String STALE_READ_BEHAVIOR = "stale_read_behavior";
     public static final String STALENESS_WINDOW = "staleness_window";
     public static final String REFRESH_TYPE = "refresh_type";
+    public static final String MAX_SNAPSHOTS_PER_REFRESH = "max_snapshots_per_refresh";
 
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
@@ -86,6 +92,26 @@ public class IcebergMaterializedViewProperties
                         true,
                         value -> value == null ? null : MaterializedViewRefreshType.valueOf(((String) value).toUpperCase(ENGLISH)),
                         value -> value == null ? null : ((MaterializedViewRefreshType) value).name()))
+                .add(new PropertyMetadata<>(
+                        MAX_SNAPSHOTS_PER_REFRESH,
+                        "Maximum number of snapshots consumed per base table per refresh. " +
+                                "Unset falls back to the session default.",
+                        INTEGER,
+                        Integer.class,
+                        null,
+                        false,
+                        value -> {
+                            if (value == null) {
+                                return null;
+                            }
+                            int parsed = ((Number) value).intValue();
+                            if (parsed <= 0) {
+                                throw new PrestoException(INVALID_TABLE_PROPERTY,
+                                        format("%s must be positive, got %d", MAX_SNAPSHOTS_PER_REFRESH, parsed));
+                            }
+                            return parsed;
+                        },
+                        object -> object))
                 .build();
 
         // Combine table properties (for storage table) with MV-specific properties
@@ -123,5 +149,11 @@ public class IcebergMaterializedViewProperties
     public static Optional<MaterializedViewRefreshType> getRefreshType(Map<String, Object> properties)
     {
         return Optional.ofNullable((MaterializedViewRefreshType) properties.get(REFRESH_TYPE));
+    }
+
+    public static OptionalInt getMaxSnapshotsPerRefresh(Map<String, Object> properties)
+    {
+        Integer value = (Integer) properties.get(MAX_SNAPSHOTS_PER_REFRESH);
+        return value == null ? OptionalInt.empty() : OptionalInt.of(value);
     }
 }
