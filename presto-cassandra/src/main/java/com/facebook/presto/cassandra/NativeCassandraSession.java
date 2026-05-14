@@ -13,30 +13,24 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.driver.core.AbstractTableMetadata;
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ColumnMetadata;
-import com.datastax.driver.core.DataType;
-import com.datastax.driver.core.Host;
-import com.datastax.driver.core.IndexMetadata;
-import com.datastax.driver.core.KeyspaceMetadata;
-import com.datastax.driver.core.MaterializedViewMetadata;
-import com.datastax.driver.core.PreparedStatement;
-import com.datastax.driver.core.RegularStatement;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
-import com.datastax.driver.core.TableOptionsMetadata;
-import com.datastax.driver.core.TokenRange;
-import com.datastax.driver.core.VersionNumber;
-import com.datastax.driver.core.exceptions.NoHostAvailableException;
-import com.datastax.driver.core.policies.ReconnectionPolicy;
-import com.datastax.driver.core.policies.ReconnectionPolicy.ReconnectionSchedule;
-import com.datastax.driver.core.querybuilder.Clause;
-import com.datastax.driver.core.querybuilder.QueryBuilder;
-import com.datastax.driver.core.querybuilder.Select;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.Version;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.IndexMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
+import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
+import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
+import com.datastax.oss.driver.api.querybuilder.term.Term;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
@@ -48,7 +42,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -62,6 +55,7 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -71,16 +65,13 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import static com.datastax.driver.core.querybuilder.QueryBuilder.eq;
-import static com.datastax.driver.core.querybuilder.QueryBuilder.select;
-import static com.datastax.driver.core.querybuilder.Select.Where;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -111,81 +102,140 @@ public class NativeCassandraSession
     private static final String PRESTO_COMMENT_METADATA = "Presto Metadata:";
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
-    private static final VersionNumber PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = VersionNumber.parse("2.2");
+    private static final Version PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = Version.parse("2.2");
 
     private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
-    private final Cluster cluster;
-    private final Supplier<Session> session;
+    private final ReopeningSession reopeningSession;
     private final Duration noHostAvailableRetryTimeout;
     private static boolean caseSensitiveNameMatchingEnabled;
 
-    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout, boolean caseSensitiveNameMatchingEnabled)
+    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, ReopeningSession reopeningSession, Duration noHostAvailableRetryTimeout, boolean caseSensitiveNameMatchingEnabled)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
-        this.cluster = requireNonNull(cluster, "cluster is null");
+        this.reopeningSession = requireNonNull(reopeningSession, "reopeningSession is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
-        this.session = memoize(cluster::connect);
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
     }
 
-    @Override
-    public VersionNumber getCassandraVersion()
+    private CqlSession getSession()
     {
-        ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
+        return reopeningSession.get();
+    }
+
+    @Override
+    public void invalidateKeyspaceCache(String keyspaceName)
+    {
+        log.info("Invalidating metadata cache for keyspace: %s", keyspaceName);
+        keyspaceCache.invalidate(keyspaceName);
+
+        // Force driver's internal metadata refresh check
+        // Driver 4.x caches metadata and automatically refreshes on schema change events
+        // We use checkSchemaAgreement() and access metadata to ensure updates are processed
+        try {
+            reopeningSession.forceMetadataRefresh();
+
+            // Add synchronous wait for cache to actually refresh
+            // The forceMetadataRefresh() triggers the refresh but doesn't guarantee
+            // the cache is immediately queryable. Add a brief wait to allow propagation.
+            log.debug("Waiting for metadata cache to stabilize for keyspace: %s", keyspaceName);
+            Thread.sleep(2000);
+
+            // Verify keyspace is visible after refresh
+            try {
+                List<String> keyspaces = getCaseSensitiveSchemaNames();
+                boolean visible = keyspaces.stream()
+                        .anyMatch(ks -> ks.equalsIgnoreCase(keyspaceName));
+                if (visible) {
+                    log.info("Metadata cache invalidation completed - keyspace %s is visible", keyspaceName);
+                }
+                else {
+                    log.warn("Keyspace %s not visible after cache invalidation", keyspaceName);
+                }
+            }
+            catch (Exception e) {
+                log.debug("Could not verify keyspace visibility: %s", e.getMessage());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted during metadata refresh for keyspace: %s", keyspaceName);
+        }
+        catch (Exception e) {
+            log.warn(e, "Error during metadata refresh for keyspace: %s", keyspaceName);
+            // Don't throw - cache invalidation failures shouldn't break operations
+        }
+    }
+
+    @Override
+    public Version getCassandraVersion()
+    {
+        ResultSet result = getSession().execute("select release_version from system.local");
         Row versionRow = result.one();
         if (versionRow == null) {
             throw new PrestoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
                     "Please make sure that the Cassandra cluster is up and running, " +
                     "and that the contact points are specified correctly.");
         }
-        return VersionNumber.parse(versionRow.getString("release_version"));
+        return Version.parse(versionRow.getString("release_version"));
     }
 
     @Override
     public String getPartitioner()
     {
-        return executeWithSession(session -> session.getCluster().getMetadata().getPartitioner());
+        // Driver 4.x: Metadata is immutable, get fresh copy
+        return getSession().getMetadata().getTokenMap()
+                .map(tokenMap -> tokenMap.getPartitionerName())
+                .orElse("Unknown");
     }
 
     @Override
     public Set<TokenRange> getTokenRanges()
     {
-        return executeWithSession(session -> session.getCluster().getMetadata().getTokenRanges());
+        // Driver 4.x: TokenMap is Optional
+        return getSession().getMetadata().getTokenMap()
+                .map(tokenMap -> tokenMap.getTokenRanges())
+                .orElse(ImmutableSet.of());
     }
 
     @Override
-    public Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange)
+    public Set<Node> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange)
     {
         requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(tokenRange, "tokenRange is null");
-        return executeWithSession(session ->
-                session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), tokenRange));
+
+        // Driver 4.x: Use TokenMap API
+        return getSession().getMetadata().getTokenMap()
+                .map(tokenMap -> tokenMap.getReplicas(validSchemaName(caseSensitiveSchemaName), tokenRange))
+                .orElse(ImmutableSet.of());
     }
 
     @Override
-    public Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey)
+    public Set<Node> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey)
     {
         requireNonNull(caseSensitiveSchemaName, "keyspace is null");
         requireNonNull(partitionKey, "partitionKey is null");
-        return executeWithSession(session ->
-                session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), partitionKey));
+
+        // Driver 4.x: Use TokenMap API
+        return getSession().getMetadata().getTokenMap()
+                .map(tokenMap -> tokenMap.getReplicas(validSchemaName(caseSensitiveSchemaName), partitionKey))
+                .orElse(ImmutableSet.of());
     }
 
     @Override
     public String getCaseSensitiveSchemaName(String caseSensitiveSchemaName)
     {
-        return getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName).getName();
+        return getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName).getName().asInternal();
     }
 
     @Override
     public List<String> getCaseSensitiveSchemaNames()
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
-        for (KeyspaceMetadata meta : keyspaces) {
-            builder.add(meta.getName());
+        // Driver 4.x: Metadata.getKeyspaces() returns Map<CqlIdentifier, KeyspaceMetadata>
+        for (KeyspaceMetadata meta : getSession().getMetadata().getKeyspaces().values()) {
+            builder.add(meta.getName().asInternal());
         }
         return builder.build();
     }
@@ -196,11 +246,12 @@ public class NativeCassandraSession
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(caseSensitiveSchemaName);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        for (TableMetadata table : keyspace.getTables()) {
-            builder.add(table.getName());
+        // Driver 4.x: getTables() and getViews() return Map<CqlIdentifier, TableMetadata/ViewMetadata>
+        for (TableMetadata table : keyspace.getTables().values()) {
+            builder.add(table.getName().asInternal());
         }
-        for (MaterializedViewMetadata materializedView : keyspace.getMaterializedViews()) {
-            builder.add(materializedView.getName());
+        for (ViewMetadata view : keyspace.getViews().values()) {
+            builder.add(view.getName().asInternal());
         }
         return builder.build();
     }
@@ -210,20 +261,23 @@ public class NativeCassandraSession
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
-        AbstractTableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        TableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
 
         List<String> columnNames = new ArrayList<>();
-        List<ColumnMetadata> columns = tableMeta.getColumns();
+        // Driver 4.x: getColumns() returns Map<CqlIdentifier, ColumnMetadata>
+        List<ColumnMetadata> columns = new ArrayList<>(tableMeta.getColumns().values());
         if (!caseSensitiveNameMatchingEnabled) {
             checkColumnNames(columns);
         }
 
         for (ColumnMetadata columnMetadata : columns) {
-            columnNames.add(columnMetadata.getName());
+            columnNames.add(columnMetadata.getName().asInternal());
         }
 
         // check if there is a comment to establish column ordering
-        Optional<String> comment = Optional.ofNullable(tableMeta.getOptions()).map(TableOptionsMetadata::getComment);
+        // Driver 4.x: getOptions() returns TableOptions (not TableOptionsMetadata)
+        Object commentObj = tableMeta.getOptions().get(com.datastax.oss.driver.api.core.CqlIdentifier.fromInternal("comment"));
+        Optional<String> comment = commentObj != null ? Optional.of(commentObj.toString()) : Optional.empty();
         Set<String> hiddenColumns = ImmutableSet.of();
         if (comment.isPresent() && comment.get().startsWith(PRESTO_COMMENT_METADATA)) {
             String columnOrderingString = comment.get().substring(PRESTO_COMMENT_METADATA.length());
@@ -244,26 +298,31 @@ public class NativeCassandraSession
 
         // add primary keys first
         Set<String> primaryKeySet = new HashSet<>();
+        // Driver 4.x: getPartitionKey() returns List<ColumnMetadata>
         for (ColumnMetadata columnMeta : tableMeta.getPartitionKey()) {
-            primaryKeySet.add(columnMeta.getName());
-            boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden);
+            String columnName = columnMeta.getName().asInternal();
+            primaryKeySet.add(columnName);
+            boolean hidden = hiddenColumns.contains(columnName);
+            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnName), hidden);
             columnHandles.add(columnHandle);
         }
 
         // add clustering columns
-        for (ColumnMetadata columnMeta : tableMeta.getClusteringColumns()) {
-            primaryKeySet.add(columnMeta.getName());
-            boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
+        // Driver 4.x: getClusteringColumns() returns Map<ColumnMetadata, ClusteringOrder>
+        for (ColumnMetadata columnMeta : tableMeta.getClusteringColumns().keySet()) {
+            String columnName = columnMeta.getName().asInternal();
+            primaryKeySet.add(columnName);
+            boolean hidden = hiddenColumns.contains(columnName);
+            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(columnName), hidden);
             columnHandles.add(columnHandle);
         }
 
         // add other columns
         for (ColumnMetadata columnMeta : columns) {
-            if (!primaryKeySet.contains(columnMeta.getName())) {
-                boolean hidden = hiddenColumns.contains(columnMeta.getName());
-                CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
+            String columnName = columnMeta.getName().asInternal();
+            if (!primaryKeySet.contains(columnName)) {
+                boolean hidden = hiddenColumns.contains(columnName);
+                CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnName), hidden);
                 columnHandles.add(columnHandle);
             }
         }
@@ -272,7 +331,7 @@ public class NativeCassandraSession
                 .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
                 .collect(toList());
 
-        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableMeta.getKeyspace().getName(), tableMeta.getName());
+        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableMeta.getKeyspace().asInternal(), tableMeta.getName().asInternal());
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
@@ -299,12 +358,14 @@ public class NativeCassandraSession
     private KeyspaceMetadata getKeyspaceByCaseSensitiveName0(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        List<KeyspaceMetadata> keyspaces = executeWithSession(session -> session.getCluster().getMetadata().getKeyspaces());
+        // Driver 4.x: getKeyspaces() returns Map<CqlIdentifier, KeyspaceMetadata>
+        List<KeyspaceMetadata> keyspaces = new ArrayList<>(getSession().getMetadata().getKeyspaces().values());
         KeyspaceMetadata result = null;
         // Ensure that the error message is deterministic
-        List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing(KeyspaceMetadata::getName)).immutableSortedCopy(keyspaces);
+        List<KeyspaceMetadata> sortedKeyspaces = Ordering.from(comparing((KeyspaceMetadata ks) -> ks.getName().asInternal())).immutableSortedCopy(keyspaces);
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
-            if (namesMatch(keyspace.getName(), caseSensitiveSchemaName, caseSensitiveNameMatchingEnabled)) {
+            String keyspaceName = keyspace.getName().asInternal();
+            if (namesMatch(keyspaceName, caseSensitiveSchemaName, caseSensitiveNameMatchingEnabled)) {
                 if (caseSensitiveNameMatchingEnabled) {
                     result = keyspace;
                     break;
@@ -313,7 +374,7 @@ public class NativeCassandraSession
                     throw new PrestoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the schema name: %s -> (%s, %s)",
-                                    caseSensitiveSchemaName.toLowerCase(ROOT), result.getName(), keyspace.getName()));
+                                    caseSensitiveSchemaName.toLowerCase(ROOT), result.getName().asInternal(), keyspaceName));
                 }
                 result = keyspace;
             }
@@ -332,21 +393,25 @@ public class NativeCassandraSession
                 : actualName.equalsIgnoreCase(expectedName);
     }
 
-    private static AbstractTableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseSensitiveTableName)
+    private static TableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseSensitiveTableName)
     {
-        List<AbstractTableMetadata> tables = Stream.concat(
-                keyspace.getTables().stream(),
-                keyspace.getMaterializedViews().stream())
-                .filter(table -> namesMatch(table.getName(), caseSensitiveTableName, caseSensitiveNameMatchingEnabled))
+        // Driver 4.x: getTables() and getViews() return Map<CqlIdentifier, TableMetadata/ViewMetadata>
+        // Combine tables and views for lookup
+        List<TableMetadata> tables = Stream.concat(
+                keyspace.getTables().values().stream(),
+                keyspace.getViews().values().stream()
+                        .map(view -> (TableMetadata) view))  // ViewMetadata extends TableMetadata in 4.x
+                .filter(table -> namesMatch(table.getName().asInternal(), caseSensitiveTableName, caseSensitiveNameMatchingEnabled))
                 .collect(toImmutableList());
+
         if (tables.size() == 0) {
-            throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseSensitiveTableName));
+            throw new TableNotFoundException(new SchemaTableName(keyspace.getName().asInternal(), caseSensitiveTableName));
         }
         else if (tables.size() == 1) {
             return tables.get(0);
         }
         String tableNames = tables.stream()
-                .map(AbstractTableMetadata::getName)
+                .map(table -> table.getName().asInternal())
                 .sorted()
                 .collect(joining(", "));
         throw new PrestoException(
@@ -358,53 +423,62 @@ public class NativeCassandraSession
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
-        return keyspace.getMaterializedView(schemaTableName.getTableName()) != null;
+        // Driver 4.x: getView() returns Optional<ViewMetadata>
+        return keyspace.getView(com.datastax.oss.driver.api.core.CqlIdentifier.fromInternal(schemaTableName.getTableName())).isPresent();
     }
 
     private static void checkColumnNames(List<ColumnMetadata> columns)
     {
         Map<String, ColumnMetadata> lowercaseNameToColumnMap = new HashMap<>();
         for (ColumnMetadata column : columns) {
-            String columnNameKey = column.getName().toLowerCase(ROOT);
+            String columnName = column.getName().asInternal();
+            String columnNameKey = columnName.toLowerCase(ROOT);
             if (lowercaseNameToColumnMap.containsKey(columnNameKey)) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
-                                columnNameKey, lowercaseNameToColumnMap.get(columnNameKey).getName(), column.getName()));
+                                columnNameKey, lowercaseNameToColumnMap.get(columnNameKey).getName().asInternal(), columnName));
             }
             lowercaseNameToColumnMap.put(columnNameKey, column);
         }
     }
 
-    private CassandraColumnHandle buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private CassandraColumnHandle buildColumnHandle(TableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
+        // Driver 4.x: Use DataType directly instead of DataType.Name
+        CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType());
         List<CassandraType> typeArguments = null;
         if (cassandraType.getTypeArgumentSize() > 0) {
-            List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
-            switch (cassandraType.getTypeArgumentSize()) {
-                case 1:
-                    typeArguments = ImmutableList.of(CassandraType.getCassandraType(typeArgs.get(0).getName()));
-                    break;
-                case 2:
-                    typeArguments = ImmutableList.of(CassandraType.getCassandraType(typeArgs.get(0).getName()), CassandraType.getCassandraType(typeArgs.get(1).getName()));
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
+            // Driver 4.x: Collection types need special handling
+            DataType dataType = columnMeta.getType();
+            if (dataType instanceof com.datastax.oss.driver.api.core.type.ListType) {
+                com.datastax.oss.driver.api.core.type.ListType listType = (com.datastax.oss.driver.api.core.type.ListType) dataType;
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(listType.getElementType()));
+            }
+            else if (dataType instanceof com.datastax.oss.driver.api.core.type.SetType) {
+                com.datastax.oss.driver.api.core.type.SetType setType = (com.datastax.oss.driver.api.core.type.SetType) dataType;
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(setType.getElementType()));
+            }
+            else if (dataType instanceof com.datastax.oss.driver.api.core.type.MapType) {
+                com.datastax.oss.driver.api.core.type.MapType mapType = (com.datastax.oss.driver.api.core.type.MapType) dataType;
+                typeArguments = ImmutableList.of(
+                        CassandraType.getCassandraType(mapType.getKeyType()),
+                        CassandraType.getCassandraType(mapType.getValueType()));
             }
         }
         boolean indexed = false;
-        SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().getName(), tableMetadata.getName());
+        SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().asInternal(), tableMetadata.getName().asInternal());
         if (!isMaterializedView(schemaTableName)) {
-            TableMetadata table = (TableMetadata) tableMetadata;
-            for (IndexMetadata idx : table.getIndexes()) {
-                if (idx.getTarget().equals(columnMeta.getName())) {
+            // Driver 4.x: getIndexes() returns Map<CqlIdentifier, IndexMetadata>
+            for (IndexMetadata idx : tableMetadata.getIndexes().values()) {
+                // Driver 4.x: IndexMetadata.getTarget() returns String
+                if (idx.getTarget().equals(columnMeta.getName().asInternal())) {
                     indexed = true;
                     break;
                 }
             }
         }
-        return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
+        return new CassandraColumnHandle(connectorId, columnMeta.getName().asInternal(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
     @Override
@@ -480,19 +554,28 @@ public class NativeCassandraSession
     @Override
     public ResultSet execute(String cql, Object... values)
     {
-        return executeWithSession(session -> session.execute(cql, values));
+        // Driver 4.x: Use SimpleStatement with positional values
+        SimpleStatement statement = SimpleStatement.newInstance(cql, values);
+        return getSession().execute(statement);
     }
 
     @Override
-    public PreparedStatement prepare(RegularStatement statement)
+    public PreparedStatement prepare(SimpleStatement statement)
     {
-        return executeWithSession(session -> session.prepare(statement));
+        // Driver 4.x: prepare() takes SimpleStatement or String
+        return getSession().prepare(statement);
     }
 
     @Override
-    public ResultSet execute(Statement statement)
+    public ResultSet execute(BoundStatement statement)
     {
-        return executeWithSession(session -> session.execute(statement));
+        return getSession().execute(statement);
+    }
+
+    @Override
+    public ResultSet execute(SimpleStatement statement)
+    {
+        return getSession().execute(statement);
     }
 
     private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
@@ -501,9 +584,10 @@ public class NativeCassandraSession
         List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
 
         Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
-        addWhereInClauses(partitionKeys.where(), partitionKeyColumns, filterPrefixes);
+        partitionKeys = addWhereInClauses(partitionKeys, partitionKeyColumns, filterPrefixes);
 
-        return execute(partitionKeys).all();
+        // Driver 4.x: Convert Select to SimpleStatement
+        return execute(partitionKeys.build()).all();
     }
 
     private Iterable<Row> queryPartitionKeysLegacyWithMultipleQueries(CassandraTable table, List<Set<Object>> filterPrefixes)
@@ -516,9 +600,10 @@ public class NativeCassandraSession
         ImmutableList.Builder<Row> rowList = ImmutableList.builder();
         for (List<Object> combination : filterCombinations) {
             Select partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
-            addWhereClause(partitionKeys.where(), partitionKeyColumns, combination);
+            partitionKeys = addWhereClause(partitionKeys, partitionKeyColumns, combination);
 
-            List<Row> resultRows = execute(partitionKeys).all();
+            // Driver 4.x: Convert Select to SimpleStatement
+            List<Row> resultRows = execute(partitionKeys.build()).all();
             if (resultRows != null && !resultRows.isEmpty()) {
                 rowList.addAll(resultRows);
             }
@@ -527,39 +612,52 @@ public class NativeCassandraSession
         return rowList.build();
     }
 
-    private static void addWhereInClauses(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
+    private static Select addWhereInClauses(Select select, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
     {
+        // Driver 4.x: Query builder is immutable, build WHERE clauses step by step
         for (int i = 0; i < filterPrefixes.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);
             List<Object> values = filterPrefixes.get(i)
                     .stream()
                     .map(value -> column.getCassandraType().getJavaValue(value))
                     .collect(toList());
-            Clause clause = QueryBuilder.in(CassandraCqlUtils.validColumnName(column.getName()), values);
-            where.and(clause);
+            // Driver 4.x: Use Relation.in() with Term objects
+            List<Term> terms = values.stream()
+                    .map(QueryBuilder::literal)
+                    .collect(toList());
+            select = select.whereColumn(CassandraCqlUtils.validColumnName(column.getName())).in(terms);
         }
+        return select;
     }
 
-    private static void addWhereClause(Where where, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
+    private static Select addWhereClause(Select select, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
     {
+        // Driver 4.x: Query builder is immutable, build WHERE clauses step by step
         for (int i = 0; i < filterPrefix.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);
             Object value = column.getCassandraType().getJavaValue(filterPrefix.get(i));
-            Clause clause = QueryBuilder.eq(CassandraCqlUtils.validColumnName(column.getName()), value);
-            where.and(clause);
+            // Driver 4.x: Use whereColumn().isEqualTo() with literal() to inline values
+            select = select.whereColumn(CassandraCqlUtils.validColumnName(column.getName())).isEqualTo(QueryBuilder.literal(value));
         }
+        return select;
     }
 
     @Override
     public List<SizeEstimate> getSizeEstimates(String keyspaceName, String tableName)
     {
         checkSizeEstimatesTableExist();
-        Statement statement = select("range_start", "range_end", "mean_partition_size", "partitions_count")
-                .from(SYSTEM, SIZE_ESTIMATES)
-                .where(eq("keyspace_name", keyspaceName))
-                .and(eq("table_name", tableName));
 
-        ResultSet result = executeWithSession(session -> session.execute(statement));
+        // Driver 4.x: Use query builder to construct the statement
+        SimpleStatement statement = selectFrom(SYSTEM, SIZE_ESTIMATES)
+                .column("range_start")
+                .column("range_end")
+                .column("mean_partition_size")
+                .column("partitions_count")
+                .whereColumn("keyspace_name").isEqualTo(bindMarker())
+                .whereColumn("table_name").isEqualTo(bindMarker())
+                .build();
+
+        ResultSet result = getSession().execute(statement.setPositionalValues(Arrays.asList(keyspaceName, tableName)));
         ImmutableList.Builder<SizeEstimate> estimates = ImmutableList.builder();
         for (Row row : result.all()) {
             SizeEstimate estimate = new SizeEstimate(
@@ -575,46 +673,14 @@ public class NativeCassandraSession
 
     private void checkSizeEstimatesTableExist()
     {
-        KeyspaceMetadata keyspaceMetadata = executeWithSession(session -> session.getCluster().getMetadata().getKeyspace(SYSTEM));
-        checkState(keyspaceMetadata != null, "system keyspace metadata must not be null");
-        TableMetadata table = keyspaceMetadata.getTable(SIZE_ESTIMATES);
-        if (table == null) {
+        // Driver 4.x: getKeyspace() returns Optional<KeyspaceMetadata>
+        KeyspaceMetadata keyspaceMetadata = getSession().getMetadata()
+                .getKeyspace(SYSTEM)
+                .orElseThrow(() -> new IllegalStateException("system keyspace metadata must not be null"));
+
+        // Driver 4.x: getTable() returns Optional<TableMetadata>
+        if (!keyspaceMetadata.getTable(SIZE_ESTIMATES).isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
         }
-    }
-
-    private <T> T executeWithSession(SessionCallable<T> sessionCallable)
-    {
-        ReconnectionPolicy reconnectionPolicy = cluster.getConfiguration().getPolicies().getReconnectionPolicy();
-        ReconnectionSchedule schedule = reconnectionPolicy.newSchedule();
-        long deadline = System.currentTimeMillis() + noHostAvailableRetryTimeout.toMillis();
-        while (true) {
-            try {
-                return sessionCallable.executeWithSession(session.get());
-            }
-            catch (NoHostAvailableException e) {
-                long timeLeft = deadline - System.currentTimeMillis();
-                if (timeLeft <= 0) {
-                    throw e;
-                }
-                else {
-                    long delay = Math.min(schedule.nextDelayMs(), timeLeft);
-                    log.warn(e.getCustomMessage(10, true, true));
-                    log.warn("Reconnecting in %dms", delay);
-                    try {
-                        Thread.sleep(delay);
-                    }
-                    catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException("interrupted", interrupted);
-                    }
-                }
-            }
-        }
-    }
-
-    private interface SessionCallable<T>
-    {
-        T executeWithSession(Session session);
     }
 }
