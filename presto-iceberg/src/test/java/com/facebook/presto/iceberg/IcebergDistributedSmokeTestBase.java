@@ -45,6 +45,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
+import org.apache.parquet.column.ParquetProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -87,6 +88,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -1099,6 +1102,371 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
 
         dropTable(session, "test_bucket_transform");
+    }
+
+    @DataProvider(name = "batchReadAndParquetVersions")
+    public Object[][] batchReadAndParquetVersions()
+    {
+        return new Object[][] {
+                {true, PARQUET_1_0},
+                {false, PARQUET_1_0},
+                {true, PARQUET_2_0},
+                {false, PARQUET_2_0}
+        };
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnType(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            session = Session.builder(session)
+                    .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                    .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                    .build();
+            String tableName = "test_alter_column_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "int_col INTEGER, " +
+                                "float_col REAL, " +
+                                "decimal_col DECIMAL(10, 2), " +
+                                "bigint_col BIGINT, " +
+                                "decimal_short DECIMAL(10, 3), " +
+                                "decimal_boundary DECIMAL(18, 5)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(100, REAL '1.5', DECIMAL '123.45', 1000, DECIMAL '999.123', DECIMAL '123456789012.12345'), " +
+                                "(200, REAL '2.5', DECIMAL '234.56', 2000, DECIMAL '888.456', DECIMAL '987654321098.54321'), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)",
+                        tableName), 3);
+
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES " +
+                                "(100, CAST(1.5 AS REAL), CAST(123.45 AS DECIMAL(10,2)), CAST(1000 AS BIGINT), CAST(999.123 AS DECIMAL(10,3)), CAST(123456789012.12345 AS DECIMAL(18,5))), " +
+                                "(200, CAST(2.5 AS REAL), CAST(234.56 AS DECIMAL(10,2)), CAST(2000 AS BIGINT), CAST(888.456 AS DECIMAL(10,3)), CAST(987654321098.54321 AS DECIMAL(18,5))), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)");
+
+                // Test 1: INTEGER → BIGINT conversion
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                assertQuery(session, format("SELECT int_col, typeof(int_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(100 AS BIGINT), 'bigint'), (CAST(200 AS BIGINT), 'bigint'), (NULL, 'bigint')");
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "real"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+
+                // Test 2: REAL → DOUBLE conversion (with NULL handling)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(10,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT float_col, typeof(float_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE), 'double'), (CAST(2.5 AS DOUBLE), 'double'), (NULL, 'double')");
+
+                // Test 3: DECIMAL(10,2) → DECIMAL(15,2) - ShortDecimal to ShortDecimal
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 2)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(15,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(15,2)), 'decimal(15,2)'), (CAST(234.56 AS DECIMAL(15,2)), 'decimal(15,2)'), (NULL, 'decimal(15,2)')");
+
+                // Test 4: DECIMAL(15,2) → DECIMAL(24,2) - ShortDecimal to LongDecimal (crossing precision 18 boundary)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(24, 2)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(10,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_col, typeof(decimal_col) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123.45 AS DECIMAL(24,2)), 'decimal(24,2)'), (CAST(234.56 AS DECIMAL(24,2)), 'decimal(24,2)'), (NULL, 'decimal(24,2)')");
+
+                // Test 5: DECIMAL(10,3) → DECIMAL(18,3) - ShortDecimal to ShortDecimal at boundary
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_short SET DATA TYPE DECIMAL(18, 3)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(18,3)"),
+                                columnDefinition("decimal_boundary", "decimal(18,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_short, typeof(decimal_short) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(999.123 AS DECIMAL(18,3)), 'decimal(18,3)'), (CAST(888.456 AS DECIMAL(18,3)), 'decimal(18,3)'), (NULL, 'decimal(18,3)')");
+
+                // Test 6: DECIMAL(18,5) → DECIMAL(19,5) - ShortDecimal to LongDecimal at precision 18→19 boundary
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_boundary SET DATA TYPE DECIMAL(19, 5)", tableName));
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("int_col", "bigint"),
+                                columnDefinition("float_col", "double"),
+                                columnDefinition("decimal_col", "decimal(24,2)"),
+                                columnDefinition("bigint_col", "bigint"),
+                                columnDefinition("decimal_short", "decimal(18,3)"),
+                                columnDefinition("decimal_boundary", "decimal(19,5)")),
+                        null,
+                        null);
+                assertQuery(session, format("SELECT decimal_boundary, typeof(decimal_boundary) FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES (CAST(123456789012.12345 AS DECIMAL(19,5)), 'decimal(19,5)'), (CAST(987654321098.54321 AS DECIMAL(19,5)), 'decimal(19,5)'), (NULL, 'decimal(19,5)')");
+
+                // Test 7: Verify all columns together after all conversions
+                assertQuery(session, format("SELECT * FROM %s ORDER BY int_col NULLS LAST", tableName),
+                        "VALUES " +
+                                "(CAST(100 AS BIGINT), CAST(1.5 AS DOUBLE), CAST(123.45 AS DECIMAL(24,2)), CAST(1000 AS BIGINT), CAST(999.123 AS DECIMAL(18,3)), CAST(123456789012.12345 AS DECIMAL(19,5))), " +
+                                "(CAST(200 AS BIGINT), CAST(2.5 AS DOUBLE), CAST(234.56 AS DECIMAL(24,2)), CAST(2000 AS BIGINT), CAST(888.456 AS DECIMAL(18,3)), CAST(987654321098.54321 AS DECIMAL(19,5))), " +
+                                "(NULL, NULL, NULL, NULL, NULL, NULL)");
+
+                // Test 8: Verify unsupported conversion (BIGINT → INTEGER should fail)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN bigint_col SET DATA TYPE INTEGER", tableName),
+                        "Failed to set column type: Cannot change column type: bigint_col: long -> int");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterColumnTypeWithSpecialFloatValues(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_special_float_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                session = Session.builder(session)
+                        .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                        .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                        .build();
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (id INTEGER, float_col REAL) WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Test with special float values: positive, negative, zero, and very small/large values
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, REAL '0.0'), " +
+                                "(2, REAL '-0.0'), " +
+                                "(3, REAL '3.4028235E38'), " +  // Max float
+                                "(4, REAL '-3.4028235E38'), " + // Min float
+                                "(5, REAL '1.401298464324817E-45'), " +  // Smallest positive float (actual representation)
+                                "(6, REAL '0.1')",               // Binary representation precision issue
+                        tableName), 6);
+
+                // Verify initial data
+                assertQuery(session, format("SELECT id, float_col FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(0.0 AS REAL)), " +
+                                "(2, CAST(-0.0 AS REAL)), " +
+                                "(3, CAST(3.4028235E38 AS REAL)), " +
+                                "(4, CAST(-3.4028235E38 AS REAL)), " +
+                                "(5, CAST(1.401298464324817E-45 AS REAL)), " +
+                                "(6, CAST(0.1 AS REAL))");
+
+                // Convert REAL to DOUBLE
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+
+                // Verify data after conversion - values should be preserved
+                // Note: When REAL is converted to DOUBLE, the float representation is preserved
+                assertQuery(session, format("SELECT id, float_col FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(0.0 AS DOUBLE)), " +
+                                "(2, CAST(-0.0 AS DOUBLE)), " +
+                                "(3, CAST(3.4028235E38 AS DOUBLE)), " +
+                                "(4, CAST(-3.4028235E38 AS DOUBLE)), " +
+                                "(5, CAST(1.401298464324817E-45 AS DOUBLE)), " +
+                                "(6, CAST(0.1 AS DOUBLE))");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeWithMaxDecimalValues()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_max_decimal_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id INTEGER, " +
+                                "dec_max_short DECIMAL(18, 0), " +
+                                "dec_near_max DECIMAL(37, 10)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Test with maximum values for ShortDecimal and near-maximum for LongDecimal
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, DECIMAL '999999999999999999', DECIMAL '9999999999999999999999999.9999999999'), " +
+                                "(2, DECIMAL '-999999999999999999', DECIMAL '-9999999999999999999999999.9999999999'), " +
+                                "(3, DECIMAL '0', DECIMAL '0.0000000001')",
+                        tableName), 3);
+
+                // Verify initial data
+                assertQuery(session, format("SELECT * FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(999999999999999999 AS DECIMAL(18,0)), CAST(9999999999999999999999999.9999999999 AS DECIMAL(37,10))), " +
+                                "(2, CAST(-999999999999999999 AS DECIMAL(18,0)), CAST(-9999999999999999999999999.9999999999 AS DECIMAL(37,10))), " +
+                                "(3, CAST(0 AS DECIMAL(18,0)), CAST(0.0000000001 AS DECIMAL(37,10)))");
+
+                // Convert ShortDecimal(18,0) to LongDecimal(19,0)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN dec_max_short SET DATA TYPE DECIMAL(19, 0)", tableName));
+
+                // Verify data preserved after crossing ShortDecimal/LongDecimal boundary
+                assertQuery(session, format("SELECT id, dec_max_short FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(999999999999999999 AS DECIMAL(19,0))), " +
+                                "(2, CAST(-999999999999999999 AS DECIMAL(19,0))), " +
+                                "(3, CAST(0 AS DECIMAL(19,0)))");
+
+                // Increase LongDecimal precision
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN dec_near_max SET DATA TYPE DECIMAL(38, 10)", tableName));
+
+                // Verify data preserved
+                assertQuery(session, format("SELECT id, dec_near_max FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(9999999999999999999999999.9999999999 AS DECIMAL(38,10))), " +
+                                "(2, CAST(-9999999999999999999999999.9999999999 AS DECIMAL(38,10))), " +
+                                "(3, CAST(0.0000000001 AS DECIMAL(38,10)))");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeUnsupportedConversions()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_unsupported_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "bigint_col BIGINT, " +
+                                "double_col DOUBLE, " +
+                                "decimal_col DECIMAL(20, 5)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES (1000, 1.5, DECIMAL '123.45')",
+                        tableName), 1);
+
+                // Test unsupported: BIGINT → INTEGER (narrowing)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN bigint_col SET DATA TYPE INTEGER", tableName),
+                        "Failed to set column type: Cannot change column type: bigint_col: long -> int");
+
+                // Test unsupported: DOUBLE → REAL (narrowing)
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN double_col SET DATA TYPE REAL", tableName),
+                        "Failed to set column type: Cannot change column type: double_col: double -> float");
+
+                // Test unsupported: Decimal scale change
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(20, 3)", tableName),
+                        "Failed to set column type: Cannot change column type: decimal_col: decimal\\(20, 5\\) -> decimal\\(20, 3\\)");
+
+                // Test unsupported: Decimal precision decrease
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(15, 5)", tableName),
+                        "Failed to set column type: Cannot change column type: decimal_col: decimal\\(20, 5\\) -> decimal\\(15, 5\\)");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test
+    public void testAlterColumnTypeMultipleRowsWithNulls()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_multiple_nulls_" + fileFormat.name().toLowerCase(ENGLISH);
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id INTEGER, " +
+                                "int_col INTEGER, " +
+                                "float_col REAL, " +
+                                "decimal_col DECIMAL(10, 2)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Insert multiple rows with various NULL patterns
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, 100, REAL '1.5', DECIMAL '123.45'), " +
+                                "(2, NULL, REAL '2.5', DECIMAL '234.56'), " +
+                                "(3, 300, NULL, DECIMAL '345.67'), " +
+                                "(4, 400, REAL '4.5', NULL), " +
+                                "(5, NULL, NULL, NULL), " +
+                                "(6, 600, REAL '6.5', DECIMAL '678.90')",
+                        tableName), 6);
+
+                // Convert all columns
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN int_col SET DATA TYPE BIGINT", tableName));
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN float_col SET DATA TYPE DOUBLE", tableName));
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN decimal_col SET DATA TYPE DECIMAL(20, 2)", tableName));
+
+                // Verify all data including NULLs are preserved
+                assertQuery(session, format("SELECT * FROM %s ORDER BY id", tableName),
+                        "VALUES " +
+                                "(1, CAST(100 AS BIGINT), CAST(1.5 AS DOUBLE), CAST(123.45 AS DECIMAL(20,2))), " +
+                                "(2, NULL, CAST(2.5 AS DOUBLE), CAST(234.56 AS DECIMAL(20,2))), " +
+                                "(3, CAST(300 AS BIGINT), NULL, CAST(345.67 AS DECIMAL(20,2))), " +
+                                "(4, CAST(400 AS BIGINT), CAST(4.5 AS DOUBLE), NULL), " +
+                                "(5, NULL, NULL, NULL), " +
+                                "(6, CAST(600 AS BIGINT), CAST(6.5 AS DOUBLE), CAST(678.90 AS DECIMAL(20,2)))");
+
+                // Verify NULL counts
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE int_col IS NULL", tableName), "VALUES (2)");
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE float_col IS NULL", tableName), "VALUES (2)");
+                assertQuery(session, format("SELECT COUNT(*) FROM %s WHERE decimal_col IS NULL", tableName), "VALUES (2)");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
@@ -2481,7 +2849,9 @@ public abstract class IcebergDistributedSmokeTestBase
             Optional<String> commentDescription,
             Map<String, String> propertyDescriptions)
     {
-        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schema, table));
+        // Quote schema name if it contains dots (nested namespace) and is not already quoted
+        String schemaIdentifier = schema.contains(".") && !schema.startsWith("\"") ? format("\"%s\"", schema) : schema;
+        MaterializedResult showCreateTable = computeActual(format("SHOW CREATE TABLE %s.%s.%s", catalog, schemaIdentifier, table));
         String createTableSql = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
 
         SqlParser parser = new SqlParser();
@@ -2509,11 +2879,13 @@ public abstract class IcebergDistributedSmokeTestBase
                     assertEquals(comment, node.getComment().get());
                 });
 
-                ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
-                node.getProperties().forEach(property -> {
-                    propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
-                });
-                assertEquals(propertyDescriptions, propertiesBuilder.build());
+                if (propertyDescriptions != null) {
+                    ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
+                    node.getProperties().forEach(property -> {
+                        propertiesBuilder.put(property.getName().getValue(), property.getValue().toString());
+                    });
+                    assertEquals(propertyDescriptions, propertiesBuilder.build());
+                }
                 return null;
             }
         }, null);

@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.block.UncheckedBlock;
@@ -27,6 +28,7 @@ import static com.facebook.presto.common.type.TypeUtils.doubleEquals;
 import static com.facebook.presto.common.type.TypeUtils.doubleHashCode;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
+import static java.lang.Float.intBitsToFloat;
 
 public final class DoubleType
         extends AbstractPrimitiveType
@@ -66,6 +68,9 @@ public final class DoubleType
     {
         if (block.isNull(position)) {
             return null;
+        }
+        if (IntArrayBlock.class.isInstance(block)) {
+            return intBitsToFloat(block.getInt(position));
         }
         return longBitsToDouble(block.getLong(position));
     }
@@ -109,13 +114,22 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position)).closeEntry();
+            if (block instanceof IntArrayBlock) {
+                float flt = intBitsToFloat(block.getInt(position));
+                blockBuilder.writeLong(doubleToLongBits(flt)).closeEntry();
+            }
+            else {
+                blockBuilder.writeLong(block.getLong(position)).closeEntry();
+            }
         }
     }
 
     @Override
     public double getDouble(Block block, int position)
     {
+        if (block instanceof IntArrayBlock) {
+            return intBitsToFloat(block.getInt(position));
+        }
         return longBitsToDouble(block.getLong(position));
     }
 
