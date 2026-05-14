@@ -108,7 +108,7 @@ default is ``10000``.
     write path.
 
 ``lance.index-cache-size``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Size of the Lance index cache per worker node. The index cache stores
 scalar and vector index data to speed up filtered queries. The default is

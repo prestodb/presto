@@ -2903,7 +2903,7 @@ See :doc:`/admin/materialized-views` for general information on refresh behavior
 .. _iceberg-incremental-refresh:
 
 Incremental Refresh
-"""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^
 
 The Iceberg connector supports incremental refresh, which atomically replaces only stale
 partitions rather than recomputing the entire result set. See :ref:`admin/materialized-views:Incremental Refresh`
