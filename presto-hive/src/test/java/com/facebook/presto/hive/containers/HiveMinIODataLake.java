@@ -37,6 +37,7 @@ import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAG
 import static com.facebook.presto.tests.SslKeystoreManager.getKeystorePath;
 import static com.facebook.presto.tests.SslKeystoreManager.getTruststorePath;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
@@ -56,10 +57,10 @@ public class HiveMinIODataLake
 
     public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false);
+        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, false, false);
     }
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest)
+    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, boolean isSslEnabledTest, boolean isHttpEnabledTest)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -77,7 +78,7 @@ public class HiveMinIODataLake
 
         String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
 
-        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE)) {
+        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE) || Objects.equals(hiveHadoopImage, HIVE4_IMAGE)) {
             hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
             filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
@@ -108,6 +109,9 @@ public class HiveMinIODataLake
             catch (IOException e) {
                 throw new UncheckedIOException("Failed to prepare keystore files for Testcontainers", e);
             }
+        }
+        if (isHttpEnabledTest) {
+            filesToMount.put("hive_http_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()

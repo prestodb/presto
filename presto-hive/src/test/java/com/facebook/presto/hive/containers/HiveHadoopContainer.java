@@ -34,6 +34,8 @@ public class HiveHadoopContainer
     public static final String DEFAULT_IMAGE = "prestodb/hdp3.1-hive:" + IMAGE_VERSION;
     public static final String HIVE3_IMAGE = "prestodb/hive3.1-hive:10";
 
+    public static final String HIVE4_IMAGE = "anuragkdwivedi/hive4.0-hive:01"; // TODO Update the image once available in prestodb docker repo
+
     public static final String HOST_NAME = "hadoop-master";
 
     public static final int PROXY_PORT = 1180;
