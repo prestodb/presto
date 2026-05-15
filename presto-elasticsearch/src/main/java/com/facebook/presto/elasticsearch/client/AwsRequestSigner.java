@@ -17,26 +17,32 @@ import com.amazonaws.DefaultRequest;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.http.HttpMethodName;
-import org.apache.http.Header;
+import com.facebook.presto.spi.PrestoException;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.EntityDetails;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpEntityContainer;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpRequestInterceptor;
+import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.core5.http.io.entity.BasicHttpEntity;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.net.URIBuilder;
 import org.apache.http.HttpEntityEnclosingRequest;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpRequestInterceptor;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.protocol.HttpContext;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -59,12 +65,19 @@ class AwsRequestSigner
     }
 
     @Override
-    public void process(final HttpRequest request, final HttpContext context)
+    public void process(HttpRequest request, EntityDetails entityDetails, HttpContext context)
             throws IOException
     {
-        String method = request.getRequestLine().getMethod();
+        String method = request.getMethod();
 
-        URI uri = URI.create(request.getRequestLine().getUri());
+        URI uri;
+        try {
+            uri = request.getUri();
+        }
+        catch (URISyntaxException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e.getMessage());
+        }
+        checkState(uri != null);
         URIBuilder uriBuilder = new URIBuilder(uri);
 
         Map<String, List<String>> parameters = new TreeMap<>(CASE_INSENSITIVE_ORDER);
@@ -73,7 +86,7 @@ class AwsRequestSigner
                     .add(parameter.getValue());
         }
 
-        Map<String, String> headers = Arrays.stream(request.getAllHeaders())
+        Map<String, String> headers = Arrays.stream(request.getHeaders())
                 .collect(toImmutableMap(Header::getName, Header::getValue));
 
         InputStream content = null;
@@ -105,11 +118,10 @@ class AwsRequestSigner
         request.setHeaders(newHeaders);
 
         InputStream newContent = awsRequest.getContent();
-        checkState(newContent == null || request instanceof HttpEntityEnclosingRequest);
+        checkState(newContent == null || request instanceof HttpEntityContainer);
         if (newContent != null) {
-            BasicHttpEntity entity = new BasicHttpEntity();
-            entity.setContent(newContent);
-            ((HttpEntityEnclosingRequest) request).setEntity(entity);
+            BasicHttpEntity entity = new BasicHttpEntity(newContent, ContentType.APPLICATION_OCTET_STREAM);
+            ((HttpEntityContainer) request).setEntity(entity);
         }
     }
 }
