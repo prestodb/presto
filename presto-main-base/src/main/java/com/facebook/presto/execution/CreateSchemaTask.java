@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -55,7 +56,8 @@ public class CreateSchemaTask
     {
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()), metadata);
 
-        // TODO: validate that catalog exists
+        // Make sure catalog exists before access control checks
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, schema.getCatalogName());
 
         accessControl.checkCanCreateSchema(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
@@ -67,7 +69,7 @@ public class CreateSchemaTask
         }
 
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
-                getConnectorIdOrThrow(session, metadata, schema.getCatalogName()),
+                connectorId,
                 schema.getCatalogName(),
                 mapFromProperties(statement.getProperties()),
                 session,
