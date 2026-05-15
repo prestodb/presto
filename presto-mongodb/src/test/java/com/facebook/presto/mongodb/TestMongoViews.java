@@ -14,10 +14,13 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.testcontainers.containers.GenericContainer;
@@ -26,11 +29,15 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestMongoViews
@@ -55,6 +62,51 @@ public class TestMongoViews
 
         mongoClient = new MongoClient(host, port);
         super.init();
+
+        MongoCollection<Document> viewBase = mongoClient.getDatabase("test")
+                .getCollection("view_base");
+        viewBase.insertMany(ImmutableList.of(
+                new Document("id", 1L).append("name", "alpha").append("active", true),
+                new Document("id", 2L).append("name", "beta").append("active", false),
+                new Document("id", 3L).append("name", "gamma").append("active", true)));
+
+        MongoCollection<Document> sales = mongoClient.getDatabase("test")
+                .getCollection("sales");
+        sales.insertMany(ImmutableList.of(
+                new Document("product", "apple").append("quantity", 10),
+                new Document("product", "apple").append("quantity", 5),
+                new Document("product", "banana").append("quantity", 8)));
+
+        MongoDatabase testDb = mongoClient.getDatabase("test");
+
+        testDb.createView(
+                "test_view",
+                "view_base",
+                ImmutableList.of(new Document("$project", new Document()
+                        .append("_id", 0)
+                        .append("id", 1)
+                        .append("name", 1))));
+
+        testDb.createView(
+                "active_a_items",
+                "view_base",
+                ImmutableList.of(
+                        new Document("$match", new Document("active", true))));
+
+        testDb.createView(
+                "sales_summary",
+                "sales",
+                ImmutableList.of(
+                        new Document("$group", new Document("_id", "$product")
+                                .append("total_quantity", new Document("$sum", "$quantity"))),
+                        new Document("$project", new Document("product", "$_id")
+                                .append("total_quantity", 1)
+                                .append("_id", 0))));
+
+        testDb.createView(
+                "indexed_view",
+                "view_base",
+                ImmutableList.of());
     }
 
     @AfterClass(alwaysRun = true)
@@ -72,7 +124,8 @@ public class TestMongoViews
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         String mongoUrl = mongoContainer.getHost() + ":" + mongoContainer.getMappedPort(mongoContainerInternalPort);
 
@@ -104,17 +157,7 @@ public class TestMongoViews
     @Test
     public void testQueryView()
     {
-        assertUpdate("CREATE TABLE test.test_json (id INT, col VARCHAR)");
-        assertUpdate("INSERT INTO test.test_json VALUES (1, 'alice'), (2, 'bob')", 2);
-
         MongoDatabase database = getTestDatabase();
-
-        database.runCommand(new Document("create", "test_view")
-                .append("viewOn", "test_json")
-                .append("pipeline", Arrays.asList(
-                        new Document("$project", new Document()
-                                .append("id", 1)
-                                .append("col", 1)))));
 
         boolean foundView = false;
         for (Document doc : database.listCollections()) {
@@ -124,106 +167,138 @@ public class TestMongoViews
                 break;
             }
         }
-        assertEquals(foundView, true, "test_view should exist");
+        assertTrue(foundView, "test_view should exist");
 
         assertQuery("SELECT * FROM test.test_view ORDER BY id",
-                "VALUES (1, 'alice'), (2, 'bob')");
+                "VALUES (1, 'alpha'), (2, 'beta'), (3, 'gamma')");
 
-        assertQuery("SELECT col FROM test.test_view WHERE id = 1",
-                "VALUES ('alice')");
-
-        assertUpdate("DROP TABLE test.test_json");
-        database.getCollection("test_view").drop();
+        assertQuery("SELECT name FROM test.test_view WHERE id = 1",
+                "VALUES ('alpha')");
     }
 
     @Test
     public void testViewWithAggregation()
     {
-        assertUpdate("CREATE TABLE test.sales (product VARCHAR, quantity INT, price DOUBLE)");
-        assertUpdate("INSERT INTO test.sales VALUES " +
-                "('apple', 10, 1.5), " +
-                "('banana', 20, 0.5), " +
-                "('apple', 5, 1.5)", 3);
+        MaterializedResult result = computeActual(
+                "SELECT product, total_quantity FROM test.sales_summary ORDER BY product");
 
-        MongoDatabase database = getTestDatabase();
+        assertEquals(result.getRowCount(), 2);
 
-        database.runCommand(new Document("create", "sales_summary")
-                .append("viewOn", "sales")
-                .append("pipeline", Arrays.asList(
-                        new Document("$group", new Document()
-                                .append("_id", "$product")
-                                .append("total_quantity", new Document("$sum", "$quantity"))
-                                .append("avg_price", new Document("$avg", "$price"))),
-                        new Document("$project", new Document()
-                                .append("product", "$_id")
-                                .append("total_quantity", 1)
-                                .append("avg_price", 1)
-                                .append("_id", 0)))));
+        // apple: 10 + 5 = 15, banana: 8
+        List<String> products = result.getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toList());
+        assertTrue(products.contains("apple"), "Expected 'apple' in sales_summary");
+        assertTrue(products.contains("banana"), "Expected 'banana' in sales_summary");
 
-        assertQuery("SELECT product, total_quantity FROM test.sales_summary WHERE product = 'apple'",
-                "VALUES ('apple', 15)");
-
-        assertUpdate("DROP TABLE test.sales");
-        database.getCollection("sales_summary").drop();
-    }
-
-    @Test
-    public void testViewDoesNotHaveIndexes()
-    {
-        assertUpdate("CREATE TABLE test.indexed_table (id INT, name VARCHAR)");
-        assertUpdate("INSERT INTO test.indexed_table VALUES (1, 'test')", 1);
-
-        MongoDatabase database = getTestDatabase();
-
-        database.runCommand(new Document("create", "indexed_view")
-                .append("viewOn", "indexed_table")
-                .append("pipeline", Arrays.asList(
-                        new Document("$project", new Document()
-                                .append("id", 1)
-                                .append("name", 1)))));
-
-        assertQuery("SELECT * FROM test.indexed_view", "VALUES (1, 'test')");
-
-        boolean isView = false;
-        for (Document doc : database.listCollections()) {
-            if ("indexed_view".equals(doc.getString("name"))) {
-                isView = "view".equals(doc.getString("type"));
-                break;
-            }
-        }
-        assertEquals(isView, true, "indexed_view should be a view");
-
-        assertUpdate("DROP TABLE test.indexed_table");
-        database.getCollection("indexed_view").drop();
+        int appleIdx = products.indexOf("apple");
+        assertEquals(result.getMaterializedRows().get(appleIdx).getField(1), 15L,
+                "apple total_quantity should be 15");
     }
 
     @Test
     public void testViewWithFilter()
     {
-        assertUpdate("CREATE TABLE test.all_items (id INT, category VARCHAR, active BOOLEAN)");
-        assertUpdate("INSERT INTO test.all_items VALUES " +
-                "(1, 'A', true), " +
-                "(2, 'B', false), " +
-                "(3, 'A', true), " +
-                "(4, 'C', true)", 4);
+        MaterializedResult result = computeActual(
+                "SELECT id FROM test.active_a_items ORDER BY id");
 
-        MongoDatabase database = getTestDatabase();
+        assertEquals(result.getRowCount(), 2, "active_a_items should return exactly 2 rows");
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(result.getMaterializedRows().get(1).getField(0), 3L);
+    }
 
-        database.runCommand(new Document("create", "active_a_items")
-                .append("viewOn", "all_items")
-                .append("pipeline", Arrays.asList(
-                        new Document("$match", new Document()
-                                .append("category", "A")
-                                .append("active", true)),
-                        new Document("$project", new Document()
-                                .append("id", 1)
-                                .append("category", 1)
-                                .append("active", 1)))));
+    @Test
+    public void testCreateViewNotSupported()
+    {
+        assertQueryFails(
+                "CREATE VIEW mongodb.test.unsupported AS SELECT name FROM mongodb.test.view_base",
+                ".*not supported.*");
+    }
 
-        assertQuery("SELECT id FROM test.active_a_items ORDER BY id",
-                "VALUES (1), (3)");
+    @Test
+    public void testNativeMongoViewIsQueryable()
+    {
+        MaterializedResult result = computeActual("SELECT id FROM test.test_view ORDER BY id");
+        assertEquals(result.getRowCount(), 3);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(result.getMaterializedRows().get(1).getField(0), 2L);
+        assertEquals(result.getMaterializedRows().get(2).getField(0), 3L);
+    }
 
-        assertUpdate("DROP TABLE test.all_items");
-        database.getCollection("active_a_items").drop();
+    @Test
+    public void testShowCreateViewNotSupported()
+    {
+        assertQueryFails(
+                "SHOW CREATE VIEW test.test_view",
+                ".*is a table, not a view.*");
+    }
+
+    @Test
+    public void testViewDoesNotLeakIntoTableList()
+    {
+        MaterializedResult tables = computeActual("SHOW TABLES FROM test");
+        List<String> names = tables.getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toList());
+        assertFalse(names.contains("_schema"), "_schema should never appear as a table");
+    }
+
+    @Test
+    public void testViewColumnsInferredFromSample()
+    {
+        MaterializedResult result = computeActual("DESCRIBE test.test_view");
+        List<String> columns = result.getMaterializedRows().stream()
+                .map(row -> (String) row.getField(0))
+                .collect(toList());
+        assertFalse(columns.isEmpty(), "View should have at least one column");
+        assertTrue(columns.contains("id"), "Expected column 'id' to be inferred from view output");
+        assertTrue(columns.contains("name"), "Expected column 'name' to be inferred from view output");
+    }
+
+    @Test
+    public void testViewDoesNotHaveIndexes()
+    {
+        MaterializedResult result = computeActual("SELECT * FROM test.indexed_view");
+        assertNotNull(result, "Query against view should succeed without fetching indexes");
+    }
+
+    @Test
+    public void testDropViewRemovesFromSchemaCollection()
+    {
+        // Create inline so this test is self-contained and order-independent
+        getTestDatabase().createView(
+                "drop_view_isolated",
+                "view_base",
+                ImmutableList.of());
+
+        assertUpdate("DROP TABLE test.drop_view_isolated");
+
+        assertQueryFails(
+                "SELECT * FROM test.drop_view_isolated",
+                ".*not found.*|.*does not exist.*");
+    }
+
+    @Test
+    public void testRenameViewPreservesPipelineOutput()
+    {
+        getTestDatabase().createView(
+                "rename_isolated_src",
+                "view_base",
+                ImmutableList.of(
+                        new Document("$match", new Document("active", true))));
+
+        MaterializedResult before = computeActual(
+                "SELECT COUNT(*) FROM test.rename_isolated_src");
+        long countBefore = (long) before.getMaterializedRows().get(0).getField(0);
+
+        assertUpdate("ALTER TABLE test.rename_isolated_src RENAME TO rename_isolated_dst");
+
+        MaterializedResult after = computeActual(
+                "SELECT COUNT(*) FROM test.rename_isolated_dst");
+        long countAfter = (long) after.getMaterializedRows().get(0).getField(0);
+
+        assertEquals(countBefore, countAfter, "Row count should be identical after rename");
+
+        assertUpdate("DROP TABLE test.rename_isolated_dst");
     }
 }

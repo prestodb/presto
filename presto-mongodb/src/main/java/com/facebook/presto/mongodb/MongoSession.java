@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.mongodb.Block;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
@@ -148,11 +149,14 @@ public class MongoSession
     {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
 
-        builder.addAll(ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames()).stream()
+        List<String> rawNames = ImmutableList.copyOf(client.getDatabase(schema).listCollectionNames());
+        builder.addAll(rawNames.stream()
                 .filter(name -> !name.equals(schemaCollection))
                 .filter(name -> !SYSTEM_TABLES.contains(name))
                 .collect(toSet()));
-        builder.addAll(getTableMetadataNames(schema));
+        builder.addAll(getTableMetadataNames(schema).stream()
+                .filter(name -> !name.equals(schemaCollection))
+                .collect(toSet()));
 
         return builder.build();
     }
@@ -190,9 +194,15 @@ public class MongoSession
 
         ImmutableList.Builder<MongoColumnHandle> columnHandles = ImmutableList.builder();
 
-        for (Document columnMetadata : getColumnMetadata(tableMeta)) {
-            MongoColumnHandle columnHandle = buildColumnHandle(columnMetadata);
-            columnHandles.add(columnHandle);
+        if (isView(tableMeta)) {
+            // For views, infer columns from sample data
+            columnHandles.addAll(guessViewFields(tableName));
+        }
+        else {
+            // For regular collections, use stored metadata
+            for (Document columnMetadata : getColumnMetadata(tableMeta)) {
+                columnHandles.add(buildColumnHandle(columnMetadata));
+            }
         }
 
         MongoTableHandle tableHandle = new MongoTableHandle(tableName);
@@ -200,6 +210,39 @@ public class MongoSession
                 tableHandle,
                 columnHandles.build(),
                 isView(tableMeta) ? ImmutableList.of() : getIndexes(tableName));
+    }
+
+    private List<MongoColumnHandle> guessViewFields(SchemaTableName tableName)
+    {
+        MongoCollection<Document> collection = getCollection(tableName);
+
+        // Sample the view to infer schema
+        Document sample = collection.find().first();
+
+        if (sample == null) {
+            return ImmutableList.of();
+        }
+
+        ImmutableList.Builder<MongoColumnHandle> columns = ImmutableList.builder();
+
+        for (String key : sample.keySet()) {
+            Object value = sample.get(key);
+            Optional<TypeSignature> fieldType = guessFieldType(value);
+
+            if (fieldType.isPresent()) {
+                Type type = typeManager.getType(fieldType.get());
+                boolean hidden = key.equals("_id") && fieldType.get().equals(OBJECT_ID.getTypeSignature());
+                columns.add(new MongoColumnHandle(key, type, hidden));
+            }
+            else {
+                log.debug("Unable to guess field type for view column %s from %s : %s",
+                        key,
+                        value == null ? "null" : value.getClass().getName(),
+                        value);
+            }
+        }
+
+        return columns.build();
     }
 
     private static boolean isView(Document tableMeta)
@@ -223,7 +266,6 @@ public class MongoSession
         if (!doc.containsKey(FIELDS_KEY)) {
             return ImmutableList.of();
         }
-
         return (List<Document>) doc.get(FIELDS_KEY);
     }
 
@@ -239,6 +281,18 @@ public class MongoSession
 
     public List<MongoIndex> getIndexes(SchemaTableName tableName)
     {
+        // Check if it's a view by looking at the metadata
+        try {
+            Document tableMeta = getTableMetadata(tableName);
+            if (isView(tableMeta)) {
+                return ImmutableList.of();
+            }
+        }
+        catch (Exception e) {
+            // If we can't get metadata, try to get indexes anyway
+            log.debug(e, "Could not check if %s is a view", tableName);
+        }
+
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
@@ -264,21 +318,48 @@ public class MongoSession
         String oldTableName = oldName.getTableName();
         String newSchemaName = newName.getSchemaName();
 
-        // Schema collection should always have the source table definition
         MongoCollection<Document> oldSchema = client.getDatabase(oldSchemaName).getCollection(schemaCollection);
         Document tableDefinition = oldSchema.findOneAndDelete(new Document(TABLE_NAME_KEY, oldTableName));
         requireNonNull(tableDefinition, "Table definition not found in schema collection: " + oldTableName);
+
+        if (VIEW_TYPE_NAME.equals(tableDefinition.getString(TYPE_KEY))) {
+            MongoDatabase oldDb = client.getDatabase(oldSchemaName);
+            Document viewInfo = oldDb.listCollections()
+                    .filter(new Document(NAME_KEY, oldTableName))
+                    .first();
+            requireNonNull(viewInfo, "View definition not found in listCollections: " + oldName);
+
+            Document options = viewInfo.get("options", Document.class);
+            requireNonNull(options, "View options missing for: " + oldName);
+            String viewOn = options.getString("viewOn");
+            List<Document> pipeline = options.getList("pipeline", Document.class);
+
+            oldDb.getCollection(oldTableName).drop();
+
+            MongoDatabase newDb = client.getDatabase(newSchemaName);
+            newDb.createView(newName.getTableName(), viewOn, pipeline != null ? pipeline : ImmutableList.of());
+
+            tableDefinition.put(TABLE_NAME_KEY, newName.getTableName());
+            tableDefinition.remove("_id");
+            MongoCollection<Document> newSchema = newDb.getCollection(schemaCollection);
+            newSchema.createIndex(new Document(TABLE_NAME_KEY, 1), new IndexOptions().unique(true));
+            newSchema.insertOne(tableDefinition);
+
+            tableCache.invalidate(oldName);
+            tableCache.invalidate(newName);
+            return;
+        }
 
         MongoCollection<Document> newSchema = client.getDatabase(newSchemaName).getCollection(schemaCollection);
         tableDefinition.append(TABLE_NAME_KEY, newName.getTableName());
         newSchema.insertOne(tableDefinition);
 
-        // Need to check explicitly because the old collection may not exist when it doesn't have any data
         if (collectionExists(client.getDatabase(oldSchemaName), oldTableName)) {
             getCollection(oldName).renameCollection(new MongoNamespace(newSchemaName, newName.getTableName()));
         }
 
         tableCache.invalidate(oldName);
+        tableCache.invalidate(newName);
     }
 
     @VisibleForTesting
@@ -669,5 +750,22 @@ public class MongoSession
                 .updateMany(Filters.exists(columnName), Updates.unset(columnName));
 
         tableCache.invalidate(table.getSchemaTableName());
+    }
+
+    public List<SchemaTableName> listViews(String schemaName)
+    {
+        MongoDatabase db = client.getDatabase(schemaName);
+        ImmutableList.Builder<SchemaTableName> views = ImmutableList.builder();
+
+        db.listCollections()
+                .filter(new Document(TYPE_KEY, VIEW_TYPE_NAME))
+                .forEach((Block<Document>) doc -> {
+                    String name = doc.getString(NAME_KEY);
+                    if (!name.equals(schemaCollection) && !SYSTEM_TABLES.contains(name)) {
+                        views.add(new SchemaTableName(schemaName, name));
+                    }
+                });
+
+        return views.build();
     }
 }
