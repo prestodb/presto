@@ -233,4 +233,86 @@ public class TestLocalQueries
         assertQuery(enabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10",
                 disabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10");
     }
+
+    @Test
+    public void testJoinPrefilterUnionAll()
+    {
+        String sql = "SELECT * FROM " +
+                "(SELECT regionkey FROM nation UNION ALL SELECT regionkey FROM nation) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterCrossJoin()
+    {
+        String sql = "SELECT t.regionkey, t.rname, r2.name FROM " +
+                "(SELECT n.regionkey, r.name AS rname FROM nation n CROSS JOIN region r) t " +
+                "JOIN region r2 ON t.regionkey = r2.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .setSystemProperty("join_reordering_strategy", "NONE")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .setSystemProperty("join_reordering_strategy", "NONE")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterAggregationLeft()
+    {
+        String sql = "SELECT t.regionkey, t.cnt, r.name FROM " +
+                "(SELECT regionkey, count(*) AS cnt FROM nation GROUP BY regionkey) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterUnnestLeft()
+    {
+        String sql = "SELECT t.regionkey, t.x, r.name FROM " +
+                "(SELECT n.regionkey, x FROM nation n CROSS JOIN UNNEST(ARRAY[1,2,3]) t(x)) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterRightSidePushdown()
+    {
+        String sql = "SELECT n.nationkey, t.regionkey, t.cnt FROM nation n " +
+                "JOIN (SELECT regionkey, count(*) AS cnt FROM nation GROUP BY regionkey) t " +
+                "ON n.regionkey = t.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
 }
