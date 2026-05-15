@@ -57,6 +57,7 @@ public class BaseJdbcConfig
     private boolean caseSensitiveNameMatchingEnabled;
     @Min(1)
     private int fetchSize = 20000;
+    private boolean prestoAnalyzeView = true;
 
     @NotNull
     public String getConnectionUrl()
@@ -205,6 +206,18 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setFetchSize(int fetchSize)
     {
         this.fetchSize = fetchSize;
+        return this;
+    }
+
+    public boolean isPrestoManagedView()
+    {
+        return prestoAnalyzeView;
+    }
+
+    @Config("presto-managed-view")
+    public BaseJdbcConfig setPrestoManagedView(boolean prestoAnalyzeView)
+    {
+        this.prestoAnalyzeView = prestoAnalyzeView;
         return this;
     }
 }

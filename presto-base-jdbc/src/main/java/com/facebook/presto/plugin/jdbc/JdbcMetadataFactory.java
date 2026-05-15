@@ -22,20 +22,22 @@ public class JdbcMetadataFactory
     private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
+    private final boolean prestoAnalyzeViews;
     private final TableLocationProvider tableLocationProvider;
 
     @Inject
-    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, TableLocationProvider tableLocationProvider)
+    public JdbcMetadataFactory(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, JdbcMetadataConfig config, BaseJdbcConfig baseJdbcConfig, TableLocationProvider tableLocationProvider)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         requireNonNull(config, "config is null");
         this.allowDropTable = config.isAllowDropTable();
+        this.prestoAnalyzeViews = baseJdbcConfig.isPrestoManagedView();
         this.tableLocationProvider = requireNonNull(tableLocationProvider, "tableLocationProvider is null");
     }
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider);
+        return new JdbcMetadata(jdbcMetadataCache, jdbcClient, allowDropTable, tableLocationProvider, prestoAnalyzeViews);
     }
 }
