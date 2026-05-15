@@ -263,6 +263,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
+import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -1264,6 +1265,28 @@ public abstract class IcebergAbstractMetadata
             }
             updatePartitionSpec.commit();
         }
+    }
+
+    @Override
+    public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have column defaults set");
+        validateNoBranchSpecified(handle, "SET COLUMN DEFAULT");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        validateMinimumFormatVersion(icebergTable, 3, format("SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher. " +
+                "Table '%s' is currently at format version %d.", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
+        // Find the column in the schema
+        Types.NestedField field = icebergTable.schema().findField(columnName);
+        if (field == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist in table '%s'", columnName, handle.getSchemaTableName()));
+        }
+        // Convert the default value to Iceberg literal
+        Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, field.type());
+        // updateColumnDefault only updates the write-default value, preserving the existing initial-default
+        icebergTable.updateSchema()
+                .updateColumnDefault(columnName, defaultLiteral)
+                .commit();
     }
 
     @Override

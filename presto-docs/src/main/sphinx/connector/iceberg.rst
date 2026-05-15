@@ -1546,11 +1546,13 @@ SQL Operation                        Presto Java   Presto C++   Comments
 
 ``SELECT``                           Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
 
-``ALTER TABLE``                      Yes           Yes
+``ALTER TABLE``                              Yes           Yes
 
-``ALTER TABLE ADD COLUMN DEFAULT``   Yes           Yes
+``ALTER TABLE ADD COLUMN DEFAULT``           Yes           Yes
 
-``ALTER VIEW``                       Yes           Yes
+``ALTER TABLE ALTER COLUMN SET DEFAULT``     Yes           Yes
+
+``ALTER VIEW``                               Yes           Yes
 
 ``TRUNCATE``                         Yes           Yes
 
@@ -1881,6 +1883,37 @@ rows that were written before the column was added::
              1 | IN
              2 | IN
              3 | IN
+
+ALTER COLUMN SET DEFAULT (Iceberg V3)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    ``ALTER COLUMN SET DEFAULT`` currently only updates the Iceberg metadata (``write-default`` field).
+    **INSERT support for write-default is not yet implemented** — inserts will not automatically use
+    the write-default value. This will be added in a future release.
+
+Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
+modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility
+with other Iceberg engines.
+
+The ``ALTER COLUMN SET DEFAULT`` statement updates the ``write-default`` field in the Iceberg
+schema metadata. This is a metadata-only operation — no data files are rewritten.
+
+**Behavior:**
+
+* If the column has no previous default, both ``initial-default`` and ``write-default`` are set to the same value
+* If the column already has an ``initial-default``, only ``write-default`` is updated (preserving ``initial-default``)
+
+Example — Update the ``write-default`` for the ``country`` column::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN country SET DEFAULT 'US';
+
+After this statement, the Iceberg metadata is updated, but **INSERT operations do not yet use the
+write-default value automatically**. This functionality will be added in a future release.
+
+This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
+a table with format version 2 or lower will result in an error.
 
 ALTER VIEW
 ^^^^^^^^^^

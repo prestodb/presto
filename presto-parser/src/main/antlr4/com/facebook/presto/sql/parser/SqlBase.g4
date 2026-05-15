@@ -67,6 +67,8 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier SET DEFAULT expression       #setColumnDefault
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         SET PROPERTIES properties                                      #setTableProperties
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? name=string

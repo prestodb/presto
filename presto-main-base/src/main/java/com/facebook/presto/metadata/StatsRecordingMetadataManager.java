@@ -1171,6 +1171,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+        }
+        finally {
+            stats.recordSetColumnDefaultCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public String normalizeIdentifier(Session session, String catalogName, String identifier)
     {
         long startTime = System.nanoTime();

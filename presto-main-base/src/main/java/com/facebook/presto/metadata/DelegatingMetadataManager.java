@@ -272,6 +272,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         delegate.dropColumn(session, tableHandle, column);

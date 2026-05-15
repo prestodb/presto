@@ -314,6 +314,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
     {
         throw new UnsupportedOperationException();
