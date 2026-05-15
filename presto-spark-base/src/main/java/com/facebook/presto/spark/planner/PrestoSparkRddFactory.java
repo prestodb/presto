@@ -37,6 +37,7 @@ import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTask
 import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -369,7 +370,7 @@ public class PrestoSparkRddFactory
     private static List<PrestoSparkSource> findTableScanNodes(PlanNode node)
     {
         return searchFrom(node)
-                .where(TableScanNode.class::isInstance)
+                .where(n -> n instanceof TableScanNode || n instanceof IndexSourceNode)
                 .findAll().stream().map(t -> new PrestoSparkSource(t.getId(), t)).collect(Collectors.toList());
     }
 
