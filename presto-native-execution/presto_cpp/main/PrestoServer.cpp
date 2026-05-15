@@ -1916,8 +1916,9 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
 
   const double cpuLoadPct{cpuMon_.getCPULoadPct()};
 
-  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
-  const int64_t nonHeapUsed{0};
+  // Reports Velox allocator total (queries + cache) as nonHeapUsed
+  // for coordinator visibility.
+  const int64_t nonHeapUsed = velox::memory::memoryManager()->getTotalBytes();
 
   protocol::NodeStatus nodeStatus{
       nodeId_,
