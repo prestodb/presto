@@ -14,15 +14,26 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -33,6 +44,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestRpcFunctionOptimizer
@@ -262,5 +275,319 @@ public class TestRpcFunctionOptimizer
         CallExpression rpcCall = createRpcCall(
                 varchar("{\"api_key\":\"test-key\"}"));
         assertEquals(invokeParseDispatchBatchSize(rpcCall), 128);
+    }
+
+    @Test
+    public void testTryWithRpcFunctionProducesRpcNode()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        // Build: $internal$try(BIND(input_col, (p) -> test_rpc_function(p, "model", "system", "{}")))
+        CallExpression rpcInsideLambda = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(
+                        new VariableReferenceExpression(Optional.empty(), "p", VARCHAR),
+                        varchar("model"),
+                        varchar("system"),
+                        varchar("{}")));
+
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of("p"),
+                rpcInsideLambda);
+
+        SpecialFormExpression bind = new SpecialFormExpression(
+                SpecialFormExpression.Form.BIND,
+                VARCHAR,
+                ImmutableList.of(inputVar, lambda));
+
+        CallExpression tryCall = new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                VARCHAR,
+                ImmutableList.of(bind));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, tryCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode,
+                session,
+                TypeProvider.empty(),
+                variableAllocator,
+                idAllocator,
+                WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized when TRY wraps an RPC function");
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
+                "Optimized plan should contain an RPCNode");
+    }
+
+    @Test
+    public void testTryWithoutRpcFunctionIsUnchanged()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        // Build: $internal$try(BIND(input_col, (p) -> concat(p, "suffix")))
+        CallExpression concatInsideLambda = createConcat(
+                new VariableReferenceExpression(Optional.empty(), "p", VARCHAR),
+                varchar("suffix"));
+
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(VARCHAR),
+                ImmutableList.of("p"),
+                concatInsideLambda);
+
+        SpecialFormExpression bind = new SpecialFormExpression(
+                SpecialFormExpression.Form.BIND,
+                VARCHAR,
+                ImmutableList.of(inputVar, lambda));
+
+        CallExpression tryCall = new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                VARCHAR,
+                ImmutableList.of(bind));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, tryCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode,
+                session,
+                TypeProvider.empty(),
+                variableAllocator,
+                idAllocator,
+                WarningCollector.NOOP);
+
+        assertFalse(result.isOptimizerTriggered(), "Plan should not be optimized when TRY does not wrap an RPC function");
+        assertFalse(containsPlanNode(result.getPlanNode(), RPCNode.class),
+                "Plan should not contain an RPCNode");
+    }
+
+    @Test
+    public void testDirectRpcFunctionStillWorks()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        // Build: test_rpc_function(input_col, "model", "system", "{}")  (no TRY wrapper)
+        CallExpression rpcCall = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(inputVar, varchar("model"), varchar("system"), varchar("{}")));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, rpcCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode,
+                session,
+                TypeProvider.empty(),
+                variableAllocator,
+                idAllocator,
+                WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for direct RPC function calls");
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
+                "Optimized plan should contain an RPCNode");
+    }
+
+    @Test
+    public void testTryWithDirectLambdaRpcFunction()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar = variableAllocator.newVariable("input_col", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        // Build: $internal$try(() -> test_rpc_function(input_col, "model", "system", "{}"))
+        // Direct lambda argument without BIND
+        CallExpression rpcInsideLambda = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(inputVar, varchar("model"), varchar("system"), varchar("{}")));
+
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                rpcInsideLambda);
+
+        CallExpression tryCall = new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                VARCHAR,
+                ImmutableList.of(lambda));
+
+        PlanOptimizerResult result = optimizeWithTryCall(idAllocator, variableAllocator, inputVar, outputVar, tryCall);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for TRY with direct lambda");
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
+                "Optimized plan should contain an RPCNode");
+    }
+
+    @Test
+    public void testTryWithMultipleBoundVariables()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+
+        VariableReferenceExpression inputVar1 = variableAllocator.newVariable("input_col1", VARCHAR);
+        VariableReferenceExpression inputVar2 = variableAllocator.newVariable("input_col2", VARCHAR);
+        VariableReferenceExpression outputVar = variableAllocator.newVariable("output_col", VARCHAR);
+
+        // Build: $internal$try(BIND(input_col1, input_col2, (a, b) -> test_rpc_function(a, b, "system", "{}")))
+        CallExpression rpcInsideLambda = new CallExpression(
+                "test_rpc_function",
+                createFunctionHandle("test_rpc_function"),
+                VARCHAR,
+                ImmutableList.of(
+                        new VariableReferenceExpression(Optional.empty(), "a", VARCHAR),
+                        new VariableReferenceExpression(Optional.empty(), "b", VARCHAR),
+                        varchar("system"),
+                        varchar("{}")));
+
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(
+                Optional.empty(),
+                ImmutableList.of(VARCHAR, VARCHAR),
+                ImmutableList.of("a", "b"),
+                rpcInsideLambda);
+
+        SpecialFormExpression bind = new SpecialFormExpression(
+                SpecialFormExpression.Form.BIND,
+                VARCHAR,
+                ImmutableList.of(inputVar1, inputVar2, lambda));
+
+        CallExpression tryCall = new CallExpression(
+                "$internal$try",
+                createFunctionHandle("$internal$try"),
+                VARCHAR,
+                ImmutableList.of(bind));
+
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar1, inputVar2),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, tryCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        PlanOptimizerResult result = optimizer.optimize(
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+
+        assertTrue(result.isOptimizerTriggered(), "Plan should be optimized for multi-param TRY");
+        assertTrue(containsPlanNode(result.getPlanNode(), RPCNode.class),
+                "Optimized plan should contain an RPCNode");
+    }
+
+    private PlanOptimizerResult optimizeWithTryCall(
+            PlanNodeIdAllocator idAllocator,
+            VariableAllocator variableAllocator,
+            VariableReferenceExpression inputVar,
+            VariableReferenceExpression outputVar,
+            CallExpression tryCall)
+    {
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(inputVar),
+                ImmutableList.of(),
+                Optional.empty());
+
+        ProjectNode projectNode = new ProjectNode(
+                idAllocator.getNextId(),
+                source,
+                Assignments.builder()
+                        .put(outputVar, tryCall)
+                        .build());
+
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(
+                () -> ImmutableSet.of("test_rpc_function"));
+        Session session = TestingSession.testSessionBuilder().build();
+
+        return optimizer.optimize(
+                projectNode, session, TypeProvider.empty(), variableAllocator, idAllocator, WarningCollector.NOOP);
+    }
+
+    private static boolean containsPlanNode(PlanNode node, Class<? extends PlanNode> targetClass)
+    {
+        if (targetClass.isInstance(node)) {
+            return true;
+        }
+        return node.getSources().stream().anyMatch(source -> containsPlanNode(source, targetClass));
     }
 }
