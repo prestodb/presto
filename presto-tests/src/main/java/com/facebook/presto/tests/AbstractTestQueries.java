@@ -2194,7 +2194,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (\n" +
                 "   SELECT row_number() OVER (ORDER BY orderkey) rn, orderkey, orderstatus\n" +
                 "   FROM orders\n" +
-                ") WHERE rn <= 5");
+                ") WHERE rn <= 5 ORDER BY rn");
         String sql = "SELECT row_number() OVER (), orderkey, orderstatus FROM orders ORDER BY orderkey LIMIT 5";
         MaterializedResult expected = computeExpected(sql, actual.getTypes());
         assertEquals(actual, expected);
@@ -3029,9 +3029,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowSchemasLikeWithEscape()
     {
-        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", "(?s)line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
-        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS IN foo LIKE '%$_%' ESCAPE", ".*line 1:39: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
 
         Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
         assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
@@ -3078,9 +3078,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTablesLikeWithEscape()
     {
-        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", "(?s)line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", "(?s)Escape string must be a single character.*");
-        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", "(?s)Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES IN a LIKE '%$_%' ESCAPE", ".*line 1:36: mismatched input '<EOF>'. Expecting: <string>.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE ''", ".*Escape string must be a single character.*");
+        assertQueryFails("SHOW TABLES LIKE 't$_%' ESCAPE '$$'", ".*Escape string must be a single character.*");
 
         Set<Object> allTables = computeActual("SHOW TABLES FROM information_schema").getOnlyColumnAsSet();
         assertEquals(allTables, computeActual("SHOW TABLES FROM information_schema LIKE '%_%'").getOnlyColumnAsSet());
@@ -3801,7 +3801,11 @@ public abstract class AbstractTestQueries
     @Test
     public void testScalarSubquery()
     {
-        Session session = sessionWithLegacyTimestamp();
+        assertScalarSubquery(sessionWithLegacyTimestamp(), "(?s)Scalar sub-query has returned multiple rows.*");
+    }
+
+    protected void assertScalarSubquery(Session session, @Language("RegExp") String multipleRowsErrorMsg)
+    {
         // nested
         assertQuery("SELECT (SELECT (SELECT (SELECT 1)))");
 
@@ -3871,7 +3875,6 @@ public abstract class AbstractTestQueries
         assertQuery(session, "SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
 
         // subquery returns multiple rows
-        String multipleRowsErrorMsg = "(?s)Scalar sub-query has returned multiple rows.*";
         assertQueryFails(session, "SELECT * FROM lineitem WHERE orderkey = (\n" +
                         "SELECT orderkey FROM orders ORDER BY totalprice)",
                 multipleRowsErrorMsg);
@@ -7758,9 +7761,9 @@ public abstract class AbstractTestQueries
                 .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, "true")
                 .build();
         // Trigger optimization
-        assertQuery(session, "select * from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
+        assertQuery(session, "select o.custkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
         assertQuery(session, "select o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
-        assertQuery(session, "select *, cast(o.custkey as varchar), cast(c.custkey as varchar) from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
+        assertQuery(session, "select c.name, cast(o.custkey as varchar), cast(c.custkey as varchar) from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)");
         assertQuery(session, "select r.custkey, r.orderkey, r.name, n.nationkey from (select o.custkey, o.orderkey, c.name from orders o join customer c on cast(o.custkey as varchar) = cast(c.custkey as varchar)) r, nation n");
         // Do not trigger optimization
         assertQuery(session, "select * from customer c join orders o on cast(acctbal as varchar) = cast(totalprice as varchar)");
@@ -7952,10 +7955,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testRemoveMapCastFailure()
     {
+        assertRemoveMapCastFailure("(?s).*Out of range for integer.*");
+    }
+
+    protected void assertRemoveMapCastFailure(@Language("RegExp") String expectedError)
+    {
         Session enableOptimization = Session.builder(getSession())
                 .setSystemProperty(REMOVE_MAP_CAST, "true")
                 .build();
-        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", "(?s).*Out of range for integer.*");
+        assertQueryFails(enableOptimization, "select feature[key] from (values (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), cast(2 as bigint)), (map(array[cast(1 as integer), 2, 3, 4], array[0.3, 0.5, 0.9, 0.1]), 400000000000)) t(feature, key)", expectedError);
     }
 
     // Test to guardrail problems in constraint framework mentioned in https://github.com/prestodb/presto/pull/22171
