@@ -731,6 +731,29 @@ concurrency.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
+``push_filter_through_selecting_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pushes HAVING-style filters on the output of single-value-selecting aggregates (``MAX``,
+``MIN``, ``ARBITRARY``) below the aggregation when the predicate direction matches the
+aggregate's selection semantics. For example, ``HAVING max(x) >= 1.0`` becomes
+``WHERE x >= 1.0``. Only fires when the aggregation has a single aggregate (so filtering
+rows below the aggregation does not change the row set seen by other aggregates), the
+aggregate argument is a direct column reference (no expressions, ``DISTINCT``, ``FILTER``,
+``MASK``, or ``ORDER BY``), and the non-aggregate side of the comparison is a constant.
+
+Strict-direction predicates are pushed in REPLACE form: ``MAX`` with ``>`` / ``>=``,
+``MIN`` with ``<`` / ``<=``, and ``ARBITRARY`` with any comparison.
+
+Equality on ``MAX`` / ``MIN`` is pushed in ADD-pre-filter + KEEP-HAVING form:
+``HAVING max(x) = c`` becomes ``WHERE x >= c`` below the aggregation while keeping
+``HAVING max(x) = c`` above; symmetric for ``MIN`` (``WHERE x <= c``). The relaxed
+pre-filter is implied by the original predicate, and the kept HAVING still rejects
+groups that would have failed it originally.
+
 
 JDBC Properties
 ---------------

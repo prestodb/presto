@@ -100,6 +100,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughDisj
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownDereferences;
 import com.facebook.presto.sql.planner.iterative.rule.PushDownFilterExpressionEvaluationThroughCrossJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushFilterThroughSelectingAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOffset;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
@@ -863,6 +864,15 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins())),
+                // Push HAVING-style filter on MAX/MIN/ARBITRARY below the aggregation BEFORE the
+                // following predicatePushDown so the new below-aggregation filter can be pushed
+                // through joins, projections, and into the table scan.
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new PushFilterThroughSelectingAggregation(metadata))),
                 predicatePushDown,
                 simplifyRowExpressionOptimizer); // Should always run simplifyOptimizer after predicatePushDown
 
