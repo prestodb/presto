@@ -54,7 +54,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoNativeIcebergRowLineage
+public class TestPrestoNativeIcebergV3Queries
         extends AbstractTestQueryFramework
 {
     private static final String TEST_SCHEMA = "tpch";
@@ -208,7 +208,7 @@ public class TestPrestoNativeIcebergRowLineage
     }
 
     @Test
-    public void testV2TableRowLineageNullThenBackfilledAfterV3Upgrade()
+    public void testRowLineageBackfilledOnV2ToV3Upgrade()
             throws Exception
     {
         String tableName = "test_native_row_lineage_v2_" + RUN_ID;

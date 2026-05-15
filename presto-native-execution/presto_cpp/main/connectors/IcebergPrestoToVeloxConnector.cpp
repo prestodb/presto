@@ -112,7 +112,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
           std::find(names.begin(), names.end(), handle->name()) ==
               names.end()) {
         names.emplace_back(handle->name());
-        types.push_back(velox::BIGINT());
+        types.push_back(handle->dataType());
       }
     }
 
