@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.plugin.bigquery;
 
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
+import com.google.cloud.bigquery.storage.v1.ReadRowsResponse;
 
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
 
 public class MockResponsesBatch
-        implements Iterator<Storage.ReadRowsResponse>
+        implements Iterator<ReadRowsResponse>
 {
     private Queue<Object> responses = new LinkedList<>();
 
-    void addResponse(Storage.ReadRowsResponse response)
+    void addResponse(ReadRowsResponse response)
     {
         responses.add(response);
     }
@@ -41,11 +41,11 @@ public class MockResponsesBatch
     }
 
     @Override
-    public Storage.ReadRowsResponse next()
+    public ReadRowsResponse next()
     {
         Object next = responses.poll();
-        if (next instanceof Storage.ReadRowsResponse) {
-            return (Storage.ReadRowsResponse) next;
+        if (next instanceof ReadRowsResponse) {
+            return (ReadRowsResponse) next;
         }
         if (next instanceof RuntimeException) {
             throw (RuntimeException) next;
