@@ -51,6 +51,10 @@ add_library(presto_expression_optimizer ExpressionOptimizer.cpp)
 
 target_link_libraries(presto_expression_optimizer presto_types presto_velox_to_presto_expr)
 
+add_library(presto_kll_sketch_type KllSketchType.cpp KllSketchTypeRegistration.cpp)
+
+target_link_libraries(presto_kll_sketch_type velox_type velox_common_base Folly::folly)
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()
