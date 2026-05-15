@@ -72,57 +72,56 @@ public class TestPinotColumnMetadata
                 .build();
 
         Map<String, Type> expectedTypeMap = new ImmutableMap.Builder<String, Type>()
-                .put("singleValueIntDimension", INTEGER)
-                .put("singleValueLongDimension", BIGINT)
-                .put("singleValueFloatDimension", DOUBLE)
-                .put("singleValueDoubleDimension", DOUBLE)
-                .put("singleValueBytesDimension", VARBINARY)
-                .put("singleValueBooleanDimension", BOOLEAN)
-                .put("singleValueStringDimension", VARCHAR)
-                .put("multiValueIntDimension", new ArrayType(INTEGER))
-                .put("multiValueLongDimension", new ArrayType(BIGINT))
-                .put("multiValueFloatDimension", new ArrayType(DOUBLE))
-                .put("multiValueDoubleDimension", new ArrayType(DOUBLE))
-                .put("multiValueBytesDimension", new ArrayType(VARBINARY))
-                .put("multiValueBooleanDimension", new ArrayType(BOOLEAN))
-                .put("multiValueStringDimension", new ArrayType(VARCHAR))
-                .put("intMetric", INTEGER)
-                .put("longMetric", BIGINT)
-                .put("floatMetric", DOUBLE)
-                .put("doubleMetric", DOUBLE)
-                .put("bytesMetric", VARBINARY)
-                .put("daysSinceEpoch", DateType.DATE)
-                .put("epochDayDateTime", DateType.DATE)
-                .put("epochMillisDateTime", TimestampType.TIMESTAMP)
-                .put("epochTenDayDateTime", INTEGER)
-                .put("epochSecondsDateTime", BIGINT)
+                .put("singlevalueintdimension", INTEGER)
+                .put("singlevaluelongdimension", BIGINT)
+                .put("singlevaluefloatdimension", DOUBLE)
+                .put("singlevaluedoubledimension", DOUBLE)
+                .put("singlevaluebytesdimension", VARBINARY)
+                .put("singlevaluebooleandimension", BOOLEAN)
+                .put("singlevaluestringdimension", VARCHAR)
+                .put("multivalueintdimension", new ArrayType(INTEGER))
+                .put("multivaluelongdimension", new ArrayType(BIGINT))
+                .put("multivaluefloatdimension", new ArrayType(DOUBLE))
+                .put("multivaluedoubledimension", new ArrayType(DOUBLE))
+                .put("multivaluebytesdimension", new ArrayType(VARBINARY))
+                .put("multivaluebooleandimension", new ArrayType(BOOLEAN))
+                .put("multivaluestringdimension", new ArrayType(VARCHAR))
+                .put("intmetric", INTEGER)
+                .put("longmetric", BIGINT)
+                .put("floatmetric", DOUBLE)
+                .put("doublemetric", DOUBLE)
+                .put("bytesmetric", VARBINARY)
+                .put("dayssinceepoch", DateType.DATE)
+                .put("epochdaydatetime", DateType.DATE)
+                .put("epochmillisdatetime", TimestampType.TIMESTAMP)
+                .put("epochtendaydatetime", INTEGER)
+                .put("epochsecondsdatetime", BIGINT)
                 .build();
         Map<String, String> expectedComment = new ImmutableMap.Builder<String, String>()
-                .put("sd1", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueIntDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueLongDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueFloatDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueDoubleDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueBytesDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueBooleanDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("singleValueStringDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueIntDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueLongDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueFloatDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueDoubleDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueBytesDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueBooleanDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("multiValueStringDimension", FieldSpec.FieldType.DIMENSION.name())
-                .put("intMetric", FieldSpec.FieldType.METRIC.name())
-                .put("longMetric", FieldSpec.FieldType.METRIC.name())
-                .put("floatMetric", FieldSpec.FieldType.METRIC.name())
-                .put("doubleMetric", FieldSpec.FieldType.METRIC.name())
-                .put("bytesMetric", FieldSpec.FieldType.METRIC.name())
-                .put("daysSinceEpoch", FieldSpec.FieldType.TIME.name())
-                .put("epochDayDateTime", FieldSpec.FieldType.DATE_TIME.name())
-                .put("epochMillisDateTime", FieldSpec.FieldType.DATE_TIME.name())
-                .put("epochTenDayDateTime", FieldSpec.FieldType.DATE_TIME.name())
-                .put("epochSecondsDateTime", FieldSpec.FieldType.DATE_TIME.name())
+                .put("singlevalueintdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluelongdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluefloatdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluedoubledimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluebytesdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluebooleandimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("singlevaluestringdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivalueintdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluelongdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluefloatdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluedoubledimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluebytesdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluebooleandimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("multivaluestringdimension", FieldSpec.FieldType.DIMENSION.name())
+                .put("intmetric", FieldSpec.FieldType.METRIC.name())
+                .put("longmetric", FieldSpec.FieldType.METRIC.name())
+                .put("floatmetric", FieldSpec.FieldType.METRIC.name())
+                .put("doublemetric", FieldSpec.FieldType.METRIC.name())
+                .put("bytesmetric", FieldSpec.FieldType.METRIC.name())
+                .put("dayssinceepoch", FieldSpec.FieldType.TIME.name())
+                .put("epochdaydatetime", FieldSpec.FieldType.DATE_TIME.name())
+                .put("epochmillisdatetime", FieldSpec.FieldType.DATE_TIME.name())
+                .put("epochtendaydatetime", FieldSpec.FieldType.DATE_TIME.name())
+                .put("epochsecondsdatetime", FieldSpec.FieldType.DATE_TIME.name())
                 .build();
 
         List<PinotColumn> pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testPinotSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
@@ -146,7 +145,7 @@ public class TestPinotColumnMetadata
                 .build();
         List<PinotColumn> pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         PinotColumn column = pinotColumns.get(0);
-        assertEquals(column.getName(), "daysSinceEpoch");
+        assertEquals(column.getName(), "dayssinceepoch");
         assertEquals(column.getType(), DateType.DATE);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -156,7 +155,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "daysSinceEpoch");
+        assertEquals(column.getName(), "dayssinceepoch");
         assertEquals(column.getType(), DateType.DATE);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -166,7 +165,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "millisSinceEpoch");
+        assertEquals(column.getName(), "millissinceepoch");
         assertEquals(column.getType(), TimestampType.TIMESTAMP);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -176,7 +175,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "millisSinceEpoch");
+        assertEquals(column.getName(), "millissinceepoch");
         assertEquals(column.getType(), TimestampType.TIMESTAMP);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -186,7 +185,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -196,7 +195,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -206,7 +205,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
     }
@@ -224,7 +223,7 @@ public class TestPinotColumnMetadata
                 .build();
         List<PinotColumn> pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         PinotColumn column = pinotColumns.get(0);
-        assertEquals(column.getName(), "daysSinceEpoch");
+        assertEquals(column.getName(), "dayssinceepoch");
         assertEquals(column.getType(), INTEGER);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -234,7 +233,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "daysSinceEpoch");
+        assertEquals(column.getName(), "dayssinceepoch");
         assertEquals(column.getType(), INTEGER);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -244,7 +243,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "millisSinceEpoch");
+        assertEquals(column.getName(), "millissinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -254,7 +253,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "millisSinceEpoch");
+        assertEquals(column.getName(), "millissinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -264,7 +263,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -274,7 +273,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
 
@@ -284,7 +283,7 @@ public class TestPinotColumnMetadata
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
-        assertEquals(column.getName(), "secondsSinceEpoch");
+        assertEquals(column.getName(), "secondssinceepoch");
         assertEquals(column.getType(), BIGINT);
         assertEquals(column.getComment(), FieldSpec.FieldType.TIME.name());
     }

@@ -33,6 +33,7 @@ import org.apache.pinot.spi.data.TimeFieldSpec;
 import org.apache.pinot.spi.data.TimeGranularitySpec;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
@@ -52,15 +53,20 @@ public class PinotColumnUtils
 
     public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema, boolean inferDateType, boolean inferTimestampType)
     {
-        return getPinotColumnsForPinotSchema(pinotTableSchema, inferDateType, inferTimestampType, false);
+        return getPinotColumnsForPinotSchema(pinotTableSchema, inferDateType, inferTimestampType, false, false);
     }
 
-    public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema, boolean inferDateType, boolean inferTimestampType, boolean nullHandlingEnabled)
+    public static List<PinotColumn> getPinotColumnsForPinotSchema(
+            Schema pinotTableSchema,
+            boolean inferDateType,
+            boolean inferTimestampType,
+            boolean nullHandlingEnabled,
+            boolean isCaseSensitiveNameMatchingEnabled)
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in SQL
                 .map(columnName -> new PinotColumn(
-                        columnName,
+                        isCaseSensitiveNameMatchingEnabled ? columnName : columnName.toLowerCase(Locale.ROOT),
                         getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), inferDateType, inferTimestampType),
                         isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), nullHandlingEnabled),
                         getCommentFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
