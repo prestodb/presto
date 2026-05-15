@@ -28,12 +28,16 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -871,4 +875,151 @@ public class TestJoinDynamicFilter
         assertEquals(filter.getCurrentConstraintByColumnName(), resolvedConstraint);
     }
 
+    // BEGIN DIAGNOSTIC(DPP-PARTITIONED-WAIT)
+    @Test
+    public void testArrivalSpreadRecordedOnCompletion()
+            throws Exception
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "column_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(2);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+        Thread.sleep(20);
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
+
+        assertTrue(filter.isComplete());
+
+        assertTrue(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS),
+                "Aggregate ARRIVAL_SPREAD_NANOS should be present after completion");
+        long spread = runtimeStats.getMetrics().get(DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS).getSum();
+        assertTrue(spread > 0, "Spread should be positive when contributions arrive at different times");
+
+        String perFilterSpread = format("%s[%s]", DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterSpread),
+                "Per-filter ARRIVAL_SPREAD_NANOS[549] should be present");
+    }
+
+    @Test
+    public void testArrivalSpreadNotRecordedWithoutExtendedMetrics()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "column_a",
+                DEFAULT_TIMEOUT,
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                false);  // extendedMetrics OFF
+        filter.setExpectedPartitions(2);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
+
+        assertTrue(filter.isComplete());
+        assertFalse(runtimeStats.getMetrics().containsKey(DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS),
+                "ARRIVAL_SPREAD_NANOS should NOT be present when extendedMetrics=false");
+    }
+
+    @Test
+    public void testTimeoutSnapshotRecordsDeficit()
+            throws Exception
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                new Duration(100, TimeUnit.MILLISECONDS),
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(4);
+
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 10L))));
+        filter.addPartitionByFilterId(TupleDomain.withColumnDomains(
+                ImmutableMap.of("549", Domain.singleValue(INTEGER, 20L))));
+
+        filter.startTimeout();
+        Thread.sleep(300);
+        // Wait for onTimeout callback to run (scheduled on the future's completion executor)
+        filter.isBlocked().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        // Give the whenComplete handler a moment to run
+        Thread.sleep(50);
+
+        assertFalse(filter.isComplete(), "Timeout should not resolve the filter");
+
+        String perFilterPartitionsAtTimeout = format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterPartitionsAtTimeout),
+                "Per-filter PARTITIONS_AT_TIMEOUT[549] should be present");
+        assertEquals(runtimeStats.getMetrics().get(perFilterPartitionsAtTimeout).getSum(), 2,
+                "Should record exactly 2 partitions received at timeout");
+
+        String perFilterDeficit = format("%s[%s]", DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterDeficit),
+                "Per-filter DEFICIT_AT_TIMEOUT[549] should be present");
+        assertEquals(runtimeStats.getMetrics().get(perFilterDeficit).getSum(), 2,
+                "Deficit = expected (4) - received (2) = 2");
+
+        String perFilterSinceLast = format("%s[%s]", DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterSinceLast),
+                "Per-filter TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS[549] should be present (had arrivals)");
+        assertTrue(runtimeStats.getMetrics().get(perFilterSinceLast).getSum() > 0,
+                "Time since last arrival should be positive");
+    }
+
+    @Test
+    public void testTimeoutSnapshotWithZeroArrivals()
+            throws Exception
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+
+        JoinDynamicFilter filter = new JoinDynamicFilter(
+                "549",
+                "col_a",
+                new Duration(100, TimeUnit.MILLISECONDS),
+                DEFAULT_MAX_SIZE_BYTES,
+                new DynamicFilterStats(),
+                runtimeStats,
+                true);
+        filter.setExpectedPartitions(4);
+
+        filter.startTimeout();
+        Thread.sleep(300);
+        filter.isBlocked().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        Thread.sleep(50);
+
+        assertFalse(filter.isComplete(), "Timeout with zero arrivals should not resolve the filter");
+
+        String perFilterPartitionsAtTimeout = format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT, "549");
+        assertTrue(runtimeStats.getMetrics().containsKey(perFilterPartitionsAtTimeout),
+                "PARTITIONS_AT_TIMEOUT[549] should be present even with zero arrivals");
+        assertEquals(runtimeStats.getMetrics().get(perFilterPartitionsAtTimeout).getSum(), 0,
+                "Should record exactly 0 partitions received");
+
+        String perFilterDeficit = format("%s[%s]", DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT, "549");
+        assertEquals(runtimeStats.getMetrics().get(perFilterDeficit).getSum(), 4,
+                "Deficit = expected (4) - received (0) = 4");
+
+        String perFilterSinceLast = format("%s[%s]", DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS, "549");
+        assertFalse(runtimeStats.getMetrics().containsKey(perFilterSinceLast),
+                "TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS[549] should NOT be present (no arrival to reference)");
+    }
+    // END DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 }

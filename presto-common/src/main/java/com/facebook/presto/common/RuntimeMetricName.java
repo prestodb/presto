@@ -115,6 +115,12 @@ public class RuntimeMetricName
     public static final String DYNAMIC_FILTER_FACTORY_CLOSED = "dynamicFilterFactoryClosed";
     public static final String DYNAMIC_FILTER_FLUSH_FIRED = "dynamicFilterFlushFired";
     public static final String DYNAMIC_FILTER_COMPLETED_ID_DELIVERED = "dynamicFilterCompletedIdDelivered";
+    // BEGIN DIAGNOSTIC(DPP-PARTITIONED-WAIT)
+    public static final String DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS = "dynamicFilterArrivalSpreadNanos";
+    public static final String DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT = "dynamicFilterPartitionsAtTimeout";
+    public static final String DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT = "dynamicFilterDeficitAtTimeout";
+    public static final String DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS = "dynamicFilterTimeSinceLastArrivalAtTimeoutNanos";
+    // END DIAGNOSTIC(DPP-PARTITIONED-WAIT)
     public static final String DYNAMIC_FILTER_PLAN_CREATED_FAVORABLE_RATIO = "dynamicFilterPlanCreatedFavorableRatio";
     public static final String DYNAMIC_FILTER_PLAN_SKIPPED_HIGH_CARDINALITY = "dynamicFilterPlanSkippedHighCardinality";
     // Push-to-worker metrics (extended metrics only)

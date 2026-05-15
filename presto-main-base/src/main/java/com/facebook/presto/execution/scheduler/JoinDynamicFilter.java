@@ -35,13 +35,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COLLECTION_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_COORDINATOR_FALLBACK_TO_RANGE;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_DOMAIN_RANGE_COUNT;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_EXPECTED_PARTITIONS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PARTITIONS_RECEIVED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_SHORT_CIRCUITED;
 import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIMED_OUT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS;  // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.connector.DynamicFilter.NOT_BLOCKED;
@@ -94,6 +98,8 @@ public class JoinDynamicFilter
     private boolean collectionStarted;
     @GuardedBy("this")
     private boolean collectionTimeRecorded;
+    @GuardedBy("this")
+    private long lastPartitionArrivalNanos;  // 0 = no arrivals yet // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 
     public JoinDynamicFilter(
             String filterId,
@@ -185,6 +191,7 @@ public class JoinDynamicFilter
             collectionStartNanos = System.nanoTime();
             collectionStarted = true;
         }
+        lastPartitionArrivalNanos = System.nanoTime();   // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 
         partitionsByFilterId.add(tupleDomain);
 
@@ -289,6 +296,7 @@ public class JoinDynamicFilter
     {
         stats.getFilterCollectionCompleted().update(1);
         recordCollectionTime();
+        recordArrivalSpread();   // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
         if (extendedMetrics && !filterId.isEmpty()) {
             runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_DOMAIN_RANGE_COUNT, filterId), NONE, computeRangeCount(mergedConstraint));
         }
@@ -299,9 +307,53 @@ public class JoinDynamicFilter
         if (!filterId.isEmpty()) {
             runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_TIMED_OUT, filterId), NONE, 1);
         }
+        // BEGIN DIAGNOSTIC(DPP-PARTITIONED-WAIT)
+        recordTimeoutSnapshot();
+        // END DIAGNOSTIC(DPP-PARTITIONED-WAIT)
         stats.getFilterCollectionTimedOut().update(1);
         recordCollectionTime();
+        recordArrivalSpread();   // DIAGNOSTIC(DPP-PARTITIONED-WAIT)
     }
+
+    // BEGIN DIAGNOSTIC(DPP-PARTITIONED-WAIT)
+    private synchronized void recordArrivalSpread()
+    {
+        if (!extendedMetrics) {
+            return;
+        }
+        if (collectionStarted && lastPartitionArrivalNanos > 0) {
+            long spreadNanos = lastPartitionArrivalNanos - collectionStartNanos;
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS, NANO, spreadNanos);
+            if (!filterId.isEmpty()) {
+                runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_ARRIVAL_SPREAD_NANOS, filterId), NANO, spreadNanos);
+            }
+        }
+    }
+
+    private synchronized void recordTimeoutSnapshot()
+    {
+        if (!extendedMetrics) {
+            return;
+        }
+        int received = partitionsByFilterId.size();
+        int expected = expectedPartitions;
+        int deficit = Math.max(0, expected - received);
+        long sinceLastArrival = lastPartitionArrivalNanos > 0 ? System.nanoTime() - lastPartitionArrivalNanos : -1;
+
+        if (!filterId.isEmpty()) {
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT, filterId), NONE, received);
+            runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT, filterId), NONE, deficit);
+            if (sinceLastArrival >= 0) {
+                runtimeStats.addMetricValue(format("%s[%s]", DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS, filterId), NANO, sinceLastArrival);
+            }
+        }
+        runtimeStats.addMetricValue(DYNAMIC_FILTER_PARTITIONS_AT_TIMEOUT, NONE, received);
+        runtimeStats.addMetricValue(DYNAMIC_FILTER_DEFICIT_AT_TIMEOUT, NONE, deficit);
+        if (sinceLastArrival >= 0) {
+            runtimeStats.addMetricValue(DYNAMIC_FILTER_TIME_SINCE_LAST_ARRIVAL_AT_TIMEOUT_NANOS, NANO, sinceLastArrival);
+        }
+    }
+    // END DIAGNOSTIC(DPP-PARTITIONED-WAIT)
 
     private void recordCollectionTime()
     {
