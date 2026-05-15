@@ -3053,8 +3053,8 @@ Example::
 
 Requirements:
 
-* Base tables must use Iceberg V3 (``format-version = '3'``); V2 bases silently fall back
-  to unbounded refresh.
+* Base tables must use Iceberg V3 (``format-version = '3'``); a V2 base in a bounded view
+  triggers a warning at refresh time and falls back to unbounded.
 * Each base table is bounded independently in a multi-base view.
 
 .. _iceberg-stale-data-handling:

@@ -237,6 +237,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
+import static com.facebook.presto.iceberg.IcebergUtil.supportsRowLineage;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
@@ -246,6 +247,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersi
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchInBaseTables;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchSpecified;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
+import static com.facebook.presto.iceberg.IcebergWarningCode.BOUNDED_REFRESH_IGNORED;
 import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
@@ -2134,6 +2136,13 @@ public abstract class IcebergAbstractMetadata
                     ? baseIcebergTable.currentSnapshot().snapshotId()
                     : 0L;
 
+            if (maxSnapshotsPerRefresh.isPresent() && !supportsRowLineage(baseIcebergTable)) {
+                session.getWarningCollector().add(new PrestoWarning(
+                        BOUNDED_REFRESH_IGNORED,
+                        format("max_snapshots_per_refresh ignored for materialized view %s: base table %s is Iceberg V2 and lacks row lineage; advancing to HEAD",
+                                materializedViewName, baseTable)));
+            }
+
             String key = getBaseTableViewPropertyName(baseTable);
             String recordedSnapshotStr = props.get(key);
             if (recordedSnapshotStr == null) {
@@ -2249,7 +2258,7 @@ public abstract class IcebergAbstractMetadata
         if (currentSnapshot == null) {
             return OptionalLong.empty();
         }
-        if (opsFromTable(baseTable).current().formatVersion() < MIN_FORMAT_VERSION_FOR_ROW_LINEAGE) {
+        if (!supportsRowLineage(baseTable)) {
             return OptionalLong.empty();
         }
         long head = currentSnapshot.snapshotId();

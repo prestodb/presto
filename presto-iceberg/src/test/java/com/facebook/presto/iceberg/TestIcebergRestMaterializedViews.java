@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
+import static com.facebook.presto.iceberg.IcebergWarningCode.BOUNDED_REFRESH_IGNORED;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -267,7 +268,7 @@ public class TestIcebergRestMaterializedViews
     @Test
     public void testV2BaseFallsBackToUnboundedRefresh()
     {
-        // V2 lacks per-row lineage; the bound is silently ignored.
+        // V2 lacks per-row lineage; bound is ignored and a warning is emitted.
         String base = "bounded_v2_base";
         String mv = "bounded_v2_mv";
         try {
@@ -283,7 +284,10 @@ public class TestIcebergRestMaterializedViews
             }
             long head = headSnapshot(base);
 
-            getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
+            MaterializedResult refresh = getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
+            assertTrue(refresh.getWarnings().stream()
+                            .anyMatch(w -> w.getWarningCode().equals(BOUNDED_REFRESH_IGNORED.toWarningCode())),
+                    "expected V2-base warning to be emitted");
             assertEquals(baseWatermark(mv, base), head, "V2 bases should advance all the way to HEAD in one refresh");
             assertQuery("SELECT COUNT(*) FROM " + mv, "SELECT 6");
         }

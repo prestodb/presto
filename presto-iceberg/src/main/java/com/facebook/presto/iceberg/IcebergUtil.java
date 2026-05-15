@@ -321,6 +321,11 @@ public final class IcebergUtil
         }
     }
 
+    public static boolean supportsRowLineage(Table table)
+    {
+        return opsFromTable(table).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
+    }
+
     public static void validateMinimumFormatVersion(Table table, int minVersion, String errorMessage)
     {
         int formatVersion = opsFromTable(table).current().formatVersion();
