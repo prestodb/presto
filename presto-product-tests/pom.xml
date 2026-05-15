@@ -31,7 +31,7 @@
             <dependency>
                 <groupId>commons-logging</groupId>
                 <artifactId>commons-logging</artifactId>
-                <version>1.3.5</version>
+                <version>1.3.6</version>
             </dependency>
             <dependency>
                 <groupId>javax.annotation</groupId>
