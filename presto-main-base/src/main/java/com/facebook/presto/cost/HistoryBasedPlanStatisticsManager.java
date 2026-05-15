@@ -23,9 +23,12 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.inject.Inject;
 
 import java.util.List;
@@ -52,7 +55,27 @@ public class HistoryBasedPlanStatisticsManager
         requireNonNull(objectMapper, "objectMapper is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.historyBasedStatisticsCacheManager = new HistoryBasedStatisticsCacheManager();
-        ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true).configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true);
+        ObjectMapper newObjectMapper = objectMapper.copy()
+                .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+                .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+                .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
+                .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
+                .registerModule(new Jdk8Module());
+
+        // Increasing max nesting depth for Jackson 2.18.6
+        newObjectMapper.getFactory().setStreamWriteConstraints(
+                StreamWriteConstraints.builder()
+                        .maxNestingDepth(2000)
+                        .build());
+
+        // Added MixIn for Slice circular reference, it's an external library
+        try {
+            Class<?> sliceClass = Class.forName("io.airlift.slice.Slice");
+            newObjectMapper.addMixIn(sliceClass, SliceMixIn.class);
+        }
+        catch (ClassNotFoundException e) {
+        }
+
         this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(historyBasedStatisticsCacheManager, newObjectMapper, metadata);
         this.config = requireNonNull(config, "config is null");
         this.isNativeExecution = featuresConfig.isNativeExecutionEnabled();
@@ -86,5 +109,15 @@ public class HistoryBasedPlanStatisticsManager
     public static List<PlanCanonicalizationStrategy> historyBasedPlanCanonicalizationStrategyList(Session session)
     {
         return getHistoryOptimizationPlanCanonicalizationStrategies(session);
+    }
+
+    /**
+     * MixIn to ignore Slice.getOutput() method which causes circular references with BasicSliceOutput.
+     * This is needed for external library io.airlift.slice where we cannot modify the source code.
+     */
+    private abstract static class SliceMixIn
+    {
+        @JsonIgnore
+        abstract Object getOutput();
     }
 }
