@@ -21,6 +21,13 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
 }
 
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
+  if (j.contains("customSerializedValue")) {
+    String type = j["@type"];
+    std::string binaryData =
+        velox::encoding::Base64::decode(j["customSerializedValue"].get<std::string>());
+    getConnectorProtocol(type).deserialize(binaryData, p);
+    return;
+  }
   String type;
   try {
     type = p->getSubclassKey(j);

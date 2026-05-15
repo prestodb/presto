@@ -1,4 +1,3 @@
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,20 +12,20 @@
  * limitations under the License.
  */
 namespace facebook::presto::protocol {
-struct ConnectorDistributedProcedureHandle : public JsonEncodedSubclass {
-  static std::string serialize(ConnectorDistributedProcedureHandle& p) {
-    VELOX_NYI("Serialization not implemented for ConnectorDistributedProcedureHandle");
+struct ConnectorPartitioningHandle : public JsonEncodedSubclass {
+  static std::string serialize(
+      const ConnectorPartitioningHandle& /* handle */) {
+    VELOX_NYI("ConnectorPartitioningHandle::serialize not implemented");
   }
-  static std::shared_ptr<ConnectorDistributedProcedureHandle> deserialize(
-      const std::string& data,
-      std::shared_ptr<ConnectorDistributedProcedureHandle> p) {
-    VELOX_NYI("Deserialization not implemented for ConnectorDistributedProcedureHandle");
+
+  static std::shared_ptr<ConnectorPartitioningHandle> deserialize(
+      const std::string& /* data */,
+      std::shared_ptr<ConnectorPartitioningHandle> /* handle */) {
+    VELOX_NYI("ConnectorPartitioningHandle::deserialize not implemented");
   }
 };
-void to_json(
-    json& j,
-    const std::shared_ptr<ConnectorDistributedProcedureHandle>& p);
+void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p);
 void from_json(
     const json& j,
-    std::shared_ptr<ConnectorDistributedProcedureHandle>& p);
+    std::shared_ptr<ConnectorPartitioningHandle>& p);
 } // namespace facebook::presto::protocol
