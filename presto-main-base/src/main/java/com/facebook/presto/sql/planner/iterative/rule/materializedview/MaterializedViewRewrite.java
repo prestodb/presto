@@ -55,6 +55,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPre
 import static com.facebook.presto.spi.StandardErrorCode.MATERIALIZED_VIEW_STALE;
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_ACCESS_CONTROL_FALLBACK;
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STALE_DATA;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STITCHING_FALLBACK;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
@@ -145,6 +146,12 @@ public class MaterializedViewRewrite
                     return Result.ofPlanNode(unionPlan.get());
                 }
             }
+        }
+        else if (shouldStitch) {
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                    "Cannot stitch materialized view " + node.getMaterializedViewName() +
+                            ": no partition-level predicates available for stale base tables. Falling back to full recompute."));
         }
 
         PlanNode plan;

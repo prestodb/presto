@@ -153,6 +153,10 @@ public class IncrementalRefreshRule
         // If no partition info available (unpartitioned tables or connector doesn't track partitions),
         // fall back to full refresh since we can't determine which partitions are stale
         if (status.getPartitionsFromBaseTables().isEmpty()) {
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                    "Cannot perform incremental refresh for materialized view " + qualifiedViewName +
+                            ": no partition-level staleness available (unpartitioned base, untracked partitions, or non-append base changes). Falling back to full refresh."));
             return Result.ofPlanNode(node.getSource());
         }
 

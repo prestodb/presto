@@ -163,6 +163,10 @@ public class DifferentialPlanRewriter
         Map<SchemaTableName, List<TupleDomain<String>>> filteredConstraints = filterPredicatesToMappedColumns(constraints, columnEquivalences);
         // If any base table is stale yet has no mapped predicates, stitching is not possible
         if (filteredConstraints.values().stream().anyMatch(List::isEmpty)) {
+            warningCollector.add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                    "Cannot use differential stitching for materialized view " + node.getMaterializedViewName() +
+                            ": a stale base table has no predicates mapped to data-table columns. Falling back to full recompute."));
             return Optional.empty();
         }
 

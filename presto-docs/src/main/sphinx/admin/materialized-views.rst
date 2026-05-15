@@ -289,22 +289,6 @@ In this example:
 Multiple equivalences can be chained together. If ``A.x = B.y`` and ``B.y = C.z``, then
 ``A.x``, ``B.y``, and ``C.z`` are all equivalent for predicate propagation.
 
-Unsupported Patterns
-^^^^^^^^^^^^^^^^^^^^
-
-Predicate stitching is **not** applied in the following cases:
-
-* **No staleness predicates available**: If the connector cannot provide staleness predicates
-* **Predicate columns not preserved**: If predicate columns are transformed or not mappable to the materialized view's output
-* **Outer joins with passthrough**: LEFT, RIGHT, and FULL OUTER joins invalidate passthrough equivalences due to null handling
-* **Expression-based equivalences**: ``CAST(col1 AS DATE) = col2`` or ``col1 = col2 + 1``
-
-When predicate stitching cannot be applied, the behavior falls back to the configured consistency mode:
-
-* If ``USE_STITCHING`` is set but stitching is not possible, the query falls back to full
-  recompute (equivalent to ``USE_VIEW_QUERY``)
-* A warning may be logged indicating why stitching was not possible
-
 Performance Considerations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -364,14 +348,27 @@ significantly reduce refresh time and resource usage for large views.
 Not all connectors support incremental refresh. See connector-specific documentation for
 availability, configuration, and requirements.
 
-Fallback Behavior
-^^^^^^^^^^^^^^^^^
+When the view is already fully materialized, refresh is a no-op (no data is written). If
+incremental refresh cannot be applied, the engine falls back to full refresh — see
+:ref:`admin/materialized-views:Unsupported Patterns` for the conditions.
 
-Incremental refresh automatically falls back to full refresh when incremental refresh
-is not possible (for example, the view uses unsupported operators like OUTER JOIN, or the
-connector cannot determine partition-level staleness).
+Unsupported Patterns
+--------------------
 
-When the view is already fully materialized, refresh is a no-op (no data is written).
+Predicate stitching (``USE_STITCHING``) and incremental refresh fall back to a full
+recompute, with a warning identifying the reason, under any of these conditions:
+
+* **No staleness predicates available**: the connector cannot provide partition-level
+  staleness for one or more stale base tables (unpartitioned tables, untracked partitions,
+  or non-append base changes such as ``DELETE``/``UPDATE`` where the connector requires
+  append-only inputs).
+* **Predicate columns not preserved**: predicate columns are transformed or not mappable
+  to the materialized view's output.
+* **Outer joins with passthrough**: ``LEFT``, ``RIGHT``, and ``FULL OUTER`` joins
+  invalidate passthrough equivalences due to null handling.
+* **Expression-based equivalences**: ``CAST(col1 AS DATE) = col2`` or ``col1 = col2 + 1``.
+* **Unsupported plan constructs**: nondeterministic expressions such as ``random()`` or
+  ``current_timestamp``, and operators like ``TopN``.
 
 See Also
 --------

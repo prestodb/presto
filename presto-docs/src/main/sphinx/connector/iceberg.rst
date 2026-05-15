@@ -3024,6 +3024,13 @@ Requirements:
 * Only ``INSERT`` operations on base tables enable partition-level staleness detection;
   ``DELETE`` or ``UPDATE`` operations cause a full refresh
 
+.. note::
+    If incremental refresh cannot be applied, the engine falls back to a full refresh
+    and emits a warning. ``DELETE`` or ``UPDATE`` on a base table also forces a full
+    refresh — the Iceberg connector only tracks partition-level staleness for
+    append-only changes. See :ref:`admin/materialized-views:Unsupported Patterns` for
+    the full list of engine-level conditions.
+
 .. _iceberg-bounded-refresh:
 
 Bounded Refresh
@@ -3082,9 +3089,11 @@ rather than the entire view. See :doc:`/admin/materialized-views` for details on
 predicate stitching works.
 
 .. note::
-    Partition-level staleness detection only works for append-only changes (INSERT).
-    DELETE or UPDATE operations on base tables cause the entire view to be treated
-    as stale, requiring full recomputation.
+    If stitching cannot be applied, the engine falls back to a full recompute and emits
+    a warning. ``DELETE`` or ``UPDATE`` on a base table also forces a full recompute —
+    the Iceberg connector only tracks partition-level staleness for append-only changes.
+    See :ref:`admin/materialized-views:Unsupported Patterns` for the full list of
+    engine-level conditions.
 
 Example with staleness handling:
 
