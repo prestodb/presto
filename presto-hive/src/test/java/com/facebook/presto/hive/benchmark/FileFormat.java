@@ -102,6 +102,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
+import static org.joda.time.DateTimeZone.UTC;
 
 public enum FileFormat
 {
@@ -150,7 +151,7 @@ public enum FileFormat
             return new PrestoRcFileFormatWriter(
                     targetFile,
                     columnTypes,
-                    new TextRcFileEncoding(DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId())),
+                    new TextRcFileEncoding(UTC),
                     compressionCodec);
         }
     },

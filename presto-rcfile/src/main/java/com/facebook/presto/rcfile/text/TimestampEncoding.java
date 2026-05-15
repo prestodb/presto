@@ -69,7 +69,7 @@ public class TimestampEncoding
             else {
                 long millis = type.getLong(block, position);
                 buffer.setLength(0);
-                HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
+                dateTimeFormatter.printTo(buffer, millis);
                 for (int index = 0; index < buffer.length(); index++) {
                     output.writeByte(buffer.charAt(index));
                 }
@@ -83,7 +83,7 @@ public class TimestampEncoding
     {
         long millis = type.getLong(block, position);
         buffer.setLength(0);
-        HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
+        dateTimeFormatter.printTo(buffer, millis);
         for (int index = 0; index < buffer.length(); index++) {
             output.writeByte(buffer.charAt(index));
         }
@@ -119,6 +119,6 @@ public class TimestampEncoding
     private long parseTimestamp(Slice slice, int offset, int length)
     {
         //noinspection deprecation
-        return HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), 0));
+        return dateTimeFormatter.parseMillis(new String(slice.getBytes(offset, length), 0));
     }
 }

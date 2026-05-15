@@ -178,6 +178,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.mapred.Reporter.NULL;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -230,7 +231,7 @@ public class RcFileTester
             @Override
             public RcFileEncoding getVectorEncoding()
             {
-                return new TextRcFileEncoding(HIVE_STORAGE_TIME_ZONE);
+                return new TextRcFileEncoding(UTC);
             }
         };
 
