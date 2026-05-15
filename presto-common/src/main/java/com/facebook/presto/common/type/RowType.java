@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.ROW;
@@ -220,6 +221,7 @@ public class RowType
         private final Optional<String> name;
         private final boolean delimited;
 
+        @JsonCreator
         public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type)
         {
             this(name, type, false);
@@ -248,6 +250,29 @@ public class RowType
         public boolean isDelimited()
         {
             return delimited;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            Field other = (Field) o;
+
+            return Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.type, other.type) &&
+                    Objects.equals(this.delimited, other.delimited);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, type, delimited);
         }
     }
 
