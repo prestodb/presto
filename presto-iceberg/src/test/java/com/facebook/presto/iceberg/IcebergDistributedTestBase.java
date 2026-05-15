@@ -380,6 +380,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'IN'");
         Table icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("country").initialDefault(), "IN");
+        assertEquals(icebergTable.schema().findField("country").writeDefault(), "IN");
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'Charlie', 'US')", 1);
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN'), (3, 'Charlie', 'US')");
@@ -391,6 +392,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN description varchar DEFAULT ''");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("description").initialDefault(), "");
+        assertEquals(icebergTable.schema().findField("description").writeDefault(), "");
         assertQuery(session, "SELECT id, name, description FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', ''), (2, 'Bob', '')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'Charlie', 'Has description')", 1);
         assertQuery(session, "SELECT id, name, description FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', ''), (2, 'Bob', ''), (3, 'Charlie', 'Has description')");
@@ -402,6 +404,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN priority integer DEFAULT 5");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("priority").initialDefault(), 5);
+        assertEquals(icebergTable.schema().findField("priority").writeDefault(), 5);
         assertQuery(session, "SELECT id, priority FROM " + tableName + " ORDER BY id", "VALUES (1, 5), (2, 5)");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 10)", 1);
         assertQuery(session, "SELECT id, priority FROM " + tableName + " ORDER BY id", "VALUES (1, 5), (2, 5), (3, 10)");
@@ -413,6 +416,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN score double DEFAULT 0.0E0");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("score").initialDefault(), 0.0);
+        assertEquals(icebergTable.schema().findField("score").writeDefault(), 0.0);
         assertQuery(session, "SELECT id, score FROM " + tableName, "VALUES (1, 0.0)");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, 95.5)", 1);
         assertQuery(session, "SELECT id, score FROM " + tableName + " ORDER BY id", "VALUES (1, 0.0), (2, 95.5)");
@@ -424,6 +428,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN is_active boolean DEFAULT true");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("is_active").initialDefault(), true);
+        assertEquals(icebergTable.schema().findField("is_active").writeDefault(), true);
         assertQuery(session, "SELECT id, is_active FROM " + tableName, "VALUES (1, true)");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, false)", 1);
         assertQuery(session, "SELECT id, is_active FROM " + tableName + " ORDER BY id", "VALUES (1, true), (2, false)");
@@ -435,6 +440,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("status").initialDefault(), "ACTIVE");
+        assertEquals(icebergTable.schema().findField("status").writeDefault(), "ACTIVE");
         assertQuery(session, "SELECT id, status FROM " + tableName, "VALUES (1, 'ACTIVE')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, 'INACTIVE')", 1);
         assertQuery(session, "SELECT id, status FROM " + tableName + " ORDER BY id", "VALUES (1, 'ACTIVE'), (2, 'INACTIVE')");
@@ -446,6 +452,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN creation_date date DEFAULT DATE '2023-01-01'");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("creation_date").initialDefault(), 19358);
+        assertEquals(icebergTable.schema().findField("creation_date").writeDefault(), 19358);
         assertQuery(session, "SELECT id, creation_date FROM " + tableName, "VALUES (1, DATE '2023-01-01')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, DATE '2024-06-15')", 1);
         assertQuery(session, "SELECT id, creation_date FROM " + tableName + " ORDER BY id", "VALUES (1, DATE '2023-01-01'), (2, DATE '2024-06-15')");
@@ -457,6 +464,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN creation_time timestamp DEFAULT TIMESTAMP '2023-01-01 11:00:00.000000'");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("creation_time").initialDefault(), 1672570800000000L);
+        assertEquals(icebergTable.schema().findField("creation_time").writeDefault(), 1672570800000000L);
         assertQuery(session, "SELECT id, creation_time FROM " + tableName, "VALUES (1, TIMESTAMP '2023-01-01 11:00:00.000000')");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, TIMESTAMP '2024-12-25 15:30:00.000000')", 1);
         assertQuery(session, "SELECT id, creation_time FROM " + tableName + " ORDER BY id", "VALUES (1, TIMESTAMP '2023-01-01 11:00:00.000000'), (2, TIMESTAMP '2024-12-25 15:30:00.000000')");
@@ -468,6 +476,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN long_val bigint DEFAULT 10000000000");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("long_val").initialDefault(), 10000000000L);
+        assertEquals(icebergTable.schema().findField("long_val").writeDefault(), 10000000000L);
         assertQuery(session, "SELECT id, long_val FROM " + tableName, "VALUES (1, 10000000000)");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, 99999999999)", 1);
         assertQuery(session, "SELECT id, long_val FROM " + tableName + " ORDER BY id", "VALUES (1, 10000000000), (2, 99999999999)");
@@ -479,6 +488,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN real_val real DEFAULT 10.5");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("real_val").initialDefault(), 10.5f);
+        assertEquals(icebergTable.schema().findField("real_val").writeDefault(), 10.5f);
         assertQuery(session, "SELECT id, real_val FROM " + tableName, "VALUES (1, CAST(10.5 AS REAL))");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, REAL '25.75')", 1);
         assertQuery(session, "SELECT id, real_val FROM " + tableName + " ORDER BY id", "VALUES (1, CAST(10.5 AS REAL)), (2, CAST(25.75 AS REAL))");
@@ -490,6 +500,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN decimal_val decimal(10,2) DEFAULT DECIMAL '10.55'");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("decimal_val").initialDefault(), new java.math.BigDecimal("10.55"));
+        assertEquals(icebergTable.schema().findField("decimal_val").writeDefault(), new java.math.BigDecimal("10.55"));
         assertQuery(session, "SELECT id, decimal_val FROM " + tableName, "VALUES (1, CAST(10.55 AS DECIMAL))");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(2, DECIMAL '99.99')", 1);
         assertQuery(session, "SELECT id, decimal_val FROM " + tableName + " ORDER BY id", "VALUES (1, CAST(10.55 AS DECIMAL)), (2, CAST(99.99 AS DECIMAL))");
@@ -505,6 +516,9 @@ public abstract class IcebergDistributedTestBase
         assertEquals(icebergTable.schema().findField("country").initialDefault(), "US");
         assertEquals(icebergTable.schema().findField("priority").initialDefault(), 10);
         assertEquals(icebergTable.schema().findField("is_enabled").initialDefault(), false);
+        assertEquals(icebergTable.schema().findField("country").writeDefault(), "US");
+        assertEquals(icebergTable.schema().findField("priority").writeDefault(), 10);
+        assertEquals(icebergTable.schema().findField("is_enabled").writeDefault(), false);
         assertQuery(session, "SELECT id, country, priority, is_enabled FROM " + tableName + " ORDER BY id", "VALUES (1, 'US', 10, false), (2, 'US', 10, false)");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'UK', 20, true)", 1);
         assertQuery(session, "SELECT id, country, priority, is_enabled FROM " + tableName + " ORDER BY id", "VALUES (1, 'US', 10, false), (2, 'US', 10, false), (3, 'UK', 20, true)");
@@ -516,6 +530,7 @@ public abstract class IcebergDistributedTestBase
         assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN country varchar DEFAULT 'IN'");
         icebergTable = loadTable(tableName);
         assertEquals(icebergTable.schema().findField("country").initialDefault(), "IN");
+        assertEquals(icebergTable.schema().findField("country").writeDefault(), "IN");
         // Test with column alias - should still return default value
         assertQuery(session, "SELECT id, name, country AS region FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
         // Test with multiple aliases

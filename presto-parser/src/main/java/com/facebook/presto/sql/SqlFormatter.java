@@ -103,6 +103,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -2041,6 +2042,21 @@ public final class SqlFormatter
                 builder.append("SET");
             }
             builder.append(" NOT NULL");
+            return null;
+        }
+
+        @Override
+        protected Void visitSetColumnDefault(SetColumnDefault node, Integer indent)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()));
+            builder.append(" ALTER COLUMN ");
+            builder.append(formatName(node.getColumn()));
+            builder.append(" SET DEFAULT ");
+            process(node.getDefaultExpression(), indent);
             return null;
         }
 
