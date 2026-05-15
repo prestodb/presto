@@ -58,4 +58,30 @@ public class TestSetWorkerSessionPropertiesIncludingInvalidProperties
                         "setSessionProperties={distinct_aggregation_spill_enabled=false}, " +
                         "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
     }
+
+    @Test
+    public void testSetSessionNimbleStringDecoderZeroCopy()
+    {
+        @Language("SQL") String setSession = "SET SESSION nimble_string_decoder_zero_copy=true";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={nimble_string_decoder_zero_copy=true}, " +
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
+    }
+
+    @Test
+    public void testSetSessionPreserveDictionaryEncoding()
+    {
+        @Language("SQL") String setSession = "SET SESSION nimble_preserve_dictionary_encoding=true";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={nimble_preserve_dictionary_encoding=true}, " +
+                        "resetSessionProperties=[], updateInfo=UpdateInfo{updateType='SET SESSION', updateObject=''}, clearTransactionId=false}");
+    }
 }
