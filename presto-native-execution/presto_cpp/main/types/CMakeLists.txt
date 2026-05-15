@@ -28,8 +28,7 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_session_properties
-  velox_type
-  velox_type_fbhive
+  velox
 )
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
