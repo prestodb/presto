@@ -1359,6 +1359,14 @@ void to_json(json& j, const ExpressionOptimizationRequest& p);
 void from_json(const json& j, ExpressionOptimizationRequest& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct Field {
+  std::shared_ptr<String> name = {};
+  Type type = {};
+};
+void to_json(json& j, const Field& p);
+void from_json(const json& j, Field& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct FilterNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   std::shared_ptr<RowExpression> predicate = {};
@@ -2243,6 +2251,13 @@ struct RowNumberNode : public PlanNode {
 };
 void to_json(json& j, const RowNumberNode& p);
 void from_json(const json& j, RowNumberNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct RowType {
+  std::shared_ptr<TypeSignature> typeSignature = {};
+};
+void to_json(json& j, const RowType& p);
+void from_json(const json& j, RowType& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class RuntimeUnit { NONE, NANO, BYTE };

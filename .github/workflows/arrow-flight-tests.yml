@@ -87,7 +87,7 @@ jobs:
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*,!TestArrowFederationNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
@@ -316,6 +316,82 @@ jobs:
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
             -Dtest="TestArrowFlightNativeQueries*" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
+
+  arrowfederation-native-e2e-tests:
+    needs: prestocpp-linux-build-for-test
+    runs-on: ubuntu-22.04
+    container:
+      image: prestodb/presto-native-dependency:0.297-202602271419-160459b8
+    env:
+      INSTALL_PREFIX: "${{ github.workspace }}/adapter-deps/install"
+    strategy:
+      fail-fast: false
+      matrix:
+        enable-sidecar: ["true", "false"]
+        modules:
+          - :presto-flight-shim # Only run tests for the `presto-flight-shim` module
+
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ matrix.enable-sidecar }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: arrow-flight-presto-native-build
+          path: presto-native-execution/_build/release/presto_cpp/main
+
+      - name: Download Arrow Flight install artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: arrow-flight-install
+          path: ${{ env.INSTALL_PREFIX }}/lib64
+
+      # Permissions are lost when uploading. Details here: https://github.com/actions/upload-artifact/issues/38
+      - name: Restore execute permissions and library path
+        run: |
+          chmod +x ${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server
+          # Ensure transitive dependency libboost-iostreams is found.
+          ldconfig /usr/local/lib
+      - name: Install OpenJDK8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17.0.15
+          cache: maven
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      - name: Maven install
+        env:
+          # Use different Maven options to install.
+          MAVEN_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+      - name: Run arrowflight native e2e tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/release/presto_cpp/main/presto_server"
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl ${{ matrix.modules }} \
+            -DsidecarEnabled=${{ matrix.enable-sidecar }} \
+            -Dtest="TestArrowFederationNativeQueries*" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

@@ -11,19 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.redis;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.fasterxml.jackson.annotation.JsonCreator;
+// dependency String
+namespace facebook::presto::protocol::arrow_federation {
 
-public enum RedisTransactionHandle
-        implements ConnectorTransactionHandle
-{
-    INSTANCE;
-
-    @JsonCreator
-    public static RedisTransactionHandle fromJson(String dummy)
-    {
-        return INSTANCE;
-    }
+struct ArrowFederationSplit : public ConnectorSplit {
+  String splitBytes = {};
+};
+void to_json(json& j, const ArrowFederationSplit& p) {
+  j["@type"] = "arrow-federation";
+  auto split = folly::base64Decode(p.splitBytes);
+  j = json::parse(split);
 }
+
+void from_json(const json& j, ArrowFederationSplit& p) {
+  p._type = j["@type"];
+  p.splitBytes = folly::base64Encode(j.dump());
+}
+
+} // namespace facebook::presto::protocol::arrow_federation

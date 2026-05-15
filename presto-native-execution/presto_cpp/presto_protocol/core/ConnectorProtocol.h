@@ -334,6 +334,36 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
   }
 
  private:
+  template <typename BASE>
+  static std::string getOperationName() {
+    std::string typeName = typeid(BASE).name();
+
+    // Map connector handle types to user-friendly operation names
+    // Focus on write/modification operations that are commonly unsupported
+    if (typeName.find("ConnectorInsertTableHandle") != std::string::npos) {
+      return "INSERT operations are not supported by this connector";
+    } else if (
+        typeName.find("ConnectorOutputTableHandle") != std::string::npos) {
+      return "CREATE TABLE AS operations are not supported by this connector";
+    } else if (
+        typeName.find("ConnectorDeleteTableHandle") != std::string::npos) {
+      return "DELETE operations are not supported by this connector";
+    } else if (
+        typeName.find("ConnectorPartitioningHandle") != std::string::npos) {
+      return "Custom partitioning is not supported by this connector";
+    } else if (
+        typeName.find("ConnectorDistributedProcedureHandle") !=
+        std::string::npos) {
+      return "Distributed procedures are not supported by this connector";
+    } else if (typeName.find("ConnectorIndexHandle") != std::string::npos) {
+      return "Index operations are not supported by this connector";
+    }
+
+    // Fallback for other types - these might indicate missing connector
+    // implementation
+    return "Operation not supported by this connector (type: " + typeName + ")";
+  }
+
   template <typename DERIVED, typename BASE>
   static void to_json_template(
       json& j,
@@ -350,7 +380,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    VELOX_NYI("{}", getOperationName<BASE>());
   }
 
   template <typename DERIVED, typename BASE>
@@ -371,7 +401,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    VELOX_NYI("{}", getOperationName<BASE>());
   }
 
   template <typename DERIVED, typename BASE>
@@ -381,7 +411,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    VELOX_NYI("{}", getOperationName<BASE>());
   }
   template <typename DERIVED, typename BASE>
   static void deserializeTemplate(
@@ -390,7 +420,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    VELOX_NYI("{}", getOperationName<BASE>());
   }
 
   template <typename DERIVED, typename BASE>
