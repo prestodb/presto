@@ -106,7 +106,7 @@ public final class RedisQueryRunner
         return TPCH_SCHEMA + ":" + table.getTableName().toLowerCase(ENGLISH);
     }
 
-    private static Map<SchemaTableName, RedisTableDescription> createTpchTableDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables, String dataFormat)
+    public static Map<SchemaTableName, RedisTableDescription> createTpchTableDescriptions(Metadata metadata, Iterable<TpchTable<?>> tables, String dataFormat)
             throws Exception
     {
         JsonCodec<RedisTableDescription> tableDescriptionJsonCodec = new CodecSupplier<>(RedisTableDescription.class, metadata).get();
