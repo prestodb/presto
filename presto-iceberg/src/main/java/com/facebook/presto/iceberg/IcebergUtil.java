@@ -1501,6 +1501,23 @@ public final class IcebergUtil
                         String.valueOf(SPLIT_SIZE_DEFAULT)));
     }
 
+    /**
+     * Checks if throwable or any cause is an Avro exception (manifest version incompatibility).
+     */
+    public static boolean isAvroException(Throwable t)
+    {
+        if (t == null) {
+            return false;
+        }
+        // Check if this exception is from Avro package
+        Package exceptionPackage = t.getClass().getPackage();
+        if (exceptionPackage != null && exceptionPackage.getName().startsWith("org.apache.avro")) {
+            return true;
+        }
+        // Recursively check the full cause chain
+        return t != t.getCause() && isAvroException(t.getCause());
+    }
+
     public static DataSize getTargetSplitSize(long sessionValueProperty, long icebergScanTargetSplitSize)
     {
         return sessionValueProperty == 0 ?
