@@ -413,6 +413,9 @@ Property Name                                           Description             
                                                         are collected.
 ``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``                          Yes                 Yes, only needed on coordinator
                                                         statistics file cache.
+
+``iceberg.aggregate-push-down-enabled``                 Controls whether to push down aggregate (MIN/MAX/COUNT) to    ``true``                           Yes                 No
+                                                        Iceberg based on data file stats.
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
@@ -563,6 +566,8 @@ Property Name                                         Description               
                                                       full recompute. Default: ``100``
 ``max_partitions_per_writer``                         Overrides the behavior of the connector property                        Yes                 No
                                                       ``iceberg.max-partitions-per-writer`` in the current session.
+``aggregate_push_down_enabled``                       Overrides the behavior of the connector property                        Yes                 No
+                                                      ``iceberg.aggregate-push-down-enabled`` in the current session.
 ===================================================== ======================================================================= =================== =============================================
 
 Caching Support

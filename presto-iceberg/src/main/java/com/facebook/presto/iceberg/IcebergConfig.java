@@ -79,6 +79,7 @@ public class IcebergConfig
     private String materializedViewStoragePrefix = "__mv_storage__";
     private String materializedViewDefaultStorageSchema;
     private int materializedViewMaxChangedPartitions = 100;
+    private boolean aggregatePushDownEnabled = true;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -526,6 +527,19 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewMaxChangedPartitions(int materializedViewMaxChangedPartitions)
     {
         this.materializedViewMaxChangedPartitions = materializedViewMaxChangedPartitions;
+        return this;
+    }
+
+    public boolean isAggregatePushDownEnabled()
+    {
+        return aggregatePushDownEnabled;
+    }
+
+    @Config("iceberg.aggregate-push-down-enabled")
+    @ConfigDescription("Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats.")
+    public IcebergConfig setAggregatePushDownEnabled(boolean aggregatePushDownEnabled)
+    {
+        this.aggregatePushDownEnabled = aggregatePushDownEnabled;
         return this;
     }
 }

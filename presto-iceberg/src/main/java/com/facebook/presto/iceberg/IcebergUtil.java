@@ -22,7 +22,11 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -53,6 +57,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
@@ -96,6 +101,7 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -118,7 +124,9 @@ import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -1511,6 +1519,58 @@ public final class IcebergUtil
     public static DataSize getTargetSplitSize(ConnectorSession session, Scan<?, ?, ?> scan)
     {
         return getTargetSplitSize(IcebergSessionProperties.getTargetSplitSize(session), scan.targetSplitSize());
+    }
+
+    public static Object getNativeValue(Type type, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+        else if (type.getJavaType() == double.class) {
+            return ((Number) value).doubleValue();
+        }
+        else if (type.getJavaType() == long.class) {
+            if (type instanceof TimestampType || type instanceof TimeType) {
+                return MICROSECONDS.toMillis((long) value);
+            }
+            else if (type instanceof TimestampWithTimeZoneType) {
+                return packDateTimeWithZone(MICROSECONDS.toMillis((long) value), TimeZoneKey.UTC_KEY);
+            }
+            else if (value instanceof BigDecimal) {
+                return ((BigDecimal) value).unscaledValue().longValue();
+            }
+            else if (value instanceof Float && type instanceof RealType) {
+                return (long) floatToRawIntBits((Float) value);
+            }
+            else {
+                return ((Number) value).longValue();
+            }
+        }
+        else if (type.getJavaType() == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
+            }
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
+            }
+            else if (value instanceof BigDecimal) {
+                slice = encodeScaledValue((BigDecimal) value);
+            }
+            else if (value instanceof ByteBuffer) {
+                slice = Slices.wrappedBuffer(((ByteBuffer) value).array());
+            }
+            else if (value instanceof CharBuffer) {
+                slice = Slices.utf8Slice(((CharBuffer) value).toString());
+            }
+            else {
+                slice = (Slice) value;
+            }
+            return slice;
+        }
+        else {
+            return value;
+        }
     }
 
     // This code is copied from Iceberg
