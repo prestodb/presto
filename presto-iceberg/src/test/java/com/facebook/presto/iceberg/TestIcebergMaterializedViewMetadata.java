@@ -762,6 +762,104 @@ public class TestIcebergMaterializedViewMetadata
     }
 
     @Test
+    public void testAlterMaterializedViewSetProperties()
+            throws Exception
+    {
+        assertUpdate("CREATE TABLE test_alter_mv_props_base (id BIGINT, value BIGINT)");
+        assertUpdate("INSERT INTO test_alter_mv_props_base VALUES (1, 100)", 1);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_alter_mv_props_mv " +
+                "WITH (stale_read_behavior = 'FAIL', staleness_window = '1h', refresh_type = 'FULL') " +
+                "AS SELECT id, value FROM test_alter_mv_props_base");
+
+        RESTCatalog catalog = new RESTCatalog();
+        Map<String, String> catalogProps = new HashMap<>();
+        catalogProps.put("uri", serverUri);
+        catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
+        catalog.initialize("test_catalog", catalogProps);
+
+        try {
+            TableIdentifier viewId = TableIdentifier.of(Namespace.of("test_schema"), "test_alter_mv_props_mv");
+
+            assertUpdate("ALTER MATERIALIZED VIEW test_alter_mv_props_mv " +
+                    "SET PROPERTIES (staleness_window = '5m', refresh_type = 'INCREMENTAL')");
+
+            Map<String, String> properties = catalog.loadView(viewId).properties();
+            assertEquals(properties.get("presto.materialized_view.stale_read_behavior"), "FAIL",
+                    "stale_read_behavior should remain unchanged");
+            assertEquals(properties.get("presto.materialized_view.staleness_window"), "5.00m",
+                    "staleness_window should be updated");
+            assertEquals(properties.get("presto.materialized_view.refresh_type"), "INCREMENTAL",
+                    "refresh_type should be updated");
+
+            // Updates can be applied incrementally; unspecified properties stay put.
+            assertUpdate("ALTER MATERIALIZED VIEW test_alter_mv_props_mv " +
+                    "SET PROPERTIES (stale_read_behavior = 'USE_VIEW_QUERY')");
+            properties = catalog.loadView(viewId).properties();
+            assertEquals(properties.get("presto.materialized_view.stale_read_behavior"), "USE_VIEW_QUERY");
+            assertEquals(properties.get("presto.materialized_view.refresh_type"), "INCREMENTAL");
+        }
+        finally {
+            catalog.close();
+        }
+
+        assertUpdate("DROP MATERIALIZED VIEW test_alter_mv_props_mv");
+        assertUpdate("DROP TABLE test_alter_mv_props_base");
+    }
+
+    @Test
+    public void testAlterMaterializedViewSetPropertiesRejectsStorageProperties()
+    {
+        assertUpdate("CREATE TABLE test_alter_mv_storage_base (id BIGINT)");
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW test_alter_mv_storage_mv " +
+                    "AS SELECT id FROM test_alter_mv_storage_base");
+            assertQueryFails(
+                    "ALTER MATERIALIZED VIEW test_alter_mv_storage_mv SET PROPERTIES (storage_schema = 'other')",
+                    ".*Materialized view property is not updatable: storage_schema.*");
+            assertQueryFails(
+                    "ALTER MATERIALIZED VIEW test_alter_mv_storage_mv SET PROPERTIES (storage_table = 'other_table')",
+                    ".*Materialized view property is not updatable: storage_table.*");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS test_alter_mv_storage_mv");
+            assertUpdate("DROP TABLE test_alter_mv_storage_base");
+        }
+    }
+
+    @Test
+    public void testAlterMaterializedViewSetPropertiesRejectsLegacy()
+    {
+        assertUpdate("CREATE TABLE test_alter_mv_legacy_base (id BIGINT)");
+        try {
+            assertUpdate("CREATE MATERIALIZED VIEW test_alter_mv_legacy_mv " +
+                    "AS SELECT id FROM test_alter_mv_legacy_base");
+
+            Session legacySession = Session.builder(getSession())
+                    .setSystemProperty("legacy_materialized_views", "true")
+                    .build();
+            assertQueryFails(
+                    legacySession,
+                    "ALTER MATERIALIZED VIEW test_alter_mv_legacy_mv SET PROPERTIES (staleness_window = '5m')",
+                    ".*ALTER MATERIALIZED VIEW \\.\\.\\. SET PROPERTIES is not supported when legacy_materialized_views=true.*");
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS test_alter_mv_legacy_mv");
+            assertUpdate("DROP TABLE test_alter_mv_legacy_base");
+        }
+    }
+
+    @Test
+    public void testAlterMaterializedViewSetPropertiesMissingView()
+    {
+        assertQueryFails(
+                "ALTER MATERIALIZED VIEW test_alter_mv_missing SET PROPERTIES (staleness_window = '5m')",
+                ".*Materialized view does not exist:.*test_alter_mv_missing.*");
+        // IF EXISTS is a no-op.
+        assertUpdate("ALTER MATERIALIZED VIEW IF EXISTS test_alter_mv_missing SET PROPERTIES (staleness_window = '5m')");
+    }
+
+    @Test
     public void testNoOrphanStorageTableOnValidationFailure()
             throws Exception
     {

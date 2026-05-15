@@ -550,6 +550,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties)
+    {
+        delegate.setMaterializedViewProperties(session, viewName, properties);
+    }
+
+    @Override
     public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
     {
         return delegate.beginRefreshMaterializedView(session, tableHandle);

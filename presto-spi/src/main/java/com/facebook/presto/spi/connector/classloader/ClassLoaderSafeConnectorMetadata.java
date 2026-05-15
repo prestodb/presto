@@ -605,6 +605,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setMaterializedViewProperties(session, viewName, properties);
+        }
+    }
+
+    @Override
     public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

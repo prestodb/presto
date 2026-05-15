@@ -460,6 +460,11 @@ public interface Metadata
     void dropMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Set properties on the specified materialized view.
+     */
+    void setMaterializedViewProperties(Session session, QualifiedObjectName viewName, Map<String, Object> properties);
+
+    /**
      * List materialized views in the specified schema prefix.
      */
     List<QualifiedObjectName> listMaterializedViews(Session session, QualifiedTablePrefix prefix);

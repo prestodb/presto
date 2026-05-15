@@ -784,6 +784,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Set properties on the specified materialized view.
+     */
+    default void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");
+    }
+
+    /**
      * Get the materialized view status to inform the engine how much data has been materialized in the view
      *
      * @param baseQueryDomain The domain from which to consider missing partitions. For example, a query that

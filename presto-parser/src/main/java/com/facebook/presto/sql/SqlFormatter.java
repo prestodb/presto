@@ -1041,7 +1041,16 @@ public final class SqlFormatter
 
         protected Void visitSetProperties(SetProperties node, Integer context)
         {
-            builder.append("ALTER TABLE ");
+            switch (node.getType()) {
+                case TABLE:
+                    builder.append("ALTER TABLE ");
+                    break;
+                case MATERIALIZED_VIEW:
+                    builder.append("ALTER MATERIALIZED VIEW ");
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported SetProperties type: " + node.getType());
+            }
             if (node.isTableExists()) {
                 builder.append("IF EXISTS ");
             }

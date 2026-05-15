@@ -231,6 +231,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
@@ -579,6 +580,21 @@ class AstBuilder
         return new SetProperties(getLocation(context),
                 TABLE,
                 getQualifiedName(context.tableName),
+                properties,
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetMaterializedViewProperties(SqlBaseParser.SetMaterializedViewPropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context),
+                MATERIALIZED_VIEW,
+                getQualifiedName(context.qualifiedName()),
                 properties,
                 context.EXISTS() != null);
     }
