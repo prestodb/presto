@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Constraint;
@@ -138,6 +139,7 @@ import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
+import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
@@ -1584,8 +1586,25 @@ public class AddExchanges
                         return new PlanWithProperties(node.replaceChildren(distributedChildren));
                     }
                     else if (preferDistributedUnion) {
-                        // Presto currently can not execute stage that has multiple table scans, so in that case
-                        // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
+                        int repartitionedRemoteExchangeNodesCount = distributedChildren.stream().mapToInt(AddExchanges::countRepartitionedRemoteExchangeNodes).sum();
+                        int partitionedConnectorSourceCount = distributedChildren.stream().mapToInt(
+                                children -> AddExchanges.countPartitionedConnectorSource(children, session, metadata)).sum();
+                        long uniqueSourceCatalogCount = distributedChildren.stream().flatMap(AddExchanges::collectSourceCatalogs).distinct().count();
+
+                        // MultiSourcePartitionedScheduler does not support node partitioning.
+                        // Both partitioned remote exchanges and partitioned connector sources require node partitioning.
+                        if (repartitionedRemoteExchangeNodesCount == 0
+                                && partitionedConnectorSourceCount == 0
+                                && uniqueSourceCatalogCount == 1) {
+                            // When all conditions are met to execute multiple table scans in the same stage, then we can use a LOCAL exchange.
+                            return new PlanWithProperties(node.replaceChildren(distributedChildren));
+                        }
+                        // If there is:
+                        //   - at least one non-source distributed source (data is already partitioned/distributed across workers from upstream query processing: joins, aggregations, etc.)
+                        //   OR
+                        //   - one source uses connector-based partitioning (data is already partitioned by the underlying storage system/connector)
+                        // then, a REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION is necessary instead of a local exchange when merging multiple data sources in a UNION operation.
+                        // Local exchange can only merge data within a single worker. REMOTE exchange enables cross-worker data movement.
                         return new PlanWithProperties(
                                 new ExchangeNode(
                                         node.getSourceLocation(),
@@ -1971,6 +1990,109 @@ public class AddExchanges
         ImmutableList.Builder<PartitioningHandle> handles = ImmutableList.builder();
         nodes.forEach(node -> node.accept(new ExchangePartitioningHandleExtractor(), handles));
         return handles.build();
+    }
+
+    /**
+     * Determines if a given {@code PlanNode} is not a remote {@code ExchangeNode}.
+     *
+     * This method checks whether the provided {@code PlanNode} is an {@code ExchangeNode} and,
+     * if so, verifies that its scope is not remote. If the node is not an {@code ExchangeNode},
+     * it is considered not remote by default.
+     *
+     * @param node the {@code PlanNode} to evaluate
+     * @return {@code true} if the {@code PlanNode} is not a remote {@code ExchangeNode}, or if it
+     *         is not an {@code ExchangeNode}; {@code false} otherwise
+     */
+    private static boolean isNotRemoteExchange(PlanNode node)
+    {
+        if (node instanceof ExchangeNode) {
+            return !((ExchangeNode) node).getScope().isRemote();
+        }
+
+        return true;
+    }
+
+    /**
+     * Counts the number of remote ExchangeNodes in the query plan that are of type REPARTITION.
+     *
+     * This method traverses the query plan starting from the provided root node, identifying instances
+     * of {@code ExchangeNode} that meet the following criteria:
+     * - The exchange has a REMOTE scope.
+     * - The exchange type is REPARTITION.
+     *
+     * The traversal skips subtrees connected via non-remote exchanges.
+     *
+     * @param root the root PlanNode of the query plan tree to search
+     * @return the count of remote ExchangeNodes of type REPARTITION in the query plan
+     */
+    private static int countRepartitionedRemoteExchangeNodes(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> {
+                    if (node instanceof ExchangeNode) {
+                        ExchangeNode exchangeNode = (ExchangeNode) node;
+                        return exchangeNode.getScope().isRemote() && exchangeNode.getType() == REPARTITION;
+                    }
+                    return false;
+                })
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    /**
+     * Counts the number of TableScanNodes in the given query plan that are associated with partitioned connector sources.
+     *
+     * This method traverses the query plan starting from the provided root node, identifying {@code TableScanNode}
+     * instances that meet specific criteria:
+     * - The table node supports partitioning, as determined by the session configuration.
+     * - The metadata for the table includes a defined table partitioning.
+     *
+     * The method recursively processes PlanNodes, skipping any subtrees connected via remote exchanges.
+     *
+     * @param root the root PlanNode of the query plan tree
+     * @param session the session object containing configuration and metadata context
+     * @param metadata the metadata object for accessing table properties and layouts
+     * @return the count of TableScanNodes associated with partitioned connector sources
+     */
+    private static int countPartitionedConnectorSource(PlanNode root, Session session, Metadata metadata)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> {
+                    if (node instanceof TableScanNode) {
+                        TableScanNode tableScanNode = (TableScanNode) node;
+                        TableLayout layout = metadata.getLayout(session, tableScanNode.getTable());
+                        return planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent();
+                    }
+                    return false;
+                })
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .size();
+    }
+
+    /**
+     * Collects the set of unique ConnectorIds corresponding to table scans present in the given query plan.
+     *
+     * This method traverses the provided query plan tree starting from the given root node, searching for
+     * instances of {@code TableScanNode}. For each TableScanNode found, its associated ConnectorId is extracted
+     * and included in the resulting stream.
+     *
+     * @param root the root PlanNode of the query plan tree to search
+     * @return a Stream of ConnectorIds representing the catalogs used in the plan
+     */
+    private static Stream<ConnectorId> collectSourceCatalogs(PlanNode root)
+    {
+        return PlanNodeSearcher
+                .searchFrom(root)
+                .where(node -> node instanceof TableScanNode)
+                .recurseOnlyWhen(AddExchanges::isNotRemoteExchange)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .map(node -> node.getTable().getConnectorId());
     }
 
     private static class ExchangePartitioningHandleExtractor
