@@ -82,10 +82,12 @@ import static java.lang.Boolean.TRUE;
  * Rewritten:
  * <p>
  * SELECT SUM(x) , userid FROM Table
- * CROSS JOIN (SELECT MAP_AGG(hash(userid)) m FROM (SELECT DISTINCT userid FROM Table LIMIT 1000)))
+ * CROSS JOIN (SELECT MAP_AGG(hash(userid)) m FROM (SELECT DISTINCT userid FROM (SELECT * FROM Table LIMIT 1000000) LIMIT 1000))
  * WHERE IF(CARDINALITY(m)=1000, m[hash(userid)], TRUE)
  * <p>
- * In addition we also add a timeout to the distinctlimit we add so that we don't get stuck trying to find the keys
+ * To avoid scanning excessive data when the distinct keys are sparse, we first limit the scan to
+ * 1000 * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000), then apply DISTINCT LIMIT on that subset.
+ * This provides predictable performance without timeout complexity.
  */
 
 public class PrefilterForLimitingAggregation
@@ -243,23 +245,35 @@ public class PrefilterForLimitingAggregation
 
             PlanNode originalSource = aggregationNode.getSource();
             PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, distinctKeys, new HashMap<>());
-            // TODO(kaikalur): See if timetout can be done in a cleaner way in the middle tier
-            DistinctLimitNode timedDistinctLimitNode = new DistinctLimitNode(
+
+            // Limit the scan to avoid excessive data when distinct keys are sparse.
+            // We scan at most 1000 * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000),
+            // then apply DISTINCT LIMIT on that subset. This provides predictable
+            // performance without timeout complexity.
+            long scanLimit = 1000 * count;
+            PlanNode limitedKeySource = new LimitNode(
                     Optional.empty(),
                     idAllocator.getNextId(),
                     keySource,
+                    scanLimit,
+                    LimitNode.Step.PARTIAL);
+
+            DistinctLimitNode distinctLimitNode = new DistinctLimitNode(
+                    Optional.empty(),
+                    idAllocator.getNextId(),
+                    limitedKeySource,
                     count,
                     false,
                     distinctKeys,
                     Optional.empty(),
-                    SystemSessionProperties.getPrefilterForGroupbyLimitTimeoutMS(session));
+                    0);
 
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             RowExpression leftHashExpression = getVariableHash(distinctKeys, functionAndTypeManager);
-            RowExpression rightHashExpression = getVariableHash(timedDistinctLimitNode.getOutputVariables(), functionAndTypeManager);
+            RowExpression rightHashExpression = getVariableHash(distinctLimitNode.getOutputVariables(), functionAndTypeManager);
 
             Type mapType = createMapType(functionAndTypeManager, BIGINT, BOOLEAN);
-            PlanNode rightProjectNode = projectExpressions(timedDistinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
+            PlanNode rightProjectNode = projectExpressions(distinctLimitNode, idAllocator, variableAllocator, ImmutableList.of(rightHashExpression, constant(TRUE, BOOLEAN)), ImmutableList.of());
 
             VariableReferenceExpression mapAggVariable = variableAllocator.newVariable("expr", mapType);
             PlanNode crossJoinRhs = addAggregation(rightProjectNode, functionAndTypeManager, idAllocator, variableAllocator, "MAP_AGG", mapType, ImmutableList.of(), mapAggVariable, rightProjectNode.getOutputVariables().get(0), rightProjectNode.getOutputVariables().get(1));
