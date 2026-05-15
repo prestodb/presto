@@ -25,6 +25,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
@@ -4545,12 +4546,29 @@ class StatementAnalyzer
                 ViewDefinition.ViewColumn column = columns.get(i);
                 Field field = fieldList.get(i);
                 if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !functionAndTypeResolver.canCoerce(field.getType(), column.getType())) {
+                        !areViewColumnTypesCompatible(column.getType(), field.getType())) {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private boolean areViewColumnTypesCompatible(Type storedType, Type analyzedType)
+        {
+            return functionAndTypeResolver.canCoerce(analyzedType, storedType) ||
+                    functionAndTypeResolver.canCoerce(storedType, analyzedType) ||
+                    isCharacterStringCompatibility(storedType, analyzedType);
+        }
+
+        private boolean isCharacterStringCompatibility(Type first, Type second)
+        {
+            return isCharacterStringType(first) && isCharacterStringType(second);
+        }
+
+        private boolean isCharacterStringType(Type type)
+        {
+            return type instanceof CharType || type instanceof VarcharType;
         }
 
         private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope)
