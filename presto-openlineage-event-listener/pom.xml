@@ -24,7 +24,7 @@
         <dependency>
             <groupId>io.openlineage</groupId>
             <artifactId>openlineage-java</artifactId>
-            <version>1.44.1</version>
+            <version>1.47.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
