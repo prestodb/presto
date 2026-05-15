@@ -248,6 +248,9 @@ public class SplitSourceFactory
 
             TableHandle table = node.getTableHandle();
             SplitSchedulingStrategy strategy = getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId());
+            Map<String, String> partitionColumnMapping = stageExecutionDescriptor.isScanGroupedExecution(node.getId())
+                    ? stageExecutionDescriptor.getPartitionColumnMapping(node.getId())
+                    : ImmutableMap.of();
 
             // Use LazySplitSource to defer the potentially expensive MetaStore
             // call (split enumeration) until splits are actually needed,
@@ -255,7 +258,7 @@ public class SplitSourceFactory
             // to be resolved by the connector's plan optimizer
             // (ApplyConnectorOptimization).
             SplitSource splitSource = new LazySplitSource(
-                    () -> splitSourceProvider.getSplits(session, table, strategy, warningCollector));
+                    () -> splitSourceProvider.getSplits(session, table, strategy, warningCollector, partitionColumnMapping));
             splitSources.add(splitSource);
 
             return ImmutableMap.of(node.getId(), splitSource);

@@ -716,15 +716,16 @@ public class TestPartitionAwareGroupedExecution
     public void testPartitionColumnNotInOutput()
     {
         // ds is used in the join but NOT in the SELECT or GROUP BY output.
-        // The SINGLE aggregation filters out ds from usable partition columns,
-        // so partition-aware falls back to standard grouped execution.
+        // Partition-aware is still used because ds participates in a joined
+        // equivalence class (t1.ds = t2.ds) and the visitProject preservation
+        // keeps it alive through projections above the join.
         @Language("SQL") String query =
                 "SELECT sum(t1.val2 + t2.val4) " +
                         "FROM test_pa_t1 t1 " +
                         "JOIN test_pa_t2 t2 ON t1.col = t2.col AND t1.ds = t2.ds";
 
         assertQueryWithSameQueryRunner(partitionAwareSession(), query, standardGroupedSession());
-        assertPartitionAwareNotUsed(partitionAwareSession(), query);
+        assertPartitionAwareUsed(partitionAwareSession(), query);
     }
 
     @Test

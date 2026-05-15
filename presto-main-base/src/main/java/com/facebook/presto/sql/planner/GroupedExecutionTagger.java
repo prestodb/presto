@@ -191,7 +191,7 @@ class GroupedExecutionTagger
     }
 
     /**
-     * Merge partition column tracking from both sides of a partitioned join (hash or merge).
+     * Merge partition column tracking from both sides of a partitioned join (hash, merge, or index).
      * For each equi-join clause where both sides have usable partition columns,
      * union the corresponding TableScanColumns in the union-find and track which vars participated.
      * Drop vars whose TableScanColumn is not in any equivalence class with a joined var.
@@ -359,14 +359,32 @@ class GroupedExecutionTagger
                     childProps.capableTableScanNodes, childProps.totalLifespans,
                     childProps.recoveryEligible);
         }
-        // Track partition columns through variable assignments (identity and renaming projections)
-        // Map new output var -> same TableScanColumn as the source var
+        // Track partition columns through variable assignments (identity and
+        // renaming projections). Map new output var -> same TableScanColumn as
+        // the source var.
         Map<VariableReferenceExpression, TableScanColumn> mappedPartitionColumns = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().getMap().entrySet()) {
             if (entry.getValue() instanceof VariableReferenceExpression) {
                 VariableReferenceExpression sourceVar = (VariableReferenceExpression) entry.getValue();
                 TableScanColumn tsc = childProps.partitionColumns.get(sourceVar);
                 if (tsc != null) {
+                    mappedPartitionColumns.put(entry.getKey(), tsc);
+                }
+            }
+        }
+
+        // Preserve child partition columns that are not projected but
+        // participate in a joined equivalence class (size > 1 in the
+        // union-find). These are consumed by a join below this project and
+        // are needed for partition-aware scheduling even though they don't
+        // appear in the project output.
+        Map<GroupedExecutionTagger.TableScanColumn, Set<GroupedExecutionTagger.TableScanColumn>> equivalenceClasses =
+                childProps.partitionColumnUnionFind.getEquivalenceClasses();
+        for (Map.Entry<VariableReferenceExpression, TableScanColumn> entry : childProps.partitionColumns.entrySet()) {
+            if (!mappedPartitionColumns.containsKey(entry.getKey())) {
+                TableScanColumn tsc = entry.getValue();
+                Set<TableScanColumn> eqClass = equivalenceClasses.get(childProps.partitionColumnUnionFind.find(tsc));
+                if (eqClass != null && eqClass.size() > 1) {
                     mappedPartitionColumns.put(entry.getKey(), tsc);
                 }
             }
@@ -426,7 +444,21 @@ class GroupedExecutionTagger
     @Override
     public GroupedExecutionTagger.GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
     {
-        TableLayout layout = metadata.getLayout(session, node.getTable());
+        return getSourceNodeProperties(node.getId(), node.getTable(), node.getAssignments());
+    }
+
+    @Override
+    public GroupedExecutionTagger.GroupedExecutionProperties visitIndexSource(IndexSourceNode node, Void context)
+    {
+        return getSourceNodeProperties(node.getId(), node.getTableHandle(), node.getAssignments());
+    }
+
+    private GroupedExecutionTagger.GroupedExecutionProperties getSourceNodeProperties(
+            PlanNodeId nodeId,
+            TableHandle tableHandle,
+            Map<VariableReferenceExpression, ColumnHandle> assignments)
+    {
+        TableLayout layout = metadata.getLayout(session, tableHandle);
         Optional<TableLayout.TablePartitioning> tablePartitioning = layout.getTablePartitioning();
         if (!tablePartitioning.isPresent()) {
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
@@ -444,9 +476,9 @@ class GroupedExecutionTagger
             Optional<DiscretePredicates> discretePredicates = layout.getDiscretePredicates();
             if (discretePredicates.isPresent()) {
                 Set<ColumnHandle> partitionCols = new HashSet<>(discretePredicates.get().getColumns());
-                for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : node.getAssignments().entrySet()) {
+                for (Map.Entry<VariableReferenceExpression, ColumnHandle> entry : assignments.entrySet()) {
                     if (partitionCols.contains(entry.getValue())) {
-                        TableScanColumn tsc = new TableScanColumn(node.getId(), entry.getValue());
+                        TableScanColumn tsc = new TableScanColumn(nodeId, entry.getValue());
                         partitionColumns.put(entry.getKey(), tsc);
                         unionFind.add(tsc);
                     }
@@ -457,37 +489,11 @@ class GroupedExecutionTagger
         return new GroupedExecutionTagger.GroupedExecutionProperties(
                 true,
                 false,
-                ImmutableList.of(node.getId()),
+                ImmutableList.of(nodeId),
                 partitionHandles.size(),
-                metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE),
+                metadata.getConnectorCapabilities(session, tableHandle.getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE),
                 partitionColumns,
                 unionFind);
-    }
-
-    @Override
-    public GroupedExecutionTagger.GroupedExecutionProperties visitIndexSource(IndexSourceNode node, Void context)
-    {
-        return getSourceNodeGroupedExecutionProperties(node.getId(), node.getTableHandle());
-    }
-
-    private GroupedExecutionTagger.GroupedExecutionProperties getSourceNodeGroupedExecutionProperties(PlanNodeId nodeId, TableHandle tableHandle)
-    {
-        Optional<TableLayout.TablePartitioning> tablePartitioning = metadata.getLayout(session, tableHandle).getTablePartitioning();
-        if (!tablePartitioning.isPresent()) {
-            return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
-        }
-        List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
-        if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
-            return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
-        }
-        else {
-            return new GroupedExecutionTagger.GroupedExecutionProperties(
-                    true,
-                    false,
-                    ImmutableList.of(nodeId),
-                    partitionHandles.size(),
-                    metadata.getConnectorCapabilities(session, tableHandle.getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
-        }
     }
 
     @Override
@@ -500,24 +506,37 @@ class GroupedExecutionTagger
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
 
-        // For index join with colocated execution, both probe and index sides must be capable
-        // and have the same number of lifespans (buckets)
+        // For index join with colocated execution, both probe and index sides
+        // must be capable and have the same number of lifespans (buckets).
+        // When partition-aware execution is enabled, partition columns from
+        // both sides are merged via mergeJoinSides so that the scheduler
+        // creates (bucket, partition) lifespans instead of bucket-only.
         if (probe.currentNodeCapable && index.currentNodeCapable) {
             if (probe.totalLifespans != index.totalLifespans) {
                 return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
             }
-            // Include both probe and index side scan nodes for grouped
-            // execution. Each bucket group gets its own index split,
-            // ensuring file alignment for colocated lookup joins.
-            ImmutableList.Builder<PlanNodeId> allScanNodes = ImmutableList.builder();
-            allScanNodes.addAll(probe.capableTableScanNodes);
-            allScanNodes.addAll(index.capableTableScanNodes);
-            return new GroupedExecutionTagger.GroupedExecutionProperties(
-                    true,
-                    true,
-                    allScanNodes.build(),
-                    probe.totalLifespans,
-                    probe.recoveryEligible && index.recoveryEligible);
+
+            if (!partitionAwareEnabled) {
+                // Include both probe and index side scan nodes for grouped
+                // execution. Each bucket group gets its own index split,
+                // ensuring file alignment for colocated lookup joins.
+                ImmutableList.Builder<PlanNodeId> allScanNodes = ImmutableList.builder();
+                allScanNodes.addAll(probe.capableTableScanNodes);
+                allScanNodes.addAll(index.capableTableScanNodes);
+                return new GroupedExecutionTagger.GroupedExecutionProperties(
+                        true,
+                        true,
+                        allScanNodes.build(),
+                        probe.totalLifespans,
+                        probe.recoveryEligible && index.recoveryEligible);
+            }
+
+            // Merge partition columns from both sides, using index join
+            // criteria to establish equivalence classes.
+            List<EquiJoinClause> criteria = node.getCriteria().stream()
+                    .map(c -> new EquiJoinClause(c.getProbe(), c.getIndex()))
+                    .collect(ImmutableList.toImmutableList());
+            return mergeJoinSides(probe, index, criteria);
         }
 
         // Probe-only grouped execution for index joins is not currently
