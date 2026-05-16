@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -40,6 +41,7 @@ import io.airlift.slice.Slice;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -55,14 +57,16 @@ public class JdbcMetadata
     private final JdbcMetadataCache jdbcMetadataCache;
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
+    private final boolean prestoAnalyzeViews;
     private final String url;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, TableLocationProvider tableLocationProvider)
+    public JdbcMetadata(JdbcMetadataCache jdbcMetadataCache, JdbcClient jdbcClient, boolean allowDropTable, TableLocationProvider tableLocationProvider, boolean prestoAnalyzeViews)
     {
         this.jdbcMetadataCache = requireNonNull(jdbcMetadataCache, "jdbcMetadataCache is null");
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
         this.allowDropTable = allowDropTable;
+        this.prestoAnalyzeViews = prestoAnalyzeViews;
         this.url = requireNonNull(tableLocationProvider, "tableLocationProvider is null").getTableLocation();
     }
 
@@ -283,5 +287,27 @@ public class JdbcMetadata
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
         return Optional.of(new JdbcInputInfo(url));
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        if (!prestoAnalyzeViews) {
+            return ImmutableMap.of();
+        }
+
+        List<SchemaTableName> tableNames;
+        if (prefix.getTableName() != null) {
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        }
+        else {
+            if (!Objects.isNull(prefix.getSchemaName())) {
+                tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+            }
+            else {
+                tableNames = listViews(session, Optional.empty());
+            }
+        }
+        return jdbcClient.getViews(session, tableNames);
     }
 }

@@ -64,7 +64,7 @@ public class TestSimpleJdbcConnectorCompatibility
         SimpleTestTableLocationProvider locationProvider = new SimpleTestTableLocationProvider(simpleConfig);
 
         // Create JdbcMetadata with the simple provider (not using BaseJdbcConfig)
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, locationProvider);
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, locationProvider, true);
     }
 
     @AfterMethod(alwaysRun = true)

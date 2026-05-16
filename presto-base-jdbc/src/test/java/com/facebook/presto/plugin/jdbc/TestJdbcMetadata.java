@@ -71,7 +71,7 @@ public class TestJdbcMetadata
         BaseJdbcConfig baseConfig = new BaseJdbcConfig();
         baseConfig.setConnectionUrl("jdbc:h2:mem:test");
 
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, new DefaultTableLocationProvider(baseConfig));
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, new DefaultTableLocationProvider(baseConfig), true);
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -269,7 +269,7 @@ public class TestJdbcMetadata
         // Create BaseJdbcConfig with connection URL for drop table test
         BaseJdbcConfig dropConfig = new BaseJdbcConfig();
         dropConfig.setConnectionUrl("jdbc:h2:mem:test");
-        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, new DefaultTableLocationProvider(dropConfig));
+        metadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), true, new DefaultTableLocationProvider(dropConfig), true);
         metadata.dropTable(SESSION, tableHandle);
 
         try {
@@ -295,7 +295,7 @@ public class TestJdbcMetadata
         };
 
         // Create JdbcMetadata with the custom provider
-        JdbcMetadata customMetadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, customProvider);
+        JdbcMetadata customMetadata = new JdbcMetadata(jdbcMetadataCache, database.getJdbcClient(), false, customProvider, true);
 
         // Verify that the metadata can be created and basic operations work
         JdbcTableHandle customTableHandle = customMetadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
