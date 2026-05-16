@@ -40,6 +40,10 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::ORC;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
+  } else if (format == protocol::iceberg::FileFormat::DWRF) {
+    // Iceberg DWRF is Meta's variant of the ORC on-disk family and is read by
+    // Velox's DWRF reader.
+    return velox::dwio::common::FileFormat::DWRF;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
