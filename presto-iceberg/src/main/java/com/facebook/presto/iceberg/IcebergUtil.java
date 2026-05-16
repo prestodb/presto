@@ -482,7 +482,64 @@ public final class IcebergUtil
             return HiveType.HIVE_LONG;
         }
 
-        return HiveType.toHiveType(HiveSchemaUtil.convert(icebergType));
+        return HiveType.valueOf(sanitizeTypeString(icebergType));
+    }
+
+    /**
+     * Converts Iceberg type to Hive type string with sanitized field names.
+     * Hive's TypeInfoParser doesn't support special characters like hyphens in field names,
+     * so we replace them with underscores to make the type string parseable.
+     */
+    private static String sanitizeTypeString(org.apache.iceberg.types.Type icebergType)
+    {
+        if (icebergType.isPrimitiveType()) {
+            return HiveSchemaUtil.convert(icebergType).getTypeName();
+        }
+
+        if (icebergType.isStructType()) {
+            org.apache.iceberg.types.Types.StructType structType = icebergType.asStructType();
+            List<String> fieldStrings = structType.fields().stream()
+                    .map(field -> sanitizeFieldName(field.name()) + ":" + sanitizeTypeString(field.type()))
+                    .collect(toImmutableList());
+            return "struct<" + String.join(",", fieldStrings) + ">";
+        }
+
+        if (icebergType.isListType()) {
+            org.apache.iceberg.types.Types.ListType listType = icebergType.asListType();
+            return "array<" + sanitizeTypeString(listType.elementType()) + ">";
+        }
+
+        if (icebergType.isMapType()) {
+            org.apache.iceberg.types.Types.MapType mapType = icebergType.asMapType();
+            return "map<" + sanitizeTypeString(mapType.keyType()) + "," +
+                    sanitizeTypeString(mapType.valueType()) + ">";
+        }
+
+        // Fallback to default conversion for any other types
+        return HiveSchemaUtil.convert(icebergType).getTypeName();
+    }
+
+    /**
+     * Sanitizes field names for Hive Metastore type string storage.
+     * Hive's TypeInfoParser rejects special characters like '-' in struct field names.
+     * We replace them with '_' to make the type string parseable by HMS.
+     *
+     * Note: This sanitization is ONLY for HMS type string storage. The actual
+     * Iceberg schema (stored in Iceberg metadata JSON) preserves the original
+     * field names. The Parquet files use makeCompatibleName encoding (e.g. aws_x2Dregion).
+     * This method is intentionally different from makeCompatibleName — HMS just needs
+     * a valid parseable type string, not the exact encoded name.
+     *
+     * Note: Simple underscore replacement could cause name collisions
+     * (e.g. "aws-region" and "aws_region" both become "aws_region") but this
+     * is acceptable since HMS type string is not used for query execution in
+     * the Iceberg connector. Query execution uses the Iceberg metadata JSON
+     * which preserves original field names, and Parquet reading uses makeCompatibleName
+     * encoding to match the hex-encoded names in the files.
+     */
+    private static String sanitizeFieldName(String fieldName)
+    {
+        return fieldName.replaceAll("[^a-zA-Z0-9_]", "_");
     }
 
     public static FileFormat getFileFormat(Table table)

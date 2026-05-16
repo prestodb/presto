@@ -232,6 +232,79 @@ public final class ParquetTypeUtils
     }
 
     /**
+     * Encodes field names to comply with Avro naming rules.
+     *
+     * Mirrors {@code AvroSchemaUtil#makeCompatibleName} from the Iceberg Avro module.
+     * Iceberg applies Avro naming rules when writing Parquet files, which disallow
+     * special characters (e.g., "aws-region" → "aws_x2Dregion").
+     *
+     * Nested struct fields rely on name-based lookup (unlike top-level columns,
+     * which use field IDs), so the same encoding must be applied during reads to
+     * match the written schema.
+     *
+     * <p><b>Note:</b> This is a weak dependency on Iceberg’s implementation. If
+     * {@code AvroSchemaUtil#makeCompatibleName} or its underlying logic changes,
+     * this method must be updated to stay in sync.
+     */
+    public static String makeCompatibleName(String name)
+    {
+        if (!validAvroName(name)) {
+            return sanitize(name);
+        }
+        return name;
+    }
+
+    private static boolean validAvroName(String name)
+    {
+        int length = name.length();
+        if (length == 0) {
+            return false;
+        }
+        char first = name.charAt(0);
+        if (!(Character.isLetter(first) || first == '_')) {
+            return false;
+        }
+        for (int i = 1; i < length; i++) {
+            char character = name.charAt(i);
+            if (!(Character.isLetterOrDigit(character) || character == '_')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String sanitize(String name)
+    {
+        int length = name.length();
+        StringBuilder sb = new StringBuilder(name.length());
+        char first = name.charAt(0);
+        if (!(Character.isLetter(first) || first == '_')) {
+            sb.append(sanitize(first));
+        }
+        else {
+            sb.append(first);
+        }
+        for (int i = 1; i < length; i++) {
+            char character = name.charAt(i);
+            if (!(Character.isLetterOrDigit(character) || character == '_')) {
+                sb.append(sanitize(character));
+            }
+            else {
+                sb.append(character);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String sanitize(char character)
+    {
+        if (Character.isDigit(character)) {
+            return "_" + character;
+        }
+        return "_x" + Integer.toHexString(character).toUpperCase(Locale.ROOT);
+    }
+
+    /**
      * For optional fields:
      * definitionLevel == maxDefinitionLevel     => Value is defined
      * definitionLevel == maxDefinitionLevel - 1 => Value is null
