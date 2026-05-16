@@ -18,7 +18,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
 import io.airlift.tpch.TpchTable;
 import org.bson.Document;
 import org.testng.annotations.AfterClass;
