@@ -486,6 +486,13 @@ public abstract class DefaultTraversalVisitor<R, C>
     }
 
     @Override
+    protected R visitSetColumnDefault(SetColumnDefault node, C context)
+    {
+        process(node.getDefaultExpression(), context);
+        return null;
+    }
+
+    @Override
     protected R visitMerge(Merge node, C context)
     {
         process(node.getTarget(), context);

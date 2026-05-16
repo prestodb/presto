@@ -134,6 +134,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -1987,6 +1988,27 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
         assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+    }
+
+    @Test
+    public void testSetColumnDefault()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DEFAULT 'US'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("c"), new StringLiteral("US"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN country SET DEFAULT 'IN'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("country"), new StringLiteral("IN"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN priority SET DEFAULT 5",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("priority"), new LongLiteral("5"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN score SET DEFAULT 0.0E0",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("score"), new DoubleLiteral("0.0E0"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN is_active SET DEFAULT true",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("is_active"), BooleanLiteral.TRUE_LITERAL, false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN is_deleted SET DEFAULT false",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("is_deleted"), BooleanLiteral.FALSE_LITERAL, false));
+        assertStatement("ALTER TABLE \"t x\" ALTER COLUMN \"c d\" SET DEFAULT 'value'",
+                new SetColumnDefault(QualifiedName.of("t x"), quotedIdentifier("c d"), new StringLiteral("value"), false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN c SET DEFAULT 'US'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("c"), new StringLiteral("US"), true));
     }
 
     @Test

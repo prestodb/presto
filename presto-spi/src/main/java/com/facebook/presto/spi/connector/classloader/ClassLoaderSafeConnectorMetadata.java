@@ -412,6 +412,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
+        }
+    }
+
+    @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -128,6 +128,7 @@ public class MetadataManagerStats
     private final AtomicLong setTablePropertiesCalls = new AtomicLong();
     private final AtomicLong addColumnCalls = new AtomicLong();
     private final AtomicLong dropColumnCalls = new AtomicLong();
+    private final AtomicLong setColumnDefaultCalls = new AtomicLong();
     private final AtomicLong renameColumnCalls = new AtomicLong();
     private final AtomicLong normalizeIdentifierCalls = new AtomicLong();
     private final AtomicLong getTableLayoutFilterCoverageCalls = new AtomicLong();
@@ -240,6 +241,7 @@ public class MetadataManagerStats
     private final TimeStat setTablePropertiesTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat addColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat setColumnDefaultTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat renameColumnTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat normalizeIdentifierTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat getTableLayoutFilterCoverageTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -1817,6 +1819,12 @@ public class MetadataManagerStats
     {
         renameColumnCalls.incrementAndGet();
         renameColumnTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordSetColumnDefaultCall(long duration)
+    {
+        setColumnDefaultCalls.incrementAndGet();
+        setColumnDefaultTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordNormalizeIdentifierCall(long duration)

@@ -157,6 +157,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
@@ -827,6 +828,17 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 context.EXISTS() != null,
                 true);
+    }
+
+    @Override
+    public Node visitSetColumnDefault(SqlBaseParser.SetColumnDefaultContext context)
+    {
+        return new SetColumnDefault(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                (Expression) visit(context.expression()),
+                context.EXISTS() != null);
     }
 
     @Override

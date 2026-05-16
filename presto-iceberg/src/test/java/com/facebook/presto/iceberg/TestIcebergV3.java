@@ -471,6 +471,43 @@ public class TestIcebergV3
         }
     }
 
+    @Test
+    public void testSetColumnDefaultRequiresV3()
+    {
+        String tableName = "test_set_column_default_v2";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '2')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 2);
+            // Try to set default on V2 table - should fail with V3 requirement error
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT 'test'",
+                    "SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher.*");
+
+            // Upgrade to V3
+            BaseTable baseTable = (BaseTable) table;
+            TableOperations operations = baseTable.operations();
+            TableMetadata currentMetadata = operations.current();
+            operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(3));
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            // Add column with initial-default in V3
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'UK'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "UK");
+
+            // Now update write-default only (initial-default should remain 'UK')
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'US'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(
