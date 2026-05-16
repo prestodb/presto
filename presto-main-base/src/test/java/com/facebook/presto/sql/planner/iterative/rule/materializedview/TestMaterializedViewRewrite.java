@@ -388,6 +388,48 @@ public class TestMaterializedViewRewrite
     }
 
     @Test
+    public void testNeverStitchingStrategyUsesViewQuery()
+    {
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
+
+        // Stale MV with USE_STITCHING behavior - would normally stitch
+        MaterializedViewStalenessConfig stalenessConfig = new MaterializedViewStalenessConfig(
+                MaterializedViewStaleReadBehavior.USE_STITCHING,
+                new Duration(0, TimeUnit.SECONDS));
+
+        Metadata metadata = new TestingMetadataWithStalenessConfig(
+                false,
+                stalenessConfig,
+                Optional.empty(),
+                DEFINER,
+                ImmutableMap.of(
+                        new SchemaTableName("schema", "base_table"),
+                        new MaterializedViewStatus.MaterializedDataPredicates(
+                                ImmutableList.of(TupleDomain.all()),
+                                ImmutableList.of("ds"))));
+
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
+                .setSystemProperty("materialized_view_stitching_strategy", "NEVER")
+                .on(planBuilder -> {
+                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
+                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
+                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
+
+                    return planBuilder.materializedViewScan(
+                            materializedViewName,
+                            planBuilder.values(dataTableA),
+                            planBuilder.values(viewQueryA),
+                            ImmutableMap.of(outputA, dataTableA),
+                            ImmutableMap.of(outputA, viewQueryA),
+                            outputA);
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("a", expression("view_query_a")),
+                                values("view_query_a")));
+    }
+
+    @Test
     public void testStitchingBlockedByRowFilterUsesViewQuery()
     {
         QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");

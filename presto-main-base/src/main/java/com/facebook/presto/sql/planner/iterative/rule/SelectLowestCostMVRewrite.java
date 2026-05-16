@@ -32,7 +32,10 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 
 import java.util.List;
 
+import static com.facebook.presto.SystemSessionProperties.getMaterializedViewIncrementalRefreshStrategy;
+import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStitchingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewQueryRewriteCostBasedSelectionEnabled;
+import static com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.plan.Patterns.mvRewriteCandidates;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +66,9 @@ public class SelectLowestCostMVRewrite
     @Override
     public boolean isEnabled(Session session)
     {
-        return isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session);
+        return isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)
+                || getMaterializedViewStitchingStrategy(session) == AUTOMATIC
+                || getMaterializedViewIncrementalRefreshStrategy(session) == AUTOMATIC;
     }
 
     @Override

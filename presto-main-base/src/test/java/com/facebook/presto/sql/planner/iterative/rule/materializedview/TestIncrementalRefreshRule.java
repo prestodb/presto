@@ -196,6 +196,36 @@ public class TestIncrementalRefreshRule
                 .doesNotFire();
     }
 
+    @Test
+    public void testNeverStrategyFallsBackToFullRefresh()
+    {
+        Metadata metadata = new TestingMetadataForIncrementalRefresh(
+                tester().getMetadata(),
+                createMvDefinitionWithMappings(),
+                createStaleStatus());
+
+        tester().assertThat(new IncrementalRefreshRule(metadata))
+                .setSystemProperty("materialized_view_incremental_refresh_strategy", "NEVER")
+                .on(this::buildRefreshPlan)
+                .matches(values("id", "ds"));
+    }
+
+    @Test
+    public void testAutomaticStrategyFallsBackWhenDeltaPlanCannotBeBuilt()
+    {
+        // Values-only source: buildDeltaPlanForRefresh returns empty, the rule emits the fallback warning and
+        // returns the (no-op) narrowed source. No MVRewriteCandidatesNode is emitted on this path.
+        Metadata metadata = new TestingMetadataForIncrementalRefresh(
+                tester().getMetadata(),
+                createMvDefinitionWithMappings(),
+                createStaleStatus());
+
+        tester().assertThat(new IncrementalRefreshRule(metadata))
+                .setSystemProperty("materialized_view_incremental_refresh_strategy", "AUTOMATIC")
+                .on(this::buildRefreshPlan)
+                .matches(values("id", "ds"));
+    }
+
     private PlanNode buildRefreshPlan(PlanBuilder planBuilder)
     {
         VariableReferenceExpression idVar = planBuilder.variable("id", BIGINT);

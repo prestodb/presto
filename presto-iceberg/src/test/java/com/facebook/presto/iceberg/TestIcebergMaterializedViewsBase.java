@@ -28,6 +28,7 @@ import java.io.File;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STALE_DATA;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STITCHING_FALLBACK;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -5091,5 +5092,139 @@ public abstract class TestIcebergMaterializedViewsBase
             assertUpdate("DROP MATERIALIZED VIEW mv_security_test");
             assertUpdate("DROP TABLE mv_security_base");
         }
+    }
+
+    @Test
+    public void testIncrementalRefreshStrategyNeverForcesFullRefresh()
+    {
+        assertUpdate("CREATE TABLE cost_gate_never_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        assertUpdate("INSERT INTO cost_gate_never_base VALUES " +
+                "(1, 100, '2024-01-01'), (2, 200, '2024-01-02'), (3, 300, '2024-01-03')", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW cost_gate_never_mv " +
+                "WITH (partitioning = ARRAY['dt'], refresh_type = 'INCREMENTAL') AS " +
+                "SELECT id, value, dt FROM cost_gate_never_base");
+
+        assertRefreshAndFullyMaterialized("cost_gate_never_mv", 3);
+
+        assertUpdate("INSERT INTO cost_gate_never_base VALUES (4, 400, '2024-01-04')", 1);
+
+        Session neverSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("materialized_view_incremental_refresh_strategy", "NEVER")
+                .build();
+
+        assertUpdate(neverSession, "REFRESH MATERIALIZED VIEW cost_gate_never_mv", 4);
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'cost_gate_never_mv'",
+                "SELECT 'FULLY_MATERIALIZED'");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__cost_gate_never_mv\"", "SELECT 4");
+
+        assertUpdate("DROP MATERIALIZED VIEW cost_gate_never_mv");
+        assertUpdate("DROP TABLE cost_gate_never_base");
+    }
+
+    @Test
+    public void testIncrementalRefreshStrategyAutomaticProducesCorrectResults()
+    {
+        // Cost picks one of {delta, full} via SelectLowestCostMVRewrite; either way the MV must end up correct.
+        assertUpdate("CREATE TABLE cost_gate_auto_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        assertUpdate("INSERT INTO cost_gate_auto_base VALUES " +
+                "(1, 100, '2024-01-01'), (2, 200, '2024-01-02'), (3, 300, '2024-01-03')", 3);
+
+        assertUpdate("CREATE MATERIALIZED VIEW cost_gate_auto_mv " +
+                "WITH (partitioning = ARRAY['dt'], refresh_type = 'INCREMENTAL') AS " +
+                "SELECT id, value, dt FROM cost_gate_auto_base");
+
+        assertRefreshAndFullyMaterialized("cost_gate_auto_mv", 3);
+
+        assertUpdate("INSERT INTO cost_gate_auto_base VALUES (4, 400, '2024-01-04')", 1);
+
+        Session autoSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("materialized_view_incremental_refresh_strategy", "AUTOMATIC")
+                .build();
+
+        MaterializedResult refreshResult = getQueryRunner().execute(autoSession, "REFRESH MATERIALIZED VIEW cost_gate_auto_mv");
+
+        assertTrue(
+                refreshResult.getWarnings().stream()
+                        .noneMatch(warning -> warning.getWarningCode().equals(MATERIALIZED_VIEW_STITCHING_FALLBACK.toWarningCode())),
+                "Expected no MATERIALIZED_VIEW_STITCHING_FALLBACK warning under AUTOMATIC; got: " + refreshResult.getWarnings());
+        assertQuery(
+                "SELECT freshness_state FROM information_schema.materialized_views " +
+                        "WHERE table_schema = 'test_schema' AND table_name = 'cost_gate_auto_mv'",
+                "SELECT 'FULLY_MATERIALIZED'");
+        assertQuery("SELECT COUNT(*) FROM \"__mv_storage__cost_gate_auto_mv\"", "SELECT 4");
+        assertQuery("SELECT * FROM cost_gate_auto_mv ORDER BY id",
+                "VALUES (1, 100, '2024-01-01'), (2, 200, '2024-01-02'), (3, 300, '2024-01-03'), (4, 400, '2024-01-04')");
+
+        assertUpdate("DROP MATERIALIZED VIEW cost_gate_auto_mv");
+        assertUpdate("DROP TABLE cost_gate_auto_base");
+    }
+
+    @Test
+    public void testStitchingStrategyNeverProducesCorrectResults()
+    {
+        assertUpdate("CREATE TABLE cost_gate_stitch_never_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        assertUpdate("INSERT INTO cost_gate_stitch_never_base VALUES " +
+                "(1, 100, '2024-01-01'), (2, 200, '2024-01-02')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW cost_gate_stitch_never_mv " +
+                "WITH (partitioning = ARRAY['dt']) AS " +
+                "SELECT id, value, dt FROM cost_gate_stitch_never_base");
+
+        assertRefreshAndFullyMaterialized("cost_gate_stitch_never_mv", 2);
+
+        assertUpdate("INSERT INTO cost_gate_stitch_never_base VALUES (3, 300, '2024-01-03')", 1);
+
+        Session stitchNeverSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("materialized_view_stitching_strategy", "NEVER")
+                .setSystemProperty("materialized_view_stale_read_behavior", "USE_STITCHING")
+                .build();
+
+        assertQuery(
+                stitchNeverSession,
+                "SELECT id, value, dt FROM cost_gate_stitch_never_mv ORDER BY id",
+                "VALUES (1, 100, '2024-01-01'), (2, 200, '2024-01-02'), (3, 300, '2024-01-03')");
+
+        assertUpdate("DROP MATERIALIZED VIEW cost_gate_stitch_never_mv");
+        assertUpdate("DROP TABLE cost_gate_stitch_never_base");
+    }
+
+    @Test
+    public void testStitchingStrategyAutomaticProducesCorrectResults()
+    {
+        assertUpdate("CREATE TABLE cost_gate_stitch_auto_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                "WITH (partitioning = ARRAY['dt'])");
+        assertUpdate("INSERT INTO cost_gate_stitch_auto_base VALUES " +
+                "(1, 100, '2024-01-01'), (2, 200, '2024-01-02')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW cost_gate_stitch_auto_mv " +
+                "WITH (partitioning = ARRAY['dt']) AS " +
+                "SELECT id, value, dt FROM cost_gate_stitch_auto_base");
+
+        assertRefreshAndFullyMaterialized("cost_gate_stitch_auto_mv", 2);
+
+        assertUpdate("INSERT INTO cost_gate_stitch_auto_base VALUES (3, 300, '2024-01-03')", 1);
+
+        Session stitchAutoSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty("materialized_view_stitching_strategy", "AUTOMATIC")
+                .setSystemProperty("materialized_view_stale_read_behavior", "USE_STITCHING")
+                .build();
+
+        MaterializedResult result = getQueryRunner().execute(
+                stitchAutoSession,
+                "SELECT id, value, dt FROM cost_gate_stitch_auto_mv ORDER BY id");
+        assertTrue(
+                result.getWarnings().stream()
+                        .noneMatch(warning -> warning.getWarningCode().equals(MATERIALIZED_VIEW_STITCHING_FALLBACK.toWarningCode())),
+                "Expected no MATERIALIZED_VIEW_STITCHING_FALLBACK warning under AUTOMATIC; got: " + result.getWarnings());
+        assertEquals(result.getMaterializedRows().size(), 3);
+
+        assertUpdate("DROP MATERIALIZED VIEW cost_gate_stitch_auto_mv");
+        assertUpdate("DROP TABLE cost_gate_stitch_auto_base");
     }
 }

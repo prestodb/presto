@@ -28,6 +28,7 @@ import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -247,6 +248,8 @@ public class FeaturesConfig
     private boolean materializedViewAllowFullRefreshEnabled;
     private MaterializedViewRefreshType materializedViewDefaultRefreshType = MaterializedViewRefreshType.FULL;
     private MaterializedViewStaleReadBehavior materializedViewStaleReadBehavior = MaterializedViewStaleReadBehavior.USE_VIEW_QUERY;
+    private MaterializedViewRewriteStrategy materializedViewStitchingStrategy = MaterializedViewRewriteStrategy.ALWAYS;
+    private MaterializedViewRewriteStrategy materializedViewIncrementalRefreshStrategy = MaterializedViewRewriteStrategy.ALWAYS;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
     private String analyzerType = "BUILTIN";
@@ -2442,6 +2445,32 @@ public class FeaturesConfig
     public FeaturesConfig setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior value)
     {
         this.materializedViewStaleReadBehavior = value;
+        return this;
+    }
+
+    public MaterializedViewRewriteStrategy getMaterializedViewStitchingStrategy()
+    {
+        return materializedViewStitchingStrategy;
+    }
+
+    @Config("materialized-view-stitching-strategy")
+    @ConfigDescription("Controls when query-time stitching of partially stale materialized views fires (ALWAYS, NEVER, or AUTOMATIC for cost-based)")
+    public FeaturesConfig setMaterializedViewStitchingStrategy(MaterializedViewRewriteStrategy value)
+    {
+        this.materializedViewStitchingStrategy = value;
+        return this;
+    }
+
+    public MaterializedViewRewriteStrategy getMaterializedViewIncrementalRefreshStrategy()
+    {
+        return materializedViewIncrementalRefreshStrategy;
+    }
+
+    @Config("materialized-view-incremental-refresh-strategy")
+    @ConfigDescription("Controls when incremental refresh of materialized views fires (ALWAYS, NEVER, or AUTOMATIC for cost-based)")
+    public FeaturesConfig setMaterializedViewIncrementalRefreshStrategy(MaterializedViewRewriteStrategy value)
+    {
+        this.materializedViewIncrementalRefreshStrategy = value;
         return this;
     }
 

@@ -32,6 +32,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode.MVRewriteCandidate;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -57,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewDefaultRefreshType;
+import static com.facebook.presto.SystemSessionProperties.getMaterializedViewIncrementalRefreshStrategy;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -138,6 +141,15 @@ public class IncrementalRefreshRule
             return Result.ofPlanNode(node.getSource());
         }
 
+        MaterializedViewRewriteStrategy strategy = getMaterializedViewIncrementalRefreshStrategy(session);
+        if (strategy == MaterializedViewRewriteStrategy.NEVER) {
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                    "Incremental refresh disabled for materialized view " + qualifiedViewName +
+                            " by session property; falling back to full refresh."));
+            return Result.ofPlanNode(node.getSource());
+        }
+
         MaterializedViewStatus status = metadataResolver.getMaterializedViewStatus(qualifiedViewName, TupleDomain.all());
 
         // If fully materialized, nothing to refresh - return empty result
@@ -201,8 +213,25 @@ public class IncrementalRefreshRule
                     node.getSource(), incrementalRefreshPredicates, session, idAllocator, variableAllocator, metadata, context.getLookup()));
         }
 
-        return Result.ofPlanNode(applyIncrementalRefreshPredicates(
-                deltaPlan.get(), incrementalRefreshPredicates, session, idAllocator, variableAllocator, metadata, context.getLookup()));
+        PlanNode deltaWithPredicates = applyIncrementalRefreshPredicates(
+                deltaPlan.get(), incrementalRefreshPredicates, session, idAllocator, variableAllocator, metadata, context.getLookup());
+
+        if (strategy == MaterializedViewRewriteStrategy.AUTOMATIC) {
+            PlanNode fullWithPredicates = applyIncrementalRefreshPredicates(
+                    node.getSource(), incrementalRefreshPredicates, session, idAllocator, variableAllocator, metadata, context.getLookup());
+            return Result.ofPlanNode(new MVRewriteCandidatesNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    fullWithPredicates,
+                    ImmutableList.of(new MVRewriteCandidate(
+                            deltaWithPredicates,
+                            catalogName,
+                            materializedViewName.getSchemaName(),
+                            materializedViewName.getTableName())),
+                    node.getOutputVariables()));
+        }
+
+        return Result.ofPlanNode(deltaWithPredicates);
     }
 
     /**

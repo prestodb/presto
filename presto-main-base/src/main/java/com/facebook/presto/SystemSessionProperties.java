@@ -54,6 +54,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.ShuffleForTableScanStrate
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
@@ -271,6 +272,8 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_STALENESS_WINDOW = "materialized_view_staleness_window";
     public static final String MATERIALIZED_VIEW_FORCE_STALE = "materialized_view_force_stale";
     public static final String MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE = "materialized_view_default_refresh_type";
+    public static final String MATERIALIZED_VIEW_STITCHING_STRATEGY = "materialized_view_stitching_strategy";
+    public static final String MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY = "materialized_view_incremental_refresh_strategy";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1552,6 +1555,30 @@ public final class SystemSessionProperties
                         false,
                         value -> MaterializedViewRefreshType.valueOf(((String) value).toUpperCase()),
                         MaterializedViewRefreshType::name),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_STITCHING_STRATEGY,
+                        format("Strategy controlling when query-time stitching of partially stale materialized views fires. Valid values: %s",
+                                Stream.of(MaterializedViewRewriteStrategy.values())
+                                        .map(MaterializedViewRewriteStrategy::name)
+                                        .collect(joining(", "))),
+                        VARCHAR,
+                        MaterializedViewRewriteStrategy.class,
+                        featuresConfig.getMaterializedViewStitchingStrategy(),
+                        false,
+                        value -> MaterializedViewRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        MaterializedViewRewriteStrategy::name),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY,
+                        format("Strategy controlling when incremental refresh of materialized views fires. Valid values: %s",
+                                Stream.of(MaterializedViewRewriteStrategy.values())
+                                        .map(MaterializedViewRewriteStrategy::name)
+                                        .collect(joining(", "))),
+                        VARCHAR,
+                        MaterializedViewRewriteStrategy.class,
+                        featuresConfig.getMaterializedViewIncrementalRefreshStrategy(),
+                        false,
+                        value -> MaterializedViewRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        MaterializedViewRewriteStrategy::name),
                 stringProperty(
                         DISTRIBUTED_TRACING_MODE,
                         "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
@@ -3299,6 +3326,16 @@ public final class SystemSessionProperties
     public static MaterializedViewRefreshType getMaterializedViewDefaultRefreshType(Session session)
     {
         return session.getSystemProperty(MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE, MaterializedViewRefreshType.class);
+    }
+
+    public static MaterializedViewRewriteStrategy getMaterializedViewStitchingStrategy(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_STITCHING_STRATEGY, MaterializedViewRewriteStrategy.class);
+    }
+
+    public static MaterializedViewRewriteStrategy getMaterializedViewIncrementalRefreshStrategy(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY, MaterializedViewRewriteStrategy.class);
     }
 
     public static boolean isVerboseRuntimeStatsEnabled(Session session)

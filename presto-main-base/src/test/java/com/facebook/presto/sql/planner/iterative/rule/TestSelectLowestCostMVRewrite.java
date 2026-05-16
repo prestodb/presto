@@ -338,6 +338,83 @@ public class TestSelectLowestCostMVRewrite
         }
     }
 
+    @Test
+    public void testRuleEnabledByStitchingStrategyAutomatic()
+    {
+        try (RuleTester strategyTester = new RuleTester(ImmutableList.of(), ImmutableMap.of(
+                "materialized_view_query_rewrite_cost_based_selection_enabled", "false",
+                "materialized_view_stitching_strategy", "AUTOMATIC"), Optional.of(NODES_COUNT))) {
+            PlanNode result = strategyTester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                    .overrideStats("origSrc", statsEstimate(10000, 80000))
+                    .overrideStats("mv1Src", statsEstimate(100, 800))
+                    .on(p -> {
+                        VariableReferenceExpression col = p.variable("col", BIGINT);
+                        return new MVRewriteCandidatesNode(
+                                Optional.empty(),
+                                new PlanNodeId("mvnode"),
+                                p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                                ImmutableList.of(new MVRewriteCandidate(
+                                        p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                        "catalog", "schema", "mv1")),
+                                ImmutableList.of(col));
+                    })
+                    .get();
+            assertTrue(result instanceof FilterNode);
+            assertEquals(result.getId(), new PlanNodeId("mv1Filter"));
+        }
+    }
+
+    @Test
+    public void testRuleEnabledByIncrementalRefreshStrategyAutomatic()
+    {
+        try (RuleTester strategyTester = new RuleTester(ImmutableList.of(), ImmutableMap.of(
+                "materialized_view_query_rewrite_cost_based_selection_enabled", "false",
+                "materialized_view_incremental_refresh_strategy", "AUTOMATIC"), Optional.of(NODES_COUNT))) {
+            PlanNode result = strategyTester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                    .overrideStats("origSrc", statsEstimate(10000, 80000))
+                    .overrideStats("mv1Src", statsEstimate(100, 800))
+                    .on(p -> {
+                        VariableReferenceExpression col = p.variable("col", BIGINT);
+                        return new MVRewriteCandidatesNode(
+                                Optional.empty(),
+                                new PlanNodeId("mvnode"),
+                                p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                                ImmutableList.of(new MVRewriteCandidate(
+                                        p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                        "catalog", "schema", "mv1")),
+                                ImmutableList.of(col));
+                    })
+                    .get();
+            assertTrue(result instanceof FilterNode);
+            assertEquals(result.getId(), new PlanNodeId("mv1Filter"));
+        }
+    }
+
+    @Test
+    public void testRuleDisabledWhenAllRelevantPropertiesOff()
+    {
+        try (RuleTester offTester = new RuleTester(ImmutableList.of(), ImmutableMap.of(
+                "materialized_view_query_rewrite_cost_based_selection_enabled", "false",
+                "materialized_view_stitching_strategy", "ALWAYS",
+                "materialized_view_incremental_refresh_strategy", "NEVER"), Optional.of(NODES_COUNT))) {
+            offTester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                    .overrideStats("origSrc", statsEstimate(10000, 80000))
+                    .overrideStats("mv1Src", statsEstimate(100, 800))
+                    .on(p -> {
+                        VariableReferenceExpression col = p.variable("col", BIGINT);
+                        return new MVRewriteCandidatesNode(
+                                Optional.empty(),
+                                new PlanNodeId("mvnode"),
+                                p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                                ImmutableList.of(new MVRewriteCandidate(
+                                        p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                        "catalog", "schema", "mv1")),
+                                ImmutableList.of(col));
+                    })
+                    .doesNotFire();
+        }
+    }
+
     private static PlanNodeStatsEstimate statsEstimate(double rowCount, double totalSize)
     {
         return PlanNodeStatsEstimate.builder()

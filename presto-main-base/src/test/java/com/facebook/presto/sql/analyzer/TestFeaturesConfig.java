@@ -20,6 +20,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
+import com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -208,6 +209,8 @@ public class TestFeaturesConfig
                 .setMaterializedViewAllowFullRefreshEnabled(false)
                 .setMaterializedViewDefaultRefreshType(MaterializedViewRefreshType.FULL)
                 .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.USE_VIEW_QUERY)
+                .setMaterializedViewStitchingStrategy(MaterializedViewRewriteStrategy.ALWAYS)
+                .setMaterializedViewIncrementalRefreshStrategy(MaterializedViewRewriteStrategy.ALWAYS)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
                 .setAnalyzerType("BUILTIN")
@@ -459,6 +462,8 @@ public class TestFeaturesConfig
                 .put("materialized-view-allow-full-refresh-enabled", "true")
                 .put("materialized-view-default-refresh-type", "INCREMENTAL")
                 .put("materialized-view-stale-read-behavior", "FAIL")
+                .put("materialized-view-stitching-strategy", "AUTOMATIC")
+                .put("materialized-view-incremental-refresh-strategy", "NEVER")
                 .put("analyzer-type", "CRUX")
                 .put("pre-process-metadata-calls", "true")
                 .put("verbose-runtime-stats-enabled", "true")
@@ -706,6 +711,8 @@ public class TestFeaturesConfig
                 .setMaterializedViewAllowFullRefreshEnabled(true)
                 .setMaterializedViewDefaultRefreshType(MaterializedViewRefreshType.INCREMENTAL)
                 .setMaterializedViewStaleReadBehavior(MaterializedViewStaleReadBehavior.FAIL)
+                .setMaterializedViewStitchingStrategy(MaterializedViewRewriteStrategy.AUTOMATIC)
+                .setMaterializedViewIncrementalRefreshStrategy(MaterializedViewRewriteStrategy.NEVER)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
                 .setAnalyzerType("CRUX")

@@ -33,6 +33,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
+import com.facebook.presto.spi.plan.MVRewriteCandidatesNode.MVRewriteCandidate;
 import com.facebook.presto.spi.plan.MaterializedViewScanNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -42,6 +44,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +52,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStaleReadBehavior;
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStalenessWindow;
+import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStitchingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewForceStale;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
@@ -127,10 +131,18 @@ public class MaterializedViewRewrite
 
         boolean canUseDataTable = canUseDataTable(session, context, node, metadataResolver, definition, status, staleReadBehavior, stalenessWindow);
         boolean shouldStitch = shouldPerformStitching(status, staleReadBehavior, stalenessWindow);
+        MaterializedViewRewriteStrategy stitchingStrategy = getMaterializedViewStitchingStrategy(session);
+        boolean stitchingDisabledByStrategy = shouldStitch && stitchingStrategy == MaterializedViewRewriteStrategy.NEVER;
+        if (stitchingDisabledByStrategy) {
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                    "Stitching disabled for materialized view " + node.getMaterializedViewName() +
+                            " by session property; falling back to full view query."));
+        }
         if (!status.isFullyMaterialized() && !status.getPartitionsFromBaseTables().isEmpty()) {
             Map<SchemaTableName, MaterializedDataPredicates> constraints = status.getPartitionsFromBaseTables();
 
-            if (shouldStitch && canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context)) {
+            if (shouldStitch && !stitchingDisabledByStrategy && canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context)) {
                 Optional<PlanNode> unionPlan = buildStitchedPlan(
                         metadata,
                         session,
@@ -143,6 +155,9 @@ public class MaterializedViewRewrite
                         context.getWarningCollector());
 
                 if (unionPlan.isPresent()) {
+                    if (stitchingStrategy == MaterializedViewRewriteStrategy.AUTOMATIC) {
+                        return Result.ofPlanNode(buildAutomaticCandidates(node, unionPlan.get(), idAllocator));
+                    }
                     return Result.ofPlanNode(unionPlan.get());
                 }
             }
@@ -165,19 +180,43 @@ public class MaterializedViewRewrite
             mappings = node.getViewQueryMappings();
         }
 
+        return Result.ofPlanNode(projectToOutputs(node, plan, mappings, idAllocator));
+    }
+
+    private PlanNode buildAutomaticCandidates(MaterializedViewScanNode node, PlanNode stitchedPlan, PlanNodeIdAllocator idAllocator)
+    {
+        PlanNode projectedViewQuery = projectToOutputs(node, node.getViewQueryPlan(), node.getViewQueryMappings(), idAllocator);
+        QualifiedObjectName mvName = node.getMaterializedViewName();
+        return new MVRewriteCandidatesNode(
+                node.getSourceLocation(),
+                idAllocator.getNextId(),
+                projectedViewQuery,
+                ImmutableList.of(new MVRewriteCandidate(
+                        stitchedPlan,
+                        mvName.getCatalogName(),
+                        mvName.getSchemaName(),
+                        mvName.getObjectName())),
+                node.getOutputVariables());
+    }
+
+    private static ProjectNode projectToOutputs(
+            MaterializedViewScanNode node,
+            PlanNode plan,
+            Map<VariableReferenceExpression, VariableReferenceExpression> mappings,
+            PlanNodeIdAllocator idAllocator)
+    {
         Assignments.Builder assignments = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
             VariableReferenceExpression sourceVariable = mappings.get(outputVariable);
             requireNonNull(sourceVariable, "No mapping found for output variable: " + outputVariable);
             assignments.put(outputVariable, sourceVariable);
         }
-
-        return Result.ofPlanNode(new ProjectNode(
+        return new ProjectNode(
                 node.getSourceLocation(),
                 idAllocator.getNextId(),
                 plan,
                 assignments.build(),
-                LOCAL));
+                LOCAL);
     }
 
     private boolean canUseDataTable(
