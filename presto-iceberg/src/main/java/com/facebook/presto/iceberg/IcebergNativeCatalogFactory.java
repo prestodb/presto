@@ -100,6 +100,11 @@ public class IcebergNativeCatalogFactory
         return this.catalogWarehouseDataDir;
     }
 
+    public String getCatalogName()
+    {
+        return this.catalogName;
+    }
+
     public SupportsNamespaces getNamespaces(ConnectorSession session)
     {
         Catalog catalog = getCatalog(session);

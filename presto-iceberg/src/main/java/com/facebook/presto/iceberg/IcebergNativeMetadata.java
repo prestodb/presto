@@ -135,6 +135,12 @@ public class IcebergNativeMetadata
     }
 
     @Override
+    protected String getCatalogName(ConnectorSession session)
+    {
+        return catalogFactory.getCatalogName();
+    }
+
+    @Override
     protected Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         return getNativeIcebergTable(catalogFactory, session, schemaTableName);

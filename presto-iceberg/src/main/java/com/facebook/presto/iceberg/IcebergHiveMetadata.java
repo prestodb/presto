@@ -221,6 +221,12 @@ public class IcebergHiveMetadata
     }
 
     @Override
+    protected String getCatalogName(ConnectorSession session)
+    {
+        return catalogName.getCatalogName();
+    }
+
+    @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
         Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), schemaName);
