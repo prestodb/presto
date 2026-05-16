@@ -56,7 +56,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.14.0</dep.joda.version>
-        <dep.tempto.version>1.55</dep.tempto.version>
+        <dep.tempto.version>1.57</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -1108,33 +1108,13 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-12</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-llap-common</artifactId>
-                <version>2.3.4</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-serde</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <version>4.0.1-1</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>13</version>
+                <version>14</version>
             </dependency>
 
             <dependency>
@@ -1232,7 +1212,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <version>0.8.8</version>
             </dependency>
 
             <dependency>

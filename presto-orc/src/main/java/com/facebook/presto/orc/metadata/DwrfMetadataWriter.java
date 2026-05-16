@@ -36,10 +36,12 @@ import io.airlift.slice.SliceOutput;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -296,6 +298,8 @@ public class DwrfMetadataWriter
     public int writeStripeFooter(SliceOutput output, StripeFooter footer)
             throws IOException
     {
+        ZoneId timezone = footer.getTimezone().orElseThrow(() -> new IllegalArgumentException("Timezone not set"));
+
         DwrfProto.StripeFooter footerProtobuf = DwrfProto.StripeFooter.newBuilder()
                 .addAllStreams(footer.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
@@ -304,6 +308,7 @@ public class DwrfMetadataWriter
                 .addAllEncryptedGroups(footer.getStripeEncryptionGroups().stream()
                         .map(group -> ByteString.copyFrom(group.getBytes()))
                         .collect(toImmutableList()))
+                .setWriterTimezone(TimeZone.getTimeZone(timezone).getID())
                 .build();
 
         return writeProtobufObject(output, footerProtobuf);

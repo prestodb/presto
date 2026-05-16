@@ -554,7 +554,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
 
   session.systemProperties.clear();
   auto veloxConfig3 = QueryConfig(toVeloxConfigs(session));
-  EXPECT_TRUE(veloxConfig3.adjustTimestampToTimezone());
+  EXPECT_FALSE(veloxConfig3.adjustTimestampToTimezone());
 
   session.systemProperties.clear();
   auto veloxConfig8 = QueryConfig(toVeloxConfigs(session));
@@ -766,11 +766,6 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
 
   // Verify special case configs (always added)
   EXPECT_TRUE(
-      veloxConfigs.count(core::QueryConfig::kAdjustTimestampToTimezone) > 0);
-  EXPECT_EQ(
-      "true", veloxConfigs.at(core::QueryConfig::kAdjustTimestampToTimezone));
-
-  EXPECT_TRUE(
       veloxConfigs.count(core::QueryConfig::kDriverCpuTimeSliceLimitMs) > 0);
   EXPECT_EQ(
       "1000", veloxConfigs.at(core::QueryConfig::kDriverCpuTimeSliceLimitMs));
@@ -787,8 +782,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
       expectedExactConfigs++;
     }
   }
-  expectedExactConfigs += 2; // kAdjustTimestampToTimezone,
-                             // kDriverCpuTimeSliceLimitMs
+  expectedExactConfigs += 1; // kDriverCpuTimeSliceLimitMs
   expectedExactConfigs += 1; // kSessionStartTime
 
   // Use exact matching to catch any config additions/removals
