@@ -408,6 +408,12 @@ public class MetadataManagerStats
     }
 
     @Managed
+    public long getSetColumnDefaultCalls()
+    {
+        return setColumnDefaultCalls.get();
+    }
+
+    @Managed
     public long getNormalizeIdentifierCalls()
     {
         return normalizeIdentifierCalls.get();
@@ -1151,6 +1157,13 @@ public class MetadataManagerStats
     public TimeStat getDropColumnTime()
     {
         return dropColumnTime;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getSetColumnDefaultTime()
+    {
+        return setColumnDefaultTime;
     }
 
     @Managed

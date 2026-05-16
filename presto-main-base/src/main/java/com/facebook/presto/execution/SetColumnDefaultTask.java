@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.Catalog.CatalogContext;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -70,17 +69,11 @@ public class SetColumnDefaultTask
             }
             return immediateFuture(null);
         }
-        if (!isIcebergTable(metadata, session, tableName)) {
-            String catalogName = tableName.getCatalogName();
-            String connectorName = getConnectorName(metadata, session, tableName);
-            throw new SemanticException(NOT_SUPPORTED, statement,
-                    "Catalog '%s' (connector: %s) does not support SET COLUMN DEFAULT. This feature is currently only supported for Iceberg v3 tables.", catalogName, connectorName);
-        }
 
         TableHandle tableHandle = tableHandleOptional.get();
         String columnName = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getColumn().getValue());
 
-        accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(columnName);
@@ -102,17 +95,5 @@ public class SetColumnDefaultTask
         metadata.setColumnDefault(session, tableHandle, columnName, defaultValue);
 
         return immediateFuture(null);
-    }
-
-    private static String getConnectorName(Metadata metadata, Session session, QualifiedObjectName tableName)
-    {
-        String catalogName = tableName.getCatalogName();
-        CatalogContext catalogContext = metadata.getCatalogNamesWithConnectorContext(session).get(catalogName);
-        return catalogContext != null ? catalogContext.getConnectorName() : "unknown";
-    }
-
-    private static boolean isIcebergTable(Metadata metadata, Session session, QualifiedObjectName tableName)
-    {
-        return "iceberg".equalsIgnoreCase(getConnectorName(metadata, session, tableName));
     }
 }

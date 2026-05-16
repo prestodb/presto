@@ -1542,9 +1542,13 @@ public final class IcebergUtil
     /**
      * Convert a Presto internal representation default value to an Iceberg Literal based on the column type.
      * This is used to set initial-default and write-default values in Iceberg V3 schemas.
+     * Returns null if defaultValue is null, which represents setting the default to NULL.
      */
     public static Literal<?> convertToIcebergLiteral(Object defaultValue, org.apache.iceberg.types.Type icebergType)
     {
+        if (defaultValue == null) {
+            return null;
+        }
         switch (icebergType.typeId()) {
             case STRING:
                 return Literal.of(((Slice) defaultValue).toStringUtf8());

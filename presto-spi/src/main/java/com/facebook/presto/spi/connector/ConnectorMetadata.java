@@ -417,7 +417,8 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Set the default value for the specified column (write-default for Iceberg V3)
+     * Set the default value for the specified column for future writes.
+     * The exact semantics are connector-defined.
      */
     default void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
     {

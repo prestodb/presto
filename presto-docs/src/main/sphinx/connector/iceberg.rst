@@ -1890,8 +1890,8 @@ ALTER COLUMN SET DEFAULT (Iceberg V3)
 .. note::
 
     ``ALTER COLUMN SET DEFAULT`` currently only updates the Iceberg metadata (``write-default`` field).
-    **INSERT support for write-default is not yet implemented** — inserts will not automatically use
-    the write-default value. This will be added in a future release.
+    **INSERT support for write-default is not implemented** — inserts will not automatically use
+    the write-default value.
 
 Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
 modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility

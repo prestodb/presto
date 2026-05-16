@@ -44,6 +44,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -502,6 +503,31 @@ public class TestIcebergV3
             table = loadTable(tableName);
             assertEquals(table.schema().findField("country").initialDefault(), "UK");
             assertEquals(table.schema().findField("country").writeDefault(), "US");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetColumnDefaultToNull()
+    {
+        String tableName = "test_set_column_default_null";
+        try {
+            // Create V3 table with a column that has a default value
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR DEFAULT 'default_name'");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            // Verify initial default is set
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertEquals(table.schema().findField("name").writeDefault(), "default_name");
+            // Set default to NULL - this should not throw NPE and should clear the write-default
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT NULL");
+            table = loadTable(tableName);
+            // Verify initial-default remains but write-default is now null
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertNull(table.schema().findField("name").writeDefault());
         }
         finally {
             dropTable(tableName);
