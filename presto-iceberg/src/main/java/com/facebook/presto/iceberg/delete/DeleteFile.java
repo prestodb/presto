@@ -27,6 +27,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -42,6 +43,10 @@ public final class DeleteFile
     private final List<Integer> equalityFieldIds;
     private final Map<Integer, byte[]> lowerBounds;
     private final Map<Integer, byte[]> upperBounds;
+    private final long dataSequenceNumber;
+    private final String referencedDataFile;
+    private final long contentOffset;
+    private final long contentSize;
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
@@ -50,6 +55,8 @@ public final class DeleteFile
         Map<Integer, byte[]> upperBounds = firstNonNull(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of())
                 .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
 
+        Long offset = deleteFile.contentOffset();
+        Long size = deleteFile.contentSizeInBytes();
         return new DeleteFile(
                 fromIcebergFileContent(deleteFile.content()),
                 deleteFile.path().toString(),
@@ -58,7 +65,11 @@ public final class DeleteFile
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 lowerBounds,
-                upperBounds);
+                upperBounds,
+                getDataSequenceNumber(deleteFile),
+                deleteFile.referencedDataFile() == null ? "" : deleteFile.referencedDataFile(),
+                offset == null ? 0L : offset,
+                size == null ? 0L : size);
     }
 
     @JsonCreator
@@ -70,7 +81,11 @@ public final class DeleteFile
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("equalityFieldIds") List<Integer> equalityFieldIds,
             @JsonProperty("lowerBounds") Map<Integer, byte[]> lowerBounds,
-            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds)
+            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("referencedDataFile") String referencedDataFile,
+            @JsonProperty("contentOffset") long contentOffset,
+            @JsonProperty("contentSize") long contentSize)
     {
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
@@ -80,6 +95,10 @@ public final class DeleteFile
         this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
         this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
+        this.dataSequenceNumber = dataSequenceNumber;
+        this.referencedDataFile = referencedDataFile == null ? "" : referencedDataFile;
+        this.contentOffset = contentOffset;
+        this.contentSize = contentSize;
     }
 
     @JsonProperty
@@ -128,6 +147,30 @@ public final class DeleteFile
     public Map<Integer, byte[]> getUpperBounds()
     {
         return upperBounds;
+    }
+
+    @JsonProperty
+    public long dataSequenceNumber()
+    {
+        return dataSequenceNumber;
+    }
+
+    @JsonProperty
+    public String referencedDataFile()
+    {
+        return referencedDataFile;
+    }
+
+    @JsonProperty
+    public long contentOffset()
+    {
+        return contentOffset;
+    }
+
+    @JsonProperty
+    public long contentSize()
+    {
+        return contentSize;
     }
 
     @Override
