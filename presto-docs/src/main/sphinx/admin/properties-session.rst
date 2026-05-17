@@ -1042,6 +1042,20 @@ For example, when enabled, the following query::
 is internally optimized to use a single ``max_by(ROW(v1, v2, v3), k)`` call with field extraction,
 reducing both CPU and memory usage.
 
+``optimizer.pull_constant_projection_above_exchange``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pull constant assignments in projections above remote exchanges so that constant values are not
+serialized and shuffled across the network. When enabled, constants produced by a ``ProjectNode``
+directly below a remote ``ExchangeNode`` are moved to a new ``ProjectNode`` above the exchange,
+narrowing the exchange output layout. Constants used in partitioning, hashing, or ordering are not
+pulled up, and for multi-source (``UNION``) exchanges only constants that are identical across all
+sources are pulled up. This is the session-level counterpart of the configuration property
+``optimizer.pull-constant-projection-above-exchange``.
+
 ``grouped_execution``
 ^^^^^^^^^^^^^^^^^^^^^
 

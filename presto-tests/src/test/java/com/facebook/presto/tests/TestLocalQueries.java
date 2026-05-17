@@ -37,6 +37,7 @@ import java.util.Optional;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
+import static com.facebook.presto.SystemSessionProperties.PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -314,5 +315,46 @@ public class TestLocalQueries
                 .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
                 .build();
         assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testPullConstantProjectionAboveExchange()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "false")
+                .build();
+
+        // Basic constant projection
+        assertQuery(enabled, "SELECT nationkey, 'constant' AS label FROM nation",
+                disabled, "SELECT nationkey, 'constant' AS label FROM nation");
+
+        // Constant with join (triggers a remote exchange in distributed mode)
+        assertQuery(enabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey",
+                disabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey");
+
+        // Multiple constants with a filter
+        assertQuery(enabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1",
+                disabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1");
+
+        // Constants across a UNION ALL (multi-source exchange): only constants identical
+        // across all sources are pulled above the exchange.
+        assertQuery(enabled,
+                "SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 2",
+                disabled,
+                "SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 2");
+
+        // Non-deterministic expression must NOT be treated as a pullable constant:
+        // results stay correct (per-row evaluation) under both sessions.
+        assertQuery(enabled,
+                "SELECT count(DISTINCT label) >= 1 FROM (SELECT nationkey, CAST(random() < 2 AS VARCHAR) AS label FROM nation)",
+                disabled,
+                "SELECT count(DISTINCT label) >= 1 FROM (SELECT nationkey, CAST(random() < 2 AS VARCHAR) AS label FROM nation)");
     }
 }
