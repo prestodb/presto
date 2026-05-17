@@ -7,6 +7,7 @@ This chapter describes the SQL syntax used in Presto.
 .. toctree::
     :maxdepth: 1
 
+    sql/connector-statement-support
     sql/alter-function
     sql/alter-schema
     sql/alter-table
