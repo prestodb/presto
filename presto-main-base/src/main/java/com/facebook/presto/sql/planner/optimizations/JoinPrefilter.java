@@ -64,6 +64,20 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This optimizer filters the right side of a join with the unique join keys on the left side of the join.
+ * When the join key is wide or there are multiple join keys, it filters on the hash instead of using the keys.
+ * <p>
+ * Performance notes:
+ * <ul>
+ *     <li>The basic optimization (scan/filter/project probe side) is enabled by {@code join_prefilter_enabled}.</li>
+ *     <li>Complex probe-side patterns (UNION ALL, cross join, unnest, aggregation) and right-side aggregation
+ *         pushdown are gated by {@code join_prefilter_build_side_with_complex_probe_side}, which defaults to false.
+ *         This ensures the additional planning overhead is only incurred when explicitly enabled.</li>
+ *     <li>When the complex feature is disabled, the optimizer quickly returns after checking the basic
+ *         scan/filter/project pattern, avoiding unnecessary tree traversals.</li>
+ * </ul>
+ */
 public class JoinPrefilter
         implements PlanOptimizer
 {
@@ -115,17 +129,6 @@ public class JoinPrefilter
             FunctionAndTypeManager functionAndTypeManager,
             boolean complexEnabled)
     {
-        // Peel through Filter/Project
-        PlanNode peeled = node;
-        while (peeled instanceof FilterNode || peeled instanceof ProjectNode) {
-            if (peeled instanceof FilterNode) {
-                peeled = ((FilterNode) peeled).getSource();
-            }
-            else {
-                peeled = ((ProjectNode) peeled).getSource();
-            }
-        }
-
         // Base case: scan/filter/project, plus UNION ALL of such when complex mode is enabled.
         // The UnionNode-aware helpers are intentionally separate from the plain
         // isScanFilterProject / isDeterministicScanFilterProject so that other optimizers
@@ -138,6 +141,19 @@ public class JoinPrefilter
 
         if (!complexEnabled) {
             return Optional.empty();
+        }
+
+        // Peel through Filter/Project for complex pattern matching.
+        // This is only done when complexEnabled is true to avoid unnecessary work
+        // in the common case where the feature is disabled.
+        PlanNode peeled = node;
+        while (peeled instanceof FilterNode || peeled instanceof ProjectNode) {
+            if (peeled instanceof FilterNode) {
+                peeled = ((FilterNode) peeled).getSource();
+            }
+            else {
+                peeled = ((ProjectNode) peeled).getSource();
+            }
         }
 
         // Cross join: clone the child that contains the join keys
