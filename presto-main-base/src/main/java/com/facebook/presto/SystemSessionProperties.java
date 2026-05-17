@@ -391,6 +391,7 @@ public final class SystemSessionProperties
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
     public static final String OPTIMIZE_TOP_N_USING_ROW_ID = "optimize_top_n_using_row_id";
     public static final String OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS = "optimize_top_n_using_row_id_min_column_savings";
+    public static final String OPTIMIZE_VALUES_JOIN = "optimize_values_join";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -2259,6 +2260,10 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, RPC_FUNCTION_PARALLELISM, 0, false),
                         object -> object),
+                booleanProperty(OPTIMIZE_VALUES_JOIN,
+                        "Enable optimizing joins when one side is a table literal - VALUES",
+                        true,
+                        false),
                 new PropertyMetadata<>(
                         QUERY_CLIENT_TIMEOUT,
                         "Configures how long the query runs without contact from the client application, such as the CLI, before it's abandoned",
@@ -3844,6 +3849,11 @@ public final class SystemSessionProperties
     public static boolean isPushSubfieldsForCardinalityEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_FOR_CARDINALITY, Boolean.class);
+    }
+
+    public static boolean isOptimizeValuesJoin(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_VALUES_JOIN, Boolean.class);
     }
 
     public static boolean isUtilizeUniquePropertyInQueryPlanningEnabled(Session session)
