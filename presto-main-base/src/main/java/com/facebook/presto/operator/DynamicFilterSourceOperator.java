@@ -34,7 +34,6 @@ import java.util.function.Consumer;
 import static com.facebook.presto.common.predicate.Range.range;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.TypeUtils.isFloatingPointNaN;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -91,7 +90,6 @@ public class DynamicFilterSourceOperator
         private final int maxFilterPositionsCount;
         private final DataSize maxFilterSize;
         private final int minMaxCollectionLimit;
-        private final boolean useNewNanDefinition;
 
         private boolean closed;
 
@@ -102,8 +100,7 @@ public class DynamicFilterSourceOperator
                 List<Channel> channels,
                 int maxFilterPositionsCount,
                 DataSize maxFilterSize,
-                int minMaxCollectionLimit,
-                boolean useNewNanDefinition)
+                int minMaxCollectionLimit)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -118,7 +115,6 @@ public class DynamicFilterSourceOperator
             this.maxFilterPositionsCount = maxFilterPositionsCount;
             this.maxFilterSize = maxFilterSize;
             this.minMaxCollectionLimit = minMaxCollectionLimit;
-            this.useNewNanDefinition = useNewNanDefinition;
         }
 
         @Override
@@ -132,8 +128,7 @@ public class DynamicFilterSourceOperator
                     planNodeId,
                     maxFilterPositionsCount,
                     maxFilterSize,
-                    minMaxCollectionLimit,
-                    useNewNanDefinition);
+                    minMaxCollectionLimit);
         }
 
         @Override
@@ -156,7 +151,6 @@ public class DynamicFilterSourceOperator
     private final long maxFilterSizeInBytes;
     private final List<Channel> channels;
     private final List<Integer> minMaxChannels;
-    private final boolean useNewNanDefinition;
 
     private boolean finished;
     private Page current;
@@ -180,8 +174,7 @@ public class DynamicFilterSourceOperator
             PlanNodeId planNodeId,
             int maxFilterPositionsCount,
             DataSize maxFilterSize,
-            int minMaxCollectionLimit,
-            boolean useNewNanDefinition)
+            int minMaxCollectionLimit)
     {
         this.context = requireNonNull(context, "context is null");
         this.maxFilterPositionsCount = maxFilterPositionsCount;
@@ -214,7 +207,6 @@ public class DynamicFilterSourceOperator
             minValues = new Block[channels.size()];
             maxValues = new Block[channels.size()];
         }
-        this.useNewNanDefinition = useNewNanDefinition;
     }
 
     @Override
@@ -412,10 +404,7 @@ public class DynamicFilterSourceOperator
         for (int position = 0; position < block.getPositionCount(); ++position) {
             Object value = readNativeValue(type, block, position);
             if (value != null) {
-                // join doesn't match rows with NaN values when using the old nan definition.
-                if (!isFloatingPointNaN(type, value) || useNewNanDefinition) {
-                    values.add(value);
-                }
+                values.add(value);
             }
         }
         // Inner and right join doesn't match rows with null key column values.

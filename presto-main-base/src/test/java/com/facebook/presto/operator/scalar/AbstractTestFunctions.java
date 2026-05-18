@@ -92,8 +92,7 @@ public abstract class AbstractTestFunctions
         this.session = requireNonNull(session, "session is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.functionsConfig = requireNonNull(functionsConfig, "config is null")
-                .setLegacyLogFunction(true)
-                .setUseNewNanDefinition(true);
+                .setLegacyLogFunction(true);
         this.loadInlinedSqlInvokedFunctionsPlugin = loadInlinedSqlInvokedFunctionsPlugin;
     }
 

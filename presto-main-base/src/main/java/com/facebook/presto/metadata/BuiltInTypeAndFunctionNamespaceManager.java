@@ -255,8 +255,6 @@ import com.facebook.presto.type.IntervalYearMonthOperators;
 import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.KllSketchOperators;
-import com.facebook.presto.type.LegacyDoubleComparisonOperators;
-import com.facebook.presto.type.LegacyRealComparisonOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
 import com.facebook.presto.type.MapParametricType;
@@ -315,7 +313,6 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.DoubleType.OLD_NAN_DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.IpAddressType.IPADDRESS;
@@ -325,7 +322,6 @@ import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.KllSketchParametricType.KLL_SKETCH;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
-import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
@@ -633,14 +629,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(INTEGER);
         addType(SMALLINT);
         addType(TINYINT);
-        if (!functionsConfig.getUseNewNanDefinition()) {
-            addType(OLD_NAN_DOUBLE);
-            addType(OLD_NAN_REAL);
-        }
-        else {
-            addType(DOUBLE);
-            addType(REAL);
-        }
+        addType(DOUBLE);
+        addType(REAL);
         addType(VARBINARY);
         addType(DATE);
         addType(TIME);
@@ -814,18 +804,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(DoubleOperators.class)
                 .scalars(RealOperators.class);
 
-        if (functionsConfig.getUseNewNanDefinition()) {
-            builder.scalars(DoubleComparisonOperators.class)
-                    .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class)
-                    .scalars(RealComparisonOperators.class)
-                    .scalar(RealComparisonOperators.RealDistinctFromOperator.class);
-        }
-        else {
-            builder.scalars(LegacyDoubleComparisonOperators.class)
-                    .scalar(LegacyDoubleComparisonOperators.DoubleDistinctFromOperator.class)
-                    .scalars(LegacyRealComparisonOperators.class)
-                    .scalar(LegacyRealComparisonOperators.RealDistinctFromOperator.class);
-        }
+        builder.scalars(DoubleComparisonOperators.class)
+                .scalar(DoubleComparisonOperators.DoubleDistinctFromOperator.class)
+                .scalars(RealComparisonOperators.class)
+                .scalar(RealComparisonOperators.RealDistinctFromOperator.class);
         builder.scalars(VarcharOperators.class)
                 .scalar(VarcharOperators.VarcharDistinctFromOperator.class)
                 .scalars(VarbinaryOperators.class)

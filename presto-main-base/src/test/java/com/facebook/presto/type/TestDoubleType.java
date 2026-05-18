@@ -19,12 +19,9 @@ import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.DoubleType.OLD_NAN_DOUBLE;
-import static com.facebook.presto.common.type.RealType.OLD_NAN_REAL;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 
 public class TestDoubleType
         extends AbstractTestType
@@ -70,15 +67,6 @@ public class TestDoubleType
         assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 1));
         assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 2));
         assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 3));
-    }
-
-    @Test
-    public void testLegacyDoubleHash()
-    {
-        BlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 4);
-        blockBuilder.writeLong(doubleToLongBits(Double.parseDouble("-0")));
-        blockBuilder.writeLong(doubleToLongBits(Double.parseDouble("0")));
-        assertNotEquals(OLD_NAN_DOUBLE.hash(blockBuilder, 0), OLD_NAN_REAL.hash(blockBuilder, 1));
     }
 
     @Test

@@ -88,7 +88,6 @@ public class BenchmarkBytesValues
                             TupleDomainFilter.BytesRange.of("apple".getBytes(), true, "grape".getBytes(), true, false),
                             TupleDomainFilter.BytesRange.of("grape".getBytes(), true, "orange".getBytes(), true, false),
                             TupleDomainFilter.BytesRange.of("orange".getBytes(), true, null, true, false)),
-                    false,
                     false);
         }
     }

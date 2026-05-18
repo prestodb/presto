@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
@@ -24,6 +25,7 @@ import jakarta.validation.constraints.Min;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
+@DefunctConfig("use-new-nan-definition")
 public class FunctionsConfig
 {
     private boolean legacyArrayAgg;
@@ -36,7 +38,6 @@ public class FunctionsConfig
     private RegexLibrary regexLibrary = JONI;
     private long kHyperLogLogAggregationGroupNumberLimit;
     private boolean limitNumberOfGroupsForKHyperLogLogAggregations = true;
-    private boolean useNewNanDefinition = true;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
@@ -173,19 +174,6 @@ public class FunctionsConfig
     public boolean getLimitNumberOfGroupsForKHyperLogLogAggregations()
     {
         return limitNumberOfGroupsForKHyperLogLogAggregations;
-    }
-
-    @Config("use-new-nan-definition")
-    @ConfigDescription("Enable functions to use the new consistent NaN definition where NaN=NaN and is sorted largest")
-    public FunctionsConfig setUseNewNanDefinition(boolean useNewNanDefinition)
-    {
-        this.useNewNanDefinition = useNewNanDefinition;
-        return this;
-    }
-
-    public boolean getUseNewNanDefinition()
-    {
-        return useNewNanDefinition;
     }
 
     @Config("histogram.implementation")

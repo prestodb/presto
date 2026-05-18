@@ -30,7 +30,7 @@ public class TestHiveDistributedNanQueries
             throws Exception
     {
         QueryRunner queryRunner =
-                HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableMap.of("use-new-nan-definition", "true"), ImmutableMap.of(), Optional.empty());
+                HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableMap.of(), ImmutableMap.of(), Optional.empty());
         queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         return queryRunner;
     }
