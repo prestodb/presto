@@ -25,7 +25,7 @@ import jakarta.validation.constraints.Min;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
-@DefunctConfig("use-new-nan-definition")
+@DefunctConfig({"use-new-nan-definition", "warn-on-common-nan-patterns"})
 public class FunctionsConfig
 {
     private boolean legacyArrayAgg;
@@ -45,7 +45,6 @@ public class FunctionsConfig
     private boolean legacyTimestamp = true;
     private boolean parseDecimalLiteralsAsDouble;
     private boolean fieldNamesInJsonCastEnabled;
-    private boolean warnOnPossibleNans;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
     private boolean canonicalizedJsonExtract;
@@ -258,19 +257,6 @@ public class FunctionsConfig
     public boolean isFieldNamesInJsonCastEnabled()
     {
         return fieldNamesInJsonCastEnabled;
-    }
-
-    @Config("warn-on-common-nan-patterns")
-    @ConfigDescription("Give warnings for operations on DOUBLE/REAL types where NaN issues are common")
-    public FunctionsConfig setWarnOnCommonNanPatterns(boolean warnOnPossibleNans)
-    {
-        this.warnOnPossibleNans = warnOnPossibleNans;
-        return this;
-    }
-
-    public boolean getWarnOnCommonNanPatterns()
-    {
-        return warnOnPossibleNans;
     }
 
     @Config("deprecated.legacy-char-to-varchar-coercion")
