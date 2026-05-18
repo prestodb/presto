@@ -70,18 +70,37 @@ public class TestReadRowsHelper
     private static final class MockReadRowsHelper
             extends ReadRowsHelper
     {
-        Iterator<MockResponsesBatch> responses;
+        private final Iterator<MockResponsesBatch> responses;
+        private long expectedOffset;
 
         MockReadRowsHelper(BigQueryReadClient client, ReadRowsRequest.Builder request, int maxReadRowsRetries, Iterable<MockResponsesBatch> responses)
         {
             super(client, request, maxReadRowsRetries);
             this.responses = responses.iterator();
+            this.expectedOffset = request.getOffset();
         }
 
         @Override
         protected Iterator<ReadRowsResponse> fetchResponses(ReadRowsRequest.Builder readRowsRequest)
         {
-            return responses.next();
+            assertThat(readRowsRequest.getOffset()).isEqualTo(expectedOffset);
+            Iterator<ReadRowsResponse> delegate = responses.next();
+            return new Iterator<ReadRowsResponse>()
+            {
+                @Override
+                public boolean hasNext()
+                {
+                    return delegate.hasNext();
+                }
+
+                @Override
+                public ReadRowsResponse next()
+                {
+                    ReadRowsResponse response = delegate.next();
+                    expectedOffset += response.getRowCount();
+                    return response;
+                }
+            };
         }
     }
 }
