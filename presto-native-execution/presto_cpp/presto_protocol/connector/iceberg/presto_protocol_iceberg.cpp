@@ -386,6 +386,29 @@ void to_json(json& j, const DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  to_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
+  to_json_key(
+      j,
+      "referencedDataFile",
+      p.referencedDataFile,
+      "DeleteFile",
+      "String",
+      "referencedDataFile");
+  to_json_key(
+      j,
+      "contentOffset",
+      p.contentOffset,
+      "DeleteFile",
+      "int64_t",
+      "contentOffset");
+  to_json_key(
+      j, "contentSize", p.contentSize, "DeleteFile", "int64_t", "contentSize");
 }
 
 void from_json(const json& j, DeleteFile& p) {
@@ -423,6 +446,42 @@ void from_json(const json& j, DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  if (j.count("dataSequenceNumber")) {
+    from_json_key(
+        j,
+        "dataSequenceNumber",
+        p.dataSequenceNumber,
+        "DeleteFile",
+        "int64_t",
+        "dataSequenceNumber");
+  }
+  if (j.count("referencedDataFile")) {
+    from_json_key(
+        j,
+        "referencedDataFile",
+        p.referencedDataFile,
+        "DeleteFile",
+        "String",
+        "referencedDataFile");
+  }
+  if (j.count("contentOffset")) {
+    from_json_key(
+        j,
+        "contentOffset",
+        p.contentOffset,
+        "DeleteFile",
+        "int64_t",
+        "contentOffset");
+  }
+  if (j.count("contentSize")) {
+    from_json_key(
+        j,
+        "contentSize",
+        p.contentSize,
+        "DeleteFile",
+        "int64_t",
+        "contentSize");
+  }
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
