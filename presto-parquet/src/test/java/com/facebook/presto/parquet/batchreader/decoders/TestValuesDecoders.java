@@ -52,6 +52,7 @@ import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
@@ -61,6 +62,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
@@ -393,7 +395,7 @@ public abstract class TestValuesDecoders
         int outputOffset = 0;
         while (inputOffset < valueCount) {
             int readBatchSize = min(batchSize, valueCount - inputOffset);
-            decoder.readNext(actualValues, outputOffset, readBatchSize);
+            decoder.readNext(actualValues, outputOffset, readBatchSize, Optional.of(DateTimeZone.forID("UTC")));
 
             for (int i = 0; i < readBatchSize; i++) {
                 assertEquals(actualValues[outputOffset + i], (long) expectedValues.get(inputOffset + i));
@@ -706,7 +708,7 @@ public abstract class TestValuesDecoders
             expectedValues.add(dictionary.get(dictionaryId));
         }
 
-        TimestampDictionary tsDictionary = new TimestampDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY));
+        TimestampDictionary tsDictionary = new TimestampDictionary(new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY), Optional.of(DateTimeZone.forID("UTC")));
 
         timestampBatchReadWithSkipHelper(valueCount, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);
         timestampBatchReadWithSkipHelper(29, 0, valueCount, timestampDictionary(dataPage, dictionarySize, tsDictionary), expectedValues);

@@ -46,6 +46,7 @@ public class CassandraPageSinkProvider
 
         return new CassandraPageSink(
                 cassandraSession,
+                session,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),
@@ -63,6 +64,7 @@ public class CassandraPageSinkProvider
 
         return new CassandraPageSink(
                 cassandraSession,
+                session,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),

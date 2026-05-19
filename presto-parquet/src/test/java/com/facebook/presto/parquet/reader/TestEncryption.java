@@ -44,6 +44,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -539,6 +540,7 @@ public class TestEncryption
                 null,
                 null,
                 false,
-                fileDecryptor);
+                fileDecryptor,
+                Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
     }
 }

@@ -64,11 +64,13 @@ public class IcebergRestTestUtil
         return ImmutableMap.of("iceberg.rest.uri", serverUri);
     }
 
-    public static TestingHttpServer getRestServer(String location)
+    public static TestingHttpServer getRestServer(String location) throws ClassNotFoundException
     {
         JdbcCatalog backingCatalog = new JdbcCatalog();
         HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig(), new HiveS3Config());
         backingCatalog.setConf(hdfsEnvironment.getConfiguration(new HdfsContext(SESSION), new Path(location)));
+
+        Class.forName("org.h2.Driver");
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(URI, "jdbc:h2:mem:test_" + System.nanoTime() + "_" + ThreadLocalRandom.current().nextInt())

@@ -35,9 +35,11 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.function.Consumer;
 
@@ -83,7 +85,7 @@ public abstract class AbstractColumnReader
         this.indexIterator = null;
     }
 
-    protected abstract void readValue(BlockBuilder blockBuilder, Type type);
+    protected abstract void readValue(BlockBuilder blockBuilder, Type type, Optional<DateTimeZone> timezone);
 
     protected abstract void skipValue();
 
@@ -99,7 +101,7 @@ public abstract class AbstractColumnReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone)
     {
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         this.field = requireNonNull(field, "field is null");
@@ -129,7 +131,7 @@ public abstract class AbstractColumnReader
     }
 
     @Override
-    public ColumnChunk readNext()
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
     {
         IntList definitionLevels = new IntArrayList();
         IntList repetitionLevels = new IntArrayList();
@@ -145,7 +147,7 @@ public abstract class AbstractColumnReader
                 // When we break here, we could end up with valueCount < nextBatchSize, this is because we may skip reading values in readValues()
                 break;
             }
-            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels);
+            readValues(blockBuilder, valuesToRead, field.getType(), definitionLevels, repetitionLevels, timezone);
             valueCount += valuesToRead;
         }
 
@@ -163,10 +165,10 @@ public abstract class AbstractColumnReader
                 (page == null ? 0 : page.getRetainedSizeInBytes());
     }
 
-    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels)
+    private void readValues(BlockBuilder blockBuilder, int valuesToRead, Type type, IntList definitionLevels, IntList repetitionLevels, Optional<DateTimeZone> timezone)
     {
         processValues(valuesToRead, ignored -> {
-            readValue(blockBuilder, type);
+            readValue(blockBuilder, type, timezone);
             definitionLevels.add(definitionLevel);
             repetitionLevels.add(repetitionLevel);
         }, indexIterator != null);

@@ -14,7 +14,11 @@
 package com.facebook.presto.parquet.batchreader.decoders.plain;
 
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
+
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,7 +42,7 @@ public class TimestampPlainValuesDecoder
     }
 
     @Override
-    public void readNext(long[] values, int offset, int length)
+    public void readNext(long[] values, int offset, int length, Optional<DateTimeZone> timezone)
     {
         checkArgument(bufferOffset + length * 12 <= bufferEnd, "End of stream: invalid read request");
         checkArgument(length >= 0 && offset >= 0, "invalid read request: offset %s, length", offset, length);
@@ -48,7 +52,9 @@ public class TimestampPlainValuesDecoder
         int localBufferOffset = bufferOffset;
 
         while (offset < endOffset) {
-            values[offset++] = getTimestampMillis(localByteBuffer, localBufferOffset);
+            AtomicLong utcMillis = new AtomicLong(getTimestampMillis(localByteBuffer, localBufferOffset));
+            timezone.ifPresent(tz -> utcMillis.set(tz.convertUTCToLocal(utcMillis.get())));
+            values[offset++] = utcMillis.get();
             localBufferOffset += 12;
         }
 

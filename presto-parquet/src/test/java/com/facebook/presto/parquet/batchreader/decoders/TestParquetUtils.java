@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTime;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.apache.parquet.bytes.BytesUtils;
@@ -26,7 +27,7 @@ import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -132,7 +133,7 @@ public class TestParquetUtils
             case 96: {
                 for (int i = 0; i < valueCount; i++) {
                     long millisValue = positiveUpperBoundedInt * 1000L;
-                    NanoTime nanoTime = NanoTimeUtils.getNanoTime(new Timestamp(millisValue), false);
+                    NanoTime nanoTime = NanoTimeUtils.getNanoTime(Timestamp.ofEpochMilli(millisValue), ZoneId.of("UTC"), false);
                     writer.writeLong(nanoTime.getTimeOfDayNanos());
                     writer.writeInteger(nanoTime.getJulianDay());
                     addedValues.add(millisValue);

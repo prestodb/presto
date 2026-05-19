@@ -31,10 +31,13 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
@@ -50,6 +53,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
@@ -81,6 +86,7 @@ public enum CassandraType
     TEXT(createUnboundedVarcharType(), String.class),
     DATE(DateType.DATE, LocalDate.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Instant.class),
+    TIMESTAMP_WITH_TIMEZONE(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE, Instant.class),
     UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
     TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
     VARCHAR(createUnboundedVarcharType(), String.class),
@@ -154,7 +160,7 @@ public enum CassandraType
         return name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    public static CassandraType getCassandraType(DataType dataType)
+    public static CassandraType getCassandraType(ConnectorSession connectorSession, DataType dataType)
     {
         if (dataType.equals(DataTypes.ASCII)) {
             return ASCII;
@@ -196,7 +202,10 @@ public enum CassandraType
             return TEXT;
         }
         else if (dataType.equals(DataTypes.TIMESTAMP)) {
-            return TIMESTAMP;
+            if (connectorSession.getSqlFunctionProperties().isLegacyTimestamp()) {
+                return TIMESTAMP;
+            }
+            return TIMESTAMP_WITH_TIMEZONE;
         }
         else if (dataType.equals(DataTypes.TIMEUUID)) {
             return TIMEUUID;
@@ -274,6 +283,8 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getUuid(position).toString()));
                 case TIMESTAMP:
                     return NullableValue.of(nativeType, row.getInstant(position).toEpochMilli());
+                case TIMESTAMP_WITH_TIMEZONE:
+                    return NullableValue.of(nativeType, packDateTimeWithZone(row.getInstant(position).toEpochMilli(), TimeZoneKey.UTC_KEY));
                 case DATE:
                     return NullableValue.of(nativeType, (long) row.getLocalDate(position).toEpochDay());
                 case INET:
@@ -443,6 +454,7 @@ public enum CassandraType
                 case TIMEUUID:
                     return row.getUuid(position).toString();
                 case TIMESTAMP:
+                case TIMESTAMP_WITH_TIMEZONE:
                     return Long.toString(row.getInstant(position).toEpochMilli());
                 case DATE:
                     return row.getLocalDate(position).toString();
@@ -469,6 +481,7 @@ public enum CassandraType
             case UUID:
             case TIMEUUID:
             case TIMESTAMP:
+            case TIMESTAMP_WITH_TIMEZONE:
             case DATE:
             case INET:
             case VARINT:
@@ -557,6 +570,8 @@ public enum CassandraType
                 return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
                 return Instant.ofEpochMilli((Long) nativeValue);
+            case TIMESTAMP_WITH_TIMEZONE:
+                return Instant.ofEpochMilli(unpackMillisUtc((Long) nativeValue));
             case DATE:
                 return LocalDate.ofEpochDay((Long) nativeValue);
             case UUID:
@@ -589,6 +604,7 @@ public enum CassandraType
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case TIMESTAMP_WITH_TIMEZONE:
             case UUID:
             case TIMEUUID:
                 return true;
@@ -620,6 +636,7 @@ public enum CassandraType
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case TIMESTAMP_WITH_TIMEZONE:
             case DATE:
             case UUID:
             case TIMEUUID:
@@ -669,7 +686,7 @@ public enum CassandraType
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        else if (type.equals(TimestampType.TIMESTAMP)) {
+        else if (type.equals(TimestampType.TIMESTAMP) || type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

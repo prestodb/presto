@@ -17,7 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
 import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
 
-import java.sql.Timestamp;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static com.facebook.presto.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -40,8 +41,8 @@ public class MultiColumnKeyTableDefinition
 
     static {
         RelationalDataSource dataSource = () -> ImmutableList.<List<Object>>of(
-                ImmutableList.of("Alice", "a1", Timestamp.valueOf("2015-01-01 01:01:01").toInstant(), "Test value 1"),
-                ImmutableList.of("Bob", "b1", Timestamp.valueOf("2014-02-02 03:04:05").toInstant(), "Test value 2")
+                ImmutableList.of("Alice", "a1", OffsetDateTime.of(2015, 1, 1, 1, 1, 1, 0, ZoneOffset.UTC).toInstant(), "Test value 1"),
+                ImmutableList.of("Bob", "b1", OffsetDateTime.of(2014, 2, 2, 3, 4, 5, 0, ZoneOffset.UTC).toInstant(), "Test value 2")
         ).iterator();
         CASSANDRA_MULTI_COLUMN_KEY = CassandraTableDefinition.cassandraBuilder(MULTI_COLUMN_KEY_TABLE_NAME)
                 .withDatabase(CONNECTOR_NAME)

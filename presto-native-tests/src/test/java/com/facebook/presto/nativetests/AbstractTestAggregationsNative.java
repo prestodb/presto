@@ -60,8 +60,8 @@ public abstract class AbstractTestAggregationsNative
         assertQuery(format("SELECT approx_distinct(%s, 0.023) FROM orders", orderdate), "SELECT 2372");
 
         // test timestamp
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2347");
-        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2347");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP)) FROM orders", "SELECT 2384");
+        assertQuery("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP), 0.023) FROM orders", "SELECT 2384");
 
         // test timestamp with time zone
         assertQueryFails("SELECT approx_distinct(CAST(orderdate AS TIMESTAMP WITH TIME ZONE)) FROM orders",

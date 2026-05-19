@@ -44,6 +44,7 @@ import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -260,7 +261,7 @@ public class NativeCassandraSession
     }
 
     @Override
-    public CassandraTable getTable(SchemaTableName schemaTableName)
+    public CassandraTable getTable(ConnectorSession connectorSession, SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
@@ -305,7 +306,7 @@ public class NativeCassandraSession
             String colName = columnMeta.getName().toString();
             primaryKeySet.add(colName);
             boolean hidden = hiddenColumns.contains(colName);
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(colName), hidden);
+            CassandraColumnHandle columnHandle = buildColumnHandle(connectorSession, tableMeta, columnMeta, true, false, columnNames.indexOf(colName), hidden);
             columnHandles.add(columnHandle);
         }
 
@@ -314,7 +315,7 @@ public class NativeCassandraSession
             String colName = columnMeta.getName().toString();
             primaryKeySet.add(colName);
             boolean hidden = hiddenColumns.contains(colName);
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(colName), hidden);
+            CassandraColumnHandle columnHandle = buildColumnHandle(connectorSession, tableMeta, columnMeta, false, true, columnNames.indexOf(colName), hidden);
             columnHandles.add(columnHandle);
         }
 
@@ -323,7 +324,7 @@ public class NativeCassandraSession
             String colName = columnMeta.getName().toString();
             if (!primaryKeySet.contains(colName)) {
                 boolean hidden = hiddenColumns.contains(colName);
-                CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(colName), hidden);
+                CassandraColumnHandle columnHandle = buildColumnHandle(connectorSession, tableMeta, columnMeta, false, false, columnNames.indexOf(colName), hidden);
                 columnHandles.add(columnHandle);
             }
         }
@@ -443,26 +444,26 @@ public class NativeCassandraSession
         }
     }
 
-    private CassandraColumnHandle buildColumnHandle(RelationMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private CassandraColumnHandle buildColumnHandle(ConnectorSession connectorSession, RelationMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         DataType dataType = columnMeta.getType();
-        CassandraType cassandraType = CassandraType.getCassandraType(dataType);
+        CassandraType cassandraType = CassandraType.getCassandraType(connectorSession, dataType);
         List<CassandraType> typeArguments = null;
         if (cassandraType.getTypeArgumentSize() > 0) {
             // In driver 4.x, parameterized types need to be cast to access type arguments
             if (dataType instanceof ListType) {
                 ListType listType = (ListType) dataType;
-                typeArguments = ImmutableList.of(CassandraType.getCassandraType(listType.getElementType()));
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(connectorSession, listType.getElementType()));
             }
             else if (dataType instanceof SetType) {
                 SetType setType = (SetType) dataType;
-                typeArguments = ImmutableList.of(CassandraType.getCassandraType(setType.getElementType()));
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(connectorSession, setType.getElementType()));
             }
             else if (dataType instanceof MapType) {
                 MapType mapType = (MapType) dataType;
                 typeArguments = ImmutableList.of(
-                        CassandraType.getCassandraType(mapType.getKeyType()),
-                        CassandraType.getCassandraType(mapType.getValueType()));
+                        CassandraType.getCassandraType(connectorSession, mapType.getKeyType()),
+                        CassandraType.getCassandraType(connectorSession, mapType.getValueType()));
             }
             else if (dataType instanceof VectorType) {
                 VectorType vectorType = (VectorType) dataType;
@@ -473,7 +474,7 @@ public class NativeCassandraSession
                             format("Cassandra vector column '%s' has %s dimensions, which exceeds the configured maximum of %s (cassandra.vector.max-dimensions)",
                                     columnMeta.getName(), dimensions, vectorMaxDimensions));
                 }
-                typeArguments = ImmutableList.of(CassandraType.getCassandraType(vectorType.getElementType()));
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(connectorSession, vectorType.getElementType()));
             }
         }
         boolean indexed = false;
