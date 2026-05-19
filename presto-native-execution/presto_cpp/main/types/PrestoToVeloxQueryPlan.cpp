@@ -39,6 +39,7 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/TraceUtil.h"
 // RPC plan nodes for single-operator async RPC execution
 #include <folly/json.h>
@@ -2650,8 +2651,11 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
     auto shuffleWriterPool = useSystemMemory
         ? velox::memory::memoryManager()->addLeafPool(
               fmt::format("_sys.exchange_writer.{}", taskId))
+        // Add noop memory reclaimer to participate in arbitration protocol.
         : queryCtx_->pool()->addLeafChild(
-              fmt::format("exchange_writer.{}", taskId));
+              fmt::format("exchange_writer.{}", taskId),
+              true,
+              velox::exec::MemoryReclaimer::create());
     auto shuffleWriter = shuffleFactory->createWriter(
         *serializedShuffleWriteInfo_, shuffleWriterPool.get());
 

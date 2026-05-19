@@ -105,6 +105,33 @@ std::string localShuffleReadInfo(
       .serialize();
 }
 
+// ShuffleWriter that delegates all operations to a real writer but throws
+// from noMoreData(success=true) to simulate a writer close failure.
+class FailingCloseShuffleWriter : public ShuffleWriter {
+ public:
+  explicit FailingCloseShuffleWriter(std::shared_ptr<ShuffleWriter> delegate)
+      : delegate_(std::move(delegate)) {}
+
+  void collect(int32_t partition, std::string_view key, std::string_view data)
+      override {
+    delegate_->collect(partition, key, data);
+  }
+
+  void noMoreData(bool success) override {
+    if (success) {
+      VELOX_FAIL("Simulated writer close failure");
+    }
+    delegate_->noMoreData(success);
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return delegate_->stats();
+  }
+
+ private:
+  std::shared_ptr<ShuffleWriter> delegate_;
+};
+
 } // namespace
 
 class MaterializedExchangeTest : public exec::test::OperatorTestBase {
@@ -514,6 +541,72 @@ TEST_F(MaterializedExchangeTest, replicateNullsAndAnyDisabled) {
         << "Row '" << v
         << "' should not be replicated when replicateNullsAndAny=false";
   }
+
+  cleanupDirectory(tempDir_->getPath());
+}
+
+// Verifies that exceptions from buffer_->noMoreData() (e.g., writer close
+// failure) propagate to the task instead of being silently swallowed.
+// Previously a broad try/catch in finish() caught these exceptions, causing the
+// operator to report success despite the buffer being aborted — silent data
+// loss.
+TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<std::string>({"a", "bb", "ccc", "dddd", "eeeee", "f"}),
+  });
+
+  const int numPartitions = 4;
+  const int numDrivers = 1;
+  auto dataType = asRowType(data->type());
+
+  auto writeInfoStr = localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
+  auto writeInfo = LocalShuffleWriteInfo::deserialize(writeInfoStr);
+
+  constexpr uint64_t kMaxBytesPerPartition = 1 << 20;
+  auto realWriter = std::make_shared<LocalShuffleWriter>(
+      writeInfo.rootPath,
+      writeInfo.queryId,
+      writeInfo.shuffleId,
+      writeInfo.numPartitions,
+      kMaxBytesPerPartition,
+      writeInfo.sortedShuffle,
+      pool());
+
+  auto failingWriter =
+      std::make_shared<FailingCloseShuffleWriter>(std::move(realWriter));
+
+  auto writerPool = rootPool_->addLeafChild("writerPool");
+
+  constexpr size_t kMaxBufferedBytes = 1 << 20;
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions, failingWriter, writerPool, kMaxBufferedBytes);
+
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          dataType->childAt(0), dataType->nameOf(0))};
+
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0});
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      dataType,
+      partitionFunctionSpec,
+      false,
+      valuesNode,
+      buffer);
+
+  auto taskId = makeTaskId("write", 0);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  EXPECT_TRUE(exec::test::waitForTaskFailure(task.get(), 10'000'000))
+      << "Task should fail when buffer noMoreData() throws, not succeed silently";
 
   cleanupDirectory(tempDir_->getPath());
 }

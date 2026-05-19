@@ -488,8 +488,19 @@ bool MaterializedOutput::isFinished() {
   return finished_;
 }
 
+void MaterializedOutput::recordBufferStats() {
+  for (const auto& [key, value] : buffer_->stats()) {
+    addRuntimeStat(key, velox::RuntimeCounter(value));
+  }
+}
+
 void MaterializedOutput::close() {
-  finish();
+  if (!finished_) {
+    // If finish() was never called via noMoreInput(), we are on the error
+    // path. Abort the buffer instead of attempting to flush.
+    buffer_->abort();
+  }
+  recordBufferStats();
   Operator::close();
 }
 
@@ -497,35 +508,23 @@ void MaterializedOutput::finish() {
   if (finished_) {
     return;
   }
-  finished_ = true;
+
   flushBatch();
 
-  // Use Velox's allPeersFinished barrier — returns true only for the last
-  // driver to reach this point. The last driver drains and closes the writer.
-  // Wrap in try/catch because allPeersFinished throws if the task is
-  // already terminating (e.g., due to an error on another pipeline).
-  // In that case, the buffer's destructor will handle cleanup via abort().
-  try {
-    std::vector<velox::ContinuePromise> promises;
-    std::vector<std::shared_ptr<velox::exec::Driver>> peers;
-    velox::ContinueFuture peerFuture;
-    auto* driverCtx = operatorCtx()->driverCtx();
-    bool isLast = driverCtx->task->allPeersFinished(
-        planNodeId(), driverCtx->driver, &peerFuture, promises, peers);
+  std::vector<velox::ContinuePromise> peerPromises;
+  std::vector<std::shared_ptr<velox::exec::Driver>> peers;
+  velox::ContinueFuture peerFuture;
+  auto* driverCtx = operatorCtx()->driverCtx();
+  auto isLast = driverCtx->task->allPeersFinished(
+      planNodeId(), driverCtx->driver, &peerFuture, peerPromises, peers);
 
-    if (isLast) {
-      buffer_->noMoreData();
-      for (const auto& [key, value] : buffer_->stats()) {
-        addRuntimeStat(key, velox::RuntimeCounter(value));
-      }
-      for (auto& promise : promises) {
-        promise.setValue();
-      }
+  if (isLast) {
+    buffer_->noMoreData();
+    for (auto& promise : peerPromises) {
+      promise.setValue();
     }
-  } catch (const velox::VeloxRuntimeError&) {
-    // Task is terminating — abort the buffer if not already closed.
-    buffer_->abort();
   }
+
   finished_ = true;
 }
 
