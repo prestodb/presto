@@ -93,6 +93,11 @@ import static java.lang.Boolean.TRUE;
 public class PrefilterForLimitingAggregation
         implements PlanOptimizer
 {
+    // Multiplier for scan limit: we scan at most SCAN_LIMIT_MULTIPLIER * LIMIT rows
+    // to find distinct keys. This provides predictable performance while ensuring
+    // we scan enough data to likely find the required distinct values.
+    private static final long SCAN_LIMIT_MULTIPLIER = 1000L;
+
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
     private boolean isEnabledForTesting;
@@ -247,10 +252,18 @@ public class PrefilterForLimitingAggregation
             PlanNode keySource = clonePlanNode(originalSource, session, metadata, idAllocator, distinctKeys, new HashMap<>());
 
             // Limit the scan to avoid excessive data when distinct keys are sparse.
-            // We scan at most 1000 * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000),
+            // We scan at most SCAN_LIMIT_MULTIPLIER * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000),
             // then apply DISTINCT LIMIT on that subset. This provides predictable
             // performance without timeout complexity.
-            long scanLimit = 1000 * count;
+            // Use Math.multiplyExact to guard against overflow for extremely large LIMIT values.
+            long scanLimit;
+            try {
+                scanLimit = Math.multiplyExact(SCAN_LIMIT_MULTIPLIER, count);
+            }
+            catch (ArithmeticException e) {
+                // Overflow occurred, use a reasonable upper bound
+                scanLimit = Long.MAX_VALUE;
+            }
             PlanNode limitedKeySource = new LimitNode(
                     Optional.empty(),
                     idAllocator.getNextId(),
