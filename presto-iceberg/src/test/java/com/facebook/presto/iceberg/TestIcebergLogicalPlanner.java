@@ -523,6 +523,33 @@ public class TestIcebergLogicalPlanner
     }
 
     @Test
+    public void testAggregateNotPushDownWhenFilterPushdownEnabled()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        String tableName = "aggregation_push_down_" + randomTableSuffix();
+        try {
+            assertUpdate(getSession(), format("CREATE TABLE %s (id bigint, data double)", tableName));
+            assertUpdate(getSession(), format("INSERT INTO %s VALUES (1, 1111), (1, 2222), (2, 3333), (2, 4444), (3, 5555), (3, 6666) ", tableName), 6);
+            assertPlan(sessionWithFilterPushdown, "SELECT COUNT(data), MAX(data) FROM " + tableName + " WHERE id > 2",
+                    anyTree(
+                            aggregation(ImmutableMap.of("final_count", functionCall("count", ImmutableList.of("partial_count")),
+                                            "final_max", functionCall("max", ImmutableList.of("partial_max"))),
+                                    FINAL,
+                                    exchange(LOCAL, GATHER,
+                                            exchange(REMOTE_STREAMING, GATHER,
+                                                    aggregation(
+                                                            ImmutableMap.of("partial_count", functionCall("count", ImmutableList.of("data")),
+                                                                    "partial_max", functionCall("max", ImmutableList.of("data"))),
+                                                            PARTIAL,
+                                                            strictTableScan(tableName, identityMap("data"))))))));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
     public void testAggregateNotPushDownForCountDistinct()
     {
         QueryRunner queryRunner = getQueryRunner();
