@@ -249,19 +249,14 @@ public class ValuesJoinOptimizer
                         leftSide,
                         filter);
 
-                // Now add the VALUES columns as constant projections using NEW variables
-                // (not the ValuesNode's output variables, to avoid identity issues)
-                ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
-                for (VariableReferenceExpression var : valuesOutputVariables) {
-                    newVariables.add(variableAllocator.newVariable(var.getName(), var.getType()));
-                }
-
+                // Use the original ValuesNode output variables to preserve identities
+                // for downstream consumers
                 return addProjections(
                         filterNode,
                         idAllocator,
                         variableAllocator,
                         singleRow,
-                        newVariables.build());
+                        valuesOutputVariables);
             }
             else {
                 // LEFT JOIN: use IF(condition, value, NULL) for each column
@@ -294,18 +289,14 @@ public class ValuesJoinOptimizer
                     conditionalValues.add(specialForm(IF, value.getType(), joinCondition, value, constantNull(value.getType())));
                 }
 
-                // Use NEW variables (not the ValuesNode's output variables)
-                ImmutableList.Builder<VariableReferenceExpression> newVariables = ImmutableList.builder();
-                for (VariableReferenceExpression var : valuesOutputVariables) {
-                    newVariables.add(variableAllocator.newVariable(var.getName(), var.getType()));
-                }
-
+                // Use the original ValuesNode output variables to preserve identities
+                // for downstream consumers
                 return addProjections(
                         leftSide,
                         idAllocator,
                         variableAllocator,
                         conditionalValues,
-                        newVariables.build());
+                        valuesOutputVariables);
             }
         }
 
