@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -46,6 +47,7 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static java.lang.String.format;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
@@ -261,6 +263,47 @@ public class TestRewriteDataFilesProcedure
                             "(5, 'foo'), (6, 'bar'), " +
                             "(7, 'foo'), (8, 'bar'), " +
                             "(9, 'foo'), (10, 'bar')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithFilterPushdownEnabled()
+    {
+        String tableName = "example_partition_filter_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+
+            // create 1 files for each partition (c2 = 'foo' or 'bar')
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'foo'), (3, 'foo'), (4, 'foo'), (5, 'foo')", 5);
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar'), (2, 'bar'), (3, 'bar'), (4, 'bar'), (5, 'bar')", 5);
+
+            // Does not support rewriting files when native-only filter push down is enabled
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+
+            // select 1 files to rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
+
+            Table table = loadTable(tableName);
+            //The number of data files is 2，and the number of delete files is 0
+            assertHasDataFiles(table.currentSnapshot(), 2);
+            assertHasDeleteFiles(table.currentSnapshot(), 0);
+
+            assertQuery("select * from " + tableName,
+                    "values(1, 'foo'), (1, 'bar'), " +
+                            "(2, 'foo'), (2, 'bar'), " +
+                            "(3, 'foo'), (3, 'bar'), " +
+                            "(4, 'foo'), (4, 'bar'), " +
+                            "(5, 'foo'), (5, 'bar')");
         }
         finally {
             dropTable(tableName);
@@ -1427,6 +1470,13 @@ public class TestRewriteDataFilesProcedure
         finally {
             dropTable(tableName);
         }
+    }
+
+    private Session pushdownFilterEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
     }
 
     private Table loadTable(String tableName)

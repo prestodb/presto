@@ -152,6 +152,11 @@ public class RewriteDataFilesProcedure
 
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
+        if (layoutHandle.isPushdownFilterEnabled()) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+        }
+
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();

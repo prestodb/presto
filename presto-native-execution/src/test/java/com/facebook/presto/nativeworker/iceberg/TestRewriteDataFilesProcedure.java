@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.nativeworker.iceberg;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
@@ -21,6 +22,8 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
@@ -245,6 +248,47 @@ public class TestRewriteDataFilesProcedure
     }
 
     @Test
+    public void testRewriteDataFilesWithFilterPushdownEnabled()
+    {
+        String tableName = "example_partition_filter_pushdown_table";
+        String schemaName = getSession().getSchema().get();
+        Session sessionWithFilterPushdown = pushdownFilterEnabled();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
+
+            // create 1 files for each partition (c2 = 'foo' or 'bar')
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'foo'), (2, 'foo'), (3, 'foo'), (4, 'foo'), (5, 'foo')", 5);
+            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar'), (2, 'bar'), (3, 'bar'), (4, 'bar'), (5, 'bar')", 5);
+
+            //The number of data files is 2, and the number of delete files is 0
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
+
+            // Does not support rewriting files when native-only filter push down is enabled
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+            assertQueryFails(sessionWithFilterPushdown, format("call system.rewrite_data_files(table_name => '%s', schema => '%s')", tableName, schemaName),
+                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
+
+            // select 1 files to rewrite
+            assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c2 = ''bar''', options => map(array['rewrite-all'], array['true']))", tableName, schemaName), 5);
+            //The number of data files is 2, and the number of delete files is 0
+            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
+
+            assertQuery("select * from " + tableName,
+                    "values(1, 'foo'), (1, 'bar'), " +
+                            "(2, 'foo'), (2, 'bar'), " +
+                            "(3, 'foo'), (3, 'bar'), " +
+                            "(4, 'foo'), (4, 'bar'), " +
+                            "(5, 'foo'), (5, 'bar')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testRewriteDataFilesWithDeleteAndPartitionEvolution()
     {
         String tableName = "example_partition_evolution_table";
@@ -328,6 +372,13 @@ public class TestRewriteDataFilesProcedure
 
         //The number of data files is 5, and the number of delete files is 0
         validateDataFilesAndDeleteFiles(tableName, 5L, 0L);
+    }
+
+    private Session pushdownFilterEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
     }
 
     private void validateDataFilesAndDeleteFiles(String tableName, long dataFiles, long deleteFiles)
