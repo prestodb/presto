@@ -255,15 +255,8 @@ public class PrefilterForLimitingAggregation
             // We scan at most SCAN_LIMIT_MULTIPLIER * LIMIT rows (e.g., 1,000,000 rows for LIMIT 1000),
             // then apply DISTINCT LIMIT on that subset. This provides predictable
             // performance without timeout complexity.
-            // Use Math.multiplyExact to guard against overflow for extremely large LIMIT values.
-            long scanLimit;
-            try {
-                scanLimit = Math.multiplyExact(SCAN_LIMIT_MULTIPLIER, count);
-            }
-            catch (ArithmeticException e) {
-                // Overflow occurred, use a reasonable upper bound
-                scanLimit = Long.MAX_VALUE;
-            }
+            // Note: count is already validated to be <= 1000, so overflow is not possible.
+            long scanLimit = SCAN_LIMIT_MULTIPLIER * count;
             PlanNode limitedKeySource = new LimitNode(
                     Optional.empty(),
                     idAllocator.getNextId(),
