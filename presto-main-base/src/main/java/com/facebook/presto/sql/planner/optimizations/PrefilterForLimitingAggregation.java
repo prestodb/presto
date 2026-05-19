@@ -256,6 +256,13 @@ public class PrefilterForLimitingAggregation
             // then apply DISTINCT LIMIT on that subset. This provides predictable
             // performance without timeout complexity.
             // Note: count is already validated to be <= 1000, so overflow is not possible.
+            //
+            // Correctness consideration: If the limited scan does not contain enough distinct
+            // keys to satisfy the LIMIT, the optimization gracefully degrades. The filter
+            // condition checks if we found all required entries (CARDINALITY(map) == count);
+            // if not, the filter becomes a no-op (TRUE), allowing all data to pass through.
+            // This ensures correct results even when distinct keys are very sparse, at the
+            // cost of reduced optimization benefit.
             long scanLimit = SCAN_LIMIT_MULTIPLIER * count;
             PlanNode limitedKeySource = new LimitNode(
                     Optional.empty(),
