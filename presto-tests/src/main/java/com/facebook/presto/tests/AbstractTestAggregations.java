@@ -1321,6 +1321,36 @@ public abstract class AbstractTestAggregations
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
         assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
+
+        // values_at_quantiles returns a non-decreasing array.
+        assertQuery(format("SELECT v[1] <= v[2] AND v[2] <= v[3] FROM (" +
+                        "SELECT values_at_quantiles(%s_agg(CAST(orderkey AS DOUBLE)), ARRAY[0.1E0, 0.5E0, 0.9E0]) v FROM lineitem)",
+                type),
+                "SELECT true");
+
+        // scale_{q,t}digest preserves the quantile value within tolerance.
+        assertQuery(format("SELECT abs(value_at_quantile(scale_%s(d, 2E0), 0.5E0) - value_at_quantile(d, 0.5E0)) " +
+                        "/ value_at_quantile(d, 0.5E0) < 0.05E0 FROM (" +
+                        "SELECT %s_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                type,
+                type),
+                "SELECT true");
+
+        // quantile_at_value / value_at_quantile round-trip near 0.5.
+        assertQuery(format("SELECT quantile_at_value(d, value_at_quantile(d, 0.5E0)) BETWEEN 0.3E0 AND 0.7E0 FROM (" +
+                        "SELECT %s_agg(CAST(orderkey AS DOUBLE)) d FROM lineitem)",
+                type),
+                "SELECT true");
+
+        // Nulls are ignored when other values are present.
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CASE WHEN orderkey %% 2 = 0 THEN CAST(orderkey AS DOUBLE) END), 0.5E0) > 0 FROM lineitem",
+                type),
+                "SELECT true");
+
+        // All-null input produces a null aggregate.
+        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(NULL AS DOUBLE)), 0.5E0) IS NULL FROM lineitem",
+                type),
+                "SELECT true");
     }
 
     /**
