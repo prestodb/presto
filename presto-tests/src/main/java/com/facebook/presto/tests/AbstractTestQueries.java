@@ -79,6 +79,7 @@ import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_C
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_DISJOINT_UNION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
+import static com.facebook.presto.SystemSessionProperties.PUSH_FILTER_THROUGH_SELECTING_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_PROJECTION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
@@ -8647,5 +8648,80 @@ public abstract class AbstractTestQueries
         assertQueryWithSameQueryRunner(enabledSession,
                 "SELECT max_by(totalprice, orderkey) FROM orders",
                 disabledSession);
+    }
+
+    @Test
+    public void testPushFilterThroughSelectingAggregation()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION, "false")
+                .build();
+
+        // MAX with >= : pushdown safe
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice) FROM orders GROUP BY orderstatus HAVING max(totalprice) >= 100000",
+                disabled);
+
+        // MAX with > : pushdown safe
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice) FROM orders GROUP BY orderstatus HAVING max(totalprice) > 200000",
+                disabled);
+
+        // MIN with <= : pushdown safe
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus HAVING min(totalprice) <= 1000",
+                disabled);
+
+        // MIN with < : pushdown safe
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, min(totalprice) FROM orders GROUP BY orderstatus HAVING min(totalprice) < 500",
+                disabled);
+
+        // MAX with <=: NOT safe to pushdown — must produce same results because rule should not fire
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice) FROM orders GROUP BY orderstatus HAVING max(totalprice) <= 200000",
+                disabled);
+
+        // MAX with =: ADD-pre-filter (x >= 60000) + KEEP HAVING (max(orderkey) = 60000)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(orderkey) FROM orders GROUP BY orderstatus HAVING max(orderkey) = 60000",
+                disabled);
+
+        // MIN with =: ADD-pre-filter (x <= 1) + KEEP HAVING (min(orderkey) = 1)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, min(orderkey) FROM orders GROUP BY orderstatus HAVING min(orderkey) = 1",
+                disabled);
+
+        // Multi-aggregate: rule should not fire (sum would be incorrect after pushdown)
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice), sum(totalprice) FROM orders GROUP BY orderstatus HAVING max(totalprice) >= 100000",
+                disabled);
+
+        // Reversed comparison: literal on left side
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice) FROM orders GROUP BY orderstatus HAVING 100000 <= max(totalprice)",
+                disabled);
+
+        // Mixed conjunction: pushable + non-pushable
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT orderstatus, max(totalprice) FROM orders GROUP BY orderstatus HAVING max(totalprice) >= 100000 AND orderstatus <> 'X'",
+                disabled);
+
+        // CTE-style: MAX in inner query, WHERE on the alias outside. Mirrors the real-world
+        // shape `WITH agg AS (SELECT MAX(x) AS m ...) SELECT * FROM agg WHERE m >= c`.
+        // The pushdown should propagate through the CTE projection all the way to the source.
+        assertQueryWithSameQueryRunner(enabled,
+                "WITH agg AS (SELECT custkey, MAX(totalprice) AS max_price FROM orders GROUP BY custkey) " +
+                        "SELECT custkey, max_price FROM agg WHERE max_price >= 200000",
+                disabled);
+
+        // Same shape with downstream join — verify the pushed predicate survives further optimization.
+        assertQueryWithSameQueryRunner(enabled,
+                "WITH agg AS (SELECT custkey, MAX(totalprice) AS max_price FROM orders GROUP BY custkey) " +
+                        "SELECT c.name, agg.max_price FROM agg JOIN customer c ON c.custkey = agg.custkey WHERE agg.max_price >= 300000",
+                disabled);
     }
 }
