@@ -18,6 +18,8 @@
  */
 package com.facebook.presto.iceberg.util;
 
+import com.facebook.presto.iceberg.IcebergColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -38,7 +40,8 @@ public class AggregateConverter
         this.allowedFunctions = allowedFunctions;
     }
 
-    public Expression convert(AggregationNode.Aggregation aggregation)
+    public Expression convert(AggregationNode.Aggregation aggregation,
+                              Map<VariableReferenceExpression, ColumnHandle> tableScanAssignments)
     {
         Expression.Operation operation = this.allowedFunctions.entrySet().stream()
                 .filter(entry -> entry.getKey().test(aggregation.getFunctionHandle()))
@@ -50,21 +53,29 @@ public class AggregateConverter
             switch (operation) {
                 case COUNT:
                     if (!aggregation.getArguments().isEmpty()) {
-                        String columnName = ((VariableReferenceExpression) getOnlyElement(aggregation.getArguments())).getName();
-                        return Expressions.count(columnName);
+                        return Expressions.count(getColumnNameOfAggregation(aggregation, tableScanAssignments));
                     }
                     else {
                         return Expressions.countStar();
                     }
                 case MAX:
-                    String columnName = ((VariableReferenceExpression) getOnlyElement(aggregation.getArguments())).getName();
-                    return Expressions.max(columnName);
+                    return Expressions.max(getColumnNameOfAggregation(aggregation, tableScanAssignments));
                 case MIN:
-                    String columnName2 = ((VariableReferenceExpression) getOnlyElement(aggregation.getArguments())).getName();
-                    return Expressions.min(columnName2);
+                    return Expressions.min(getColumnNameOfAggregation(aggregation, tableScanAssignments));
             }
         }
 
         throw new UnsupportedOperationException("Unsupported aggregate: " + aggregation.getFunctionHandle().getName());
+    }
+
+    private static String getColumnNameOfAggregation(AggregationNode.Aggregation aggregation,
+                                                     Map<VariableReferenceExpression, ColumnHandle> tableScanAssignments)
+    {
+        VariableReferenceExpression variable = (VariableReferenceExpression) getOnlyElement(aggregation.getArguments());
+        ColumnHandle columnHandle = tableScanAssignments.get(variable);
+        if (columnHandle == null) {
+            throw new IllegalArgumentException("Cannot find corresponding column for variable: " + variable.toString());
+        }
+        return ((IcebergColumnHandle) columnHandle).getName();
     }
 }

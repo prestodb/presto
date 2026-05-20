@@ -22,6 +22,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.iceberg.util.AggregateConverter;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
@@ -147,7 +148,7 @@ public class IcebergAggregationOptimizer
 
             Expression filter = toIcebergExpression(predicate);
             // Fold min/max/count aggregations to a constant value
-            return reduce(node, table.schema(), table, tableHandle.getIcebergTableName().getSnapshotId(), filter);
+            return reduce(node, tableScan.getAssignments(), table.schema(), table, tableHandle.getIcebergTableName().getSnapshotId(), filter);
         }
 
         private static Optional<TableScanNode> findTableScan(PlanNode source)
@@ -189,6 +190,7 @@ public class IcebergAggregationOptimizer
 
         private PlanNode reduce(
                 AggregationNode node,
+                Map<VariableReferenceExpression, ColumnHandle> tableScanAssignments,
                 Schema schema,
                 Table table,
                 Optional<Long> snapshotId,
@@ -201,7 +203,7 @@ public class IcebergAggregationOptimizer
             for (VariableReferenceExpression variable : node.getOutputVariables()) {
                 try {
                     AggregationNode.Aggregation aggregation = node.getAggregations().get(variable);
-                    Expression expr = aggregateConverter.convert(aggregation);
+                    Expression expr = aggregateConverter.convert(aggregation, tableScanAssignments);
                     if (expr != null) {
                         Expression bound = Binder.bind(schema.asStruct(), expr, false);
                         expressions.add((BoundAggregate<?, ?>) bound);
@@ -234,8 +236,7 @@ public class IcebergAggregationOptimizer
             scan = scan.filter(filter);
 
             try (CloseableIterable<FileScanTask> fileScanTasks = scan.planFiles()) {
-                List<FileScanTask> tasks = ImmutableList.copyOf(fileScanTasks);
-                for (FileScanTask task : tasks) {
+                for (FileScanTask task : fileScanTasks) {
                     if (!task.deletes().isEmpty()) {
                         LOGGER.info("Skipping aggregate pushdown: detected row level deletes");
                         return node;
