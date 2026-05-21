@@ -5,7 +5,7 @@ on:
     types: [opened, edited, reopened]
 
 env:
-  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.15' }}
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.14' }}
 
 jobs:
   check_release_note:
@@ -43,11 +43,11 @@ jobs:
               query($owner: String!, $name: String!, $number: Int!) {
                 repository(owner: $owner, name: $name) {
                   pullRequest(number: $number) {
-                    body
+                    bodyText
                   }
                 }
               }
-            ' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$PR_NUMBER" --jq '.data.repository.pullRequest.body' >> $GITHUB_OUTPUT
+            ' -f owner="$REPO_OWNER" -f name="$REPO_NAME" -F number="$PR_NUMBER" --jq '.data.repository.pullRequest.bodyText' >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
       - name: Echo PR Text
         env:
