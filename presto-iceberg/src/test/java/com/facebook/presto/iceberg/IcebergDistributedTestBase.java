@@ -1696,10 +1696,9 @@ public abstract class IcebergDistributedTestBase
         Session session = deleteAsJoinEnabled(joinRewriteEnabled);
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
         assertUpdate(session, "CREATE TABLE " + tableName + " with (\"write.format.default\" = '" + fileFormat + "') AS SELECT * FROM tpch.tiny.nation order by nationkey", 25);
-        Table icebergTable = updateTable(tableName);
-        String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
-        writePositionDeleteToNationTable(icebergTable, dataFilePath, 0);
+        assertUpdate(session, "DELETE FROM " + tableName + " WHERE nationkey = 0", 1);
+        Table icebergTable = updateTable(tableName);
         testCheckDeleteFiles(icebergTable, 1, ImmutableList.of(POSITION_DELETES));
         assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 24");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE nationkey != 0");
@@ -1709,7 +1708,8 @@ public abstract class IcebergDistributedTestBase
         assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 19");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey != 0");
 
-        writePositionDeleteToNationTable(icebergTable, dataFilePath, 7);
+        assertUpdate(session, "DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+        icebergTable = updateTable(tableName);
         testCheckDeleteFiles(icebergTable, 3, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES));
         assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 18");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey != 1 AND nationkey NOT IN (0, 7)");
@@ -1718,6 +1718,16 @@ public abstract class IcebergDistributedTestBase
         testCheckDeleteFiles(icebergTable, 4, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
         assertQuery(session, "SELECT count(*) FROM " + tableName, "VALUES 13");
         assertQuery(session, "SELECT nationkey FROM " + tableName, "SELECT nationkey FROM nation WHERE regionkey NOT IN (1, 2) AND nationkey NOT IN (0, 7)");
+
+        assertUpdate(session, "UPDATE " + tableName + " SET name = 'ENGLAND' WHERE nationkey = 23", 1);
+        icebergTable = updateTable(tableName);
+        if (fileFormat.equalsIgnoreCase(ORC.toString())) {
+            testCheckDeleteFiles(icebergTable, 6, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
+        }
+        else {
+            testCheckDeleteFiles(icebergTable, 5, ImmutableList.of(POSITION_DELETES, POSITION_DELETES, POSITION_DELETES, EQUALITY_DELETES, EQUALITY_DELETES));
+        }
+        assertQuery(session, "SELECT name FROM " + tableName + " WHERE nationkey = 23", "VALUES 'ENGLAND'");
     }
 
     @Test(dataProvider = "equalityDeleteOptions")
