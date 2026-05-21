@@ -120,6 +120,15 @@ public class TestArraySqlFunctions
     }
 
     @Test
+    public void testArraySplitIntoChunksEmptyArray()
+    {
+        assertInvalidFunction("array_split_into_chunks(cast(array[] as array(bigint)), 2)", StandardErrorCode.GENERIC_USER_ERROR, "Cannot split an empty array.");
+        assertInvalidFunction("array_split_into_chunks(cast(array[] as array(varchar)), 1)", StandardErrorCode.GENERIC_USER_ERROR, "Cannot split an empty array.");
+        assertInvalidFunction("array_split_into_chunks(cast(array[] as array(integer)), 5)", StandardErrorCode.GENERIC_USER_ERROR, "Cannot split an empty array.");
+        assertInvalidFunction("array_split_into_chunks(cast(array[] as array(double)), 100)", StandardErrorCode.GENERIC_USER_ERROR, "Cannot split an empty array.");
+    }
+
+    @Test
     public void testArraySplitIntoChunksNulls()
     {
         assertFunction("array_split_into_chunks(array[cast(null as bigint), bigint '1', cast(null as bigint), bigint '2'], 2)", new ArrayType(new ArrayType(BIGINT)), ImmutableList.of(asList(null, 1L), asList(null, 2L)));

@@ -111,4 +111,25 @@ public class TestPrestoNativeArrayFunctionQueries
         assertQueryFails("SELECT array_top_n(a, b) FROM (VALUES(ARRAY[1, 2, 3], -2)) as t(a,b)",
                 "n >= 0 \\(-2 vs\\. 0\\) Parameter n: -2 to ARRAY_TOP_N is negative Top-level Expression: (presto|native)\\.default\\.array_top_n\\(field, field_0\\)");
     }
+
+    @Test
+    public void testArraySplitIntoChunks()
+    {
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3, 4, 5, 6], 2)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3, 4, 5], 3)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3], 5)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3], 3)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, NULL, 3, NULL, 5], 2)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY['a', 'b', 'c', 'd'], 2)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1.1, 2.2, 3.3, 4.4, 5.5], 2)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[true, false, true, false, true], 2)) as t(a, b)");
+        assertQuery("SELECT array_split_into_chunks(a, b) FROM (VALUES(CAST(NULL AS ARRAY(INTEGER)), 2)) as t(a, b)");
+        assertQuery("select array_split_into_chunks(null, 2)");
+        assertQueryFails("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3], 0)) as t(a, b)",
+                ".*Invalid slice size: 0. Size must be greater than zero.*");
+        assertQueryFails("SELECT array_split_into_chunks(a, b) FROM (VALUES(ARRAY[1, 2, 3], -1)) as t(a, b)",
+                ".*Invalid slice size: -1. Size must be greater than zero.*");
+        assertQueryFails("SELECT array_split_into_chunks(a, b) FROM (VALUES(CAST(ARRAY[] AS ARRAY(INTEGER)), 2)) as t(a, b)",
+                ".*Cannot split an empty array.*");
+    }
 }

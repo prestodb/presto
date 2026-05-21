@@ -48,11 +48,13 @@ public class ArraySqlFunctions
     {
         return "RETURN IF(sz <= 0, " +
                 "fail('Invalid slice size: ' || cast(sz as varchar) || '. Size must be greater than zero.'), " +
+                "IF(cardinality(input) = 0, " +
+                "fail('Cannot split an empty array.'), " +
                 "IF(cardinality(input) / sz > 10000, " +
                 "fail('Cannot split array of size: ' || cast(cardinality(input) as varchar) || ' into more than 10000 parts.'), " +
                 "transform(" +
                 "sequence(1, cardinality(input), sz), " +
-                "x -> slice(input, x, sz))))";
+                "x -> slice(input, x, sz)))))";
     }
 
     @SqlInvokedScalarFunction(value = "array_frequency", deterministic = true, calledOnNullInput = false)
