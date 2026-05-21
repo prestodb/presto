@@ -79,6 +79,9 @@ jobs:
           # Install glog/gflags because they are not installed from homebrew.
           install_gflags
           install_glog
+          install_protobuf
+          # install_protobuf already installed abseil; disable reinstall for subsequent callers.
+          install_abseil() { :; }
 
           # Velox deps needed by proxygen, a presto dependency.
           install_boost
@@ -97,7 +100,6 @@ jobs:
           install_presto_deps
 
           echo "NJOBS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
-          brew link --force protobuf@21
 
       - name: Install Github CLI for using apache/infrastructure-actions/stash
         if: |
