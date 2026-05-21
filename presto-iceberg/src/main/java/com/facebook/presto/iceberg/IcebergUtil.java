@@ -22,7 +22,11 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -53,6 +57,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
@@ -96,6 +101,7 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -118,7 +124,9 @@ import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -230,6 +238,7 @@ public final class IcebergUtil
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
     public static final int MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS = 2;
+    public static final int MIN_FORMAT_VERSION_FOR_ROW_LINEAGE = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
 
     public static final long DOUBLE_POSITIVE_ZERO = 0x0000000000000000L;
@@ -318,6 +327,11 @@ public final class IcebergUtil
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported Table type: " + table.getClass().getName());
         }
+    }
+
+    public static boolean supportsRowLineage(Table table)
+    {
+        return opsFromTable(table).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
     }
 
     public static void validateMinimumFormatVersion(Table table, int minVersion, String errorMessage)
@@ -1513,6 +1527,58 @@ public final class IcebergUtil
         return getTargetSplitSize(IcebergSessionProperties.getTargetSplitSize(session), scan.targetSplitSize());
     }
 
+    public static Object getNativeValue(Type type, Object value)
+    {
+        if (value == null) {
+            return null;
+        }
+        else if (type.getJavaType() == double.class) {
+            return ((Number) value).doubleValue();
+        }
+        else if (type.getJavaType() == long.class) {
+            if (type instanceof TimestampType || type instanceof TimeType) {
+                return MICROSECONDS.toMillis((long) value);
+            }
+            else if (type instanceof TimestampWithTimeZoneType) {
+                return packDateTimeWithZone(MICROSECONDS.toMillis((long) value), TimeZoneKey.UTC_KEY);
+            }
+            else if (value instanceof BigDecimal) {
+                return ((BigDecimal) value).unscaledValue().longValue();
+            }
+            else if (value instanceof Float && type instanceof RealType) {
+                return (long) floatToRawIntBits((Float) value);
+            }
+            else {
+                return ((Number) value).longValue();
+            }
+        }
+        else if (type.getJavaType() == Slice.class) {
+            Slice slice;
+            if (value instanceof byte[]) {
+                slice = Slices.wrappedBuffer((byte[]) value);
+            }
+            else if (value instanceof String) {
+                slice = Slices.utf8Slice((String) value);
+            }
+            else if (value instanceof BigDecimal) {
+                slice = encodeScaledValue((BigDecimal) value);
+            }
+            else if (value instanceof ByteBuffer) {
+                slice = Slices.wrappedBuffer(((ByteBuffer) value).array());
+            }
+            else if (value instanceof CharBuffer) {
+                slice = Slices.utf8Slice(((CharBuffer) value).toString());
+            }
+            else {
+                slice = (Slice) value;
+            }
+            return slice;
+        }
+        else {
+            return value;
+        }
+    }
+
     // This code is copied from Iceberg
     private static String fullTableName(String catalogName, TableIdentifier identifier)
     {
@@ -1542,9 +1608,13 @@ public final class IcebergUtil
     /**
      * Convert a Presto internal representation default value to an Iceberg Literal based on the column type.
      * This is used to set initial-default and write-default values in Iceberg V3 schemas.
+     * Returns null if defaultValue is null, which represents setting the default to NULL.
      */
     public static Literal<?> convertToIcebergLiteral(Object defaultValue, org.apache.iceberg.types.Type icebergType)
     {
+        if (defaultValue == null) {
+            return null;
+        }
         switch (icebergType.typeId()) {
             case STRING:
                 return Literal.of(((Slice) defaultValue).toStringUtf8());

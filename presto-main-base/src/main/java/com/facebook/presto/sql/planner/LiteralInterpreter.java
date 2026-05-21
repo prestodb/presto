@@ -27,9 +27,11 @@ import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -156,6 +158,9 @@ public final class LiteralInterpreter
             catch (RuntimeException e) {
                 throw new PrestoException(GENERIC_USER_ERROR, format("'%s' is not a valid timestamp literal", (String) node.getValue()));
             }
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return new SqlTimestampWithTimeZone((long) node.getValue());
         }
         if (type instanceof IntervalDayTimeType) {
             return new SqlIntervalDayTime((long) node.getValue());

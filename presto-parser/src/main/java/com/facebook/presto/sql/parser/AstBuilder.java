@@ -157,6 +157,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -232,6 +233,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
 import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
 import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
@@ -585,6 +587,21 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetMaterializedViewProperties(SqlBaseParser.SetMaterializedViewPropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context),
+                MATERIALIZED_VIEW,
+                getQualifiedName(context.qualifiedName()),
+                properties,
+                context.EXISTS() != null);
+    }
+
+    @Override
     public Node visitRenameColumn(SqlBaseParser.RenameColumnContext context)
     {
         return new RenameColumn(
@@ -828,6 +845,17 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 context.EXISTS() != null,
                 true);
+    }
+
+    @Override
+    public Node visitSetColumnDefault(SqlBaseParser.SetColumnDefaultContext context)
+    {
+        return new SetColumnDefault(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                (Expression) visit(context.expression()),
+                context.EXISTS() != null);
     }
 
     @Override

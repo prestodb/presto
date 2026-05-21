@@ -34,15 +34,11 @@ public final class DoubleType
         extends AbstractPrimitiveType
         implements FixedWidthType
 {
-    public static final DoubleType DOUBLE = new DoubleType(true);
-    public static final DoubleType OLD_NAN_DOUBLE = new DoubleType(false);
+    public static final DoubleType DOUBLE = new DoubleType();
 
-    private final boolean useNewNanDefintion;
-
-    private DoubleType(boolean useNewNanDefintion)
+    private DoubleType()
     {
         super(parseTypeSignature(StandardTypes.DOUBLE), double.class);
-        this.useNewNanDefintion = useNewNanDefintion;
     }
 
     @Override
@@ -80,22 +76,13 @@ public final class DoubleType
     {
         double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition));
         double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition));
-        if (!useNewNanDefintion) {
-            // direct equality is correct here
-            // noinspection FloatingPointEquality
-            return leftValue == rightValue;
-        }
         return doubleEquals(leftValue, rightValue);
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        Double doubleValue = longBitsToDouble(block.getLong(position));
-        if (!useNewNanDefintion) {
-            // convert to canonical NaN if necessary
-            return AbstractLongType.hash(doubleToLongBits(doubleValue));
-        }
+        double doubleValue = longBitsToDouble(block.getLong(position));
         return doubleHashCode(doubleValue);
     }
 

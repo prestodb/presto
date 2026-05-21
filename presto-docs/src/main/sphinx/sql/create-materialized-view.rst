@@ -109,5 +109,6 @@ Create a materialized view with connector properties::
 See Also
 --------
 
-:doc:`drop-materialized-view`, :doc:`refresh-materialized-view`,
-:doc:`show-create-materialized-view`, :doc:`/admin/materialized-views`
+:doc:`alter-materialized-view`, :doc:`drop-materialized-view`,
+:doc:`refresh-materialized-view`, :doc:`show-create-materialized-view`,
+:doc:`/admin/materialized-views`

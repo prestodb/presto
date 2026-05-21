@@ -305,6 +305,7 @@ public class FeaturesConfig
     private boolean rewriteConstantArrayContainsToIn;
     private boolean rewriteExpressionWithConstantVariable = true;
     private boolean rewriteRowConstructorInToDisjunction;
+    private boolean pushFilterThroughSelectingAggregation;
     private boolean optimizeConditionalApproxDistinct = true;
 
     private boolean preProcessMetadataCalls;
@@ -3227,6 +3228,19 @@ public class FeaturesConfig
     public FeaturesConfig setRewriteRowConstructorInToDisjunction(boolean rewriteRowConstructorInToDisjunction)
     {
         this.rewriteRowConstructorInToDisjunction = rewriteRowConstructorInToDisjunction;
+        return this;
+    }
+
+    public boolean isPushFilterThroughSelectingAggregation()
+    {
+        return this.pushFilterThroughSelectingAggregation;
+    }
+
+    @Config("optimizer.push-filter-through-selecting-aggregation")
+    @ConfigDescription("Push HAVING-style filter on MAX/MIN/ARBITRARY aggregate output below the aggregation when the predicate direction matches the aggregate")
+    public FeaturesConfig setPushFilterThroughSelectingAggregation(boolean pushFilterThroughSelectingAggregation)
+    {
+        this.pushFilterThroughSelectingAggregation = pushFilterThroughSelectingAggregation;
         return this;
     }
 

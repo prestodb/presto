@@ -731,6 +731,46 @@ concurrency.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.local-exchange-parent-preference-strategy\`\``.
 
+``join_prefilter_build_side_with_complex_probe_side``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Extends the ``join_prefilter_build_side`` optimization to clone more complex probe-side
+patterns (``UNION ALL``, cross join, ``UNNEST``, aggregation) when building the prefilter,
+and to push the prefilter ``SemiJoin`` below right-side aggregations so the build side is
+filtered before grouping. Only takes effect when ``join_prefilter_build_side`` is also
+enabled. Disabled by default because cloning additional probe-side work adds planning
+and runtime overhead, which only pays off when the build side is large enough to dominate
+the join cost.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.join-prefilter-build-side-with-complex-probe-side\`\``.
+
+``push_filter_through_selecting_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Pushes HAVING-style filters on the output of single-value-selecting aggregates (``MAX``,
+``MIN``) below the aggregation when the predicate direction matches the aggregate's
+selection semantics. For example, ``HAVING max(x) >= 1.0`` becomes ``WHERE x >= 1.0``.
+Only fires when the aggregation has a single aggregate (so filtering rows below the
+aggregation does not change the row set seen by other aggregates), the aggregate
+argument is a direct column reference (no expressions, ``DISTINCT``, ``FILTER``,
+``MASK``, or ``ORDER BY``), and the non-aggregate side of the comparison is evaluable
+below the aggregation (literals, grouping keys, raw source columns).
+
+Strict-direction predicates are pushed in REPLACE form: ``MAX`` with ``>`` / ``>=`` and
+``MIN`` with ``<`` / ``<=``.
+
+Equality on ``MAX`` / ``MIN`` is pushed in ADD-pre-filter + KEEP-HAVING form:
+``HAVING max(x) = c`` becomes ``WHERE x >= c`` below the aggregation while keeping
+``HAVING max(x) = c`` above; symmetric for ``MIN`` (``WHERE x <= c``). The relaxed
+pre-filter is implied by the original predicate, and the kept HAVING still rejects
+groups that would have failed it originally.
+
 
 JDBC Properties
 ---------------

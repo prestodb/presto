@@ -134,6 +134,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetColumnDefault;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -1897,6 +1898,11 @@ public class TestSqlParser
         assertInvalidStatement("ALTER TABLE a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
         assertStatement("ALTER TABLE IF EXISTS b SET PROPERTIES (foo=12345)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("12345"))), true));
         assertInvalidStatement("ALTER TABLE IF EXISTS b SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
+
+        assertStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES (staleness_window='1h')", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("staleness_window"), new StringLiteral("1h"))), false));
+        assertStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES (staleness_window='1h', refresh_type='FULL')", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("staleness_window"), new StringLiteral("1h")), new Property(new Identifier("refresh_type"), new StringLiteral("FULL"))), false));
+        assertStatement("ALTER MATERIALIZED VIEW IF EXISTS b SET PROPERTIES (max_snapshots_per_refresh=5)", new SetProperties(SetProperties.Type.MATERIALIZED_VIEW, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("max_snapshots_per_refresh"), new LongLiteral("5"))), true));
+        assertInvalidStatement("ALTER MATERIALIZED VIEW a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
     }
 
     @Test
@@ -2006,6 +2012,27 @@ public class TestSqlParser
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
         assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
         assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+    }
+
+    @Test
+    public void testSetColumnDefault()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DEFAULT 'US'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("c"), new StringLiteral("US"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN country SET DEFAULT 'IN'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("country"), new StringLiteral("IN"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN priority SET DEFAULT 5",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("priority"), new LongLiteral("5"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN score SET DEFAULT 0.0E0",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("score"), new DoubleLiteral("0.0E0"), false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN is_active SET DEFAULT true",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("is_active"), BooleanLiteral.TRUE_LITERAL, false));
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN is_deleted SET DEFAULT false",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("is_deleted"), BooleanLiteral.FALSE_LITERAL, false));
+        assertStatement("ALTER TABLE \"t x\" ALTER COLUMN \"c d\" SET DEFAULT 'value'",
+                new SetColumnDefault(QualifiedName.of("t x"), quotedIdentifier("c d"), new StringLiteral("value"), false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN c SET DEFAULT 'US'",
+                new SetColumnDefault(QualifiedName.of("foo", "t"), identifier("c"), new StringLiteral("US"), true));
     }
 
     @Test

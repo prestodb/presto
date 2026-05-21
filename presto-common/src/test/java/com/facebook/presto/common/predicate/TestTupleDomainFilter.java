@@ -25,8 +25,6 @@ import com.facebook.presto.common.predicate.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.FloatRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.LongDecimalRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.MultiRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.OldDoubleRange;
-import com.facebook.presto.common.predicate.TupleDomainFilter.OldFloatRange;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -367,7 +365,7 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 BytesRange.of(toBytes("abc"), false, toBytes("abc"), false, false),
-                BytesRange.of(toBytes("dragon"), false, null, true, false)), false, false);
+                BytesRange.of(toBytes("dragon"), false, null, true, false)), false);
 
         assertTrue(filter.testBytes(toBytes("abc"), 0, 3));
         assertTrue(filter.testBytes(toBytes("dragon"), 0, 6));
@@ -383,7 +381,7 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2, false, true, false),
-                DoubleRange.of(1.2, false, true, Double.MAX_VALUE, true, true, false)), false, false);
+                DoubleRange.of(1.2, false, true, Double.MAX_VALUE, true, true, false)), false);
 
         assertTrue(filter.testDouble(1.1));
         assertTrue(filter.testDouble(1.3));
@@ -394,27 +392,12 @@ public class TestTupleDomainFilter
     }
 
     @Test
-    public void testLegacyDoubleMultiRange()
-    {
-        TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
-                OldDoubleRange.of(Double.MIN_VALUE, true, true, 1.2, false, true, false),
-                OldDoubleRange.of(1.2, false, true, Double.MAX_VALUE, true, true, false)), false, false);
-
-        assertTrue(filter.testDouble(1.1));
-        assertTrue(filter.testDouble(1.3));
-
-        assertFalse(filter.testNull());
-        assertFalse(filter.testDouble(Double.NaN));
-        assertFalse(filter.testDouble(1.2));
-    }
-
-    @Test
     public void testDecimalMultiRange()
     {
         Slice decimal = decimal("123.45");
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 LongDecimalRange.of(Long.MIN_VALUE, Long.MIN_VALUE, true, true, decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, true, false),
-                LongDecimalRange.of(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, true, Long.MAX_VALUE, Long.MAX_VALUE, true, true, false)), false, false);
+                LongDecimalRange.of(decimal.getLong(0), decimal.getLong(SIZE_OF_LONG), false, true, Long.MAX_VALUE, Long.MAX_VALUE, true, true, false)), false);
 
         assertTrue(filter.testDecimal(decimal("1.23").getLong(0), decimal("1.23").getLong(SIZE_OF_LONG)));
         assertTrue(filter.testDecimal(decimal("12.34").getLong(0), decimal("12.34").getLong(SIZE_OF_LONG)));
@@ -428,7 +411,7 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
+                FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false);
 
         assertTrue(filter.testFloat(1.1f));
         assertTrue(filter.testFloat(1.3f));
@@ -439,27 +422,12 @@ public class TestTupleDomainFilter
     }
 
     @Test
-    public void testLegacyFloatMultiRange()
-    {
-        TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
-                OldFloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                OldFloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
-
-        assertTrue(filter.testFloat(1.1f));
-        assertTrue(filter.testFloat(1.3f));
-
-        assertFalse(filter.testNull());
-        assertFalse(filter.testFloat(Float.NaN));
-        assertFalse(filter.testFloat(1.2f));
-    }
-
-    @Test
     public void testFloatNotEqualMultiRangeWithNans()
     {
         // x <> 1.2
         TupleDomainFilter floatFilter = MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
+                FloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false);
         assertTrue(floatFilter.testFloat(Float.NaN));
         assertTrue(floatFilter.testFloat(1.0f));
     }
@@ -469,7 +437,7 @@ public class TestTupleDomainFilter
     {
         TupleDomainFilter doubleFilter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
-                DoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false, false);
+                DoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false);
         assertTrue(doubleFilter.testDouble(Double.NaN));
         assertTrue(doubleFilter.testDouble(1.4d));
     }
@@ -481,7 +449,7 @@ public class TestTupleDomainFilter
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 FloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
                 FloatRange.of(1.2f, false, true, 1.3f, false, true, false),
-                FloatRange.of(1.3f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
+                FloatRange.of(1.3f, false, true, Float.MAX_VALUE, true, true, false)), false);
         assertTrue(filter.testFloat(Float.NaN));
         assertFalse(filter.testFloat(1.2f));
         assertFalse(filter.testFloat(1.3f));
@@ -495,79 +463,11 @@ public class TestTupleDomainFilter
         TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
                 DoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
                 DoubleRange.of(1.2d, false, true, 1.3d, false, true, false),
-                DoubleRange.of(1.3d, false, true, Double.MAX_VALUE, true, true, false)), false, false);
+                DoubleRange.of(1.3d, false, true, Double.MAX_VALUE, true, true, false)), false);
         assertTrue(filter.testDouble(Double.NaN));
         assertFalse(filter.testDouble(1.2d));
         assertFalse(filter.testDouble(1.3d));
         assertTrue(filter.testDouble(1.4d));
         assertTrue(filter.testDouble(1.1d));
-    }
-
-    @Test
-    public void testLegacyMultiRangeWithNaNs()
-    {
-        // x <> 1.2 with nanAllowed true
-        TupleDomainFilter filter = MultiRange.of(ImmutableList.of(
-                OldFloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                OldFloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, true);
-        assertTrue(filter.testFloat(Float.NaN));
-        assertFalse(filter.testFloat(1.2f));
-        assertTrue(filter.testFloat(1.1f));
-
-        filter = MultiRange.of(ImmutableList.of(
-                OldDoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
-                OldDoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false, true);
-        assertTrue(filter.testDouble(Double.NaN));
-        assertFalse(filter.testDouble(1.2d));
-        assertTrue(filter.testDouble(1.1d));
-
-        // x <> 1.2 with nanAllowed false
-        filter = MultiRange.of(ImmutableList.of(
-                OldFloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                OldFloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
-        assertFalse(filter.testFloat(Float.NaN));
-        assertTrue(filter.testFloat(1.0f));
-
-        filter = MultiRange.of(ImmutableList.of(
-                OldDoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
-                OldDoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false, false);
-        assertFalse(filter.testDouble(Double.NaN));
-        assertTrue(filter.testDouble(1.4d));
-
-        // x NOT IN (1.2, 1.3)
-        filter = MultiRange.of(ImmutableList.of(
-                OldFloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                OldFloatRange.of(1.2f, false, true, 1.3f, false, true, false),
-                OldFloatRange.of(1.3f, false, true, Float.MAX_VALUE, true, true, false)), false, true);
-        assertTrue(filter.testFloat(Float.NaN));
-        assertFalse(filter.testFloat(1.2f));
-        assertFalse(filter.testFloat(1.3f));
-        assertTrue(filter.testFloat(1.4f));
-        assertTrue(filter.testFloat(1.1f));
-
-        filter = MultiRange.of(ImmutableList.of(
-                OldDoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
-                OldDoubleRange.of(1.2d, false, true, 1.3d, false, true, false),
-                OldDoubleRange.of(1.3d, false, true, Double.MAX_VALUE, true, true, false)), false, true);
-        assertTrue(filter.testDouble(Double.NaN));
-        assertFalse(filter.testDouble(1.2d));
-        assertFalse(filter.testDouble(1.3d));
-        assertTrue(filter.testDouble(1.4d));
-        assertTrue(filter.testDouble(1.1d));
-
-        // x NOT IN (1.2) with nanAllowed false
-        filter = MultiRange.of(ImmutableList.of(
-                OldFloatRange.of(Float.MIN_VALUE, true, true, 1.2f, false, true, false),
-                OldFloatRange.of(1.2f, false, true, Float.MAX_VALUE, true, true, false)), false, false);
-        assertFalse(filter.testFloat(Float.NaN));
-        assertFalse(filter.testFloat(1.2f));
-        assertTrue(filter.testFloat(1.3f));
-
-        filter = MultiRange.of(ImmutableList.of(
-                OldDoubleRange.of(Double.MIN_VALUE, true, true, 1.2d, false, true, false),
-                OldDoubleRange.of(1.2d, false, true, Double.MAX_VALUE, true, true, false)), false, false);
-        assertFalse(filter.testDouble(Double.NaN));
-        assertFalse(filter.testDouble(1.2d));
-        assertTrue(filter.testDouble(1.3d));
     }
 }

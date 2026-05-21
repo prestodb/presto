@@ -364,8 +364,8 @@ public final class SystemSessionProperties
     public static final String EAGER_PLAN_VALIDATION_ENABLED = "eager_plan_validation_enabled";
     public static final String DEFAULT_VIEW_SECURITY_MODE = "default_view_security_mode";
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
+    public static final String JOIN_PREFILTER_COMPLEX_BUILD_SIDE = "join_prefilter_build_side_with_complex_probe_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
-    public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String ENABLE_EMPTY_CONNECTOR_OPTIMIZER = "enable_empty_connector_optimizer";
@@ -406,6 +406,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
     public static final String REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION = "rewrite_row_constructor_in_to_disjunction";
+    public static final String PUSH_FILTER_THROUGH_SELECTING_AGGREGATION = "push_filter_through_selecting_aggregation";
     public static final String ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED = "always_analyze_create_table_query_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -2132,13 +2133,14 @@ public final class SystemSessionProperties
                         "Prefiltering the build/inner side of a join with keys from the other side",
                         false,
                         false),
+                booleanProperty(
+                        JOIN_PREFILTER_COMPLEX_BUILD_SIDE,
+                        "Extend join prefilter to support complex left-side patterns (UNION ALL, cross join, unnest, aggregation) and push prefilter below right-side aggregation",
+                        false,
+                        false),
                 booleanProperty(OPTIMIZER_USE_HISTOGRAMS,
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
-                        false),
-                booleanProperty(WARN_ON_COMMON_NAN_PATTERNS,
-                        "Whether to give a warning for some common issues relating to NaNs",
-                        functionsConfig.getWarnOnCommonNanPatterns(),
                         false),
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
@@ -2290,6 +2292,10 @@ public final class SystemSessionProperties
                 booleanProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION,
                         "Rewrite ROW(...) IN (ROW(...), ...) into OR of ANDs for partition pruning",
                         featuresConfig.isRewriteRowConstructorInToDisjunction(),
+                        false),
+                booleanProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION,
+                        "Push HAVING-style filter on MAX/MIN/ARBITRARY aggregate output below the aggregation when the predicate direction matches the aggregate",
+                        featuresConfig.isPushFilterThroughSelectingAggregation(),
                         false),
                 booleanProperty(
                         ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED,
@@ -3740,6 +3746,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(JOIN_PREFILTER_BUILD_SIDE, Boolean.class);
     }
 
+    public static boolean isJoinPrefilterComplexBuildSideEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_PREFILTER_COMPLEX_BUILD_SIDE, Boolean.class);
+    }
+
     public static boolean isOptimizeTopNUsingRowIdEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, Boolean.class);
@@ -3763,11 +3774,6 @@ public final class SystemSessionProperties
     public static boolean shouldOptimizerUseHistograms(Session session)
     {
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
-    }
-
-    public static boolean warnOnCommonNanPatterns(Session session)
-    {
-        return session.getSystemProperty(WARN_ON_COMMON_NAN_PATTERNS, Boolean.class);
     }
 
     public static boolean isInlineProjectionsOnValues(Session session)
@@ -3918,6 +3924,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteRowConstructorInToDisjunction(Session session)
     {
         return session.getSystemProperty(REWRITE_ROW_CONSTRUCTOR_IN_TO_DISJUNCTION, Boolean.class);
+    }
+
+    public static boolean isPushFilterThroughSelectingAggregation(Session session)
+    {
+        return session.getSystemProperty(PUSH_FILTER_THROUGH_SELECTING_AGGREGATION, Boolean.class);
     }
 
     public static boolean isAlwaysAnalyzeCreateTableQueryEnabled(Session session)

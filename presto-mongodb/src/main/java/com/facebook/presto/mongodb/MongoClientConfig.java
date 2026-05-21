@@ -45,7 +45,7 @@ public class MongoClientConfig
     private static final Splitter TAG_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
     private String schemaCollection = "_schema";
     private List<ServerAddress> seeds = ImmutableList.of();
-    private List<MongoCredential> credentials = ImmutableList.of();
+    private MongoCredential credential;
 
     private int minConnectionsPerHost;
     private int connectionsPerHost = 100;
@@ -181,23 +181,16 @@ public class MongoClientConfig
         return this;
     }
 
-    @NotNull
-    @Size(min = 0)
-    public List<MongoCredential> getCredentials()
+    public Optional<MongoCredential> getCredentials()
     {
-        return credentials;
+        return Optional.ofNullable(credential);
     }
 
     @Config("mongodb.credentials")
-    public MongoClientConfig setCredentials(String credentials)
+    @ConfigSecuritySensitive
+    public MongoClientConfig setCredentials(String credential)
     {
-        this.credentials = buildCredentials(SPLITTER.split(credentials));
-        return this;
-    }
-
-    public MongoClientConfig setCredentials(String... credentials)
-    {
-        this.credentials = buildCredentials(Arrays.asList(credentials));
+        this.credential = credential == null ? null : buildCredential(credential);
         return this;
     }
 
@@ -217,23 +210,21 @@ public class MongoClientConfig
         return builder.build();
     }
 
-    private List<MongoCredential> buildCredentials(Iterable<String> userPasses)
+    private MongoCredential buildCredential(String userPass)
     {
-        ImmutableList.Builder<MongoCredential> builder = ImmutableList.builder();
-        for (String userPass : userPasses) {
-            int atPos = userPass.lastIndexOf('@');
-            checkArgument(atPos > 0, "Invalid credential format. Required user:password@collection");
-            String userAndPassword = userPass.substring(0, atPos);
-            String collection = userPass.substring(atPos + 1);
+        checkArgument(!userPass.contains(","), "Multiple credentials are not supported. Configure a single credential in the format user:password@authenticationDatabase");
 
-            int colonPos = userAndPassword.indexOf(':');
-            checkArgument(colonPos > 0, "Invalid credential format. Required user:password@collection");
-            String user = userAndPassword.substring(0, colonPos);
-            String password = userAndPassword.substring(colonPos + 1);
+        int atPos = userPass.lastIndexOf('@');
+        checkArgument(atPos > 0, "Invalid credential format. Required user:password@authenticationDatabase");
+        String userAndPassword = userPass.substring(0, atPos);
+        String authenticationDatabase = userPass.substring(atPos + 1);
 
-            builder.add(createCredential(user, collection, password.toCharArray()));
-        }
-        return builder.build();
+        int colonPos = userAndPassword.indexOf(':');
+        checkArgument(colonPos > 0, "Invalid credential format. Required user:password@authenticationDatabase");
+        String user = userAndPassword.substring(0, colonPos);
+        String password = userAndPassword.substring(colonPos + 1);
+
+        return createCredential(user, authenticationDatabase, password.toCharArray());
     }
 
     @Min(0)

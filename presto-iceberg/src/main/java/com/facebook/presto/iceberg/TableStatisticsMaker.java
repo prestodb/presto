@@ -289,9 +289,11 @@ public class TableStatisticsMaker
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
     {
+        // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
+        TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
         TableScan tableScan = icebergTable.newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
-                .filter(toIcebergExpression(intersection))
+                .filter(toIcebergExpression(nonMetadataIntersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();

@@ -61,7 +61,7 @@ public class TestMongoClientConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(MongoClientConfig.class)
                 .setSchemaCollection("_schema")
                 .setSeeds("")
-                .setCredentials("")
+                .setCredentials(null)
                 .setMinConnectionsPerHost(0)
                 .setConnectionsPerHost(100)
                 .setMaxWaitTime(120_000)
@@ -152,7 +152,8 @@ public class TestMongoClientConfig
         MongoClientConfig config = new MongoClientConfig()
                 .setCredentials("username:P@ss:w0rd@database");
 
-        MongoCredential credential = config.getCredentials().get(0);
+        assertTrue(config.getCredentials().isPresent());
+        MongoCredential credential = config.getCredentials().get();
         MongoCredential expected = MongoCredential.createCredential("username", "database", "P@ss:w0rd".toCharArray());
         assertEquals(credential, expected);
     }

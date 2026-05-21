@@ -79,6 +79,8 @@ public class IcebergConfig
     private String materializedViewStoragePrefix = "__mv_storage__";
     private String materializedViewDefaultStorageSchema;
     private int materializedViewMaxChangedPartitions = 100;
+    private int materializedViewDefaultMaxSnapshotsPerRefresh;
+    private boolean aggregatePushDownEnabled = true;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -526,6 +528,34 @@ public class IcebergConfig
     public IcebergConfig setMaterializedViewMaxChangedPartitions(int materializedViewMaxChangedPartitions)
     {
         this.materializedViewMaxChangedPartitions = materializedViewMaxChangedPartitions;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializedViewDefaultMaxSnapshotsPerRefresh()
+    {
+        return materializedViewDefaultMaxSnapshotsPerRefresh;
+    }
+
+    @Config("iceberg.materialized-view-default-max-snapshots-per-refresh")
+    @ConfigDescription("Default upper bound on snapshots consumed per base table per refresh when the materialized view " +
+            "does not override it. 0 means unbounded (no default bound).")
+    public IcebergConfig setMaterializedViewDefaultMaxSnapshotsPerRefresh(int materializedViewDefaultMaxSnapshotsPerRefresh)
+    {
+        this.materializedViewDefaultMaxSnapshotsPerRefresh = materializedViewDefaultMaxSnapshotsPerRefresh;
+        return this;
+    }
+
+    public boolean isAggregatePushDownEnabled()
+    {
+        return aggregatePushDownEnabled;
+    }
+
+    @Config("iceberg.aggregate-push-down-enabled")
+    @ConfigDescription("Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats.")
+    public IcebergConfig setAggregatePushDownEnabled(boolean aggregatePushDownEnabled)
+    {
+        this.aggregatePushDownEnabled = aggregatePushDownEnabled;
         return this;
     }
 }

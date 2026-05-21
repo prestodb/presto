@@ -39,7 +39,6 @@ public class SqlFunctionProperties
     private final boolean fieldNamesInJsonCastEnabled;
     private final boolean legacyJsonCast;
     private final Map<String, String> extraCredentials;
-    private final boolean warnOnCommonNanPatterns;
     private final boolean canonicalizedJsonExtract;
     private final Set<String> tryCatchableErrorCodes;
 
@@ -55,7 +54,6 @@ public class SqlFunctionProperties
             boolean fieldNamesInJsonCastEnabled,
             boolean legacyJsonCast,
             Map<String, String> extraCredentials,
-            boolean warnOnCommonNanPatterns,
             boolean canonicalizedJsonExtract,
             Set<String> tryCatchableErrorCodes)
     {
@@ -70,7 +68,6 @@ public class SqlFunctionProperties
         this.fieldNamesInJsonCastEnabled = fieldNamesInJsonCastEnabled;
         this.legacyJsonCast = legacyJsonCast;
         this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
-        this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
         this.canonicalizedJsonExtract = canonicalizedJsonExtract;
         this.tryCatchableErrorCodes = requireNonNull(tryCatchableErrorCodes, "tryCatchableErrorCodes is null");
     }
@@ -131,11 +128,6 @@ public class SqlFunctionProperties
         return legacyJsonCast;
     }
 
-    public boolean shouldWarnOnCommonNanPatterns()
-    {
-        return warnOnCommonNanPatterns;
-    }
-
     public boolean isCanonicalizedJsonExtract()
     { return canonicalizedJsonExtract; }
 
@@ -194,7 +186,6 @@ public class SqlFunctionProperties
         private boolean fieldNamesInJsonCastEnabled;
         private boolean legacyJsonCast;
         private Map<String, String> extraCredentials = emptyMap();
-        private boolean warnOnCommonNanPatterns;
         private boolean canonicalizedJsonExtract;
         private Set<String> tryCatchableErrorCodes = emptySet();
 
@@ -266,12 +257,6 @@ public class SqlFunctionProperties
             return this;
         }
 
-        public Builder setWarnOnCommonNanPatterns(boolean warnOnCommonNanPatterns)
-        {
-            this.warnOnCommonNanPatterns = warnOnCommonNanPatterns;
-            return this;
-        }
-
         public Builder setCanonicalizedJsonExtract(boolean canonicalizedJsonExtract)
         {
             this.canonicalizedJsonExtract = canonicalizedJsonExtract;
@@ -298,7 +283,6 @@ public class SqlFunctionProperties
                     fieldNamesInJsonCastEnabled,
                     legacyJsonCast,
                     extraCredentials,
-                    warnOnCommonNanPatterns,
                     canonicalizedJsonExtract,
                     tryCatchableErrorCodes);
         }

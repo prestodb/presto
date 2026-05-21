@@ -90,8 +90,7 @@ public class BenchmarkDynamicFilterSourceOperator
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel("0", BIGINT, 0)),
                     getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),
                     getDynamicFilteringMaxPerDriverSize(TEST_SESSION),
-                    getDynamicFilteringRangeRowLimitPerDriver(TEST_SESSION),
-                    true);
+                    getDynamicFilteringRangeRowLimitPerDriver(TEST_SESSION));
         }
 
         @TearDown

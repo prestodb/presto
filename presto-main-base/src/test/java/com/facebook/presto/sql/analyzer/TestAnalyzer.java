@@ -1540,6 +1540,24 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testViewWithSymmetricTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithSymmetricCharTypeCoercionIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_symmetric_coercion");
+    }
+
+    @Test
+    public void testViewWithCharAndVarcharTypeMismatchIsNotStale()
+    {
+        analyze("SELECT * FROM v_char_varchar_stale");
+    }
+
+    @Test
     public void testStoredViewAnalysisScoping()
     {
         // the view must not be analyzed using the query context

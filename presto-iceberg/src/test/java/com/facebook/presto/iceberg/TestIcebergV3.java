@@ -44,6 +44,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -465,6 +466,68 @@ public class TestIcebergV3
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'IN'");
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' ORDER BY ordinal_position",
                     "VALUES ('id'), ('name'), ('country')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetColumnDefaultRequiresV3()
+    {
+        String tableName = "test_set_column_default_v2";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '2')");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 2);
+            // Try to set default on V2 table - should fail with V3 requirement error
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT 'test'",
+                    "SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher.*");
+
+            // Upgrade to V3
+            BaseTable baseTable = (BaseTable) table;
+            TableOperations operations = baseTable.operations();
+            TableMetadata currentMetadata = operations.current();
+            operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(3));
+            table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+
+            // Add column with initial-default in V3
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'UK'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "UK");
+
+            // Now update write-default only (initial-default should remain 'UK')
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'US'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "UK");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetColumnDefaultToNull()
+    {
+        String tableName = "test_set_column_default_null";
+        try {
+            // Create V3 table with a column that has a default value
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR DEFAULT 'default_name'");
+            Table table = loadTable(tableName);
+            assertEquals(((BaseTable) table).operations().current().formatVersion(), 3);
+            // Verify initial default is set
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertEquals(table.schema().findField("name").writeDefault(), "default_name");
+            // Set default to NULL - this should not throw NPE and should clear the write-default
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN name SET DEFAULT NULL");
+            table = loadTable(tableName);
+            // Verify initial-default remains but write-default is now null
+            assertEquals(table.schema().findField("name").initialDefault(), "default_name");
+            assertNull(table.schema().findField("name").writeDefault());
         }
         finally {
             dropTable(tableName);

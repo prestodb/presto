@@ -1006,7 +1006,6 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 taskManagerConfig,
                 new MemoryManagerConfig(),
-                new FunctionsConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,

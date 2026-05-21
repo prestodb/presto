@@ -125,9 +125,11 @@ class MaterializedOutput : public velox::exec::Operator {
   // Project input columns and lazy-load all children.
   void initializeInput(velox::RowVectorPtr input);
 
-  // Flush remaining data and coordinate with peer drivers. Called from
-  // noMoreInput() and close(). Idempotent via finished_ guard.
+  // Flush remaining data and coordinate with peer drivers.
   void finish();
+
+  // Publish buffer stats as operator runtime stats.
+  void recordBufferStats();
 
   // Partition input, serialize into flat buffer, and flush if threshold
   // reached.

@@ -22,7 +22,6 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.realCompare;
 import static com.facebook.presto.common.type.TypeUtils.realEquals;
 import static com.facebook.presto.common.type.TypeUtils.realHashCode;
-import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -30,14 +29,11 @@ import static java.lang.String.format;
 public final class RealType
         extends AbstractIntType
 {
-    public static final RealType REAL = new RealType(true);
-    public static final RealType OLD_NAN_REAL = new RealType(false);
-    private final boolean useNewNanDefinition;
+    public static final RealType REAL = new RealType();
 
-    private RealType(boolean useNewNanDefinition)
+    private RealType()
     {
         super(parseTypeSignature(StandardTypes.REAL));
-        this.useNewNanDefinition = useNewNanDefinition;
     }
 
     @Override
@@ -54,11 +50,6 @@ public final class RealType
     {
         float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition));
         float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition));
-        if (!useNewNanDefinition) {
-            // direct equality is correct here
-            // noinspection FloatingPointEquality
-            return leftValue == rightValue;
-        }
         return realEquals(leftValue, rightValue);
     }
 
@@ -66,10 +57,6 @@ public final class RealType
     public long hash(Block block, int position)
     {
         float value = intBitsToFloat(block.getInt(position));
-        if (!useNewNanDefinition) {
-            // convert to canonical NaN if necessary
-            return AbstractIntType.hash(floatToIntBits(value));
-        }
         return realHashCode(value);
     }
 
