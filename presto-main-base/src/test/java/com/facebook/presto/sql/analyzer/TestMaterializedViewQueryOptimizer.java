@@ -178,6 +178,41 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testWithSumDistinct()
+    {
+        // SUM(DISTINCT) with GROUP BY rollup must NOT be rewritten — rolling up
+        // pre-aggregated values with DISTINCT produces wrong results.
+        String originalViewSql = format("SELECT SUM(DISTINCT(a)) as a_sum, b FROM %s GROUP BY b, c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(DISTINCT(a)) FROM %s GROUP BY b", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // SUM(DISTINCT) on base table must not match MV with SUM (non-distinct)
+        originalViewSql = format("SELECT SUM((a)) as a_sum FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SUM(DISTINCT(a)) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testCountStarRewrite()
+    {
+        // COUNT(*) rewritten to SUM(cnt) when MV pre-computes it
+        String originalViewSql = format("SELECT b, COUNT(*) as cnt FROM %s GROUP BY b", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT b, COUNT(*) FROM %s GROUP BY b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT b, SUM(cnt) FROM %s GROUP BY b", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // COUNT(*) rollup without GROUP BY in query
+        baseQuerySql = format("SELECT COUNT(*) FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SUM(cnt) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: COUNT(*) when MV does not pre-compute it
+        originalViewSql = format("SELECT SUM(a) as a_sum, b FROM %s GROUP BY b", BASE_TABLE_1);
+        baseQuerySql = format("SELECT COUNT(*) FROM %s GROUP BY b", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithArithmeticBinary()
     {
         String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
