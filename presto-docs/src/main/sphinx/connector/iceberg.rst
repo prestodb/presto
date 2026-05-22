@@ -1602,20 +1602,20 @@ frequently used together in query predicates.
 SQL Support
 -----------
 
-==================================== ============= ============ ============================================================================
-SQL Operation                        Presto Java   Presto C++   Comments
-==================================== ============= ============ ============================================================================
-``CREATE SCHEMA``                    Yes           Yes
+======================================== ============= ============ ============================================================================
+SQL Operation                            Presto Java   Presto C++   Comments
+======================================== ============= ============ ============================================================================
+``CREATE SCHEMA``                        Yes           Yes
 
-``CREATE TABLE``                     Yes           Yes
+``CREATE TABLE``                         Yes           Yes
 
-``CREATE VIEW``                      Yes           Yes
+``CREATE VIEW``                          Yes           Yes
 
-``INSERT INTO``                      Yes           No
+``INSERT INTO``                          Yes           No
 
-``CREATE TABLE AS SELECT``           Yes           No
+``CREATE TABLE AS SELECT``               Yes           No
 
-``SELECT``                           Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
+``SELECT``                               Yes           Yes          Read is supported in Presto C++ including those with positional delete files.
 
 ``ALTER TABLE``                              Yes           Yes
 
@@ -1625,26 +1625,26 @@ SQL Operation                        Presto Java   Presto C++   Comments
 
 ``ALTER VIEW``                               Yes           Yes
 
-``TRUNCATE``                         Yes           Yes
+``TRUNCATE``                             Yes           Yes
 
-``DELETE``                           Yes           No
+``DELETE``                               Yes           No
 
-``DROP TABLE``                       Yes           Yes
+``DROP TABLE``                           Yes           Yes
 
-``DROP VIEW``                        Yes           Yes
+``DROP VIEW``                            Yes           Yes
 
-``DROP SCHEMA``                      Yes           Yes
+``DROP SCHEMA``                          Yes           Yes
 
-``SHOW CREATE TABLE``                Yes           Yes
+``SHOW CREATE TABLE``                    Yes           Yes
 
-``SHOW COLUMNS``                     Yes           Yes
+``SHOW COLUMNS``                         Yes           Yes
 
-``DESCRIBE``                         Yes           Yes
+``DESCRIBE``                             Yes           Yes
 
-``UPDATE``                           Yes           No
+``UPDATE``                               Yes           No
 
-``MERGE``                            Yes           No
-==================================== ============= ============ ============================================================================
+``MERGE``                                Yes           No
+======================================== ============= ============ ============================================================================
 
 The Iceberg connector supports querying and manipulating Iceberg tables and schemas
 (databases). Here are some examples of the SQL operations supported by Presto:
