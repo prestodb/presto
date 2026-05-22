@@ -56,7 +56,7 @@ Create the file ``coordinator/etc/config.properties`` with the following content
 
    # coordinator/etc/config.properties
    coordinator=true
-   node-scheduler.include-coordinator=true
+   node-scheduler.include-coordinator=false
    http-server.http.port=8080
    discovery-server.enabled=true
    discovery.uri=http://localhost:8080
