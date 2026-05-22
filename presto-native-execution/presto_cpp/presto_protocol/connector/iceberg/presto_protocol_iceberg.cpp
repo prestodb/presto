@@ -281,7 +281,8 @@ static const std::pair<FileContent, json> FileContent_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {FileContent::DATA, "DATA"},
         {FileContent::POSITION_DELETES, "POSITION_DELETES"},
-        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"}};
+        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"},
+        {FileContent::DELETION_VECTOR, "DELETION_VECTOR"}};
 void to_json(json& j, const FileContent& e) {
   static_assert(
       std::is_enum<FileContent>::value, "FileContent must be an enum!");
