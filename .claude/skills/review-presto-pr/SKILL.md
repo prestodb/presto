@@ -49,8 +49,8 @@ This ensures the code is available locally for the user to browse and cross-chec
 First, understand what changed and check for proper process:
 
 **Size and process checks:**
-- Large changes (>2000 lines) should have an [RFC](https://github.com/prestodb/rfcs)
-- PR should not exceed 5000 lines (excluding generated files)
+- Large changes should have an [RFC](https://github.com/prestodb/rfcs)
+- Very large PRs should be split when practical to keep review manageable; consider generated files separately
 - Medium changes should have an associated GitHub issue
 
 First, understand what changed:
