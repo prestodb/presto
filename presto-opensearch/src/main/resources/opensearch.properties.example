@@ -1,0 +1,79 @@
+# OpenSearch Connector Configuration Example
+# Copy this file to etc/catalog/opensearch.properties and customize
+
+# Connector name (required)
+connector.name=opensearch
+
+# Connection Settings
+opensearch.host=localhost
+opensearch.port=9200
+opensearch.scheme=https
+
+# Authentication (Basic Auth)
+opensearch.auth.username=admin
+opensearch.auth.password=admin
+
+# SSL/TLS Configuration
+opensearch.ssl.enabled=true
+opensearch.ssl.verify-hostname=true
+
+# Skip SSL certificate validation (for expired/self-signed certificates)
+# WARNING: Only use for testing/development. Set to false in production.
+# Default: false
+opensearch.ssl.skip-certificate-validation=false
+
+# Optional: Use custom truststore for valid certificates
+# opensearch.ssl.truststore.path=/path/to/truststore.jks
+# opensearch.ssl.truststore.password=changeit
+
+# Query Settings
+opensearch.scroll.size=1000
+opensearch.scroll.timeout=5m
+opensearch.max-connections=100
+opensearch.connection-timeout=10000
+opensearch.socket-timeout=60000
+
+# Schema Discovery
+opensearch.schema-pattern=*
+opensearch.hide-system-indices=true
+opensearch.max-result-window=10000
+
+# Vector Search (k-NN Plugin)
+# Enable vector search support using OpenSearch k-NN plugin
+opensearch.vector-search.enabled=true
+
+# Default number of nearest neighbors to return
+opensearch.vector-search.default-k=10
+
+# Default distance metric: cosine, l2 (euclidean), or inner_product (dot product)
+opensearch.vector-search.default-space-type=cosine
+
+# Default ef_search parameter for HNSW algorithm (higher = better accuracy, slower)
+# Typical range: 50-500, default: 100
+opensearch.vector-search.default-ef-search=100
+
+# Nested Field Access (NEW)
+# Enable querying nested JSON fields with dot notation (e.g., token_usage.total_tokens)
+opensearch.nested.enabled=true
+
+# Maximum depth for nested field discovery (default: 5)
+# Prevents infinite recursion and performance issues
+opensearch.nested.max-depth=5
+
+# Optimize nested queries by grouping predicates on the same parent (default: true)
+# Example: WHERE token_usage.total_tokens > 50000 AND token_usage.output_tokens < 2000
+# Will be combined into a single nested query for better performance
+opensearch.nested.optimize-queries=true
+
+# Discover dynamic fields not in mapping (default: false)
+# Set to true for exploratory analysis, false for production (safer)
+opensearch.nested.discover-dynamic-fields=false
+
+# Log warnings when nested fields are missing in documents (default: false)
+# Useful for debugging but can be noisy in production
+
+# Column Visibility
+# Hide the _id column from table schema (default: false)
+# Set to true if you don't need to query the document ID column
+opensearch.hide-document-id-column=false
+opensearch.nested.log-missing-fields=false
