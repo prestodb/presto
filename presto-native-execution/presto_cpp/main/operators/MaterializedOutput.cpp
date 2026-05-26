@@ -445,16 +445,7 @@ void MaterializedOutput::flushBatch() {
 
     auto iobuf = buildRowGroup(rows);
 
-    // Enqueue always accepts the data — backpressure is advisory. If the
-    // buffer is full, enqueue returns true and populates a future. We record
-    // the future but continue flushing remaining partitions. The driver
-    // suspends on the next isBlocked() call, not mid-loop. The overshoot
-    // per flush is bounded by targetSizeInBytes_ (1-16MB).
-    ContinueFuture future;
-    if (buffer_->enqueue(partition, std::move(iobuf), &future)) {
-      blockingReason_ = BlockingReason::kWaitForConsumer;
-      future_ = std::move(future);
-    }
+    buffer_->enqueue(partition, std::move(iobuf));
   }
 
   // Reset accumulated state.

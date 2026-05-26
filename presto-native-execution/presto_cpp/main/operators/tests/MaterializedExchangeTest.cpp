@@ -442,8 +442,7 @@ TEST_F(MaterializedExchangeTest, bufferMemoryTracking) {
         auto iobuf = buffer->allocateTrackedIOBuf(10 * 1024);
         std::memset(iobuf->writableData(), 'x', 10 * 1024);
         iobuf->append(10 * 1024);
-        velox::ContinueFuture future;
-        buffer->enqueue(p, std::move(iobuf), &future);
+        buffer->enqueue(p, std::move(iobuf));
         ++totalEnqueued;
       } catch (const velox::VeloxRuntimeError&) {
         threw = true;

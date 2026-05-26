@@ -59,7 +59,6 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
     int64_t partitionDrainThreshold)
     : numPartitions_(numPartitions),
       maxBufferedBytes_(maxBufferedBytes),
-      continueBufferedBytes_(maxBufferedBytes * 9 / 10),
       partitionDrainThreshold_(
           std::min(
               partitionDrainThreshold > 0 ? partitionDrainThreshold
@@ -118,38 +117,15 @@ void MaterializedOutputBuffer::freeTrackedIOBuf(void* buf, void* userData) {
   delete info;
 }
 
-bool MaterializedOutputBuffer::maybeApplyBackpressure(
-    velox::ContinueFuture* future) {
-  if (bufferedBytes_ >= maxBufferedBytes_) {
-    std::lock_guard<std::mutex> lock(stateMutex_);
-    if (bufferedBytes_ >= maxBufferedBytes_) {
-      auto [promise, semiFuture] =
-          velox::makeVeloxContinuePromiseContract("MaterializedOutputBuffer");
-      promises_.push_back(std::move(promise));
-      *future = std::move(semiFuture);
-      ++backpressureCount_;
-      LOG(INFO) << fmt::format(
-          "MaterializedOutputBuffer backpressure: bufferedBytes={}MB >= "
-          "max={}MB, waitingDrivers={}",
-          bufferedBytes_ >> 20,
-          maxBufferedBytes_ >> 20,
-          promises_.size());
-      return true;
-    }
-  }
-  return false;
-}
-
-bool MaterializedOutputBuffer::enqueue(
+void MaterializedOutputBuffer::enqueue(
     int32_t partition,
-    std::unique_ptr<folly::IOBuf> rowGroup,
-    velox::ContinueFuture* future) {
+    std::unique_ptr<folly::IOBuf> rowGroup) {
   VELOX_CHECK_GE(partition, 0);
   VELOX_CHECK_LT(partition, numPartitions_);
   // During error teardown, abort() may have been called while other
   // drivers still flush remaining data. Silently drop.
   if (aborted_.load()) {
-    return false;
+    return;
   }
   VELOX_CHECK(
       !finished_.load(),
@@ -179,19 +155,8 @@ bool MaterializedOutputBuffer::enqueue(
           static_cast<int64_t>(drainCount_),
           bufferedBytes_ >> 20);
     }
-    auto prevTotal = bufferedBytes_.fetch_sub(drainedBytes);
-    if (prevTotal >= continueBufferedBytes_ &&
-        (prevTotal - drainedBytes) < continueBufferedBytes_) {
-      std::vector<velox::ContinuePromise> promises;
-      {
-        std::lock_guard<std::mutex> stateLock(stateMutex_);
-        promises.swap(promises_);
-      }
-      maybeUnblockProducers(promises);
-    }
+    bufferedBytes_.fetch_sub(drainedBytes);
   }
-
-  return maybeApplyBackpressure(future);
 }
 
 void MaterializedOutputBuffer::flushToWriter(
@@ -271,14 +236,6 @@ void MaterializedOutputBuffer::abort() {
     partitionBuffers_[i]->bufferedBytes_ = 0;
   }
 
-  // Unblock any waiting producers.
-  std::vector<velox::ContinuePromise> promises;
-  {
-    std::lock_guard<std::mutex> lock(stateMutex_);
-    promises.swap(promises_);
-  }
-  maybeUnblockProducers(promises);
-
   LOG(INFO)
       << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
   writer_->noMoreData(/*success=*/false);
@@ -314,20 +271,6 @@ bool MaterializedOutputBuffer::noMoreDrivers() {
   return isLast;
 }
 
-void MaterializedOutputBuffer::maybeUnblockProducers(
-    std::vector<velox::ContinuePromise>& promises) {
-  if (!promises.empty()) {
-    LOG(INFO) << fmt::format(
-        "MaterializedOutputBuffer resumed: unblocked {} drivers, "
-        "bufferedBytes={}MB",
-        promises.size(),
-        bufferedBytes_ >> 20);
-  }
-  for (auto& promise : promises) {
-    promise.setValue();
-  }
-}
-
 void MaterializedOutputBuffer::finishAndClose() {
   if (finished_.exchange(true)) {
     return;
@@ -350,8 +293,7 @@ void MaterializedOutputBuffer::finishAndClose() {
       bufferedBytes_ >> 20);
   LOG(INFO) << fmt::format(
       "MaterializedOutputBuffer closed: "
-      "backpressureCount={}, collectCalls={}, peakBufferedBytes={}MB",
-      static_cast<int64_t>(backpressureCount_),
+      "collectCalls={}, peakBufferedBytes={}MB",
       totalCollects,
       peakBufferedBytes_ >> 20);
 }
@@ -361,7 +303,6 @@ folly::F14FastMap<std::string, int64_t> MaterializedOutputBuffer::stats()
   auto writerStats = writer_->stats();
   writerStats[std::string(kTotalDrainedBytes)] = totalDrainedBytes_;
   writerStats[std::string(kDrainCount)] = drainCount_;
-  writerStats[std::string(kBackpressureCount)] = backpressureCount_;
   writerStats[std::string(kCurrentDrainThreshold)] = partitionDrainThreshold_;
   writerStats[std::string(kBufferPoolUsedBytes)] =
       pool_ ? pool_->usedBytes() : 0;

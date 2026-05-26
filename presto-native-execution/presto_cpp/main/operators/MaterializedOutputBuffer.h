@@ -21,7 +21,6 @@
 #include <folly/Synchronized.h>
 #include <folly/io/IOBuf.h>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
-#include "velox/common/future/VeloxPromise.h"
 #include "velox/common/memory/MemoryPool.h"
 
 namespace facebook::presto::operators {
@@ -30,7 +29,7 @@ namespace facebook::presto::operators {
 ///
 /// Accepts serialized RowGroups per partition from multiple drivers, buffers
 /// them, and drains to the ShuffleWriter when the per-partition threshold is
-/// hit. Supports ContinueFuture-based cooperative backpressure.
+/// hit.
 ///
 /// Memory for buffered RowGroups is tracked through bufferPool_ (a system
 /// pool visible for accounting). The writer uses a separate system pool.
@@ -46,8 +45,6 @@ class MaterializedOutputBuffer {
       "materializedOutputBuffer.totalDrainedBytes";
   static constexpr std::string_view kDrainCount =
       "materializedOutputBuffer.drainCount";
-  static constexpr std::string_view kBackpressureCount =
-      "materializedOutputBuffer.backpressureCount";
   static constexpr std::string_view kCurrentDrainThreshold =
       "materializedOutputBuffer.currentDrainThreshold";
   static constexpr std::string_view kBufferPoolUsedBytes =
@@ -68,12 +65,8 @@ class MaterializedOutputBuffer {
 
   ~MaterializedOutputBuffer();
 
-  /// Enqueue a serialized RowGroup for a partition. If total buffered
-  /// bytes exceeds maxBufferedBytes, populates *future and returns true.
-  bool enqueue(
-      int32_t partition,
-      std::unique_ptr<folly::IOBuf> rowGroup,
-      velox::ContinueFuture* future);
+  /// Enqueue a serialized RowGroup for a partition.
+  void enqueue(int32_t partition, std::unique_ptr<folly::IOBuf> rowGroup);
 
   /// Drain all partitions.
   uint64_t drainAll();
@@ -152,9 +145,6 @@ class MaterializedOutputBuffer {
   // Drain a specific partition — called from drainAll() during finishAndClose.
   int64_t drainPartition(int32_t partition);
 
-  // Fulfill promises to unblock producers waiting on backpressure.
-  void maybeUnblockProducers(std::vector<velox::ContinuePromise>& promises);
-
   // Drain all remaining data and close the writer. Called exactly once.
   void finishAndClose();
 
@@ -165,17 +155,12 @@ class MaterializedOutputBuffer {
   std::unique_ptr<folly::IOBuf> coalesceRowGroups(
       std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
 
-  // Check if total buffered bytes exceeds the threshold and set up a
-  // ContinueFuture for the caller to block on.
-  bool maybeApplyBackpressure(velox::ContinueFuture* future);
-
   // Free callback for pool-tracked IOBufs.
   static void freeTrackedIOBuf(void* buf, void* userData);
 
   // Immutable config.
   const int32_t numPartitions_;
   const int64_t maxBufferedBytes_;
-  const int64_t continueBufferedBytes_;
   const int64_t partitionDrainThreshold_;
 
   // Writer and memory pool.
@@ -191,16 +176,14 @@ class MaterializedOutputBuffer {
   std::atomic<int64_t> bufferedBytes_{0};
   std::vector<std::unique_ptr<PartitionBuffer>> partitionBuffers_;
 
-  // Backpressure state — stateMutex_ guards promises_ and driver counts.
+  // stateMutex_ guards driver counts.
   std::mutex stateMutex_;
   uint32_t numDrivers_{0};
   uint32_t numFinishedDrivers_{0};
-  std::vector<velox::ContinuePromise> promises_;
 
   // Stats counters.
   std::atomic<int64_t> totalDrainedBytes_{0};
   std::atomic<int64_t> drainCount_{0};
-  std::atomic<int64_t> backpressureCount_{0};
   std::atomic<int64_t> peakBufferedBytes_{0};
   std::atomic<int64_t> lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;

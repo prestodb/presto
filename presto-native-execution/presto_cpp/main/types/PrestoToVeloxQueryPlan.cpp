@@ -2645,17 +2645,11 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         shuffleFactory,
         "ShuffleInterface factory '{}' not registered",
         shuffleName_);
-    const auto useSystemMemory =
-        SystemConfig::instance()
-            ->exchangeMaterializationOutputBufferUseSystemMemory();
-    auto shuffleWriterPool = useSystemMemory
-        ? velox::memory::memoryManager()->addLeafPool(
-              fmt::format("_sys.exchange_writer.{}", taskId))
-        // Add noop memory reclaimer to participate in arbitration protocol.
-        : queryCtx_->pool()->addLeafChild(
-              fmt::format("exchange_writer.{}", taskId),
-              true,
-              velox::exec::MemoryReclaimer::create());
+    // Add noop memory reclaimer to participate in arbitration protocol.
+    auto shuffleWriterPool = queryCtx_->pool()->addLeafChild(
+        fmt::format("exchange_writer.{}", taskId),
+        true,
+        velox::exec::MemoryReclaimer::create());
     auto shuffleWriter = shuffleFactory->createWriter(
         *serializedShuffleWriteInfo_, shuffleWriterPool.get());
 

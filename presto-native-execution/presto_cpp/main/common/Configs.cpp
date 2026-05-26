@@ -241,7 +241,6 @@ SystemConfig::SystemConfig() {
           NUM_PROP(
               kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
               130L * 1024),
-          BOOL_PROP(kExchangeMaterializationOutputBufferUseSystemMemory, false),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
@@ -799,12 +798,6 @@ int64_t SystemConfig::exchangeMaterializationOutputBufferPerPartitionMaxBytes()
   return optionalProperty<int64_t>(
              kExchangeMaterializationOutputBufferPerPartitionMaxBytes)
       .value_or(130L * 1024);
-}
-
-bool SystemConfig::exchangeMaterializationOutputBufferUseSystemMemory() const {
-  return optionalProperty<bool>(
-             kExchangeMaterializationOutputBufferUseSystemMemory)
-      .value_or(false);
 }
 
 bool SystemConfig::enableSerializedPageChecksum() const {
