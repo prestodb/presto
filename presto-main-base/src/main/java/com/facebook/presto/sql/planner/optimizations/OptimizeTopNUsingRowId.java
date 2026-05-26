@@ -306,7 +306,7 @@ public class OptimizeTopNUsingRowId
             if (node instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node;
                 return replaceTableScan(filterNode.getSource(), newTableScan, idAllocator)
-                        .map(newSource -> new FilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate()));
+                        .map(newSource -> new FilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate(), filterNode.isDoNotMerge()));
             }
             if (node instanceof ProjectNode) {
                 ProjectNode projectNode = (ProjectNode) node;

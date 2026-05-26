@@ -132,6 +132,10 @@ public class EffectivePredicateExtractor
         {
             RowExpression underlyingPredicate = node.getSource().accept(this, context);
 
+            if (node.isDoNotMerge()) {
+                return underlyingPredicate;
+            }
+
             RowExpression predicate = node.getPredicate();
 
             // Remove non-deterministic conjuncts
