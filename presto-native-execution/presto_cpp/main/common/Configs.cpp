@@ -231,7 +231,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kLargestSizeClassPages, 256),
           BOOL_PROP(kEnableVeloxTaskLogging, false),
           BOOL_PROP(kEnableVeloxExprSetLogging, false),
-          NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
+          NUM_PROP(kLocalShuffleMaxPartitionBytes, 65536),
           STR_PROP(kShuffleName, ""),
           BOOL_PROP(kExchangeMaterializationEnabled, false),
           NUM_PROP(
