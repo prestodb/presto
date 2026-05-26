@@ -189,10 +189,12 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         keyGenerator.initialize(4096);
         long now = Instant.now().getEpochSecond();
         String token = newJwtBuilder()
-                .setHeaderParam("alg", "RS256")
-                .setHeaderParam("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
-                .setHeaderParam("typ", "JWT")
-                .setClaims(
+                .header()
+                    .add("alg", "RS256")
+                    .add("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
+                    .add("typ", "JWT")
+                    .and()
+                .claims(
                         new DefaultClaims(
                                 ImmutableMap.<String, Object>builder()
                                         .put("aud", ImmutableList.of())

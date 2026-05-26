@@ -187,7 +187,7 @@ public class IcebergRestCatalogServlet
     protected Claims getTokenClaims(String token)
     {
         token = token.replaceAll("Bearer token-exchange-token:sub=", "");
-        return Jwts.parserBuilder().build().parseClaimsJwt(token).getBody();
+        return Jwts.parser().build().parseUnsecuredClaims(token).getPayload();
     }
 
     protected boolean isRestUserSessionToken(String token)

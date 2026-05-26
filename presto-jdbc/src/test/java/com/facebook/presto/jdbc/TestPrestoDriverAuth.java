@@ -21,10 +21,12 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import javax.crypto.SecretKey;
 
 import java.io.File;
 import java.net.URL;
@@ -34,7 +36,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -43,7 +44,6 @@ import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
-import static io.jsonwebtoken.JwsHeader.KEY_ID;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -102,9 +102,10 @@ public class TestPrestoDriverAuth
     public void testSuccessDefaultKey()
             throws Exception
     {
+        SecretKey key = Keys.hmacShaKeyFor(defaultKey);
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .signWith(SignatureAlgorithm.HS512, defaultKey)
+                .subject("test")
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -122,10 +123,11 @@ public class TestPrestoDriverAuth
     public void testSuccessHmac()
             throws Exception
     {
+        SecretKey key = Keys.hmacShaKeyFor(hmac222);
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "222")
-                .signWith(SignatureAlgorithm.HS512, hmac222)
+                .subject("test")
+                .header().keyId("222").and()
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -144,9 +146,9 @@ public class TestPrestoDriverAuth
             throws Exception
     {
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "33")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .subject("test")
+                .header().keyId("33").and()
+                .signWith(privateKey33, Jwts.SIG.RS256)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -176,7 +178,7 @@ public class TestPrestoDriverAuth
             throws Exception
     {
         String accessToken = Jwts.builder()
-                .setSubject("test")
+                .subject("test")
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -191,9 +193,10 @@ public class TestPrestoDriverAuth
             throws Exception
     {
         String badKey = "iPqFfWmGvClP953xU9110Q48qB4F5dcJ7QQel3O1k0xU52mlR6fT51SMa2f4KzhFRqqpwGUOud8Eo12pK9EW5H4N";
+        SecretKey key = Keys.hmacShaKeyFor(badKey.getBytes(US_ASCII));
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .signWith(SignatureAlgorithm.HS512, Base64.getEncoder().encodeToString(badKey.getBytes(US_ASCII)))
+                .subject("test")
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -208,9 +211,9 @@ public class TestPrestoDriverAuth
             throws Exception
     {
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "42")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .subject("test")
+                .header().keyId("42").and()
+                .signWith(privateKey33, Jwts.SIG.RS256)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
@@ -225,9 +228,9 @@ public class TestPrestoDriverAuth
             throws Exception
     {
         String accessToken = Jwts.builder()
-                .setSubject("test")
-                .setHeaderParam(KEY_ID, "unknown")
-                .signWith(SignatureAlgorithm.RS256, privateKey33)
+                .subject("test")
+                .header().keyId("unknown").and()
+                .signWith(privateKey33, Jwts.SIG.RS256)
                 .compact();
 
         try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {

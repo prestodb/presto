@@ -22,9 +22,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
+
+import javax.crypto.SecretKey;
 
 import java.security.Principal;
 import java.time.ZonedDateTime;
@@ -42,7 +44,7 @@ public class InternalAuthenticationManager
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
 
     private final boolean internalJwtEnabled;
-    private final byte[] hmac;
+    private final SecretKey hmacKey;
     private final String nodeId;
     private final Optional<String> sharedSecret;
 
@@ -58,10 +60,11 @@ public class InternalAuthenticationManager
         requireNonNull(nodeId, "nodeId is null");
         this.internalJwtEnabled = internalJwtEnabled;
         if (internalJwtEnabled) {
-            this.hmac = Hashing.sha256().hashString(sharedSecret.get(), UTF_8).asBytes();
+            byte[] hmac = Hashing.sha256().hashString(sharedSecret.get(), UTF_8).asBytes();
+            this.hmacKey = Keys.hmacShaKeyFor(hmac);
         }
         else {
-            this.hmac = null;
+            this.hmacKey = null;
         }
         this.nodeId = nodeId;
     }
@@ -74,18 +77,19 @@ public class InternalAuthenticationManager
     private String generateJwt()
     {
         return Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, hmac)
-                .setSubject(nodeId)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .subject(nodeId)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .signWith(hmacKey)
                 .compact();
     }
 
     private String parseJwt(String jwt)
     {
         return Jwts.parser()
-                .setSigningKey(hmac)
-                .parseClaimsJws(jwt)
-                .getBody()
+                .verifyWith(hmacKey)
+                .build()
+                .parseSignedClaims(jwt)
+                .getPayload()
                 .getSubject();
     }
 

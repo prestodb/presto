@@ -34,12 +34,12 @@ public final class JwtUtil
     public static JwtBuilder newJwtBuilder()
     {
         return Jwts.builder()
-                .serializeToJsonWith(JWT_SERIALIZER);
+                .json(JWT_SERIALIZER);
     }
 
     public static JwtParserBuilder newJwtParserBuilder()
     {
-        return Jwts.parserBuilder()
-                .deserializeJsonWith(JWT_DESERIALIZER);
+        return Jwts.parser()
+                .json(JWT_DESERIALIZER);
     }
 }

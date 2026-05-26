@@ -211,7 +211,8 @@ public class TestJweTokenSerializer
             implements OAuth2Client
     {
         private final Map<String, Object> claims = Jwts.claims()
-                .setSubject("user");
+                .subject("user")
+                .build();
 
         @Override
         public void load()

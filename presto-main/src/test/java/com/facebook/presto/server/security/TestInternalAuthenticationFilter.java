@@ -19,7 +19,8 @@ import com.facebook.presto.server.TaskResource;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+
+import javax.crypto.SecretKey;
 import jakarta.ws.rs.container.ResourceInfo;
 import org.testng.annotations.Test;
 
@@ -83,10 +84,11 @@ public class TestInternalAuthenticationFilter
         InternalAuthenticationManager internalAuthenticationManager = new InternalAuthenticationManager(Optional.of(sharedSecret), "nodeId", internalJwtEnabled);
         InternalAuthenticationFilter internalAuthenticationFilter =
                 new InternalAuthenticationFilter(internalAuthenticationManager, new ResourceInfoBuilder(TaskResource.class, null, null).build());
+        SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(Hashing.sha256().hashString("secret", UTF_8).asBytes());
         String jwtToken = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("secret", UTF_8).asBytes())
-                .setSubject(principalString)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .subject(principalString)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .signWith(key)
                 .compact();
 
         MockContainerRequestContext containerRequestContext = new MockContainerRequestContext(ImmutableListMultimap.of(PRESTO_INTERNAL_BEARER, jwtToken));
@@ -108,10 +110,11 @@ public class TestInternalAuthenticationFilter
         InternalAuthenticationManager internalAuthenticationManager = new InternalAuthenticationManager(Optional.of(sharedSecret), "nodeId", internalJwtEnabled);
         InternalAuthenticationFilter internalAuthenticationFilter =
                 new InternalAuthenticationFilter(internalAuthenticationManager, new ResourceInfoBuilder(TaskResource.class, null, null).build());
+        SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(Hashing.sha256().hashString("secret", UTF_8).asBytes());
         String jwtToken = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("secret", UTF_8).asBytes())
-                .setSubject(principalString)
-                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .subject(principalString)
+                .expiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
+                .signWith(key)
                 .compact();
 
         MockContainerRequestContext containerRequestContext = new MockContainerRequestContext(ImmutableListMultimap.of(PRESTO_INTERNAL_BEARER, jwtToken));
