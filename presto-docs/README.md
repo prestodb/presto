@@ -4,7 +4,7 @@ Presto documentation is authored in `rst` format and published using [Sphinx](ht
 
 ## Prerequisites
 
-Building the presto-docs module requires Python3 with virtual environment. You can check if you have it installed by running:
+Building the presto-docs module requires Python3 with a virtual environment. You can check if you have it installed by running:
 ```shell
 python3 -m venv --help
 ```

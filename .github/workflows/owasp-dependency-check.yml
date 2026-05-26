@@ -2,7 +2,11 @@ name: Maven OWASP Dependency Check
 permissions:
   contents: read
 on:
-  pull_request: {}
+  pull_request:
+    paths:
+      - '**'
+      - '!presto-docs/**'
+      - presto-docs/pom.xml
   workflow_dispatch:
     inputs:
       cvss-threshold:
@@ -12,26 +16,7 @@ on:
         type: string
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    # Required permissions
-    permissions:
-      pull-requests: read
-    # Set job outputs to values from filter step
-    outputs:
-      codechange: ${{ steps.filter.outputs.codechange }}
-    steps:
-      # For pull requests it's not necessary to checkout the code
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: filter
-        with:
-          filters: |
-            codechange:
-              - '!presto-docs/**'
-              - 'presto-docs/pom.xml'
-
   dependency-check:
-    needs: changes
     runs-on: ubuntu-latest
     concurrency:
       group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
@@ -42,14 +27,12 @@ jobs:
     steps:
       # Checkout PR branch first to get access to the composite action
       - name: Checkout PR branch
-        if: needs.changes.outputs.codechange == 'true'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Find merge base
-        if: needs.changes.outputs.codechange == 'true'
         id: merge-base
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,7 +46,6 @@ jobs:
           echo "Using merge base: $merge_base"
 
       - name: Checkout base branch
-        if: needs.changes.outputs.codechange == 'true'
         uses: actions/checkout@v4
         with:
           persist-credentials: false
@@ -71,7 +53,6 @@ jobs:
           path: base
 
       - name: Set up Java
-        if: needs.changes.outputs.codechange == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -79,12 +60,10 @@ jobs:
           cache: maven
 
       - name: Get date for cache key
-        if: needs.changes.outputs.codechange == 'true'
         id: get-date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Restore OWASP database cache
-        if: needs.changes.outputs.codechange == 'true'
         uses: actions/cache/restore@v4
         id: cache-owasp-restore
         with:
@@ -95,7 +74,6 @@ jobs:
             owasp-cache-${{ runner.os }}-
 
       - name: Run OWASP check on base branch
-        if: needs.changes.outputs.codechange == 'true'
         uses: ./.github/actions/maven-owasp-scan
         with:
           working-directory: base
@@ -103,14 +81,13 @@ jobs:
           data-directory: /tmp/.owasp/dependency-check-data
 
       - name: Save OWASP cache after base scan
-        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-hit != 'true'
+        if: steps.cache-owasp-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: /tmp/.owasp/dependency-check-data
           key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}-partial
 
       - name: Run OWASP check on PR branch
-        if: needs.changes.outputs.codechange == 'true'
         uses: ./.github/actions/maven-owasp-scan
         with:
           working-directory: .
@@ -118,7 +95,6 @@ jobs:
           data-directory: /tmp/.owasp/dependency-check-data
 
       - name: Compare and fail on new CVEs above threshold
-        if: needs.changes.outputs.codechange == 'true'
         run: |
           # Extract CVEs above threshold from both branches (CVSS >= $CVSS_THRESHOLD)
           threshold=$CVSS_THRESHOLD
@@ -182,14 +158,14 @@ jobs:
           fi
 
       - name: Save OWASP database cache
-        if: needs.changes.outputs.codechange == 'true' && always()
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: /tmp/.owasp/dependency-check-data
           key: owasp-cache-${{ runner.os }}-v${{ env.OWASP_VERSION }}-${{ steps.get-date.outputs.date }}
 
       - name: Upload reports
-        if: needs.changes.outputs.codechange == 'true' && always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: owasp-reports
