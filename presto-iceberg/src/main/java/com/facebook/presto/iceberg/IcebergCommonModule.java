@@ -90,6 +90,8 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
@@ -200,6 +202,10 @@ public class IcebergCommonModule
         if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
             procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
         }
+
+        // parser
+        binder.bind(SqlParserOptions.class).in(Scopes.SINGLETON);
+        binder.bind(SqlParser.class).in(Scopes.SINGLETON);
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);

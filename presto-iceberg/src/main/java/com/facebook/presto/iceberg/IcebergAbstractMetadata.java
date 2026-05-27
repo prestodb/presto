@@ -77,6 +77,8 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -91,6 +93,7 @@ import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -215,12 +218,16 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializ
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COL_EMPTY_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
+import static com.facebook.presto.iceberg.IcebergUtil.DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
@@ -281,6 +288,7 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -668,6 +676,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
+        // TODO: how to get table properties here.
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
         return ColumnMetadata.builder()
                 .setName(column.getName())
@@ -682,7 +691,12 @@ public abstract class IcebergAbstractMetadata
     {
         shouldRunInAutoCommitTransaction("CREATE TABLE");
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        ImmutableMap.Builder<String, Object> propertiesMapBuilder = ImmutableMap.<String, Object>builder().putAll(tableMetadata.getProperties());
+        List<DerivedColumnSpec> derivedColumnSpecList = tableMetadata.getColumns().stream().filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
+                .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get()).toList();
+        propertiesMapBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, new DerivedColumnSpecList(derivedColumnSpecList));
+        ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(), tableMetadata.getColumns(), propertiesMapBuilder.build());
+        finishCreateTable(session, beginCreateTable(session, connectorTableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -979,6 +993,13 @@ public abstract class IcebergAbstractMetadata
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table)
     {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
+        String specJson = table.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC);
+        DerivedColumnSpecList derivedColumnSpecList = DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(specJson);
+        Map<String, DerivedColumnSpec> derivedColumnSpecMap =
+                derivedColumnSpecList
+                        .getDerivedColumnSpecs().stream()
+                        .collect(Collectors.toMap(DerivedColumnSpec::getDerivedColumnName, y -> y));
+
         return table.schema().columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
@@ -990,6 +1011,7 @@ public abstract class IcebergAbstractMetadata
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
                         .setNullable(column.isOptional())
+                        .setDerivedColumnSpec(derivedColumnSpecMap.get(column.name()))
                         .build())
                 .collect(toImmutableList());
     }
@@ -1041,7 +1063,11 @@ public abstract class IcebergAbstractMetadata
         properties.put(TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
         properties.put(TableProperties.SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
-
+        DerivedColumnSpecList derivedColumnUDFSpec = IcebergUtil.getDerivedColumnUDFSpec(icebergTable);
+        if (!derivedColumnUDFSpec.getDerivedColumnSpecs().isEmpty()) {
+            properties.put(DERIVED_COLUMNS, IcebergUtil.getDerivedColumns(icebergTable));
+            properties.put(DERIVED_COLUMN_EXPRESSION_SPEC, derivedColumnUDFSpec);
+        }
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
         if (sortOrder != null && sortOrder.isSorted()) {
@@ -1261,6 +1287,7 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         UpdateSchema updateSchema = icebergTable.updateSchema();
+        checkState(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(), "A column cannot have both default and derived column");
         if (column.getDefaultValue().isPresent()) {
             validateMinimumFormatVersion(icebergTable, 3, format("ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher. " +
                     "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion(), handle.getSchemaTableName()));
@@ -1279,6 +1306,18 @@ public abstract class IcebergAbstractMetadata
                         getTransformTerm(column.getName(), transform));
             }
             updatePartitionSpec.commit();
+        }
+        if (column.getDerivedColumnSpec().isPresent()) {
+            DerivedColumnSpec derivedColumnSpec = column.getDerivedColumnSpec().get();
+            String json = icebergTable.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC);
+            DerivedColumnSpecList specList = DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(json);
+            List<DerivedColumnSpec> expressionSpecs =
+                    ImmutableList.<DerivedColumnSpec>builder().addAll(specList.getDerivedColumnSpecs()).add(derivedColumnSpec).build();
+            UpdateProperties updateProperties = icebergTable.updateProperties();
+            updateProperties.set(DERIVED_COLUMN_EXPRESSION_SPEC,
+                    DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.toJson(new DerivedColumnSpecList(expressionSpecs)));
+            updateProperties.set(DERIVED_COLUMNS, Joiner.on(",").join(expressionSpecs.stream().map(DerivedColumnSpec::getDerivedColumnName).toList()));
+            updateProperties.commit();
         }
     }
 
@@ -1312,7 +1351,20 @@ public abstract class IcebergAbstractMetadata
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
         validateNoBranchSpecified(icebergTableHandle, "DROP COLUMN");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-
+        String derivedColSpecJson = icebergTable.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, null);
+        if (derivedColSpecJson != null) {
+            DerivedColumnSpecList derivedColumnSpecList = DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(derivedColSpecJson);
+            if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+                List<DerivedColumnSpec> filteredSpecs =
+                        derivedColumnSpecList.getDerivedColumnSpecs().stream()
+                                .filter(spec -> !spec.getDerivedColumnName().equals(((IcebergColumnHandle) column).getName())).toList();
+                UpdateProperties updateProperties = icebergTable.updateProperties();
+                updateProperties.set(DERIVED_COLUMN_EXPRESSION_SPEC,
+                        DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.toJson(new DerivedColumnSpecList(filteredSpecs)));
+                updateProperties.set(DERIVED_COLUMNS, Joiner.on(",").join(filteredSpecs.stream().map(DerivedColumnSpec::getDerivedColumnName).toList()));
+                updateProperties.commit();
+            }
+        }
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
         // So we explicitly disallow dropping partition columns until Iceberg fix this problem.
         // See https://github.com/apache/iceberg/issues/4563
@@ -2701,7 +2753,8 @@ public abstract class IcebergAbstractMetadata
 
     /**
      * Check and ensure that the specified statement can only run in a transaction with autocommit context set to true.
-     * */
+     *
+     */
     protected void shouldRunInAutoCommitTransaction(String statement)
     {
         if (!transactionContext.isAutoCommitContext()) {

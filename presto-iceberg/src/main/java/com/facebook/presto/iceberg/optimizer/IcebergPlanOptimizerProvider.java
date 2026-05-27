@@ -15,12 +15,14 @@ package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergTableProperties;
+import com.facebook.presto.iceberg.optimizer.derivedColumns.IcebergDerivedColumnRewriter;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
@@ -41,14 +43,17 @@ public class IcebergPlanOptimizerProvider
             StandardFunctionResolution functionResolution,
             FunctionMetadataManager functionMetadataManager,
             IcebergTableProperties tableProperties,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            SqlParser sqlParser)
     {
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(rowExpressionService, "rowExpressionService is null");
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(typeManager, "typeManager is null");
+        requireNonNull(sqlParser, "sqlParser is null");
         this.planOptimizers = ImmutableSet.of(
+                new IcebergDerivedColumnRewriter(tableProperties, transactionManager, functionResolution, typeManager, functionMetadataManager, sqlParser),
                 new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
                 new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));

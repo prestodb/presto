@@ -54,6 +54,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
@@ -97,6 +99,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
@@ -246,16 +249,23 @@ public class IcebergHiveMetadata
             return Optional.empty();
         }
 
+        Map<String, Object> tableProperties = table.getParameters().entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        Map<String, DerivedColumnSpec> derivedColumnExpressionSpecMap =
+                IcebergTableProperties.getDerivedColumnSpec(tableProperties)
+                        .getDerivedColumnSpecs().stream()
+                        .collect(Collectors.toMap(DerivedColumnSpec::getDerivedColumnName, y -> y));
+
         List<ColumnMetadata> columns = table.getDataColumns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(column.getName())
                         .setType(column.getType().getType(typeManager))
                         .setComment(column.getComment().orElse(null))
+                        .setDerivedColumnSpec(derivedColumnExpressionSpecMap.getOrDefault(column.getName(), null))
                         .build())
                 .collect(toImmutableList());
 
-        Map<String, Object> tableProperties = table.getParameters().entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
@@ -429,7 +439,9 @@ public class IcebergHiveMetadata
         }
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath, populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session));
+        DerivedColumnSpecList derivedColumnSpecList = IcebergTableProperties.getDerivedColumnSpec(tableMetadata.getProperties());
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath,
+                populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, derivedColumnSpecList));
         openCreateTableTransaction(schemaTableName, createTableTransaction(tableName, operations, metadata));
 
         return new IcebergOutputTableHandle(
@@ -725,7 +737,7 @@ public class IcebergHiveMetadata
         InputFile inputFile = new HdfsInputFile(metadataLocation, hdfsEnvironment, hdfsContext);
         TableMetadata tableMetadata;
         try {
-            tableMetadata = TableMetadataParser.read(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext), inputFile);
+            tableMetadata = TableMetadataParser.read(inputFile);
         }
         catch (Exception e) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Unable to read metadata file %s", metadataLocation), e);

@@ -143,6 +143,7 @@ public class CreateTableTask
                 }
 
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
+
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         connectorId,
                         tableName.getCatalogName(),
@@ -150,13 +151,16 @@ public class CreateTableTask
                         session,
                         metadata,
                         parameterLookup);
+                ImmutableMap.Builder<String, Object> propertiesMapBuilder = ImmutableMap.<String, Object>builder()
+                        .putAll(columnProperties);
 
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
                         .setType(type)
                         .setNullable(column.isNullable())
                         .setComment(column.getComment().orElse(null))
-                        .setProperties(columnProperties)
+                        .setProperties(propertiesMapBuilder.build())
+                        .setDerivedColumnSpec(column.getDerivedColumnExpressionSpec().orElse(null))
                         .build());
             }
             else if (element instanceof LikeClause) {

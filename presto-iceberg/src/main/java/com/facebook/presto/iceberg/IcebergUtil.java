@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.GenericInternalException;
@@ -52,6 +53,9 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -103,6 +107,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -160,6 +165,9 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumn
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COL_EMPTY_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
@@ -252,6 +260,7 @@ public final class IcebergUtil
     public static final int REAL_NEGATIVE_INFINITE = 0xff800000;
 
     protected static final String VIEW_OWNER = "view_owner";
+    public static final JsonCodec<DerivedColumnSpecList> DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC = JsonCodec.jsonCodec(DerivedColumnSpecList.class);
 
     public static final int DEFAULT_MIN_INPUT_FILES = 5;
 
@@ -610,7 +619,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.properties());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch properties for table %s: %s", table.name(), e.getMessage()));
+            log.warn(format("Unable to fetch properties for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -621,7 +630,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.currentSnapshot());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
+            log.warn(format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -632,7 +641,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.location());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
+            log.warn(format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -646,7 +655,7 @@ public final class IcebergUtil
                     .collect(toImmutableList());
         }
         catch (Exception e) {
-            log.warn(String.format("Unable to fetch sort fields for table %s: %s", table.name(), e.getMessage()));
+            log.warn(format("Unable to fetch sort fields for table %s: %s", table.name(), e.getMessage()));
             return ImmutableList.of();
         }
     }
@@ -803,7 +812,7 @@ public final class IcebergUtil
             return Optional.ofNullable(table.schema());
         }
         catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
+            log.warn(format("Unable to fetch schema for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -1289,9 +1298,15 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(IcebergAbstractMetadata metadata, ConnectorTableMetadata tableMetadata, IcebergTableProperties tableProperties, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(
+            IcebergAbstractMetadata metadata,
+            ConnectorTableMetadata tableMetadata,
+            IcebergTableProperties tableProperties,
+            FileFormat fileFormat,
+            ConnectorSession session,
+            DerivedColumnSpecList derivedColumnSpecList)
     {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(8);
 
         String writeDataLocation = getWriteDataLocation(tableMetadata.getProperties());
         if (!isNullOrEmpty(writeDataLocation)) {
@@ -1328,6 +1343,12 @@ public final class IcebergUtil
         verify(formatVersion != null, "Format version cannot be null");
         propertiesBuilder.put(FORMAT_VERSION, formatVersion);
 
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            // Following two properties are updated automatically via create table, user overrides are not permitted.
+            propertiesBuilder.put(DERIVED_COLUMNS, Joiner.on(",")
+                    .join(derivedColumnSpecList.getDerivedColumnSpecs().stream().map(DerivedColumnSpec::getDerivedColumnName).toList()));
+            propertiesBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.toJson(derivedColumnSpecList));
+        }
         if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
             propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
             propertiesBuilder.put(UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
@@ -1374,6 +1395,17 @@ public final class IcebergUtil
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static List<String> getDerivedColumns(Table table)
+    {
+        return Arrays.stream(table.properties()
+                .getOrDefault(DERIVED_COLUMNS, "").split(",")).filter(str -> !str.isBlank()).toList();
+    }
+
+    public static DerivedColumnSpecList getDerivedColumnUDFSpec(Table table)
+    {
+        return DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(table.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC));
     }
 
     public static RowLevelOperationMode getUpdateMode(Table table)
@@ -1440,10 +1472,10 @@ public final class IcebergUtil
         String metadataLocation = icebergTable.properties().get(WRITE_METADATA_LOCATION);
 
         if (metadataLocation != null) {
-            return String.format("%s", LocationUtil.stripTrailingSlash(metadataLocation));
+            return format("%s", LocationUtil.stripTrailingSlash(metadataLocation));
         }
         else {
-            return String.format("%s/%s", icebergTable.location(), "metadata");
+            return format("%s/%s", icebergTable.location(), "metadata");
         }
     }
 
@@ -1460,7 +1492,7 @@ public final class IcebergUtil
             if (dataLocation == null) {
                 dataLocation = properties.get(WRITE_FOLDER_STORAGE_LOCATION);
                 if (dataLocation == null) {
-                    dataLocation = String.format("%s/data", icebergTable.location());
+                    dataLocation = format("%s/data", icebergTable.location());
                 }
             }
         }
@@ -1471,9 +1503,9 @@ public final class IcebergUtil
     {
         if (tableHandle.getIcebergTableName().getBranchName().isPresent()) {
             throw new PrestoException(NOT_SUPPORTED, format("%s is not supported on branch-specific tables. Branch '%s' was specified in table name '%s'",
-                            operation,
-                            tableHandle.getIcebergTableName().getBranchName().get(),
-                            tableHandle.getIcebergTableName().getTableNameWithType()));
+                    operation,
+                    tableHandle.getIcebergTableName().getBranchName().get(),
+                    tableHandle.getIcebergTableName().getTableNameWithType()));
         }
     }
 
@@ -1481,8 +1513,8 @@ public final class IcebergUtil
     {
         if (viewData != null && viewData.contains(".branch_")) {
             throw new PrestoException(NOT_SUPPORTED, format("%s is not supported with branch-specific table references in the view definition. " +
-                                    "The view SQL appears to reference a branch using '.branch_' syntax. " +
-                                    "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation));
+                    "The view SQL appears to reference a branch using '.branch_' syntax. " +
+                    "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation));
         }
     }
 
@@ -1491,7 +1523,7 @@ public final class IcebergUtil
         for (SchemaTableName baseTable : baseTables) {
             if (baseTable.getTableName().contains(".branch_")) {
                 throw new PrestoException(NOT_SUPPORTED, format("%s is not supported with branch-specific table references. Table '%s' appears to reference a branch. " +
-                                        "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation, baseTable));
+                        "Please use the main table or FOR SYSTEM_VERSION AS OF syntax instead.", operation, baseTable));
             }
         }
     }
@@ -1674,13 +1706,13 @@ public final class IcebergUtil
             int minInputFiles = Integer.parseInt(minInputFilesStr);
             if (minInputFiles < 1) {
                 throw new IllegalArgumentException(
-                    String.format("min-input-files must be at least 1, got: %s", minInputFiles));
+                        format("min-input-files must be at least 1, got: %s", minInputFiles));
             }
             return minInputFiles;
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException(
-                String.format("min-input-files must be a valid integer, got: %s", minInputFilesStr), e);
+                    format("min-input-files must be a valid integer, got: %s", minInputFilesStr), e);
         }
     }
 
@@ -1702,13 +1734,13 @@ public final class IcebergUtil
             long minFileSize = Long.parseLong(minFileSizeStr);
             if (minFileSize < 0) {
                 throw new IllegalArgumentException(
-                    String.format("min-file-size-bytes must be non-negative, got: %s", minFileSize));
+                        format("min-file-size-bytes must be non-negative, got: %s", minFileSize));
             }
             return minFileSize;
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException(
-                String.format("min-file-size-bytes must be a valid long, got: %s", minFileSizeStr), e);
+                    format("min-file-size-bytes must be a valid long, got: %s", minFileSizeStr), e);
         }
     }
 
@@ -1728,13 +1760,13 @@ public final class IcebergUtil
             long maxFileSize = Long.parseLong(maxFileSizeStr);
             if (maxFileSize < 0) {
                 throw new IllegalArgumentException(
-                    String.format("max-file-size-bytes must be non-negative, got: %s", maxFileSize));
+                        format("max-file-size-bytes must be non-negative, got: %s", maxFileSize));
             }
             return maxFileSize;
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException(
-                String.format("max-file-size-bytes must be a valid long, got: %s", maxFileSizeStr), e);
+                    format("max-file-size-bytes must be a valid long, got: %s", maxFileSizeStr), e);
         }
     }
 
