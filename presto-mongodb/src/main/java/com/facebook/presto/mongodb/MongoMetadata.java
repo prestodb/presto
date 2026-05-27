@@ -367,9 +367,33 @@ public class MongoMetadata
         return views.build();
     }
 
+//    @Override
+//    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+//    {
+//        return ImmutableMap.of();
+//
+//    }
+
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return ImmutableMap.of();
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+
+        List<String> schemas = prefix.getSchemaName() != null
+                ? ImmutableList.of(prefix.getSchemaName())
+                : ImmutableList.copyOf(listSchemaNames(session));
+
+        for (String schema : schemas) {
+            for (SchemaTableName viewName : mongoSession.listViews(schema)) {
+                if (prefix.getTableName() == null || prefix.getTableName().equals(viewName.getTableName())) {
+                    views.put(viewName, new ConnectorViewDefinition(
+                            viewName,
+                            Optional.empty(),   // no SQL definition available
+                            "MongoDB view"      // or however ConnectorViewDefinition takes a description
+                    ));
+                }
+            }
+        }
+        return views.build();
     }
 }
