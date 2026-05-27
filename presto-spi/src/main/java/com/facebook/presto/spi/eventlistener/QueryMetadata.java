@@ -43,6 +43,9 @@ public class QueryMetadata
 
     private final List<String> runtimeOptimizedStages;
     private final Optional<String> updateQueryType;
+    private final Optional<String> operatorSummaries;
+    private final Optional<String> sapphireStatsJson;
+    private final Optional<String> inputOutputJson;
 
     public QueryMetadata(
             String queryId,
@@ -60,6 +63,30 @@ public class QueryMetadata
             Optional<String> tracingId,
             Optional<String> updateQueryType)
     {
+        this(queryId, transactionId, query, queryHash, preparedQuery, queryState, uri,
+                plan, jsonPlan, graphvizPlan, payload, runtimeOptimizedStages, tracingId,
+                updateQueryType, Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    public QueryMetadata(
+            String queryId,
+            Optional<String> transactionId,
+            String query,
+            String queryHash,
+            Optional<String> preparedQuery,
+            String queryState,
+            URI uri,
+            Optional<String> plan,
+            Optional<String> jsonPlan,
+            Optional<String> graphvizPlan,
+            Optional<String> payload,
+            List<String> runtimeOptimizedStages,
+            Optional<String> tracingId,
+            Optional<String> updateQueryType,
+            Optional<String> operatorSummaries,
+            Optional<String> sapphireStatsJson,
+            Optional<String> inputOutputJson)
+    {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.query = requireNonNull(query, "query is null");
@@ -74,6 +101,9 @@ public class QueryMetadata
         this.runtimeOptimizedStages = requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
         this.tracingId = requireNonNull(tracingId, "tracingId is null");
         this.updateQueryType = requireNonNull(updateQueryType, "updateQueryType is null");
+        this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.sapphireStatsJson = requireNonNull(sapphireStatsJson, "sapphireStatsJson is null");
+        this.inputOutputJson = requireNonNull(inputOutputJson, "inputOutputJson is null");
     }
 
     @JsonProperty
@@ -157,5 +187,23 @@ public class QueryMetadata
     public Optional<String> getUpdateQueryType()
     {
         return updateQueryType;
+    }
+
+    @JsonProperty
+    public Optional<String> getOperatorSummaries()
+    {
+        return operatorSummaries;
+    }
+
+    @JsonProperty
+    public Optional<String> getSapphireStatsJson()
+    {
+        return sapphireStatsJson;
+    }
+
+    @JsonProperty
+    public Optional<String> getInputOutputJson()
+    {
+        return inputOutputJson;
     }
 }

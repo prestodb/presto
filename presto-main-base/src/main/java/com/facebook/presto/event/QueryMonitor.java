@@ -84,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.units.DataSize.succinctBytes;
@@ -369,7 +370,63 @@ public class QueryMonitor
                         .map(stageId -> String.valueOf(stageId.getId()))
                         .collect(toImmutableList()),
                 queryInfo.getSession().getTraceToken(),
-                Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateType));
+                Optional.ofNullable(queryInfo.getUpdateInfo()).map(UpdateInfo::getUpdateType),
+                createOperatorSummariesJson(queryInfo),
+                createSapphireStatsJson(queryInfo),
+                createInputOutputJson(queryInfo));
+    }
+
+    private Optional<String> createOperatorSummariesJson(QueryInfo queryInfo)
+    {
+        try {
+            List<OperatorStatistics> operatorStats = createOperatorStatistics(queryInfo);
+            if (operatorStats.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(OBJECT_MAPPER.writeValueAsString(operatorStats));
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to serialize operator summaries for query %s", queryInfo.getQueryId());
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> createSapphireStatsJson(QueryInfo queryInfo)
+    {
+        try {
+            QueryStats queryStats = queryInfo.getQueryStats();
+            ImmutableMap.Builder<String, Object> stats = ImmutableMap.builder();
+            stats.put("totalSplitCpuTimeMs", queryStats.getTotalCpuTime().toMillis());
+            stats.put("totalSplitWallTimeMs", queryStats.getTotalScheduledTime().toMillis());
+            stats.put("queuedTimeMs", queryStats.getQueuedTime().toMillis());
+            return Optional.of(OBJECT_MAPPER.writeValueAsString(stats.build()));
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to serialize sapphire stats for query %s", queryInfo.getQueryId());
+            return Optional.empty();
+        }
+    }
+
+    private Optional<String> createInputOutputJson(QueryInfo queryInfo)
+    {
+        try {
+            Set<Input> inputs = queryInfo.getInputs();
+            if (inputs.isEmpty()) {
+                return Optional.empty();
+            }
+            ImmutableList.Builder<Map<String, String>> inputList = ImmutableList.builder();
+            for (Input input : inputs) {
+                inputList.add(ImmutableMap.of(
+                        "catalog", input.getConnectorId().getCatalogName(),
+                        "schema", input.getSchema(),
+                        "table", input.getTable()));
+            }
+            return Optional.of(OBJECT_MAPPER.writeValueAsString(ImmutableMap.of("inputs", inputList.build())));
+        }
+        catch (Exception e) {
+            log.warn(e, "Failed to serialize input/output info for query %s", queryInfo.getQueryId());
+            return Optional.empty();
+        }
     }
 
     private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
