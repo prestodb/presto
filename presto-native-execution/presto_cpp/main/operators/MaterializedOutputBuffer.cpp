@@ -298,23 +298,34 @@ void MaterializedOutputBuffer::finishAndClose() {
       peakBufferedBytes_ >> 20);
 }
 
-folly::F14FastMap<std::string, int64_t> MaterializedOutputBuffer::stats()
-    const {
-  auto writerStats = writer_->stats();
-  writerStats[std::string(kTotalDrainedBytes)] = totalDrainedBytes_;
-  writerStats[std::string(kDrainCount)] = drainCount_;
-  writerStats[std::string(kCurrentDrainThreshold)] = partitionDrainThreshold_;
-  writerStats[std::string(kBufferPoolUsedBytes)] =
-      pool_ ? pool_->usedBytes() : 0;
-  writerStats[std::string(kBufferPoolPeakBytes)] =
-      pool_ ? pool_->peakBytes() : 0;
+folly::F14FastMap<std::string, velox::RuntimeMetric>
+MaterializedOutputBuffer::stats() const {
+  using Unit = velox::RuntimeCounter::Unit;
+  folly::F14FastMap<std::string, velox::RuntimeMetric> result;
+
+  // Writer stats (unknown units from the ShuffleWriter interface).
+  for (const auto& [key, value] : writer_->stats()) {
+    result[key] = velox::RuntimeMetric(value);
+  }
+
+  // Buffer stats with typed units.
   int64_t totalCollects = 0;
   for (int32_t i = 0; i < numPartitions_; ++i) {
     totalCollects += collectCountPerPartition_[i];
   }
-  writerStats[std::string(kTotalCollectCalls)] = totalCollects;
-  writerStats[std::string(kPeakBufferedBytes)] = peakBufferedBytes_;
-  return writerStats;
+  result[std::string(kTotalDrainedBytes)] =
+      velox::RuntimeMetric(totalDrainedBytes_, Unit::kBytes);
+  result[std::string(kDrainCount)] = velox::RuntimeMetric(drainCount_);
+  result[std::string(kCurrentDrainThreshold)] =
+      velox::RuntimeMetric(partitionDrainThreshold_, Unit::kBytes);
+  result[std::string(kBufferPoolUsedBytes)] =
+      velox::RuntimeMetric(pool_ ? pool_->usedBytes() : 0, Unit::kBytes);
+  result[std::string(kBufferPoolPeakBytes)] =
+      velox::RuntimeMetric(pool_ ? pool_->peakBytes() : 0, Unit::kBytes);
+  result[std::string(kTotalCollectCalls)] = velox::RuntimeMetric(totalCollects);
+  result[std::string(kPeakBufferedBytes)] =
+      velox::RuntimeMetric(peakBufferedBytes_, Unit::kBytes);
+  return result;
 }
 
 } // namespace facebook::presto::operators

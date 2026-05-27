@@ -480,8 +480,8 @@ bool MaterializedOutput::isFinished() {
 }
 
 void MaterializedOutput::recordBufferStats() {
-  for (const auto& [key, value] : buffer_->stats()) {
-    addRuntimeStat(key, velox::RuntimeCounter(value));
+  for (const auto& [key, metric] : buffer_->stats()) {
+    addRuntimeStat(key, velox::RuntimeCounter(metric.sum, metric.unit));
   }
 }
 

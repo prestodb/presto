@@ -21,6 +21,7 @@
 #include <folly/Synchronized.h>
 #include <folly/io/IOBuf.h>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/memory/MemoryPool.h"
 
 namespace facebook::presto::operators {
@@ -96,8 +97,9 @@ class MaterializedOutputBuffer {
   /// attach writer stats to its operator.
   bool noMoreDrivers();
 
-  /// Returns combined writer + buffer stats. Only meaningful after close.
-  folly::F14FastMap<std::string, int64_t> stats() const;
+  /// Returns combined writer + buffer stats with typed units
+  /// (kBytes, kNone). Only meaningful after close.
+  folly::F14FastMap<std::string, velox::RuntimeMetric> stats() const;
 
   /// Allocate an IOBuf tracked through pool_. Used by MaterializedOutput
   /// to create RowGroup IOBufs that are visible for memory accounting.
