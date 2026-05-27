@@ -132,6 +132,30 @@ class FailingCloseShuffleWriter : public ShuffleWriter {
   std::shared_ptr<ShuffleWriter> delegate_;
 };
 
+// Factory that wraps another factory's writer in FailingCloseShuffleWriter.
+class FailingCloseShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  explicit FailingCloseShuffleFactory(ShuffleInterfaceFactory* delegate)
+      : delegate_(delegate) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      int32_t partition,
+      velox::memory::MemoryPool* pool) override {
+    return delegate_->createReader(serializedShuffleInfo, partition, pool);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    return std::make_shared<FailingCloseShuffleWriter>(
+        delegate_->createWriter(serializedShuffleInfo, pool));
+  }
+
+ private:
+  ShuffleInterfaceFactory* delegate_;
+};
+
 } // namespace
 
 class MaterializedExchangeTest : public exec::test::OperatorTestBase {
@@ -194,29 +218,14 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
     auto dataType = asRowType(data[0]->type());
     auto writeInfoStr =
         localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
-    auto writeInfo = LocalShuffleWriteInfo::deserialize(writeInfoStr);
-
-    // Create writer directly with a small per-partition buffer to avoid OOM
-    // in unit tests (the factory default of 256MB is too large for tests with
-    // many partitions).
-    constexpr uint64_t kMaxBytesPerPartition = 1 << 20; // 1MB
-    auto writer = std::make_shared<LocalShuffleWriter>(
-        writeInfo.rootPath,
-        writeInfo.queryId,
-        writeInfo.shuffleId,
-        writeInfo.numPartitions,
-        kMaxBytesPerPartition,
-        writeInfo.sortedShuffle,
-        pool());
-
-    // Create a writer memory pool for MaterializedOutputBuffer, scoped under
-    // the test's root pool to avoid consuming shared arbitrator capacity.
-    auto writerPool = rootPool_->addLeafChild("writerPool");
-
-    // Create the shared MaterializedOutputBuffer.
     constexpr size_t kMaxBufferedBytes = 1 << 20; // 1MB
     auto buffer = std::make_shared<MaterializedOutputBuffer>(
-        numPartitions, writer, writerPool, kMaxBufferedBytes);
+        numPartitions,
+        writeInfoStr,
+        ShuffleInterfaceFactory::factory(shuffleName_),
+        "test.0.0.0.0",
+        kMaxBufferedBytes,
+        rootPool_.get());
 
     // Build partition key expressions on column 0.
     std::vector<core::TypedExprPtr> keys{
@@ -415,20 +424,19 @@ TEST_F(MaterializedExchangeTest, bufferMemoryTracking) {
   // if drain doesn't happen (100 × 10KB × multiple rounds).
   constexpr int64_t kPoolCapacity = 2L * 1024 * 1024;
 
-  auto rootPool =
-      memory::memoryManager()->addRootPool("bufferMemoryTest", kPoolCapacity);
-  auto bufferPool = rootPool->addLeafChild("buffer");
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "bufferMemoryTest", kPoolCapacity, memory::MemoryReclaimer::create());
 
   auto shuffleDir = exec::test::TempDirectoryPath::create();
   auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
-  auto writer = ShuffleInterfaceFactory::factory(shuffleName_)
-                    ->createWriter(writeInfo, pool());
 
   auto buffer = std::make_shared<MaterializedOutputBuffer>(
       numPartitions,
-      std::shared_ptr<ShuffleWriter>(std::move(writer)),
-      std::move(bufferPool),
+      writeInfo,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "memtest.0.0.0.0",
       /*maxBufferedBytes=*/100L * 1024 * 1024,
+      rootPool.get(),
       /*partitionDrainThreshold=*/50L * 1024);
 
   // Enqueue 10KB per partition across many rounds. Pool has 2MB, drain
@@ -560,26 +568,18 @@ TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
   auto dataType = asRowType(data->type());
 
   auto writeInfoStr = localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
-  auto writeInfo = LocalShuffleWriteInfo::deserialize(writeInfoStr);
 
-  constexpr uint64_t kMaxBytesPerPartition = 1 << 20;
-  auto realWriter = std::make_shared<LocalShuffleWriter>(
-      writeInfo.rootPath,
-      writeInfo.queryId,
-      writeInfo.shuffleId,
-      writeInfo.numPartitions,
-      kMaxBytesPerPartition,
-      writeInfo.sortedShuffle,
-      pool());
-
-  auto failingWriter =
-      std::make_shared<FailingCloseShuffleWriter>(std::move(realWriter));
-
-  auto writerPool = rootPool_->addLeafChild("writerPool");
+  auto* realFactory = ShuffleInterfaceFactory::factory(shuffleName_);
+  FailingCloseShuffleFactory failingFactory(realFactory);
 
   constexpr size_t kMaxBufferedBytes = 1 << 20;
   auto buffer = std::make_shared<MaterializedOutputBuffer>(
-      numPartitions, failingWriter, writerPool, kMaxBufferedBytes);
+      numPartitions,
+      writeInfoStr,
+      &failingFactory,
+      "failtest.0.0.0.0",
+      kMaxBufferedBytes,
+      rootPool_.get());
 
   std::vector<core::TypedExprPtr> keys{
       std::make_shared<core::FieldAccessTypedExpr>(

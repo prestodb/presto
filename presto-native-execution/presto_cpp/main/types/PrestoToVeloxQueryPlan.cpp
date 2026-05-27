@@ -2645,16 +2645,6 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         shuffleFactory,
         "ShuffleInterface factory '{}' not registered",
         shuffleName_);
-    // Add noop memory reclaimer to participate in arbitration protocol.
-    auto shuffleWriterPool = queryCtx_->pool()->addLeafChild(
-        fmt::format("exchange_writer.{}", taskId),
-        true,
-        velox::exec::MemoryReclaimer::create());
-    auto shuffleWriter = shuffleFactory->createWriter(
-        *serializedShuffleWriteInfo_, shuffleWriterPool.get());
-
-    auto sharedWriter =
-        std::shared_ptr<operators::ShuffleWriter>(std::move(shuffleWriter));
     const auto maxBufferedBytes =
         SystemConfig::instance()->exchangeMaterializationOutputBufferMaxBytes();
     const auto drainThreshold =
@@ -2662,9 +2652,11 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
             ->exchangeMaterializationOutputBufferPerPartitionMaxBytes();
     auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
         partitionedOutputNode->numPartitions(),
-        std::move(sharedWriter),
-        std::move(shuffleWriterPool),
+        *serializedShuffleWriteInfo_,
+        shuffleFactory,
+        taskId,
         maxBufferedBytes,
+        queryCtx_->pool(),
         drainThreshold);
 
     auto materializedOutputNode =

@@ -18,6 +18,9 @@
 #include <glog/logging.h>
 #include <algorithm>
 #include <cstring>
+#include <memory>
+
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::operators {
 
@@ -53,9 +56,11 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
 
 MaterializedOutputBuffer::MaterializedOutputBuffer(
     int32_t numPartitions,
-    std::shared_ptr<ShuffleWriter> writer,
-    std::shared_ptr<velox::memory::MemoryPool> pool,
+    const std::string& shuffleWriterInfo,
+    ShuffleInterfaceFactory* shuffleWriterFactory,
+    const std::string& taskId,
     int64_t maxBufferedBytes,
+    velox::memory::MemoryPool* pool,
     int64_t partitionDrainThreshold)
     : numPartitions_(numPartitions),
       maxBufferedBytes_(maxBufferedBytes),
@@ -64,17 +69,22 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
               partitionDrainThreshold > 0 ? partitionDrainThreshold
                                           : kDefaultDrainThreshold,
               maxBufferedBytes / numPartitions)),
-      writer_(std::move(writer)),
-      pool_(std::move(pool)),
+      pool_(pool->addLeafChild(
+          fmt::format("materialized_output_buffer.{}", taskId),
+          true,
+          velox::exec::MemoryReclaimer::create())),
+      writer_(
+          shuffleWriterFactory->createWriter(shuffleWriterInfo, pool_.get())),
       collectCountPerPartition_(numPartitions) {
+  VELOX_CHECK_NOT_NULL(pool_, "MemoryPool must be non-null");
+  VELOX_CHECK_NOT_NULL(writer_, "ShuffleWriter must be non-null");
+  VELOX_CHECK_GT(numPartitions, 0, "Must have at least one partition");
   partitionBuffers_.reserve(numPartitions);
   for (int32_t i = 0; i < numPartitions; ++i) {
     partitionBuffers_.push_back(
         std::make_unique<PartitionBuffer>(
             partitionDrainThreshold_, writer_.get(), this));
   }
-  VELOX_CHECK_GT(numPartitions, 0, "Must have at least one partition");
-  VELOX_CHECK_NOT_NULL(writer_, "ShuffleWriter must be non-null");
   LOG(INFO) << fmt::format(
       "MaterializedOutputBuffer: partitions={}, maxBufferedBytes={}MB, "
       "effectiveDrainThreshold={}KB (configured={}KB), pool={}",

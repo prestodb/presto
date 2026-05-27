@@ -18,11 +18,14 @@
 #include <mutex>
 #include <vector>
 
+#include <memory>
+
 #include <folly/Synchronized.h>
 #include <folly/io/IOBuf.h>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/memory/MemoryPool.h"
+#include "velox/exec/MemoryReclaimer.h"
 
 namespace facebook::presto::operators {
 
@@ -57,11 +60,15 @@ class MaterializedOutputBuffer {
   static constexpr std::string_view kPeakBufferedBytes =
       "materializedOutputBuffer.peakBufferedBytes";
 
+  /// Creates its own leaf pool under 'parentPool' and the writer from
+  /// the factory.
   MaterializedOutputBuffer(
       int32_t numPartitions,
-      std::shared_ptr<ShuffleWriter> writer,
-      std::shared_ptr<velox::memory::MemoryPool> pool,
+      const std::string& shuffleWriterInfo,
+      ShuffleInterfaceFactory* shuffleWriterFactory,
+      const std::string& taskId,
       int64_t maxBufferedBytes,
+      velox::memory::MemoryPool* pool,
       int64_t partitionDrainThreshold = 0);
 
   ~MaterializedOutputBuffer();
@@ -165,9 +172,9 @@ class MaterializedOutputBuffer {
   const int64_t maxBufferedBytes_;
   const int64_t partitionDrainThreshold_;
 
-  // Writer and memory pool.
-  const std::shared_ptr<ShuffleWriter> writer_;
+  // Pool created first so the writer can allocate from it.
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
+  const std::shared_ptr<ShuffleWriter> writer_;
 
   // Lifecycle flags.
   std::atomic<bool> finished_{false};
