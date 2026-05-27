@@ -17,6 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.TypeSignature;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * FunctionHandle is a unique handle to identify the function implementation from namespaces.
@@ -31,4 +32,14 @@ public interface FunctionHandle
     FunctionKind getKind();
 
     List<TypeSignature> getArgumentTypes();
+
+    default Optional<TypeSignature> getReturnType()
+    {
+        return Optional.empty();
+    }
+
+    default FunctionHandle canonicalize()
+    {
+        return this;
+    }
 }

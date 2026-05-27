@@ -47,6 +47,18 @@ public final class SignatureBuilder
         return new SignatureBuilder();
     }
 
+    public SignatureBuilder from(Signature signature)
+    {
+        this.name = signature.getName();
+        this.kind = signature.getKind();
+        this.typeVariableConstraints = signature.getTypeVariableConstraints();
+        this.longVariableConstraints = signature.getLongVariableConstraints();
+        this.returnType = signature.getReturnType();
+        this.argumentTypes = signature.getArgumentTypes();
+        this.variableArity = signature.isVariableArity();
+        return this;
+    }
+
     public SignatureBuilder name(String name)
     {
         this.name = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, requireNonNull(name, "name is null"));

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.spi.derivedColumns.DerivedColumnType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -1431,6 +1432,19 @@ public final class SqlFormatter
                     sb.append(" COMMENT ").append(formatStringLiteral(comment)));
             column.getDefaultExpression().ifPresent(defaultExpr ->
                     sb.append(" DEFAULT ").append(formatExpression(defaultExpr, parameters)));
+            column.getDerivedColumnExpressionSpec().ifPresent(derivedColExprSpec -> {
+                if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.GENERATED_ALWAYS_PERSISTENT)) {
+                    sb.append(" GENERATED ALWAYS ");
+                }
+                sb.append(" AS ").append(derivedColExprSpec.getDerivedColumnExpression());
+                if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.PERSISTENT) ||
+                        derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.GENERATED_ALWAYS_PERSISTENT)) {
+                    sb.append(" PERSISTENT");
+                }
+                else if (derivedColExprSpec.getDerivedColumnType().equals(DerivedColumnType.VIRTUAL)) {
+                    sb.append(" VIRTUAL");
+                }
+            });
             sb.append(formatPropertiesSingleLine(column.getProperties()));
             return sb.toString();
         }

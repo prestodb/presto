@@ -30,6 +30,7 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
@@ -434,20 +435,21 @@ public class IcebergNativeMetadata
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
             String targetPath = getTableLocation(tableMetadata.getProperties());
+            DerivedColumnSpecList derivedColumnSpecList = IcebergTableProperties.getDerivedColumnSpec(tableMetadata.getProperties());
             if (!isNullOrEmpty(targetPath)) {
                 openCreateTableTransaction(schemaTableName, catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session)));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, derivedColumnSpecList)));
             }
             else {
                 openCreateTableTransaction(schemaTableName, catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session)));
+                        populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, derivedColumnSpecList)));
             }
         }
         catch (AlreadyExistsException e) {
