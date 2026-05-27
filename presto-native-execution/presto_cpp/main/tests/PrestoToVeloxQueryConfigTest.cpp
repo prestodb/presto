@@ -20,6 +20,7 @@
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/functions/prestosql/PrestoQueryConfig.h"
 
 using namespace facebook::presto;
 using namespace facebook::presto::protocol;
@@ -223,7 +224,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
                  config.maxLocalExchangePartitionBufferSize());
            }},
 
-      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+      {.veloxConfigKey = functions::prestosql::PrestoQueryConfig::qualify(
+           functions::prestosql::PrestoQueryConfig::kArrayAggIgnoreNulls),
        .sessionPropertyKey = std::nullopt,
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg),
        .sessionValue = "",
@@ -232,7 +234,9 @@ TEST_F(PrestoToVeloxQueryConfigTest, sessionPropertiesOverrideSystemConfigs) {
            [](const core::QueryConfig& config,
               const std::string& expectedValue) {
              EXPECT_EQ(
-                 expectedValue == "true", config.prestoArrayAggIgnoreNulls());
+                 expectedValue == "true",
+                 functions::prestosql::PrestoQueryConfig{config}
+                     .arrayAggIgnoreNulls());
            }},
 
       {.veloxConfigKey = core::QueryConfig::kMaxOutputBufferSize,
@@ -807,7 +811,8 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
            core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize,
        .systemConfigKey =
            std::string(SystemConfig::kHashProbeBloomFilterPushdownMaxSize)},
-      {.veloxConfigKey = core::QueryConfig::kPrestoArrayAggIgnoreNulls,
+      {.veloxConfigKey = functions::prestosql::PrestoQueryConfig::qualify(
+           functions::prestosql::PrestoQueryConfig::kArrayAggIgnoreNulls),
        .systemConfigKey = std::string(SystemConfig::kUseLegacyArrayAgg)},
       {.veloxConfigKey = core::QueryConfig::kTaskWriterCount,
        .systemConfigKey = std::string(SystemConfig::kTaskWriterCount)},

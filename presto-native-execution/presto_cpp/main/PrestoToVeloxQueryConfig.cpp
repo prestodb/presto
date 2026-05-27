@@ -17,6 +17,7 @@
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/functions/prestosql/PrestoQueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::presto {
@@ -183,7 +184,9 @@ void updateFromSystemConfigs(
            velox::core::QueryConfig::kHashProbeBloomFilterPushdownMaxSize},
 
       {.prestoSystemConfig = std::string(SystemConfig::kUseLegacyArrayAgg),
-       .veloxConfig = velox::core::QueryConfig::kPrestoArrayAggIgnoreNulls},
+       .veloxConfig = velox::functions::prestosql::PrestoQueryConfig::qualify(
+           velox::functions::prestosql::PrestoQueryConfig::
+               kArrayAggIgnoreNulls)},
 
       {.prestoSystemConfig = std::string{SystemConfig::kTaskWriterCount},
        .veloxConfig = velox::core::QueryConfig::kTaskWriterCount},
