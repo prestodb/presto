@@ -30,6 +30,7 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
 
   arrowflight-java-tests:
     runs-on: ubuntu-latest

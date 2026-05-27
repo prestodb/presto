@@ -28,6 +28,7 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
   singlestore-dockerized-tests:
     strategy:
       fail-fast: false

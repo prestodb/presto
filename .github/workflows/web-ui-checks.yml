@@ -24,6 +24,7 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
               - 'presto-ui/**'
   web-ui-checks:
     runs-on: ubuntu-latest

@@ -27,6 +27,7 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
   kudu:
     permissions:
       contents: read
