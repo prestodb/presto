@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -2479,6 +2481,137 @@ public class TestIndirectColumnLineage
     }
 
     // =========================================================================
+    // 15. CTAS and INSERT INTO SELECT
+    //   Both populate analysis.getUpdatedSourceColumns() with per-target-column
+    //   direct and indirect lineage. Verified via OutputColumnMetadata rather
+    //   than the query's output descriptor.
+    // =========================================================================
+
+    @Test
+    public void testCtasWithFilter()
+    {
+        // CTAS: target columns inherit the inner query's per-column direct lineage,
+        // plus query-level FILTER indirect from the WHERE predicate.
+        assertUpdatedLineage(
+                "CREATE TABLE ctas_target AS SELECT a, b FROM t1 WHERE c > 10",
+                ImmutableMap.of(
+                        "a", ImmutableSet.of(direct(T1, "a")),
+                        "b", ImmutableSet.of(direct(T1, "b"))),
+                ImmutableMap.of(
+                        "a", ImmutableSet.of(indirect(T1, "c", TransformationSubtype.FILTER)),
+                        "b", ImmutableSet.of(indirect(T1, "c", TransformationSubtype.FILTER))));
+    }
+
+    @Test
+    public void testCtasWithJoinAndFilter()
+    {
+        // CTAS over a JOIN with a WHERE clause: both target columns get JOIN
+        // indirect on both join keys plus FILTER indirect on the filter column.
+        assertUpdatedLineage(
+                "CREATE TABLE ctas_join AS " +
+                        "SELECT o.order_id, c.name " +
+                        "FROM lineage_orders o JOIN lineage_customers c ON o.customer_id = c.customer_id " +
+                        "WHERE o.region = 'US'",
+                ImmutableMap.of(
+                        "order_id", ImmutableSet.of(direct(ORDERS, "order_id")),
+                        "name", ImmutableSet.of(direct(CUSTOMERS, "name"))),
+                ImmutableMap.of(
+                        "order_id", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "name", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER))));
+    }
+
+    @Test
+    public void testCtasWithGroupBy()
+    {
+        // CTAS over a GROUP BY: target columns carry GROUP_BY indirect for the grouping key.
+        assertUpdatedLineage(
+                "CREATE TABLE ctas_agg AS SELECT region, SUM(amount) AS total FROM lineage_orders GROUP BY region",
+                ImmutableMap.of(
+                        "region", ImmutableSet.of(direct(ORDERS, "region")),
+                        "total", ImmutableSet.of(direct(ORDERS, "amount"))),
+                ImmutableMap.of(
+                        "region", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.GROUP_BY)),
+                        "total", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.GROUP_BY))));
+    }
+
+    @Test
+    public void testCtasWithColumnAliases()
+    {
+        // Explicit column aliases rename the target columns but preserve lineage.
+        assertUpdatedLineage(
+                "CREATE TABLE ctas_aliased (renamed_a, renamed_b) AS SELECT a, b FROM t1 WHERE c > 10",
+                ImmutableMap.of(
+                        "renamed_a", ImmutableSet.of(direct(T1, "a")),
+                        "renamed_b", ImmutableSet.of(direct(T1, "b"))),
+                ImmutableMap.of(
+                        "renamed_a", ImmutableSet.of(indirect(T1, "c", TransformationSubtype.FILTER)),
+                        "renamed_b", ImmutableSet.of(indirect(T1, "c", TransformationSubtype.FILTER))));
+    }
+
+    @Test
+    public void testInsertWithFilter()
+    {
+        // INSERT INTO ... SELECT: target column names come from the destination
+        // table, and each carries the inner query's direct + indirect lineage.
+        assertUpdatedLineage(
+                "INSERT INTO lineage_orders " +
+                        "SELECT order_id, customer_id, amount, region, status " +
+                        "FROM lineage_orders WHERE region = 'US'",
+                ImmutableMap.of(
+                        "order_id", ImmutableSet.of(direct(ORDERS, "order_id")),
+                        "customer_id", ImmutableSet.of(direct(ORDERS, "customer_id")),
+                        "amount", ImmutableSet.of(direct(ORDERS, "amount")),
+                        "region", ImmutableSet.of(direct(ORDERS, "region")),
+                        "status", ImmutableSet.of(direct(ORDERS, "status"))),
+                ImmutableMap.of(
+                        "order_id", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "customer_id", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "amount", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "region", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "status", ImmutableSet.of(indirect(ORDERS, "region", TransformationSubtype.FILTER))));
+    }
+
+    @Test
+    public void testInsertWithExplicitColumnsAndJoin()
+    {
+        // INSERT with an explicit column list: target names come from the list
+        // (not the SELECT). JOIN keys and WHERE predicate flow as indirect.
+        assertUpdatedLineage(
+                "INSERT INTO lineage_products (product_id, order_id, price, category) " +
+                        "SELECT 1, o.order_id, o.amount, c.tier " +
+                        "FROM lineage_orders o JOIN lineage_customers c ON o.customer_id = c.customer_id " +
+                        "WHERE o.region = 'US'",
+                ImmutableMap.of(
+                        "product_id", ImmutableSet.of(),
+                        "order_id", ImmutableSet.of(direct(ORDERS, "order_id")),
+                        "price", ImmutableSet.of(direct(ORDERS, "amount")),
+                        "category", ImmutableSet.of(direct(CUSTOMERS, "tier"))),
+                ImmutableMap.of(
+                        "product_id", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "order_id", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "price", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER)),
+                        "category", ImmutableSet.of(
+                                indirect(ORDERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(CUSTOMERS, "customer_id", TransformationSubtype.JOIN),
+                                indirect(ORDERS, "region", TransformationSubtype.FILTER))));
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 
@@ -2572,6 +2705,45 @@ public class TestIndirectColumnLineage
                     }
                     assertEquals(allIndirect.build(), expected,
                             "Indirect sources mismatch for: " + query);
+                });
+    }
+
+    /**
+     * Assert per-target-column direct and indirect lineage for write statements
+     * (INSERT INTO ... SELECT and CREATE TABLE AS SELECT). Reads from
+     * {@link Analysis#getUpdatedSourceColumns()}, which holds an
+     * {@link OutputColumnMetadata} per target-table column rather than the
+     * inner query's output descriptor.
+     */
+    private void assertUpdatedLineage(
+            @Language("SQL") String query,
+            Map<String, Set<SourceColumn>> expectedDirectPerColumn,
+            Map<String, Set<ColumnLineageEntry>> expectedIndirectPerColumn)
+    {
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(CLIENT_SESSION, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    Analysis analysis = analyzer.analyzeSemantic(statement, false);
+
+                    Optional<List<OutputColumnMetadata>> updatedColumns = analysis.getUpdatedSourceColumns();
+                    if (!updatedColumns.isPresent()) {
+                        throw new AssertionError("Expected updated source columns to be present for: " + query);
+                    }
+
+                    Map<String, Set<SourceColumn>> actualDirectPerColumn = new LinkedHashMap<>();
+                    Map<String, Set<ColumnLineageEntry>> actualIndirectPerColumn = new LinkedHashMap<>();
+                    for (OutputColumnMetadata column : updatedColumns.get()) {
+                        actualDirectPerColumn.put(column.getColumnName(), column.getSourceColumns());
+                        actualIndirectPerColumn.put(column.getColumnName(), column.getIndirectSourceColumns());
+                    }
+                    assertEquals(actualDirectPerColumn, expectedDirectPerColumn,
+                            "Updated direct sources mismatch for: " + query);
+                    assertEquals(actualIndirectPerColumn, expectedIndirectPerColumn,
+                            "Updated indirect sources mismatch for: " + query);
                 });
     }
 }
