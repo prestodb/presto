@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import com.mongodb.Block;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
@@ -759,7 +758,7 @@ public class MongoSession
 
         db.listCollections()
                 .filter(new Document(TYPE_KEY, VIEW_TYPE_NAME))
-                .forEach((Block<Document>) doc -> {
+                .forEach(doc -> {
                     String name = doc.getString(NAME_KEY);
                     if (!name.equals(schemaCollection) && !SYSTEM_TABLES.contains(name)) {
                         views.add(new SchemaTableName(schemaName, name));
