@@ -78,6 +78,7 @@ public class NativeExecutionSystemConfig
     public static final String REMOTE_FUNCTION_SERVER_SERDE = "remote-function-server.serde";
     public static final String REMOTE_FUNCTION_SERVER_CATALOG_NAME = "remote-function-server.catalog-name";
     public static final String PLAN_CONSISTENCY_CHECK = "plan-consistency-check-enabled";
+    public static final String EXCHANGE_MATERIALIZATION_ENABLED = "exchange.materialization.enabled";
 
     private final String remoteFunctionServerSignatureFilesDirectoryPathDefault = "./functions/spark/";
     private final String remoteFunctionServerSerdeDefault = "presto_page";

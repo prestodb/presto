@@ -407,6 +407,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
+    public static final String NATIVE_EXCHANGE_MATERIALIZATION_ENABLED = "native_exchange_materialization_enabled";
     public static final String TRY_FUNCTION_CATCHABLE_ERRORS = "try_function_catchable_errors";
     public static final String PUSH_FILTER_THROUGH_SELECTING_AGGREGATION = "push_filter_through_selecting_aggregation";
     public static final String OPTIMIZE_ROW_IN_PREDICATE = "optimize_row_in_predicate";
@@ -2210,6 +2211,10 @@ public final class SystemSessionProperties
                         "Enable automatic scaling of writer threads",
                         featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
                         !featuresConfig.isNativeExecutionEnabled()),
+                booleanProperty(NATIVE_EXCHANGE_MATERIALIZATION_ENABLED,
+                        "Native Execution only. Enable materialized exchange operators in Velox (MaterializedOutput/MaterializedExchange). When false, uses PartitionAndSerialize + ShuffleWrite.",
+                        true,
+                        false),
                 stringProperty(
                         EXPRESSION_OPTIMIZER_NAME,
                         "Configure which expression optimizer to use",
@@ -3846,6 +3851,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeExchangeMaterializationEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXCHANGE_MATERIALIZATION_ENABLED, Boolean.class);
     }
 
     public static int getMaxSplitPreloadPerDriver(Session session)
