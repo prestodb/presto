@@ -73,6 +73,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSI
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
+import static com.facebook.presto.SystemSessionProperties.PARALLELIZE_CHAINED_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT_TIMEOUT_MS;
 import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
@@ -1525,6 +1526,49 @@ public abstract class AbstractTestQueries
                 }
                 throw e;
             }
+        }
+    }
+
+    @Test
+    public void testParallelizeChainedAggregation()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PARALLELIZE_CHAINED_AGGREGATION, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PARALLELIZE_CHAINED_AGGREGATION, "false")
+                .build();
+
+        // Compare results with optimization enabled vs disabled to validate correctness.
+        // The rule inserts a local round-robin exchange between the outer PARTIAL and the chain
+        // leading to the inner FINAL when outer grouping keys are a strict subset of inner
+        // grouping keys, parallelizing the outer PARTIAL across local drivers.
+        String[] queries = {
+                // Outer key (orderstatus) is subset of inner keys (orderstatus, orderpriority)
+                "SELECT sum(s) FROM (SELECT sum(totalprice) AS s, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderstatus",
+                // Multiple aggregations in inner and outer
+                "SELECT sum(s), max(mx), min(mn) FROM (SELECT sum(totalprice) AS s, max(totalprice) AS mx, min(totalprice) AS mn, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderstatus",
+                // count aggregation
+                "SELECT sum(c) FROM (SELECT count(*) AS c, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderstatus",
+                // Three-level inner grouping, two-level outer
+                "SELECT sum(s) FROM (SELECT sum(extendedprice) AS s, linestatus, returnflag, shipmode FROM lineitem GROUP BY linestatus, returnflag, shipmode) GROUP BY linestatus, returnflag",
+                // avg aggregation (decomposable)
+                "SELECT avg(s) FROM (SELECT sum(totalprice) AS s, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderstatus",
+                // Negative-shape cases: the rule wouldn't fire in these plans. These queries are
+                // correctness-only regression guards (results must match with the property on vs off);
+                // plan-shape assertions in TestParallelizeChainedAggregationPlan verify the rule is
+                // a no-op for these shapes.
+                // Equal grouping keys — rule should not fire
+                "SELECT sum(s) FROM (SELECT sum(totalprice) AS s, orderstatus FROM orders GROUP BY orderstatus) GROUP BY orderstatus",
+                // Outer keys not subset of inner keys
+                "SELECT sum(s), orderpriority FROM (SELECT sum(totalprice) AS s, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority) GROUP BY orderpriority",
+                // Global outer aggregation (no GROUP BY) — empty set is subset of inner keys, rule fires
+                "SELECT sum(s) FROM (SELECT sum(totalprice) AS s, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority)",
+                "SELECT approx_percentile(s, 0.5) FROM (SELECT sum(totalprice) AS s, orderstatus, orderpriority FROM orders GROUP BY orderstatus, orderpriority)",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
         }
     }
 

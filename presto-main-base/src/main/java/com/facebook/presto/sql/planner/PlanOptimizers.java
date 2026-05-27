@@ -67,6 +67,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeMinMaxByAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.MergeSumsToVectorSum;
 import com.facebook.presto.sql.planner.iterative.rule.MinMaxByToWindowFunction;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.ParallelizeChainedAggregation;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections;
 import com.facebook.presto.sql.planner.iterative.rule.PreAggregateBeforeGroupId;
@@ -1143,6 +1144,14 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new PreAggregateBeforeGroupId(metadata.getFunctionAndTypeManager()))));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new ParallelizeChainedAggregation())));
 
         builder.add(new IterativeOptimizer(
                 metadata,

@@ -127,6 +127,7 @@ public class FeaturesConfig
     private int optimizeMetadataQueriesCallThreshold = 100;
     private boolean optimizeHashGeneration = true;
     private boolean enableIntermediateAggregations;
+    private boolean enableParallelizeChainedAggregations;
     private boolean optimizeCaseExpressionPredicate;
     private boolean pushTableWriteThroughUnion = true;
     private CompressionCodec exchangeCompressionCodec = CompressionCodec.NONE;
@@ -1695,6 +1696,19 @@ public class FeaturesConfig
     public FeaturesConfig setEnableIntermediateAggregations(boolean enableIntermediateAggregations)
     {
         this.enableIntermediateAggregations = enableIntermediateAggregations;
+        return this;
+    }
+
+    public boolean isEnableParallelizeChainedAggregations()
+    {
+        return enableParallelizeChainedAggregations;
+    }
+
+    @Config("optimizer.parallelize-chained-aggregation")
+    @ConfigDescription("Insert a local round-robin exchange above the inner aggregation in chained aggregations to parallelize the outer PARTIAL across local drivers")
+    public FeaturesConfig setEnableParallelizeChainedAggregations(boolean enableParallelizeChainedAggregations)
+    {
+        this.enableParallelizeChainedAggregations = enableParallelizeChainedAggregations;
         return this;
     }
 

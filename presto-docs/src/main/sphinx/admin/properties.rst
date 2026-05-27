@@ -945,6 +945,19 @@ Only applies to decomposable aggregation functions.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`pre_aggregate_before_grouping_sets\`\``.
 
+``optimizer.parallelize-chained-aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, optimizes chained aggregations where the outer grouping keys are a subset of
+the inner grouping keys by inserting a local round-robin exchange above the inner
+aggregation. This parallelizes the outer ``PARTIAL`` across the local node's drivers when
+the inner aggregation's parallelism is below what the node can support.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`parallelize_chained_aggregation\`\``.
+
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

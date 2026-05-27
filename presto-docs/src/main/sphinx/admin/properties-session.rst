@@ -387,6 +387,37 @@ or ``MAX`` that support partial/intermediate/final splitting.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.pre-aggregate-before-grouping-sets\`\``.
 
+``parallelize_chained_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, optimizes chained aggregations where the outer grouping keys are a subset of
+the inner grouping keys by inserting a local round-robin exchange between the outer PARTIAL
+aggregation and the chain leading to the inner FINAL aggregation. This parallelizes the
+outer PARTIAL across the local node's drivers when the inner aggregation's parallelism is
+below what the node can support — common when the inner grouping keys have low cardinality
+and the outer aggregation is CPU-heavy (for example ``approx_percentile``).
+
+For example, in a query like::
+
+    SELECT approx_percentile(s, 0.5)
+    FROM (SELECT sum(x) AS s FROM t GROUP BY k1, k2)
+    GROUP BY k2
+
+The inner aggregation groups by ``(k1, k2)`` and the outer aggregation groups by ``(k2)``.
+Since ``{k2}`` is a subset of ``{k1, k2}``, a local round-robin exchange can be inserted
+above the inner aggregation so that the outer PARTIAL fans out across all local drivers
+instead of inheriting the inner aggregation's parallelism.
+
+Requirements:
+
+* Outer grouping keys must be a strict subset of inner grouping keys
+* Only ``ProjectNode`` and ``ExchangeNode`` may sit between the outer PARTIAL and the inner FINAL
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.parallelize-chained-aggregation\`\``.
+
 ``push_aggregation_through_join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
