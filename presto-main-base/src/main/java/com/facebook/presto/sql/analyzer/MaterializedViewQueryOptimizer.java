@@ -183,6 +183,13 @@ public class MaterializedViewQueryOptimizer
             return rewriteQuerySpecificationIfCompatible(node, (Table) ((AliasedRelation) from).getRelation());
         }
 
+        if (from instanceof Join) {
+            Node result = new MaterializedViewJoinQueryRewriter(metadata, session, sqlParser).tryRewrite(node, from);
+            if (result != node) {
+                return result;
+            }
+        }
+
         Relation newFrom = processSameType(from);
         if (from == newFrom) {
             return node;

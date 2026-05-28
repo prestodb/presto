@@ -1999,6 +1999,114 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testJoinWithCteRewritesCteBodyOnly()
+    {
+        // CTE body is rewritten via single-table MV path; outer JOIN skips CTE leaf gracefully
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+
+        String baseTable = "test_cte_orders";
+        String mvName = "test_cte_orders_mv";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, totalprice, '2021-07-11' AS ds FROM orders WHERE orderkey < 1000", baseTable));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, MAX(totalprice) AS max_price, ds FROM %s GROUP BY orderkey, ds", mvName, baseTable));
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2021-07-11'", mvName), 255);
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, baseTable, ImmutableList.of(mvName));
+
+            // CTE body queries baseTable (has MV) → rewritten inside CTE
+            // Outer JOIN with lineitem (no MV) → CTE leaf skipped, lineitem unchanged
+            String query = format("WITH cte AS (SELECT orderkey, MAX(totalprice) AS max_price FROM %s " +
+                    "WHERE ds = '2021-07-11' GROUP BY orderkey) " +
+                    "SELECT c.orderkey, c.max_price, l.quantity " +
+                    "FROM cte c JOIN lineitem l ON c.orderkey = l.orderkey " +
+                    "WHERE c.orderkey = 1 ORDER BY l.quantity", baseTable);
+
+            MaterializedResult optimized = computeActual(queryOptimizationWithMaterializedView, query);
+            MaterializedResult baseline = computeActual(query);
+            assertEquals(baseline, optimized);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + mvName);
+            queryRunner.execute("DROP TABLE IF EXISTS " + baseTable);
+        }
+    }
+
+    @Test
+    public void testJoinWithCteRewritesBothCteAndJoinTable()
+    {
+        // Both the CTE body and the JOIN table have MVs → both are rewritten independently
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+
+        String ordersTable = "test_cte_both_orders";
+        String suppTable = "test_cte_both_supp";
+        String ordersMv = "test_cte_both_orders_mv";
+        String suppMv = "test_cte_both_supp_mv";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, totalprice, '2021-07-11' AS ds FROM orders WHERE orderkey < 1000", ordersTable));
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT suppkey, name, '2021-07-11' AS ds FROM supplier WHERE suppkey < 100", suppTable));
+
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, MAX(totalprice) AS max_price, ds FROM %s GROUP BY orderkey, ds", ordersMv, ordersTable));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT suppkey, name, ds FROM %s", suppMv, suppTable));
+
+            assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2021-07-11'", ordersMv), 255);
+            queryRunner.execute(format("REFRESH MATERIALIZED VIEW %s WHERE ds = '2021-07-11'", suppMv));
+
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, ordersTable, ImmutableList.of(ordersMv));
+            setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, suppTable, ImmutableList.of(suppMv));
+
+            // CTE body queries ordersTable (has MV) → rewritten
+            // Outer query JOINs CTE with suppTable (has MV) → suppTable rewritten by JOIN rewriter
+            String query = format("WITH order_agg AS (SELECT orderkey, MAX(totalprice) AS max_price FROM %s " +
+                    "WHERE ds = '2021-07-11' GROUP BY orderkey) " +
+                    "SELECT s.name, SUM(o.max_price) AS total_price " +
+                    "FROM order_agg o JOIN %s s ON o.orderkey = s.suppkey " +
+                    "WHERE s.ds = '2021-07-11' " +
+                    "GROUP BY s.name ORDER BY total_price DESC LIMIT 5", ordersTable, suppTable);
+
+            MaterializedResult optimized = computeActual(queryOptimizationWithMaterializedView, query);
+            MaterializedResult baseline = computeActual(query);
+            assertEquals(baseline, optimized);
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + ordersMv);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + suppMv);
+            queryRunner.execute("DROP TABLE IF EXISTS " + ordersTable);
+            queryRunner.execute("DROP TABLE IF EXISTS " + suppTable);
+        }
+    }
+
+    @Test
+    public void testJoinWithCteNeitherRewritten()
+    {
+        // Neither CTE body nor JOIN table has an MV — query runs unchanged, no crash
+        Session queryOptimizationWithMaterializedView = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+
+        String query = "WITH cte AS (SELECT orderkey, totalprice FROM orders WHERE orderkey < 10) " +
+                "SELECT c.orderkey, c.totalprice, l.quantity " +
+                "FROM cte c JOIN lineitem l ON c.orderkey = l.orderkey " +
+                "ORDER BY c.orderkey, l.quantity LIMIT 10";
+        MaterializedResult optimized = computeActual(queryOptimizationWithMaterializedView, query);
+        MaterializedResult baseline = computeActual(query);
+        assertEquals(baseline, optimized);
+    }
+
+    @Test
     public void testSubqueryMaterializedViewAggregateWithAndJoin()
     {
         Session queryOptimizationWithMaterializedView = Session.builder(getSession())

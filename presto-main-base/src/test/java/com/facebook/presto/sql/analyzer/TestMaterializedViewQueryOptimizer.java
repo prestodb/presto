@@ -63,6 +63,16 @@ public class TestMaterializedViewQueryOptimizer
     public void setupDomainTranslator()
     {
         domainTranslator = new RowExpressionDomainTranslator(metadata);
+        // AbstractAnalyzerTest pre-registers a global "s1.mv1" materialized view
+        // backed by t2. JOIN tests below use t2 as a non-target join partner and
+        // expect it to remain unrewritten; drop the global MV so the JOIN
+        // rewriter only sees test-specific MVs created via assertOptimizedQuery.
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .execute(TEST_SESSION, (Session session) -> {
+                    metadata.dropMaterializedView(session, QualifiedObjectName.valueOf(TPCH_CATALOG, SESSION_SCHEMA, "mv1"));
+                });
     }
 
     @Test
@@ -1190,6 +1200,7 @@ public class TestMaterializedViewQueryOptimizer
 
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
+        // Single-table MV covering t1 columns used in a JOIN query — should now rewrite
         originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
         baseQuerySql = format(
                 "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.c = %s.c",
@@ -1199,8 +1210,16 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_2,
                 BASE_TABLE_1,
                 BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.c = %s.c",
+                VIEW_1,
+                BASE_TABLE_2,
+                VIEW_1,
+                BASE_TABLE_2,
+                VIEW_1,
+                BASE_TABLE_2);
 
-        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test
@@ -2178,6 +2197,1727 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format("SELECT a, b FROM %s WHERE b = 'UK'", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(BASE_TABLE_1, ImmutableMap.of(VIEW_1, originalViewSql)));
+    }
+
+    // ---- JOIN MV Rewrite Tests ----
+
+    @Test
+    public void testJoinSimpleColumnRewrite()
+    {
+        // MV covers all columns of t1 used in the query (no GROUP BY in MV)
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithGroupByMatchingMv()
+    {
+        // MV GROUP BY matches exactly the query's GROUP BY columns from t1
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                VIEW_1, VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithGroupBySuperset()
+    {
+        // MV GROUP BY (a, c) is a superset of query's GROUP BY from t1 (a only)
+        String originalViewSql = format("SELECT a, c, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                VIEW_1, VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountToSumRewrite()
+    {
+        // COUNT(t1.a) should be rewritten to SUM(mv.count_a)
+        String originalViewSql = format("SELECT a, COUNT(b) AS count_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(%s.b), %s.a AS t2_a FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.count_b), %s.a AS t2_a FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithMinMax()
+    {
+        // MIN and MAX are associative — should be rewritten directly
+        String originalViewSql = format("SELECT a, MIN(b) AS min_b, MAX(b) AS max_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, MIN(%s.b), MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, MIN(%s.min_b), MAX(%s.max_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWhereOnOtherTable()
+    {
+        // WHERE clause on non-swapped table should pass through unchanged
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWhereOnBothTables()
+    {
+        // WHERE references both tables — swapped table columns should be rewritten
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.c > 5 AND %s.b > 10",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.c > 5 AND %s.b > 10",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithOrderBy()
+    {
+        // ORDER BY on swapped table column should be rewritten
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a ORDER BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a ORDER BY %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithTableAlias()
+    {
+        // Tables with aliases — prefix should use alias
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithColumnRename()
+    {
+        // MV renames columns — original column name should be aliased in SELECT
+        String originalViewSql = format("SELECT a AS col_a, b AS col_b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.col_a AS a, %s.col_b AS b FROM %s JOIN %s ON %s.col_a = %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testNestedJoinWithMvOnFirstTable()
+    {
+        // t1 JOIN t2 JOIN t3 pattern (nested join), MV on t1
+        // Note: t3 has columns a, b (same as t2 for AbstractAnalyzerTest setup)
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_3, BASE_TABLE_1, BASE_TABLE_3);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2, VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_3, VIEW_1, BASE_TABLE_3);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithMultipleAggregates()
+    {
+        // Multiple aggregates on swapped table
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, SUM(c) AS sum_c FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b), SUM(%s.c) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b), SUM(%s.sum_c) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithConditionalAggregate()
+    {
+        // SUM(IF(...)) conditional aggregate in JOIN mode — MV pre-computes it
+        String originalViewSql = format("SELECT a, SUM(IF(c > 0, b, 0)) AS cond_sum, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(%s.c > 0, %s.b, 0)) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cond_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Mixed: conditional + simple aggregate together
+        baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(%s.c > 0, %s.b, 0)), SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cond_sum), SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinConditionalAggregateWithCaseExpression()
+    {
+        // CASE WHEN inside aggregate — deeply nested prefix stripping
+        String originalViewSql = format("SELECT a, SUM(CASE WHEN c > 0 THEN b ELSE 0 END) AS case_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(CASE WHEN %s.c > 0 THEN %s.b ELSE 0 END) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.case_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinConditionalAggregateNotInMv()
+    {
+        // SUM(IF(...)) NOT pre-computed in MV — should NOT rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(%s.c > 0, %s.b, 0)) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNestedArithmeticInAggregate()
+    {
+        // SUM(a * b + c) — nested arithmetic inside aggregate, prefix stripping must be recursive
+        String originalViewSql = format("SELECT a, SUM(b * c) AS prod_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b * %s.c) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.prod_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinConditionalCountStar()
+    {
+        // COUNT(*) alongside conditional aggregate — both should rewrite
+        String originalViewSql = format("SELECT a, SUM(IF(c > 0, b, 0)) AS cond_sum, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(%s.c > 0, %s.b, 0)), COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cond_sum), SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithGroupByOnBothTables()
+    {
+        // GROUP BY has columns from both tables
+        String originalViewSql = format("SELECT a, c, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.c, SUM(%s.b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.c, %s.b",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.c, SUM(%s.sum_b), %s.b AS t2_b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.c, %s.b",
+                VIEW_1, VIEW_1, VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinDeepNestedConditionalAggregate()
+    {
+        // Deeply nested prefix stripping: SUM(IF(COALESCE(t1.a, 0) > 0, t1.b * t1.c, 0))
+        String originalViewSql = format("SELECT a, SUM(IF(COALESCE(a, 0) > 0, b * c, 0)) AS deep_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(COALESCE(%s.a, 0) > 0, %s.b * %s.c, 0)) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.deep_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Negative: same structure but expression NOT in MV — should reject
+        baseQuerySql = format(
+                "SELECT %s.a, SUM(IF(COALESCE(%s.a, 0) > 0, %s.b + %s.c, 0)) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCaseWhenInsideAggregate()
+    {
+        // SUM(CASE WHEN ... IN (...) THEN ... END) — nested IN predicate
+        String originalViewSql = format("SELECT a, SUM(CASE WHEN a IN (1, 2) THEN b ELSE 0 END) AS case_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(CASE WHEN %s.a IN (1, 2) THEN %s.b ELSE 0 END) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.case_sum) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWhereOnMvGroupByColumn()
+    {
+        // WHERE on a column that's in the MV GROUP BY — filter applies after swap, safe
+        String originalViewSql = format("SELECT a, c, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountStarRollupWithGroupBy()
+    {
+        // COUNT(*) → SUM(cnt) rollup in JOIN with GROUP BY subset
+        String originalViewSql = format("SELECT a, c, COUNT(*) AS cnt, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+
+        // GROUP BY subset of MV GROUP BY
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // COUNT(*) + SUM together in rollup
+        baseQuerySql = format(
+                "SELECT %s.a, COUNT(*), SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cnt), SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinScalarAggregateWithWhereOnOtherTable()
+    {
+        // Scalar aggregate (no GROUP BY) with WHERE on non-swapped table — should rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Negative: non-aggregate column from swapped table without GROUP BY — should reject
+        baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b > 10",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteUnmatchedAggregateWithGroupBy()
+    {
+        // MAX(t1.b) when MV only has SUM(b) — should NOT rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteSumDistinct()
+    {
+        // SUM(DISTINCT t1.b) — should NOT rewrite even if SUM(b) is in MV
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(DISTINCT %s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteMixedTableAggregate()
+    {
+        // SUM(t1.b * t2.a) — mixed-table aggregate should reject
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.b * %s.a) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteAggregateOnGroupByColumn()
+    {
+        // SUM(t1.a) where a is a GROUP BY column in MV — the MV collapses rows,
+        // so SUM(a) on MV gives a*1 per group instead of a*N. Must NOT rewrite.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.a) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteCountWithFilterInsideMvGroup()
+    {
+        // COUNT(*) with WHERE that filters within MV groups — MV pre-counts all
+        // statuses per region, but query only wants status='active'. After swap
+        // the filter can't reduce the pre-computed count. Must NOT rewrite.
+        String originalViewSql = format("SELECT a, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a WHERE %s.c > 0 GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2);
+        // WHERE on swapped table column 'c' that's NOT a GROUP BY column — MV doesn't
+        // have 'c', so column coverage check should reject
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewritePartialGroupByOverlap()
+    {
+        // JOIN on (a, c) but MV only groups by (a) — MV has one row per 'a',
+        // but the JOIN expects per-(a,c). Fan-out is wrong after swap.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a AND %s.c = %s.b GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        // JOIN uses t1.c which is not in MV — column coverage should reject
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteLeftJoinPreservedSideWithAggregate()
+    {
+        // LEFT JOIN where MV is on preserved (left) side with GROUP BY —
+        // null-padding semantics change when MV collapses rows
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s LEFT JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteFullJoinWithAggregate()
+    {
+        // FULL JOIN with GROUP BY MV — both sides are preserved, neither can be swapped
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s FULL JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteQueryGroupByNotInMvGroupBy()
+    {
+        // Query GROUP BY column 'c' is NOT in MV GROUP BY (a) — rollup impossible,
+        // MV has collapsed rows across 'c' values. Would produce wrong aggregates.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.c, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.c, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteQueryGroupByExpressionNotInMv()
+    {
+        // Query GROUP BY has expression SUBSTR(t1.a, 1, 2), MV GROUP BY has bare 'a'.
+        // The granularity differs — MV groups per 'a', query groups per SUBSTR(a).
+        // Even though MV is finer-grained, the expression isn't in the MV column map.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUBSTR(CAST(%s.a AS VARCHAR), 1, 2), SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY SUBSTR(CAST(%s.a AS VARCHAR), 1, 2), %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteQueryGroupByOrdinal()
+    {
+        // GROUP BY ordinal (GROUP BY 1) — ordinals reference SELECT items.
+        // The isGroupByCovered check must handle ordinals correctly.
+        // Here GROUP BY 1 = t1.c which is NOT in MV GROUP BY (a) — should reject.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.c, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY 1, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteMvGroupByExpressionQueryGroupByIdentifier()
+    {
+        // MV GROUP BY has expression (a + 0), query GROUP BY has bare 'a'.
+        // Expression vs identifier mismatch — can't roll up because the MV's
+        // grouping granularity is on the expression, not the raw column.
+        String originalViewSql = format("SELECT a + 0 AS expr_a, SUM(b) AS sum_b FROM %s GROUP BY a + 0", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteQueryGroupBySubsetMissing()
+    {
+        // MV GROUP BY (a, c), query GROUP BY (a, d).
+        // 'd' is NOT in MV GROUP BY — can't roll up over 'd'.
+        String originalViewSql = format("SELECT a, c, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.d, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWhenMvMissesColumn()
+    {
+        // MV doesn't cover column 'c' used in JOIN ON — should not rewrite
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.c = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWhenGroupByNotInMv()
+    {
+        // Query GROUP BY t1.c but MV only has GROUP BY a — should not rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.c, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.c, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWhenMvHasWhereClause()
+    {
+        // MV has WHERE clause — JOIN rewrite not supported (v1 restriction)
+        String originalViewSql = format("SELECT a, b, c FROM %s WHERE a > 5", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a > 10",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWhenMvHasJoin()
+    {
+        // MV itself has a JOIN — MaterializedViewInformationExtractor rejects non-Table FROM
+        String originalViewSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.c = %s.c",
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWhenSelectColumnNotInMv()
+    {
+        // SELECT references t1.d but MV only has a, b — should not rewrite
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.d, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteWithHaving()
+    {
+        // HAVING clause is not supported — should not rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) > 10",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteCountDistinct()
+    {
+        // COUNT(DISTINCT) in JOIN should not be rewritten — non-decomposable
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(DISTINCT %s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteUnmatchedAggregate()
+    {
+        // Aggregate not pre-computed in MV should not be rewritten in JOIN mode
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithMvOnSecondTable()
+    {
+        // MV is on t2, not t1 — verify rewriting the right (second) table in JOIN
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithNoGroupByInQueryOrMv()
+    {
+        // Neither query nor MV has GROUP BY — simple column rewrite
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinScalarAggregateWithoutGroupBy()
+    {
+        // Query has no GROUP BY but selects only aggregates — safe rollup
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+
+        // SUM rollup without GROUP BY
+        String baseQuerySql = format(
+                "SELECT SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // COUNT(*) rollup to SUM(cnt) without GROUP BY
+        baseQuerySql = format(
+                "SELECT COUNT(*) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        expectedRewrittenSql = format(
+                "SELECT SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Non-swapped column in SELECT without GROUP BY — should NOT rewrite
+        baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithCompoundJoinCondition()
+    {
+        // JOIN ON with AND condition — both sides should be rewritten
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a AND %s.b > 5",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a AND %s.b > 5",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountStarRewrite()
+    {
+        // COUNT(*) has no column references — must be looked up in baseToViewColumnMap
+        // and rewritten to SUM(mv.cnt) when MV has GROUP BY
+        String originalViewSql = format("SELECT a, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountStarNoGroupByInMv()
+    {
+        // COUNT(*) with no GROUP BY in MV — passes through unchanged (MV has raw rows)
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountStarNoMatchInMv()
+    {
+        // COUNT(*) with GROUP BY in MV but MV has no COUNT(*) column — should reject rewrite
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinWithGroupByMv()
+    {
+        // Self-join with pre-aggregated MV — SUM on non-swapped side would get wrong
+        // fan-out, so the rewrite must be rejected
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT o1.a, SUM(o1.b), SUM(o2.b) FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a",
+                BASE_TABLE_1, BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinOnlySwappedSideAggregate()
+    {
+        // Self-join but aggregate ONLY on the swapped side (o1) — safe to rewrite one side.
+        // The first leaf (o1) is tried: SUM(o1.b) references swapped table, o2.a is in GROUP BY
+        // (not aggregated) — no non-swapped aggregate → rewrite allowed for o1.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT o1.a, SUM(o1.b), o2.a FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a, o2.a",
+                BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT o1.a, SUM(o1.sum_b), o2.a FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a, o2.a",
+                VIEW_1, BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinNoGroupByInMv()
+    {
+        // Self-join with no GROUP BY in MV — both sides use raw rows, safe to rewrite one side.
+        // Only the first leaf (o1) gets rewritten (loop returns after first success).
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT o1.a, SUM(o1.b), SUM(o2.b) FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a",
+                BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT o1.a, SUM(o1.b), SUM(o2.b) FROM %s o1 JOIN %s o2 ON o1.a = o2.a GROUP BY o1.a",
+                VIEW_1, BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinUnaliasedAndAliased()
+    {
+        // FROM t1 JOIN t1 AS x — only the unaliased t1 should be swapped.
+        // x must remain pointing to the base table.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, x.b FROM %s JOIN %s x ON %s.a = x.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, x.b FROM %s JOIN %s x ON %s.a = x.a",
+                VIEW_1,
+                VIEW_1, BASE_TABLE_1,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinAliasedAndUnaliased()
+    {
+        // FROM t1 AS x JOIN t1 — only the aliased x should be swapped (first leaf).
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT x.a, %s.b FROM %s x JOIN %s ON x.a = %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT x.a, %s.b FROM %s x JOIN %s ON x.a = %s.a",
+                BASE_TABLE_1,
+                VIEW_1, BASE_TABLE_1,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinBothUnaliased()
+    {
+        // FROM t1 JOIN t1 — both have the same prefix "t1", first leaf swapped.
+        // Second t1 is also unaliased with the same name — but collectJoinLeaves
+        // returns them as separate entries and we only swap the first compatible one.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1);
+        // Both leaves have the same prefix — the rewriter swaps both (expected behavior
+        // for unaliased self-join since both use the same prefix for column refs)
+        String expectedRewrittenSql = format(
+                "SELECT %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1,
+                VIEW_1, VIEW_1,
+                VIEW_1, VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinBothAliased()
+    {
+        // FROM t1 AS x JOIN t1 AS y — only x (first leaf) should be swapped.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
+                BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT x.a, y.b FROM %s x JOIN %s y ON x.a = y.a",
+                VIEW_1, BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinThreeWaySelfJoinTwoAliases()
+    {
+        // FROM t1 AS a JOIN t1 AS b JOIN t2 — first leaf (a) swapped, b and t2 unchanged.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT x.a, y.b, %s.a FROM %s x JOIN %s y ON x.a = y.a JOIN %s ON y.a = %s.a",
+                BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_2, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT x.a, y.b, %s.a FROM %s x JOIN %s y ON x.a = y.a JOIN %s ON y.a = %s.a",
+                BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_1,
+                BASE_TABLE_2, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSelfJoinUnaliasedWithGroupByMv()
+    {
+        // FROM t1 JOIN t1 AS x with GROUP BY MV — only the unaliased leaf should be
+        // considered for swapping. If both were swapped, x.col references would not
+        // resolve against the MV (expressionRewriter only has tablePrefix=t1, not x).
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b), SUM(x.b) FROM %s JOIN %s x ON %s.a = x.a GROUP BY %s.a, x.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_1);
+        // The unaliased t1 can be swapped; aggregate on x (non-swapped) would change
+        // fan-out with GROUP BY MV, so the rewrite is rejected
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteAggregateOnNonSwappedTable()
+    {
+        // MV has GROUP BY — aggregate on non-swapped table columns would get wrong
+        // fan-out because MV collapses rows, so rewrite must be rejected
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b), SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinAggregateOnNonSwappedTableNoGroupByInMv()
+    {
+        // MV has no GROUP BY — aggregate on non-swapped table is fine (no cardinality change)
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinLeftOuterJoinNoGroupByMv()
+    {
+        // LEFT JOIN with no GROUP BY in MV — table swap is safe (raw rows, no cardinality change)
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteLeftJoinMvOnLeftSideWithGroupBy()
+    {
+        // LEFT JOIN with GROUP BY MV on LEFT (preserved) side — MV collapses rows,
+        // changes null-padding behavior → reject
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s LEFT JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinLeftJoinMvOnRightSideWithGroupBy()
+    {
+        // LEFT JOIN with GROUP BY MV on RIGHT (non-preserved) side — safe because
+        // the preserved (left) side keeps all its rows, MV just provides matching data
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s LEFT JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteRightJoinMvOnRightSideWithGroupBy()
+    {
+        // RIGHT JOIN with GROUP BY MV on RIGHT (preserved) side → reject
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s RIGHT JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteFullOuterJoinWithGroupByMv()
+    {
+        // FULL JOIN with GROUP BY MV → reject (both sides preserved)
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s FULL JOIN %s ON %s.a = %s.a GROUP BY %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCrossJoin()
+    {
+        // CROSS JOIN — no ON condition, just column projection
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s CROSS JOIN %s",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s CROSS JOIN %s",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteAggregateFunctionNotInMvMap()
+    {
+        // Query uses MAX(t1.b) but MV only has SUM(b) — MAX not in MV column map, should reject
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinMixedTableArithmetic()
+    {
+        // Arithmetic expression referencing both tables outside aggregate — should pass through
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a + %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a + %s.a FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinOnlyGroupByNoAggregates()
+    {
+        // GROUP BY on both tables but no aggregates at all — simple column rewrite
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSchemaQualifiedTableName()
+    {
+        // Schema-qualified name s1.t1 — DereferenceExpression is nested:
+        // DereferenceExpression(DereferenceExpression(s1, t1), a) — base is not a simple Identifier.
+        // Column refs using schema.table.column won't match the swapped prefix,
+        // so columns won't be rewritten → rewrite should be rejected (column not covered).
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.%s.a, %s.b FROM %s.%s JOIN %s ON %s.%s.a = %s.a",
+                SESSION_SCHEMA, BASE_TABLE_1, BASE_TABLE_2,
+                SESSION_SCHEMA, BASE_TABLE_1, BASE_TABLE_2,
+                SESSION_SCHEMA, BASE_TABLE_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithIsNull()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b IS NULL",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.b IS NULL",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithInPredicate()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithBetween()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a BETWEEN 1 AND 10",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a BETWEEN 1 AND 10",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithCoalesce()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT COALESCE(%s.a, 0), %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT COALESCE(%s.a, 0), %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithNotExpression()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE NOT (%s.b > 5)",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE NOT (%s.b > 5)",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithCaseExpression()
+    {
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT CASE WHEN %s.a > 0 THEN %s.a ELSE 0 END, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT CASE WHEN %s.a > 0 THEN %s.a ELSE 0 END, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinPlainMvWithAggregateOnSwappedTable()
+    {
+        // Plain MV (no GROUP BY) — aggregate on swapped table columns should rewrite
+        // by just substituting column references. No rollup needed.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT SUM(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT SUM(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinPlainMvWithCountOnSwappedTable()
+    {
+        // Plain MV (no GROUP BY) — COUNT on swapped table rewrites by substituting column refs
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT COUNT(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT COUNT(%s.a), %s.b FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.b",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinPlainMvWithMinMaxOnSwappedTable()
+    {
+        // Plain MV (no GROUP BY) — MIN/MAX on swapped table
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT MIN(%s.a), MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT MIN(%s.a), MAX(%s.b) FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinCountStarCorrectWithMvGroupBySupersetOfJoinKey()
+    {
+        // Property test: COUNT(*) → SUM(cnt) is correct in a JOIN IFF the MV's GROUP BY
+        // key is a superset of the JOIN key columns from the swapped table.
+        // areColumnsCovered enforces this implicitly (JOIN key columns must be in MV column
+        // map → must be in MV GROUP BY). This test documents the invariant explicitly.
+
+        // MV GROUP BY (a) — JOIN ON (t1.a = t2.a) — JOIN key {a} ⊆ MV GROUP BY {a} → correct
+        String originalViewSql = format("SELECT a, COUNT(*) AS cnt, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Negative: JOIN ON (t1.a = t2.a AND t1.c = t2.b) — JOIN key {a, c} but MV GROUP BY {a}
+        // c is not in MV column map → areColumnsCovered rejects → COUNT rollup never happens
+        baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a AND %s.c = %s.b GROUP BY %s.a, %s.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinParenthesizedJoinTraversal()
+    {
+        // Parenthesized JOIN: FROM (t1 JOIN t2 ON ...) JOIN t3 ON ...
+        // The parser produces nested Join nodes — collectJoinLeavesRecursive should
+        // descend into both sides and find all three leaves.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.a FROM (%s JOIN %s ON %s.a = %s.a) JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2, BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.a FROM (%s JOIN %s ON %s.a = %s.a) JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2, VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSubqueryInFromTreatedAsOpaque()
+    {
+        // FROM (SELECT * FROM t1) sub JOIN t2 — the subquery wraps t1 in a TableSubquery.
+        // collectJoinLeavesRecursive should NOT descend into the subquery.
+        // Only t2 is a leaf — and if MV is on t1, it should NOT be rewritten via JOIN path.
+        // (The subquery's inner query may be rewritten by the single-table path separately.)
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT sub.a, %s.a FROM (SELECT a, b FROM %s) sub JOIN %s ON sub.a = %s.a",
+                BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT sub.a, %s.a FROM (SELECT a, b FROM %s) sub JOIN %s ON sub.a = %s.a",
+                VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteMvWithWhereClause()
+    {
+        // MV has WHERE clause — filter containment not implemented for JOINs, reject
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s WHERE c > 0 GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinThreeWayMvOnMiddleTable()
+    {
+        // Three-way JOIN: FROM t1 JOIN t2 JOIN t1 — MV is on t2 (the middle table).
+        // collectJoinLeaves must find t2 regardless of position.
+        String originalViewSql = format("SELECT a, b FROM %s", BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b, %s.a FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b, %s.a FROM %s JOIN %s ON %s.a = %s.a JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, VIEW_1, BASE_TABLE_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1, BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
+    }
+
+    @Test
+    public void testJoinDuplicateColumnNamesAcrossTables()
+    {
+        // Both t1 and t2 have column 'a'. After MV swap on t1, t1.a → mv.a but t2.a
+        // must remain unchanged. Tests that column resolution doesn't confuse them.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a",
+                VIEW_1, BASE_TABLE_2, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinDuplicateColumnNamesWithGroupByMv()
+    {
+        // Both tables have 'a'. MV GROUP BY (a) with SUM(b). Query groups by both a's.
+        // After swap, t1.a → mv.a (dimension), t2.a stays. SUM(t1.b) → SUM(mv.sum_b).
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_2, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, BASE_TABLE_2, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinUnionAllInFromTreatedAsOpaque()
+    {
+        // FROM t1 JOIN (SELECT ... UNION ALL SELECT ...) sub — the UNION is wrapped
+        // in a TableSubquery, which collectJoinLeaves treats as opaque.
+        // MV on t1 should NOT be found via the JOIN path for the UNION side.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, sub.a FROM %s JOIN (SELECT a FROM %s UNION ALL SELECT a FROM %s) sub ON %s.a = sub.a",
+                BASE_TABLE_1,
+                BASE_TABLE_1,
+                BASE_TABLE_2, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, sub.a FROM %s JOIN (SELECT a FROM %s UNION ALL SELECT a FROM %s) sub ON %s.a = sub.a",
+                VIEW_1,
+                VIEW_1,
+                BASE_TABLE_2, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithWhereSubqueryDoesNotInterfere()
+    {
+        // WHERE with IN subquery — the subquery should not interfere with JOIN rewriting.
+        // The rewriter only touches JOIN leaves, not subqueries in WHERE.
+        String originalViewSql = format("SELECT a, b, c FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, %s.b FROM %s JOIN %s ON %s.a = %s.a WHERE %s.a IN (1, 2, 3)",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     private void assertOptimizedQuery(String baseQuerySql, String expectedViewSql, String originalViewSql, String baseTableName, String originalViewName)
