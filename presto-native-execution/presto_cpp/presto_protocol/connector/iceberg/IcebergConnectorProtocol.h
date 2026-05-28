@@ -28,7 +28,7 @@ using IcebergConnectorProtocol = ConnectorProtocolTemplate<
     NotImplemented,
     hive::HiveTransactionHandle,
     IcebergDistributedProcedureHandle,
-    NotImplemented,
+    IcebergDeleteTableHandle,
     NotImplemented>;
 
 } // namespace facebook::presto::protocol::iceberg
