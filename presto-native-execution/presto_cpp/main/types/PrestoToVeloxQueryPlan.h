@@ -175,6 +175,36 @@ class VeloxQueryPlanConverterBase {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
+  /// Layer 3b: dispatch the per-row INSERT/DELETE fan-out stage of an
+  /// UPDATE/MERGE plan to the custom Velox operator wrapping
+  /// `velox::connector::hive::iceberg::IcebergMergeProcessor` (Layer 1+3c).
+  velox::core::PlanNodePtr toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::MergeProcessorNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  /// Layer 3b stub: the commit-side `MergeWriterNode` (target write +
+  /// snapshot commit). Currently throws VELOX_UNSUPPORTED — wiring this
+  /// branch requires an `IcebergPrestoToVeloxConnector::
+  /// toVeloxInsertTableHandle(const protocol::MergeHandle*, ...)` overload
+  /// that returns an `IcebergInsertTableHandle` with `WriteKind::kMerge`,
+  /// so the Velox `TableWriter` operator can pick up `IcebergMergeSink`
+  /// (Layer 2) via `IcebergConnector::createDataSink`.
+  velox::core::PlanNodePtr toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::MergeWriterNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
+  /// Layer 3b stub: the legacy `UpdateNode` path (older than MERGE). Throws
+  /// VELOX_UNSUPPORTED — the modern path is for the coordinator to rewrite
+  /// UPDATE statements into MERGE plans (MergeWriterNode + MergeProcessorNode);
+  /// the standalone UpdateNode would need either its own Velox operator or
+  /// a SqlPlannerContext rewrite.
+  velox::core::PlanNodePtr toVeloxQueryPlan(
+      const std::shared_ptr<const protocol::UpdateNode>& node,
+      const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+      const protocol::TaskId& taskId);
+
   std::shared_ptr<const velox::core::UnnestNode> toVeloxQueryPlan(
       const std::shared_ptr<const protocol::UnnestNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
