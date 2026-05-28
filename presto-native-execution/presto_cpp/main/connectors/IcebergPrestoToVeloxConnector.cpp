@@ -455,7 +455,7 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           icebergDeleteTableHandle->partitionSpec, typeParser),
       std::optional(
           toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
-      /*serdeParameters=*/{},
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
       writeKind);
 }
 
