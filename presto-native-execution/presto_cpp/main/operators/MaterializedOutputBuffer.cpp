@@ -15,6 +15,7 @@
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 
 #include <fmt/format.h>
+#include <folly/ExceptionString.h>
 #include <glog/logging.h>
 #include <algorithm>
 #include <cstring>
@@ -23,6 +24,20 @@
 #include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::operators {
+
+std::string MaterializedOutputBuffer::stateName(State state) {
+  switch (state) {
+    case State::kActive:
+      return "kActive";
+    case State::kDraining:
+      return "kDraining";
+    case State::kClosed:
+      return "kClosed";
+    case State::kAborted:
+      return "kAborted";
+  }
+  return fmt::format("Unknown({})", static_cast<int>(state));
+}
 
 // Stored alongside pool-allocated IOBufs so the free callback can return
 // memory to the correct pool with the correct size.
@@ -35,6 +50,7 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
     int32_t partition,
     std::unique_ptr<folly::IOBuf> rowGroup) {
   std::lock_guard<std::mutex> lock(mutex_);
+  VELOX_CHECK(!closed_, "enqueue called on closed partition");
   auto dataSize = static_cast<int64_t>(rowGroup->computeChainDataLength());
   rowGroups_.push_back(std::move(rowGroup));
   bufferedBytes_ += dataSize;
@@ -98,7 +114,7 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
 }
 
 MaterializedOutputBuffer::~MaterializedOutputBuffer() {
-  if (!finished_.load()) {
+  if (state_ != State::kClosed && state_ != State::kAborted) {
     LOG(WARNING) << "MaterializedOutputBuffer destroyed without calling "
                  << "noMoreData() or abort(). Aborting writer.";
     try {
@@ -132,14 +148,10 @@ void MaterializedOutputBuffer::enqueue(
     std::unique_ptr<folly::IOBuf> rowGroup) {
   VELOX_CHECK_GE(partition, 0);
   VELOX_CHECK_LT(partition, numPartitions_);
-  // During error teardown, abort() may have been called while other
-  // drivers still flush remaining data. Silently drop.
-  if (aborted_.load()) {
+  if (state_ == State::kAborted) {
     return;
   }
-  VELOX_CHECK(
-      !finished_.load(),
-      "enqueue called after finishAndClose when pool is not aborted");
+  VELOX_CHECK_EQ(state_, State::kActive, "enqueue called after noMoreData()");
 
   auto rowGroupBytes = static_cast<int64_t>(rowGroup->computeChainDataLength());
   auto currentBytes = (bufferedBytes_ += rowGroupBytes);
@@ -197,7 +209,9 @@ std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::coalesceRowGroups(
   return coalesced;
 }
 
-int64_t MaterializedOutputBuffer::drainPartition(int32_t partition) {
+int64_t MaterializedOutputBuffer::drainPartition(
+    int32_t partition,
+    bool close) {
   VELOX_CHECK_GE(partition, 0);
   VELOX_CHECK_LT(partition, numPartitions_);
 
@@ -208,6 +222,9 @@ int64_t MaterializedOutputBuffer::drainPartition(int32_t partition) {
     toDrain.swap(partitionBuffers_[partition]->rowGroups_);
     drainedBytes = partitionBuffers_[partition]->bufferedBytes_;
     partitionBuffers_[partition]->bufferedBytes_ = 0;
+    if (close) {
+      partitionBuffers_[partition]->closed_ = true;
+    }
   }
 
   if (!toDrain.empty()) {
@@ -221,76 +238,32 @@ int64_t MaterializedOutputBuffer::drainPartition(int32_t partition) {
   return drainedBytes;
 }
 
-uint64_t MaterializedOutputBuffer::drainAll() {
+uint64_t MaterializedOutputBuffer::close() {
   uint64_t totalDrained = 0;
   for (int32_t i = 0; i < numPartitions_; ++i) {
-    totalDrained += drainPartition(i);
+    totalDrained += drainPartition(i, /*close=*/true);
   }
   return totalDrained;
 }
 
 void MaterializedOutputBuffer::noMoreData() {
-  finishAndClose();
-}
-
-void MaterializedOutputBuffer::abort() {
-  aborted_.store(true);
-  if (finished_.exchange(true)) {
-    return;
-  }
-
-  for (int32_t i = 0; i < numPartitions_; ++i) {
-    std::lock_guard<std::mutex> lock(partitionBuffers_[i]->mutex_);
-    partitionBuffers_[i]->rowGroups_.clear();
-    bufferedBytes_ -= partitionBuffers_[i]->bufferedBytes_;
-    partitionBuffers_[i]->bufferedBytes_ = 0;
-  }
-
-  LOG(INFO)
-      << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
-  writer_->noMoreData(/*success=*/false);
-}
-
-void MaterializedOutputBuffer::setNumDrivers(uint32_t numDrivers) {
-  std::lock_guard<std::mutex> lock(stateMutex_);
-  // Only the first call takes effect — multiple drivers may call this.
-  if (numDrivers_ == 0) {
-    numDrivers_ = numDrivers;
-  }
-}
-
-bool MaterializedOutputBuffer::noMoreDrivers() {
-  bool isLast = false;
-  uint32_t finished = 0;
-  uint32_t total = 0;
-  {
-    std::lock_guard<std::mutex> lock(stateMutex_);
-    ++numFinishedDrivers_;
-    finished = numFinishedDrivers_;
-    total = numDrivers_;
-    isLast = total > 0 && finished >= total;
-  }
-  LOG(INFO) << fmt::format(
-      "MaterializedOutputBuffer noMoreDrivers: {}/{} finished, isLast={}",
-      finished,
-      total,
-      isLast);
-  if (isLast) {
-    finishAndClose();
-  }
-  return isLast;
-}
-
-void MaterializedOutputBuffer::finishAndClose() {
-  if (finished_.exchange(true)) {
+  auto expected = State::kActive;
+  if (!state_.compare_exchange_strong(expected, State::kDraining)) {
     return;
   }
   LOG(INFO) << fmt::format(
-      "MaterializedOutputBuffer finishAndClose: draining, bufferedBytes={}MB",
+      "MaterializedOutputBuffer noMoreData: draining, bufferedBytes={}MB",
       bufferedBytes_ >> 20);
-  drainAll();
+  close();
   LOG(INFO) << "MaterializedOutputBuffer: calling writer noMoreData(true)";
-  writer_->noMoreData(/*success=*/true);
+  try {
+    writer_->noMoreData(/*success=*/true);
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "MaterializedOutputBuffer: writer noMoreData(true) failed: "
+               << folly::exceptionStr(e);
+    state_ = State::kAborted;
+    throw;
+  }
   int64_t totalCollects = 0;
   for (int32_t i = 0; i < numPartitions_; ++i) {
     totalCollects += collectCountPerPartition_[i];
@@ -306,6 +279,26 @@ void MaterializedOutputBuffer::finishAndClose() {
       "collectCalls={}, peakBufferedBytes={}MB",
       totalCollects,
       peakBufferedBytes_ >> 20);
+  state_ = State::kClosed;
+}
+
+void MaterializedOutputBuffer::abort() {
+  auto expected = State::kActive;
+  if (!state_.compare_exchange_strong(expected, State::kAborted)) {
+    return;
+  }
+
+  // Free partition buffers.
+  for (int32_t i = 0; i < numPartitions_; ++i) {
+    std::lock_guard<std::mutex> lock(partitionBuffers_[i]->mutex_);
+    partitionBuffers_[i]->rowGroups_.clear();
+    bufferedBytes_ -= partitionBuffers_[i]->bufferedBytes_;
+    partitionBuffers_[i]->bufferedBytes_ = 0;
+  }
+
+  LOG(INFO)
+      << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
+  writer_->noMoreData(/*success=*/false);
 }
 
 folly::F14FastMap<std::string, velox::RuntimeMetric>

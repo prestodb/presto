@@ -610,6 +610,79 @@ TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
   cleanupDirectory(tempDir_->getPath());
 }
 
+TEST_F(MaterializedExchangeTest, enqueueAfterNoMoreDataThrows) {
+  const int32_t numPartitions = 2;
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "enqueueAfterClose", 64L << 20, memory::MemoryReclaimer::create());
+
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "test.0.0.0.0",
+      /*maxBufferedBytes=*/1L << 20,
+      rootPool.get());
+
+  auto iobuf = buffer->allocateTrackedIOBuf(1024);
+  std::memset(iobuf->writableData(), 'x', 1024);
+  iobuf->append(1024);
+  buffer->enqueue(0, std::move(iobuf));
+
+  buffer->noMoreData();
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kClosed);
+
+  auto iobuf2 = folly::IOBuf::create(64);
+  std::memset(iobuf2->writableData(), 'y', 64);
+  iobuf2->append(64);
+  VELOX_ASSERT_THROW(
+      buffer->enqueue(0, std::move(iobuf2)),
+      "enqueue called after noMoreData()");
+
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, abortFromActiveState) {
+  const int32_t numPartitions = 2;
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortActive", 64L << 20, memory::MemoryReclaimer::create());
+
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "test.0.0.0.0",
+      /*maxBufferedBytes=*/1L << 20,
+      rootPool.get());
+
+  auto iobuf = buffer->allocateTrackedIOBuf(1024);
+  std::memset(iobuf->writableData(), 'x', 1024);
+  iobuf->append(1024);
+  buffer->enqueue(0, std::move(iobuf));
+  EXPECT_GT(buffer->bufferedBytes(), 0);
+
+  buffer->abort();
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
+
+  // Second abort is a no-op (CAS fails, already kAborted).
+  buffer->abort();
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+
+  // Enqueue after abort is silently dropped (not a crash).
+  auto iobuf2 = folly::IOBuf::create(64);
+  std::memset(iobuf2->writableData(), 'y', 64);
+  iobuf2->append(64);
+  buffer->enqueue(0, std::move(iobuf2));
+
+  cleanupDirectory(shuffleDir->getPath());
+}
+
 } // namespace facebook::presto::operators::test
 
 int main(int argc, char** argv) {

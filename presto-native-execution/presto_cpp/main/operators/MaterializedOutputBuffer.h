@@ -20,6 +20,7 @@
 
 #include <memory>
 
+#include <fmt/format.h>
 #include <folly/Synchronized.h>
 #include <folly/io/IOBuf.h>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
@@ -40,8 +41,22 @@ namespace facebook::presto::operators {
 /// Thread-safe shared buffer between MaterializedOutput operators and a
 /// ShuffleWriter. Multiple MaterializedOutput drivers enqueue concurrently;
 /// the buffer drains to the writer when per-partition thresholds are hit.
+///
+/// Lifecycle state machine:
+///   kActive -> kDraining -> kClosed  (noMoreData: success)
+///   kActive -> kDraining -> kAborted (noMoreData: writer failure)
+///   kActive -> kAborted              (abort: error teardown)
 class MaterializedOutputBuffer {
  public:
+  enum class State : uint8_t {
+    kActive,
+    kDraining,
+    kClosed,
+    kAborted,
+  };
+
+  static std::string stateName(State state);
+
   static constexpr int64_t kDefaultDrainThreshold = 130L * 1024;
 
   // Stat name constants.
@@ -76,15 +91,16 @@ class MaterializedOutputBuffer {
   /// Enqueue a serialized RowGroup for a partition.
   void enqueue(int32_t partition, std::unique_ptr<folly::IOBuf> rowGroup);
 
-  /// Drain all partitions.
-  uint64_t drainAll();
-
   /// Signal that no more data will be enqueued. Drains remaining data
   /// and calls writer->noMoreData(true).
   void noMoreData();
 
   /// Abort — clears buffers and calls writer->noMoreData(false).
   void abort();
+
+  State state() const {
+    return state_;
+  }
 
   int64_t bufferedBytes() const {
     return bufferedBytes_;
@@ -94,15 +110,6 @@ class MaterializedOutputBuffer {
   int64_t testingCurrentDrainThreshold() const {
     return partitionDrainThreshold_;
   }
-
-  /// Record the number of drivers. Called by MaterializedOutput before
-  /// task start.
-  void setNumDrivers(uint32_t numDrivers);
-
-  /// Called by each driver when it finishes. Returns true if this was the
-  /// last driver (triggered finishAndClose). The caller can use this to
-  /// attach writer stats to its operator.
-  bool noMoreDrivers();
 
   /// Returns combined writer + buffer stats with typed units
   /// (kBytes, kNone). Only meaningful after close.
@@ -147,15 +154,20 @@ class MaterializedOutputBuffer {
     std::deque<std::unique_ptr<folly::IOBuf>> rowGroups_;
     int64_t bufferedBytes_{0};
     int64_t drainThreshold_{0};
+    // Per-partition safety net: set under the partition lock by
+    // drainPartition(close=true). Guards against data loss if enqueue
+    // races past the global state_ check.
+    bool closed_{false};
     ShuffleWriter* writer_{nullptr};
     MaterializedOutputBuffer* buffer_{nullptr};
   };
 
-  // Drain a specific partition — called from drainAll() during finishAndClose.
-  int64_t drainPartition(int32_t partition);
+  /// Drains buffered data for a partition. If close=true, marks the
+  /// partition closed under its lock.
+  int64_t drainPartition(int32_t partition, bool close = false);
 
-  // Drain all remaining data and close the writer. Called exactly once.
-  void finishAndClose();
+  /// Drains all partitions and marks them closed.
+  uint64_t close();
 
   // Coalesce data into a contiguous buffer and send to the ShuffleWriter.
   void flushToWriter(int32_t partition, std::unique_ptr<folly::IOBuf> data);
@@ -176,19 +188,12 @@ class MaterializedOutputBuffer {
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
   const std::shared_ptr<ShuffleWriter> writer_;
 
-  // Lifecycle flags.
-  std::atomic<bool> finished_{false};
-  std::atomic<bool> aborted_{false};
+  std::atomic<State> state_{State::kActive};
 
   // Per-partition buffers. Each PartitionBuffer has its own mutex that
   // serializes enqueue + drain for that partition.
   std::atomic<int64_t> bufferedBytes_{0};
   std::vector<std::unique_ptr<PartitionBuffer>> partitionBuffers_;
-
-  // stateMutex_ guards driver counts.
-  std::mutex stateMutex_;
-  uint32_t numDrivers_{0};
-  uint32_t numFinishedDrivers_{0};
 
   // Stats counters.
   std::atomic<int64_t> totalDrainedBytes_{0};
@@ -199,3 +204,16 @@ class MaterializedOutputBuffer {
 };
 
 } // namespace facebook::presto::operators
+
+template <>
+struct fmt::formatter<
+    facebook::presto::operators::MaterializedOutputBuffer::State>
+    : formatter<std::string> {
+  auto format(
+      facebook::presto::operators::MaterializedOutputBuffer::State state,
+      format_context& ctx) const {
+    return formatter<std::string>::format(
+        facebook::presto::operators::MaterializedOutputBuffer::stateName(state),
+        ctx);
+  }
+};
