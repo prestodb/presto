@@ -28,6 +28,7 @@ jobs:
           filters: |
             codechange:
               - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
   spark-integration:
     strategy:
       fail-fast: false
