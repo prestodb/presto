@@ -1861,3 +1861,26 @@ void from_json(const json& j, IcebergSplit& p) {
       "affinitySchedulingSectionSize");
 }
 } // namespace facebook::presto::protocol::iceberg
+
+// Layer 3b — hand-injected IcebergMergeTableHandle implementation. Mirrors
+// the chevron-generated pattern for IcebergDeleteTableHandle above.
+namespace facebook::presto::protocol::iceberg {
+IcebergMergeTableHandle::IcebergMergeTableHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergMergeTableHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(j, "tableHandle", p.tableHandle, "IcebergMergeTableHandle", "IcebergTableHandle", "tableHandle");
+  to_json_key(j, "insertTableHandle", p.insertTableHandle, "IcebergMergeTableHandle", "IcebergInsertTableHandle", "insertTableHandle");
+  to_json_key(j, "partitionSpecs", p.partitionSpecs, "IcebergMergeTableHandle", "Map<Integer, PrestoIcebergPartitionSpec>", "partitionSpecs");
+}
+
+void from_json(const json& j, IcebergMergeTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(j, "tableHandle", p.tableHandle, "IcebergMergeTableHandle", "IcebergTableHandle", "tableHandle");
+  from_json_key(j, "insertTableHandle", p.insertTableHandle, "IcebergMergeTableHandle", "IcebergInsertTableHandle", "insertTableHandle");
+  from_json_key(j, "partitionSpecs", p.partitionSpecs, "IcebergMergeTableHandle", "Map<Integer, PrestoIcebergPartitionSpec>", "partitionSpecs");
+}
+} // namespace facebook::presto::protocol::iceberg

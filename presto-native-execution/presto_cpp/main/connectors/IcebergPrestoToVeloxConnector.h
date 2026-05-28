@@ -63,6 +63,14 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::DeleteHandle* deleteHandle,
       const TypeParser& typeParser) const final;
 
+  // Layer 3b: build an IcebergInsertTableHandle from the MergeHandle
+  // (unwrapped from MergeTarget) so IcebergConnector::createDataSink can
+  // route to IcebergMergeSink via WriteKind::kMerge.
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::MergeHandle* mergeHandle,
+      const TypeParser& typeParser) const final;
+
  private:
   std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
   toIcebergColumns(

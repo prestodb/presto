@@ -1873,8 +1873,8 @@ public final class SystemSessionProperties
                         "Allow UPDATE / MERGE planning when native execution is enabled. " +
                                 "Requires that the Velox/Prestissimo workers ship the IcebergMergeProcessor / IcebergMergeSink ports " +
                                 "AND that PrestoToVeloxQueryPlan dispatches UpdateNode/MergeWriterNode/MergeProcessorNode. " +
-                                "Default false until those Prestissimo translator + operator pieces are in.",
-                        false,
+                                "Default true now that Layer 3b MergeWriterNode→TableWriteNode wiring is in.",
+                        true,
                         false),
                 booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,

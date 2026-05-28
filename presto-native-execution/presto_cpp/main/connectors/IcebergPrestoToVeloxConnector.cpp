@@ -483,4 +483,42 @@ IcebergPrestoToVeloxConnector::toIcebergColumns(
   return icebergColumns;
 }
 
+// Layer 3b: MergeHandle → IcebergInsertTableHandle (with WriteKind::kMerge).
+// MergeHandle.connectorMergeTableHandle is the IcebergMergeTableHandle which
+// wraps an IcebergInsertTableHandle (the same protocol struct used by plain
+// INSERT). We unwrap it and forward to the IcebergInsertTableHandle build
+// path, then tag the Velox handle with WriteKind::kMerge so
+// IcebergConnector::createDataSink dispatches to IcebergMergeSink (Layer 2).
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::MergeHandle* mergeHandle,
+    const TypeParser& typeParser) const {
+  auto icebergMergeTableHandle = std::dynamic_pointer_cast<
+      protocol::iceberg::IcebergMergeTableHandle>(
+      mergeHandle->connectorMergeTableHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergMergeTableHandle,
+      "Unexpected merge table handle type {}",
+      mergeHandle->connectorMergeTableHandle->_type);
+
+  const auto& innerInsert = icebergMergeTableHandle->insertTableHandle;
+  const auto inputColumns =
+      toIcebergColumns(innerInsert.inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", innerInsert.outputPath),
+          fmt::format("{}/data", innerInsert.outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(innerInsert.fileFormat),
+      toVeloxIcebergPartitionSpec(innerInsert.partitionSpec, typeParser),
+      std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
+      std::unordered_map<std::string, std::string>{},
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kMerge);
+}
+
 } // namespace facebook::presto
