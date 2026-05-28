@@ -1495,13 +1495,10 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "SchemaTableName",
       "materializedViewName");
-  from_json_key(
-      j,
-      "fullRefreshRequired",
-      p.fullRefreshRequired,
-      "IcebergInsertTableHandle",
-      "bool",
-      "fullRefreshRequired");
+  // [apurvak ICEBERG-FIX]: FB-Java POJO does not always serialize
+  // fullRefreshRequired (upstream-only MV-refresh field). Tolerate missing
+  // key by defaulting to false so Iceberg INSERT plans deserialize cleanly.
+  p.fullRefreshRequired = j.value("fullRefreshRequired", false);
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
