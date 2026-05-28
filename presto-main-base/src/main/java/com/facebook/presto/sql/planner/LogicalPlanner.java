@@ -115,6 +115,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -984,6 +985,13 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
+        if (isNativeExecutionEnabled(session)) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "UPDATE is not supported on native (Prestissimo) workers: Velox has no UPDATE operator. " +
+                            "Run this query on a Java cluster, or use DELETE + INSERT (e.g. on Iceberg V3) as a workaround.");
+        }
+
         SqlPlannerContext context = new SqlPlannerContext(0);
         UpdateNode updateNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
                 .plan(node);
