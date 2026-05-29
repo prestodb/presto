@@ -30,6 +30,9 @@ public class RuntimeMetricName
     public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT = "optimizedWithMaterializedViewSubqueryCount";
     public static final String MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT = "manyPartitionsMissingInMaterializedViewCount";
     public static final String SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT = "skipReadingFromMaterializedViewCount";
+    public static final String MATERIALIZED_VIEW_USED_COUNT = "materializedViewUsedCount";
+    public static final String MATERIALIZED_VIEW_STATUS = "materializedViewStatus";
+    public static final String MATERIALIZED_VIEW_STALE_PARTITIONS_COUNT = "materializedViewStalePartitionsCount";
     public static final String FRAGMENT_RESULT_CACHE_HIT = "fragmentResultCacheHitCount";
     public static final String FRAGMENT_RESULT_CACHE_MISS = "fragmentResultCacheMissCount";
     public static final String GET_VIEW_TIME_NANOS = "getViewTimeNanos";
