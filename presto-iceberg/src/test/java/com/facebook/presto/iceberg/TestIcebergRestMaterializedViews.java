@@ -76,6 +76,7 @@ public class TestIcebergRestMaterializedViews
         catalogProps.put("uri", serverUri);
         catalogProps.put("warehouse", warehouseLocation.getAbsolutePath());
         catalog.initialize("test_catalog", catalogProps);
+        getQueryRunner().execute("CREATE SCHEMA IF NOT EXISTS test_schema");
     }
 
     @AfterClass(alwaysRun = true)

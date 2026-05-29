@@ -525,13 +525,14 @@ public class TestCreateMaterializedViewTask
                 @Override
                 public boolean catalogExists(String catalogName)
                 {
-                    return false;
+                    return CATALOG_NAME.equalsIgnoreCase(catalogName);
                 }
 
                 @Override
                 public boolean schemaExists(CatalogSchemaName schemaName)
                 {
-                    return false;
+                    return CATALOG_NAME.equalsIgnoreCase(schemaName.getCatalogName()) &&
+                            SCHEMA_NAME.equalsIgnoreCase(schemaName.getSchemaName());
                 }
 
                 @Override
