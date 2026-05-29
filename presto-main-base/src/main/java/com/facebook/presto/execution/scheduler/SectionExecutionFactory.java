@@ -87,6 +87,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
@@ -292,19 +293,48 @@ public class SectionExecutionFactory
         int maxTasksPerStage = getMaxTasksPerStage(session);
         Optional<Predicate<Node>> nodePredicate = getNodePoolSelectionPredicate(plan);
         if (partitioningHandle.equals(SOURCE_DISTRIBUTION)) {
-            // nodes are selected dynamically based on the constraints of the splits and the system load
-            Map.Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
-            PlanNodeId planNodeId = entry.getKey();
-            SplitSource splitSource = entry.getValue();
-            ConnectorId connectorId = splitSource.getConnectorId();
-            if (isInternalSystemConnector(connectorId)) {
-                connectorId = null;
-            }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
-            SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
+            // Single split source case: Use a single source-partitioned scheduler (SourcePartitionedScheduler).
+            if (splitSources.size() == 1) {
+                // Nodes are selected dynamically based on the constraints of the splits and the system load
+                Map.Entry<PlanNodeId, SplitSource> entry = getOnlyElement(splitSources.entrySet());
+                PlanNodeId planNodeId = entry.getKey();
+                SplitSource splitSource = entry.getValue();
+                ConnectorId connectorId = splitSource.getConnectorId();
+                if (isInternalSystemConnector(connectorId)) {
+                    connectorId = null;
+                }
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
+                SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
 
-            checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
-            return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
+                checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
+
+                // Return a SourcePartitionedScheduler for the single source.
+                return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize, cteMaterializationTracker);
+            }
+
+            // Multiple split sources case: Use MultiSourcePartitionedScheduler to coordinate across sources.
+            // Extract all non-internal ConnectorIds from the split sources.
+            Set<ConnectorId> connectorIds = splitSources.values()
+                    .stream()
+                    .map(SplitSource::getConnectorId)
+                    .filter(x -> !isInternalSystemConnector(x))
+                    .collect(toImmutableSet());
+
+            // Validate that all table scans use the same catalog.
+            checkState(connectorIds.size() <= 1, "table scans that are within one stage should read from same catalog");
+
+            // If all connectors are internal system connectors, connectorIds will be empty after filtering.
+            ConnectorId connectorId = connectorIds.isEmpty() ? null : connectorIds.iterator().next();
+
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage, nodePredicate);
+
+            // Return MultiSourcePartitionedScheduler to coordinate multiple split sources while ensuring they are from the same catalog.
+            return new MultiSourcePartitionedScheduler(
+                    stageExecution,
+                    splitSources,
+                    new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks),
+                    splitBatchSize,
+                    plan.getFragment().getStageExecutionDescriptor());
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             Supplier<Collection<TaskStatus>> sourceTasksProvider = () -> childStageExecutions.stream()
