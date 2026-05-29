@@ -7222,7 +7222,7 @@ public class TestHiveIntegrationSmokeTest
 
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
-        String table = "test_textfile_custom_delim";
+        String table = "test_textfile_custom_delim_read";
         String path = new Path(tempDir.toURI().toASCIIString()).toString();
 
         String createTableWithCustomSerdeFormat =
@@ -7289,7 +7289,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String catalog = getSession().getCatalog().get();
         String schema = getSession().getSchema().get();
-        String table = "test_textfile_custom_delim";
+        String table = "test_textfile_custom_delim_write";
 
         String createTableWithCustomSerdeFormat =
                 "CREATE TABLE %s.%s.%s (\n" +
