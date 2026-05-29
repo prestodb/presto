@@ -30,22 +30,19 @@
 
 namespace facebook::presto::operators {
 
-/// Shared buffer between MaterializedOutput operators and a ShuffleWriter.
-///
-/// Accepts serialized RowGroups per partition from multiple drivers, buffers
-/// them, and drains to the ShuffleWriter when the per-partition threshold is
-/// hit.
-///
-/// Memory for buffered RowGroups is tracked through bufferPool_ (a system
-/// pool visible for accounting). The writer uses a separate system pool.
 /// Thread-safe shared buffer between MaterializedOutput operators and a
 /// ShuffleWriter. Multiple MaterializedOutput drivers enqueue concurrently;
 /// the buffer drains to the writer when per-partition thresholds are hit.
+///
+/// Memory pressure is handled by the Velox memory arbitrator via the
+/// nested Reclaimer class, not cooperative backpressure.
 ///
 /// Lifecycle state machine:
 ///   kActive -> kDraining -> kClosed  (noMoreData: success)
 ///   kActive -> kDraining -> kAborted (noMoreData: writer failure)
 ///   kActive -> kAborted              (abort: error teardown)
+/// Reclaim Phase 1 (flush partitions) runs only in kActive. Phase 2
+/// (wait for writer network drain) also runs in kClosed.
 class MaterializedOutputBuffer {
  public:
   enum class State : uint8_t {
@@ -59,9 +56,12 @@ class MaterializedOutputBuffer {
 
   static constexpr int64_t kDefaultDrainThreshold = 130L * 1024;
 
+  /// Default fraction of the per-partition drain threshold used during reclaim.
+  static constexpr double kDefaultReclaimDrainThresholdRatio = 0.67;
+
   // Stat name constants.
-  static constexpr std::string_view kTotalDrainedBytes =
-      "materializedOutputBuffer.totalDrainedBytes";
+  static constexpr std::string_view kDrainedBytes =
+      "materializedOutputBuffer.drainedBytes";
   static constexpr std::string_view kDrainCount =
       "materializedOutputBuffer.drainCount";
   static constexpr std::string_view kCurrentDrainThreshold =
@@ -74,6 +74,66 @@ class MaterializedOutputBuffer {
       "materializedOutputBuffer.totalCollectCalls";
   static constexpr std::string_view kPeakBufferedBytes =
       "materializedOutputBuffer.peakBufferedBytes";
+  static constexpr std::string_view kReclaimCount =
+      "materializedOutputBuffer.reclaimCount";
+  static constexpr std::string_view kReclaimedBytes =
+      "materializedOutputBuffer.reclaimedBytes";
+
+  /// Memory reclaimer for the exchange writer pool. Nested inside
+  /// MaterializedOutputBuffer so the raw back-pointer is always valid — the
+  /// pool owns the reclaimer, and MaterializedOutputBuffer owns the pool.
+  ///
+  /// Two-phase reclaim:
+  /// (1) flush MaterializedOutputBuffer partition buffers to the writer;
+  /// (2) wait for writer background threads to drain packages to network.
+  ///
+  /// Priority kHighReclaimPriority ensures this pool is reclaimed before
+  /// operator pools (priority 0+).
+  class Reclaimer : public velox::exec::MemoryReclaimer {
+   public:
+    static constexpr int32_t kHighReclaimPriority = -1;
+
+    explicit Reclaimer(MaterializedOutputBuffer* partitionBuffer);
+
+    bool reclaimableBytes(
+        const velox::memory::MemoryPool& pool,
+        uint64_t& reclaimableBytes) const override;
+
+    uint64_t reclaim(
+        velox::memory::MemoryPool* pool,
+        uint64_t targetBytes,
+        uint64_t maxWaitMs,
+        Stats& stats) override;
+
+   private:
+    /// Returns true if the pool has reclaimable bytes and the buffer
+    /// is in a state that supports reclaim (kActive or kDraining).
+    bool canReclaim(const velox::memory::MemoryPool& pool, uint64_t targetBytes)
+        const;
+
+    /// Returns true if partition flush should run: kActive state and
+    /// bufferedBytes > 0. During kDraining, noMoreData() is already
+    /// draining partitions so we skip to waiting for writer drain.
+    bool canReclaimFromPartitionBuffers() const;
+
+    /// Flush partition buffers to the writer. Calls tryDrainPartitions()
+    /// which sorts partitions largest-first and flushes each above
+    /// reclaimDrainThresholdBytes via try_lock.
+    void tryReclaimPartitionBuffers(velox::memory::MemoryPool* pool);
+
+    /// Wait for writer background threads to drain packages to network.
+    /// Polls pool->usedBytes() every 10ms until the pool reaches
+    /// targetUsedBytes or the deadline expires.
+    void waitForWriterDrain(
+        velox::memory::MemoryPool* pool,
+        uint64_t targetUsedBytes,
+        std::chrono::steady_clock::time_point deadline);
+
+    /// Update arbitrator stats and buffer reclaim counters.
+    void recordStats(uint64_t freedBytes, Stats& stats);
+
+    MaterializedOutputBuffer* const partitionBuffer_;
+  };
 
   /// Creates its own leaf pool under 'parentPool' and the writer from
   /// the factory.
@@ -82,14 +142,22 @@ class MaterializedOutputBuffer {
       const std::string& shuffleWriterInfo,
       ShuffleInterfaceFactory* shuffleWriterFactory,
       const std::string& taskId,
-      int64_t maxBufferedBytes,
-      velox::memory::MemoryPool* pool,
-      int64_t partitionDrainThreshold = 0);
+      velox::memory::MemoryPool* pool);
 
   ~MaterializedOutputBuffer();
 
   /// Enqueue a serialized RowGroup for a partition.
   void enqueue(int32_t partition, std::unique_ptr<folly::IOBuf> rowGroup);
+
+  /// Best-effort drain for reclaim. Uses try_lock — skips contested
+  /// partitions to avoid deadlock with enqueue() -> collect() ->
+  /// arbitration. Partitions below reclaimDrainThresholdBytes() are skipped.
+  uint64_t tryDrainPartitions();
+
+  /// Minimum partition bytes worth flushing during reclaim.
+  int64_t reclaimDrainThresholdBytes() const {
+    return reclaimDrainThresholdBytes_;
+  }
 
   /// Signal that no more data will be enqueued. Drains remaining data
   /// and calls writer->noMoreData(true).
@@ -152,7 +220,7 @@ class MaterializedOutputBuffer {
 
     mutable std::mutex mutex_;
     std::deque<std::unique_ptr<folly::IOBuf>> rowGroups_;
-    int64_t bufferedBytes_{0};
+    std::atomic_int64_t bufferedBytes_{0};
     int64_t drainThreshold_{0};
     // Per-partition safety net: set under the partition lock by
     // drainPartition(close=true). Guards against data loss if enqueue
@@ -162,12 +230,19 @@ class MaterializedOutputBuffer {
     MaterializedOutputBuffer* buffer_{nullptr};
   };
 
-  /// Drains buffered data for a partition. If close=true, marks the
-  /// partition closed under its lock.
-  int64_t drainPartition(int32_t partition, bool close = false);
+  /// Initialize partition buffers and validate invariants.
+  void initPartitionBuffers(int32_t numPartitions);
+
+  /// Drain buffered data for a single partition. When force=false (default),
+  /// uses try_lock and returns 0 if the partition mutex is contested. When
+  /// force=true, uses blocking lock and marks the partition closed.
+  int64_t drainPartition(int32_t partition, bool force = false);
 
   /// Drains all partitions and marks them closed.
   uint64_t close();
+
+  /// Update drain stats and subtract from buffered bytes counter.
+  void updateDrainStats(int64_t drainedBytes);
 
   // Coalesce data into a contiguous buffer and send to the ShuffleWriter.
   void flushToWriter(int32_t partition, std::unique_ptr<folly::IOBuf> data);
@@ -183,6 +258,7 @@ class MaterializedOutputBuffer {
   const int32_t numPartitions_;
   const int64_t maxBufferedBytes_;
   const int64_t partitionDrainThreshold_;
+  const int64_t reclaimDrainThresholdBytes_;
 
   // Pool created first so the writer can allocate from it.
   const std::shared_ptr<velox::memory::MemoryPool> pool_;
@@ -192,14 +268,16 @@ class MaterializedOutputBuffer {
 
   // Per-partition buffers. Each PartitionBuffer has its own mutex that
   // serializes enqueue + drain for that partition.
-  std::atomic<int64_t> bufferedBytes_{0};
+  std::atomic_int64_t bufferedBytes_{0};
   std::vector<std::unique_ptr<PartitionBuffer>> partitionBuffers_;
 
   // Stats counters.
-  std::atomic<int64_t> totalDrainedBytes_{0};
-  std::atomic<int64_t> drainCount_{0};
-  std::atomic<int64_t> peakBufferedBytes_{0};
-  std::atomic<int64_t> lastLoggedDrainedGB_{0};
+  std::atomic_int64_t drainedBytes_{0};
+  std::atomic_int64_t drainCount_{0};
+  std::atomic_int64_t peakBufferedBytes_{0};
+  std::atomic_int64_t reclaimCount_{0};
+  std::atomic_int64_t reclaimedBytes_{0};
+  std::atomic_int64_t lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;
 };
 

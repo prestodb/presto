@@ -39,7 +39,6 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/TraceUtil.h"
 // RPC plan nodes for single-operator async RPC execution
 #include <folly/json.h>
@@ -2645,19 +2644,12 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         shuffleFactory,
         "ShuffleInterface factory '{}' not registered",
         shuffleName_);
-    const auto maxBufferedBytes =
-        SystemConfig::instance()->exchangeMaterializationOutputBufferMaxBytes();
-    const auto drainThreshold =
-        SystemConfig::instance()
-            ->exchangeMaterializationOutputBufferPerPartitionMaxBytes();
     auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
         partitionedOutputNode->numPartitions(),
         *serializedShuffleWriteInfo_,
         shuffleFactory,
         taskId,
-        maxBufferedBytes,
-        queryCtx_->pool(),
-        drainThreshold);
+        queryCtx_->pool());
 
     auto materializedOutputNode =
         std::make_shared<operators::MaterializedOutputNode>(

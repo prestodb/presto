@@ -693,6 +693,17 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationOutputBufferPerPartitionMaxBytes{
           "exchange.materialization.output-buffer.per-partition-max-bytes"};
 
+  /// Fraction of the per-partition drain threshold used during memory reclaim.
+  /// The reclaim drain threshold is generally lower than the regular drain
+  /// threshold, but high enough that draining actually reduces memory. Without
+  /// this lower bound, reclaim would flush small partition buffers that don't
+  /// produce compressible packages — low ROI flushes that move data to the
+  /// writer without freeing meaningful memory.
+  /// Default: 0.67.
+  static constexpr std::string_view
+      kExchangeMaterializationReclaimDrainThresholdRatio{
+          "exchange.materialization.reclaim-drain-threshold-ratio"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1159,6 +1170,8 @@ class SystemConfig : public ConfigBase {
   int64_t exchangeMaterializationOutputBufferMaxBytes() const;
 
   int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
+
+  double exchangeMaterializationReclaimDrainThresholdRatio() const;
 
   bool enableSerializedPageChecksum() const;
 

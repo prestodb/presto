@@ -16,6 +16,8 @@
 
 #include <boost/range/algorithm/find_if.hpp>
 
+#include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
@@ -218,13 +220,11 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
     auto dataType = asRowType(data[0]->type());
     auto writeInfoStr =
         localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
-    constexpr size_t kMaxBufferedBytes = 1 << 20; // 1MB
     auto buffer = std::make_shared<MaterializedOutputBuffer>(
         numPartitions,
         writeInfoStr,
         ShuffleInterfaceFactory::factory(shuffleName_),
         "test.0.0.0.0",
-        kMaxBufferedBytes,
         rootPool_.get());
 
     // Build partition key expressions on column 0.
@@ -430,14 +430,21 @@ TEST_F(MaterializedExchangeTest, bufferMemoryTracking) {
   auto shuffleDir = exec::test::TempDirectoryPath::create();
   auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
 
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      "51200");
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(100L * 1024 * 1024));
   auto buffer = std::make_shared<MaterializedOutputBuffer>(
       numPartitions,
       writeInfo,
       ShuffleInterfaceFactory::factory(shuffleName_),
       "memtest.0.0.0.0",
-      /*maxBufferedBytes=*/100L * 1024 * 1024,
-      rootPool.get(),
-      /*partitionDrainThreshold=*/50L * 1024);
+      rootPool.get());
 
   // Enqueue 10KB per partition across many rounds. Pool has 2MB, drain
   // threshold is 50KB so partitions won't drain until 50KB accumulated.
@@ -572,13 +579,11 @@ TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
   auto* realFactory = ShuffleInterfaceFactory::factory(shuffleName_);
   FailingCloseShuffleFactory failingFactory(realFactory);
 
-  constexpr size_t kMaxBufferedBytes = 1 << 20;
   auto buffer = std::make_shared<MaterializedOutputBuffer>(
       numPartitions,
       writeInfoStr,
       &failingFactory,
       "failtest.0.0.0.0",
-      kMaxBufferedBytes,
       rootPool_.get());
 
   std::vector<core::TypedExprPtr> keys{
@@ -623,7 +628,6 @@ TEST_F(MaterializedExchangeTest, enqueueAfterNoMoreDataThrows) {
       writeInfo,
       ShuffleInterfaceFactory::factory(shuffleName_),
       "test.0.0.0.0",
-      /*maxBufferedBytes=*/1L << 20,
       rootPool.get());
 
   auto iobuf = buffer->allocateTrackedIOBuf(1024);
@@ -657,7 +661,6 @@ TEST_F(MaterializedExchangeTest, abortFromActiveState) {
       writeInfo,
       ShuffleInterfaceFactory::factory(shuffleName_),
       "test.0.0.0.0",
-      /*maxBufferedBytes=*/1L << 20,
       rootPool.get());
 
   auto iobuf = buffer->allocateTrackedIOBuf(1024);

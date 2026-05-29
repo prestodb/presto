@@ -55,6 +55,7 @@ add_test(NAME presto_materialized_exchange_test COMMAND presto_materialized_exch
 target_link_libraries(
   presto_materialized_exchange_test
   presto_connectors
+  presto_mutable_configs
   presto_operators
   presto_protocol
   presto_type_converter
@@ -71,6 +72,26 @@ target_link_libraries(
   GTest::gtest
 )
 
-set_tests_properties(presto_materialized_exchange_test PROPERTIES TIMEOUT 300)
+set_tests_properties(presto_materialized_exchange_test PROPERTIES TIMEOUT 600)
 
 set_property(TARGET presto_materialized_exchange_test PROPERTY JOB_POOL_LINK presto_link_job_pool)
+
+add_executable(presto_materialized_exchange_reclaim_test MaterializedExchangeReclaimTest.cpp)
+
+add_test(
+  NAME presto_materialized_exchange_reclaim_test
+  COMMAND presto_materialized_exchange_reclaim_test
+)
+
+target_link_libraries(
+  presto_materialized_exchange_reclaim_test
+  presto_operators
+  velox_exec
+  velox_memory
+  GTest::gtest
+)
+
+set_property(
+  TARGET presto_materialized_exchange_reclaim_test
+  PROPERTY JOB_POOL_LINK presto_link_job_pool
+)

@@ -18,10 +18,22 @@
 #include <folly/ExceptionString.h>
 #include <glog/logging.h>
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <memory>
+#include <numeric>
+#include <thread>
 
+#include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
+
+#define MATERIALIZED_BUFFER_LOG(logEvent, pool, fmt_str, ...)           \
+  LOG(INFO) << fmt::format(                                             \
+      "MaterializedOutputBuffer::{} pool={} poolUsedBytes={} " fmt_str, \
+      logEvent,                                                         \
+      (pool)->name(),                                                   \
+      velox::succinctBytes((pool)->usedBytes()),                        \
+      ##__VA_ARGS__)
 
 namespace facebook::presto::operators {
 
@@ -62,7 +74,7 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
   // Drain: coalesce + flush under the same lock.
   std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
   toDrain.swap(rowGroups_);
-  auto drainedBytes = bufferedBytes_;
+  auto drainedBytes = bufferedBytes_.load();
   bufferedBytes_ = 0;
 
   auto coalesced = buffer_->coalesceRowGroups(toDrain);
@@ -70,28 +82,7 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
   return drainedBytes;
 }
 
-MaterializedOutputBuffer::MaterializedOutputBuffer(
-    int32_t numPartitions,
-    const std::string& shuffleWriterInfo,
-    ShuffleInterfaceFactory* shuffleWriterFactory,
-    const std::string& taskId,
-    int64_t maxBufferedBytes,
-    velox::memory::MemoryPool* pool,
-    int64_t partitionDrainThreshold)
-    : numPartitions_(numPartitions),
-      maxBufferedBytes_(maxBufferedBytes),
-      partitionDrainThreshold_(
-          std::min(
-              partitionDrainThreshold > 0 ? partitionDrainThreshold
-                                          : kDefaultDrainThreshold,
-              maxBufferedBytes / numPartitions)),
-      pool_(pool->addLeafChild(
-          fmt::format("materialized_output_buffer.{}", taskId),
-          true,
-          velox::exec::MemoryReclaimer::create())),
-      writer_(
-          shuffleWriterFactory->createWriter(shuffleWriterInfo, pool_.get())),
-      collectCountPerPartition_(numPartitions) {
+void MaterializedOutputBuffer::initPartitionBuffers(int32_t numPartitions) {
   VELOX_CHECK_NOT_NULL(pool_, "MemoryPool must be non-null");
   VELOX_CHECK_NOT_NULL(writer_, "ShuffleWriter must be non-null");
   VELOX_CHECK_GT(numPartitions, 0, "Must have at least one partition");
@@ -102,15 +93,43 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
             partitionDrainThreshold_, writer_.get(), this));
   }
   LOG(INFO) << fmt::format(
-      "MaterializedOutputBuffer: partitions={}, maxBufferedBytes={}MB, "
-      "effectiveDrainThreshold={}KB (configured={}KB), pool={}",
+      "MaterializedOutputBuffer: partitions={}, maxBufferedBytes={}, "
+      "drainThreshold={}, reclaimDrainThreshold={}, pool={}",
       numPartitions_,
-      maxBufferedBytes_ >> 20,
-      partitionDrainThreshold_ >> 10,
-      (partitionDrainThreshold > 0 ? partitionDrainThreshold
-                                   : kDefaultDrainThreshold) >>
-          10,
+      velox::succinctBytes(maxBufferedBytes_),
+      velox::succinctBytes(partitionDrainThreshold_),
+      velox::succinctBytes(reclaimDrainThresholdBytes_),
       pool_->name());
+}
+
+MaterializedOutputBuffer::MaterializedOutputBuffer(
+    int32_t numPartitions,
+    const std::string& shuffleWriterInfo,
+    ShuffleInterfaceFactory* shuffleWriterFactory,
+    const std::string& taskId,
+    velox::memory::MemoryPool* pool)
+    : numPartitions_(numPartitions),
+      maxBufferedBytes_(
+          SystemConfig::instance()
+              ->exchangeMaterializationOutputBufferMaxBytes()),
+      partitionDrainThreshold_(
+          std::min(
+              SystemConfig::instance()
+                  ->exchangeMaterializationOutputBufferPerPartitionMaxBytes(),
+              maxBufferedBytes_ / numPartitions)),
+      reclaimDrainThresholdBytes_(
+          static_cast<int64_t>(
+              partitionDrainThreshold_ *
+              SystemConfig::instance()
+                  ->exchangeMaterializationReclaimDrainThresholdRatio())),
+      pool_(pool->addLeafChild(
+          fmt::format("materialized_output_buffer.{}", taskId),
+          true,
+          std::make_unique<Reclaimer>(this))),
+      writer_(
+          shuffleWriterFactory->createWriter(shuffleWriterInfo, pool_.get())),
+      collectCountPerPartition_(numPartitions) {
+  initPartitionBuffers(numPartitions);
 }
 
 MaterializedOutputBuffer::~MaterializedOutputBuffer() {
@@ -164,20 +183,18 @@ void MaterializedOutputBuffer::enqueue(
       partitionBuffers_[partition]->enqueue(partition, std::move(rowGroup));
 
   if (drainedBytes > 0) {
-    ++drainCount_;
-    auto totalDrained = (totalDrainedBytes_ += drainedBytes);
-    auto currentGB = totalDrained >> 30;
+    updateDrainStats(drainedBytes);
+    auto currentGB = static_cast<int64_t>(drainedBytes_) >> 30;
     int64_t lastGB = lastLoggedDrainedGB_;
     if (currentGB > lastGB &&
         lastLoggedDrainedGB_.compare_exchange_strong(lastGB, currentGB)) {
       LOG(INFO) << fmt::format(
-          "MaterializedOutputBuffer progress: totalDrained={}GB, "
-          "drainCount={}, bufferedBytes={}MB",
-          currentGB,
+          "MaterializedOutputBuffer progress: drainedBytes={}, "
+          "drainCount={}, bufferedBytes={}",
+          velox::succinctBytes(drainedBytes_),
           static_cast<int64_t>(drainCount_),
-          bufferedBytes_ >> 20);
+          velox::succinctBytes(bufferedBytes_));
     }
-    bufferedBytes_.fetch_sub(drainedBytes);
   }
 }
 
@@ -191,6 +208,12 @@ void MaterializedOutputBuffer::flushToWriter(
   std::string_view view(reinterpret_cast<const char*>(data->data()), dataSize);
   writer_->collect(partition, /*key=*/"", view);
   ++collectCountPerPartition_[partition];
+}
+
+void MaterializedOutputBuffer::updateDrainStats(int64_t drainedBytes) {
+  ++drainCount_;
+  drainedBytes_ += drainedBytes;
+  bufferedBytes_.fetch_sub(drainedBytes);
 }
 
 std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::coalesceRowGroups(
@@ -211,39 +234,65 @@ std::unique_ptr<folly::IOBuf> MaterializedOutputBuffer::coalesceRowGroups(
 
 int64_t MaterializedOutputBuffer::drainPartition(
     int32_t partition,
-    bool close) {
+    bool force) {
   VELOX_CHECK_GE(partition, 0);
   VELOX_CHECK_LT(partition, numPartitions_);
 
   std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
   int64_t drainedBytes = 0;
   {
-    std::lock_guard<std::mutex> lock(partitionBuffers_[partition]->mutex_);
-    toDrain.swap(partitionBuffers_[partition]->rowGroups_);
-    drainedBytes = partitionBuffers_[partition]->bufferedBytes_;
-    partitionBuffers_[partition]->bufferedBytes_ = 0;
-    if (close) {
+    std::unique_lock<std::mutex> lock(
+        partitionBuffers_[partition]->mutex_, std::defer_lock);
+    if (force) {
+      lock.lock();
       partitionBuffers_[partition]->closed_ = true;
+    } else {
+      if (!lock.try_lock()) {
+        return 0;
+      }
     }
+    toDrain.swap(partitionBuffers_[partition]->rowGroups_);
+    drainedBytes = partitionBuffers_[partition]->bufferedBytes_.exchange(0);
   }
 
   if (!toDrain.empty()) {
     auto coalesced = coalesceRowGroups(toDrain);
     flushToWriter(partition, std::move(coalesced));
-    ++drainCount_;
-    totalDrainedBytes_ += drainedBytes;
-    bufferedBytes_.fetch_sub(drainedBytes);
+    updateDrainStats(drainedBytes);
   }
 
   return drainedBytes;
 }
 
-uint64_t MaterializedOutputBuffer::close() {
-  uint64_t totalDrained = 0;
+uint64_t MaterializedOutputBuffer::tryDrainPartitions() {
+  std::vector<int32_t> orderedPartitions(numPartitions_);
+  std::iota(orderedPartitions.begin(), orderedPartitions.end(), 0);
+
+  std::vector<int64_t> sizes(numPartitions_);
   for (int32_t i = 0; i < numPartitions_; ++i) {
-    totalDrained += drainPartition(i, /*close=*/true);
+    sizes[i] = partitionBuffers_[i]->bufferedBytes_;
   }
-  return totalDrained;
+  std::sort(
+      orderedPartitions.begin(),
+      orderedPartitions.end(),
+      [&](int32_t lhs, int32_t rhs) { return sizes[lhs] > sizes[rhs]; });
+
+  uint64_t drainedBytes = 0;
+  for (auto partition : orderedPartitions) {
+    if (sizes[partition] < reclaimDrainThresholdBytes_) {
+      break;
+    }
+    drainedBytes += drainPartition(partition, /*force=*/false);
+  }
+  return drainedBytes;
+}
+
+uint64_t MaterializedOutputBuffer::close() {
+  uint64_t drainedBytes = 0;
+  for (int32_t i = 0; i < numPartitions_; ++i) {
+    drainedBytes += drainPartition(i, /*force=*/true);
+  }
+  return drainedBytes;
 }
 
 void MaterializedOutputBuffer::noMoreData() {
@@ -252,8 +301,8 @@ void MaterializedOutputBuffer::noMoreData() {
     return;
   }
   LOG(INFO) << fmt::format(
-      "MaterializedOutputBuffer noMoreData: draining, bufferedBytes={}MB",
-      bufferedBytes_ >> 20);
+      "MaterializedOutputBuffer noMoreData: draining, bufferedBytes={}",
+      velox::succinctBytes(bufferedBytes_));
   close();
   LOG(INFO) << "MaterializedOutputBuffer: calling writer noMoreData(true)";
   try {
@@ -269,16 +318,16 @@ void MaterializedOutputBuffer::noMoreData() {
     totalCollects += collectCountPerPartition_[i];
   }
   LOG(INFO) << fmt::format(
-      "MaterializedOutputBuffer progress: totalDrained={}GB, "
-      "drainCount={}, bufferedBytes={}MB",
-      totalDrainedBytes_ >> 30,
+      "MaterializedOutputBuffer progress: drainedBytes={}, "
+      "drainCount={}, bufferedBytes={}",
+      velox::succinctBytes(drainedBytes_),
       static_cast<int64_t>(drainCount_),
-      bufferedBytes_ >> 20);
+      velox::succinctBytes(bufferedBytes_));
   LOG(INFO) << fmt::format(
       "MaterializedOutputBuffer closed: "
-      "collectCalls={}, peakBufferedBytes={}MB",
+      "collectCalls={}, peakBufferedBytes={}",
       totalCollects,
-      peakBufferedBytes_ >> 20);
+      velox::succinctBytes(peakBufferedBytes_));
   state_ = State::kClosed;
 }
 
@@ -316,8 +365,8 @@ MaterializedOutputBuffer::stats() const {
   for (int32_t i = 0; i < numPartitions_; ++i) {
     totalCollects += collectCountPerPartition_[i];
   }
-  result[std::string(kTotalDrainedBytes)] =
-      velox::RuntimeMetric(totalDrainedBytes_, Unit::kBytes);
+  result[std::string(kDrainedBytes)] =
+      velox::RuntimeMetric(drainedBytes_, Unit::kBytes);
   result[std::string(kDrainCount)] = velox::RuntimeMetric(drainCount_);
   result[std::string(kCurrentDrainThreshold)] =
       velox::RuntimeMetric(partitionDrainThreshold_, Unit::kBytes);
@@ -328,7 +377,117 @@ MaterializedOutputBuffer::stats() const {
   result[std::string(kTotalCollectCalls)] = velox::RuntimeMetric(totalCollects);
   result[std::string(kPeakBufferedBytes)] =
       velox::RuntimeMetric(peakBufferedBytes_, Unit::kBytes);
+  result[std::string(kReclaimCount)] = velox::RuntimeMetric(reclaimCount_);
+  result[std::string(kReclaimedBytes)] =
+      velox::RuntimeMetric(reclaimedBytes_, Unit::kBytes);
   return result;
+}
+
+MaterializedOutputBuffer::Reclaimer::Reclaimer(
+    MaterializedOutputBuffer* partitionBuffer)
+    : MemoryReclaimer(kHighReclaimPriority), partitionBuffer_(partitionBuffer) {
+  VELOX_CHECK_NOT_NULL(partitionBuffer_, "Reclaimer requires a buffer");
+}
+
+bool MaterializedOutputBuffer::Reclaimer::reclaimableBytes(
+    const velox::memory::MemoryPool& pool,
+    uint64_t& reclaimableBytes) const {
+  reclaimableBytes = pool.usedBytes();
+  return reclaimableBytes > 0;
+}
+
+void MaterializedOutputBuffer::Reclaimer::tryReclaimPartitionBuffers(
+    velox::memory::MemoryPool* pool) {
+  auto flushedBytes = partitionBuffer_->tryDrainPartitions();
+  MATERIALIZED_BUFFER_LOG(
+      "FLUSH", pool, "flushedBytes={}", velox::succinctBytes(flushedBytes));
+}
+
+void MaterializedOutputBuffer::Reclaimer::waitForWriterDrain(
+    velox::memory::MemoryPool* pool,
+    uint64_t targetUsedBytes,
+    std::chrono::steady_clock::time_point deadline) {
+  while (pool->usedBytes() > targetUsedBytes) {
+    if (std::chrono::steady_clock::now() >= deadline) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  MATERIALIZED_BUFFER_LOG(
+      "WAIT",
+      pool,
+      "targetUsedBytes={} timedOut={}",
+      velox::succinctBytes(targetUsedBytes),
+      pool->usedBytes() > targetUsedBytes);
+}
+
+void MaterializedOutputBuffer::Reclaimer::recordStats(
+    uint64_t freedBytes,
+    Stats& stats) {
+  stats.reclaimedBytes += freedBytes;
+  ++partitionBuffer_->reclaimCount_;
+  partitionBuffer_->reclaimedBytes_ += freedBytes;
+}
+
+bool MaterializedOutputBuffer::Reclaimer::canReclaim(
+    const velox::memory::MemoryPool& pool,
+    uint64_t targetBytes) const {
+  if (targetBytes == 0 || pool.usedBytes() == 0) {
+    return false;
+  }
+  const auto state = partitionBuffer_->state();
+  return state == State::kActive || state == State::kDraining;
+}
+
+bool MaterializedOutputBuffer::Reclaimer::canReclaimFromPartitionBuffers()
+    const {
+  // Only flush partition buffers in kActive state. During kDraining,
+  // noMoreData() is already draining them — we skip to waiting for
+  // writer network drain. The bufferedBytes check avoids a no-op flush
+  // when all data has already been drained by enqueue threshold logic.
+  return partitionBuffer_->state() == State::kActive &&
+      partitionBuffer_->bufferedBytes() > 0;
+}
+
+uint64_t MaterializedOutputBuffer::Reclaimer::reclaim(
+    velox::memory::MemoryPool* pool,
+    uint64_t targetBytes,
+    uint64_t maxWaitMs,
+    Stats& stats) {
+  if (!canReclaim(*pool, targetBytes)) {
+    return 0;
+  }
+
+  auto prevUsedBytes = pool->usedBytes();
+  auto targetUsedBytes =
+      prevUsedBytes > targetBytes ? prevUsedBytes - targetBytes : 0;
+  auto deadline =
+      std::chrono::steady_clock::now() + std::chrono::milliseconds(maxWaitMs);
+
+  MATERIALIZED_BUFFER_LOG(
+      "START",
+      pool,
+      "targetBytes={} maxWaitMs={}",
+      velox::succinctBytes(targetBytes),
+      maxWaitMs);
+
+  // Flush partition buffers to the writer.
+  if (canReclaimFromPartitionBuffers()) {
+    tryReclaimPartitionBuffers(pool);
+    if (pool->usedBytes() <= targetUsedBytes) {
+      auto totalFreedBytes = prevUsedBytes - pool->usedBytes();
+      recordStats(totalFreedBytes, stats);
+      return totalFreedBytes;
+    }
+  }
+
+  // Wait for writer to drain to release memory after flush to network.
+  waitForWriterDrain(pool, targetUsedBytes, deadline);
+
+  auto totalFreedBytes =
+      prevUsedBytes > pool->usedBytes() ? prevUsedBytes - pool->usedBytes() : 0;
+  recordStats(totalFreedBytes, stats);
+  return totalFreedBytes;
 }
 
 } // namespace facebook::presto::operators
