@@ -44,7 +44,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "cassandra.max-schema-refresh-threads",
         "cassandra.schema-cache-ttl",
         "cassandra.schema-refresh-interval",
-        "cassandra.protocol-version",
         "cassandra.load-policy.use-white-list",
         "cassandra.load-policy.white-list.addresses"})
 public class CassandraClientConfig
@@ -81,6 +80,7 @@ public class CassandraClientConfig
     private String keystorePassword;
     private File secureConnectBundle;
     private boolean caseSensitiveNameMatchingEnabled;
+    private String protocolVersion;
 
     @NotNull
     @Size(min = 1)
@@ -112,6 +112,20 @@ public class CassandraClientConfig
     public CassandraClientConfig setNativeProtocolPort(int nativeProtocolPort)
     {
         this.nativeProtocolPort = nativeProtocolPort;
+        return this;
+    }
+
+    public Optional<String> getProtocolVersion()
+    {
+        return Optional.ofNullable(protocolVersion);
+    }
+
+    @Config("cassandra.protocol-version")
+    @ConfigDescription("Pin the native protocol version (e.g. V3, V4, V5) instead of letting the driver negotiate it. " +
+            "Leave unset for automatic negotiation; only needed for mixed-version clusters during rolling upgrades.")
+    public CassandraClientConfig setProtocolVersion(String protocolVersion)
+    {
+        this.protocolVersion = protocolVersion;
         return this;
     }
 

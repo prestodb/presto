@@ -144,6 +144,12 @@ public class CassandraClientModule
             configLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE,
                     config.getFetchSize());
 
+            // Protocol version: by default driver 4.x negotiates the highest version common to the
+            // driver and the cluster (covers Cassandra 3.x/4.x/5.x). Pinning is only needed for
+            // mixed-version clusters, so it is applied solely when explicitly configured.
+            config.getProtocolVersion().ifPresent(protocolVersion ->
+                    configLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion));
+
             // Reconnection policy
             configLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS,
                     "ExponentialReconnectionPolicy");

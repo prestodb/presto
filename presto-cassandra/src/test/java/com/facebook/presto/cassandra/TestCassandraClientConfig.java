@@ -65,6 +65,7 @@ public class TestCassandraClientConfig
                 .setTruststorePassword(null)
                 .setTlsEnabled(false)
                 .setCaseSensitiveNameMatchingEnabled(false)
+                .setProtocolVersion(null)
                 .setSecureConnectBundle(null));
     }
 
@@ -102,6 +103,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.tls.truststore-password", "truststore-password")
                 .put("cassandra.cloud.secure-connect-bundle", "/tmp/secure-connect-bundle.zip")
                 .put("case-sensitive-name-matching", "true")
+                .put("cassandra.protocol-version", "V4")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -134,6 +136,7 @@ public class TestCassandraClientConfig
                 .setTruststorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
                 .setCaseSensitiveNameMatchingEnabled(true)
+                .setProtocolVersion("V4")
                 .setSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"));
 
         ConfigAssertions.assertFullMapping(properties, expected);
