@@ -4620,7 +4620,7 @@ public class TestHiveIntegrationSmokeTest
     public void testAnalyzePropertiesSystemTable()
     {
         assertQuery("SELECT * FROM system.metadata.analyze_properties WHERE catalog_name = 'hive'",
-                "SELECT 'hive', 'partitions', '', 'array(array(varchar))', 'Partitions to be analyzed'");
+                "SELECT 'hive', 'partitions', '', 'array(array(varchar))', 'Partitions to be analyzed', 'false'");
     }
 
     @Test

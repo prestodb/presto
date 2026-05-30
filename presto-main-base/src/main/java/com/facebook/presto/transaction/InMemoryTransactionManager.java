@@ -215,6 +215,11 @@ public class InMemoryTransactionManager
         return getTransactionMetadata(transactionId).getCatalogNames();
     }
 
+    public List<Catalog> getCatalogs(TransactionId transactionId)
+    {
+        return getTransactionMetadata(transactionId).getCatalogs();
+    }
+
     @Override
     public Map<String, CatalogContext> getCatalogNamesWithConnectorContext(TransactionId transactionId)
     {
@@ -481,6 +486,11 @@ public class InMemoryTransactionManager
                     .forEach(catalog -> catalogNamesWithConnectorContext.putIfAbsent(catalog.getCatalogName(), catalog.getCatalogContext()));
 
             return ImmutableMap.copyOf(catalogNamesWithConnectorContext);
+        }
+
+        private synchronized List<Catalog> getCatalogs()
+        {
+            return catalogManager.getCatalogs();
         }
 
         private synchronized Optional<ConnectorId> getConnectorId(String catalogName)
