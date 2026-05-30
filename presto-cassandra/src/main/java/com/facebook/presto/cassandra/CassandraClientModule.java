@@ -144,9 +144,10 @@ public class CassandraClientModule
             configLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE,
                     config.getFetchSize());
 
-            // Protocol version: by default driver 4.x negotiates the highest version common to the
-            // driver and the cluster (covers Cassandra 3.x/4.x/5.x). Pinning is only needed for
-            // mixed-version clusters, so it is applied solely when explicitly configured.
+            // Protocol version: normally left unset. Driver 4.x negotiates it automatically, including
+            // across mixed-version clusters (it queries system.peers and uses the minimum version the
+            // nodes report), so forcing a version is generally unnecessary. Applied only as an escape
+            // hatch when explicitly configured.
             config.getProtocolVersion().ifPresent(protocolVersion ->
                     configLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion));
 

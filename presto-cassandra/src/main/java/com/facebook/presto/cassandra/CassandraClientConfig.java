@@ -121,8 +121,9 @@ public class CassandraClientConfig
     }
 
     @Config("cassandra.protocol-version")
-    @ConfigDescription("Pin the native protocol version (e.g. V3, V4, V5) instead of letting the driver negotiate it. " +
-            "Leave unset for automatic negotiation; only needed for mixed-version clusters during rolling upgrades.")
+    @ConfigDescription("Optionally force the native protocol version (e.g. V3, V4, V5). Normally leave this unset: " +
+            "driver 4.x negotiates the version automatically, including across mixed-version clusters, so forcing it " +
+            "is rarely needed. Provided as an escape hatch.")
     public CassandraClientConfig setProtocolVersion(String protocolVersion)
     {
         this.protocolVersion = protocolVersion;
