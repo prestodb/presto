@@ -83,12 +83,6 @@ Property Name                                      Description
                                                    This is a global setting used for all connections, regardless
                                                    of the user who is connected to Presto.
 
-``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   With Cassandra Java Driver 4.x, the driver automatically negotiates the highest
-                                                   common protocol version supported by both the driver and the cluster. Manual
-                                                   override is rarely needed. Possible values include ``V3``, ``V4``, and ``V5``.
-                                                   Note: Protocol V2 is no longer supported in driver 4.x.
-
 ``case-sensitive-name-matching``                   Enable case sensitive identifier support for schema, table, and column names for the connector.
                                                    When disabled, names are matched case-insensitively using lowercase normalization.
                                                    Defaults to ``false``.
