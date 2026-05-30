@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests.cassandra;
 
+import com.datastax.driver.core.LocalDate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,7 +26,6 @@ import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -53,7 +53,7 @@ public class DataTypesTableDefinition
             try {
                 return ImmutableList.<List<Object>>of(
                         ImmutableList.of("\0", Long.MIN_VALUE, ByteBuffer.wrap(new byte[]{0x00}), false,
-                                BigDecimal.ZERO, Double.MIN_VALUE, LocalDate.of(1970, 1, 2), Float.MIN_VALUE, ImmutableSet.of(0),
+                                BigDecimal.ZERO, Double.MIN_VALUE, LocalDate.fromYearMonthDay(1970, 1, 2), Float.MIN_VALUE, ImmutableSet.of(0),
                                 Inet4Address.getByName("0.0.0.0"), Integer.MIN_VALUE, ImmutableList.of(0),
                                 ImmutableMap.of("a", 0, "\0", Integer.MIN_VALUE), ImmutableSet.of(0), Short.MIN_VALUE,
                                 "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
@@ -63,7 +63,7 @@ public class DataTypesTableDefinition
                         ImmutableList.of("the quick brown fox jumped over the lazy dog", Long.MAX_VALUE,
                                 ByteBuffer.wrap(new byte[]{0x30, 0x31, 0x32, 0x33, 0x34}), true,
                                 new BigDecimal(new Double("99999999999999999999999999999999999999")),
-                                Double.MAX_VALUE, LocalDate.of(9999, 12, 31), Float.MAX_VALUE, ImmutableSet.of(4, 5, 6, 7),
+                                Double.MAX_VALUE, LocalDate.fromYearMonthDay(9999, 12, 31), Float.MAX_VALUE, ImmutableSet.of(4, 5, 6, 7),
                                 Inet4Address.getByName("255.255.255.255"), Integer.MAX_VALUE,
                                 ImmutableList.of(4, 5, 6), ImmutableMap.of("a", 1, "b", 2), ImmutableSet.of(4, 5, 6), Short.MAX_VALUE,
                                 "this is a text value", Byte.MAX_VALUE, Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
