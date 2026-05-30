@@ -492,18 +492,18 @@ public final class QueryAssertions
         try {
             @Language("SQL") String sql = getCopyTableSql(sourceCatalog, table, ifNotExists, bucketed);
             log.info("Executing SQL: %s", sql);
-            
+
             MaterializedResult result = queryRunner.execute(session, sql);
-            
+
             if (result.getMaterializedRows().isEmpty()) {
                 throw new RuntimeException(format(
                     "Table copy returned no rows for %s. This usually means table creation or data insertion failed.",
                     table.getObjectName()));
             }
-            
+
             long rows = (Long) result.getMaterializedRows().get(0).getField(0);
             log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
-            
+
             if (rows == 0) {
                 log.warn("WARNING: Imported 0 rows for %s - this may indicate a problem", table.getObjectName());
             }
