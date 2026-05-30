@@ -41,12 +41,14 @@ class IcebergMergeProcessorOperator : public Operator {
             operatorId,
             planNode->id(),
             "IcebergMergeProcessor"),
-        processor_(std::make_unique<
-                   velox::connector::hive::iceberg::IcebergMergeProcessor>(
-            planNode->targetColumnTypes(),
-            planNode->rowIdType(),
-            planNode->targetRowIdChannel(),
-            planNode->mergeRowChannel())) {}
+        processor_(
+            std::make_unique<
+                velox::connector::hive::iceberg::IcebergMergeProcessor>(
+                planNode->targetColumnTypes(),
+                planNode->outputColumnNames(),
+                planNode->rowIdType(),
+                planNode->targetRowIdChannel(),
+                planNode->mergeRowChannel())) {}
 
   bool needsInput() const override {
     return !pendingOutput_ && !noMoreInput_;
@@ -101,20 +103,34 @@ void IcebergMergeProcessorNode::addDetails(std::stringstream& stream) const {
 
 velox::RowTypePtr IcebergMergeProcessorNode::buildOutputType(
     const std::vector<velox::TypePtr>& targetColumnTypes,
+    const std::vector<std::string>& outputColumnNames,
     const velox::TypePtr& rowIdType) {
+  VELOX_USER_CHECK_EQ(
+      outputColumnNames.size(),
+      targetColumnTypes.size() + 3,
+      "IcebergMergeProcessorNode outputColumnNames size ({}) must equal "
+      "targetColumnTypes.size() + 3 ({})",
+      outputColumnNames.size(),
+      targetColumnTypes.size() + 3);
   std::vector<std::string> names;
   std::vector<velox::TypePtr> types;
   names.reserve(targetColumnTypes.size() + 3);
   types.reserve(targetColumnTypes.size() + 3);
   for (size_t i = 0; i < targetColumnTypes.size(); ++i) {
-    names.push_back(fmt::format("c{}", i));
+    // Use the iceberg-schema target column names so downstream Velox nodes
+    // (e.g. TableWriter::setTypeMappings) that resolve columns by name see
+    // the iceberg-correct names rather than synthetic positional placeholders.
+    names.push_back(outputColumnNames[i]);
     types.push_back(targetColumnTypes[i]);
   }
-  names.emplace_back("operation");
+  // Trailing three columns: operation TINYINT, rowId, insert_from_update
+  // TINYINT — names from the planner output list, types fixed by the
+  // IcebergMergeProcessor contract.
+  names.push_back(outputColumnNames[targetColumnTypes.size()]);
   types.push_back(velox::TINYINT());
-  names.emplace_back("row_id");
+  names.push_back(outputColumnNames[targetColumnTypes.size() + 1]);
   types.push_back(rowIdType);
-  names.emplace_back("insert_from_update");
+  names.push_back(outputColumnNames[targetColumnTypes.size() + 2]);
   types.push_back(velox::TINYINT());
   return velox::ROW(std::move(names), std::move(types));
 }
@@ -126,6 +142,11 @@ folly::dynamic IcebergMergeProcessorNode::serialize() const {
     targetTypes.push_back(t->serialize());
   }
   obj["targetColumnTypes"] = std::move(targetTypes);
+  folly::dynamic outputNames = folly::dynamic::array();
+  for (const auto& n : outputColumnNames_) {
+    outputNames.push_back(n);
+  }
+  obj["outputColumnNames"] = std::move(outputNames);
   obj["rowIdType"] = rowIdType_->serialize();
   obj["targetRowIdChannel"] = targetRowIdChannel_;
   obj["mergeRowChannel"] = mergeRowChannel_;
@@ -144,12 +165,21 @@ velox::core::PlanNodePtr IcebergMergeProcessorNode::create(
       targetColumnTypes.push_back(ISerializable::deserialize<Type>(t, context));
     }
   }
+  std::vector<std::string> outputColumnNames;
+  if (obj.count("outputColumnNames")) {
+    const auto& arr = obj["outputColumnNames"];
+    outputColumnNames.reserve(arr.size());
+    for (const auto& n : arr) {
+      outputColumnNames.push_back(n.asString());
+    }
+  }
   auto rowIdType = ISerializable::deserialize<Type>(obj["rowIdType"], context);
   auto sources = ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
       obj["sources"], context);
   return std::make_shared<IcebergMergeProcessorNode>(
       obj["id"].asString(),
       std::move(targetColumnTypes),
+      std::move(outputColumnNames),
       std::move(rowIdType),
       static_cast<velox::column_index_t>(obj["targetRowIdChannel"].asInt()),
       static_cast<velox::column_index_t>(obj["mergeRowChannel"].asInt()),
