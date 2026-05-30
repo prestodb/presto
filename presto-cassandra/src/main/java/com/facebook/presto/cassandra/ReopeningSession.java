@@ -86,5 +86,3 @@ public class ReopeningSession
         return closed;
     }
 }
-
-// Made with Bob
