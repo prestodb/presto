@@ -27,14 +27,12 @@ public class PrestoS3ConfigurationUpdater
     private final String awsSecretKey;
     private final String endpoint;
     private final PrestoS3StorageClass s3StorageClass;
-    private final PrestoS3SignerType signerType;
     private final boolean pathStyleAccess;
     private final boolean useInstanceCredentials;
     private String s3IamRole;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
     private final PrestoS3SseType sseType;
-    private final String encryptionMaterialsProvider;
     private final String kmsKeyId;
     private final String sseKmsKeyId;
     private final int maxClientRetries;
@@ -43,11 +41,11 @@ public class PrestoS3ConfigurationUpdater
     private final Duration maxRetryTime;
     private final Duration connectTimeout;
     private final Duration socketTimeout;
-    private final int maxConnections;
+    private final int maxReadConnections;
+    private final int maxWriteConnections;
     private final DataSize multipartMinFileSize;
     private final DataSize multipartMinPartSize;
     private final File stagingDirectory;
-    private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
     private boolean skipGlacierObjects;
@@ -60,14 +58,12 @@ public class PrestoS3ConfigurationUpdater
         this.awsSecretKey = config.getS3AwsSecretKey();
         this.endpoint = config.getS3Endpoint();
         this.s3StorageClass = config.getS3StorageClass();
-        this.signerType = config.getS3SignerType();
         this.pathStyleAccess = config.isS3PathStyleAccess();
         this.useInstanceCredentials = config.isS3UseInstanceCredentials();
         this.s3IamRole = config.getS3IamRole();
         this.sslEnabled = config.isS3SslEnabled();
         this.sseEnabled = config.isS3SseEnabled();
         this.sseType = config.getS3SseType();
-        this.encryptionMaterialsProvider = config.getS3EncryptionMaterialsProvider();
         this.kmsKeyId = config.getS3KmsKeyId();
         this.sseKmsKeyId = config.getS3SseKmsKeyId();
         this.maxClientRetries = config.getS3MaxClientRetries();
@@ -76,11 +72,11 @@ public class PrestoS3ConfigurationUpdater
         this.maxRetryTime = config.getS3MaxRetryTime();
         this.connectTimeout = config.getS3ConnectTimeout();
         this.socketTimeout = config.getS3SocketTimeout();
-        this.maxConnections = config.getS3MaxConnections();
+        this.maxReadConnections = config.getS3ReadMaxConnections();
+        this.maxWriteConnections = config.getS3WriteMaxConnections();
         this.multipartMinFileSize = config.getS3MultipartMinFileSize();
         this.multipartMinPartSize = config.getS3MultipartMinPartSize();
         this.stagingDirectory = config.getS3StagingDirectory();
-        this.pinClientToCurrentRegion = config.isPinS3ClientToCurrentRegion();
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
@@ -105,9 +101,6 @@ public class PrestoS3ConfigurationUpdater
             config.set(S3_ENDPOINT, endpoint);
         }
         config.set(S3_STORAGE_CLASS, s3StorageClass.name());
-        if (signerType != null) {
-            config.set(S3_SIGNER_TYPE, signerType.name());
-        }
         config.setBoolean(S3_PATH_STYLE_ACCESS, pathStyleAccess);
         config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, useInstanceCredentials);
         if (s3IamRole != null) {
@@ -116,9 +109,6 @@ public class PrestoS3ConfigurationUpdater
         config.setBoolean(S3_SSL_ENABLED, sslEnabled);
         config.setBoolean(S3_SSE_ENABLED, sseEnabled);
         config.set(S3_SSE_TYPE, sseType.name());
-        if (encryptionMaterialsProvider != null) {
-            config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, encryptionMaterialsProvider);
-        }
         if (kmsKeyId != null) {
             config.set(S3_KMS_KEY_ID, kmsKeyId);
         }
@@ -133,10 +123,10 @@ public class PrestoS3ConfigurationUpdater
         config.set(S3_CONNECT_TIMEOUT, connectTimeout.toString());
         config.set(S3_SOCKET_TIMEOUT, socketTimeout.toString());
         config.set(S3_STAGING_DIRECTORY, stagingDirectory.toString());
-        config.setInt(S3_MAX_CONNECTIONS, maxConnections);
+        config.setInt(S3_READ_MAX_CONNECTIONS, maxReadConnections);
+        config.setInt(S3_WRITE_MAX_CONNECTIONS, maxWriteConnections);
         config.setLong(S3_MULTIPART_MIN_FILE_SIZE, multipartMinFileSize.toBytes());
         config.setLong(S3_MULTIPART_MIN_PART_SIZE, multipartMinPartSize.toBytes());
-        config.setBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);

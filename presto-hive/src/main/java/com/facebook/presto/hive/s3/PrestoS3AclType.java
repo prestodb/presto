@@ -13,29 +13,32 @@
  */
 package com.facebook.presto.hive.s3;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * LOG_DELIVERY_WRITE is not available in AWS SDK v2, see docs: https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/s3/model/ObjectCannedACL.html
+ */
+
 public enum PrestoS3AclType
 {
-    AUTHENTICATED_READ(CannedAccessControlList.AuthenticatedRead),
-    AWS_EXEC_READ(CannedAccessControlList.AwsExecRead),
-    BUCKET_OWNER_FULL_CONTROL(CannedAccessControlList.BucketOwnerFullControl),
-    BUCKET_OWNER_READ(CannedAccessControlList.BucketOwnerRead),
-    LOG_DELIVERY_WRITE(CannedAccessControlList.LogDeliveryWrite),
-    PRIVATE(CannedAccessControlList.Private),
-    PUBLIC_READ(CannedAccessControlList.PublicRead),
-    PUBLIC_READ_WRITE(CannedAccessControlList.PublicReadWrite);
+    AUTHENTICATED_READ(ObjectCannedACL.AUTHENTICATED_READ),
+    AWS_EXEC_READ(ObjectCannedACL.AWS_EXEC_READ),
+    BUCKET_OWNER_FULL_CONTROL(ObjectCannedACL.BUCKET_OWNER_FULL_CONTROL),
+    BUCKET_OWNER_READ(ObjectCannedACL.BUCKET_OWNER_READ),
+    PRIVATE(ObjectCannedACL.PRIVATE),
+    PUBLIC_READ(ObjectCannedACL.PUBLIC_READ),
+    PUBLIC_READ_WRITE(ObjectCannedACL.PUBLIC_READ_WRITE);
 
-    private final CannedAccessControlList cannedACL;
+    private final ObjectCannedACL cannedACL;
 
-    PrestoS3AclType(CannedAccessControlList cannedACL)
+    PrestoS3AclType(ObjectCannedACL cannedACL)
     {
         this.cannedACL = requireNonNull(cannedACL, "cannedACL is null");
     }
 
-    CannedAccessControlList getCannedACL()
+    public ObjectCannedACL getCannedACL()
     {
         return cannedACL;
     }
