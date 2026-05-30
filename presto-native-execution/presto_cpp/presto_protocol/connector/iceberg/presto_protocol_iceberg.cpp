@@ -1851,8 +1851,12 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "dataSequenceNumber");
-  from_json_key(
-      j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
+  // firstRowId is optional for backward compat with coordinators that
+  // haven't been updated to emit it. Default (-1) comes from the struct.
+  if (j.contains("firstRowId")) {
+    from_json_key(
+        j, "firstRowId", p.firstRowId, "IcebergSplit", "int64_t", "firstRowId");
+  }
   from_json_key(
       j,
       "affinitySchedulingSectionSize",
