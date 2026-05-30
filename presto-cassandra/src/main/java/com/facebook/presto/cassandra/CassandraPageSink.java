@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
@@ -119,9 +118,6 @@ public class CassandraPageSink
     public CompletableFuture<?> appendPage(Page page)
     {
         try {
-            log.info("=== CassandraPageSink: Appending page with %d rows to %s.%s ===",
-                    page.getPositionCount(), schemaName, tableName);
-
             for (int position = 0; position < page.getPositionCount(); position++) {
                 List<Object> values = new ArrayList<>(columnTypes.size() + 1);
                 if (generateUUID) {
@@ -129,36 +125,14 @@ public class CassandraPageSink
                 }
 
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                    try {
-                        appendColumn(values, page, position, channel);
-                    }
-                    catch (Exception e) {
-                        log.error(e, "Failed to append column %d (type: %s) at position %d",
-                                channel, columnTypes.get(channel), position);
-                        throw new PrestoException(CASSANDRA_ERROR,
-                                format("Failed to append column %d (type: %s) at position %d: %s",
-                                        channel, columnTypes.get(channel), position, e.getMessage()), e);
-                    }
+                    appendColumn(values, page, position, channel);
                 }
 
-                try {
-                    BoundStatement boundStatement = insert.bind(values.toArray());
-                    // Set explicit consistency level to ensure data persistence in Driver 4.x
-                    boundStatement = boundStatement.setConsistencyLevel(ConsistencyLevel.QUORUM);
-                    cassandraSession.execute(boundStatement);
-                    rowsWritten++;
-                    log.info("Successfully inserted row %d/%d with QUORUM consistency", position + 1, page.getPositionCount());
-                }
-                catch (Exception e) {
-                    log.error(e, "Failed to insert row %d with values: %s", position, values);
-                    throw new PrestoException(CASSANDRA_ERROR,
-                            format("Failed to insert row %d into %s.%s: %s",
-                                    position, schemaName, tableName, e.getMessage()), e);
-                }
+                BoundStatement boundStatement = insert.bind(values.toArray());
+                cassandraSession.execute(boundStatement);
+                rowsWritten++;
             }
 
-            log.info("=== CassandraPageSink: Successfully appended %d rows to %s.%s ===",
-                    page.getPositionCount(), schemaName, tableName);
             return NOT_BLOCKED;
         }
         catch (PrestoException e) {
@@ -166,9 +140,9 @@ public class CassandraPageSink
             throw e;
         }
         catch (Exception e) {
-            log.error(e, "=== CassandraPageSink: FATAL ERROR appending page to %s.%s ===", schemaName, tableName);
+            log.error(e, "Error appending page to %s.%s", schemaName, tableName);
             throw new PrestoException(CASSANDRA_ERROR,
-                format("Fatal error appending page to %s.%s: %s", schemaName, tableName, e.getMessage()), e);
+                format("Error appending page to %s.%s: %s", schemaName, tableName, e.getMessage()), e);
         }
     }
 
@@ -220,27 +194,7 @@ public class CassandraPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        log.info("=== CassandraPageSink: Finishing write to %s.%s with %d rows written ===",
-                schemaName, tableName, rowsWritten);
-
-        // Driver 4.x: Add delay to handle eventual consistency
-        // This ensures data is visible immediately after INSERT for test reliability
-        if (rowsWritten > 0) {
-            try {
-                // Force schema refresh to ensure metadata is current
-                cassandraSession.refreshSchema();
-                
-                // Increase delay to 2 seconds for better consistency in CI environment
-                Thread.sleep(2000);
-                
-                log.info("Applied 2000ms delay + schema refresh after %d row(s) written", rowsWritten);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.warn("Interrupted while waiting for data propagation");
-            }
-        }
-
+        log.debug("Finished write to %s.%s with %d rows written", schemaName, tableName, rowsWritten);
         CassandraWriteMetadata metadata = new CassandraWriteMetadata(rowsWritten);
         return completedFuture(ImmutableList.of(metadata.toSlice()));
     }

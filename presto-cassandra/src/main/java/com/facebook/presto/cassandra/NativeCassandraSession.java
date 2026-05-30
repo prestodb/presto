@@ -466,7 +466,11 @@ public class NativeCassandraSession
             map.clear();
             stringBuilder.setLength(0);
             for (int i = 0; i < partitionKeyColumns.size(); i++) {
-                ByteBuffer component = row.getBytesUnsafe(i);
+                // Driver 4.x getBytesUnsafe() returns the row's internal ByteBuffer (driver 3.x returned a
+                // duplicate). Consuming it below via buffer.put(component) would advance its position to the
+                // limit, causing later getString()/value reads of the same column to return empty. Duplicate
+                // it to keep the original buffer's position intact for the subsequent value extractions.
+                ByteBuffer component = row.getBytesUnsafe(i).duplicate();
                 if (isComposite) {
                     // build composite key
                     short len = (short) component.limit();
