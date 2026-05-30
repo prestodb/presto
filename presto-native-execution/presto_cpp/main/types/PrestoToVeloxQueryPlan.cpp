@@ -2638,18 +2638,10 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   const bool exchangeMaterializationEnabled =
       SystemConfig::instance()->exchangeMaterializationEnabled();
   if (exchangeMaterializationEnabled && !fragment.outputOrderingScheme) {
-    auto* shuffleFactory =
-        operators::ShuffleInterfaceFactory::factory(shuffleName_);
-    VELOX_CHECK_NOT_NULL(
-        shuffleFactory,
-        "ShuffleInterface factory '{}' not registered",
-        shuffleName_);
-    auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
-        partitionedOutputNode->numPartitions(),
-        *serializedShuffleWriteInfo_,
-        shuffleFactory,
-        taskId,
-        queryCtx_->pool());
+    VELOX_CHECK(
+        !shuffleName_.empty(),
+        "Shuffle name not provided from 'shuffle.name' property in "
+        "config.properties");
 
     auto materializedOutputNode =
         std::make_shared<operators::MaterializedOutputNode>(
@@ -2659,8 +2651,9 @@ core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
             partitionedOutputNode->outputType(),
             partitionedOutputNode->partitionFunctionSpecPtr(),
             partitionedOutputNode->isReplicateNullsAndAny(),
-            partitionedOutputNode->sources()[0],
-            std::move(buffer));
+            operators::ShuffleWriterMetadata{
+                *serializedShuffleWriteInfo_, shuffleName_},
+            partitionedOutputNode->sources()[0]);
 
     planFragment.planNode = std::move(materializedOutputNode);
     return planFragment;

@@ -37,6 +37,30 @@
 
 namespace facebook::presto::operators {
 
+folly::Synchronized<
+    folly::F14FastMap<std::string, std::shared_ptr<MaterializedOutputBuffer>>>
+    MaterializedOutputBuffer::buffers_;
+
+void MaterializedOutputBuffer::registerBuffer(
+    const std::string& taskId,
+    std::shared_ptr<MaterializedOutputBuffer> buffer) {
+  buffers_.withWLock(
+      [&](auto& buffers) { buffers.emplace(taskId, std::move(buffer)); });
+}
+
+std::shared_ptr<MaterializedOutputBuffer> MaterializedOutputBuffer::getBuffer(
+    const std::string& taskId) {
+  return buffers_.withRLock(
+      [&](const auto& buffers) -> std::shared_ptr<MaterializedOutputBuffer> {
+        auto it = buffers.find(taskId);
+        return it != buffers.end() ? it->second : nullptr;
+      });
+}
+
+void MaterializedOutputBuffer::removeBuffer(const std::string& taskId) {
+  buffers_.withWLock([&](auto& buffers) { buffers.erase(taskId); });
+}
+
 std::string MaterializedOutputBuffer::stateName(State state) {
   switch (state) {
     case State::kActive:
@@ -108,7 +132,8 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
     ShuffleInterfaceFactory* shuffleWriterFactory,
     const std::string& taskId,
     velox::memory::MemoryPool* pool)
-    : numPartitions_(numPartitions),
+    : taskId_(taskId),
+      numPartitions_(numPartitions),
       maxBufferedBytes_(
           SystemConfig::instance()
               ->exchangeMaterializationOutputBufferMaxBytes()),
@@ -133,6 +158,7 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
 }
 
 MaterializedOutputBuffer::~MaterializedOutputBuffer() {
+  removeBuffer(taskId_);
   if (state_ != State::kClosed && state_ != State::kAborted) {
     LOG(WARNING) << "MaterializedOutputBuffer destroyed without calling "
                  << "noMoreData() or abort(). Aborting writer.";

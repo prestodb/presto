@@ -15,13 +15,13 @@
 
 #include <atomic>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <vector>
 
-#include <memory>
-
 #include <fmt/format.h>
 #include <folly/Synchronized.h>
+#include <folly/container/F14Map.h>
 #include <folly/io/IOBuf.h>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "velox/common/base/RuntimeMetrics.h"
@@ -134,6 +134,20 @@ class MaterializedOutputBuffer {
 
     MaterializedOutputBuffer* const partitionBuffer_;
   };
+
+  /// Register a buffer in the process-wide registry. Called under the
+  /// prestoTask->mutex in createOrUpdateTaskImpl() to prevent duplicate
+  /// creation from concurrent createTask HTTP requests.
+  static void registerBuffer(
+      const std::string& taskId,
+      std::shared_ptr<MaterializedOutputBuffer> buffer);
+
+  /// Look up an existing buffer by taskId. Returns nullptr if not found.
+  static std::shared_ptr<MaterializedOutputBuffer> getBuffer(
+      const std::string& taskId);
+
+  /// Remove a buffer from the registry. Called during task cleanup.
+  static void removeBuffer(const std::string& taskId);
 
   /// Creates its own leaf pool under 'parentPool' and the writer from
   /// the factory.
@@ -255,6 +269,7 @@ class MaterializedOutputBuffer {
   static void freeTrackedIOBuf(void* buf, void* userData);
 
   // Immutable config.
+  const std::string taskId_;
   const int32_t numPartitions_;
   const int64_t maxBufferedBytes_;
   const int64_t partitionDrainThreshold_;
@@ -279,6 +294,14 @@ class MaterializedOutputBuffer {
   std::atomic_int64_t reclaimedBytes_{0};
   std::atomic_int64_t lastLoggedDrainedGB_{0};
   std::vector<std::atomic<int64_t>> collectCountPerPartition_;
+
+  // Process-wide registry of buffers keyed by taskId, following the same
+  // pattern as Velox OutputBufferManager. Buffer creation is done under
+  // prestoTask->mutex in createOrUpdateTaskImpl() and registered here;
+  // operators look up buffers by taskId at construction time.
+  static folly::Synchronized<
+      folly::F14FastMap<std::string, std::shared_ptr<MaterializedOutputBuffer>>>
+      buffers_;
 };
 
 } // namespace facebook::presto::operators

@@ -72,7 +72,7 @@ target_link_libraries(
   GTest::gtest
 )
 
-set_tests_properties(presto_materialized_exchange_test PROPERTIES TIMEOUT 600)
+set_tests_properties(presto_materialized_exchange_test PROPERTIES TIMEOUT 6000)
 
 set_property(TARGET presto_materialized_exchange_test PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

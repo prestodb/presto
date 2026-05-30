@@ -23,6 +23,13 @@
 
 namespace facebook::presto::operators {
 
+/// Metadata needed to create a MaterializedOutputBuffer. Carried on the
+/// plan node so buffer creation can be deferred to task creation time.
+struct ShuffleWriterMetadata {
+  std::string writerInfo;
+  std::string writerFactoryName;
+};
+
 class MaterializedOutputNode : public velox::core::PlanNode {
  public:
   MaterializedOutputNode(
@@ -33,16 +40,16 @@ class MaterializedOutputNode : public velox::core::PlanNode {
       std::shared_ptr<const velox::core::PartitionFunctionSpec>
           partitionFunctionSpec,
       bool replicateNullsAndAny,
-      velox::core::PlanNodePtr source,
-      std::shared_ptr<MaterializedOutputBuffer> buffer)
+      ShuffleWriterMetadata shuffleWriterMetadata,
+      velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         numPartitions_(numPartitions),
         keys_(std::move(keys)),
         outputType_(std::move(outputType)),
         partitionFunctionSpec_(std::move(partitionFunctionSpec)),
         replicateNullsAndAny_(replicateNullsAndAny),
-        sources_{std::move(source)},
-        buffer_(std::move(buffer)) {}
+        shuffleWriterMetadata_(std::move(shuffleWriterMetadata)),
+        sources_{std::move(source)} {}
 
   std::string_view name() const override {
     return "MaterializedOutput";
@@ -56,16 +63,16 @@ class MaterializedOutputNode : public velox::core::PlanNode {
     return keys_;
   }
 
-  MaterializedOutputBuffer* buffer() const {
-    return buffer_.get();
-  }
-
   const auto& partitionFunctionSpec() const {
     return partitionFunctionSpec_;
   }
 
   bool isReplicateNullsAndAny() const {
     return replicateNullsAndAny_;
+  }
+
+  const ShuffleWriterMetadata& shuffleWriterMetadata() const {
+    return shuffleWriterMetadata_;
   }
 
   const velox::RowTypePtr& outputType() const override {
@@ -93,8 +100,8 @@ class MaterializedOutputNode : public velox::core::PlanNode {
   const std::shared_ptr<const velox::core::PartitionFunctionSpec>
       partitionFunctionSpec_;
   const bool replicateNullsAndAny_;
+  const ShuffleWriterMetadata shuffleWriterMetadata_;
   const std::vector<velox::core::PlanNodePtr> sources_;
-  const std::shared_ptr<MaterializedOutputBuffer> buffer_;
 };
 
 class MaterializedOutput : public velox::exec::Operator {
@@ -191,7 +198,7 @@ class MaterializedOutput : public velox::exec::Operator {
   const std::vector<velox::column_index_t> keyChannels_;
   std::unique_ptr<velox::core::PartitionFunction> partitionFunction_;
   const bool replicateNullsAndAny_;
-  MaterializedOutputBuffer* const buffer_;
+  const std::shared_ptr<MaterializedOutputBuffer> buffer_;
 
   // Flush threshold: clamp(numPartitions * kDefaultAvgRowSize, 1MB, 10MB).
   int64_t targetSizeInBytes_;

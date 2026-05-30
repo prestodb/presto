@@ -22,6 +22,8 @@
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/connectors/HivePrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -32,6 +34,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -1807,6 +1810,78 @@ TEST_P(TaskManagerTest, summarize) {
   taskInfo = taskManager_->deleteTask(taskId, true, true);
   // pipeline stats available when summarize set to false and task is finished
   ASSERT_GT(taskInfo->stats.pipelines.size(), 0);
+}
+
+// Minimal no-op shuffle writer for testing buffer creation without
+// requiring a real shuffle backend.
+namespace {
+class NoOpShuffleWriter : public operators::ShuffleWriter {
+ public:
+  void collect(int32_t, std::string_view, std::string_view) override {}
+  void noMoreData(bool) override {}
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {};
+  }
+};
+
+class NoOpShuffleFactory : public operators::ShuffleInterfaceFactory {
+ public:
+  static constexpr std::string_view kName{"noop_shuffle"};
+
+  std::shared_ptr<operators::ShuffleReader>
+  createReader(const std::string&, int32_t, memory::MemoryPool*) override {
+    return nullptr;
+  }
+
+  std::shared_ptr<operators::ShuffleWriter> createWriter(
+      const std::string&,
+      memory::MemoryPool*) override {
+    return std::make_shared<NoOpShuffleWriter>();
+  }
+};
+} // namespace
+
+TEST_P(TaskManagerTest, duplicateCreateTaskWithMaterializedOutput) {
+  const int32_t numPartitions = 2;
+  operators::ShuffleInterfaceFactory::registerFactory(
+      std::string(NoOpShuffleFactory::kName),
+      std::make_unique<NoOpShuffleFactory>());
+  exec::Operator::registerOperator(
+      std::make_unique<operators::MaterializedOutputTranslator>());
+
+  auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3, 4})});
+  auto dataType = asRowType(data->type());
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto planNode = std::make_shared<operators::MaterializedOutputNode>(
+      "matOut",
+      std::vector<core::TypedExprPtr>{},
+      numPartitions,
+      dataType,
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0}),
+      false,
+      operators::ShuffleWriterMetadata{
+          "{}", std::string(NoOpShuffleFactory::kName)},
+      valuesNode);
+  core::PlanFragment planFragment{planNode};
+
+  protocol::TaskId taskId = "dup_test.0.0.1.0";
+  protocol::TaskUpdateRequest updateRequest;
+
+  // First call creates the task and registers the buffer.
+  auto taskInfo1 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo1, nullptr);
+  EXPECT_NE(operators::MaterializedOutputBuffer::getBuffer(taskId), nullptr);
+
+  // Second call with the same taskId is a no-op — no crash.
+  auto taskInfo2 = createOrUpdateTask(taskId, updateRequest, planFragment);
+  ASSERT_NE(taskInfo2, nullptr);
+
+  // Clean up: remove buffer, delete task, wait for cleanup.
+  operators::MaterializedOutputBuffer::removeBuffer(taskId);
+  taskManager_->deleteTask(taskId, false, false);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

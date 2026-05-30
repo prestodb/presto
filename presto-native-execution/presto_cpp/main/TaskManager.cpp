@@ -23,6 +23,8 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/operators/MaterializedOutput.h"
+#include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
@@ -586,6 +588,28 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           static_cast<exec::Consumer>(nullptr),
           prestoTask->id.stageId(),
           spillDiskOpts);
+
+      // Create MaterializedOutputBuffer under task mutex if the plan
+      // uses exchange materialization.
+      if (auto* materializedOutputNode =
+              dynamic_cast<const operators::MaterializedOutputNode*>(
+                  planFragment.planNode.get())) {
+        const auto& shuffleWriterMetadata =
+            materializedOutputNode->shuffleWriterMetadata();
+        auto* shuffleFactory = operators::ShuffleInterfaceFactory::factory(
+            shuffleWriterMetadata.writerFactoryName);
+        VELOX_CHECK_NOT_NULL(
+            shuffleFactory,
+            "ShuffleInterface factory '{}' not registered",
+            shuffleWriterMetadata.writerFactoryName);
+        auto buffer = std::make_shared<operators::MaterializedOutputBuffer>(
+            materializedOutputNode->numPartitions(),
+            shuffleWriterMetadata.writerInfo,
+            shuffleFactory,
+            taskId,
+            newExecTask->queryCtx()->pool());
+        operators::MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+      }
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;

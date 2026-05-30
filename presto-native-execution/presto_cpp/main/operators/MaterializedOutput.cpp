@@ -78,8 +78,6 @@ core::PlanNodePtr MaterializedOutputNode::create(
       ? obj["replicateNullsAndAny"].asBool()
       : false;
 
-  // Buffer cannot be deserialized — it is set externally by the plan
-  // converter.
   return std::make_shared<MaterializedOutputNode>(
       deserializePlanNodeId(obj),
       std::move(keyPtrs),
@@ -87,8 +85,8 @@ core::PlanNodePtr MaterializedOutputNode::create(
       std::move(outputType),
       std::move(partitionFunctionSpec),
       replicateNullsAndAny,
-      std::move(source),
-      std::shared_ptr<MaterializedOutputBuffer>{});
+      ShuffleWriterMetadata{},
+      std::move(source));
 }
 
 MaterializedOutput::MaterializedOutput(
@@ -114,7 +112,7 @@ MaterializedOutput::MaterializedOutput(
                                       numDestinations_,
                                       /*localExchange=*/false)),
       replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
-      buffer_(planNode->buffer()),
+      buffer_(MaterializedOutputBuffer::getBuffer(ctx->task->taskId())),
       targetSizeInBytes_(
           std::clamp(
               static_cast<int64_t>(numDestinations_) * kDefaultAvgRowSize,

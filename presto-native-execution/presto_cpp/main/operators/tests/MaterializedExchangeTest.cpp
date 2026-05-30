@@ -246,14 +246,16 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
         dataType,
         partitionFunctionSpec,
         replicateNullsAndAny,
-        valuesNode,
-        buffer);
+        ShuffleWriterMetadata{},
+        valuesNode);
 
     auto taskId = makeTaskId("write", 0);
+    MaterializedOutputBuffer::registerBuffer(taskId, buffer);
     auto task = makeTask(taskId, exchangeWriteNode, 0);
     task->start(numDrivers);
 
     EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+    MaterializedOutputBuffer::removeBuffer(taskId);
 
     // Build expected output: each driver processes the full input.
     std::vector<RowVectorPtr> expected;
@@ -602,15 +604,17 @@ TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
       dataType,
       partitionFunctionSpec,
       false,
-      valuesNode,
-      buffer);
+      ShuffleWriterMetadata{},
+      valuesNode);
 
   auto taskId = makeTaskId("write", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
   auto task = makeTask(taskId, exchangeWriteNode, 0);
   task->start(numDrivers);
 
   EXPECT_TRUE(exec::test::waitForTaskFailure(task.get(), 10'000'000))
       << "Task should fail when buffer noMoreData() throws, not succeed silently";
+  MaterializedOutputBuffer::removeBuffer(taskId);
 
   cleanupDirectory(tempDir_->getPath());
 }
