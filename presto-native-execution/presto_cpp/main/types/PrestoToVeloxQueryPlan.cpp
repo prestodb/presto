@@ -1084,9 +1084,21 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   std::vector<std::string> aggregateNames;
   std::vector<core::AggregationNode::Aggregate> aggregates;
 
+  // Use aggregationOutputs (Java's LinkedHashMap insertion order) when sent by
+  // the coordinator. Iterating node->aggregations directly is unsafe because
+  // protocol::Map = std::map<VRE, ...> sorts by variable name, which can
+  // diverge from Java's order and shift channel positions at exchange
+  // operators (see prestodb/presto#27902). Fall back to map iteration only
+  // for backward compatibility with older coordinators that don't send the
+  // field (aggregationOutputs is Optional<> in the protocol).
   std::vector<protocol::VariableReferenceExpression> outputVariables;
-  for (const auto& [variable, _] : node->aggregations) {
-    outputVariables.push_back(variable);
+  if (node->aggregationOutputs != nullptr &&
+      !node->aggregationOutputs->empty()) {
+    outputVariables = *node->aggregationOutputs;
+  } else {
+    for (const auto& [variable, _] : node->aggregations) {
+      outputVariables.push_back(variable);
+    }
   }
   toAggregations(
       outputVariables, node->aggregations, aggregates, aggregateNames);

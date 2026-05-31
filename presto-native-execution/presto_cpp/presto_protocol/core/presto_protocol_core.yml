@@ -39,6 +39,13 @@ ExtraFields:
     FunctionHandle: functionHandle
     List<RowExpression>: arguments
 
+  # Java's LinkedHashMap iteration order for aggregations.keySet(), serialized
+  # so native workers can build the AggregationNode output schema in the same
+  # order. Optional for backward compatibility with coordinators that predate
+  # this field (see prestodb/presto#27902).
+  AggregationNode:
+    Optional<List<VariableReferenceExpression>>: aggregationOutputs
+
   PlanNode:
     PlanNodeId: id
 

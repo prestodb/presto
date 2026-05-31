@@ -12,6 +12,7 @@
 
 add_executable(
   presto_protocol_test
+  AggregationNodeTest.cpp
   Base64Test.cpp
   CallExpressionTest.cpp
   ConstantExpressionTest.cpp

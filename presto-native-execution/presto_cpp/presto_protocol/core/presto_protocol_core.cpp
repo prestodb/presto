@@ -1018,6 +1018,15 @@ void to_json(json& j, const AggregationNode& p) {
       "aggregations");
   to_json_key(
       j,
+      "aggregationOutputs",
+      p.aggregationOutputs,
+      "AggregationNode",
+      "List<VariableReferenceExpression>",
+      "aggregationOutputs");
+  // to_json_key for std::shared_ptr only emits when the pointer is non-null,
+  // matching the pattern for other Optional<> ExtraFields.
+  to_json_key(
+      j,
       "groupingSets",
       p.groupingSets,
       "AggregationNode",
@@ -1066,6 +1075,17 @@ void from_json(const json& j, AggregationNode& p) {
       "AggregationNode",
       "Map<VariableReferenceExpression, Aggregation>",
       "aggregations");
+  // from_json_key for std::shared_ptr tolerates a missing key, so older
+  // coordinators that predate this field deserialize cleanly with
+  // p.aggregationOutputs left as nullptr; the converter falls back to
+  // iterating `aggregations` in that case.
+  from_json_key(
+      j,
+      "aggregationOutputs",
+      p.aggregationOutputs,
+      "AggregationNode",
+      "List<VariableReferenceExpression>",
+      "aggregationOutputs");
   from_json_key(
       j,
       "groupingSets",

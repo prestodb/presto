@@ -443,6 +443,7 @@ namespace facebook::presto::protocol {
 struct AggregationNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   Map<VariableReferenceExpression, Aggregation> aggregations = {};
+  std::shared_ptr<List<VariableReferenceExpression>> aggregationOutputs = {};
   GroupingSetDescriptor groupingSets = {};
   List<VariableReferenceExpression> preGroupedVariables = {};
   AggregationNodeStep step = {};
