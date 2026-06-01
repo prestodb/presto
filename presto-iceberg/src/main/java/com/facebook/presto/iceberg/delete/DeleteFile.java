@@ -42,6 +42,7 @@ public final class DeleteFile
     private final List<Integer> equalityFieldIds;
     private final Map<Integer, byte[]> lowerBounds;
     private final Map<Integer, byte[]> upperBounds;
+    private final long dataSequenceNumber;
 
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
@@ -49,6 +50,8 @@ public final class DeleteFile
                 .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
         Map<Integer, byte[]> upperBounds = firstNonNull(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of())
                 .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
+
+        long dataSequenceNumber = deleteFile.dataSequenceNumber() != null ? deleteFile.dataSequenceNumber() : 0L;
 
         return new DeleteFile(
                 fromIcebergFileContent(deleteFile.content()),
@@ -58,7 +61,8 @@ public final class DeleteFile
                 deleteFile.fileSizeInBytes(),
                 Optional.ofNullable(deleteFile.equalityFieldIds()).orElseGet(ImmutableList::of),
                 lowerBounds,
-                upperBounds);
+                upperBounds,
+                dataSequenceNumber);
     }
 
     @JsonCreator
@@ -70,7 +74,8 @@ public final class DeleteFile
             @JsonProperty("fileSizeInBytes") long fileSizeInBytes,
             @JsonProperty("equalityFieldIds") List<Integer> equalityFieldIds,
             @JsonProperty("lowerBounds") Map<Integer, byte[]> lowerBounds,
-            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds)
+            @JsonProperty("upperBounds") Map<Integer, byte[]> upperBounds,
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
     {
         this.content = requireNonNull(content, "content is null");
         this.path = requireNonNull(path, "path is null");
@@ -80,6 +85,7 @@ public final class DeleteFile
         this.equalityFieldIds = ImmutableList.copyOf(requireNonNull(equalityFieldIds, "equalityFieldIds is null"));
         this.lowerBounds = ImmutableMap.copyOf(requireNonNull(lowerBounds, "lowerBounds is null"));
         this.upperBounds = ImmutableMap.copyOf(requireNonNull(upperBounds, "upperBounds is null"));
+        this.dataSequenceNumber = dataSequenceNumber;
     }
 
     @JsonProperty
@@ -130,12 +136,19 @@ public final class DeleteFile
         return upperBounds;
     }
 
+    @JsonProperty
+    public long getDataSequenceNumber()
+    {
+        return dataSequenceNumber;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .addValue(path)
                 .add("records", recordCount)
+                .add("dataSequenceNumber", dataSequenceNumber)
                 .toString();
     }
 }
