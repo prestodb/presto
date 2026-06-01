@@ -11,13 +11,12 @@ Release 0.298
 
 **Highlights**
 ==============
+* Improve materialized view query rewriting to support ``GROUP BY``, ``ORDER BY`` ordinal references, scalar functions (``CONCAT``, ``ABS``, ``JSON_EXTRACT``, ``CAST``, ``IF``, ``COALESCE``, ``CASE``), and ``HAVING`` clauses. `#27422 <https://github.com/prestodb/presto/pull/27422>`_ `#27549 <https://github.com/prestodb/presto/pull/27549>`_ `#27677 <https://github.com/prestodb/presto/pull/27677>`_
+* Improve coordinator-to-worker communication efficiency with 20-40% smaller payload sizes and 2-3x faster serialization compared to JSON. `#27486 <https://github.com/prestodb/presto/pull/27486>`_* Improve query planning performance for wide-column queries with O(1) field lookup indexing and fast-path optimizations across multiple optimizer rules. `#27553 <https://github.com/prestodb/presto/pull/27553>`_ `#27547 <https://github.com/prestodb/presto/pull/27547>`_
 * Add incremental refresh for materialized views in the Iceberg connector, enabling efficient partial refreshes instead of full recomputation. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
 * Add support for Azure Blob Storage (``wasb[s]://``) and Azure Data Lake Storage Gen2 (``abfs[s]://``) in the Hive connector, with shared key and OAuth2 authentication. `#25107 <https://github.com/prestodb/presto/pull/25107>`_
 * Add ``ALTER MATERIALIZED VIEW <name> SET PROPERTIES (...)`` SQL statement to update materialized view properties after creation. `#27806 <https://github.com/prestodb/presto/pull/27806>`_
-* Improve materialized view query rewriting to support ``GROUP BY``, ``ORDER BY`` ordinal references, scalar functions (``CONCAT``, ``ABS``, ``JSON_EXTRACT``, ``CAST``, ``IF``, ``COALESCE``, ``CASE``), and ``HAVING`` clauses. `#27422 <https://github.com/prestodb/presto/pull/27422>`_ `#27549 <https://github.com/prestodb/presto/pull/27549>`_ `#27677 <https://github.com/prestodb/presto/pull/27677>`_
 * Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column, sorting only sort keys first and fetching full rows via SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
-* Improve coordinator-to-worker communication efficiency with 20-40% smaller payload sizes and 2-3x faster serialization compared to JSON. `#27486 <https://github.com/prestodb/presto/pull/27486>`_
-* Improve query planning performance for wide-column queries with O(1) field lookup indexing and fast-path optimizations across multiple optimizer rules. `#27553 <https://github.com/prestodb/presto/pull/27553>`_ `#27547 <https://github.com/prestodb/presto/pull/27547>`_
 * Add TLS/SSL configuration, i18n character set, and configurable JDBC fetch size support for the Oracle connector. `#27671 <https://github.com/prestodb/presto/pull/27671>`_ `#27670 <https://github.com/prestodb/presto/pull/27670>`_ `#27669 <https://github.com/prestodb/presto/pull/27669>`_
 * Add Iceberg V3 row lineage hidden columns ``_row_id`` and ``_last_updated_sequence_number`` read support. `#27240 <https://github.com/prestodb/presto/pull/27240>`_
 * Add ``min/max/count`` aggregation push down based on file stats for Iceberg tables. `#27085 <https://github.com/prestodb/presto/pull/27085>`_
@@ -38,6 +37,8 @@ _______________
 * Fix materialized view query rewriting for ``CUBE``, ``ROLLUP``, and ``GROUPING SETS`` clauses. Column references inside these grouping elements are now correctly rewritten to materialized view columns. `#27538 <https://github.com/prestodb/presto/pull/27538>`_
 * Fix a race condition in `pruneFinishedQueryInfo` causing task memory leak. `#27597 <https://github.com/prestodb/presto/pull/27597>`_
 * Fix runtime type mismatch crashes in Velox native execution caused by non-deterministic HashMap iteration order in `PreAggregateBeforeGroupId`, `PushPartialAggregationThroughExchange`, and `MultipleDistinctAggregationToMarkDistinct` optimizer rules. Replace HashMap with LinkedHashMap to preserve aggregation output variable ordering. `#27493 <https://github.com/prestodb/presto/pull/27493>`_
+* Fix ``StreamPropertyDerivations.visitTopN`` to propagate ``streamPropertiesFromUniqueColumn``, preventing ``IllegalStateException`` during query planning. `#27664 <https://github.com/prestodb/presto/pull/27664>`_
+* Fix coordinator memory leak caused by orphaned listener objects accumulating during scheduling cycles in ``HttpRemoteTaskWithEventLoop.whenSplitQueueHasSpace()``. `#27673 <https://github.com/prestodb/presto/pull/27673>`_
 * Improve `PrefilterForLimitingAggregation` optimizer to exclude partition keys from the DistinctLimit, improving convergence speed for ``GROUP BY + LIMIT`` queries on partitioned tables. `#27678 <https://github.com/prestodb/presto/pull/27678>`_
 * Improve `PrefilterForLimitingAggregation` optimizer to use scan limiting instead of timeouts for more predictable performance. The optimization now limits the source scan to ``1000 * LIMIT`` rows before applying ``DISTINCT LIMIT``. `#27819 <https://github.com/prestodb/presto/pull/27819>`_
 * Improve `SimplifyPlanWithEmptyInput` to prune empty subtrees that the connector PHYSICAL stage produces under local exchanges. Multi-source exchanges with mixed empty / non-empty children now drop the empty branches, eliminating idle no-op operators at runtime for wide ``UNION ALL`` queries where some branches are pruned to empty by partition / snapshot filtering. Single-source exchanges and write-side subtrees (``TableWriter`` / ``TableFinish``) are preserved. `#27765 <https://github.com/prestodb/presto/pull/27765>`_
@@ -65,11 +66,8 @@ _______________
 * Add :ref:`admin/properties:\`\`cluster-overload.bypass-resource-groups\`\`` configuration property to allow named resource groups to bypass cluster-overload throttling while continuing to honor per-group concurrency, memory, and CPU limits. `#27642 <https://github.com/prestodb/presto/pull/27642>`_
 * Add :ref:`admin/properties-session:\`\`optimize_row_in_predicate\`\`` session property (default off) that rewrites multi-column ``ROW IN`` / ``ROW NOT IN`` predicates to expose per-column ``IN`` / ``NOT IN`` predicates, enabling partition pruning and other domain-based optimizations. `#27708 <https://github.com/prestodb/presto/pull/27708>`_
 * Add :ref:`admin/properties-session:\`\`push_filter_through_selecting_aggregation\`\`` session property and ``optimizer.push-filter-through-selecting-aggregation`` configuration property (default ``false``) to push HAVING predicates beneath single-value aggregates (MAX/MIN/ARBITRARY) for earlier row reduction. `#27712 <https://github.com/prestodb/presto/pull/27712>`_
-* Expand ROW IN to disjunction rewrite to fire for all columns, not just partition keys, enabling better predicate pushdown and domain extraction. Gated behind session property ``rewrite_row_constructor_in_to_disjunction``. `#27680 <https://github.com/prestodb/presto/pull/27680>`_
 * Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column. Sorts only sort keys plus ``$row_id`` first, then fetches full rows via SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
-* Fix ``StreamPropertyDerivations.visitTopN`` to propagate ``streamPropertiesFromUniqueColumn``, preventing ``IllegalStateException`` during query planning. `#27664 <https://github.com/prestodb/presto/pull/27664>`_
 * Add ``split_part_reverse`` as a global Presto SQL function, replacing the Velox C++ UDF with a SQL-invoked scalar function available in all queries. `#27480 <https://github.com/prestodb/presto/pull/27480>`_
-* Fix coordinator memory leak caused by orphaned listener objects accumulating during scheduling cycles in ``HttpRemoteTaskWithEventLoop.whenSplitQueueHasSpace()``. `#27673 <https://github.com/prestodb/presto/pull/27673>`_
 * Add ``query-rewriter-factory`` configuration property to allow extending the verifier ``QueryRewriter`` with custom implementations. `#27703 <https://github.com/prestodb/presto/pull/27703>`_
 * Remove configuration property ``use-new-nan-definition``. `#27829 <https://github.com/prestodb/presto/pull/27829>`_
 * Remove ``warn-on-common-nan-patterns`` server config and ``warn_on_common_nan_patterns`` session property. The NaN definition migration is complete and these warnings are no longer needed. `#27830 <https://github.com/prestodb/presto/pull/27830>`_
@@ -77,10 +75,10 @@ _______________
 
 Prestissimo (Native Execution) Changes
 ______________________________________
+* Fix MaterializedOutput operator lifecycle bugs: silent data loss on ``noMoreData()`` exceptions, Velox contract violation crashes during OOM teardown, and missing ``MemoryReclaimer`` causing memory arbitration failures. `#27833 <https://github.com/prestodb/presto/pull/27833>`_
 * Add support for iceberg V3 initialDefaultValue. `#27767 <https://github.com/prestodb/presto/pull/27767>`_
 * Add support for adding plugin loaded types in sidecar plugin. `#27748 <https://github.com/prestodb/presto/pull/27748>`_
 * Add ``native_min_shuffle_compression_page_size_bytes`` session property to tune the small-page shuffle-compression skip threshold. `#27683 <https://github.com/prestodb/presto/pull/27683>`_
-* Fix MaterializedOutput operator lifecycle bugs: silent data loss on ``noMoreData()`` exceptions, Velox contract violation crashes during OOM teardown, and missing ``MemoryReclaimer`` causing memory arbitration failures. `#27833 <https://github.com/prestodb/presto/pull/27833>`_
 
 Security Changes
 ________________
@@ -104,9 +102,9 @@ ________________
 
 JDBC Driver Changes
 ___________________
+* Fix integer overflow when converting exclusive bounds to inclusive bounds in ``BigintRange``, ``HugeintRange``, and ``TimestampRange`` filters in the Hive connector. `#27600 <https://github.com/prestodb/presto/pull/27600>`_
 * Add connection validation feature to enhance connection reliability. This can be enabled with the :ref:`admin/properties-session:\`\`validateConnection\`\`` session property to execute a validation query immediately after establishing the connection. `#27002 <https://github.com/prestodb/presto/pull/27002>`_
 * Add support for `execute` procedure in JDBC connectors. `#27282 <https://github.com/prestodb/presto/pull/27282>`_
-* Fix integer overflow when converting exclusive bounds to inclusive bounds in ``BigintRange``, ``HugeintRange``, and ``TimestampRange`` filters in the Hive connector. `#27600 <https://github.com/prestodb/presto/pull/27600>`_
 
 Delta Lake Connector Changes
 ____________________________
