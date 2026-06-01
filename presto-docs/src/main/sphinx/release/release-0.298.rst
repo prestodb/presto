@@ -107,6 +107,11 @@ ___________________
 * Add connection validation feature to enhance connection reliability. This can be enabled with the :ref:`admin/properties-session:\`\`validateConnection\`\`` session property to execute a validation query immediately after establishing the connection. `#27002 <https://github.com/prestodb/presto/pull/27002>`_
 * Add support for `execute` procedure in JDBC connectors. `#27282 <https://github.com/prestodb/presto/pull/27282>`_
 
+BigQuery Connector Changes
+__________________________
+* Update Google BigQuery Storage API SDK from v1beta1 to v1. `#27797 <https://github.com/prestodb/presto/pull/27797>`_
+
+
 Delta Lake Connector Changes
 ____________________________
 * Fix a bug that made the metastore inconsistent if a Delta Lake table was created  to an inaccessible location. `#27129 <https://github.com/prestodb/presto/pull/27129>`_
@@ -150,14 +155,6 @@ _________________________
 * Add view querying capabilities in the Mongo connector. `#26995 <https://github.com/prestodb/presto/pull/26995>`_
 * Upgrade mongo-java-driver to mongodb-driver-sync. `#27685 <https://github.com/prestodb/presto/pull/27685>`_
 
-BigQuery Connector Changes
-__________________________
-* Update Google BigQuery Storage API SDK from v1beta1 to v1. `#27797 <https://github.com/prestodb/presto/pull/27797>`_
-
-Singlestore Connector Changes
-_____________________________
-* Fix ``TINYINT`` type mapping to preserve ``TINYINT`` semantics instead of incorrectly mapping to ``BOOLEAN`` after a JDBC driver upgrade. `#27790 <https://github.com/prestodb/presto/pull/27790>`_
-* Fix varchar type mapping for ``TEXT`` types to use byte-based thresholds matching the JDBC driver's ``COLUMN_SIZE`` reporting. `#27790 <https://github.com/prestodb/presto/pull/27790>`_
 
 Oracle Connector Changes
 ________________________
@@ -169,6 +166,10 @@ Prometheus Connector Changes
 ____________________________
 * Add mixed case-sensitive identifier support for Prometheus connector. `#26260 <https://github.com/prestodb/presto/pull/26260>`_
 
+Singlestore Connector Changes
+_____________________________
+* Fix ``TINYINT`` type mapping to preserve ``TINYINT`` semantics instead of incorrectly mapping to ``BOOLEAN`` after a JDBC driver upgrade. `#27790 <https://github.com/prestodb/presto/pull/27790>`_
+* Fix varchar type mapping for ``TEXT`` types to use byte-based thresholds matching the JDBC driver's ``COLUMN_SIZE`` reporting. `#27790 <https://github.com/prestodb/presto/pull/27790>`_
 
 **Credits**
 ===========
