@@ -161,7 +161,7 @@ _____________________________
 
 Oracle Connector Changes
 ________________________
-* Add TLS/SSL configuration support for the Oracle connector via ``oracle.tls.enabled``, ``oracle.tls.truststore-path``, and ``oracle.tls.truststore-password`` properties. `#27671 <https://github.com/prestodb/presto/pull/27671>`_
+* Add TLS/SSL configuration support for the Oracle connector with ``oracle.tls.enabled``, ``oracle.tls.truststore-path``, and ``oracle.tls.truststore-password`` properties. `#27671 <https://github.com/prestodb/presto/pull/27671>`_
 * Add Oracle i18n character set support. `#27670 <https://github.com/prestodb/presto/pull/27670>`_
 * Add ``jdbc-fetch-size`` configuration property to control the number of rows fetched per database round-trip for the Oracle connector. `#27669 <https://github.com/prestodb/presto/pull/27669>`_
 
