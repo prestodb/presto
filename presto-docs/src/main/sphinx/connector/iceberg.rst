@@ -342,10 +342,10 @@ Property Name                                           Description             
                                                         is required if the iceberg.catalog.type is ``hadoop``.
                                                         Otherwise, it will be ignored.
 
-``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``                        Yes                 No, write is not supported yet
+``iceberg.file-format``                                 The storage file format for Iceberg tables. The available     ``PARQUET``                        Yes                 No, write is not supported
                                                         values are ``PARQUET`` and ``ORC``.
 
-``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``ZSTD``                           Yes                 No, write is not supported yet
+``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``ZSTD``                           Yes                 No, write is not supported
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
                                                         ``LZ4``, and ``ZSTD``.
                                                         
@@ -353,7 +353,7 @@ Property Name                                           Description             
                                                         ``iceberg.file-format=ORC``.
 
 
-``iceberg.max-partitions-per-writer``                   The maximum number of partitions handled per writer.          ``100``                            Yes                 No, write is not supported yet
+``iceberg.max-partitions-per-writer``                   The maximum number of partitions handled per writer.          ``100``                            Yes                 No, write is not supported
 
 ``iceberg.minimum-assigned-split-weight``               A decimal value in the range (0, 1] is used as a minimum      ``0.05``                           Yes                 Yes
                                                         for weights assigned to each split. A low value may improve
@@ -403,19 +403,26 @@ Property Name                                           Description             
 
 ``iceberg.split-manager-threads``                       Number of threads to use for generating Iceberg splits.       ``Number of available processors`` Yes                 Yes, only needed on coordinator
 
-``iceberg.metadata-previous-versions-max``              The maximum number of old metadata files to keep in           ``100``                            Yes                 No, write is not supported yet
+``iceberg.metadata-previous-versions-max``              The maximum number of old metadata files to keep in           ``100``                            Yes                 No, write is not supported
                                                         current metadata log.
 
-``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``                          Yes                 No, write is not supported yet
+``iceberg.metadata-delete-after-commit``                Set to ``true`` to delete the oldest metadata files after     ``false``                          Yes                 No, write is not supported
                                                         each commit.
 
-``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``                            Yes                 No, write is not supported yet
+``iceberg.metrics-max-inferred-column``                 The maximum number of columns for which metrics               ``100``                            Yes                 No, write is not supported
                                                         are collected.
 ``iceberg.max-statistics-file-cache-size``              Maximum size in bytes that should be consumed by the          ``256MB``                          Yes                 Yes, only needed on coordinator
                                                         statistics file cache.
 
 ``iceberg.aggregate-push-down-enabled``                 Controls whether to push down aggregate (MIN/MAX/COUNT) to    ``true``                           Yes                 Yes
                                                         Iceberg based on data file stats.
+
+``iceberg.target-max-file-size``                        Target maximum size of written files; the actual size may     ``1GB``                            Yes                 No, write is not supported
+                                                        be larger. This property accepts values in the format of a
+                                                        number immediately followed by a unit (``40kB``,
+                                                        ``256MB``, ``1GB``). Supported units are: ``B`` (bytes),
+                                                        ``kB`` (kilobytes), ``MB`` (megabytes), ``GB`` (gigabytes),
+                                                        ``TB`` (terabytes), ``PB`` (petabytes).
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
@@ -438,10 +445,10 @@ The following table properties are available, which are specific to the Presto I
 ========================================================   ===============================================================   ===================== =================== =============================================
 Property Name                                              Description                                                       Default               Presto Java Support Presto C++ Support
 ========================================================   ===============================================================   ===================== =================== =============================================
-``commit.retry.num-retries``                               Determines the number of attempts for committing the metadata     ``4``                 Yes                 No, write is not supported yet
+``commit.retry.num-retries``                               Determines the number of attempts for committing the metadata     ``4``                 Yes                 No, write is not supported
                                                            in case of concurrent upsert requests, before failing.
 
-``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported yet
+``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported
                                                            specification to use for new tables, either ``1`` or ``2``.
 
 ``location``                                               Optionally specifies the file system location URI for                                   Yes                 Yes
@@ -455,29 +462,29 @@ Property Name                                              Description          
                                                            for a table scan. Generated splits may still be larger or
                                                            smaller than this value. Must be specified in bytes.
 
-``write.data.path``                                        Optionally specifies the file system location URI for                                   Yes                 No, write is not supported yet
+``write.data.path``                                        Optionally specifies the file system location URI for                                   Yes                 No, write is not supported
                                                            storing the data and delete files of the table. This only
                                                            applies to files written after this property is set. Files
                                                            previously written aren't relocated to reflect this
                                                            parameter.
 
-``write.delete.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
+``write.delete.mode``                                      Optionally specifies the write delete mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
 
-``write.format.default``                                   Optionally specifies the format of table data files,              ``PARQUET``           Yes                 No, write is not supported yet
+``write.format.default``                                   Optionally specifies the format of table data files,              ``PARQUET``           Yes                 No, write is not supported
                                                            either ``PARQUET`` or ``ORC``.
 
-``write.metadata.previous-versions-max``                   Optionally specifies the max number of old metadata files to      ``100``               Yes                 No, write is not supported yet
+``write.metadata.previous-versions-max``                   Optionally specifies the max number of old metadata files to      ``100``               Yes                 No, write is not supported
                                                            keep in current metadata log.
 
-``write.metadata.delete-after-commit.enabled``             Set to ``true`` to delete the oldest metadata file after          ``false``             Yes                 No, write is not supported yet
+``write.metadata.delete-after-commit.enabled``             Set to ``true`` to delete the oldest metadata file after          ``false``             Yes                 No, write is not supported
                                                            each commit.
 
-``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``               Yes                 No, write is not supported yet
+``write.metadata.metrics.max-inferred-column-defaults``    Optionally specifies the maximum number of columns for which      ``100``               Yes                 No, write is not supported
                                                            metrics are collected.
 
-``write.update.mode``                                      Optionally specifies the write update mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported yet
+``write.update.mode``                                      Optionally specifies the write update mode of the Iceberg         ``merge-on-read``     Yes                 No, write is not supported
                                                            specification to use for new tables, either ``copy-on-write``
                                                            or ``merge-on-read``.
 

@@ -81,6 +81,7 @@ public class IcebergConfig
     private int materializedViewMaxChangedPartitions = 100;
     private int materializedViewDefaultMaxSnapshotsPerRefresh;
     private boolean aggregatePushDownEnabled = true;
+    private DataSize targetMaxFileSize = succinctDataSize(1, DataSize.Unit.GIGABYTE);
 
     @NotNull
     public FileFormat getFileFormat()
@@ -556,6 +557,20 @@ public class IcebergConfig
     public IcebergConfig setAggregatePushDownEnabled(boolean aggregatePushDownEnabled)
     {
         this.aggregatePushDownEnabled = aggregatePushDownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTargetMaxFileSize()
+    {
+        return targetMaxFileSize;
+    }
+
+    @Config("iceberg.target-max-file-size")
+    @ConfigDescription("Target maximum size of written files; the actual size may be larger")
+    public IcebergConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
+    {
+        this.targetMaxFileSize = targetMaxFileSize;
         return this;
     }
 }

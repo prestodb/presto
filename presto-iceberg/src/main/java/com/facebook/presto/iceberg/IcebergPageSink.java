@@ -111,8 +111,11 @@ public class IcebergPageSink
     private final FileFormat fileFormat;
     private final PagePartitioner pagePartitioner;
     private final Table table;
+    private final long targetMaxFileSize;
 
     private final List<WriteContext> writers = new ArrayList<>();
+    private final List<WriteContext> closedWriters = new ArrayList<>();
+    private final Collection<Slice> commitTasks = new ArrayList<>();
 
     private long writtenBytes;
     private long systemMemoryUsage;
@@ -138,9 +141,11 @@ public class IcebergPageSink
             FileFormat fileFormat,
             int maxOpenWriters,
             List<SortField> sortOrder,
-            SortParameters sortParameters)
+            SortParameters sortParameters,
+            long targetMaxFileSize)
     {
         requireNonNull(inputColumns, "inputColumns is null");
+        this.targetMaxFileSize = targetMaxFileSize;
         this.table = requireNonNull(table, "table is null");
         this.outputSchema = table.schema();
         this.partitionSpec = table.spec();
@@ -223,28 +228,16 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        Collection<Slice> commitTasks = new ArrayList<>();
-
         for (WriteContext context : writers) {
-            context.getWriter().commit();
-
-            CommitTaskData task = new CommitTaskData(
-                    context.getPath().toString(),
-                    context.writer.getFileSizeInBytes(),
-                    new MetricsWrapper(context.writer.getMetrics()),
-                    partitionSpec.specId(),
-                    context.getPartitionData().map(PartitionData::toJson),
-                    fileFormat,
-                    null,
-                    DATA);
-
-            commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+            if (context != null) {
+                closeWriter(context);
+            }
         }
 
-        writtenBytes = writers.stream()
+        writtenBytes = closedWriters.stream()
                 .mapToLong(writer -> writer.getWriter().getWrittenBytes())
                 .sum();
-        validationCpuNanos = writers.stream()
+        validationCpuNanos = closedWriters.stream()
                 .mapToLong(writer -> writer.getWriter().getValidationCpuNanos())
                 .sum();
 
@@ -256,6 +249,19 @@ public class IcebergPageSink
     {
         RuntimeException error = null;
         for (WriteContext context : writers) {
+            try {
+                if (context != null) {
+                    context.getWriter().rollback();
+                }
+            }
+            catch (Throwable t) {
+                if (error == null) {
+                    error = new RuntimeException("Exception during rollback");
+                }
+                error.addSuppressed(t);
+            }
+        }
+        for (WriteContext context : closedWriters) {
             try {
                 if (context != null) {
                     context.getWriter().rollback();
@@ -332,6 +338,10 @@ public class IcebergPageSink
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             systemMemoryUsage += (writer.getSystemMemoryUsage() - currentMemory);
+            if (writer.getWrittenBytes() >= targetMaxFileSize) {
+                closeWriter(writers.get(index));
+                writers.set(index, null);
+            }
         }
     }
 
@@ -390,8 +400,30 @@ public class IcebergPageSink
             }
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
-        verify(!writers.contains(null));
         return writerIndexes;
+    }
+
+    private void closeWriter(WriteContext writeContext)
+    {
+        long currentWritten = writeContext.getWriter().getWrittenBytes();
+        long currentMemory = writeContext.getWriter().getSystemMemoryUsage();
+        writeContext.getWriter().commit();
+        writtenBytes += (writeContext.getWriter().getWrittenBytes() - currentWritten);
+        systemMemoryUsage += (writeContext.getWriter().getSystemMemoryUsage() - currentMemory);
+
+        CommitTaskData task = new CommitTaskData(
+                writeContext.getPath().toString(),
+                writeContext.getWriter().getFileSizeInBytes(),
+                new MetricsWrapper(writeContext.getWriter().getMetrics()),
+                partitionSpec.specId(),
+                writeContext.getPartitionData().map(PartitionData::toJson),
+                fileFormat,
+                null,
+                DATA);
+
+        commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
+
+        closedWriters.add(writeContext);
     }
 
     private WriteContext createWriter(Optional<PartitionData> partitionData, Path outputPath)
@@ -525,6 +557,11 @@ public class IcebergPageSink
         public Optional<PartitionData> getPartitionData()
         {
             return partitionData;
+        }
+
+        public long getWrittenBytes()
+        {
+            return writer.getWrittenBytes();
         }
     }
 
