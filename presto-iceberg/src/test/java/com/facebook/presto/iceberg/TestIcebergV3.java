@@ -534,6 +534,129 @@ public class TestIcebergV3
         }
     }
 
+    @Test
+    public void testInsertWithWriteDefault()
+    {
+        String tableName = "test_insert_with_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+            // Add a column with default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'");
+            // Verify the default is set
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+            // Insert without specifying the country column - should use write-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (1, 'Alice')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'Alice', 'US')");
+            // Change the write-default (initial-default remains 'US')
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'UK'");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "UK");
+            // Insert again without specifying country - should use new write-default 'UK'
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (2, 'Bob')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK')");
+            // Insert with explicit value - should override default
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'Charlie', 'CA')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK'), (3, 'Charlie', 'CA')");
+            // Set write-default to NULL
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT NULL");
+            table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertNull(table.schema().findField("country").writeDefault());
+            // Insert without specifying country - should preserve materialized NULL, not initial-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Dave')", 1);
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK'), (3, 'Charlie', 'CA'), (4, 'Dave', NULL)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithExplicitNullOverridesWriteDefault()
+    {
+        String tableName = "test_insert_explicit_null_overrides_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'");
+
+            assertUpdate("INSERT INTO " + tableName + " (id, status) VALUES (1, NULL)", 1);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (2)", 1);
+
+            assertQuery("SELECT id, status FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, NULL), (2, 'ACTIVE')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithMultipleWriteDefaultColumns()
+    {
+        String tableName = "test_insert_multiple_write_default_columns";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN priority INTEGER DEFAULT 10");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN is_enabled BOOLEAN DEFAULT true");
+
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+            assertUpdate("INSERT INTO " + tableName + " (id, country) VALUES (2, 'UK')", 1);
+
+            assertQuery("SELECT id, country, priority, is_enabled FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'US', 10, true), (2, 'UK', 10, true)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithWriteDefaultDifferentDataTypes()
+    {
+        String tableName = "test_insert_write_default_different_types";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN name VARCHAR DEFAULT 'Unknown'");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN score DOUBLE DEFAULT 0.0");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN count BIGINT DEFAULT 0");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN active BOOLEAN DEFAULT false");
+
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (1)", 1);
+
+            assertQuery("SELECT id, name, score, count, active FROM " + tableName,
+                    "VALUES (1, 'Unknown', 0.0, 0, false)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertWithWriteDefaultOnPartitionedTable()
+    {
+        String tableName = "test_insert_write_default_partitioned_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id BIGINT, ds DATE) WITH (\"format-version\" = '3', format = 'PARQUET', partitioning = ARRAY['ds'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, DATE '2023-01-01')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN region VARCHAR DEFAULT 'US'");
+
+            assertUpdate("INSERT INTO " + tableName + " (id, ds) VALUES (2, DATE '2023-01-02')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN region SET DEFAULT 'EU'");
+            assertUpdate("INSERT INTO " + tableName + " (id, ds) VALUES (3, DATE '2023-01-03')", 1);
+
+            assertQuery("SELECT id, ds, region FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, DATE '2023-01-01', 'US'), (2, DATE '2023-01-02', 'US'), (3, DATE '2023-01-03', 'EU')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(

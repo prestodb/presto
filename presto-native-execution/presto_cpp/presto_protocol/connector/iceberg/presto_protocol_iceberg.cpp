@@ -181,6 +181,13 @@ void to_json(json& j, const IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "String",
       "defaultValue");
+  to_json_key(
+      j,
+      "writeDefaultValue",
+      p.writeDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "writeDefaultValue");
 }
 
 void from_json(const json& j, IcebergColumnHandle& p) {
@@ -216,6 +223,13 @@ void from_json(const json& j, IcebergColumnHandle& p) {
       "IcebergColumnHandle",
       "String",
       "defaultValue");
+  from_json_key(
+      j,
+      "writeDefaultValue",
+      p.writeDefaultValue,
+      "IcebergColumnHandle",
+      "String",
+      "writeDefaultValue");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1414,6 +1428,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "bool",
       "fullRefreshRequired");
+  to_json_key(
+      j,
+      "insertedColumns",
+      p.insertedColumns,
+      "IcebergInsertTableHandle",
+      "List<String>",
+      "insertedColumns");
 }
 
 void from_json(const json& j, IcebergInsertTableHandle& p) {
@@ -1502,6 +1523,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "bool",
       "fullRefreshRequired");
+  from_json_key(
+      j,
+      "insertedColumns",
+      p.insertedColumns,
+      "IcebergInsertTableHandle",
+      "List<String>",
+      "insertedColumns");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {

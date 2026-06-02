@@ -2036,8 +2036,9 @@ ADD COLUMN with DEFAULT (Iceberg V3)
 
     ``ADD COLUMN DEFAULT`` read support is available in both **Presto Java** and **Presto C++** (Prestissimo).
     Both engines execute the DDL, store the default in Iceberg metadata, and inject the ``initial-default``
-    value during reads for historical rows. Write-time handling of ``write-default`` is not supported
-    in either engine.
+    value during reads for historical rows. In addition, **Presto Java** supports write-time handling of
+    ``write-default`` for omitted columns during ``INSERT`` into Iceberg V3 tables. **Presto C++** does not
+    support this behavior.
 
 Iceberg Format Version 3 supports default column values for schema evolution. When a column is
 added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
@@ -2067,9 +2068,9 @@ ALTER COLUMN SET DEFAULT (Iceberg V3)
 
 .. note::
 
-    ``ALTER COLUMN SET DEFAULT`` currently only updates the Iceberg metadata (``write-default`` field).
-    **INSERT support for write-default is not implemented** — inserts will not automatically use
-    the write-default value.
+    ``ALTER COLUMN SET DEFAULT`` updates the Iceberg metadata (``write-default`` field).
+    In **Presto Java**, subsequent ``INSERT`` statements use the ``write-default`` value for omitted
+    columns. **Presto C++** does not yet support write-default materialization during ``INSERT``.
 
 Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
 modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility
@@ -2087,8 +2088,10 @@ Example — Update the ``write-default`` for the ``country`` column::
 
      ALTER TABLE iceberg.web.orders ALTER COLUMN country SET DEFAULT 'US';
 
-After this statement, the Iceberg metadata is updated, but **INSERT operations do not yet use the
-write-default value automatically**. This functionality will be added in a future release.
+After this statement, the Iceberg metadata is updated. In **Presto Java**, subsequent ``INSERT``
+operations use the ``write-default`` value for omitted columns, while explicit ``NULL`` values are
+preserved as ``NULL``. In **Presto C++**, ``INSERT`` operations do not yet use the ``write-default``
+value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.

@@ -600,6 +600,7 @@ public class TestIcebergHiveStatistics
                         ((IcebergColumnHandle) handle).getComment(),
                         REGULAR,
                         handle.getRequiredSubfields(),
+                        Optional.empty(),
                         Optional.empty());
             }
             ColumnStatistics actual = actualStats.get(handle);

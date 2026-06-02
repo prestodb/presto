@@ -548,7 +548,22 @@ public interface ConnectorMetadata
 
     /**
      * Begin insert query
+     *
+     * @param session the session
+     * @param tableHandle the table handle
+     * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement.
+     *                          This allows connectors to distinguish between columns that are omitted (and should
+     *                          use default values) versus columns that are explicitly set to NULL.
      */
+    default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
+    {
+        return beginInsert(session, tableHandle);
+    }
+
+    /**
+     * @deprecated Use {@link #beginInsert(ConnectorSession, ConnectorTableHandle, List)} instead
+     */
+    @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");

@@ -802,7 +802,11 @@
                         <ignoredNonTestScopedDependency>org.apache.httpcomponents.core5:httpcore5</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-s3</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-core</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>org.apache.parquet:parquet-hadoop</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.facebook.presto:presto-memory-context</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                     <!--                    <ignoredUsedUndeclaredDependencies>-->
                     <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->
                     <!--                        <dependency>org.glassfish.jersey.core:jersey-common:jar</dependency>-->

@@ -153,7 +153,6 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUM
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.MERGE_PARTITION_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
-import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
@@ -257,7 +256,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetMetadataSource parquetMetadataSource)
+            ParquetMetadataSource parquetMetadataSource,
+            Schema tableSchema)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -389,8 +389,36 @@ public class IcebergPageSourceProvider
                 }
             }
 
+            ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
+            for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
+                IcebergColumnHandle column = regularColumns.get(columnIndex);
+                if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
+                        !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
+                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                    if (!columnIO.isPresent()) {
+                        getInitialDefaultValue(tableSchema, column)
+                                .ifPresent(value -> defaultValues.put(column.getId(), value));
+                    }
+                }
+                else {
+                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column);
+                    if (!parquetField.isPresent()) {
+                        getInitialDefaultValue(tableSchema, column)
+                                .ifPresent(value -> defaultValues.put(column.getId(), value));
+                    }
+                }
+            }
+
+            ConnectorPageSource pageSource = new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), rowPositionColumnIndex, namesBuilder.build(), new RuntimeStats());
+            Map<Integer, Object> defaults = defaultValues.build();
+            if (!defaults.isEmpty()) {
+                pageSource = new IcebergDefaultValuePageSource(pageSource, regularColumns, defaults);
+            }
+
             return new ConnectorPageSourceWithRowPositions(
-                    new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build(), rowPositionColumnIndex, namesBuilder.build(), new RuntimeStats()),
+                    pageSource,
                     startRowPosition,
                     endRowPosition);
         }
@@ -477,7 +505,8 @@ public class IcebergPageSourceProvider
             StripeMetadataSourceFactory stripeMetadataSourceFactory,
             FileFormatDataSourceStats stats,
             Optional<EncryptionInformation> encryptionInformation,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            Schema tableSchema)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -522,6 +551,7 @@ public class IcebergPageSourceProvider
                     MODIFICATION_TIME_NOT_SET);
 
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
+            ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<TupleDomainOrcPredicate.ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
 
@@ -574,6 +604,8 @@ public class IcebergPageSourceProvider
                             column.getComment(),
                             column.getRequiredSubfields(),
                             Optional.empty()));
+                    getInitialDefaultValue(tableSchema, column)
+                            .ifPresent(value -> defaultValues.put(column.getId(), value));
                 }
 
                 if (column.isRowPositionColumn()) {
@@ -627,19 +659,25 @@ public class IcebergPageSourceProvider
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE);
 
+            ConnectorPageSource pageSource = new OrcBatchPageSource(
+                    recordReader,
+                    orcDataSource,
+                    physicalColumnHandles,
+                    typeManager,
+                    systemMemoryUsage,
+                    stats,
+                    runtimeStats,
+                    rowPositionColumnIndex,
+                    // Iceberg doesn't support row IDs
+                    new byte[0],
+                    "");
+            Map<Integer, Object> defaults = defaultValues.build();
+            if (!defaults.isEmpty()) {
+                pageSource = new IcebergDefaultValuePageSource(pageSource, regularColumns, defaults);
+            }
+
             return new ConnectorPageSourceWithRowPositions(
-                    new OrcBatchPageSource(
-                            recordReader,
-                            orcDataSource,
-                            physicalColumnHandles,
-                            typeManager,
-                            systemMemoryUsage,
-                            stats,
-                            runtimeStats,
-                            rowPositionColumnIndex,
-                            // Iceberg doesn't support row IDs
-                            new byte[0],
-                            ""),
+                    pageSource,
                     Optional.empty(),
                     Optional.empty());
         }
@@ -830,20 +868,10 @@ public class IcebergPageSourceProvider
 
         // TODO: pushdownFilter for icebergLayout
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getIcebergTableName().getTableName());
-        Function<List<IcebergColumnHandle>, ConnectorPageSourceWithRowPositions> partitionPageSourceDelegate =
-                (columnList) -> createDataPageSource(
-                        session,
-                        hdfsContext,
-                        new Path(split.getPath()),
-                        split.getStart(),
-                        split.getLength(),
-                        split.getFileFormat(),
-                        columnList,
-                        icebergLayout.getValidPredicate(),
-                        splitContext.isCacheable());
+
+        List<IcebergColumnHandle> delegateColumns = columnsToReadFromStorage.stream().collect(toImmutableList());
 
         ImmutableMap.Builder<Integer, Object> metadataValues = ImmutableMap.builder();
-        ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
         for (IcebergColumnHandle icebergColumn : icebergColumns) {
             if (icebergColumn.isPathColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), utf8Slice(split.getPath()));
@@ -865,20 +893,21 @@ public class IcebergPageSourceProvider
                     }
                 }
             }
-            else if (icebergColumn.hasDefaultValue()) {
-                Types.NestedField field = tableSchema.findField(icebergColumn.getId());
-                if (field != null && field.initialDefault() != null) {
-                    String defaultValueString = String.valueOf(field.initialDefault());
-                    Object prestoValue = deserializePartitionValue(
-                            icebergColumn.getType(),
-                            defaultValueString,
-                            icebergColumn.getName());
-                    defaultValues.put(icebergColumn.getId(), prestoValue);
-                }
-            }
         }
 
-        List<IcebergColumnHandle> delegateColumns = columnsToReadFromStorage.stream().collect(toImmutableList());
+        Function<List<IcebergColumnHandle>, ConnectorPageSourceWithRowPositions> partitionPageSourceDelegate =
+                (columnList) -> createDataPageSource(
+                        session,
+                        hdfsContext,
+                        new Path(split.getPath()),
+                        split.getStart(),
+                        split.getLength(),
+                        split.getFileFormat(),
+                        columnList,
+                        icebergLayout.getValidPredicate(),
+                        splitContext.isCacheable(),
+                        tableSchema);
+
         IcebergPartitionInsertingPageSource partitionInsertingPageSource = new IcebergPartitionInsertingPageSource(
                 delegateColumns,
                 metadataValues.build(),
@@ -935,6 +964,7 @@ public class IcebergPageSourceProvider
                 hdfsEnvironment,
                 hdfsContext,
                 getColumns(tableSchema, partitionSpec, typeManager),
+                ImmutableList.of(),
                 jsonCodec,
                 session,
                 split.getFileFormat(),
@@ -961,10 +991,6 @@ public class IcebergPageSourceProvider
 
         if (split.getChangelogSplitInfo().isPresent()) {
             dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
-        }
-        // Wrap with default value page source if there are columns with defaults
-        if (!defaultValues.build().isEmpty()) {
-            dataSource = new IcebergDefaultValuePageSource(dataSource, icebergColumns, defaultValues.build());
         }
         return dataSource;
     }
@@ -1030,7 +1056,7 @@ public class IcebergPageSourceProvider
                     }
                 }
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
+                try (ConnectorPageSource pageSource = openDeletes(session, schema, delete, deleteColumns, deleteDomain)) {
                     readPositionDeletes(pageSource, targetPath, deletedRows);
                 }
                 catch (IOException e) {
@@ -1048,7 +1074,7 @@ public class IcebergPageSourceProvider
                         .map(id -> IcebergColumnHandle.create(schema.findField(id), typeManager, IcebergColumnHandle.ColumnType.REGULAR))
                         .collect(toImmutableList());
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all())) {
+                try (ConnectorPageSource pageSource = openDeletes(session, schema, delete, columns, TupleDomain.all())) {
                     filters.add(readEqualityDeletes(pageSource, columns, storeDeleteFilePath ? delete.path() : null));
                 }
                 catch (IOException e) {
@@ -1069,6 +1095,7 @@ public class IcebergPageSourceProvider
 
     private ConnectorPageSource openDeletes(
             ConnectorSession session,
+            Schema schema,
             DeleteFile delete,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> tupleDomain)
@@ -1082,7 +1109,8 @@ public class IcebergPageSourceProvider
                 delete.format(),
                 columns,
                 tupleDomain,
-                false)
+                false,
+                schema)
                 .getDelegate();
     }
 
@@ -1095,7 +1123,8 @@ public class IcebergPageSourceProvider
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            boolean isCacheable)
+            boolean isCacheable,
+            Schema tableSchema)
     {
         switch (fileFormat) {
             case PARQUET:
@@ -1109,7 +1138,8 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         predicate,
                         fileFormatDataSourceStats,
-                        parquetMetadataSource);
+                        parquetMetadataSource,
+                        tableSchema);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
@@ -1141,8 +1171,25 @@ public class IcebergPageSourceProvider
                         stripeMetadataSourceFactory,
                         fileFormatDataSourceStats,
                         Optional.empty(),
-                        dwrfEncryptionProvider);
+                        dwrfEncryptionProvider,
+                        tableSchema);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
+    }
+
+    private static Optional<Object> getInitialDefaultValue(Schema tableSchema, IcebergColumnHandle column)
+    {
+        if (!column.hasDefaultValue()) {
+            return Optional.empty();
+        }
+        Types.NestedField field = tableSchema.findField(column.getId());
+        if (field != null && field.initialDefault() != null) {
+            String defaultValueString = String.valueOf(field.initialDefault());
+            return Optional.of(IcebergUtil.deserializeIcebergValue(
+                    column.getType(),
+                    defaultValueString,
+                    column.getName()));
+        }
+        return Optional.empty();
     }
 }

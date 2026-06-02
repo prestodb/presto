@@ -55,6 +55,7 @@ struct IcebergColumnHandle : public ColumnHandle {
   hive::ColumnType columnType = {};
   List<Subfield> requiredSubfields = {};
   std::shared_ptr<String> defaultValue = {};
+  std::shared_ptr<String> writeDefaultValue = {};
 
   IcebergColumnHandle() noexcept;
 
@@ -271,6 +272,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   List<SortField> sortOrder = {};
   std::shared_ptr<SchemaTableName> materializedViewName = {};
   bool fullRefreshRequired = {};
+  List<String> insertedColumns = {};
 
   IcebergInsertTableHandle() noexcept;
 };

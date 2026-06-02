@@ -684,7 +684,7 @@ public final class IcebergUtil
     {
         verifyPartitionTypeSupported(partitionName, prestoType);
 
-        Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
+        Object partitionValue = deserializeIcebergValue(prestoType, partitionStringValue, partitionName);
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
     }
 
@@ -816,7 +816,7 @@ public final class IcebergUtil
         return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
     }
 
-    public static Object deserializePartitionValue(Type type, String valueString, String name)
+    public static Object deserializeIcebergValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
             return null;

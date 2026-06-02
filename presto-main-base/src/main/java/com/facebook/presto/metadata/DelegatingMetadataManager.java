@@ -376,9 +376,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
-        return delegate.beginInsert(session, tableHandle);
+        return delegate.beginInsert(session, tableHandle, insertColumnNames);
     }
 
     @Override

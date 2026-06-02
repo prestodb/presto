@@ -62,13 +62,16 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.FileContent.DATA;
@@ -76,6 +79,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METAD
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -112,6 +116,8 @@ public class IcebergPageSink
     private final PagePartitioner pagePartitioner;
     private final Table table;
     private final long targetMaxFileSize;
+    private final List<IcebergColumnHandle> inputColumns;
+    private final Set<String> insertedColumns;
 
     private final List<WriteContext> writers = new ArrayList<>();
     private final List<WriteContext> closedWriters = new ArrayList<>();
@@ -136,6 +142,7 @@ public class IcebergPageSink
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             List<IcebergColumnHandle> inputColumns,
+            List<String> insertedColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             FileFormat fileFormat,
@@ -146,6 +153,9 @@ public class IcebergPageSink
     {
         requireNonNull(inputColumns, "inputColumns is null");
         this.targetMaxFileSize = targetMaxFileSize;
+        requireNonNull(insertedColumns, "insertedColumns is null");
+        this.inputColumns = ImmutableList.copyOf(inputColumns);
+        this.insertedColumns = new HashSet<>(insertedColumns);
         this.table = requireNonNull(table, "table is null");
         this.outputSchema = table.schema();
         this.partitionSpec = table.spec();
@@ -294,6 +304,7 @@ public class IcebergPageSink
 
     private void writePage(Page page)
     {
+        Page pageWithWriteDefaults = fillWriteDefaults(page);
         int[] writerIndexes = getWriterIndexes(page);
 
         // position count for each writer
@@ -325,7 +336,7 @@ public class IcebergPageSink
             }
 
             // if write is partitioned across multiple writers, filter page using dictionary blocks
-            Page pageForWriter = page;
+            Page pageForWriter = pageWithWriteDefaults;
             if (positions.length != page.getPositionCount()) {
                 verify(positions.length == counts[index]);
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
@@ -345,6 +356,80 @@ public class IcebergPageSink
                 writers.set(index, null);
             }
         }
+    }
+
+    private Page fillWriteDefaults(Page page)
+    {
+        Block[] blocks = new Block[page.getChannelCount()];
+        boolean pageChanged = false;
+
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (channel >= inputColumns.size()) {
+                blocks[channel] = block;
+                continue;
+            }
+            IcebergColumnHandle column = inputColumns.get(channel);
+
+            boolean shouldApplyWriteDefault = shouldApplyWriteDefault(column, block);
+            if (!shouldApplyWriteDefault) {
+                blocks[channel] = block;
+                continue;
+            }
+
+            blocks[channel] = fillBlockWithDefault(block, column);
+            pageChanged = true;
+        }
+
+        if (!pageChanged) {
+            return page;
+        }
+
+        return new Page(page.getPositionCount(), blocks);
+    }
+
+    private boolean shouldApplyWriteDefault(IcebergColumnHandle column, Block block)
+    {
+        return isOmittedInsertColumn(column) &&
+                column.getWriteDefaultValue().isPresent() &&
+                block.mayHaveNull();
+    }
+
+    private boolean isOmittedInsertColumn(IcebergColumnHandle column)
+    {
+        return !insertedColumns.isEmpty() && !insertedColumns.contains(column.getName());
+    }
+
+    private Block fillBlockWithDefault(Block block, IcebergColumnHandle column)
+    {
+        BlockBuilder blockBuilder = column.getType().createBlockBuilder(null, block.getPositionCount());
+        Object writeDefaultValue = deserializeIcebergValue(column.getType(), column.getWriteDefaultValue().get(), column.getName());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
+                column.getType().appendTo(block, position, blockBuilder);
+                continue;
+            }
+
+            writeDefaultValue(column, blockBuilder, writeDefaultValue);
+        }
+
+        return blockBuilder.build();
+    }
+
+    private void writeDefaultValue(IcebergColumnHandle column, BlockBuilder blockBuilder, Object value)
+    {
+        Type type = column.getType();
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
+
+        if (type instanceof DecimalType && ((DecimalType) type).isShort() && value instanceof Number) {
+            type.writeLong(blockBuilder, ((Number) value).longValue());
+            return;
+        }
+
+        writeNativeValue(type, blockBuilder, value);
     }
 
     private int[] getWriterIndexes(Page page)

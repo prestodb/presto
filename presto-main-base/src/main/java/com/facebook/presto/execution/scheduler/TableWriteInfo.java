@@ -34,8 +34,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -92,7 +94,13 @@ public class TableWriteInfo
             }
             if (target instanceof TableWriterNode.InsertReference) {
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;
-                return Optional.of(new ExecutionWriterTarget.InsertHandle(metadata.beginInsert(session, insert.getHandle()), insert.getSchemaTableName()));
+                // Extract column names from the INSERT statement
+                List<String> insertColumnNames = insert.getOutputColumns()
+                        .map(columns -> columns.stream()
+                                .map(com.facebook.presto.spi.eventlistener.OutputColumnMetadata::getColumnName)
+                                .collect(Collectors.toList()))
+                        .orElse(Collections.emptyList());
+                return Optional.of(new ExecutionWriterTarget.InsertHandle(metadata.beginInsert(session, insert.getHandle(), insertColumnNames), insert.getSchemaTableName()));
             }
             if (target instanceof TableWriterNode.DeleteHandle) {
                 TableWriterNode.DeleteHandle delete = (TableWriterNode.DeleteHandle) target;

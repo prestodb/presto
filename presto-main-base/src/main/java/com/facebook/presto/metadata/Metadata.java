@@ -72,6 +72,7 @@ import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
+import static java.util.Collections.emptyList;
 
 public interface Metadata
 {
@@ -333,8 +334,21 @@ public interface Metadata
 
     /**
      * Begin insert query
+     *
+     * @param session the session
+     * @param tableHandle the table handle
+     * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement
      */
-    InsertTableHandle beginInsert(Session session, TableHandle tableHandle);
+    InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames);
+
+    /**
+     * @deprecated Use {@link #beginInsert(Session, TableHandle, List)} instead
+     */
+    @Deprecated
+    default InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    {
+        return beginInsert(session, tableHandle, emptyList());
+    }
 
     /**
      * Finish insert query

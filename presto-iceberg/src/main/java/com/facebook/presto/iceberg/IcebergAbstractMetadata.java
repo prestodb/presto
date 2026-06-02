@@ -698,7 +698,7 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
-    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable)
+    protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
         return new IcebergInsertTableHandle(
@@ -712,7 +712,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
-                Optional.empty());
+                Optional.empty(),
+                insertColumnNames);
     }
 
     public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
@@ -1351,14 +1352,14 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have data inserted");
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         validateTableMode(session, icebergTable);
 
-        return beginIcebergTableInsert(session, table, icebergTable);
+        return beginIcebergTableInsert(session, table, icebergTable, insertColumnNames);
     }
 
     @Override

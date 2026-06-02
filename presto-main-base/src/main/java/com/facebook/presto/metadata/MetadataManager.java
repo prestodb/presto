@@ -998,13 +998,16 @@ public class MetadataManager
     }
 
     @Override
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle, List<String> insertColumnNames)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        List<String> normalizedColumnNames = insertColumnNames.stream()
+                .map(name -> normalizeIdentifier(session, connectorId.getCatalogName(), name))
+                .collect(toImmutableList());
+        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), normalizedColumnNames);
         return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
     }
 
