@@ -28,8 +28,13 @@
             <artifactId>java-driver-query-builder</artifactId>
         </dependency>
 
-        <!-- LZ4 compression library required by Cassandra driver 4.x at runtime -->
-        <!-- https://github.com/apache/cassandra-java-driver/blob/4.19.2/core/src/main/resources/reference.conf#L1117 -->
+        <!--
+          LZ4 codec for the Cassandra driver's optional native-protocol compression
+          (advanced.protocol.compression = lz4; see
+          https://github.com/apache/cassandra-java-driver/blob/4.19.2/core/src/main/resources/reference.conf#L1117).
+          Version is intentionally omitted so it inherits the centrally managed,
+          CVE-2025-12183-patched at.yawk.lz4:lz4-java override in the root POM.
+        -->
         <dependency>
             <groupId>at.yawk.lz4</groupId>
             <artifactId>lz4-java</artifactId>
