@@ -882,7 +882,7 @@ See the `Iceberg spec — Row Lineage <https://iceberg.apache.org/spec/#row-line
    Presto supports **reading** row lineage columns only.  Writing
    row lineage metadata (assigning ``_row_id`` and
    ``_last_updated_sequence_number`` when inserting or updating rows) is not
-   yet supported.
+   supported.
 
 ``_row_id`` column
 ~~~~~~~~~~~~~~~~~~
