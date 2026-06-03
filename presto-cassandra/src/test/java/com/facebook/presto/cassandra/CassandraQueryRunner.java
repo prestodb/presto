@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -31,6 +32,8 @@ import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
 public final class CassandraQueryRunner
 {
+    private static final Logger log = Logger.get(CassandraQueryRunner.class);
+
     private CassandraQueryRunner()
     {
     }
@@ -38,13 +41,13 @@ public final class CassandraQueryRunner
     public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server, Map<String, String> connectorProperties)
             throws Exception
     {
-        System.out.println("=== CassandraQueryRunner: Starting createCassandraQueryRunner ===");
+        log.info("Starting createCassandraQueryRunner");
         DistributedQueryRunner queryRunner = null;
         try {
-            System.out.println("=== CassandraQueryRunner: Creating DistributedQueryRunner ===");
+            log.info("Creating DistributedQueryRunner");
             queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
 
-            System.out.println("=== CassandraQueryRunner: Installing TpchPlugin ===");
+            log.info("Installing TpchPlugin");
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -54,23 +57,23 @@ public final class CassandraQueryRunner
             connectorProperties.putIfAbsent("cassandra.allow-drop-table", "true");
             connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
-            System.out.println("=== CassandraQueryRunner: Installing CassandraPlugin ===");
+            log.info("Installing CassandraPlugin");
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
-            System.out.println("=== CassandraQueryRunner: Creating keyspace 'tpch' ===");
+            log.info("Creating keyspace 'tpch'");
             createKeyspace(server.getSession(), "tpch");
 
-            System.out.println("=== CassandraQueryRunner: Starting to copy TPCH tables ===");
+            log.info("Starting to copy TPCH tables");
             List<TpchTable<?>> tables = TpchTable.getTables();
-            System.out.println("=== CassandraQueryRunner: Tables to copy: " + tables.size() + " ===");
+            log.info("Tables to copy: %s", tables.size());
 
             try {
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables, true);
-                System.out.println("=== CassandraQueryRunner: Successfully copied TPCH tables ===");
+                log.info("Successfully copied TPCH tables");
 
                 // Validate that tables were actually created and populated
-                System.out.println("=== CassandraQueryRunner: Validating table creation ===");
+                log.info("Validating table creation");
                 for (TpchTable<?> table : tables) {
                     String tableName = table.getTableName();
                     try {
@@ -78,44 +81,41 @@ public final class CassandraQueryRunner
                                 createCassandraSession("tpch"),
                                 String.format("SELECT COUNT(*) FROM cassandra.tpch.%s", tableName));
                         long count = (Long) result.getMaterializedRows().get(0).getField(0);
-                        System.out.println(String.format("=== Table %s: %d rows ===", tableName, count));
+                        log.info("Table %s: %d rows", tableName, count);
 
                         if (count == 0) {
                             throw new RuntimeException(String.format("Table %s was created but contains no data", tableName));
                         }
                     }
                     catch (Exception e) {
-                        System.err.println(String.format("=== VALIDATION FAILED for table %s ===", tableName));
+                        log.error(e, "Validation failed for table %s", tableName);
                         throw new RuntimeException(String.format("Table validation failed for %s", tableName), e);
                     }
                 }
-                System.out.println("=== CassandraQueryRunner: All tables validated successfully ===");
+                log.info("All tables validated successfully");
             }
             catch (Exception e) {
-                System.err.println("=== CassandraQueryRunner: ERROR copying TPCH tables ===");
-                e.printStackTrace(System.err);
+                log.error(e, "Error copying TPCH tables");
                 throw new RuntimeException("Failed to copy TPCH tables", e);
             }
 
-            System.out.println("=== CassandraQueryRunner: Refreshing size estimates ===");
+            log.info("Refreshing size estimates");
             for (TpchTable<?> table : tables) {
                 server.refreshSizeEstimates("tpch", table.getTableName());
             }
 
-            System.out.println("=== CassandraQueryRunner: Successfully completed createCassandraQueryRunner ===");
+            log.info("Successfully completed createCassandraQueryRunner");
             return queryRunner;
         }
         catch (Exception e) {
-            System.err.println("=== CassandraQueryRunner: FATAL ERROR in createCassandraQueryRunner ===");
-            e.printStackTrace(System.err);
+            log.error(e, "Fatal error in createCassandraQueryRunner");
             if (queryRunner != null) {
                 try {
-                    System.err.println("=== CassandraQueryRunner: Attempting to close queryRunner due to error ===");
+                    log.warn("Attempting to close queryRunner due to error");
                     queryRunner.close();
                 }
                 catch (Exception closeException) {
-                    System.err.println("=== CassandraQueryRunner: Error closing queryRunner ===");
-                    closeException.printStackTrace(System.err);
+                    log.error(closeException, "Error closing queryRunner");
                 }
             }
             throw e;
