@@ -40,8 +40,8 @@ public class MultiColumnKeyTableDefinition
 
     static {
         RelationalDataSource dataSource = () -> ImmutableList.<List<Object>>of(
-                ImmutableList.of("Alice", "a1", Timestamp.valueOf("2015-01-01 01:01:01"), "Test value 1"),
-                ImmutableList.of("Bob", "b1", Timestamp.valueOf("2014-02-02 03:04:05"), "Test value 2")
+                ImmutableList.of("Alice", "a1", Timestamp.valueOf("2015-01-01 01:01:01").toInstant(), "Test value 1"),
+                ImmutableList.of("Bob", "b1", Timestamp.valueOf("2014-02-02 03:04:05").toInstant(), "Test value 2")
         ).iterator();
         CASSANDRA_MULTI_COLUMN_KEY = CassandraTableDefinition.cassandraBuilder(MULTI_COLUMN_KEY_TABLE_NAME)
                 .withDatabase(CONNECTOR_NAME)
