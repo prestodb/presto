@@ -6,36 +6,40 @@ This page provides a comprehensive overview of which SQL statements are supporte
 The table below shows the compatibility matrix between connectors and SQL statements.
 
 .. note::
-    This table is maintained manually and should be reviewed at each release for updates.
     Support may vary based on connector configuration and the underlying data source capabilities.
 
 Compatibility Matrix
 ====================
 
-The following table shows SQL statement support across all Presto connectors:
+The following tables show SQL statement support across all Presto connectors:
+
+* :ref:`sql-alter-schema-to-commit`
+* :ref:`sql-create-role-to-create-materialized-view`
+* :ref:`sql-delete-to-grant`
+* :ref:`sql-insert-to-update`
 
 * **✓** = Fully supported
 * **✗** = Not supported
-* **⚠** = Partially supported or has limitations
+* **⚠** = Partially supported. See :ref:`connector-statement-support-limitations`.
 
-.. list-table:: SQL Statement Support by Connector
+.. _sql-alter-schema-to-commit:
+
+ALTER SCHEMA to COMMIT
+----------------------
+
+.. list-table:: SQL Statement Support: ALTER SCHEMA to COMMIT
   :header-rows: 1
   :stub-columns: 1
-  :widths: 20 8 8 8 8 8 8 8 8 8 8 8 8
+  :widths: 20 11 11 11 14 11 11 11
 
   * - Connector
     - ALTER SCHEMA
     - ALTER TABLE
     - ALTER VIEW
+    - ALTER MATERIALIZED VIEW
     - ANALYZE
     - CALL
     - COMMIT
-    - CREATE ROLE
-    - CREATE SCHEMA
-    - CREATE TABLE
-    - CREATE TABLE AS
-    - CREATE VIEW
-    - CREATE MATERIALIZED VIEW
   * - Accumulo
     - ✗
     - ⚠
@@ -44,17 +48,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Base Arrow Flight
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -70,11 +64,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Black Hole
     - ✗
     - ✗
@@ -83,17 +72,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Cassandra
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -109,11 +88,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Delta Lake
     - ✗
     - ✗
@@ -122,17 +96,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
   * - Druid
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -148,17 +112,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Google Sheets
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -174,30 +128,15 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Hive
     - ✓
     - ✓
     - ✗
+    - ✗
     - ✓
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✓
-    - ✓
   * - Hudi
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -209,21 +148,11 @@ The following table shows SQL statement support across all Presto connectors:
     - ✓
     - ✓
     - ✗
-    - ✗
-    - ✗
     - ✓
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✓
+    - ✗
     - ✓
   * - JMX
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -239,22 +168,12 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Kudu
     - ✗
     - ✓
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✓
     - ✗
     - ✗
   * - Lance
@@ -265,17 +184,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Lark Sheets
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -291,22 +200,12 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Memory
     - ✗
     - ✗
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✓
     - ✗
     - ✗
   * - MongoDB
@@ -317,22 +216,12 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - MySQL
     - ✗
     - ✓
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✓
-    - ✓
     - ✗
     - ✗
   * - Oracle
@@ -343,17 +232,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Pinot
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -369,17 +248,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - Prometheus
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -395,11 +264,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Redshift
     - ✗
     - ✓
@@ -408,17 +272,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - ScyllaDB
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -434,11 +288,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - SQL Server
     - ✗
     - ✓
@@ -447,17 +296,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✓
-    - ✓
-    - ✗
-    - ✗
   * - System
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -473,17 +312,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - TPCDS
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -499,16 +328,286 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
+
+.. _sql-create-role-to-create-materialized-view:
+
+CREATE ROLE to CREATE MATERIALIZED VIEW
+---------------------------------------
+
+.. list-table:: SQL Statement Support: CREATE ROLE to CREATE MATERIALIZED VIEW
+  :header-rows: 1
+  :stub-columns: 1
+  :widths: 20 13 13 13 13 13 13
+
+  * - Connector
+    - CREATE ROLE
+    - CREATE SCHEMA
+    - CREATE TABLE
+    - CREATE TABLE AS
+    - CREATE VIEW
+    - CREATE MATERIALIZED VIEW
+  * - Accumulo
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Base Arrow Flight
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - BigQuery
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Black Hole
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Cassandra
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - ClickHouse
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Delta Lake
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+  * - Druid
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Elasticsearch
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Google Sheets
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - HANA
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Hive
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+  * - Hudi
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Iceberg
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+  * - JMX
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Kafka
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Kudu
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Lance
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Lark Sheets
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Local File
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Memory
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - MongoDB
+    - ✗
+    - ✗
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - MySQL
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Oracle
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Pinot
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - PostgreSQL
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - Prometheus
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Redis
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Redshift
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - ScyllaDB
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - SingleStore
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - SQL Server
+    - ✗
+    - ✓
+    - ✓
+    - ✓
+    - ✗
+    - ✗
+  * - System
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Thrift
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - TPCDS
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - TPCH
+    - ✗
     - ✗
     - ✗
     - ✗
     - ✗
     - ✗
 
-.. list-table:: SQL Statement Support by Connector (continued)
+.. _sql-delete-to-grant:
+
+DELETE to GRANT
+---------------
+
+.. list-table:: SQL Statement Support: DELETE to GRANT
   :header-rows: 1
   :stub-columns: 1
-  :widths: 20 8 8 8 8 8 8 8 8 8 8 8 8
+  :widths: 20 13 13 13 13 13 13
 
   * - Connector
     - DELETE
@@ -517,12 +616,6 @@ The following table shows SQL statement support across all Presto connectors:
     - DROP VIEW
     - DROP MATERIALIZED VIEW
     - GRANT
-    - INSERT
-    - MERGE
-    - REFRESH MATERIALIZED VIEW
-    - ROLLBACK
-    - TRUNCATE
-    - UPDATE
   * - Accumulo
     - ✗
     - ✗
@@ -530,19 +623,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Base Arrow Flight
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -556,12 +637,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Black Hole
     - ✗
     - ✗
@@ -569,22 +644,10 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - Cassandra
     - ✗
     - ✗
     - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -595,12 +658,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Delta Lake
     - ✗
     - ✗
@@ -608,19 +665,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Druid
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -634,19 +679,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Google Sheets
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -660,12 +693,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - Hive
     - ✓
     - ✓
@@ -673,19 +700,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✓
     - ✓
     - ✓
-    - ✓
-    - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
   * - Hudi
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -699,19 +714,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✓
     - ✓
     - ✓
-    - ✓
-    - ✓
-    - ✓
-    - ✓
-    - ✓
-    - ✓
   * - JMX
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -725,22 +728,10 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Kudu
     - ✓
     - ✗
     - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -751,19 +742,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Lark Sheets
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -777,12 +756,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Memory
     - ✗
     - ✗
@@ -790,20 +763,8 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - MongoDB
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✓
     - ✗
     - ✗
     - ✗
@@ -816,12 +777,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - Oracle
     - ✗
     - ✗
@@ -829,19 +784,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - Pinot
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -855,19 +798,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - Prometheus
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -881,12 +812,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - Redshift
     - ✗
     - ✗
@@ -894,19 +819,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - ScyllaDB
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -920,12 +833,6 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - SQL Server
     - ✗
     - ✗
@@ -933,19 +840,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✓
-    - ✗
-    - ✗
-    - ✗
-    - ✓
-    - ✗
   * - System
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -959,19 +854,7 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
   * - TPCDS
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
-    - ✗
     - ✗
     - ✗
     - ✗
@@ -985,12 +868,278 @@ The following table shows SQL statement support across all Presto connectors:
     - ✗
     - ✗
     - ✗
+
+.. _sql-insert-to-update:
+
+INSERT to UPDATE
+----------------
+
+.. list-table:: SQL Statement Support: INSERT to UPDATE
+  :header-rows: 1
+  :stub-columns: 1
+  :widths: 20 13 13 13 13 13 13
+
+  * - Connector
+    - INSERT
+    - MERGE
+    - REFRESH MATERIALIZED VIEW
+    - ROLLBACK
+    - TRUNCATE
+    - UPDATE
+  * - Accumulo
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Base Arrow Flight
     - ✗
     - ✗
     - ✗
     - ✗
     - ✗
     - ✗
+  * - BigQuery
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Black Hole
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - Cassandra
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - ClickHouse
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Delta Lake
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Druid
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Elasticsearch
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Google Sheets
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - HANA
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - Hive
+    - ✓
+    - ✗
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+  * - Hudi
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Iceberg
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+    - ✓
+  * - JMX
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Kafka
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Kudu
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Lance
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Lark Sheets
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Local File
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Memory
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - MongoDB
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - MySQL
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - Oracle
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - Pinot
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - PostgreSQL
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - Prometheus
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Redis
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Redshift
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - ScyllaDB
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - SingleStore
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - SQL Server
+    - ✓
+    - ✗
+    - ✗
+    - ✗
+    - ✓
+    - ✗
+  * - System
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - Thrift
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - TPCDS
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+  * - TPCH
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+    - ✗
+
+.. _connector-statement-support-limitations:
 
 Notes and Limitations
 =====================
@@ -1017,6 +1166,8 @@ Iceberg
 * Full support for transactions (COMMIT/ROLLBACK)
 * Supports advanced features like MERGE and UPDATE
 * Branch and tag operations supported via ALTER TABLE
+* ``ALTER TABLE``: Supports changing column default values (write-default) via ``ALTER COLUMN SET DEFAULT`` on Iceberg format version 3+ tables
+* ``ALTER MATERIALIZED VIEW``: Supports updating properties (such as ``stale_read_behavior``, ``staleness_window``, and ``refresh_type``) in place
 
 Kudu
 ----
