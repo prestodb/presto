@@ -16,7 +16,9 @@
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
+
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -171,13 +173,14 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
     const protocol::SplitContext* splitContext) const {
-  auto icebergSplit =
+  const auto* icebergSplitPtr =
       dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
-      icebergSplit, "Unexpected split type {}", connectorSplit->_type);
+      icebergSplitPtr, "Unexpected split type {}", connectorSplit->_type);
+  const protocol::iceberg::IcebergSplit& icebergSplit = *icebergSplitPtr;
 
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
-  for (const auto& entry : icebergSplit->partitionKeys) {
+  for (const auto& entry : icebergSplit.partitionKeys) {
     partitionKeys.emplace(
         entry.second.name,
         entry.second.value == nullptr
@@ -189,8 +192,8 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   customSplitInfo["table_format"] = "hive-iceberg";
 
   std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> deletes;
-  deletes.reserve(icebergSplit->deletes.size());
-  for (const auto& deleteFile : icebergSplit->deletes) {
+  deletes.reserve(icebergSplit.deletes.size());
+  for (const auto& deleteFile : icebergSplit.deletes) {
     std::unordered_map<int32_t, std::string> lowerBounds(
         deleteFile.lowerBounds.begin(), deleteFile.lowerBounds.end());
 
@@ -205,29 +208,48 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
         deleteFile.fileSizeInBytes,
         std::vector(deleteFile.equalityFieldIds),
         lowerBounds,
-        upperBounds);
+        upperBounds,
+        deleteFile.dataSequenceNumber,
+        deleteFile.contentOffset,
+        deleteFile.contentSize,
+        deleteFile.referencedDataFile);
 
     deletes.emplace_back(icebergDeleteFile);
   }
 
   std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
-      {"$path", icebergSplit->path}};
+      {velox::connector::hive::iceberg::IcebergMetadataColumn::
+           kDataSequenceNumberInfoColumn,
+       fmt::to_string(icebergSplit.dataSequenceNumber)},
+      {"$path", icebergSplit.path}};
+  // Only emit `$first_row_id` when the coordinator assigned a non-negative
+  // value. `firstRowId == -1` is the protocol's "unset" sentinel for V1/V2
+  // splits and for V3 splits where row lineage was not assigned. The Velox
+  // reader VELOX_CHECK_GE-asserts non-negativity if the key is present, so
+  // emitting -1 would crash every V1/V2 read. Mirrors the Java guard in
+  // `IcebergPageSourceProvider.java`.
+  if (icebergSplit.firstRowId >= 0) {
+    infoColumns.emplace(
+        velox::connector::hive::iceberg::IcebergMetadataColumn::
+            kFirstRowIdInfoColumn,
+        fmt::to_string(icebergSplit.firstRowId));
+  }
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
-      icebergSplit->path,
-      toVeloxFileFormat(icebergSplit->fileFormat),
-      icebergSplit->start,
-      icebergSplit->length,
+      icebergSplit.path,
+      toVeloxFileFormat(icebergSplit.fileFormat),
+      icebergSplit.start,
+      icebergSplit.length,
       partitionKeys,
       std::nullopt,
       customSplitInfo,
       nullptr,
       splitContext->cacheable,
       deletes,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      icebergSplit.dataSequenceNumber);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
