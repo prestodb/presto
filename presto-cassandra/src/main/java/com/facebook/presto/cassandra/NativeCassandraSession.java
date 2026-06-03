@@ -76,7 +76,7 @@ import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
@@ -84,8 +84,16 @@ public class NativeCassandraSession
         implements CassandraSession
 {
     private static final Logger log = Logger.get(NativeCassandraSession.class);
+    // Use expireAfterWrite (not expireAfterAccess) so the cached entry is reloaded periodically
+    // even under continuous access. In driver 4.x, Session.getMetadata() returns an immutable
+    // snapshot of the schema (unlike driver 3.x, where the cached KeyspaceMetadata was a live view
+    // that auto-updated). Caching that snapshot with expireAfterAccess would pin a stale view for
+    // as long as it is polled (e.g. SHOW TABLES in a tight loop), so schema objects created
+    // out-of-band (such as a materialized view created by another client) would never appear.
+    // The driver refreshes its own metadata within ~1s of a schema-change event, so a short
+    // write-based TTL keeps the connector's view fresh while still avoiding redundant lookups.
     private final LoadingCache<String, KeyspaceMetadata> keyspaceCache = CacheBuilder.newBuilder()
-            .expireAfterAccess(1, MINUTES)
+            .expireAfterWrite(1, SECONDS)
             .build(new CacheLoader<String, KeyspaceMetadata>()
             {
                 @Override
