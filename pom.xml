@@ -33,18 +33,6 @@
         <tag>HEAD</tag>
     </scm>
 
-    <!--
-      TEMPORARY: resolve tempto from JitPack to validate the Cassandra Java Driver 4.x upgrade
-      (msmygit/prestodb-tempto, branch cassandra-java-driver-4x) before an official tempto release.
-      Revert to io.prestodb.tempto once a 4.x-enabled tempto is published.
-    -->
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
-
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
