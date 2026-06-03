@@ -25,6 +25,7 @@ import com.datastax.oss.driver.api.core.metadata.TokenMap;
 import com.datastax.oss.driver.api.core.metadata.schema.ColumnMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.IndexMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.metadata.schema.RelationMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
@@ -224,7 +225,7 @@ public class NativeCassandraSession
             throws TableNotFoundException
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
-        TableMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
+        RelationMetadata tableMeta = getTableMetadata(keyspace, schemaTableName.getTableName());
 
         List<String> columnNames = new ArrayList<>();
         List<ColumnMetadata> columns = new ArrayList<>(tableMeta.getColumns().values());
@@ -354,13 +355,15 @@ public class NativeCassandraSession
                 : actualName.equalsIgnoreCase(expectedName);
     }
 
-    private static TableMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseSensitiveTableName)
+    private static RelationMetadata getTableMetadata(KeyspaceMetadata keyspace, String caseSensitiveTableName)
     {
-        List<TableMetadata> tables = Stream.concat(
+        // Both TableMetadata and ViewMetadata extend RelationMetadata in driver 4.x (ViewMetadata does
+        // NOT extend TableMetadata), so we resolve against the common supertype. A materialized view's
+        // name is registered under getViews(), not getTables(); looking it up via getTable() would
+        // silently miss it and surface as "table does not exist" when the view is queried.
+        List<RelationMetadata> tables = Stream.<RelationMetadata>concat(
                 keyspace.getTables().values().stream(),
-                keyspace.getViews().values().stream()
-                        .map(view -> keyspace.getTable(view.getName()).orElse(null))
-                        .filter(table -> table != null))
+                keyspace.getViews().values().stream())
                 .filter(table -> namesMatch(table.getName().toString(), caseSensitiveTableName, caseSensitiveNameMatchingEnabled))
                 .collect(toImmutableList());
         if (tables.size() == 0) {
@@ -402,7 +405,7 @@ public class NativeCassandraSession
         }
     }
 
-    private CassandraColumnHandle buildColumnHandle(TableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private CassandraColumnHandle buildColumnHandle(RelationMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
         DataType dataType = columnMeta.getType();
         CassandraType cassandraType = CassandraType.getCassandraType(dataType);
@@ -426,8 +429,10 @@ public class NativeCassandraSession
         }
         boolean indexed = false;
         SchemaTableName schemaTableName = new SchemaTableName(tableMetadata.getKeyspace().toString(), tableMetadata.getName().toString());
-        if (!isMaterializedView(schemaTableName)) {
-            for (IndexMetadata idx : tableMetadata.getIndexes().values()) {
+        // Indexes only exist on base tables (getIndexes() is defined on TableMetadata, not on the
+        // RelationMetadata supertype shared with ViewMetadata), so the cast is safe under this guard.
+        if (!isMaterializedView(schemaTableName) && tableMetadata instanceof TableMetadata) {
+            for (IndexMetadata idx : ((TableMetadata) tableMetadata).getIndexes().values()) {
                 if (idx.getTarget().equals(columnMeta.getName().asCql(true))) {
                     indexed = true;
                     break;
