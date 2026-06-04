@@ -48,7 +48,7 @@ jobs:
         with:
           tool-cache: true
           swap-storage: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false

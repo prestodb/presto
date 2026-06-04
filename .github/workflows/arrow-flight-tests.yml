@@ -50,7 +50,7 @@ jobs:
 
     steps:
       # Checkout the code only if there are changes in the relevant files
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
@@ -124,7 +124,7 @@ jobs:
           # Show after
           echo "New available disk space: " $(getAvailableSpace)
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: needs.changes.outputs.codechange == 'true'
         with:
           persist-credentials: false
@@ -255,7 +255,7 @@ jobs:
           # Show after
           echo "New available disk space: " $(getAvailableSpace)
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: needs.changes.outputs.codechange == 'true'
         with:
           persist-credentials: false

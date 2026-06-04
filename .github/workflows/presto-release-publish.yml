@@ -72,7 +72,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           ref: ${{ env.RELEASE_BRANCH }}
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
@@ -155,7 +155,7 @@ jobs:
           sudo apt-get install -y build-essential git gpg python3 python3-venv
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           ref: ${{ env.RELEASE_TAG }}
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
@@ -268,7 +268,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           ref: ${{ env.RELEASE_TAG}}
           persist-credentials: false
@@ -304,7 +304,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           ref: ${{ env.RELEASE_TAG}}
           persist-credentials: false
@@ -373,7 +373,7 @@ jobs:
           swap-storage: false
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           ref: ${{ env.RELEASE_TAG }}
           submodules: true
@@ -479,7 +479,7 @@ jobs:
 
     steps:
       - name: Checkout presto
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           repository: ${{ github.repository_owner }}/presto
           path: presto
@@ -490,7 +490,7 @@ jobs:
           persist-credentials: true
 
       - name: Checkout prestodb.github.io
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           repository: ${{ github.repository_owner }}/prestodb.github.io
           path: prestodb.github.io

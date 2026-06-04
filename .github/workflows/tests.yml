@@ -77,7 +77,7 @@ jobs:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false

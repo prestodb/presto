@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout presto source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
           show-progress: false
@@ -190,7 +190,7 @@ jobs:
 
     steps:
       - name: Checkout presto source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           fetch-tags: true
           show-progress: false

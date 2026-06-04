@@ -44,7 +44,7 @@ jobs:
       # Checkout PR branch first to get access to the composite action
       - name: Checkout PR branch
         if: needs.changes.outputs.codechange == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -65,7 +65,7 @@ jobs:
 
       - name: Checkout base branch
         if: needs.changes.outputs.codechange == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0
         with:
           persist-credentials: false
           ref: ${{ steps.merge-base.outputs.sha }}

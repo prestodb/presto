@@ -43,7 +43,7 @@ jobs:
       group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}-${{ matrix.os }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         if: |
           needs.changes.outputs.codechange == 'true'
         with:

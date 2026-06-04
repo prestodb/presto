@@ -37,7 +37,7 @@ jobs:
       group: ${{ github.workflow }}-web-ui-checks-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0
         with:
           show-progress: false
           persist-credentials: false
