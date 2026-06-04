@@ -277,6 +277,32 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
+// IcebergDeleteTableHandle is special since it needs an usage of
+// hive::.
+
+// IcebergDeleteTableHandle is special since it needs an usage of
+// hive::.
+
+namespace facebook::presto::protocol::iceberg {
+struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
+  String schemaName = {};
+  IcebergTableName tableName = {};
+  PrestoIcebergSchema schema = {};
+  PrestoIcebergPartitionSpec partitionSpec = {};
+  List<IcebergColumnHandle> inputColumns = {};
+  String outputPath = {};
+  FileFormat fileFormat = {};
+  hive::HiveCompressionCodec compressionCodec = {};
+  Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+  FileContent fileContent = {};
+
+  IcebergDeleteTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergDeleteTableHandle& p);
+void from_json(const json& j, IcebergDeleteTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
 // IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
 
