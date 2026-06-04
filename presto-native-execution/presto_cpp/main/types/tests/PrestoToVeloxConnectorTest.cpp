@@ -26,6 +26,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
 
@@ -755,4 +756,56 @@ TEST_F(
   VELOX_ASSERT_THROW(
       icebergConnector.toVeloxInsertTableHandle(&deleteHandle, *typeParser_),
       "Unexpected delete table handle type");
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitTranslatesDeletionVectorDelete) {
+  // A V3 DELETION_VECTOR delete file flows through toVeloxSplit and must land
+  // as a velox IcebergDeleteFile with FileContent::kDeletionVector and the
+  // PUFFIN content offset / length / referencedDataFile fields propagated.
+  // Before the toVeloxFileContent bridge wired DELETION_VECTOR, this path
+  // raised VELOX_UNSUPPORTED on the worker.
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.start = 0;
+  split.length = 1024;
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.dataSequenceNumber = 5;
+
+  protocol::iceberg::DeleteFile dv;
+  dv.content = protocol::iceberg::FileContent::DELETION_VECTOR;
+  dv.path = "/path/to/deletes/dv.puffin";
+  dv.format = protocol::iceberg::FileFormat::PUFFIN;
+  dv.recordCount = 4;
+  dv.fileSizeInBytes = 128;
+  dv.dataSequenceNumber = 6;
+  dv.contentOffset = 16;
+  dv.contentSize = 64;
+  dv.referencedDataFile = "/path/to/data/file.dwrf";
+  split.deletes = {dv};
+
+  protocol::SplitContext context;
+  context.cacheable = false;
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit =
+      icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  ASSERT_NE(veloxSplit, nullptr);
+
+  auto* hiveIceberg =
+      dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+          veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+  ASSERT_EQ(hiveIceberg->deleteFiles.size(), 1);
+  const auto& deleteFile = hiveIceberg->deleteFiles[0];
+  EXPECT_EQ(
+      deleteFile.content,
+      connector::hive::iceberg::FileContent::kDeletionVector);
+  EXPECT_EQ(deleteFile.filePath, "/path/to/deletes/dv.puffin");
+  EXPECT_EQ(deleteFile.recordCount, 4);
+  EXPECT_EQ(deleteFile.dataSequenceNumber, 6);
+  EXPECT_EQ(deleteFile.contentOffset, 16);
+  EXPECT_EQ(deleteFile.contentLength, 64);
+  EXPECT_EQ(deleteFile.referencedDataFile, "/path/to/data/file.dwrf");
 }
