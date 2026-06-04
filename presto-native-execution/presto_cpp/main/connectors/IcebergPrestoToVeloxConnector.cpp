@@ -387,76 +387,111 @@ std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
     const TypeParser& typeParser) const {
-  auto icebergInsertTableHandle =
-      std::dynamic_pointer_cast<protocol::iceberg::IcebergInsertTableHandle>(
-          insertHandle->handle.connectorHandle);
+  try {
+    // [ICEBERG-DEBUG apurvak]: trace entry + connector handle type so we can
+    // see whether the dispatch picked InsertHandle correctly (vs.
+    // mis-routing through the DeleteHandle overload due to the slot 10 swap
+    // in D105893773).
+    LOG(INFO) << "[ICEBERG-DEBUG] toVeloxInsertTableHandle(InsertHandle) entry"
+              << " type="
+              << (insertHandle && insertHandle->handle.connectorHandle
+                      ? insertHandle->handle.connectorHandle->_type
+                      : std::string("<null>"));
+    auto icebergInsertTableHandle =
+        std::dynamic_pointer_cast<protocol::iceberg::IcebergInsertTableHandle>(
+            insertHandle->handle.connectorHandle);
 
-  VELOX_CHECK_NOT_NULL(
-      icebergInsertTableHandle,
-      "Unexpected insert table handle type {}",
-      insertHandle->handle.connectorHandle->_type);
+    VELOX_CHECK_NOT_NULL(
+        icebergInsertTableHandle,
+        "Unexpected insert table handle type {}",
+        insertHandle->handle.connectorHandle->_type);
 
-  const auto inputColumns =
-      toIcebergColumns(icebergInsertTableHandle->inputColumns, typeParser);
+    const auto inputColumns =
+        toIcebergColumns(icebergInsertTableHandle->inputColumns, typeParser);
 
-  return std::make_unique<
-      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
-      inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
-          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
-      toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
-      toVeloxIcebergPartitionSpec(
-          icebergInsertTableHandle->partitionSpec, typeParser),
-      std::optional(
-          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+    return std::make_unique<
+        velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+        inputColumns,
+        std::make_shared<velox::connector::hive::LocationHandle>(
+            fmt::format("{}/data", icebergInsertTableHandle->outputPath),
+            fmt::format("{}/data", icebergInsertTableHandle->outputPath),
+            velox::connector::hive::LocationHandle::TableType::kExisting),
+        toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
+        toVeloxIcebergPartitionSpec(
+            icebergInsertTableHandle->partitionSpec, typeParser),
+        std::optional(
+            toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+  } catch (const std::exception& ex) {
+    LOG(ERROR)
+        << "[ICEBERG-DEBUG] toVeloxInsertTableHandle(InsertHandle) threw: "
+        << ex.what() << " type="
+        << (insertHandle && insertHandle->handle.connectorHandle
+                ? insertHandle->handle.connectorHandle->_type
+                : std::string("<null>"));
+    throw;
+  }
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::DeleteHandle* deleteHandle,
     const TypeParser& typeParser) const {
-  auto icebergDeleteTableHandle =
-      std::dynamic_pointer_cast<protocol::iceberg::IcebergDeleteTableHandle>(
-          deleteHandle->handle.connectorHandle);
+  try {
+    // [ICEBERG-DEBUG apurvak]: see Insert overload above.
+    LOG(INFO) << "[ICEBERG-DEBUG] toVeloxInsertTableHandle(DeleteHandle) entry"
+              << " type="
+              << (deleteHandle && deleteHandle->handle.connectorHandle
+                      ? deleteHandle->handle.connectorHandle->_type
+                      : std::string("<null>"));
+    auto icebergDeleteTableHandle =
+        std::dynamic_pointer_cast<protocol::iceberg::IcebergDeleteTableHandle>(
+            deleteHandle->handle.connectorHandle);
 
-  VELOX_CHECK_NOT_NULL(
-      icebergDeleteTableHandle,
-      "Unexpected delete table handle type {}",
-      deleteHandle->handle.connectorHandle->_type);
+    VELOX_CHECK_NOT_NULL(
+        icebergDeleteTableHandle,
+        "Unexpected delete table handle type {}",
+        deleteHandle->handle.connectorHandle->_type);
 
-  const auto inputColumns =
-      toIcebergColumns(icebergDeleteTableHandle->inputColumns, typeParser);
+    const auto inputColumns =
+        toIcebergColumns(icebergDeleteTableHandle->inputColumns, typeParser);
 
-  // Derive Velox WriteKind from the protocol's fileContent. Only the V3
-  // deletion-vector branch routes through this bridge today; V2
-  // POSITION_DELETES flows through the Java row-id-rewrite path on the
-  // coordinator and never reaches the C++ worker as a typed DeleteHandle.
-  // If we do see a non-DELETION_VECTOR fileContent here we fall back to
-  // kData so the existing IcebergDataSink raises a clear error rather
-  // than silently emitting a deletion vector for the wrong format.
-  const auto writeKind = icebergDeleteTableHandle->fileContent ==
-          protocol::iceberg::FileContent::DELETION_VECTOR
-      ? velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
-            kDeletionVector
-      : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
-            kData;
+    // Derive Velox WriteKind from the protocol's fileContent. Only the V3
+    // deletion-vector branch routes through this bridge today; V2
+    // POSITION_DELETES flows through the Java row-id-rewrite path on the
+    // coordinator and never reaches the C++ worker as a typed DeleteHandle.
+    // If we do see a non-DELETION_VECTOR fileContent here we fall back to
+    // kData so the existing IcebergDataSink raises a clear error rather
+    // than silently emitting a deletion vector for the wrong format.
+    const auto writeKind = icebergDeleteTableHandle->fileContent ==
+            protocol::iceberg::FileContent::DELETION_VECTOR
+        ? velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+              kDeletionVector
+        : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+              kData;
 
-  return std::make_unique<
-      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
-      inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
-          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
-      toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
-      toVeloxIcebergPartitionSpec(
-          icebergDeleteTableHandle->partitionSpec, typeParser),
-      std::optional(
-          toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
-      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
-      writeKind);
+    return std::make_unique<
+        velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+        inputColumns,
+        std::make_shared<velox::connector::hive::LocationHandle>(
+            fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+            fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+            velox::connector::hive::LocationHandle::TableType::kExisting),
+        toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
+        toVeloxIcebergPartitionSpec(
+            icebergDeleteTableHandle->partitionSpec, typeParser),
+        std::optional(
+            toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
+        /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+        writeKind);
+  } catch (const std::exception& ex) {
+    LOG(ERROR)
+        << "[ICEBERG-DEBUG] toVeloxInsertTableHandle(DeleteHandle) threw: "
+        << ex.what() << " type="
+        << (deleteHandle && deleteHandle->handle.connectorHandle
+                ? deleteHandle->handle.connectorHandle->_type
+                : std::string("<null>"));
+    throw;
+  }
 }
 
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
