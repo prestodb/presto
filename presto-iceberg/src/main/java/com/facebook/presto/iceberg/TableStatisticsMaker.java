@@ -47,8 +47,8 @@ import jakarta.annotation.Nullable;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.ContentFile;
-import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.GenericBlobMetadata;
 import org.apache.iceberg.GenericStatisticsFile;
 import org.apache.iceberg.HasTableOperations;
@@ -76,6 +76,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.CharBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -298,8 +299,49 @@ public class TableStatisticsMaker
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
                 .includeColumnStats();
 
-        CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
-        return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
+        // Walk plan files once. Capture data files for the summary and a deduped
+        // set of position-delete / deletion-vector files so we can subtract their
+        // record counts from the data-file row sum below. A single delete file
+        // commonly applies to many data files (e.g. one PUFFIN DV per snapshot),
+        // so dedupe by file path to avoid double-counting. Equality deletes are
+        // intentionally excluded: their record counts are equality-key cardinality,
+        // not row-position counts, so subtracting them would over-count.
+        List<ContentFile<?>> dataFiles = new ArrayList<>();
+        Map<String, Long> deletePathToRecordCount = new HashMap<>();
+        try (CloseableIterable<FileScanTask> tasks = tableScan.planFiles()) {
+            for (FileScanTask task : tasks) {
+                dataFiles.add(task.file());
+                for (DeleteFile delete : task.deletes()) {
+                    org.apache.iceberg.FileContent content = delete.content();
+                    // Tolerate iceberg-api jars that do not yet expose
+                    // DELETION_VECTOR as an enum constant by comparing on name.
+                    if (content == org.apache.iceberg.FileContent.POSITION_DELETES
+                            || "DELETION_VECTOR".equals(content.name())) {
+                        deletePathToRecordCount.putIfAbsent(delete.path().toString(), delete.recordCount());
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        Partition summary = getSummaryFromFiles(
+                CloseableIterable.withNoopClose(dataFiles),
+                idToTypeMapping,
+                nonPartitionPrimitiveColumns,
+                partitionFields);
+
+        if (summary != null) {
+            long deletedRecords = deletePathToRecordCount.values().stream().mapToLong(Long::longValue).sum();
+            if (deletedRecords > 0) {
+                // incrementRecordCount takes a signed long, so subtract the
+                // row-position / deletion-vector record counts to expose the
+                // visible row count of the table.
+                summary.incrementRecordCount(-deletedRecords);
+            }
+        }
+        return summary;
     }
 
     private Partition getEqualityDeleteTableSummary(IcebergTableHandle tableHandle,

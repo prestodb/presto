@@ -115,6 +115,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeUpdateMergeEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -984,6 +986,14 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
+        if (isNativeExecutionEnabled(session) && !isNativeUpdateMergeEnabled(session)) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "UPDATE is not supported on native (Prestissimo) workers when " +
+                            "native_update_merge_enabled is false. Enable that session property " +
+                            "(or run on a Java cluster) to use UPDATE.");
+        }
+
         SqlPlannerContext context = new SqlPlannerContext(0);
         UpdateNode updateNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
                 .plan(node);
@@ -1026,6 +1036,14 @@ public class LogicalPlanner
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
     {
+        if (isNativeExecutionEnabled(session) && !isNativeUpdateMergeEnabled(session)) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "MERGE is not supported on native (Prestissimo) workers when " +
+                            "native_update_merge_enabled is false. Enable that session property " +
+                            "(or run on a Java cluster) to use MERGE.");
+        }
+
         SqlPlannerContext context = new SqlPlannerContext(0);
         MergeWriterNode mergeNode = new QueryPlanner(analysis, variableAllocator, idAllocator,
                 buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)

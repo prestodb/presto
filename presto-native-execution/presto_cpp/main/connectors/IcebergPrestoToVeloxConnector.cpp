@@ -15,8 +15,11 @@
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
+#include <folly/json.h>
+
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -37,7 +40,15 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
 velox::dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::iceberg::FileFormat format) {
   if (format == protocol::iceberg::FileFormat::ORC) {
-    return velox::dwio::common::FileFormat::ORC;
+    // Iceberg manifests have no DWRF enum, so Meta's DWRF files (and
+    // genuine ORC files, which DWRF is a superset of) are reported as
+    // "ORC" on the wire per the cross-engine convention shared with the
+    // Java planner (FileFormat.DWRF.toIceberg() in
+    // presto-facebook-iceberg). Velox only registers a writer for
+    // FileFormat::DWRF, so map protocol ORC -> velox DWRF here to unify
+    // the two views and let the DWRF writer/reader (which handles both
+    // formats) take over.
+    return velox::dwio::common::FileFormat::DWRF;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
   }
@@ -164,6 +175,34 @@ velox::parquet::ParquetFieldId toParquetField(
   return pf;
 }
 
+// Extracts the Iceberg partition spec ID from the JSON-encoded spec carried on
+// each split (IcebergSplit.partitionSpecAsJson on the Java side). The JSON
+// always has a top-level "specId" integer per Iceberg's PartitionSpecParser.
+// Returns std::nullopt only when parsing fails so callers can decide whether
+// to omit the resulting info column (synthesis paths that depend on a real
+// spec_id should treat absence as a hard error).
+std::optional<int32_t> tryParsePartitionSpecId(
+    const std::string& partitionSpecAsJson) {
+  if (partitionSpecAsJson.empty()) {
+    return std::nullopt;
+  }
+  try {
+    const auto parsed = folly::parseJson(partitionSpecAsJson);
+    if (!parsed.isObject()) {
+      return std::nullopt;
+    }
+    const auto* specIdField = parsed.get_ptr("specId");
+    if (specIdField == nullptr || !specIdField->isInt()) {
+      return std::nullopt;
+    }
+    return static_cast<int32_t>(specIdField->asInt());
+  } catch (const folly::json::parse_error&) {
+    return std::nullopt;
+  } catch (const folly::TypeError&) {
+    return std::nullopt;
+  }
+}
+
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -214,6 +253,24 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       {"$data_sequence_number",
        std::to_string(icebergSplit->dataSequenceNumber)},
       {"$path", icebergSplit->path}};
+
+  // Iceberg MERGE INTO row-id synthesis: feed the split's partition spec ID
+  // and the per-file PartitionData JSON down to the Velox split reader so it
+  // can populate the spec_id and partition_data fields of the synthetic
+  // $target_table_row_id ROW column. partitionSpecAsJson is required on every
+  // Iceberg split; partitionDataJson is optional (absent for unpartitioned
+  // tables, in which case Java emits an empty string — match that here).
+  if (auto specId = tryParsePartitionSpecId(icebergSplit->partitionSpecAsJson);
+      specId.has_value()) {
+    infoColumns.emplace(
+        velox::connector::hive::iceberg::IcebergMetadataColumn::
+            kSpecIdInfoColumn,
+        fmt::to_string(*specId));
+  }
+  infoColumns.emplace(
+      velox::connector::hive::iceberg::IcebergMetadataColumn::
+          kPartitionDataInfoColumn,
+      icebergSplit->partitionDataJson ? *icebergSplit->partitionDataJson : "");
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
@@ -413,6 +470,52 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }
 
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::DeleteHandle* deleteHandle,
+    const TypeParser& typeParser) const {
+  auto icebergDeleteTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergDeleteTableHandle>(
+          deleteHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergDeleteTableHandle,
+      "Unexpected delete table handle type {}",
+      deleteHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns =
+      toIcebergColumns(icebergDeleteTableHandle->inputColumns, typeParser);
+
+  // Derive Velox WriteKind from the protocol's fileContent. Only the V3
+  // deletion-vector branch routes through this bridge today; V2
+  // POSITION_DELETES flows through the Java row-id-rewrite path on the
+  // coordinator and never reaches the C++ worker as a typed DeleteHandle.
+  // If we do see a non-DELETION_VECTOR fileContent here we fall back to
+  // kData so the existing IcebergDataSink raises a clear error rather
+  // than silently emitting a deletion vector for the wrong format.
+  const auto writeKind = icebergDeleteTableHandle->fileContent ==
+          protocol::iceberg::FileContent::DELETION_VECTOR
+      ? velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kDeletionVector
+      : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kData;
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergDeleteTableHandle->partitionSpec, typeParser),
+      std::optional(
+          toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      writeKind);
+}
+
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
 IcebergPrestoToVeloxConnector::toIcebergColumns(
     const protocol::List<protocol::iceberg::IcebergColumnHandle>& inputColumns,
@@ -427,6 +530,44 @@ IcebergPrestoToVeloxConnector::toIcebergColumns(
             std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
   }
   return icebergColumns;
+}
+
+// Layer 3b: MergeHandle → IcebergInsertTableHandle (with WriteKind::kMerge).
+// MergeHandle.connectorMergeTableHandle is the IcebergMergeTableHandle which
+// wraps an IcebergInsertTableHandle (the same protocol struct used by plain
+// INSERT). We unwrap it and forward to the IcebergInsertTableHandle build
+// path, then tag the Velox handle with WriteKind::kMerge so
+// IcebergConnector::createDataSink dispatches to IcebergMergeSink (Layer 2).
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::MergeHandle* mergeHandle,
+    const TypeParser& typeParser) const {
+  auto icebergMergeTableHandle = std::dynamic_pointer_cast<
+      protocol::iceberg::IcebergMergeTableHandle>(
+      mergeHandle->connectorMergeTableHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergMergeTableHandle,
+      "Unexpected merge table handle type {}",
+      mergeHandle->connectorMergeTableHandle->_type);
+
+  const auto& innerInsert = icebergMergeTableHandle->insertTableHandle;
+  const auto inputColumns =
+      toIcebergColumns(innerInsert.inputColumns, typeParser);
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", innerInsert.outputPath),
+          fmt::format("{}/data", innerInsert.outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(innerInsert.fileFormat),
+      toVeloxIcebergPartitionSpec(innerInsert.partitionSpec, typeParser),
+      std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
+      std::unordered_map<std::string, std::string>{},
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kMerge);
 }
 
 } // namespace facebook::presto

@@ -142,6 +142,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatc
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
+import static com.facebook.presto.iceberg.FileContent.DELETION_VECTOR;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
@@ -901,11 +902,18 @@ public class IcebergPageSourceProvider
                 split.getFileFormat());
         boolean storeDeleteFilePath = icebergColumns.contains(DELETE_FILE_PATH_COLUMN_HANDLE);
         Supplier<List<DeleteFilter>> deleteFilters = memoize(() -> {
-            // If equality deletes are optimized into a join they don't need to be applied here
+            // If equality deletes are optimized into a join they don't need to be applied here.
+            // DELETION_VECTOR entries are included so the page source sees them as deletes to
+            // apply; the actual DV bitmap reading is implemented by the Velox iceberg reader on
+            // native workers (DeletionVectorReader). The Java readDeletes() path below currently
+            // only consumes POSITION_DELETES; DV entries flowing through this Java path are
+            // silently skipped today and will be wired to a Java DV reader in a follow-up.
             List<DeleteFile> deletesToApply = split
                     .getDeletes()
                     .stream()
-                    .filter(deleteFile -> deleteFile.content() == POSITION_DELETES || equalityDeletesRequired)
+                    .filter(deleteFile -> deleteFile.content() == POSITION_DELETES
+                            || deleteFile.content() == DELETION_VECTOR
+                            || equalityDeletesRequired)
                     .collect(toImmutableList());
             return readDeletes(
                     session,
