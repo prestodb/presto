@@ -48,12 +48,12 @@ jobs:
         with:
           tool-cache: true
           swap-storage: false
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: temurin

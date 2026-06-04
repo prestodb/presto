@@ -50,14 +50,14 @@ jobs:
 
     steps:
       # Checkout the code only if there are changes in the relevant files
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
           persist-credentials: false
 
       # Set up Java and dependencies for the build environment
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: temurin
@@ -124,7 +124,7 @@ jobs:
           # Show after
           echo "New available disk space: " $(getAvailableSpace)
 
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           persist-credentials: false
@@ -255,7 +255,7 @@ jobs:
           # Show after
           echo "New available disk space: " $(getAvailableSpace)
 
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           persist-credentials: false
@@ -290,7 +290,7 @@ jobs:
 
       - name: Install OpenJDK8
         if: needs.changes.outputs.codechange == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'

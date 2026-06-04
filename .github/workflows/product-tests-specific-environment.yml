@@ -47,12 +47,12 @@ jobs:
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
         with:
           docker-images: false
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: temurin
@@ -114,12 +114,12 @@ jobs:
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
         with:
           docker-images: false
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: temurin

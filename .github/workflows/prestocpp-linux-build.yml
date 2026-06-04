@@ -84,7 +84,7 @@ jobs:
           # Show after
           echo "New available disk space: " $(getAvailableSpace)
 
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           persist-credentials: false

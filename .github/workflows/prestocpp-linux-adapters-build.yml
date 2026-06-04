@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 

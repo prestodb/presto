@@ -42,12 +42,12 @@ jobs:
       group: ${{ github.workflow }}-kudu-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6.0
+      - uses: actions/checkout@v6
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: temurin

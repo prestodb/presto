@@ -17,11 +17,11 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 8
