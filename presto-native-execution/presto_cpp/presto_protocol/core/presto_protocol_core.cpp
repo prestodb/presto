@@ -7415,8 +7415,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
@@ -7428,8 +7427,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
         std::string(e.what()) +
         " ConnectorMergeTableHandle  ConnectorMergeTableHandle");
   }
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

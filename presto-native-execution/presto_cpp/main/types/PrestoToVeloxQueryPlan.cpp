@@ -1896,22 +1896,106 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 // is the friendlier surface than a worker crash with "Unknown plan node
 // type .MergeWriterNode".
 velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
-    const std::shared_ptr<const protocol::MergeWriterNode>& /*node*/,
-    const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
-    const protocol::TaskId& /*taskId*/) {
-  VELOX_UNSUPPORTED(
-      "MergeWriterNode translator not yet wired. Pending Layer 3b "
-      "remaining-work checklist (see comment block above this function): "
-      "(A) materialize IcebergMergeTableHandle C++ struct (currently "
-      "iceberg regen blocked by missing IcebergDeleteTableHandle.java), "
-      "(B) expand ConnectorProtocolTemplate to include a "
-      "ConnectorMergeTableHandle slot and route the abstract from_json "
-      "dispatch through it, (C) add a "
-      "PrestoToVeloxConnector::toVeloxInsertTableHandle(MergeHandle*) "
-      "virtual + Iceberg override that returns an IcebergInsertTableHandle "
-      "with WriteKind::kMerge, then (D) replace this stub with a real "
-      "core::TableWriteNode build. Leave native_update_merge_enabled=false "
-      "until all four pieces land.");
+    const std::shared_ptr<const protocol::MergeWriterNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // 1. Unwrap MergeHandle from the node's target and dispatch to the
+  //    connector for the per-connector InsertTableHandle build (which
+  //    yields IcebergInsertTableHandle with WriteKind::kMerge for iceberg).
+  VELOX_USER_CHECK_NOT_NULL(
+      node->target.mergeHandle,
+      "MergeWriterNode target is missing mergeHandle");
+  const std::string connectorId = node->target.mergeHandle->tableHandle.connectorId;
+  auto& connector = getPrestoToVeloxConnector(
+      node->target.mergeHandle->connectorMergeTableHandle->_type);
+  auto veloxHandle = connector.toVeloxInsertTableHandle(
+      node->target.mergeHandle.get(), typeParser_);
+  if (!veloxHandle) {
+    VELOX_UNSUPPORTED(
+        "Connector {} did not produce an InsertTableHandle for "
+        "MergeWriterNode (the toVeloxInsertTableHandle(MergeHandle*) "
+        "override may be missing).",
+        connectorId);
+  }
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, std::shared_ptr(std::move(veloxHandle)));
+
+  // 2. Translate source plan. The source is the IcebergMergeProcessorNode
+  //    (Layer 3c) when the upstream pipeline went through the
+  //    DeleteAndInsertMergeProcessor port; the rows on the wire already
+  //    have the [target cols..., operation, row_id, insert_from_update]
+  //    layout that IcebergMergeSink expects.
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  // 2b. Rename the source's positional output names
+  //     (c0..cN-1, operation, row_id, insert_from_update — emitted by
+  //     IcebergMergeProcessor::buildOutputType and mirrored by
+  //     IcebergMergeProcessorNode) to the planner-declared names from
+  //     mergeProcessorProjectedVariables. Velox's TableWriteNode ctor
+  //     resolves inputColumns->names() against the source's outputType
+  //     names; without this rename the writer reports
+  //     "Field not found: <planner_name>. Available fields are:
+  //     c0, c1, operation, row_id, insert_from_update."
+  //     This is symmetric with the output-side rename ProjectNode below
+  //     (step 5).
+  const auto& srcType = sourceVeloxPlan->outputType();
+  if (srcType->size() != node->mergeProcessorProjectedVariables.size()) {
+    VELOX_UNSUPPORTED(
+        "MergeWriterNode source arity ({}) does not match "
+        "mergeProcessorProjectedVariables ({}). Source: {}. "
+        "ProjectedVariables: {}.",
+        srcType->size(),
+        node->mergeProcessorProjectedVariables.size(),
+        srcType->toString(),
+        toRowType(node->mergeProcessorProjectedVariables, typeParser_)
+            ->toString());
+  }
+  std::vector<std::string> renameNames;
+  std::vector<velox::core::TypedExprPtr> renameExprs;
+  renameNames.reserve(srcType->size());
+  renameExprs.reserve(srcType->size());
+  for (size_t i = 0; i < srcType->size(); ++i) {
+    renameNames.push_back(node->mergeProcessorProjectedVariables[i].name);
+    renameExprs.push_back(std::make_shared<velox::core::FieldAccessTypedExpr>(
+        srcType->childAt(i), srcType->nameOf(i)));
+  }
+  const auto renamedSource = std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.rename", node->id),
+      std::move(renameNames),
+      std::move(renameExprs),
+      sourceVeloxPlan);
+
+  // 3. Input column descriptors. Use the
+  //    mergeProcessorProjectedVariables — the canonical "what the writer
+  //    is responsible for persisting" list as resolved by the planner.
+  const auto inputColumns =
+      toRowType(node->mergeProcessorProjectedVariables, typeParser_);
+
+  // 4. Output schema. Velox's `core::TableWriteNode` ctor validates the
+  //    output type against an internal expectation hard-coded as
+  //    ROW<rows BIGINT, fragments VARBINARY, commitcontext VARBINARY>.
+  //    MergeWriterNode.outputs from the coordinator carries upstream
+  //    partial-stats names ("partialrows", "fragment") with only 2 cols
+  //    — passing those triggers an outputType mismatch in Velox. Construct
+  //    the standard 3-col commit-stats RowType directly to satisfy
+  //    Velox's invariant. The coordinator-side TableFinishNode that wraps
+  //    MergeWriterNode reads these by position, so the column NAMES don't
+  //    affect correctness (only types + arity).
+  const auto outputType = velox::ROW(
+      {"rows", "fragments", "commitcontext"},
+      {velox::BIGINT(), velox::VARBINARY(), velox::VARBINARY()});
+
+  auto writeNode = std::make_shared<core::TableWriteNode>(
+      node->id,
+      inputColumns,
+      inputColumns->names(),
+      /*columnStatsSpec=*/std::nullopt,
+      std::move(insertTableHandle),
+      /*hasPartitioningScheme=*/true,
+      outputType,
+      getCommitStrategy(),
+      renamedSource);
 }
 
 // Layer 3b stub: legacy `UpdateNode` path (older than MERGE in OSS prestodb).

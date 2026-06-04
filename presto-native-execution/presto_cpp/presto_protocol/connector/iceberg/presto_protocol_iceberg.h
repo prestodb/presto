@@ -347,3 +347,19 @@ struct IcebergSplit : public ConnectorSplit {
 void to_json(json& j, const IcebergSplit& p);
 void from_json(const json& j, IcebergSplit& p);
 } // namespace facebook::presto::protocol::iceberg
+
+// Layer 3b — hand-injected IcebergMergeTableHandle (regen of iceberg .h/.cpp
+// is blocked by a pre-existing missing-file bug for IcebergDeleteTableHandle.java;
+// this struct is the manual equivalent of what regen would produce from
+// presto-iceberg/.../IcebergMergeTableHandle.java).
+namespace facebook::presto::protocol::iceberg {
+struct IcebergMergeTableHandle : public ConnectorMergeTableHandle {
+  IcebergTableHandle tableHandle = {};
+  IcebergInsertTableHandle insertTableHandle = {};
+  Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = {};
+
+  IcebergMergeTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergMergeTableHandle& p);
+void from_json(const json& j, IcebergMergeTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
