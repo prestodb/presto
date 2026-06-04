@@ -75,6 +75,23 @@ alphabetical order.
   Velox does not support optimized hash generation, instead using a HashTable
   with adaptive runtime optimizations that does not use extra hash fields.
 
+``optimizer.optimize-top-n-rank``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+  If this is ``true``, then filter and limit queries for ``n`` rows of
+  ``rank()`` and ``dense_rank()`` window function values are executed
+  with a special ``TopNRowNumber`` operator instead of the
+  ``WindowFunction`` operator.
+
+  The ``TopNRowNumber`` operator is more efficient than window as
+  it has a streaming behavior and does not need to buffer all input rows.
+
+  This optimization is only applicable for Presto C++ as the runtime code
+  is only available for it.
+
 ``regex-library``
 ^^^^^^^^^^^^^^^^^
 
