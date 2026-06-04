@@ -25,7 +25,8 @@ public enum FileContent
 {
     DATA(0),
     POSITION_DELETES(1),
-    EQUALITY_DELETES(2);
+    EQUALITY_DELETES(2),
+    DELETION_VECTOR(3);
 
     private final int id;
 
@@ -41,21 +42,23 @@ public enum FileContent
 
     public static FileContent fromIcebergFileContent(org.apache.iceberg.FileContent fileContent)
     {
-        FileContent prestoFileContent;
+        // The DELETION_VECTOR enum constant was introduced in newer
+        // iceberg-api releases (V3 spec) and may not be present at compile
+        // time when building against older iceberg-api. Use name() string
+        // comparison so this code compiles + runs against any version that
+        // ships at least DATA/POSITION_DELETES/EQUALITY_DELETES.
         switch (fileContent) {
             case DATA:
-                prestoFileContent = DATA;
-                break;
+                return DATA;
             case POSITION_DELETES:
-                prestoFileContent = POSITION_DELETES;
-                break;
+                return POSITION_DELETES;
             case EQUALITY_DELETES:
-                prestoFileContent = EQUALITY_DELETES;
-                break;
+                return EQUALITY_DELETES;
             default:
+                if ("DELETION_VECTOR".equals(fileContent.name())) {
+                    return DELETION_VECTOR;
+                }
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported iceberg content type: " + fileContent);
         }
-
-        return prestoFileContent;
     }
 }
