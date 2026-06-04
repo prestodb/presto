@@ -37,7 +37,15 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
 velox::dwio::common::FileFormat toVeloxFileFormat(
     const presto::protocol::iceberg::FileFormat format) {
   if (format == protocol::iceberg::FileFormat::ORC) {
-    return velox::dwio::common::FileFormat::ORC;
+    // Iceberg manifests have no DWRF enum, so Meta's DWRF files (and
+    // genuine ORC files, which DWRF is a superset of) are reported as
+    // "ORC" on the wire per the cross-engine convention shared with the
+    // Java planner (FileFormat.DWRF.toIceberg() in
+    // presto-facebook-iceberg). Velox only registers a writer for
+    // FileFormat::DWRF, so map protocol ORC -> velox DWRF here to unify
+    // the two views and let the DWRF writer/reader (which handles both
+    // formats) take over.
+    return velox::dwio::common::FileFormat::DWRF;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
   }
