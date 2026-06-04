@@ -19,6 +19,7 @@
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
+#include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -259,7 +260,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   // $target_table_row_id ROW column. partitionSpecAsJson is required on every
   // Iceberg split; partitionDataJson is optional (absent for unpartitioned
   // tables, in which case Java emits an empty string — match that here).
-  if (auto specId = tryParsePartitionSpecId(icebergSplit.partitionSpecAsJson);
+  if (auto specId = tryParsePartitionSpecId(icebergSplit->partitionSpecAsJson);
       specId.has_value()) {
     infoColumns.emplace(
         velox::connector::hive::iceberg::IcebergMetadataColumn::
@@ -269,7 +270,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   infoColumns.emplace(
       velox::connector::hive::iceberg::IcebergMetadataColumn::
           kPartitionDataInfoColumn,
-      icebergSplit.partitionDataJson ? *icebergSplit.partitionDataJson : "");
+      icebergSplit->partitionDataJson ? *icebergSplit->partitionDataJson : "");
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
