@@ -79,7 +79,7 @@ void to_json(json& j, const ChangelogSplitInfo& p);
 void from_json(const json& j, ChangelogSplitInfo& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileContent { DATA, POSITION_DELETES, EQUALITY_DELETES };
+enum class FileContent { DATA, POSITION_DELETES, EQUALITY_DELETES, DELETION_VECTOR };
 extern void to_json(json& j, const FileContent& e);
 extern void from_json(const json& j, FileContent& e);
 } // namespace facebook::presto::protocol::iceberg
@@ -98,6 +98,10 @@ struct DeleteFile {
   List<Integer> equalityFieldIds = {};
   Map<Integer, String> lowerBounds = {};
   Map<Integer, String> upperBounds = {};
+  int64_t dataSequenceNumber = {};
+  String referencedDataFile = {};
+  int64_t contentOffset = {};
+  int64_t contentSize = {};
 };
 void to_json(json& j, const DeleteFile& p);
 void from_json(const json& j, DeleteFile& p);
@@ -276,6 +280,32 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
 };
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
+// IcebergDeleteTableHandle is special since it needs an usage of
+// hive::.
+
+// IcebergDeleteTableHandle is special since it needs an usage of
+// hive::.
+
+namespace facebook::presto::protocol::iceberg {
+struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
+  String schemaName = {};
+  IcebergTableName tableName = {};
+  PrestoIcebergSchema schema = {};
+  PrestoIcebergPartitionSpec partitionSpec = {};
+  List<IcebergColumnHandle> inputColumns = {};
+  String outputPath = {};
+  FileFormat fileFormat = {};
+  hive::HiveCompressionCodec compressionCodec = {};
+  Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+  FileContent fileContent = {};
+
+  IcebergDeleteTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergDeleteTableHandle& p);
+void from_json(const json& j, IcebergDeleteTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
 // IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
