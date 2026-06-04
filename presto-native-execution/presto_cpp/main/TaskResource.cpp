@@ -263,14 +263,11 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                     startProcessCpuTimeNs,
                     receiveThrift);
               } catch (const velox::VeloxException& ex) {
-                // [ICEBERG-DEBUG apurvak]: log the swallowed exception so the
-                // worker stderr captures what's actually thrown during plan
-                // deserialization / Presto-to-Velox conversion. Otherwise
-                // proxygen returns 500 with no log line.
-                LOG(ERROR)
-                    << "[ICEBERG-DEBUG] createOrUpdateTask VeloxException for taskId="
-                    << taskId << " bodyLen=" << requestBody.size()
-                    << " what=" << ex.what();
+                // Log VeloxException before converting to an error task so
+                // the failure reason is captured in worker stderr.
+                LOG(ERROR) << "createOrUpdateTask VeloxException for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " what=" << ex.what();
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
@@ -284,16 +281,15 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                   throw;
                 }
               } catch (const std::exception& ex) {
-                // [ICEBERG-DEBUG apurvak]: nlohmann::json + most stdlib
-                // throws are std::exception subclasses, NOT VeloxException.
-                // The existing VeloxException-only catch above missed them,
-                // which is why the 500 was completely silent. Mirror the
-                // error-task fallback so the coordinator gets a real
-                // exception payload instead of a bare 500.
-                LOG(ERROR)
-                    << "[ICEBERG-DEBUG] createOrUpdateTask std::exception for taskId="
-                    << taskId << " bodyLen=" << requestBody.size()
-                    << " type=" << typeid(ex).name() << " what=" << ex.what();
+                // Catch non-Velox std::exception (e.g., nlohmann::json
+                // deserialization errors) and route through the same
+                // error-task path. Without this, such exceptions propagate
+                // past the VeloxException catch and proxygen returns HTTP
+                // 500 with no log line, making the root cause invisible.
+                LOG(ERROR) << "createOrUpdateTask std::exception for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " type=" << typeid(ex).name()
+                           << " what=" << ex.what();
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId,
