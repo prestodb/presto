@@ -117,6 +117,7 @@ public class IcebergFileWriterFactory
             case PARQUET:
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, metricsConfig);
             case ORC:
+            case DWRF:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);

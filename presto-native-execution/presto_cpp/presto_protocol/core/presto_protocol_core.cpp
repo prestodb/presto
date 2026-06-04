@@ -748,6 +748,18 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<TableWriterMergeNode>(p);
     return;
   }
+  if (type == "com.facebook.presto.sql.planner.plan.MergeWriterNode") {
+    j = *std::static_pointer_cast<MergeWriterNode>(p);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.MergeProcessorNode") {
+    j = *std::static_pointer_cast<MergeProcessorNode>(p);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.UpdateNode") {
+    j = *std::static_pointer_cast<UpdateNode>(p);
+    return;
+  }
   if (type == ".TopNNode") {
     j = *std::static_pointer_cast<TopNNode>(p);
     return;
@@ -934,6 +946,25 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   if (type == "com.facebook.presto.sql.planner.plan.TableWriterMergeNode") {
     std::shared_ptr<TableWriterMergeNode> k =
         std::make_shared<TableWriterMergeNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.MergeWriterNode") {
+    std::shared_ptr<MergeWriterNode> k = std::make_shared<MergeWriterNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.MergeProcessorNode") {
+    std::shared_ptr<MergeProcessorNode> k =
+        std::make_shared<MergeProcessorNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == "com.facebook.presto.sql.planner.plan.UpdateNode") {
+    std::shared_ptr<UpdateNode> k = std::make_shared<UpdateNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -7384,8 +7415,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p) {
     return;
   }
   String type = p->_type;
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
@@ -7397,8 +7427,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p) {
         std::string(e.what()) +
         " ConnectorMergeTableHandle  ConnectorMergeTableHandle");
   }
-
-  throw TypeError(type + " no abstract type ConnectorMergeTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -7426,7 +7455,14 @@ void to_json(json& j, const MergeHandle& p) {
 }
 
 void from_json(const json& j, MergeHandle& p) {
-  p._type = j["@type"];
+  // Layer 3b fix: spi.MergeHandle is a non-polymorphic data class in OSS Java;
+  // Jackson does NOT emit @type for it. The regen tool incorrectly emitted the
+  // @type read here because it conflated spi.MergeHandle with the unrelated
+  // ExecutionWriterTarget.MergeHandle inner-wrapper subclass (same simple name,
+  // different package). Read @type only when present.
+  if (j.count("@type")) {
+    p._type = j["@type"];
+  }
   from_json_key(
       j,
       "tableHandle",
@@ -7678,6 +7714,136 @@ void from_json(const json& j, MergeTarget& p) {
       "MergeTarget",
       "MergeParadigmAndTypes",
       "mergeParadigmAndTypes");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+MergeProcessorNode::MergeProcessorNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.MergeProcessorNode";
+}
+
+void to_json(json& j, const MergeProcessorNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.MergeProcessorNode";
+  to_json_key(j, "id", p.id, "MergeProcessorNode", "PlanNodeId", "id");
+  to_json_key(
+      j, "source", p.source, "MergeProcessorNode", "PlanNode", "source");
+  to_json_key(
+      j, "target", p.target, "MergeProcessorNode", "MergeTarget", "target");
+  to_json_key(
+      j,
+      "targetTableRowIdColumnVariable",
+      p.targetTableRowIdColumnVariable,
+      "MergeProcessorNode",
+      "VariableReferenceExpression",
+      "targetTableRowIdColumnVariable");
+  to_json_key(
+      j,
+      "mergeRowVariable",
+      p.mergeRowVariable,
+      "MergeProcessorNode",
+      "VariableReferenceExpression",
+      "mergeRowVariable");
+  to_json_key(
+      j,
+      "targetColumnVariables",
+      p.targetColumnVariables,
+      "MergeProcessorNode",
+      "List<VariableReferenceExpression>",
+      "targetColumnVariables");
+  to_json_key(
+      j,
+      "outputs",
+      p.outputs,
+      "MergeProcessorNode",
+      "List<VariableReferenceExpression>",
+      "outputs");
+}
+
+void from_json(const json& j, MergeProcessorNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "MergeProcessorNode", "PlanNodeId", "id");
+  from_json_key(
+      j, "source", p.source, "MergeProcessorNode", "PlanNode", "source");
+  from_json_key(
+      j, "target", p.target, "MergeProcessorNode", "MergeTarget", "target");
+  from_json_key(
+      j,
+      "targetTableRowIdColumnVariable",
+      p.targetTableRowIdColumnVariable,
+      "MergeProcessorNode",
+      "VariableReferenceExpression",
+      "targetTableRowIdColumnVariable");
+  from_json_key(
+      j,
+      "mergeRowVariable",
+      p.mergeRowVariable,
+      "MergeProcessorNode",
+      "VariableReferenceExpression",
+      "mergeRowVariable");
+  from_json_key(
+      j,
+      "targetColumnVariables",
+      p.targetColumnVariables,
+      "MergeProcessorNode",
+      "List<VariableReferenceExpression>",
+      "targetColumnVariables");
+  from_json_key(
+      j,
+      "outputs",
+      p.outputs,
+      "MergeProcessorNode",
+      "List<VariableReferenceExpression>",
+      "outputs");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+MergeWriterNode::MergeWriterNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.MergeWriterNode";
+}
+
+void to_json(json& j, const MergeWriterNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.MergeWriterNode";
+  to_json_key(j, "id", p.id, "MergeWriterNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "MergeWriterNode", "PlanNode", "source");
+  to_json_key(
+      j, "target", p.target, "MergeWriterNode", "MergeTarget", "target");
+  to_json_key(
+      j,
+      "mergeProcessorProjectedVariables",
+      p.mergeProcessorProjectedVariables,
+      "MergeWriterNode",
+      "List<VariableReferenceExpression>",
+      "mergeProcessorProjectedVariables");
+  to_json_key(
+      j,
+      "outputs",
+      p.outputs,
+      "MergeWriterNode",
+      "List<VariableReferenceExpression>",
+      "outputs");
+}
+
+void from_json(const json& j, MergeWriterNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "MergeWriterNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "MergeWriterNode", "PlanNode", "source");
+  from_json_key(
+      j, "target", p.target, "MergeWriterNode", "MergeTarget", "target");
+  from_json_key(
+      j,
+      "mergeProcessorProjectedVariables",
+      p.mergeProcessorProjectedVariables,
+      "MergeWriterNode",
+      "List<VariableReferenceExpression>",
+      "mergeProcessorProjectedVariables");
+  from_json_key(
+      j,
+      "outputs",
+      p.outputs,
+      "MergeWriterNode",
+      "List<VariableReferenceExpression>",
+      "outputs");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -8923,6 +9089,20 @@ void to_json(json& j, const StageExecutionDescriptor& p) {
       "StageExecutionDescriptor",
       "int",
       "totalLifespans");
+  to_json_key(
+      j,
+      "groupedExecutionPartitionValues",
+      p.groupedExecutionPartitionValues,
+      "StageExecutionDescriptor",
+      "List<Map<String, String>>",
+      "groupedExecutionPartitionValues");
+  to_json_key(
+      j,
+      "partitionColumnMappings",
+      p.partitionColumnMappings,
+      "StageExecutionDescriptor",
+      "Map<PlanNodeId, Map<String, String>>",
+      "partitionColumnMappings");
 }
 
 void from_json(const json& j, StageExecutionDescriptor& p) {
@@ -8947,6 +9127,20 @@ void from_json(const json& j, StageExecutionDescriptor& p) {
       "StageExecutionDescriptor",
       "int",
       "totalLifespans");
+  from_json_key(
+      j,
+      "groupedExecutionPartitionValues",
+      p.groupedExecutionPartitionValues,
+      "StageExecutionDescriptor",
+      "List<Map<String, String>>",
+      "groupedExecutionPartitionValues");
+  from_json_key(
+      j,
+      "partitionColumnMappings",
+      p.partitionColumnMappings,
+      "StageExecutionDescriptor",
+      "Map<PlanNodeId, Map<String, String>>",
+      "partitionColumnMappings");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -12714,6 +12908,66 @@ void from_json(const json& j, UpdateHandle& p) {
       "UpdateHandle",
       "SchemaTableName",
       "schemaTableName");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+UpdateNode::UpdateNode() noexcept {
+  _type = "com.facebook.presto.sql.planner.plan.UpdateNode";
+}
+
+void to_json(json& j, const UpdateNode& p) {
+  j = json::object();
+  j["@type"] = "com.facebook.presto.sql.planner.plan.UpdateNode";
+  to_json_key(j, "id", p.id, "UpdateNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "UpdateNode", "PlanNode", "source");
+  to_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "UpdateNode",
+      "VariableReferenceExpression",
+      "rowId");
+  to_json_key(
+      j,
+      "columnValueAndRowIdSymbols",
+      p.columnValueAndRowIdSymbols,
+      "UpdateNode",
+      "List<VariableReferenceExpression>",
+      "columnValueAndRowIdSymbols");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "UpdateNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+}
+
+void from_json(const json& j, UpdateNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "UpdateNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "UpdateNode", "PlanNode", "source");
+  from_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "UpdateNode",
+      "VariableReferenceExpression",
+      "rowId");
+  from_json_key(
+      j,
+      "columnValueAndRowIdSymbols",
+      p.columnValueAndRowIdSymbols,
+      "UpdateNode",
+      "List<VariableReferenceExpression>",
+      "columnValueAndRowIdSymbols");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "UpdateNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

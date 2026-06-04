@@ -32,6 +32,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/IcebergMergeProcessorOperator.h"
 #include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
@@ -1769,6 +1770,309 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       node->id, outputType, columnStatsSpec, sourceVeloxPlan);
 }
 
+// Layer 3b: Translate the MergeProcessorNode (per-row INSERT/DELETE fan-out
+// stage of an UPDATE/MERGE plan) into the custom Velox plan node that wraps
+// `velox::connector::hive::iceberg::IcebergMergeProcessor` (Layer 1) via the
+// IcebergMergeProcessorOperator + Translator (Layer 3c).
+//
+// Input channel layout (set by the upstream projection produced by the
+// coordinator, mirroring the OSS Java
+// `DeleteAndInsertMergeProcessor.transformPage` contract):
+//   0. unique_id        BIGINT       — not consumed
+//   1. target_row_id    ROW          — Iceberg row id (passed through)
+//   2. merge_row        ROW          — target columns ++ operation ++ case#
+//   3. case_number      INTEGER      — not consumed
+//   4. is_distinct      BOOLEAN      — not consumed
+//
+// We derive targetColumnTypes from `targetColumnVariables` (the names alone
+// are enough since the variable list is in target-column order) and the
+// rowIdType from `targetTableRowIdColumnVariable`. The channel indices for
+// rowId and mergeRow are located via name lookup in the source RowType so
+// the operator stays independent of the upstream channel layout.
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MergeProcessorNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+  const auto& sourceType = sourceVeloxPlan->outputType();
+
+  // Resolve target column types from the symbol list (positional order is
+  // semantic — Java MergeProcessor reads columns in declaration order).
+  std::vector<velox::TypePtr> targetColumnTypes;
+  targetColumnTypes.reserve(node->targetColumnVariables.size());
+  for (const auto& var : node->targetColumnVariables) {
+    targetColumnTypes.push_back(stringToType(var.type, typeParser_));
+  }
+
+  // Collect the full output column name list from `node->outputs` so the
+  // IcebergMergeProcessor emits column names that exactly match the
+  // planner-declared output layout, including the trailing operation /
+  // rowId / insertFromUpdate columns. Downstream nodes (TableWriter::
+  // setTypeMappings) bind by name to these planner-declared identifiers
+  // (e.g. "$target_table_row_id") rather than synthetic placeholders.
+  // node->outputs is expected to have arity = targetColumnTypes.size() + 3
+  // in the order [target cols..., operation, row_id, insert_from_update].
+  VELOX_USER_CHECK_EQ(
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3,
+      "MergeProcessorNode outputs arity ({}) must equal "
+      "targetColumnVariables.size() + 3 ({})",
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3);
+  std::vector<std::string> outputColumnNames;
+  outputColumnNames.reserve(node->outputs.size());
+  for (const auto& var : node->outputs) {
+    outputColumnNames.push_back(var.name);
+  }
+
+  // RowId type from the dedicated row-id variable.
+  velox::TypePtr rowIdType =
+      stringToType(node->targetTableRowIdColumnVariable.type, typeParser_);
+
+  // Resolve channel indices by variable name in the source output. If the
+  // upstream projection didn't expose these names, the IcebergMergeProcessor
+  // can't run — fail loudly here rather than producing a corrupt result.
+  const auto targetRowIdChannel =
+      sourceType->getChildIdx(node->targetTableRowIdColumnVariable.name);
+  const auto mergeRowChannel =
+      sourceType->getChildIdx(node->mergeRowVariable.name);
+
+  return std::make_shared<presto::operators::IcebergMergeProcessorNode>(
+      node->id,
+      std::move(targetColumnTypes),
+      std::move(outputColumnNames),
+      std::move(rowIdType),
+      targetRowIdChannel,
+      mergeRowChannel,
+      sourceVeloxPlan);
+}
+
+// Layer 3b stub: commit-side `MergeWriterNode`.
+//
+// Scope of remaining work to make UPDATE/MERGE flow end-to-end, in
+// dependency order:
+//
+//   (A) Protocol struct generation for IcebergMergeTableHandle. The OSS
+//       Java source (presto-iceberg/.../IcebergMergeTableHandle.java)
+//       has the 3-field shape:
+//           IcebergTableHandle      tableHandle
+//           IcebergInsertTableHandle insertTableHandle
+//           Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs
+//       Today the iceberg presto_protocol .h/.cpp do NOT define this
+//       struct — Layer 3b's regen of iceberg files was reverted because
+//       it surfaced a pre-existing missing-file bug
+//       (IcebergDeleteTableHandle.java doesn't exist on disk; the
+//       struct fields live in special/IcebergDeleteTableHandle.hpp.inc
+//       instead). Until that's resolved (either by stubbing the .java,
+//       making regen tolerate missing files, or hand-injecting the
+//       IcebergMergeTableHandle struct via a new .hpp.inc + manual edit
+//       of the generated .cpp), the IcebergMergeTableHandle C++ type
+//       does not exist.
+//
+//   (B) Protocol dispatch for ConnectorMergeTableHandle. Today the core
+//       presto_protocol_core.cpp `from_json` for ConnectorMergeTableHandle
+//       hard-throws "no abstract type ConnectorMergeTableHandle" because
+//       no connector has registered a MergeTableHandle. Wiring this
+//       requires:
+//         - Adding a `ConnectorMergeTableHandleType` slot to the
+//           `ConnectorProtocolTemplate` in core/ConnectorProtocol.h
+//           (template parameter expansion).
+//         - Filling that slot in the `IcebergConnectorProtocol` template
+//           instantiation in connector/iceberg/IcebergConnectorProtocol.h
+//           with IcebergMergeTableHandle from (A).
+//         - Replacing the throw in core/presto_protocol_core.cpp with a
+//           getConnectorProtocol(type).from_json(...) routing.
+//       This is the largest surface — it touches OSS infra used by ALL
+//       connectors, not just iceberg.
+//
+//   (C) New PrestoToVeloxConnector::toVeloxInsertTableHandle overload
+//       taking `const protocol::MergeHandle*`:
+//         - Add as virtual returning `{}` in base
+//           main/connectors/PrestoToVeloxConnector.h (alongside the
+//           existing CreateHandle / InsertHandle / DeleteHandle /
+//           ExecuteProcedureHandle overloads).
+//         - Override in IcebergPrestoToVeloxConnector to build an
+//           IcebergInsertTableHandle with WriteKind::kMerge from the
+//           insertTableHandle field of the IcebergMergeTableHandle that
+//           (A)+(B) materialized.
+//
+//   (D) Replace this stub with the actual translator:
+//         1. Look up connectorId from
+//            `node->target.mergeHandle->tableHandle.connectorId`.
+//         2. Call the new (C) overload with `node->target.mergeHandle.get()`
+//            to get the ConnectorInsertTableHandle.
+//         3. Wrap in `core::InsertTableHandle`.
+//         4. Build a `core::TableWriteNode` similar to the existing
+//            TableWriterNode translator (rowCount/fragment/commitContext
+//            output columns, partitioned=true, commit strategy).
+//
+//   (E) Flip `native_update_merge_enabled` default from false → true in
+//       SystemSessionProperties.java once (A)-(D) are landed and tested
+//       against a coordinator.
+//
+// Why this stub instead of attempting the wiring now: (A)+(B) touch core
+// OSS protocol infrastructure that affects every connector. Without a
+// coordinator → worker test loop to catch a misrouted ConnectorXxxHandle
+// dispatch, a single mistake takes the cluster offline. Fail-fast here
+// is the friendlier surface than a worker crash with "Unknown plan node
+// type .MergeWriterNode".
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::MergeWriterNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  // 1. Unwrap MergeHandle from the node's target and dispatch to the
+  //    connector for the per-connector InsertTableHandle build (which
+  //    yields IcebergInsertTableHandle with WriteKind::kMerge for iceberg).
+  VELOX_USER_CHECK_NOT_NULL(
+      node->target.mergeHandle,
+      "MergeWriterNode target is missing mergeHandle");
+  const std::string connectorId =
+      node->target.mergeHandle->tableHandle.connectorId;
+  auto& connector = getPrestoToVeloxConnector(
+      node->target.mergeHandle->connectorMergeTableHandle->_type);
+  auto veloxHandle = connector.toVeloxInsertTableHandle(
+      node->target.mergeHandle.get(), typeParser_);
+  if (!veloxHandle) {
+    VELOX_UNSUPPORTED(
+        "Connector {} did not produce an InsertTableHandle for "
+        "MergeWriterNode (the toVeloxInsertTableHandle(MergeHandle*) "
+        "override may be missing).",
+        connectorId);
+  }
+  auto insertTableHandle = std::make_shared<core::InsertTableHandle>(
+      connectorId, std::shared_ptr(std::move(veloxHandle)));
+
+  // 2. Translate source plan. The source is the IcebergMergeProcessorNode
+  //    (Layer 3c) when the upstream pipeline went through the
+  //    DeleteAndInsertMergeProcessor port; the rows on the wire already
+  //    have the [target cols..., operation, row_id, insert_from_update]
+  //    layout that IcebergMergeSink expects.
+  const auto sourceVeloxPlan =
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
+
+  // 2b. Rename the source's positional output names
+  //     (c0..cN-1, operation, row_id, insert_from_update — emitted by
+  //     IcebergMergeProcessor::buildOutputType and mirrored by
+  //     IcebergMergeProcessorNode) to the planner-declared names from
+  //     mergeProcessorProjectedVariables. Velox's TableWriteNode ctor
+  //     resolves inputColumns->names() against the source's outputType
+  //     names; without this rename the writer reports
+  //     "Field not found: <planner_name>. Available fields are:
+  //     c0, c1, operation, row_id, insert_from_update."
+  //     This is symmetric with the output-side rename ProjectNode below
+  //     (step 5).
+  const auto& srcType = sourceVeloxPlan->outputType();
+  if (srcType->size() != node->mergeProcessorProjectedVariables.size()) {
+    VELOX_UNSUPPORTED(
+        "MergeWriterNode source arity ({}) does not match "
+        "mergeProcessorProjectedVariables ({}). Source: {}. "
+        "ProjectedVariables: {}.",
+        srcType->size(),
+        node->mergeProcessorProjectedVariables.size(),
+        srcType->toString(),
+        toRowType(node->mergeProcessorProjectedVariables, typeParser_)
+            ->toString());
+  }
+  std::vector<std::string> renameNames;
+  std::vector<velox::core::TypedExprPtr> renameExprs;
+  renameNames.reserve(srcType->size());
+  renameExprs.reserve(srcType->size());
+  for (size_t i = 0; i < srcType->size(); ++i) {
+    renameNames.push_back(node->mergeProcessorProjectedVariables[i].name);
+    renameExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            srcType->childAt(i), srcType->nameOf(i)));
+  }
+  const auto renamedSource = std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.rename", node->id),
+      std::move(renameNames),
+      std::move(renameExprs),
+      sourceVeloxPlan);
+
+  // 3. Input column descriptors. Use the
+  //    mergeProcessorProjectedVariables — the canonical "what the writer
+  //    is responsible for persisting" list as resolved by the planner.
+  const auto inputColumns =
+      toRowType(node->mergeProcessorProjectedVariables, typeParser_);
+
+  // 4. Output schema. Velox's `core::TableWriteNode` ctor validates the
+  //    output type against an internal expectation hard-coded as
+  //    ROW<rows BIGINT, fragments VARBINARY, commitcontext VARBINARY>.
+  //    MergeWriterNode.outputs from the coordinator carries upstream
+  //    partial-stats names ("partialrows", "fragment") with only 2 cols
+  //    — passing those triggers an outputType mismatch in Velox. Construct
+  //    the standard 3-col commit-stats RowType directly to satisfy
+  //    Velox's invariant. The coordinator-side TableFinishNode that wraps
+  //    MergeWriterNode reads these by position, so the column NAMES don't
+  //    affect correctness (only types + arity).
+  const auto outputType = velox::ROW(
+      {"rows", "fragments", "commitcontext"},
+      {velox::BIGINT(), velox::VARBINARY(), velox::VARBINARY()});
+
+  auto writeNode = std::make_shared<core::TableWriteNode>(
+      node->id,
+      inputColumns,
+      inputColumns->names(),
+      /*columnStatsSpec=*/std::nullopt,
+      std::move(insertTableHandle),
+      /*hasPartitioningScheme=*/true,
+      outputType,
+      getCommitStrategy(),
+      renamedSource);
+
+  // 5. Alias TableWriteNode's Velox-mandated output names
+  //    (rows/fragments/commitcontext) to whatever MergeWriterNode.outputs
+  //    declares on the coordinator side (typically partialrows/fragment).
+  //    Downstream nodes (e.g. TableFinishNode in the coordinator plan, or
+  //    intermediate aggregation in the worker plan) look these up by NAME,
+  //    so we wrap the writer in a ProjectNode that renames the first N
+  //    columns to match the planner-declared variables.
+  if (node->outputs.empty()) {
+    return writeNode;
+  }
+  std::vector<std::string> projNames;
+  std::vector<velox::core::TypedExprPtr> projExprs;
+  projNames.reserve(node->outputs.size());
+  projExprs.reserve(node->outputs.size());
+  const auto& twNames = outputType->names();
+  for (size_t i = 0; i < node->outputs.size(); ++i) {
+    const auto& outVar = node->outputs[i];
+    if (i >= twNames.size()) {
+      VELOX_UNSUPPORTED(
+          "MergeWriterNode declares more output variables ({}) than "
+          "TableWriteNode produces ({}).",
+          node->outputs.size(),
+          twNames.size());
+    }
+    projNames.push_back(outVar.name);
+    projExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            outputType->childAt(i), twNames[i]));
+  }
+  return std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.proj", node->id),
+      std::move(projNames),
+      std::move(projExprs),
+      writeNode);
+}
+
+// Layer 3b stub: legacy `UpdateNode` path (older than MERGE in OSS prestodb).
+// We don't translate it directly — the modern path is for the coordinator to
+// rewrite UPDATE into MergeWriterNode + MergeProcessorNode. If we hit this
+// node on the worker, it means the coordinator didn't perform that rewrite.
+velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::UpdateNode>& /*node*/,
+    const std::shared_ptr<protocol::TableWriteInfo>& /*tableWriteInfo*/,
+    const protocol::TaskId& /*taskId*/) {
+  VELOX_UNSUPPORTED(
+      "UpdateNode translator is a stub: native UPDATE requires the coordinator "
+      "to rewrite UPDATE statements into MERGE plans (MergeWriterNode + "
+      "MergeProcessorNode) before they reach the worker, or a dedicated Velox "
+      "UpdateOperator. Neither is in place — set native_update_merge_enabled "
+      "to false (or run on a Java cluster) until the rewrite lands.");
+}
+
 std::shared_ptr<const core::UnnestNode>
 VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::UnnestNode>& node,
@@ -2278,6 +2582,18 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           std::dynamic_pointer_cast<const protocol::TableWriterMergeNode>(
               node)) {
     return toVeloxQueryPlan(tableWriteMerger, tableWriteInfo, taskId);
+  }
+  if (auto mergeProcessor =
+          std::dynamic_pointer_cast<const protocol::MergeProcessorNode>(node)) {
+    return toVeloxQueryPlan(mergeProcessor, tableWriteInfo, taskId);
+  }
+  if (auto mergeWriter =
+          std::dynamic_pointer_cast<const protocol::MergeWriterNode>(node)) {
+    return toVeloxQueryPlan(mergeWriter, tableWriteInfo, taskId);
+  }
+  if (auto updateNode =
+          std::dynamic_pointer_cast<const protocol::UpdateNode>(node)) {
+    return toVeloxQueryPlan(updateNode, tableWriteInfo, taskId);
   }
   if (auto assignUniqueId =
           std::dynamic_pointer_cast<const protocol::AssignUniqueId>(node)) {
