@@ -7455,7 +7455,14 @@ void to_json(json& j, const MergeHandle& p) {
 }
 
 void from_json(const json& j, MergeHandle& p) {
-  p._type = j["@type"];
+  // Layer 3b fix: spi.MergeHandle is a non-polymorphic data class in OSS Java;
+  // Jackson does NOT emit @type for it. The regen tool incorrectly emitted the
+  // @type read here because it conflated spi.MergeHandle with the unrelated
+  // ExecutionWriterTarget.MergeHandle inner-wrapper subclass (same simple name,
+  // different package). Read @type only when present.
+  if (j.count("@type")) {
+    p._type = j["@type"];
+  }
   from_json_key(
       j,
       "tableHandle",

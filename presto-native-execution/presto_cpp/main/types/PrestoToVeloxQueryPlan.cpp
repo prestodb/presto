@@ -1996,6 +1996,40 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       outputType,
       getCommitStrategy(),
       renamedSource);
+
+  // 5. Alias TableWriteNode's Velox-mandated output names
+  //    (rows/fragments/commitcontext) to whatever MergeWriterNode.outputs
+  //    declares on the coordinator side (typically partialrows/fragment).
+  //    Downstream nodes (e.g. TableFinishNode in the coordinator plan, or
+  //    intermediate aggregation in the worker plan) look these up by NAME,
+  //    so we wrap the writer in a ProjectNode that renames the first N
+  //    columns to match the planner-declared variables.
+  if (node->outputs.empty()) {
+    return writeNode;
+  }
+  std::vector<std::string> projNames;
+  std::vector<velox::core::TypedExprPtr> projExprs;
+  projNames.reserve(node->outputs.size());
+  projExprs.reserve(node->outputs.size());
+  const auto& twNames = outputType->names();
+  for (size_t i = 0; i < node->outputs.size(); ++i) {
+    const auto& outVar = node->outputs[i];
+    if (i >= twNames.size()) {
+      VELOX_UNSUPPORTED(
+          "MergeWriterNode declares more output variables ({}) than "
+          "TableWriteNode produces ({}).",
+          node->outputs.size(),
+          twNames.size());
+    }
+    projNames.push_back(outVar.name);
+    projExprs.push_back(std::make_shared<velox::core::FieldAccessTypedExpr>(
+        outputType->childAt(i), twNames[i]));
+  }
+  return std::make_shared<velox::core::ProjectNode>(
+      fmt::format("{}.proj", node->id),
+      std::move(projNames),
+      std::move(projExprs),
+      writeNode);
 }
 
 // Layer 3b stub: legacy `UpdateNode` path (older than MERGE in OSS prestodb).
