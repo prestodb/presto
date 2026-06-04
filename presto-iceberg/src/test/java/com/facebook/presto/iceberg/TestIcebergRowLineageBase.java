@@ -11,16 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativetests.iceberg;
+package com.facebook.presto.iceberg;
 
-import com.facebook.presto.iceberg.CatalogType;
-import com.facebook.presto.iceberg.IcebergConfig;
-import com.facebook.presto.iceberg.IcebergQueryRunner;
-import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
-import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
@@ -43,59 +37,33 @@ import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoNativeIcebergV3Queries
+public abstract class TestIcebergRowLineageBase
         extends AbstractTestQueryFramework
 {
-    private static final String TEST_SCHEMA = "tpch";
+    protected static final String TEST_SCHEMA = "tpch";
 
-    // Unique suffix per test-class instantiation.
-    private static final String RUN_ID =
-            UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
-                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
-                .setCatalogType(CatalogType.HADOOP)
-                .setAddStorageFormatToPath(true)
-                .build();
-    }
-
-    @Override
-    protected ExpectedQueryRunner createExpectedQueryRunner()
-            throws Exception
-    {
-        return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
-                .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
-                .setCatalogType(CatalogType.HADOOP)
-                .setAddStorageFormatToPath(true)
-                .build();
-    }
+    protected abstract File getCatalogDirectory();
 
     @Test
     public void testV3TableRowLineageMatchesIcebergMetadata()
             throws Exception
     {
-        String tableName = "test_native_row_lineage_" + RUN_ID;
+        String tableName = "test_row_lineage";
         Catalog catalog = loadCatalog();
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
-
         try {
-            Schema schema = createTestSchema();
             Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
 
             writeRecords(table, GenericRecord.create(schema).copy("id", 1, "value", "one"));
             table.refresh();
@@ -104,7 +72,6 @@ public class TestPrestoNativeIcebergV3Queries
             table.refresh();
             List<long[]> expectedPairs = buildExpectedPairs(table, "Iceberg should set firstRowId for V3 tables");
 
-            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
             assertPrestoRowLineageMatchesExpected(tableName, expectedPairs);
 
             long distinctRowIds = (Long) computeActual(
@@ -116,11 +83,9 @@ public class TestPrestoNativeIcebergV3Queries
             assertEquals(distinctSeqNums, 2L, "Sequence numbers should differ between commits");
 
             Long seqForFirst = (Long) computeActual(
-                    "SELECT \"_last_updated_sequence_number\" FROM " + tableName +
-                            " WHERE id = 1").getOnlyValue();
+                    "SELECT \"_last_updated_sequence_number\" FROM " + tableName + " WHERE id = 1").getOnlyValue();
             Long seqForSecond = (Long) computeActual(
-                    "SELECT \"_last_updated_sequence_number\" FROM " + tableName +
-                            " WHERE id = 2").getOnlyValue();
+                    "SELECT \"_last_updated_sequence_number\" FROM " + tableName + " WHERE id = 2").getOnlyValue();
             assertTrue(seqForFirst < seqForSecond,
                     "_last_updated_sequence_number should be smaller for earlier commits");
         }
@@ -137,13 +102,12 @@ public class TestPrestoNativeIcebergV3Queries
     public void testV3TableRowLineageWithMultipleRowsPerCommit()
             throws Exception
     {
-        String tableName = "test_native_row_lineage_multi_" + RUN_ID;
+        String tableName = "test_row_lineage_multi";
         Catalog catalog = loadCatalog();
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
-
         try {
-            Schema schema = createTestSchema();
             Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
 
             writeRecords(table,
                     GenericRecord.create(schema).copy("id", 1, "value", "one"),
@@ -153,7 +117,6 @@ public class TestPrestoNativeIcebergV3Queries
             table.refresh();
             List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
 
-            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
             assertPrestoRowLineageMatchesExpected(tableName, expectedPairs);
 
             long sharedSeqNum = expectedPairs.get(0)[1];
@@ -179,40 +142,30 @@ public class TestPrestoNativeIcebergV3Queries
     public void testRowLineageBackfilledOnV2ToV3Upgrade()
             throws Exception
     {
-        String tableName = "test_native_row_lineage_v2_" + RUN_ID;
+        String tableName = "test_row_lineage_v2_to_v3";
         Catalog catalog = loadCatalog();
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
-
         try {
-            Schema schema = createTestSchema();
             Table table = createTestTable(catalog, tableId, "2");
+            Schema schema = table.schema();
 
             writeRecords(table,
                     GenericRecord.create(schema).copy("id", 1, "value", "one"),
                     GenericRecord.create(schema).copy("id", 2, "value", "two"));
             table.refresh();
-            writeRecords(table,
-                    GenericRecord.create(schema).copy("id", 3, "value", "three"));
+            writeRecords(table, GenericRecord.create(schema).copy("id", 3, "value", "three"));
 
-            // V1/V2 tables have no row lineage; both columns are null.
+            // V2 tables have no row lineage; both columns are null.
             assertEquals(computeActual("SELECT \"_row_id\", * FROM " + tableName).getRowCount(), 3);
-            assertQuery("SELECT \"_row_id\" FROM " + tableName + " ORDER BY id");
-            assertQuery("SELECT \"_last_updated_sequence_number\" FROM " + tableName + " ORDER BY id");
-
-            // Explicitly validate that lineage columns are null for all rows before upgrading to V3.
             assertEquals(
                     computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_row_id\" IS NOT NULL").getOnlyValue(),
-                    0L,
-                    "_row_id should be null for all rows before upgrading from V2");
+                    0L, "_row_id should be null for all rows in a V2 table");
             assertEquals(
                     computeActual("SELECT count(*) FROM " + tableName + " WHERE \"_last_updated_sequence_number\" IS NOT NULL").getOnlyValue(),
-                    0L,
-                    "_last_updated_sequence_number should be null for all rows before upgrading from V2");
+                    0L, "_last_updated_sequence_number should be null for all rows in a V2 table");
 
             table.refresh();
-            table.updateProperties()
-                    .set("format-version", "3")
-                    .commit();
+            table.updateProperties().set("format-version", "3").commit();
             table.refresh();
 
             writeRecords(table,
@@ -220,10 +173,6 @@ public class TestPrestoNativeIcebergV3Queries
                     GenericRecord.create(schema).copy("id", 5, "value", "five"));
             table.refresh();
 
-            assertQuery("SELECT \"_row_id\", \"_last_updated_sequence_number\", * FROM " + tableName);
-
-            // V2→V3 upgrade backfills firstRowId on existing manifest entries, so all rows
-            // (including the 3 pre-upgrade ones) now have non-null row lineage.
             assertEquals(computeActual("SELECT count(*) FROM " + tableName +
                             " WHERE \"_row_id\" IS NULL").getOnlyValue(), 0L,
                     "All rows should have non-null _row_id after V3 upgrade");
@@ -236,7 +185,8 @@ public class TestPrestoNativeIcebergV3Queries
             assertEquals(distinctRowIds, 5L, "Row IDs must be unique across all 5 rows after upgrade");
 
             table.refresh();
-            List<long[]> allExpectedPairs = buildExpectedPairs(table, "All files should have firstRowId set after V3 upgrade");
+            List<long[]> allExpectedPairs = buildExpectedPairs(table,
+                    "All files should have firstRowId set after V3 upgrade");
             assertPrestoRowLineageMatchesExpected(tableName, allExpectedPairs);
         }
         finally {
@@ -248,7 +198,7 @@ public class TestPrestoNativeIcebergV3Queries
         }
     }
 
-    private void assertPrestoRowLineageMatchesExpected(String tableName, List<long[]> expectedPairs)
+    protected void assertPrestoRowLineageMatchesExpected(String tableName, List<long[]> expectedPairs)
     {
         MaterializedResult result = computeActual(
                 "SELECT \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName +
@@ -268,7 +218,7 @@ public class TestPrestoNativeIcebergV3Queries
         }
     }
 
-    private static List<long[]> buildExpectedPairs(Table table, String firstRowIdMessage)
+    protected static List<long[]> buildExpectedPairs(Table table, String firstRowIdMessage)
             throws Exception
     {
         List<long[]> pairs = new ArrayList<>();
@@ -288,23 +238,19 @@ public class TestPrestoNativeIcebergV3Queries
         return pairs;
     }
 
-    private static Schema createTestSchema()
+    protected static Table createTestTable(Catalog catalog, TableIdentifier tableId, String formatVersion)
     {
-        return new Schema(
+        Schema schema = new Schema(
                 Types.NestedField.required(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "value", Types.StringType.get()));
-    }
-
-    private static Table createTestTable(Catalog catalog, TableIdentifier tableId, String formatVersion)
-    {
         return catalog.createTable(
                 tableId,
-                createTestSchema(),
+                schema,
                 org.apache.iceberg.PartitionSpec.unpartitioned(),
                 ImmutableMap.of("format-version", formatVersion));
     }
 
-    private void writeRecords(Table table, Record... records)
+    protected void writeRecords(Table table, Record... records)
             throws Exception
     {
         String filename = "data-" + UUID.randomUUID() + ".parquet";
@@ -312,8 +258,7 @@ public class TestPrestoNativeIcebergV3Queries
                 table.location(), "data/" + filename);
         Configuration conf = new Configuration();
 
-        DataWriter<Record> writer = Parquet.writeData(
-                        HadoopOutputFile.fromPath(filePath, conf))
+        DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, conf))
                 .forTable(table)
                 .createWriterFunc(GenericParquetWriter::create)
                 .overwrite()
@@ -327,31 +272,18 @@ public class TestPrestoNativeIcebergV3Queries
             writer.close();
         }
 
-        table.newAppend()
-                .appendFile(writer.toDataFile())
-                .commit();
+        table.newAppend().appendFile(writer.toDataFile()).commit();
     }
 
-    private Catalog loadCatalog()
+    protected Catalog loadCatalog()
     {
         return CatalogUtil.loadCatalog(
-                HadoopCatalog.class.getName(), IcebergQueryRunner.ICEBERG_CATALOG,
+                HadoopCatalog.class.getName(), ICEBERG_CATALOG,
                 getProperties(), new Configuration());
     }
 
     private Map<String, String> getProperties()
     {
-        File metastoreDir = getCatalogDirectory();
-        return ImmutableMap.of("warehouse", metastoreDir.toURI().toString());
-    }
-
-    private File getCatalogDirectory()
-    {
-        Path dataDirectory = getDistributedQueryRunner()
-                .getCoordinator().getDataDirectory();
-        Path catalogDirectory = IcebergQueryRunner.getIcebergDataDirectoryPath(
-                dataDirectory, CatalogType.HADOOP.name(),
-                new IcebergConfig().getFileFormat(), true);
-        return catalogDirectory.toFile();
+        return ImmutableMap.of("warehouse", getCatalogDirectory().toURI().toString());
     }
 }
