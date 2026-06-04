@@ -25,6 +25,7 @@
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergColumnHandle.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Filter.h"
 
@@ -630,4 +631,128 @@ TEST_F(PrestoToVeloxConnectorTest, dateOverflowHighBelowMin) {
   EXPECT_FALSE(filter->testInt64(0));
   EXPECT_FALSE(filter->testInt64(std::numeric_limits<int32_t>::min()));
   EXPECT_FALSE(filter->testNull());
+}
+
+namespace {
+
+// Builds a minimal protocol::iceberg::IcebergDeleteTableHandle wrapped in a
+// protocol::DeleteHandle. The handle carries a single nullable int column and
+// the requested fileContent value; other fields are intentionally minimal
+// since the bridge only consults them as opaque pass-through.
+protocol::DeleteHandle makeIcebergDeleteHandle(
+    protocol::iceberg::FileContent fileContent) {
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergDeleteTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->schemaName = "test_schema";
+  protoHandle->tableName.tableName = "test_table";
+  protoHandle->outputPath = "/path/to/iceberg/data";
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->fileContent = fileContent;
+
+  // Provide one input column so toIcebergColumns has something to convert.
+  protocol::iceberg::IcebergColumnHandle column;
+  column.columnIdentity.name = "id";
+  column.columnIdentity.id = 1;
+  column.columnIdentity.typeCategory =
+      protocol::iceberg::TypeCategory::PRIMITIVE;
+  column.type = "integer";
+  column.columnType = protocol::hive::ColumnType::REGULAR;
+  protoHandle->inputColumns = {column};
+
+  protocol::DeleteHandle deleteHandle;
+  deleteHandle.handle.connectorHandle = protoHandle;
+  deleteHandle.handle.connectorId = "iceberg";
+  return deleteHandle;
+}
+
+} // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, icebergDeleteTableHandleDeletionVector) {
+  auto deleteHandle =
+      makeIcebergDeleteHandle(protocol::iceberg::FileContent::DELETION_VECTOR);
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&deleteHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  // The bridge returns a Velox IcebergInsertTableHandle (the unified write
+  // handle); the WriteKind enum on it distinguishes data vs deletion-vector.
+  auto* icebergInsert =
+      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
+          result.get());
+  ASSERT_NE(icebergInsert, nullptr);
+  EXPECT_EQ(
+      icebergInsert->writeKind(),
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kDeletionVector);
+
+  // Confirm the location handle carries the expected target path and is in
+  // "existing" mode (DELETE targets an existing table).
+  const auto& locationHandle = icebergInsert->locationHandle();
+  EXPECT_EQ(locationHandle->targetPath(), "/path/to/iceberg/data/data");
+  EXPECT_EQ(
+      locationHandle->tableType(),
+      connector::hive::LocationHandle::TableType::kExisting);
+
+  // The single input column from the protocol handle round-trips through
+  // toIcebergColumns.
+  EXPECT_EQ(icebergInsert->inputColumns().size(), 1);
+  EXPECT_EQ(icebergInsert->inputColumns()[0]->name(), "id");
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergDeleteTableHandlePositionDeletesFallbackToData) {
+  // POSITION_DELETES is the V2 content type. The V2 DELETE path runs entirely
+  // on the Java side (row-id rewrite via IcebergMergeSink), so this branch
+  // should not normally be exercised on the worker. The defensive default
+  // path in the override falls back to kData so an unexpected protocol value
+  // surfaces as a typed sink error rather than silently writing a deletion
+  // vector for the wrong format.
+  auto deleteHandle =
+      makeIcebergDeleteHandle(protocol::iceberg::FileContent::POSITION_DELETES);
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto result =
+      icebergConnector.toVeloxInsertTableHandle(&deleteHandle, *typeParser_);
+  ASSERT_NE(result, nullptr);
+
+  auto* icebergInsert =
+      dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
+          result.get());
+  ASSERT_NE(icebergInsert, nullptr);
+  EXPECT_EQ(
+      icebergInsert->writeKind(),
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergDeleteTableHandleRejectsNonIcebergHandle) {
+  // If a non-Iceberg connector handle is wrapped in protocol::DeleteHandle
+  // (e.g., a Hive delete handle accidentally routed to the Iceberg bridge),
+  // the dynamic_pointer_cast yields nullptr and the override raises a
+  // VELOX_CHECK_NOT_NULL with the unexpected type name.
+  auto hiveDeleteHandle =
+      std::make_shared<protocol::hive::HiveTableHandle>();
+  hiveDeleteHandle->_type = "hive";
+  protocol::DeleteHandle deleteHandle;
+  // protocol::DeleteHandle::connectorHandle is shared_ptr<ConnectorDeleteTableHandle>;
+  // a HiveTableHandle is not such a subclass, so smuggle it through by
+  // constructing a typed but mismatched JSON-encoded subclass marker.
+  auto bogusHandle =
+      std::make_shared<protocol::iceberg::IcebergTableHandle>();
+  bogusHandle->_type = "hive-iceberg-not-delete";
+  deleteHandle.handle.connectorHandle =
+      std::static_pointer_cast<protocol::ConnectorDeleteTableHandle>(
+          std::shared_ptr<protocol::JsonEncodedSubclass>(bogusHandle));
+  deleteHandle.handle.connectorId = "iceberg";
+
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  VELOX_ASSERT_THROW(
+      icebergConnector.toVeloxInsertTableHandle(&deleteHandle, *typeParser_),
+      "Unexpected delete table handle type");
 }
