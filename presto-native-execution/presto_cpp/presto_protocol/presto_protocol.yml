@@ -86,6 +86,7 @@ AbstractClasses:
   ConnectorDeleteTableHandle:
     super: JsonEncodedSubclass
     subclasses:
+      - { name: IcebergDeleteTableHandle,       key: hive-iceberg }
 
   ConnectorTransactionHandle:
     super: JsonEncodedSubclass
