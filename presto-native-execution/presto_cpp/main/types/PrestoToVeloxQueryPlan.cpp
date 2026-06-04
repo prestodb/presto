@@ -1805,6 +1805,27 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     targetColumnTypes.push_back(stringToType(var.type, typeParser_));
   }
 
+  // Collect the full output column name list from `node->outputs` so the
+  // IcebergMergeProcessor emits column names that exactly match the
+  // planner-declared output layout, including the trailing operation /
+  // rowId / insertFromUpdate columns. Downstream nodes (TableWriter::
+  // setTypeMappings) bind by name to these planner-declared identifiers
+  // (e.g. "$target_table_row_id") rather than synthetic placeholders.
+  // node->outputs is expected to have arity = targetColumnTypes.size() + 3
+  // in the order [target cols..., operation, row_id, insert_from_update].
+  VELOX_USER_CHECK_EQ(
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3,
+      "MergeProcessorNode outputs arity ({}) must equal "
+      "targetColumnVariables.size() + 3 ({})",
+      node->outputs.size(),
+      node->targetColumnVariables.size() + 3);
+  std::vector<std::string> outputColumnNames;
+  outputColumnNames.reserve(node->outputs.size());
+  for (const auto& var : node->outputs) {
+    outputColumnNames.push_back(var.name);
+  }
+
   // RowId type from the dedicated row-id variable.
   velox::TypePtr rowIdType =
       stringToType(node->targetTableRowIdColumnVariable.type, typeParser_);
@@ -1820,6 +1841,7 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return std::make_shared<presto::operators::IcebergMergeProcessorNode>(
       node->id,
       std::move(targetColumnTypes),
+      std::move(outputColumnNames),
       std::move(rowIdType),
       targetRowIdChannel,
       mergeRowChannel,
@@ -1905,7 +1927,8 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   VELOX_USER_CHECK_NOT_NULL(
       node->target.mergeHandle,
       "MergeWriterNode target is missing mergeHandle");
-  const std::string connectorId = node->target.mergeHandle->tableHandle.connectorId;
+  const std::string connectorId =
+      node->target.mergeHandle->tableHandle.connectorId;
   auto& connector = getPrestoToVeloxConnector(
       node->target.mergeHandle->connectorMergeTableHandle->_type);
   auto veloxHandle = connector.toVeloxInsertTableHandle(
@@ -1957,8 +1980,9 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   renameExprs.reserve(srcType->size());
   for (size_t i = 0; i < srcType->size(); ++i) {
     renameNames.push_back(node->mergeProcessorProjectedVariables[i].name);
-    renameExprs.push_back(std::make_shared<velox::core::FieldAccessTypedExpr>(
-        srcType->childAt(i), srcType->nameOf(i)));
+    renameExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            srcType->childAt(i), srcType->nameOf(i)));
   }
   const auto renamedSource = std::make_shared<velox::core::ProjectNode>(
       fmt::format("{}.rename", node->id),
@@ -2022,8 +2046,9 @@ velox::core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           twNames.size());
     }
     projNames.push_back(outVar.name);
-    projExprs.push_back(std::make_shared<velox::core::FieldAccessTypedExpr>(
-        outputType->childAt(i), twNames[i]));
+    projExprs.push_back(
+        std::make_shared<velox::core::FieldAccessTypedExpr>(
+            outputType->childAt(i), twNames[i]));
   }
   return std::make_shared<velox::core::ProjectNode>(
       fmt::format("{}.proj", node->id),
@@ -2559,8 +2584,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return toVeloxQueryPlan(tableWriteMerger, tableWriteInfo, taskId);
   }
   if (auto mergeProcessor =
-          std::dynamic_pointer_cast<const protocol::MergeProcessorNode>(
-              node)) {
+          std::dynamic_pointer_cast<const protocol::MergeProcessorNode>(node)) {
     return toVeloxQueryPlan(mergeProcessor, tableWriteInfo, taskId);
   }
   if (auto mergeWriter =

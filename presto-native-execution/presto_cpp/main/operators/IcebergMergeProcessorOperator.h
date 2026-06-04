@@ -57,17 +57,22 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
   IcebergMergeProcessorNode(
       const velox::core::PlanNodeId& id,
       std::vector<velox::TypePtr> targetColumnTypes,
+      std::vector<std::string> outputColumnNames,
       velox::TypePtr rowIdType,
       velox::column_index_t targetRowIdChannel,
       velox::column_index_t mergeRowChannel,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         targetColumnTypes_(std::move(targetColumnTypes)),
+        outputColumnNames_(std::move(outputColumnNames)),
         rowIdType_(std::move(rowIdType)),
         targetRowIdChannel_(targetRowIdChannel),
         mergeRowChannel_(mergeRowChannel),
         sources_({std::move(source)}),
-        outputType_(buildOutputType(targetColumnTypes_, rowIdType_)) {
+        outputType_(buildOutputType(
+            targetColumnTypes_,
+            outputColumnNames_,
+            rowIdType_)) {
     VELOX_USER_CHECK_NOT_NULL(
         sources_[0], "IcebergMergeProcessorNode source cannot be null");
     VELOX_USER_CHECK_NOT_NULL(
@@ -75,6 +80,12 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
     VELOX_USER_CHECK(
         !targetColumnTypes_.empty(),
         "IcebergMergeProcessorNode targetColumnTypes cannot be empty");
+    VELOX_USER_CHECK_EQ(
+        outputColumnNames_.size(),
+        targetColumnTypes_.size() + 3,
+        "IcebergMergeProcessorNode outputColumnNames size must equal "
+        "targetColumnTypes.size() + 3 (target cols + operation + row_id + "
+        "insert_from_update)");
   }
 
   /// Builder mirrors the `PartitionAndSerializeNode::Builder` shape.
@@ -85,6 +96,7 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
     explicit Builder(const IcebergMergeProcessorNode& other) {
       id_ = other.id();
       targetColumnTypes_ = other.targetColumnTypes();
+      outputColumnNames_ = other.outputColumnNames();
       rowIdType_ = other.rowIdType();
       targetRowIdChannel_ = other.targetRowIdChannel();
       mergeRowChannel_ = other.mergeRowChannel();
@@ -98,6 +110,11 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
 
     Builder& targetColumnTypes(std::vector<velox::TypePtr> targetColumnTypes) {
       targetColumnTypes_ = std::move(targetColumnTypes);
+      return *this;
+    }
+
+    Builder& outputColumnNames(std::vector<std::string> outputColumnNames) {
+      outputColumnNames_ = std::move(outputColumnNames);
       return *this;
     }
 
@@ -122,10 +139,14 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
     }
 
     std::shared_ptr<IcebergMergeProcessorNode> build() const {
-      VELOX_USER_CHECK(id_.has_value(), "IcebergMergeProcessorNode id is not set");
+      VELOX_USER_CHECK(
+          id_.has_value(), "IcebergMergeProcessorNode id is not set");
       VELOX_USER_CHECK(
           targetColumnTypes_.has_value(),
           "IcebergMergeProcessorNode targetColumnTypes is not set");
+      VELOX_USER_CHECK(
+          outputColumnNames_.has_value(),
+          "IcebergMergeProcessorNode outputColumnNames is not set");
       VELOX_USER_CHECK(
           rowIdType_.has_value(),
           "IcebergMergeProcessorNode rowIdType is not set");
@@ -136,11 +157,11 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
           mergeRowChannel_.has_value(),
           "IcebergMergeProcessorNode mergeRowChannel is not set");
       VELOX_USER_CHECK(
-          source_.has_value(),
-          "IcebergMergeProcessorNode source is not set");
+          source_.has_value(), "IcebergMergeProcessorNode source is not set");
       return std::make_shared<IcebergMergeProcessorNode>(
           id_.value(),
           targetColumnTypes_.value(),
+          outputColumnNames_.value(),
           rowIdType_.value(),
           targetRowIdChannel_.value(),
           mergeRowChannel_.value(),
@@ -150,6 +171,7 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
    private:
     std::optional<velox::core::PlanNodeId> id_;
     std::optional<std::vector<velox::TypePtr>> targetColumnTypes_;
+    std::optional<std::vector<std::string>> outputColumnNames_;
     std::optional<velox::TypePtr> rowIdType_;
     std::optional<velox::column_index_t> targetRowIdChannel_;
     std::optional<velox::column_index_t> mergeRowChannel_;
@@ -178,6 +200,10 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
     return targetColumnTypes_;
   }
 
+  const std::vector<std::string>& outputColumnNames() const {
+    return outputColumnNames_;
+  }
+
   const velox::TypePtr& rowIdType() const {
     return rowIdType_;
   }
@@ -196,11 +222,17 @@ class IcebergMergeProcessorNode : public velox::core::PlanNode {
   /// Builds the output RowType once at construction time. Format matches
   /// IcebergMergeProcessor::outputType() exactly:
   ///   targetColumnTypes_ ... ++ [TINYINT, rowIdType_, TINYINT].
+  /// All output column names — including the trailing operation, rowId, and
+  /// insertFromUpdate columns — come from `outputColumnNames` (size N+3) so
+  /// the writer's name-based binding (TableWriter::setTypeMappings) sees
+  /// iceberg/planner-correct names rather than synthetic positional ones.
   static velox::RowTypePtr buildOutputType(
       const std::vector<velox::TypePtr>& targetColumnTypes,
+      const std::vector<std::string>& outputColumnNames,
       const velox::TypePtr& rowIdType);
 
   const std::vector<velox::TypePtr> targetColumnTypes_;
+  const std::vector<std::string> outputColumnNames_;
   const velox::TypePtr rowIdType_;
   const velox::column_index_t targetRowIdChannel_;
   const velox::column_index_t mergeRowChannel_;
