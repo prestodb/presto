@@ -58,6 +58,11 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const final;
 
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::DeleteHandle* deleteHandle,
+      const TypeParser& typeParser) const final;
+
  private:
   std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
   toIcebergColumns(
