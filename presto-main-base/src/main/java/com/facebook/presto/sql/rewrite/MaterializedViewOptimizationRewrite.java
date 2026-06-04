@@ -24,7 +24,9 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
@@ -93,6 +95,33 @@ public class MaterializedViewOptimizationRewrite
                 return optimizeQueryUsingMaterializedView(metadata, session, sqlParser, accessControl, query);
             }
             return query;
+        }
+
+        @Override
+        protected Node visitCreateTableAsSelect(CreateTableAsSelect node, Void context)
+        {
+            Query rewritten = (Query) process(node.getQuery(), context);
+            if (rewritten == node.getQuery()) {
+                return node;
+            }
+            return new CreateTableAsSelect(
+                    node.getName(),
+                    rewritten,
+                    node.isNotExists(),
+                    node.getProperties(),
+                    node.isWithData(),
+                    node.getColumnAliases(),
+                    node.getComment());
+        }
+
+        @Override
+        protected Node visitInsert(Insert node, Void context)
+        {
+            Query rewritten = (Query) process(node.getQuery(), context);
+            if (rewritten == node.getQuery()) {
+                return node;
+            }
+            return new Insert(node.getTarget(), node.getColumns(), rewritten);
         }
     }
 
