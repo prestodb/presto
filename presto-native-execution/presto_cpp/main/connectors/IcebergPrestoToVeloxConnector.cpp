@@ -15,6 +15,8 @@
 #include "presto_cpp/main/connectors/IcebergPrestoToVeloxConnector.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnectorUtils.h"
 
+#include <folly/json.h>
+
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
@@ -172,6 +174,34 @@ velox::parquet::ParquetFieldId toParquetField(
   return pf;
 }
 
+// Extracts the Iceberg partition spec ID from the JSON-encoded spec carried on
+// each split (IcebergSplit.partitionSpecAsJson on the Java side). The JSON
+// always has a top-level "specId" integer per Iceberg's PartitionSpecParser.
+// Returns std::nullopt only when parsing fails so callers can decide whether
+// to omit the resulting info column (synthesis paths that depend on a real
+// spec_id should treat absence as a hard error).
+std::optional<int32_t> tryParsePartitionSpecId(
+    const std::string& partitionSpecAsJson) {
+  if (partitionSpecAsJson.empty()) {
+    return std::nullopt;
+  }
+  try {
+    const auto parsed = folly::parseJson(partitionSpecAsJson);
+    if (!parsed.isObject()) {
+      return std::nullopt;
+    }
+    const auto* specIdField = parsed.get_ptr("specId");
+    if (specIdField == nullptr || !specIdField->isInt()) {
+      return std::nullopt;
+    }
+    return static_cast<int32_t>(specIdField->asInt());
+  } catch (const folly::json::parse_error&) {
+    return std::nullopt;
+  } catch (const folly::TypeError&) {
+    return std::nullopt;
+  }
+}
+
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -222,6 +252,24 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       {"$data_sequence_number",
        std::to_string(icebergSplit->dataSequenceNumber)},
       {"$path", icebergSplit->path}};
+
+  // Iceberg MERGE INTO row-id synthesis: feed the split's partition spec ID
+  // and the per-file PartitionData JSON down to the Velox split reader so it
+  // can populate the spec_id and partition_data fields of the synthetic
+  // $target_table_row_id ROW column. partitionSpecAsJson is required on every
+  // Iceberg split; partitionDataJson is optional (absent for unpartitioned
+  // tables, in which case Java emits an empty string — match that here).
+  if (auto specId = tryParsePartitionSpecId(icebergSplit.partitionSpecAsJson);
+      specId.has_value()) {
+    infoColumns.emplace(
+        velox::connector::hive::iceberg::IcebergMetadataColumn::
+            kSpecIdInfoColumn,
+        fmt::to_string(*specId));
+  }
+  infoColumns.emplace(
+      velox::connector::hive::iceberg::IcebergMetadataColumn::
+          kPartitionDataInfoColumn,
+      icebergSplit.partitionDataJson ? *icebergSplit.partitionDataJson : "");
 
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
