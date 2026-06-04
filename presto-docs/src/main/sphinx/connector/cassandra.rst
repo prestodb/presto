@@ -183,7 +183,7 @@ The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``
 keyspace using Cassandra's cqlsh (CQL interactive terminal):
 
-.. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting_started/index.html
+.. _Getting Started: https://cassandra.apache.org/doc/latest/cassandra/getting-started/index.html
 
 .. code-block:: none
 
