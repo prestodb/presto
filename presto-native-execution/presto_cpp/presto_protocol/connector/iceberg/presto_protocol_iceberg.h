@@ -280,9 +280,6 @@ void from_json(const json& j, IcebergInsertTableHandle& p);
 // IcebergDeleteTableHandle is special since it needs an usage of
 // hive::.
 
-// IcebergDeleteTableHandle is special since it needs an usage of
-// hive::.
-
 namespace facebook::presto::protocol::iceberg {
 struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
   String schemaName = {};
