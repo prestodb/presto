@@ -13,7 +13,7 @@ Release 0.298
 ==============
 * Improve materialized view query rewriting to support ``HAVING`` clauses. `#27677 <https://github.com/prestodb/presto/pull/27677>`_
 * Improve coordinator-to-worker communication efficiency with 20-40% smaller payload sizes and 2-3x faster serialization compared to JSON. `#27486 <https://github.com/prestodb/presto/pull/27486>`_
-* Improve query planning performance for wide-column queries with O(1) field lookup indexing and fast-path optimizations across multiple optimizer rules. `#27553 <https://github.com/prestodb/presto/pull/27553>`_ `#27547 <https://github.com/prestodb/presto/pull/27547>`_
+* Improve query planning performance for wide-column projections by adding fast paths that skip unnecessary processing for variable references, constants, and identity assignments across multiple optimizer rules. `#27547 <https://github.com/prestodb/presto/pull/27547>`_
 * Add incremental refresh for materialized views in the Iceberg connector, enabling efficient partial refreshes instead of full recomputation. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
 * Add support for Azure Blob Storage (``wasb[s]://``) and Azure Data Lake Storage Gen2 (``abfs[s]://``) in the Hive connector, with shared key and OAuth2 authentication. `#25107 <https://github.com/prestodb/presto/pull/25107>`_
 * Add ``ALTER MATERIALIZED VIEW <name> SET PROPERTIES (...)`` SQL statement to update materialized view properties after creation. `#27806 <https://github.com/prestodb/presto/pull/27806>`_
