@@ -14,12 +14,14 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.proto.DwrfProto;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -29,6 +31,9 @@ import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toColumnEncodi
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toColumnEncodings;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStream;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStreamKind;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStringPairList;
+import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toType;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
@@ -195,5 +200,69 @@ public class TestDwrfMetadataWriter
         assertEquals(actual.getLength(), expectedLength);
         assertTrue(actual.getUseVInts());
         assertEquals(actual.getOffset(), expectedOffset);
+    }
+
+    @Test
+    public void testToStringPairListEmpty()
+    {
+        // Empty attributes map produces empty pair list -- the resulting DWRF
+        // type is byte-compatible with pre-patch writers for the common case.
+        assertEquals(toStringPairList(ImmutableMap.of()), ImmutableList.of());
+    }
+
+    @Test
+    public void testToStringPairListPreservesKeyValuePairs()
+    {
+        Map<String, String> attributes = ImmutableMap.of(
+                "iceberg.id", "42",
+                "iceberg.long-type-name", "decimal(38, 9)");
+
+        List<DwrfProto.StringPair> pairs = toStringPairList(attributes);
+        assertEquals(pairs.size(), 2);
+        // Order isn't guaranteed by Map iteration, so build a map back to assert.
+        Map<String, String> roundTripped = pairs.stream()
+                .collect(ImmutableMap.toImmutableMap(
+                        DwrfProto.StringPair::getKey,
+                        DwrfProto.StringPair::getValue));
+        assertEquals(roundTripped, attributes);
+    }
+
+    @Test
+    public void testToTypeEmitsAttributes()
+    {
+        // Construct an OrcType that carries an iceberg field-id-style attribute,
+        // run it through the writer's type conversion, and assert the proto
+        // builder picks up the attribute slot.
+        OrcType orcType = new OrcType(
+                LONG,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("iceberg.id", "7"));
+
+        DwrfProto.Type proto = toType(orcType);
+        assertEquals(proto.getAttributesCount(), 1);
+        assertEquals(proto.getAttributes(0).getKey(), "iceberg.id");
+        assertEquals(proto.getAttributes(0).getValue(), "7");
+    }
+
+    @Test
+    public void testToTypeEmitsNoAttributesWhenMapEmpty()
+    {
+        // Backward-compat probe: types with no attributes should produce
+        // attribute-less DWRF proto, matching pre-patch wire output for the
+        // common case.
+        OrcType orcType = new OrcType(
+                LONG,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
+        DwrfProto.Type proto = toType(orcType);
+        assertEquals(proto.getAttributesCount(), 0);
     }
 }

@@ -164,14 +164,28 @@ public class DwrfMetadataWriter
         return builder.build();
     }
 
-    private static Type toType(OrcType type)
+    static Type toType(OrcType type)
     {
         Builder builder = Type.newBuilder()
                 .setKind(toTypeKind(type.getOrcTypeKind()))
                 .addAllSubtypes(type.getFieldTypeIndexes())
-                .addAllFieldNames(type.getFieldNames());
+                .addAllFieldNames(type.getFieldNames())
+                .addAllAttributes(toStringPairList(type.getAttributes()));
 
         return builder.build();
+    }
+
+    // Mirrors OrcMetadataWriter.toStringPairList. Empty input map produces an empty
+    // attribute list -- the resulting DWRF file is byte-compatible with the pre-patch
+    // writer when the type carries no attributes.
+    static List<DwrfProto.StringPair> toStringPairList(Map<String, String> attributes)
+    {
+        return attributes.entrySet().stream()
+                .map(entry -> DwrfProto.StringPair.newBuilder()
+                        .setKey(entry.getKey())
+                        .setValue(entry.getValue())
+                        .build())
+                .collect(toImmutableList());
     }
 
     private static Type.Kind toTypeKind(OrcTypeKind orcTypeKind)

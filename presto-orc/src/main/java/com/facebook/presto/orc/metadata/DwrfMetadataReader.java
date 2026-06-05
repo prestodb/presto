@@ -566,9 +566,25 @@ public class DwrfMetadataReader
         return new MapStatistics(mapStatisticsEntries.build());
     }
 
-    private static OrcType toType(DwrfProto.Type type)
+    static OrcType toType(DwrfProto.Type type)
     {
-        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty());
+        return new OrcType(toTypeKind(type.getKind()), type.getSubtypesList(), type.getFieldNamesList(), Optional.empty(), Optional.empty(), Optional.empty(), toMap(type.getAttributesList()));
+    }
+
+    // Mirrors OrcMetadataReader.toMap. DWRF files written by older writers (or by writers
+    // that don't set attributes) yield an empty list here, producing an empty map -- no
+    // change in observable behavior for the attribute-less case.
+    static Map<String, String> toMap(List<DwrfProto.StringPair> attributes)
+    {
+        ImmutableMap.Builder<String, String> results = new ImmutableMap.Builder<>();
+        if (attributes != null) {
+            for (DwrfProto.StringPair attribute : attributes) {
+                if (attribute.hasKey() && attribute.hasValue()) {
+                    results.put(attribute.getKey(), attribute.getValue());
+                }
+            }
+        }
+        return results.build();
     }
 
     private static List<OrcType> toType(List<DwrfProto.Type> types)

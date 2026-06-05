@@ -29,6 +29,7 @@ import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.DataProvider;
@@ -39,12 +40,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static com.facebook.presto.orc.metadata.DwrfMetadataReader.toMap;
+import static com.facebook.presto.orc.metadata.DwrfMetadataReader.toType;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
+import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.ALL_UTF8_SEQUENCES;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.TEST_CODE_POINTS;
 import static com.facebook.presto.orc.metadata.TestOrcMetadataReader.concatSlice;
@@ -402,5 +407,81 @@ public class TestDwrfMetadataReader
         DwrfProto.ColumnStatistics dwrfColumnStatistics = DwrfMetadataWriter.toColumnStatistics(input);
         ColumnStatistics actual = dwrfMetadataReader.toColumnStatistics(HiveWriterVersion.ORC_HIVE_8732, dwrfColumnStatistics, false, null);
         assertEquals(actual, output);
+    }
+
+    @Test
+    public void testToMapEmpty()
+    {
+        // Empty attribute list (the common case for files written by attribute-
+        // unaware writers) produces empty map -- no behavior change.
+        assertEquals(toMap(ImmutableList.of()), ImmutableMap.of());
+    }
+
+    @Test
+    public void testToMapNull()
+    {
+        // Defensive: handle null input gracefully.
+        assertEquals(toMap(null), ImmutableMap.of());
+    }
+
+    @Test
+    public void testToMapBuildsKeyValueMap()
+    {
+        List<DwrfProto.StringPair> attributes = ImmutableList.of(
+                DwrfProto.StringPair.newBuilder().setKey("iceberg.id").setValue("11").build(),
+                DwrfProto.StringPair.newBuilder().setKey("iceberg.long-type-name").setValue("string").build());
+
+        Map<String, String> result = toMap(attributes);
+        assertEquals(result, ImmutableMap.of(
+                "iceberg.id", "11",
+                "iceberg.long-type-name", "string"));
+    }
+
+    @Test
+    public void testToMapSkipsPairsMissingKeyOrValue()
+    {
+        // Defensive: malformed proto records (missing key OR value) shouldn't
+        // produce null entries in the map -- they get silently dropped, mirroring
+        // OrcMetadataReader's behavior.
+        List<DwrfProto.StringPair> attributes = ImmutableList.of(
+                DwrfProto.StringPair.newBuilder().setKey("iceberg.id").setValue("42").build(),
+                DwrfProto.StringPair.newBuilder().setKey("missing.value").build(),
+                DwrfProto.StringPair.newBuilder().setValue("missing.key").build());
+
+        Map<String, String> result = toMap(attributes);
+        assertEquals(result, ImmutableMap.of("iceberg.id", "42"));
+    }
+
+    @Test
+    public void testToTypeRoundtripsAttributes()
+    {
+        // Construct a DwrfProto.Type carrying an iceberg field-id-style attribute,
+        // run it through the reader's type conversion, and assert the resulting
+        // OrcType exposes the attribute via getAttributes().
+        DwrfProto.Type proto = DwrfProto.Type.newBuilder()
+                .setKind(DwrfProto.Type.Kind.LONG)
+                .addAttributes(DwrfProto.StringPair.newBuilder()
+                        .setKey("iceberg.id")
+                        .setValue("99")
+                        .build())
+                .build();
+
+        OrcType orcType = toType(proto);
+        assertEquals(orcType.getOrcTypeKind(), LONG);
+        assertEquals(orcType.getAttributes(), ImmutableMap.of("iceberg.id", "99"));
+    }
+
+    @Test
+    public void testToTypeAttributeAbsenceProducesEmptyMap()
+    {
+        // Backward-compat probe: DWRF files written by attribute-unaware writers
+        // have no attribute proto entries -- the resulting OrcType should still
+        // be constructable and report an empty attributes map.
+        DwrfProto.Type proto = DwrfProto.Type.newBuilder()
+                .setKind(DwrfProto.Type.Kind.LONG)
+                .build();
+
+        OrcType orcType = toType(proto);
+        assertEquals(orcType.getAttributes(), ImmutableMap.of());
     }
 }
