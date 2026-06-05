@@ -104,10 +104,6 @@ ___________________
 * Add connection validation feature to enhance connection reliability. This can be enabled with the :ref:`admin/properties-session:\`\`validateConnection\`\`` session property to execute a validation query immediately after establishing the connection. `#27002 <https://github.com/prestodb/presto/pull/27002>`_
 * Add support for `execute` procedure in JDBC connectors. `#27282 <https://github.com/prestodb/presto/pull/27282>`_
 
-BigQuery Connector Changes
-__________________________
-
-
 Delta Lake Connector Changes
 ____________________________
 * Fix a bug that made the metastore inconsistent if a Delta Lake table was created  to an inaccessible location. `#27129 <https://github.com/prestodb/presto/pull/27129>`_
