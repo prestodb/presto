@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -42,6 +46,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractDisjuncts;
@@ -76,6 +81,63 @@ public class TestOptimizeRowInPredicate
                 new SpecialFormExpression(ROW_CONSTRUCTOR, ROW_VARCHAR_BIGINT, ImmutableList.of(
                         new ConstantExpression(Slices.utf8Slice("b"), VARCHAR),
                         new ConstantExpression(2L, BIGINT)))));
+    }
+
+    /**
+     * Builds a candidate row as a constant-folded ConstantExpression of RowType — exactly what the
+     * expression optimizer produces when every field of a {@code ROW(...)} in the IN list is a
+     * literal. Mirrors RowExpressionInterpreter's ROW_CONSTRUCTOR folding.
+     */
+    private static ConstantExpression foldedRow(Object v1, Type t1, Object v2, Type t2)
+    {
+        RowType rowType = RowType.anonymous(ImmutableList.of(t1, t2));
+        BlockBuilder blockBuilder = new RowBlockBuilder(ImmutableList.of(t1, t2), null, 1);
+        BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
+        writeNativeValue(t1, singleRowBlockWriter, v1);
+        writeNativeValue(t2, singleRowBlockWriter, v2);
+        blockBuilder.closeEntry();
+        Block rowBlock = rowType.getObject(blockBuilder, 0);
+        return new ConstantExpression(rowBlock, rowType);
+    }
+
+    private static SpecialFormExpression rowInWithFoldedCandidates(VariableReferenceExpression c1, VariableReferenceExpression c2)
+    {
+        return new SpecialFormExpression(IN, BOOLEAN, ImmutableList.of(
+                new SpecialFormExpression(ROW_CONSTRUCTOR, ROW_VARCHAR_BIGINT, ImmutableList.of(c1, c2)),
+                foldedRow(Slices.utf8Slice("a"), VARCHAR, 1L, BIGINT),
+                foldedRow(Slices.utf8Slice("b"), VARCHAR, 2L, BIGINT)));
+    }
+
+    @Test
+    public void testRowInRewriteFiresOnConstantFoldedCandidates()
+    {
+        // Regression test: in real queries the all-literal candidate rows are constant-folded into
+        // ConstantExpressions of RowType (not ROW_CONSTRUCTOR special forms). The rewrite must still
+        // fire and produce the same per-column IN predicates. Before the fix it bailed and the
+        // optimization never triggered in production.
+        tester().assertThat(new OptimizeRowInPredicate(tester().getMetadata()))
+                .setSystemProperty(OPTIMIZE_ROW_IN_PREDICATE, "true")
+                .on(p -> {
+                    VariableReferenceExpression c1 = p.variable("c1", VARCHAR);
+                    VariableReferenceExpression c2 = p.variable("c2", BIGINT);
+                    return p.filter(
+                            rowInWithFoldedCandidates(c1, c2),
+                            p.tableScan(
+                                    tableHandle(),
+                                    ImmutableList.of(c1, c2),
+                                    ImmutableMap.of(
+                                            c1, new TpchColumnHandle("c1", VARCHAR),
+                                            c2, new TpchColumnHandle("c2", BIGINT))));
+                })
+                .validates(plan -> {
+                    FilterNode filter = (FilterNode) plan.getRoot();
+                    List<RowExpression> conjuncts = extractConjuncts(filter.getPredicate());
+                    // Expect: c1 IN (a, b), c2 IN (1, 2), OR-of-ANDs
+                    assertEquals(conjuncts.size(), 3);
+                    assertColumnIn(conjuncts.get(0), "c1", 2);
+                    assertColumnIn(conjuncts.get(1), "c2", 2);
+                    assertEquals(extractDisjuncts(conjuncts.get(2)).size(), 2);
+                });
     }
 
     @Test
