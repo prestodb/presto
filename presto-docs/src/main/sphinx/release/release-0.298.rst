@@ -168,7 +168,7 @@ _____________________________
 * Fix varchar type mapping for ``TEXT`` types to use byte-based thresholds matching the JDBC driver's ``COLUMN_SIZE`` reporting. `#27790 <https://github.com/prestodb/presto/pull/27790>`_
 
 Verifier Changes
-----------------
+________________
 * Add ``query-rewriter-factory`` configuration property to allow extending the verifier ``QueryRewriter`` with custom implementations. `#27703 <https://github.com/prestodb/presto/pull/27703>`_
 
 **Credits**
