@@ -126,7 +126,7 @@ _________________________
 * Add ``max_snapshots_per_refresh`` materialized view property to bound how far each base table advances per ``REFRESH MATERIALIZED VIEW``. Defaults to ``0`` (unbounded). Requires Iceberg V3 row lineage; V2 tables fall back to unbounded refresh. See :ref:`connector/iceberg:materialized view properties`. `#27774 <https://github.com/prestodb/presto/pull/27774>`_
 * Add ``materialized_view_stitching_strategy`` and ``materialized_view_incremental_refresh_strategy`` session properties (values: `ALWAYS`, `NEVER`, `AUTOMATIC`; default: `ALWAYS`). Under `AUTOMATIC`, the optimizer selects between the rewrite and the full alternative based on cost; when stats are unavailable it falls back to row-count comparison. See :ref:`connector/iceberg:session properties`. `#27820 <https://github.com/prestodb/presto/pull/27820>`_
 * Add read support for Iceberg V3 column initial-default values. `#27659 <https://github.com/prestodb/presto/pull/27659>`_
-* Add incremental refresh for materialized views in the Iceberg connector. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
+* Add incremental refresh for materialized views in the Iceberg connector, enabling efficient partial refreshes instead of full recomputation. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
 * Add min/max statistics for ``VARCHAR`` / ``CHAR`` columns in Iceberg tables. `#27357 <https://github.com/prestodb/presto/pull/27357>`_
 * Add metastore cache invalidation procedure for Iceberg connector. `#27200 <https://github.com/prestodb/presto/pull/27200>`_
 * Add predicate push down on ``_last_updated_sequence_number`` for file-level pruning. `#27766 <https://github.com/prestodb/presto/pull/27766>`_
