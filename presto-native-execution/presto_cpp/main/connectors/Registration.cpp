@@ -28,6 +28,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/connectors/hive/CudfHiveConnector.h"
+#include "velox/experimental/cudf/connectors/hive/iceberg/CudfIcebergConnector.h"
 #endif
 
 namespace facebook::presto {
@@ -69,6 +70,16 @@ void registerConnectors() {
       std::make_unique<HivePrestoToVeloxConnector>(kHiveHadoop2ConnectorName));
   registerPrestoToVeloxConnector(
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
+#ifdef PRESTO_ENABLE_CUDF
+  // The cuDF Iceberg connector speaks the same Presto protocol as the CPU
+  // Iceberg connector; only the underlying data source differs. Register the
+  // same protocol translator under the cuDF Iceberg connector name so catalogs
+  // with connector.name=cudf-iceberg coexist with CPU iceberg catalogs.
+  registerPrestoToVeloxConnector(
+      std::make_unique<IcebergPrestoToVeloxConnector>(
+          velox::cudf_velox::connector::hive::iceberg::
+              CudfIcebergConnectorFactory::kCudfIcebergConnectorName));
+#endif
   registerPrestoToVeloxConnector(
       std::make_unique<TpchPrestoToVeloxConnector>(
           velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
@@ -139,6 +150,15 @@ void registerConnectorFactories() {
   facebook::presto::registerConnectorFactory(
       std::make_shared<facebook::velox::connector::hive::iceberg::
                            IcebergConnectorFactory>());
+
+#ifdef PRESTO_ENABLE_CUDF
+  // Register the cuDF Iceberg connector factory under its own name
+  // ("cudf-iceberg") so it coexists with the CPU Iceberg connector. Catalogs
+  // opt into GPU-accelerated Iceberg reads via connector.name=cudf-iceberg.
+  facebook::presto::registerConnectorFactory(
+      std::make_shared<facebook::velox::cudf_velox::connector::hive::iceberg::
+                           CudfIcebergConnectorFactory>());
+#endif
 
 #ifdef PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR
   // Note: ArrowFlightConnectorFactory would need to be implemented in Presto
