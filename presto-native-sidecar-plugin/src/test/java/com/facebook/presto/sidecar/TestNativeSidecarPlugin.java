@@ -90,7 +90,7 @@ public class TestNativeSidecarPlugin
     private static final String REGEX_FUNCTION_NAMESPACE = "native.default.*";
     private static final String REGEX_SESSION_NAMESPACE = "Native Execution only.*";
     private static final long SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB = 128;
-    private static final int INLINED_SQL_FUNCTIONS_COUNT = 5;
+    private static final int INLINED_SQL_FUNCTIONS_COUNT = 4;
 
     @Override
     protected void createTables()
@@ -598,6 +598,7 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT map_top_n(MAP(ARRAY[CAST(nationkey AS VARCHAR)], ARRAY[comment]), 3) from nation");
         assertQuery("SELECT map_top_n_keys(MAP(ARRAY[orderkey], ARRAY[custkey]), 3) from orders");
         assertQuery("SELECT map_top_n_values(MAP(ARRAY[orderkey], ARRAY[custkey]), 3) from orders");
+        assertQuery("SELECT map_top_n_values(MAP(ARRAY[regionkey], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
         assertQuery("SELECT all_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> length(k) > 5) from orders");
         assertQuery("SELECT any_keys_match(MAP(ARRAY[comment], ARRAY[custkey]), k -> starts_with(k, 'abc')) from orders");
         assertQuery("SELECT any_values_match(MAP(ARRAY[orderkey], ARRAY[totalprice]), k -> abs(k) > 20) from orders");
@@ -621,7 +622,6 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT array_top_n(ARRAY[orderkey], 25, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from orders");
 
         // Map functions
-        assertQuery("SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
         assertQuery("SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation");
 
         Session sessionWithKeyBasedSampling = Session.builder(getSession())
@@ -652,10 +652,6 @@ public class TestNativeSidecarPlugin
                 ".*Scalar function name not registered: native.default.array_least_frequent.*");
 
         // Map functions
-        assertQueryFails(session,
-                "SELECT map_top_n_values(MAP(ARRAY[comment], ARRAY[nationkey]), 2, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
-                ".*Scalar function native\\.default\\.map_top_n_values not registered with arguments.*",
-                true);
         assertQueryFails(session,
                 "SELECT map_top_n_keys(MAP(ARRAY[regionkey], ARRAY[nationkey]), 5, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) from nation",
                 ".*Scalar function native\\.default\\.map_top_n_keys not registered with arguments.*",
