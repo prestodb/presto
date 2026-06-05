@@ -1,0 +1,5 @@
+nav:
+  - Data Types: data-types.md
+  - DDL: ddl
+  - DML: dml
+  - DQL: dql

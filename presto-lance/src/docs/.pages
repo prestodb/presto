@@ -1,0 +1,6 @@
+nav:
+  - Welcome: index.md
+  - Install: install.md
+  - Config: config.md
+  - Performance: performance.md
+  - Operations: operations

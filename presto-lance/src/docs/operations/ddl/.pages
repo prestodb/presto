@@ -1,0 +1,7 @@
+nav:
+  - Create Table: create-table.md
+  - Drop Table: drop-table.md
+  - Describe Table: describe-table.md
+  - Show Columns: show-columns.md
+  - Show Schemas: show-schemas.md
+  - Show Tables: show-tables.md
