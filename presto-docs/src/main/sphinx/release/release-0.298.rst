@@ -96,8 +96,8 @@ ________________
 * Upgrade org.bouncycastle:bcprov-jdk18on from 1.81 to 1.84 to resolve `CVE-2026-0636 <https://nvd.nist.gov/vuln/detail/CVE-2026-0636>`_. `#27606 <https://github.com/prestodb/presto/pull/27606>`_
 * Upgrade org.postgresql:postgresql from 42.7.9 to 42.7.11 to resolve `CVE-2026-42198 <https://nvd.nist.gov/vuln/detail/CVE-2026-42198>`_. `#27722 <https://github.com/prestodb/presto/pull/27722>`_
 * Upgrade parquet-jackson to 1.17.1 in response to `GHSA-72hv-8253-57qq <https://github.com/advisories/GHSA-72hv-8253-57qq>`_. `#27803 <https://github.com/prestodb/presto/pull/27803>`_
-* Upgrade redshift-jdbc42 to 2.2.7 in response to `CVE-2026-8178 <https://github.com/advisories/CVE-2026-8178>`_. `#27828 <https://github.com/prestodb/presto/pull/27828>`_
-* Upgrade opentelemetry-api to 1.62.0 in response to `CVE-2026-45292 <https://github.com/advisories/CVE-2026-45292>`_. `#27865 <https://github.com/prestodb/presto/pull/27865>`_
+* Upgrade redshift-jdbc42 to 2.2.7 in response to `CVE-2026-8178 <https://github.com/advisories/GHSA-wmmv-vvg5-993q>`_. `#27828 <https://github.com/prestodb/presto/pull/27828>`_
+* Upgrade opentelemetry-api to 1.62.0 in response to `CVE-2026-45292 <https://github.com/advisories/GHSA-rcgg-9c38-7xpx>`_. `#27865 <https://github.com/prestodb/presto/pull/27865>`_
 
 JDBC Driver Changes
 ___________________
