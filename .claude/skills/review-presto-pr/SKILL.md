@@ -56,13 +56,26 @@ First, understand what changed and check for proper process:
 First, understand what changed:
 
 ```bash
-# If on a feature branch, compare to master
-git diff master..HEAD --stat
-git log master..HEAD --oneline
+# Compare against the PR's base branch, not a hardcoded branch name.
+# Most PRs target master, but release/edge branches are cut from release
+# tags (e.g. release-0.290 off the 0.290 tag), so determine the base first.
+
+# For a GitHub PR, ask gh for the base branch:
+BASE=$(gh pr view <pr-number> --json baseRefName --jq .baseRefName)
+
+# Otherwise fall back to the default branch, or the merge-base if comparing
+# against a release branch:
+BASE=${BASE:-$(git remote show origin | sed -n 's/.*HEAD branch: //p')}
+
+git diff "$BASE"...HEAD --stat
+git log "$BASE"..HEAD --oneline
 
 # For a specific commit
 git show <commit> --stat
 ```
+
+Using `"$BASE"...HEAD` (three dots) diffs against the merge-base, which is
+correct even when the base branch has advanced or was created from a release tag.
 
 ### 3. Code Style Checklist
 
@@ -71,6 +84,7 @@ Verify adherence to Presto style guidelines:
 - [ ] **Line length**: Aim for 180 characters, but acceptable to exceed if breaking the line would look awkward
 - [ ] **Naming**: No abbreviations (use `positionCount` not `positionCnt`). This applies everywhere including lambda parameters (`operator ->` not `op ->`, `pipeline ->` not `p ->`, `stage ->` not `s ->`)
 - [ ] **Static imports**: Using `format()`, `toImmutableList()`, `requireNonNull`, `checkArgument`
+- [ ] **Import ordering**: Presto enforces strict import ordering via checkstyle. Imports must be alphabetically ordered, with static imports grouped separately. No unused or wildcard imports
 - [ ] **Immutability**: Preferring Guava immutable collections (`ImmutableList`, `ImmutableMap`)
 - [ ] **Fields**: Declared `final` when possible
 - [ ] **Class structure**: Fields before methods, ordered by access level (public -> private)
@@ -139,6 +153,11 @@ SPI changes require extra scrutiny:
 - Are operators properly handling yield signals?
 - Is data processed in a streaming fashion where possible?
 - Are there potential deadlocks in exchange operations?
+
+#### For Configuration Changes
+- **`@ConfigDescription`**: Every new `@Config` setter must have a `@ConfigDescription` so the property is self-documenting for operators
+- **`@ConfigSecuritySensitive`**: Annotate setters for passwords, secrets, tokens, or other sensitive values so they are masked in logs and diagnostics
+- New config properties should be documented (see the Documentation section) with their default values
 
 #### For New HTTP Endpoints
 - Follow RESTful conventions (proper use of GET/POST/PUT/DELETE, resource-based URLs)
