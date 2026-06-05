@@ -4,10 +4,10 @@ Release 0.298
 
 **Breaking Changes**
 ====================
-* The default value of ``field_names_in_json_cast_enabled`` changes from ``false`` to ``true``. When enabled, JSON fields are assigned to ROW fields by matching field names regardless of order. Queries that rely on JSON field order when casting to ROW may return different results after upgrading. Restore the previous behavior by setting ``SET SESSION field_names_in_json_cast_enabled = false;``. `#26833 <https://github.com/prestodb/presto/pull/26833>`_
 * Fix query statistics so that `planningTime` and `finishingTime` are no longer added to `executionTime`. `executionTime` is now the true execution time — how long it took the query to run the compute. It can be used to measure the efficiency of the workers without added planning time or the time spent on final steps such as partition registration. `#27691 <https://github.com/prestodb/presto/pull/27691>`_
 * Remove configuration property ``use-new-nan-definition``. `#27829 <https://github.com/prestodb/presto/pull/27829>`_
 * Remove ``warn-on-common-nan-patterns`` server config and ``warn_on_common_nan_patterns`` session property. The NaN definition migration is complete and these warnings are no longer needed. `#27830 <https://github.com/prestodb/presto/pull/27830>`_
+* Update the default behavior of ``field_names_in_json_cast_enabled`` from false to true. When ``field_names_in_json_cast_enabled = true``, JSON fields are assigned to ROW fields by matching field names regardless of their order in the JSON object. Queries that rely on JSON field order when casting to ROW may return different results after upgrading. If your workload depends on the previous positional behavior, restore it by setting: ``SET SESSION field_names_in_json_cast_enabled = false;``. `#26833 <https://github.com/prestodb/presto/pull/26833>`_
 
 **Highlights**
 ==============
