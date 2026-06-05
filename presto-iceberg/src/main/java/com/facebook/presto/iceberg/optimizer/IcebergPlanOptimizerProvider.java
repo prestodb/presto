@@ -53,7 +53,6 @@ public class IcebergPlanOptimizerProvider
         requireNonNull(typeManager, "typeManager is null");
         requireNonNull(sqlParser, "sqlParser is null");
         this.planOptimizers = ImmutableSet.of(
-                new IcebergDerivedColumnRewriter(tableProperties, transactionManager, functionResolution, typeManager, functionMetadataManager, sqlParser),
                 new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
                 new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
@@ -63,7 +62,8 @@ public class IcebergPlanOptimizerProvider
                 new IcebergAggregationOptimizer(transactionManager, functionResolution),
                 new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties),
-                new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
+                new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager),
+                new IcebergDerivedColumnRewriter(tableProperties, transactionManager, functionResolution, typeManager, functionMetadataManager, sqlParser));
     }
 
     @Override

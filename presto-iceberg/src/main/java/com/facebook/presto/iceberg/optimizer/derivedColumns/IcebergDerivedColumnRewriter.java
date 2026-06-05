@@ -64,6 +64,7 @@ public class IcebergDerivedColumnRewriter
                 transactionManager,
                 idAllocator,
                 session,
-                sqlParser), maxSubplan);
+                sqlParser,
+                variableAllocator), maxSubplan);
     }
 }

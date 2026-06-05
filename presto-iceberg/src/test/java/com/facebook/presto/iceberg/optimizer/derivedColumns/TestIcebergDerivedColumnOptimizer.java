@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
@@ -34,6 +35,7 @@ import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.QueryRunner.MaterializedResultWithPlan;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.intellij.lang.annotations.Language;
@@ -42,8 +44,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
@@ -163,12 +169,102 @@ public class TestIcebergDerivedColumnOptimizer
             assertQuery("SELECT * FROM test_table1 WHERE upper(c2) = 'A'", "VALUES (121, 'A', 12.1, 'a')");
             assertPlan("SELECT * FROM test_table1 WHERE upper(c2) = 'A'",
                     anyTree(filter("(upper(c2)) = (VARCHAR'A')", tableScan("test_table1", ImmutableMap.of("c1", "c1", "c2", "c2")))));
-            assertPlan("SELECT * FROM test_table1 WHERE lower(c2) = 'a'",
-                    anyTree(filter("(c2_derived) = (VARCHAR'a')", tableScan("test_table1",
-                            ImmutableMap.of("c1", "c1", "c2", "c2", "c2_derived", "c2_derived")))));
+            assertPlanFilterPredicate("(c2_derived) = (VARCHAR'a')", "SELECT * FROM test_table1 WHERE lower(c2) = 'a'");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_table1");
+        }
+    }
+
+    @Test
+    public void testBasicProjectionRewrite()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            @Language("SQL") String query = "SELECT lower(c2), c1 FROM test_table1 WHERE lower(c2) = 'a'";
+            assertQuery(query, "VALUES ('a', 121)");
+            assertNoProjectNode(query);
+            assertPlanFilterPredicate("(c2_derived) = (VARCHAR'a')", query);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
+        }
+    }
+
+    public void testUnionAllQueries()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate(CREATE_TABLE_SQL2);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), concat('A', lower('B'))), (120, 'C', 12.3, lower('C'), concat('A', lower('C')))," +
+                    " (121, 'A', 12.1, lower('A'), concat('A', lower('A')))", 3);
+            @Language("SQL") String query = "SELECT c1, c2 from test_table1 WHERE lower(c2) = 'b' UNION ALL SELECT c1, c2 from test_table2 WHERE lower(c2) = 'c'";
+            assertQuery(query, "VALUES (123, 'B'), (120, 'C')");
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived_23) = (VARCHAR'c')"), List.of(List.of()), query);
+            @Language("SQL") String queryWithProjectRewrite = "SELECT c1, lower(c2) from test_table1 WHERE lower(c2) = 'b' UNION ALL SELECT c1, lower(c2) from test_table2 WHERE lower(c2) = 'c'";
+            assertQuery(queryWithProjectRewrite, "VALUES (123, 'b'), (120, 'c')");
+            // project nodes are gone after derived column rewrite.
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived_22) = (VARCHAR'c')"), List.of(List.of()), queryWithProjectRewrite);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
+            assertUpdate("DROP TABLE IF EXISTS test_table2");
+        }
+    }
+
+    @Test
+    public void testSubqueriesRewrite()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate(CREATE_TABLE_SQL2);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), concat('A', lower('B'))), (120, 'C', 12.3, lower('C'), concat('A', lower('C')))," +
+                    " (121, 'A', 12.1, lower('A'), concat('A', lower('A')))", 3);
+            @Language("SQL") String query = "SELECT a, b FROM (SELECT c1 as a, lower(c2) AS b FROM test_table1 WHERE lower(c2) = 'b')";
+            assertQuery(query, "VALUES (123, 'b')");
+            assertPlanFilterPredicate("(c2_derived) = (VARCHAR'b')", query);
+            // join with non co-related subqueries using CTE.
+            @Language("SQL") String query2 = "WITH\n" +
+                    "  t1 AS (SELECT c1 as a, lower(c2) AS b FROM test_table1 WHERE lower(c2) = 'b'),\n" +
+                    "  t2 AS (SELECT c1 as a, lower(c2) AS b FROM test_table2 WHERE concat('A', lower(c2)) = concat('A', lower('B')))\n" +
+                    "SELECT t1.*, t2.*\n" +
+                    "FROM t1\n" +
+                    "JOIN t2 ON t1.a = t2.a";
+            assertQuery(query2, "VALUES (123, 'b', 123, 'b')");
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived2) = (VARCHAR'Ab')"),
+                    List.of(List.of("c2_derived", "c1", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1), BIGINT'0'))"),
+                            List.of("c2_derived_46", "c1_8", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_8), BIGINT'0'))")), query2);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
+            assertUpdate("DROP TABLE IF EXISTS test_table2");
+        }
+    }
+
+    @Test
+    public void testJoinsRewrite()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate(CREATE_TABLE_SQL2);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), concat('A', lower('B'))), (120, 'C', 12.3, lower('C'), concat('A', lower('C'))), (121, 'A', 12.1, lower('A'), concat('A', lower('A')))", 3);
+            @Language("SQL") String query = "SELECT t1.c2, t2.c1 FROM test_table1 t1, test_table2 t2 WHERE lower(t1.c2) = 'a'";
+            assertQuery(query, "VALUES ('A', 121), ('A', 120), ('A', 123)");
+            assertPlanFilterAndProject("(c2_derived) = (VARCHAR'a')", ImmutableList.of("c2_derived", "c1"), query);
+            @Language("SQL") String query2 = "SELECT t1.c2, t2.c1 FROM test_table1 t1, test_table2 t2 WHERE lower(t1.c2) = 'a' and  concat('A', lower(t2.c2)) = 'Aa'";
+            assertQuery(query2, "VALUES ('A', 121)");
+            assertPlanFilterAndProject(ImmutableList.of("(c2_derived) = (VARCHAR'a')", "(c2_derived2) = (VARCHAR'Aa')"), ImmutableList.of(ImmutableList.of("c1_0")), query2);
+            @Language("SQL") String queryWithProjectionRewrite = "SELECT lower(t1.c2), t2.c1 FROM test_table1 t1, test_table2 t2 WHERE lower(t2.c2) = 'a'";
+            assertQuery(queryWithProjectionRewrite, "VALUES ('b', 121), ('c', 121), ('a', 121)");
+            assertPlanFilterAndProject("(c2_derived) = (VARCHAR'a')", ImmutableList.of("c2_derived", "c1"), query);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
+            assertUpdate("DROP TABLE IF EXISTS test_table2");
         }
     }
 
@@ -185,7 +281,7 @@ public class TestIcebergDerivedColumnOptimizer
             assertQuery(query1, "VALUES 121");
             // assertPlan did not work correctly.
             assertPlanFilterPredicate("(c2_derived) = (VARCHAR'a')", query);
-            assertPlanFilterPredicate("((c1) = (BIGINT'121')) AND ((c2_derived) = (VARCHAR'a'))", query1);
+            assertPlanFilterPredicate("((c2_derived) = (VARCHAR'a')) AND ((c1) = (BIGINT'121'))", query1);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_table1");
@@ -193,7 +289,7 @@ public class TestIcebergDerivedColumnOptimizer
     }
 
     @Test
-    public void testUdfSpecWithMoreThanOneUDFAndMultiArgUDFsSpecified()
+    public void testWithMoreThanOneUDFAndMultiArgUDFsSpecified()
     {
         try {
             assertUpdate(" CREATE TABLE test_table2 (                   \n" +
@@ -233,7 +329,7 @@ public class TestIcebergDerivedColumnOptimizer
             assertPlanFilterPredicate("((c2_derived2) = (VARCHAR'Aa')) OR ((c2_derived) = (VARCHAR'b'))", query2);
         }
         finally {
-            assertUpdate("DROP TABLE IF EXISTS test_table2");
+            assertUpdate("DROP TABLE test_table2");
         }
     }
 
@@ -321,5 +417,36 @@ public class TestIcebergDerivedColumnOptimizer
         FilterNode filter = PlanNodeSearcher.searchFrom(resultWithPlan.getQueryPlan().getRoot()).where(planNode -> planNode instanceof FilterNode).findOnlyElement();
         String formattedRowExpression = ROW_EXPRESSION_SERVICE.formatRowExpression(getSession().toConnectorSession(), filter.getPredicate());
         assertEquals(formattedRowExpression, expectedFilterPredicate);
+    }
+
+    private void assertNoProjectNode(@Language("SQL") String query)
+    {
+        MaterializedResultWithPlan resultWithPlan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP);
+        int count = PlanNodeSearcher.searchFrom(resultWithPlan.getQueryPlan().getRoot()).where(planNode -> planNode instanceof ProjectNode).count();
+        assertEquals(count, 0);
+    }
+
+    private void assertPlanFilterAndProject(String expectedFilterPredicate, List<String> expectedAssignments, @Language("SQL") String query)
+    {
+        assertPlanFilterAndProject(ImmutableList.of(expectedFilterPredicate), ImmutableList.of(expectedAssignments), query);
+    }
+
+    private void assertPlanFilterAndProject(List<String> expectedFilterPredicates, List<List<String>> expectedAssignments, @Language("SQL") String query)
+    {
+        MaterializedResultWithPlan resultWithPlan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP);
+        List<ProjectNode> projects = PlanNodeSearcher.searchFrom(resultWithPlan.getQueryPlan().getRoot()).where(planNode -> planNode instanceof ProjectNode).findAll();
+        List<FilterNode> filters = PlanNodeSearcher.searchFrom(resultWithPlan.getQueryPlan().getRoot()).where(planNode -> planNode instanceof FilterNode).findAll();
+        List<String> formattedRowExpressions = new ArrayList<>();
+        for (FilterNode filter : filters) {
+            formattedRowExpressions.add(ROW_EXPRESSION_SERVICE.formatRowExpression(getSession().toConnectorSession(), filter.getPredicate()));
+        }
+        int i = 0;
+        for (ProjectNode project : projects) {
+            List<String> actualAssignment = project.getAssignments().entrySet().stream().map(Map.Entry::getValue).map(rowExpression ->
+                    ROW_EXPRESSION_SERVICE.formatRowExpression(getSession().toConnectorSession(), rowExpression)).toList();
+            assertEqualsIgnoreOrder(actualAssignment, expectedAssignments.get(i));
+            i++;
+        }
+        assertEqualsIgnoreOrder(formattedRowExpressions, expectedFilterPredicates);
     }
 }
