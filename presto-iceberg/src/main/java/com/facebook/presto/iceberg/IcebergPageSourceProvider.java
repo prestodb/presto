@@ -214,7 +214,6 @@ public class IcebergPageSourceProvider
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
     private final SortParameters sortParameters;
-    private final long targetMaxFileSize;
 
     @Inject
     public IcebergPageSourceProvider(
@@ -245,7 +244,6 @@ public class IcebergPageSourceProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         requireNonNull(icebergConfig, "icebergConfig is null");
         this.maxOpenPartitions = icebergConfig.getMaxPartitionsPerWriter();
-        this.targetMaxFileSize = icebergConfig.getTargetMaxFileSize().toBytes();
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
     }
 
@@ -940,7 +938,7 @@ public class IcebergPageSourceProvider
                 maxOpenPartitions,
                 table.getSortOrder(),
                 sortParameters,
-                targetMaxFileSize);
+                IcebergSessionProperties.getTargetMaxFileSize(session).toBytes());
 
         ConnectorPageSource dataSource = new IcebergUpdateablePageSource(
                 tableSchema,

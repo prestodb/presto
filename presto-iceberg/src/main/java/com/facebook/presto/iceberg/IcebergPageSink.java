@@ -558,11 +558,6 @@ public class IcebergPageSink
         {
             return partitionData;
         }
-
-        public long getWrittenBytes()
-        {
-            return writer.getWrittenBytes();
-        }
     }
 
     private static class PagePartitioner

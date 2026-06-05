@@ -572,6 +572,13 @@ Session properties set behavior changes for queries executed within the given se
        ``iceberg.rows-for-metadata-optimization-threshold`` in the current session.
      - Yes
      - Yes
+   * - .. _iceberg-sess-target-max-file-size:
+
+       ``iceberg.target_max_file_size``
+     - Overrides the behavior of the connector property
+       ``iceberg.target-max-file-size`` in the current session.
+     - Yes
+     - No
    * - .. _iceberg-sess-target-split-size-bytes:
 
        ``iceberg.target_split_size_bytes``

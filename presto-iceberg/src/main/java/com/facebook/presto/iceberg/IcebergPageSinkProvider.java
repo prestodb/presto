@@ -53,7 +53,6 @@ public class IcebergPageSinkProvider
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
     private final SortParameters sortParameters;
-    private final IcebergConfig icebergConfig;
 
     @Inject
     public IcebergPageSinkProvider(
@@ -61,15 +60,13 @@ public class IcebergPageSinkProvider
             JsonCodec<CommitTaskData> jsonCodec,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
-            SortParameters sortParameters,
-            IcebergConfig icebergConfig)
+            SortParameters sortParameters)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.sortParameters = sortParameters;
-        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
     }
 
     @Override
@@ -112,7 +109,7 @@ public class IcebergPageSinkProvider
                 getMaxPartitionsPerWriter(session),
                 tableHandle.getSortOrder(),
                 sortParameters,
-                icebergConfig.getTargetMaxFileSize().toBytes());
+                IcebergSessionProperties.getTargetMaxFileSize(session).toBytes());
     }
 
     @Override
