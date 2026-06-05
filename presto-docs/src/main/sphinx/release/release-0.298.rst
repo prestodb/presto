@@ -11,7 +11,7 @@ Release 0.298
 
 **Highlights**
 ==============
-* Improve materialized view query rewriting to support ``GROUP BY``, ``ORDER BY`` ordinal references, scalar functions (``CONCAT``, ``ABS``, ``JSON_EXTRACT``, ``CAST``, ``IF``, ``COALESCE``, ``CASE``), and ``HAVING`` clauses. `#27422 <https://github.com/prestodb/presto/pull/27422>`_ `#27549 <https://github.com/prestodb/presto/pull/27549>`_ `#27677 <https://github.com/prestodb/presto/pull/27677>`_
+* Improve materialized view query rewriting to support ``HAVING`` clauses. `#27677 <https://github.com/prestodb/presto/pull/27677>`_
 * Improve coordinator-to-worker communication efficiency with 20-40% smaller payload sizes and 2-3x faster serialization compared to JSON. `#27486 <https://github.com/prestodb/presto/pull/27486>`_
 * Improve query planning performance for wide-column queries with O(1) field lookup indexing and fast-path optimizations across multiple optimizer rules. `#27553 <https://github.com/prestodb/presto/pull/27553>`_ `#27547 <https://github.com/prestodb/presto/pull/27547>`_
 * Add incremental refresh for materialized views in the Iceberg connector, enabling efficient partial refreshes instead of full recomputation. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
