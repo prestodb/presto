@@ -20,7 +20,7 @@ Release 0.298
 * Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column, sorting only sort keys first and fetching full rows via SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
 * Add TLS/SSL configuration, i18n character set, and configurable JDBC fetch size support for the Oracle connector. `#27671 <https://github.com/prestodb/presto/pull/27671>`_ `#27670 <https://github.com/prestodb/presto/pull/27670>`_ `#27669 <https://github.com/prestodb/presto/pull/27669>`_
 * Add read support for Iceberg V3 row lineage hidden columns `_row_id` and `_last_updated_sequence_number`. `#27240 <https://github.com/prestodb/presto/pull/27240>`_
-* Add ``min/max/count`` aggregation push down based on file stats for Iceberg tables. `#27085 <https://github.com/prestodb/presto/pull/27085>`_
+* Add support for ``min/max/count`` aggregation push down based on file stats. This can be toggled with the ``aggregate_push_down_enabled`` session property or the ``iceberg.aggregate-push-down-enabled`` configuration property. See :ref:`connector/iceberg:session properties` and :ref:`connector/iceberg:configuration properties`. `#27085 <https://github.com/prestodb/presto/pull/27085>`_
 * Add view querying capabilities and upgrade to mongodb-driver-sync in the MongoDB connector. `#26995 <https://github.com/prestodb/presto/pull/26995>`_ `#27685 <https://github.com/prestodb/presto/pull/27685>`_
 * Add support for reading Delta Lake tables with column mapping enabled. `#27483 <https://github.com/prestodb/presto/pull/27483>`_
 
