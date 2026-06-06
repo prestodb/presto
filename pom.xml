@@ -58,7 +58,7 @@
         <dep.joda.version>2.14.0</dep.joda.version>
         <!-- TEMPORARY JitPack build of tempto with Cassandra Java Driver 4.x support;
              revert to the official io.prestodb.tempto release once published (see note above). -->
-        <dep.tempto.version>9f5c7fc</dep.tempto.version>
+        <dep.tempto.version>b30ce58</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -120,7 +120,7 @@
         <dep.datasketches-java.version>5.0.1</dep.datasketches-java.version>
         <dep.io.opentelemetry.version>1.62.0</dep.io.opentelemetry.version>
 
-        <dep.cassandra-java-driver.version>4.19.2</dep.cassandra-java-driver.version>
+        <dep.cassandra-java-driver.version>4.19.3</dep.cassandra-java-driver.version>
 
         <release.autoPublish>true</release.autoPublish>
     </properties>
