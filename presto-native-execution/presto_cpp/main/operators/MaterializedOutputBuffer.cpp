@@ -290,6 +290,17 @@ int64_t MaterializedOutputBuffer::drainPartition(
   return drainedBytes;
 }
 
+uint64_t MaterializedOutputBuffer::reclaimableBufferedBytes() const {
+  uint64_t reclaimableBytes = 0;
+  for (int32_t i = 0; i < numPartitions_; ++i) {
+    auto partBytes = partitionBuffers_[i]->bufferedBytes_.load();
+    if (partBytes > reclaimDrainThresholdBytes_) {
+      reclaimableBytes += partBytes - reclaimDrainThresholdBytes_;
+    }
+  }
+  return reclaimableBytes;
+}
+
 uint64_t MaterializedOutputBuffer::tryDrainPartitions() {
   std::vector<int32_t> orderedPartitions(numPartitions_);
   std::iota(orderedPartitions.begin(), orderedPartitions.end(), 0);
@@ -411,14 +422,18 @@ MaterializedOutputBuffer::stats() const {
 
 MaterializedOutputBuffer::Reclaimer::Reclaimer(
     MaterializedOutputBuffer* partitionBuffer)
-    : MemoryReclaimer(kHighReclaimPriority), partitionBuffer_(partitionBuffer) {
+    : MemoryReclaimer(
+          SystemConfig::instance()->exchangeMaterializationReclaimHighPriority()
+              ? kHighReclaimPriority
+              : 0),
+      partitionBuffer_(partitionBuffer) {
   VELOX_CHECK_NOT_NULL(partitionBuffer_, "Reclaimer requires a buffer");
 }
 
 bool MaterializedOutputBuffer::Reclaimer::reclaimableBytes(
-    const velox::memory::MemoryPool& pool,
+    const velox::memory::MemoryPool& /*pool*/,
     uint64_t& reclaimableBytes) const {
-  reclaimableBytes = pool.usedBytes();
+  reclaimableBytes = partitionBuffer_->reclaimableBufferedBytes();
   return reclaimableBytes > 0;
 }
 
@@ -507,8 +522,11 @@ uint64_t MaterializedOutputBuffer::Reclaimer::reclaim(
     }
   }
 
-  // Wait for writer to drain to release memory after flush to network.
-  waitForWriterDrain(pool, targetUsedBytes, deadline);
+  // Optionally wait for the writer to drain packages to the network.
+  if (SystemConfig::instance()
+          ->exchangeMaterializationReclaimWaitForWriterDrainEnabled()) {
+    waitForWriterDrain(pool, targetUsedBytes, deadline);
+  }
 
   auto totalFreedBytes =
       prevUsedBytes > pool->usedBytes() ? prevUsedBytes - pool->usedBytes() : 0;

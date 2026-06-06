@@ -173,6 +173,9 @@ class MaterializedOutputBuffer {
     return reclaimDrainThresholdBytes_;
   }
 
+  /// Returns the bytes that tryDrainPartitions() will actually flush.
+  uint64_t reclaimableBufferedBytes() const;
+
   /// Signal that no more data will be enqueued. Drains remaining data
   /// and calls writer->noMoreData(true).
   void noMoreData();

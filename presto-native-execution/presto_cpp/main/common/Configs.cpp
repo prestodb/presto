@@ -807,6 +807,18 @@ double SystemConfig::exchangeMaterializationReclaimDrainThresholdRatio() const {
       .value_or(0.67);
 }
 
+bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
+    const {
+  return optionalProperty<bool>(
+             kExchangeMaterializationReclaimWaitForWriterDrainEnabled)
+      .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
+  return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
+      .value_or(false);
+}
+
 bool SystemConfig::enableSerializedPageChecksum() const {
   return optionalProperty<bool>(kEnableSerializedPageChecksum).value();
 }

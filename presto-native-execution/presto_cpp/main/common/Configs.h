@@ -704,6 +704,17 @@ class SystemConfig : public ConfigBase {
       kExchangeMaterializationReclaimDrainThresholdRatio{
           "exchange.materialization.reclaim-drain-threshold-ratio"};
 
+  /// Wait for the writer to drain after flushing partition buffers during
+  /// reclaim. Default: false.
+  static constexpr std::string_view
+      kExchangeMaterializationReclaimWaitForWriterDrainEnabled{
+          "exchange.materialization.reclaim-wait-for-writer-drain-enabled"};
+
+  /// Use high reclaim priority (-1) for the output buffer pool.
+  /// Default: false (uses default priority 0).
+  static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
+      "exchange.materialization.reclaim-high-priority"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1172,6 +1183,10 @@ class SystemConfig : public ConfigBase {
   int64_t exchangeMaterializationOutputBufferPerPartitionMaxBytes() const;
 
   double exchangeMaterializationReclaimDrainThresholdRatio() const;
+
+  bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
+
+  bool exchangeMaterializationReclaimHighPriority() const;
 
   bool enableSerializedPageChecksum() const;
 
