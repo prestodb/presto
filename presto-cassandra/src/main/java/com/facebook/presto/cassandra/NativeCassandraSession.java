@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.AllNodesFailedException;
+import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
@@ -30,6 +31,9 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.ViewMetadata;
 import com.datastax.oss.driver.api.core.metadata.token.TokenRange;
 import com.datastax.oss.driver.api.core.type.DataType;
+import com.datastax.oss.driver.api.core.type.ListType;
+import com.datastax.oss.driver.api.core.type.MapType;
+import com.datastax.oss.driver.api.core.type.SetType;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
@@ -197,7 +201,7 @@ public class NativeCassandraSession
     public List<String> getCaseSensitiveSchemaNames()
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
-        Map<com.datastax.oss.driver.api.core.CqlIdentifier, KeyspaceMetadata> keyspaces =
+        Map<CqlIdentifier, KeyspaceMetadata> keyspaces =
                 executeWithSession(session -> session.getMetadata().getKeyspaces());
         for (KeyspaceMetadata meta : keyspaces.values()) {
             builder.add(meta.getName().toString());
@@ -240,7 +244,7 @@ public class NativeCassandraSession
         // check if there is a comment to establish column ordering
         // In driver 4.x, getOptions() returns Map<CqlIdentifier, Object>
         // We need to get the comment and convert it to String
-        Object commentObj = tableMeta.getOptions().get(com.datastax.oss.driver.api.core.CqlIdentifier.fromCql("comment"));
+        Object commentObj = tableMeta.getOptions().get(CqlIdentifier.fromCql("comment"));
         Optional<String> comment = commentObj != null ? Optional.of(commentObj.toString()) : Optional.empty();
         Set<String> hiddenColumns = ImmutableSet.of();
         if (comment.isPresent() && comment.get().startsWith(PRESTO_COMMENT_METADATA)) {
@@ -320,7 +324,7 @@ public class NativeCassandraSession
     private KeyspaceMetadata getKeyspaceByCaseSensitiveName0(String caseSensitiveSchemaName)
             throws SchemaNotFoundException
     {
-        Map<com.datastax.oss.driver.api.core.CqlIdentifier, KeyspaceMetadata> keyspaces =
+        Map<CqlIdentifier, KeyspaceMetadata> keyspaces =
                 executeWithSession(session -> session.getMetadata().getKeyspaces());
         KeyspaceMetadata result = null;
         // Ensure that the error message is deterministic
@@ -385,8 +389,7 @@ public class NativeCassandraSession
     public boolean isMaterializedView(SchemaTableName schemaTableName)
     {
         KeyspaceMetadata keyspace = getKeyspaceByCaseSensitiveName(schemaTableName.getSchemaName());
-        com.datastax.oss.driver.api.core.CqlIdentifier tableName =
-                com.datastax.oss.driver.api.core.CqlIdentifier.fromCql(schemaTableName.getTableName());
+        CqlIdentifier tableName = CqlIdentifier.fromCql(schemaTableName.getTableName());
         return keyspace.getView(tableName).isPresent();
     }
 
@@ -412,16 +415,16 @@ public class NativeCassandraSession
         List<CassandraType> typeArguments = null;
         if (cassandraType.getTypeArgumentSize() > 0) {
             // In driver 4.x, parameterized types need to be cast to access type arguments
-            if (dataType instanceof com.datastax.oss.driver.api.core.type.ListType) {
-                com.datastax.oss.driver.api.core.type.ListType listType = (com.datastax.oss.driver.api.core.type.ListType) dataType;
+            if (dataType instanceof ListType) {
+                ListType listType = (ListType) dataType;
                 typeArguments = ImmutableList.of(CassandraType.getCassandraType(listType.getElementType()));
             }
-            else if (dataType instanceof com.datastax.oss.driver.api.core.type.SetType) {
-                com.datastax.oss.driver.api.core.type.SetType setType = (com.datastax.oss.driver.api.core.type.SetType) dataType;
+            else if (dataType instanceof SetType) {
+                SetType setType = (SetType) dataType;
                 typeArguments = ImmutableList.of(CassandraType.getCassandraType(setType.getElementType()));
             }
-            else if (dataType instanceof com.datastax.oss.driver.api.core.type.MapType) {
-                com.datastax.oss.driver.api.core.type.MapType mapType = (com.datastax.oss.driver.api.core.type.MapType) dataType;
+            else if (dataType instanceof MapType) {
+                MapType mapType = (MapType) dataType;
                 typeArguments = ImmutableList.of(
                         CassandraType.getCassandraType(mapType.getKeyType()),
                         CassandraType.getCassandraType(mapType.getValueType()));
@@ -635,11 +638,11 @@ public class NativeCassandraSession
     {
         // Try to get system keyspace metadata
         Optional<KeyspaceMetadata> keyspaceMetadata = executeWithSession(session ->
-                session.getMetadata().getKeyspace(com.datastax.oss.driver.api.core.CqlIdentifier.fromCql(SYSTEM)));
+                session.getMetadata().getKeyspace(CqlIdentifier.fromCql(SYSTEM)));
 
         // If metadata is available, check for the table
         if (keyspaceMetadata.isPresent()) {
-            Optional<TableMetadata> table = keyspaceMetadata.get().getTable(com.datastax.oss.driver.api.core.CqlIdentifier.fromCql(SIZE_ESTIMATES));
+            Optional<TableMetadata> table = keyspaceMetadata.get().getTable(CqlIdentifier.fromCql(SIZE_ESTIMATES));
             if (!table.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
             }
