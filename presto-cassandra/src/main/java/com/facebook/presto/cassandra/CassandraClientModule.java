@@ -18,7 +18,6 @@ import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
 import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBuilder;
-import com.datastax.oss.driver.internal.core.loadbalancing.DefaultLoadBalancingPolicy;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.plugin.base.security.SslContextProvider;
@@ -159,13 +158,15 @@ public class CassandraClientModule
             configLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY,
                     Duration.ofMillis(10000));
 
-            // Retry policy
-            configLoaderBuilder.withClass(DefaultDriverOption.RETRY_POLICY_CLASS,
-                    config.getRetryPolicy().getPolicyClass());
+            // Retry policy. Configured by class name (the driver resolves built-in short names
+            // relative to its internal retry package), so we don't import driver-internal types.
+            configLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS,
+                    config.getRetryPolicy().getPolicyClassName());
 
-            // Load balancing policy
-            configLoaderBuilder.withClass(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS,
-                    DefaultLoadBalancingPolicy.class);
+            // Load balancing policy. "DefaultLoadBalancingPolicy" is the driver's built-in short name;
+            // referencing it by name keeps us off the driver's internal (non-API) classes.
+            configLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS,
+                    "DefaultLoadBalancingPolicy");
 
             // Token awareness
             // In driver 4.x, token awareness is configured differently

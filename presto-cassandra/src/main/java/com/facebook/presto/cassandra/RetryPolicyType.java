@@ -13,28 +13,28 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.datastax.oss.driver.api.core.retry.RetryPolicy;
-import com.datastax.oss.driver.internal.core.retry.ConsistencyDowngradingRetryPolicy;
-import com.datastax.oss.driver.internal.core.retry.DefaultRetryPolicy;
-
 import static java.util.Objects.requireNonNull;
 
 public enum RetryPolicyType
 {
-    DEFAULT(DefaultRetryPolicy.class),
-    BACKOFF(BackoffRetryPolicy.class),
-    DOWNGRADING_CONSISTENCY(ConsistencyDowngradingRetryPolicy.class),
-    FALLTHROUGH(DefaultRetryPolicy.class); // Fallthrough is similar to default in 4.x
+    // Built-in policies are referenced by their short class name: driver 4.x resolves an unqualified
+    // retry-policy class name relative to com.datastax.oss.driver.internal.core.retry, so we avoid
+    // importing those internal (non-API) types directly. The custom BackoffRetryPolicy is referenced
+    // by its fully qualified name (a dotted name is treated as absolute by the driver).
+    DEFAULT("DefaultRetryPolicy"),
+    BACKOFF(BackoffRetryPolicy.class.getName()),
+    DOWNGRADING_CONSISTENCY("ConsistencyDowngradingRetryPolicy"),
+    FALLTHROUGH("DefaultRetryPolicy"); // Fallthrough is similar to default in 4.x
 
-    private final Class<? extends RetryPolicy> policyClass;
+    private final String policyClassName;
 
-    RetryPolicyType(Class<? extends RetryPolicy> policyClass)
+    RetryPolicyType(String policyClassName)
     {
-        this.policyClass = requireNonNull(policyClass, "policyClass is null");
+        this.policyClassName = requireNonNull(policyClassName, "policyClassName is null");
     }
 
-    public Class<? extends RetryPolicy> getPolicyClass()
+    public String getPolicyClassName()
     {
-        return policyClass;
+        return policyClassName;
     }
 }

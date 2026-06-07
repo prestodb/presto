@@ -57,9 +57,10 @@ public class TestBackoffRetryPolicy
     public void testRetryPolicyTypeBackoffIsInstantiableByDriver()
             throws Exception
     {
-        Class<? extends RetryPolicy> policyClass = RetryPolicyType.BACKOFF.getPolicyClass();
-        // Same reflective path the driver uses to build the policy from config; must not throw.
-        RetryPolicy policy = policyClass
+        // Resolve the configured class name and instantiate it via the same reflective path the driver
+        // uses to build the policy from config; must not throw.
+        Class<?> policyClass = Class.forName(RetryPolicyType.BACKOFF.getPolicyClassName());
+        RetryPolicy policy = (RetryPolicy) policyClass
                 .getConstructor(DriverContext.class, String.class)
                 .newInstance(null, "default");
         assertNotNull(policy);
