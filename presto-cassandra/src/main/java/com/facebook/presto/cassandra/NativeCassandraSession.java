@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
+import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
@@ -46,6 +47,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -71,6 +73,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.bindMarker;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -567,12 +570,8 @@ public class NativeCassandraSession
 
     private Iterable<Row> queryPartitionKeysWithInClauses(CassandraTable table, List<Set<Object>> filterPrefixes)
     {
-        CassandraTableHandle tableHandle = table.getTableHandle();
-        List<CassandraColumnHandle> partitionKeyColumns = table.getPartitionKeyColumns();
-
-        SimpleStatement partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns).build();
-        partitionKeys = addWhereInClauses(partitionKeys, partitionKeyColumns, filterPrefixes);
-
+        SimpleStatement partitionKeys = buildPartitionKeyInQuery(
+                table.getTableHandle(), table.getPartitionKeyColumns(), filterPrefixes);
         return execute(partitionKeys).all();
     }
 
@@ -585,8 +584,7 @@ public class NativeCassandraSession
 
         ImmutableList.Builder<Row> rowList = ImmutableList.builder();
         for (List<Object> combination : filterCombinations) {
-            SimpleStatement partitionKeys = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns).build();
-            partitionKeys = addWhereClause(partitionKeys, partitionKeyColumns, combination);
+            SimpleStatement partitionKeys = buildPartitionKeyEqualityQuery(tableHandle, partitionKeyColumns, combination);
 
             List<Row> resultRows = execute(partitionKeys).all();
             if (resultRows != null && !resultRows.isEmpty()) {
@@ -597,46 +595,43 @@ public class NativeCassandraSession
         return rowList.build();
     }
 
-    private static SimpleStatement addWhereInClauses(SimpleStatement statement, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
+    /**
+     * Builds {@code SELECT DISTINCT <pk> FROM <table> WHERE pk0 IN ? AND pk1 IN ? ...} using the
+     * driver's query builder. Each marker is bound to the per-column list of values, converted from
+     * Presto native values via {@link CassandraType#getJavaValue}.
+     */
+    @VisibleForTesting
+    static SimpleStatement buildPartitionKeyInQuery(CassandraTableHandle tableHandle, List<CassandraColumnHandle> partitionKeyColumns, List<Set<Object>> filterPrefixes)
     {
-        // Note: Query builder usage will be updated in CassandraCqlUtils
-        // For now, we'll build the WHERE clause manually
-        StringBuilder whereClause = new StringBuilder();
+        Select select = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         List<Object> values = new ArrayList<>();
-
-        for (int i = 0; i < filterPrefixes.size(); i++) {
-            if (i > 0) {
-                whereClause.append(" AND ");
-            }
+        for (int i = 0; i < partitionKeyColumns.size(); i++) {
             CassandraColumnHandle column = partitionKeyColumns.get(i);
-            whereClause.append(CassandraCqlUtils.validColumnName(column.getName())).append(" IN ?");
+            select = select.whereColumn(CqlIdentifier.fromInternal(column.getName())).in(bindMarker());
             List<Object> columnValues = filterPrefixes.get(i)
                     .stream()
                     .map(value -> column.getCassandraType().getJavaValue(value))
                     .collect(toList());
             values.add(columnValues);
         }
-
-        String cql = statement.getQuery() + " WHERE " + whereClause.toString();
-        return SimpleStatement.newInstance(cql, values.toArray());
+        return select.build(values.toArray());
     }
 
-    private static SimpleStatement addWhereClause(SimpleStatement statement, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
+    /**
+     * Builds {@code SELECT DISTINCT <pk> FROM <table> WHERE pk0 = ? AND pk1 = ? ...} using the driver's
+     * query builder, binding each marker to a single value converted via {@link CassandraType#getJavaValue}.
+     */
+    @VisibleForTesting
+    static SimpleStatement buildPartitionKeyEqualityQuery(CassandraTableHandle tableHandle, List<CassandraColumnHandle> partitionKeyColumns, List<Object> filterPrefix)
     {
-        StringBuilder whereClause = new StringBuilder();
+        Select select = CassandraCqlUtils.selectDistinctFrom(tableHandle, partitionKeyColumns);
         List<Object> values = new ArrayList<>();
-
         for (int i = 0; i < filterPrefix.size(); i++) {
-            if (i > 0) {
-                whereClause.append(" AND ");
-            }
             CassandraColumnHandle column = partitionKeyColumns.get(i);
-            whereClause.append(CassandraCqlUtils.validColumnName(column.getName())).append(" = ?");
+            select = select.whereColumn(CqlIdentifier.fromInternal(column.getName())).isEqualTo(bindMarker());
             values.add(column.getCassandraType().getJavaValue(filterPrefix.get(i)));
         }
-
-        String cql = statement.getQuery() + " WHERE " + whereClause.toString();
-        return SimpleStatement.newInstance(cql, values.toArray());
+        return select.build(values.toArray());
     }
 
     @Override
