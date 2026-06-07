@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
@@ -59,10 +60,12 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -73,6 +76,7 @@ import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaNa
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -120,6 +124,11 @@ public class NativeCassandraSession
     private final Duration noHostAvailableRetryTimeout;
     private static boolean caseSensitiveNameMatchingEnabled;
 
+    // The Cassandra release version is immutable for the lifetime of a session, so resolve it once and
+    // cache it. Previously getCassandraVersion() ran a `SELECT release_version FROM system.local` query
+    // on every call, including the hot path in getPartitions(), adding a network round-trip per query.
+    private final Supplier<String> cassandraVersion = memoize(this::resolveCassandraVersion);
+
     public NativeCassandraSession(
             String connectorId,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
@@ -142,6 +151,22 @@ public class NativeCassandraSession
     @Override
     public String getCassandraVersion()
     {
+        return cassandraVersion.get();
+    }
+
+    private String resolveCassandraVersion()
+    {
+        // Prefer the version already present in the driver's cached node metadata to avoid a network
+        // round-trip. In a mixed-version cluster take the lowest version so feature gating stays safe.
+        Optional<Version> nodeVersion = executeWithSession(session -> session.getMetadata().getNodes().values().stream()
+                .map(Node::getCassandraVersion)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder()));
+        if (nodeVersion.isPresent()) {
+            return nodeVersion.get().toString();
+        }
+
+        // Fall back to querying system.local if node metadata does not expose a version.
         ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
         Row versionRow = result.one();
         if (versionRow == null) {
