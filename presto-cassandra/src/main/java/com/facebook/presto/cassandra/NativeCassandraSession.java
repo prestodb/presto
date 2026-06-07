@@ -73,7 +73,6 @@ import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaNa
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
@@ -132,7 +131,11 @@ public class NativeCassandraSession
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.reopeningSession = requireNonNull(reopeningSession, "reopeningSession is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
-        this.session = memoize(reopeningSession::getSession);
+        // Do NOT memoize: ReopeningSession.getSession() is the component that detects a closed delegate
+        // and transparently rebuilds a fresh CqlSession. Memoizing would pin the first session forever
+        // and silently defeat that reopening behavior. getSession() is synchronized and cheap, so it is
+        // safe to resolve the live session on every call.
+        this.session = reopeningSession::getSession;
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
     }
 
