@@ -188,9 +188,6 @@ public enum CassandraType
         else if (dataType.equals(DataTypes.VARINT)) {
             return VARINT;
         }
-        else if (dataType.equals(DataTypes.TEXT)) {
-            return VARCHAR;
-        }
         else if (dataType instanceof com.datastax.oss.driver.api.core.type.ListType) {
             return LIST;
         }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,10 +22,20 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestCassandraType
 {
+    @Test
+    public void testGetCassandraTypeForStringTypes()
+    {
+        // VARCHAR is an alias of TEXT in driver 4.x, so DataTypes.TEXT resolves to TEXT; the duplicate
+        // branch returning VARCHAR was unreachable dead code and has been removed.
+        assertEquals(CassandraType.getCassandraType(DataTypes.TEXT), CassandraType.TEXT);
+        assertEquals(CassandraType.getCassandraType(DataTypes.ASCII), CassandraType.ASCII);
+    }
+
     @Test
     public void testJsonMapEncoding()
     {
