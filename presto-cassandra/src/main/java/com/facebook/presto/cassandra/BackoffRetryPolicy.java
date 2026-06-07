@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.context.DriverContext;
 import com.datastax.oss.driver.api.core.retry.RetryDecision;
 import com.datastax.oss.driver.api.core.retry.RetryPolicy;
 import com.datastax.oss.driver.api.core.servererrors.CoordinatorException;
@@ -27,10 +28,14 @@ import java.util.concurrent.ThreadLocalRandom;
 public class BackoffRetryPolicy
         implements RetryPolicy
 {
-    public static final BackoffRetryPolicy INSTANCE = new BackoffRetryPolicy();
     private static final int MAX_RETRIES = 10;
 
-    private BackoffRetryPolicy() {}
+    /**
+     * Driver 4.x instantiates retry policies referenced by the {@code advanced.retry-policy.class}
+     * option through reflection, requiring a public {@code (DriverContext, String)} constructor.
+     * The policy is stateless, so the arguments are not retained.
+     */
+    public BackoffRetryPolicy(DriverContext context, String profileName) {}
 
     @Override
     public RetryDecision onReadTimeout(
