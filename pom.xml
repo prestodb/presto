@@ -56,9 +56,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.14.0</dep.joda.version>
-        <!-- TEMPORARY JitPack build of tempto with Cassandra Java Driver 4.x support;
-             revert to the official io.prestodb.tempto release once published (see note above). -->
-        <dep.tempto.version>b30ce58</dep.tempto.version>
+        <dep.tempto.version>1.58</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>9.12.3</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -2380,7 +2378,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.msmygit.prestodb-tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2408,7 +2406,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.msmygit.prestodb-tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2428,7 +2426,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.msmygit.prestodb-tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2452,7 +2450,7 @@
             </dependency>
 
             <dependency>
-                <groupId>com.github.msmygit.prestodb-tempto</groupId>
+                <groupId>io.prestodb.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>

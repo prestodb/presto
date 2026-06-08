@@ -11,30 +11,6 @@
     <artifactId>presto-product-tests</artifactId>
     <name>presto-product-tests</name>
 
-    <!--
-      TEMPORARY: resolve tempto from JitPack to validate the Cassandra Java Driver 4.x upgrade
-      (msmygit/prestodb-tempto, branch cassandra-java-driver-4x) before an official tempto release.
-      Revert to io.prestodb.tempto once a 4.x-enabled tempto is published.
-
-      This repository is intentionally scoped to presto-product-tests (the only tempto consumer)
-      rather than the root POM: JitPack answers requests for ANY coordinate, returning an empty
-      stub jar for non-GitHub artifacts (e.g. io.github.hakky54:sslcontext-kickstart, pulled by
-      presto-pinot-toolkit), which corrupts unrelated modules with NoClassDefFoundError. Keeping it
-      out of the global build ensures every other module resolves solely from Maven Central.
-    -->
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
-
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
@@ -119,19 +95,19 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.msmygit.prestodb-tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.msmygit.prestodb-tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.msmygit.prestodb-tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.msmygit.prestodb-tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>
