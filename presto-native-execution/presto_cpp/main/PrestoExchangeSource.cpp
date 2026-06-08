@@ -16,6 +16,7 @@
 #include <fmt/core.h>
 #include <folly/Conv.h>
 #include <folly/SocketAddress.h>
+#include <proxygen/lib/http/HTTPException.h>
 #include <re2/re2.h>
 #include <sstream>
 
@@ -65,6 +66,21 @@ std::string bodyAsString(
     }
   }
   return oss.str();
+}
+
+std::string formatExchangeError(const folly::exception_wrapper& error) {
+  if (auto* httpException = error.get_exception<proxygen::HTTPException>()) {
+    return httpException->describe();
+  }
+  return error.what().toStdString();
+}
+
+std::string formatExchangeError(const std::exception& error) {
+  if (auto* httpException =
+          dynamic_cast<const proxygen::HTTPException*>(&error)) {
+    return httpException->describe();
+  }
+  return error.what();
 }
 } // namespace
 
@@ -226,7 +242,7 @@ void PrestoExchangeSource::handleDataResponse(
         httpRequestPath,
         maxBytes,
         maxWait,
-        responseTry.exception().what().toStdString());
+        formatExchangeError(responseTry.exception()));
   } else {
     try {
       auto& response = responseTry.value();
@@ -255,7 +271,8 @@ void PrestoExchangeSource::handleDataResponse(
         processDataResponse(std::move(response), isGetDataSizeRequest);
       }
     } catch (const std::exception& e) {
-      processDataError(httpRequestPath, maxBytes, maxWait, e.what());
+      processDataError(
+          httpRequestPath, maxBytes, maxWait, formatExchangeError(e));
     }
   }
 }
@@ -533,7 +550,7 @@ void PrestoExchangeSource::handleAbortResponse(
     folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
   std::optional<std::string> error;
   if (responseTry.hasException()) {
-    error = responseTry.exception().what();
+    error = formatExchangeError(responseTry.exception());
   } else {
     auto statusCode = responseTry.value()->headers()->getStatusCode();
     if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {
