@@ -30,8 +30,7 @@ public class TestCassandraType
     @Test
     public void testGetCassandraTypeForStringTypes()
     {
-        // VARCHAR is an alias of TEXT in driver 4.x, so DataTypes.TEXT resolves to TEXT; the duplicate
-        // branch returning VARCHAR was unreachable dead code and has been removed.
+        // VARCHAR is an alias of TEXT in driver 4.x, so DataTypes.TEXT resolves to TEXT
         assertEquals(CassandraType.getCassandraType(DataTypes.TEXT), CassandraType.TEXT);
         assertEquals(CassandraType.getCassandraType(DataTypes.ASCII), CassandraType.ASCII);
     }

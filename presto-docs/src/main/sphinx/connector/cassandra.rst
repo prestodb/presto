@@ -101,7 +101,7 @@ Property Name                                      Description
         the ``system.size_estimates`` table.
 
 .. _Cassandra consistency: https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/dml/dmlConfigConsistency.html
-.. _Use Secure Connect Bundles: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
+.. _Download and use a Secure Connect Bundle (SCB) with an Astra DB Serverless database: https://docs.datastax.com/en/astra-db-serverless/databases/secure-connect-bundle.html
 
 The following advanced configuration properties are available:
 
@@ -284,7 +284,7 @@ Migration from Driver 3.x
 If you are upgrading from a previous version of Presto that used Cassandra Java Driver 3.x, please note the following changes:
 
 Removed Configuration Properties
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following configuration properties are **no longer supported** in driver 4.x and must be removed from your configuration:
 
@@ -311,5 +311,5 @@ Protocol Version Changes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Protocol V2 is no longer supported. Minimum supported version is V3.
-* The driver now automatically negotiates the highest common protocol version, so manual configuration is rarely needed.
-* Protocol V5 is now supported for Cassandra 4.0+.
+* The driver automatically negotiates the highest common protocol version, so manual configuration is rarely needed.
+* Protocol V5 is supported for Cassandra 4.0+.
