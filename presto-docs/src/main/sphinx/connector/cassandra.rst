@@ -58,8 +58,8 @@ Property Name                                      Description
 ``cassandra.cloud.secure-connect-bundle``          Path to the secure connect bundle for connecting to managed services
                                                    cloud. This is required when connecting to Astra DB in the cloud.
                                                    ``cassandra.contact-points`` should be avoided when this property is set.
-                                                   More information about secure connect bundle can be found in the
-                                                   `Use Secure Connect Bundles`_. This property is optional.
+                                                   More information about secure connect bundle can be found in
+                                                   `Download and use a Secure Connect Bundle (SCB) with an Astra DB Serverless database`_. This property is optional.
 
 ``cassandra.native-protocol-port``                 The Cassandra server port running the native client protocol
                                                    (defaults to ``9042``).
