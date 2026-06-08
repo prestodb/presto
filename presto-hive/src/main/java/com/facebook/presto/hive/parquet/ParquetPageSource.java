@@ -50,10 +50,10 @@ public class ParquetPageSource
     private final List<Optional<Field>> fields;
 
     /**
-     * Specifies the index of the row number column. If presents,
+     * Specifies the index of the row position column. If presents,
      * the column at the specified index should be populated with the indices of its rows
      */
-    private final OptionalInt rowNumberColumnIndex;
+    private final OptionalInt rowPositionColumnIndex;
 
     private int batchId;
     private long completedPositions;
@@ -75,23 +75,26 @@ public class ParquetPageSource
             ParquetReader parquetReader,
             List<Type> types,
             List<Optional<Field>> fields,
-            OptionalInt rowNumberColumnIndex,
+            OptionalInt rowPositionColumnIndex,
             List<String> columnNames,
             RuntimeStats runtimeStats)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
-        this.rowNumberColumnIndex = requireNonNull(rowNumberColumnIndex, "rowNumberColumnIndex is null");
+        this.rowPositionColumnIndex = requireNonNull(rowPositionColumnIndex, "rowPositionColumnIndex is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
 
         checkArgument(types.size() == fields.size(),
                 "types and fields must correspond one-to-one");
-        checkArgument(rowNumberColumnIndex.isEmpty() ||
-                (rowNumberColumnIndex.getAsInt() >= 0 && rowNumberColumnIndex.getAsInt() < types.size()), "row number column index is incorrect");
-        checkArgument(rowNumberColumnIndex.isEmpty() || fields.get(rowNumberColumnIndex.getAsInt()).isEmpty(),
-                "Field info for row index column must be empty Optional");
+
+        checkArgument(rowPositionColumnIndex.isEmpty() ||
+                (rowPositionColumnIndex.getAsInt() >= 0 && rowPositionColumnIndex.getAsInt() < types.size()),
+                "Invalid row position column index: %s (valid range: [0, %s))",
+                rowPositionColumnIndex.orElse(-1), types.size());
+        checkArgument(rowPositionColumnIndex.isEmpty() || fields.get(rowPositionColumnIndex.getAsInt()).isEmpty(),
+                "Field info for row position column must be empty Optional");
     }
 
     @Override
@@ -238,7 +241,7 @@ public class ParquetPageSource
 
     private boolean isIndexColumn(int column)
     {
-        return rowNumberColumnIndex.isPresent() && rowNumberColumnIndex.getAsInt() == column;
+        return rowPositionColumnIndex.isPresent() && rowPositionColumnIndex.getAsInt() == column;
     }
 
     private static Block getRowIndexColumn(long baseIndex, int size)
