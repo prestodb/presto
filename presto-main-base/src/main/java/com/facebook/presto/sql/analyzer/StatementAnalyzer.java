@@ -2596,12 +2596,13 @@ class StatementAnalyzer
             // Propagate source columns from the view's underlying query to the view's output fields.
             // We use analysis.getOutputDescriptor(query) to get the original fields (before withAlias)
             // since withAlias creates new Field objects that don't have source columns in Analysis.
-            Iterator<Field> viewQueryFieldIterator = analysis.getOutputDescriptor(query).getVisibleFields().iterator();
-            for (Field outputField : outputFields) {
-                if (viewQueryFieldIterator.hasNext()) {
-                    Field viewField = viewQueryFieldIterator.next();
-                    analysis.propagateLineage(outputField, viewField);
-                }
+            // isViewStale above guarantees the two field lists have the same size and order.
+            List<Field> viewQueryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(query).getVisibleFields());
+            checkState(viewQueryFields.size() == outputFields.size(),
+                    "View '%s' output field count (%s) does not match query visible field count (%s)",
+                    name, outputFields.size(), viewQueryFields.size());
+            for (int i = 0; i < outputFields.size(); i++) {
+                analysis.propagateLineage(outputFields.get(i), viewQueryFields.get(i));
             }
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
@@ -2637,12 +2638,15 @@ class StatementAnalyzer
                 RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
 
                 // Propagate lineage from the query's output fields to the aliased fields
-                // (withAlias creates new Field objects that don't have lineage in Analysis)
-                Iterator<Field> queryFieldIterator = analysis.getOutputDescriptor(query).getVisibleFields().iterator();
-                for (Field aliasedField : relationType.getVisibleFields()) {
-                    if (queryFieldIterator.hasNext()) {
-                        analysis.propagateLineage(aliasedField, queryFieldIterator.next());
-                    }
+                // (withAlias creates new Field objects that don't have lineage in Analysis).
+                // withAlias preserves field count and order, so the two lists pair by index.
+                List<Field> queryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(query).getVisibleFields());
+                List<Field> aliasedFields = ImmutableList.copyOf(relationType.getVisibleFields());
+                checkState(queryFields.size() == aliasedFields.size(),
+                        "Materialized view '%s' aliased field count (%s) does not match stitched query visible field count (%s)",
+                        materializedViewName, aliasedFields.size(), queryFields.size());
+                for (int i = 0; i < aliasedFields.size(); i++) {
+                    analysis.propagateLineage(aliasedFields.get(i), queryFields.get(i));
                 }
 
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
@@ -2737,6 +2741,20 @@ class StatementAnalyzer
                                 field.isAliased()))
                         .collect(toImmutableList());
                 RelationType relationType = new RelationType(outputFields);
+
+                // Propagate lineage from the view's defining query (which has lineage to the base tables)
+                // onto the re-qualified data-table fields. Without this, lineage would only reach the
+                // storage data table, not the original base tables referenced in the view definition.
+                // The MV's data table columns are derived from the view query's output, so the two
+                // field lists pair by index.
+                List<Field> viewQueryFields = ImmutableList.copyOf(analysis.getOutputDescriptor(viewQuery).getVisibleFields());
+                checkState(viewQueryFields.size() == outputFields.size(),
+                        "Materialized view '%s' output field count (%s) does not match defining query visible field count (%s)",
+                        materializedViewName, outputFields.size(), viewQueryFields.size());
+                for (int i = 0; i < outputFields.size(); i++) {
+                    analysis.propagateLineage(outputFields.get(i), viewQueryFields.get(i));
+                }
+
                 analysis.unregisterMaterializedViewForAnalysis(materializedView);
 
                 Scope accessControlScope = Scope.builder()
@@ -4690,11 +4708,6 @@ class StatementAnalyzer
             });
         }
 
-        private void collectSourceColumnsFromSubExpression(Expression expression, ImmutableSet.Builder<SourceColumn> builder)
-        {
-            forEachColumnRef(expression, builder::addAll);
-        }
-
         /**
          * Returns source columns that appear ONLY in CASE/IF condition sub-expressions
          * and not in any value branch. These should be excluded from direct sources.
@@ -4874,8 +4887,7 @@ class StatementAnalyzer
 
         /**
          * Collects source columns from an expression, treating it as a value context.
-         * Unlike collectSourceColumnsFromSubExpression (flat walk), this is CASE-aware:
-         * when it encounters nested CASE/IF, it only collects from value branches,
+         * CASE-aware: when it encounters nested CASE/IF, it only collects from value branches,
          * skipping condition sub-expressions.
          */
         private void collectValueSourceColumns(Expression expression, ImmutableSet.Builder<SourceColumn> builder)
