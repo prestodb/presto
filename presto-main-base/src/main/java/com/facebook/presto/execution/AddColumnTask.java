@@ -51,7 +51,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
 
 public class AddColumnTask
         implements DDLDefinitionTask<AddColumn>
@@ -120,12 +122,13 @@ public class AddColumnTask
 
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
-
+        checkState(element.getDefaultExpression().isEmpty() || element.getDefaultExpression().isEmpty(),
+                format("Both Default expression and derived column expression cannot be set on the same column %s.", element.getName()));
         // Handle default expression if present
         if (element.getDefaultExpression().isPresent()) {
+            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
             Expression defaultExpr = element.getDefaultExpression().get();
             Object defaultValue = ExpressionInterpreter.evaluateConstantExpression(defaultExpr, type, metadata, session, ImmutableMap.of());
-            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
             updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultValue);
             columnProperties = updatedProperties;
         }
@@ -136,6 +139,7 @@ public class AddColumnTask
                 .setNullable(element.isNullable())
                 .setComment(element.getComment().orElse(null))
                 .setProperties(columnProperties)
+                .setDerivedColumnSpec(element.getDerivedColumnExpressionSpec().orElse(null))
                 .build();
 
         metadata.addColumn(session, tableHandle.get(), column);

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedColumns.DerivedColumnType;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
@@ -1843,17 +1845,17 @@ class AstBuilder
     /**
      * Validates whether an argument alias in a table function invocation is valid,
      * specifically checking for ambiguity with the keyword COPARTITION.
-     *
+     * <p>
      * The word COPARTITION is specific to table function invocations and is not
      * a reserved SQL keyword. However, in certain contexts, such as within a table function
      * call, it can be ambiguously interpreted as either:
-     *
-     *   A table argument alias (e.g., {input_4 => TABLE(...) COPARTITION})
-     *   Or the start of a COPARTITION clause (e.g., {COPARTITION (t2, t3)})
-     *
+     * <p>
+     * A table argument alias (e.g., {input_4 => TABLE(...) COPARTITION})
+     * Or the start of a COPARTITION clause (e.g., {COPARTITION (t2, t3)})
+     * <p>
      * To prevent this ambiguity, queries that use COPARTITION as an argument alias
      * are rejected unless the alias is explicitly delimited or preceded by AS.
-     *
+     * <p>
      * This approach preserves COPARTITION as a non-reserved word that can still be
      * used as an identifier in other SQL contexts.
      */
@@ -2353,12 +2355,45 @@ class AstBuilder
 
         Optional<Expression> defaultExpression = Optional.empty();
         if (context.DEFAULT() != null && context.expression() != null) {
-            defaultExpression = Optional.of((Expression) visit(context.expression()));
+            defaultExpression = Optional.of((Expression) visit(context.expression().get(0)));
         }
 
+        if (context.DEFAULT() != null && (context.GENERATED() != null || context.AS() != null || context.ALWAYS() != null)) {
+            throw new ParsingException("Setting a default expression on GENERATED column is not currently supported.");
+        }
+
+        Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
+        Identifier columnIdentifier = (Identifier) visit(context.identifier());
+        Optional<Expression> derivedColumnExpression = Optional.empty();
+        if (context.AS() != null && !context.expression().isEmpty()) {
+            SqlBaseParser.ExpressionContext tree = context.expression().get(0);
+            check(tree != null, "expression is null ", context);
+            String expressionAsString = tree.getPayload().getText();
+            derivedColumnExpression = Optional.of((Expression) visit(tree)); // validate the expression.
+            DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
+            if (context.GENERATED() != null && context.ALWAYS() != null) {
+                derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
+            }
+            if (context.VIRTUAL() != null) {
+                derivedColumnType = DerivedColumnType.VIRTUAL;
+            }
+            derivedColumnExpressionSpec = Optional.of(
+                    new DerivedColumnSpec(derivedColumnType, expressionAsString, columnIdentifier.getValue()));
+        }
+
+        if (derivedColumnExpressionSpec.isPresent()) {
+            return new ColumnDefinition(Optional.of(getLocation(context)),
+                    columnIdentifier,
+                    getType(context.type()),
+                    nullable,
+                    properties,
+                    comment,
+                    derivedColumnExpression.get(),
+                    derivedColumnExpressionSpec.get());
+        }
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnIdentifier,
                 getType(context.type()),
                 nullable, properties,
                 comment,

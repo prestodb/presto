@@ -63,6 +63,7 @@ public final class IcebergSessionProperties
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
     static final String COMPRESSION_CODEC = "compression_codec";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    public static final String DERIVED_COLUMNS_ENABLED = "derived_columns_enabled";
     public static final String MERGE_ON_READ_MODE_ENABLED = "merge_on_read_enabled";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String DELETE_AS_JOIN_REWRITE_ENABLED = "delete_as_join_rewrite_enabled";
@@ -158,6 +159,11 @@ public final class IcebergSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         icebergConfig.isParquetDereferencePushdownEnabled(),
+                        false))
+                .add(booleanProperty(
+                        DERIVED_COLUMNS_ENABLED,
+                        "Is derived columns feature enabled?",
+                        icebergConfig.isDerivedColumnsEnabled(),
                         false))
                 .add(booleanProperty(
                         MERGE_ON_READ_MODE_ENABLED,
@@ -359,6 +365,11 @@ public final class IcebergSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDerivedColumnsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DERIVED_COLUMNS_ENABLED, Boolean.class);
     }
 
     public static boolean isMergeOnReadModeEnabled(ConnectorSession session)

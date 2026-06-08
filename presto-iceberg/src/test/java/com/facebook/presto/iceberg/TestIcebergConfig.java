@@ -78,7 +78,9 @@ public class TestIcebergConfig
                 .setMaterializedViewDefaultStorageSchema(null)
                 .setMaterializedViewMaxChangedPartitions(100)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(0)
-                .setAggregatePushDownEnabled(true));
+                .setAggregatePushDownEnabled(true)
+                .setDerivedColumnsEnabled(false)
+                .setMaterializedViewMaxChangedPartitions(100));
     }
 
     @Test
@@ -119,6 +121,7 @@ public class TestIcebergConfig
                 .put("iceberg.materialized-view-max-changed-partitions", "2000")
                 .put("iceberg.materialized-view-default-max-snapshots-per-refresh", "10")
                 .put("iceberg.aggregate-push-down-enabled", "false")
+                .put("iceberg.derived_columns.enable", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -155,7 +158,8 @@ public class TestIcebergConfig
                 .setMaterializedViewDefaultStorageSchema("_mv_storage")
                 .setMaterializedViewMaxChangedPartitions(2000)
                 .setMaterializedViewDefaultMaxSnapshotsPerRefresh(10)
-                .setAggregatePushDownEnabled(false);
+                .setAggregatePushDownEnabled(false)
+                .setDerivedColumnsEnabled(true);
 
         assertFullMapping(properties, expected);
     }

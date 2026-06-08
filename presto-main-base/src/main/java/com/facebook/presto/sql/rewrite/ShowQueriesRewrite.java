@@ -98,7 +98,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.primitives.Primitives;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -106,6 +105,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
@@ -579,8 +579,7 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
 
-                List<ColumnMetadata> allowedColumns = new ArrayList<>();
-                allowedColumns = accessControl.filterColumns(
+                List<ColumnMetadata> allowedColumns = accessControl.filterColumns(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),
@@ -591,6 +590,16 @@ final class ShowQueriesRewrite
                         .filter(column -> !column.isHidden())
                         .map(column -> {
                             List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            if (column.getDerivedColumnSpec().isPresent()) {
+                                return new ColumnDefinition(Optional.empty(),
+                                        QueryUtil.quotedIdentifier(column.getName()),
+                                        column.getType().getDisplayName(),
+                                        column.isNullable() && !notNullColumns.contains(column.getName()),
+                                        propertyNodes,
+                                        Optional.ofNullable(column.getComment().orElse(null)),
+                                        null,
+                                        column.getDerivedColumnSpec().get());
+                            }
                             return new ColumnDefinition(
                                     QueryUtil.quotedIdentifier(column.getName()),
                                     column.getType().getDisplayName(),
@@ -602,7 +611,11 @@ final class ShowQueriesRewrite
 
                 Map<String, Object> properties = connectorTableMetadata.getProperties();
                 Map<String, PropertyMetadata<?>> allTableProperties = metadata.getTablePropertyManager().getAllProperties().get(tableHandle.get().getConnectorId());
-                List<Property> propertyNodes = buildProperties("table " + objectName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
+                Set<String> hiddenProperties = allTableProperties.entrySet().stream().filter(x -> x.getValue().isHidden())
+                        .map(Map.Entry::getKey).collect(Collectors.toSet());
+                Map<String, Object> nonHiddenProperties = properties.entrySet().stream().filter(x -> !hiddenProperties.contains(x.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                List<Property> propertyNodes = buildProperties("table " + objectName, INVALID_TABLE_PROPERTY, nonHiddenProperties, allTableProperties);
 
                 columns.addAll(connectorTableMetadata.getTableConstraintsHolder().getTableConstraints()
                         .stream()

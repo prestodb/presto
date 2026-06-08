@@ -23,7 +23,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionKind.ENGINE;
 import static java.util.Objects.requireNonNull;
 
@@ -71,6 +74,12 @@ public class BuiltInFunctionHandle
     }
 
     @Override
+    public Optional<TypeSignature> getReturnType()
+    {
+        return Optional.of(getSignature().getReturnType());
+    }
+
+    @Override
     public CatalogSchemaName getCatalogSchemaName()
     {
         return signature.getName().getCatalogSchemaName();
@@ -113,5 +122,17 @@ public class BuiltInFunctionHandle
         if (!condition) {
             throw new IllegalArgumentException(String.format(message, args));
         }
+    }
+
+    /*
+     * Two instances of same functions can appear different when types have params, for example a function with varchar return type may not match with instance of
+     * same function but with return type for example varchar(1). Here canonicalize will erase any type params, just for the purpose of correct matching of two functionHandle.
+     */
+    @Override
+    public BuiltInFunctionHandle canonicalize()
+    {
+        List<TypeSignature> arguments = signature.getArgumentTypes().stream().map(type -> parseTypeSignature(type.getBase())).collect(Collectors.toList());
+        SignatureBuilder signatureBuilder = new SignatureBuilder().from(signature).argumentTypes(arguments).returnType(parseTypeSignature(signature.getReturnType().getBase()));
+        return new BuiltInFunctionHandle(signatureBuilder.build(), this.builtInFunctionKind);
     }
 }

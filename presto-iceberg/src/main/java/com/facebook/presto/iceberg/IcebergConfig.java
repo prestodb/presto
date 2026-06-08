@@ -81,6 +81,7 @@ public class IcebergConfig
     private int materializedViewMaxChangedPartitions = 100;
     private int materializedViewDefaultMaxSnapshotsPerRefresh;
     private boolean aggregatePushDownEnabled = true;
+    private boolean derivedColumnEnabled;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -93,6 +94,18 @@ public class IcebergConfig
     {
         this.fileFormat = fileFormat;
         return this;
+    }
+
+    @Config("iceberg.derived_columns.enable")
+    public IcebergConfig setDerivedColumnsEnabled(boolean derivedColumnEnabled)
+    {
+        this.derivedColumnEnabled = derivedColumnEnabled;
+        return this;
+    }
+
+    public boolean isDerivedColumnsEnabled()
+    {
+        return this.derivedColumnEnabled;
     }
 
     @NotNull
