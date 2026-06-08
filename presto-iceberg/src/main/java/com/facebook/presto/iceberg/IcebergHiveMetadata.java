@@ -67,13 +67,10 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseMetastoreTableOperations;
 import org.apache.iceberg.MetricsConfig;
@@ -96,7 +93,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
@@ -149,7 +145,6 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -166,15 +161,12 @@ import static org.apache.iceberg.Transactions.createTableTransaction;
 public class IcebergHiveMetadata
         extends IcebergAbstractMetadata
 {
-    public static final int MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE = 1000;
-
     private final IcebergCatalogName catalogName;
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
     private final IcebergHiveTableOperationsConfig hiveTableOperationsConfig;
     private final ConnectorSystemConfig connectorSystemConfig;
-    private final Cache<SchemaTableName, Optional<Table>> tableCache;
     private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
@@ -204,7 +196,6 @@ public class IcebergHiveMetadata
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOperationsConfig = requireNonNull(hiveTableOperationsConfig, "hiveTableOperationsConfig is null");
-        this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
@@ -286,17 +277,7 @@ public class IcebergHiveMetadata
     private Optional<Table> getHiveTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        try {
-            return tableCache.get(schemaTableName, () ->
-                    metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName()));
-        }
-        catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
-        }
-        catch (ExecutionException e) {
-            throw new RuntimeException("Unexpected checked exception by cache load from metastore", e);
-        }
+        return metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName());
     }
 
     @Override
@@ -797,8 +778,6 @@ public class IcebergHiveMetadata
         catch (TableAlreadyExistsException e) {
             throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
         }
-
-        tableCache.invalidate(viewName);
     }
 
     @Override
@@ -816,8 +795,6 @@ public class IcebergHiveMetadata
         catch (TableNotFoundException e) {
             throw new PrestoException(NOT_FOUND, "Materialized view not found: " + schemaTableName);
         }
-
-        tableCache.invalidate(schemaTableName);
     }
 
     @Override
@@ -855,8 +832,6 @@ public class IcebergHiveMetadata
                     viewName.getTableName(),
                     updatedTable,
                     privileges);
-
-            tableCache.invalidate(viewName);
         }
     }
 
