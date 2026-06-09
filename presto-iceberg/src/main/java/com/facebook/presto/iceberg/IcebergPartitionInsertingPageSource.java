@@ -116,7 +116,11 @@ public class IcebergPartitionInsertingPageSource
                     }
                     else if (column.getColumnType() == PARTITION_KEY) {
                         // Partition key with no value. This can happen after partition evolution
-                        return nativeValueToBlock(type, null);
+                        Object prefilledValue = null;
+                        if (column.getDefaultValue().isPresent()) {
+                            prefilledValue = deserializeIcebergValue(type, column.getDefaultValue().get(), column.getName());
+                        }
+                        return nativeValueToBlock(type, prefilledValue);
                     }
                     else if (isMetadataColumnId(column.getId())) {
                         return nativeValueToBlock(type, metadataValues.get(column.getColumnIdentity().getId()));

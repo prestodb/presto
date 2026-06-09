@@ -968,7 +968,11 @@ public final class IcebergUtil
             Object value = partition.get(index, javaClass);
 
             if (value == null) {
-                partitionKeys.put(field.fieldId(), new HivePartitionKey(colName, Optional.empty()));
+                HivePartitionKey partitionValue = new HivePartitionKey(colName, Optional.empty());
+                partitionKeys.put(field.fieldId(), partitionValue);
+                if (field.transform().isIdentity()) {
+                    partitionKeys.put(sourceId, partitionValue);
+                }
             }
             else {
                 HivePartitionKey partitionValue;

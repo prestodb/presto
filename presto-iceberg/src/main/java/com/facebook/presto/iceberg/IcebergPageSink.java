@@ -305,7 +305,7 @@ public class IcebergPageSink
     private void writePage(Page page)
     {
         Page pageWithWriteDefaults = fillWriteDefaults(page);
-        int[] writerIndexes = getWriterIndexes(page);
+        int[] writerIndexes = getWriterIndexes(pageWithWriteDefaults);
 
         // position count for each writer
         int[] sizes = new int[writers.size()];

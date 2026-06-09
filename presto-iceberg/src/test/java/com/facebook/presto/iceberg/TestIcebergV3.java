@@ -30,6 +30,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -569,6 +570,49 @@ public class TestIcebergV3
             assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (4, 'Dave')", 1);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 'US'), (2, 'Bob', 'UK'), (3, 'Charlie', 'CA'), (4, 'Dave', NULL)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @DataProvider(name = "withPartitioning")
+    public String[][] withPartitioning()
+    {
+        return new String[][] {
+                {"PARQUET", ""},
+                {"PARQUET", " WITH(partitioning = 'identity')"},
+                {"ORC", ""},
+                {"ORC", " WITH(partitioning = 'identity')"}
+        };
+    }
+    @Test(dataProvider = "withPartitioning")
+    public void testInsertWithPartitionEvolution(String fileFormat, String withPartitioning)
+    {
+        String tableName = "test_insert_with_write_default_" + fileFormat.toLowerCase() + (withPartitioning.isEmpty() ? "_unpartitioned" : "_partitioned");
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES(1, 'Alice'), (2, 'Bob')", 2);
+            // Add a column with default value
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN country VARCHAR DEFAULT 'US'" + withPartitioning);
+            // Verify the default is set
+            Table table = loadTable(tableName);
+            assertEquals(table.schema().findField("country").initialDefault(), "US");
+            assertEquals(table.schema().findField("country").writeDefault(), "US");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN country SET DEFAULT 'UK'");
+            // Insert without specifying the country column - should use write-default
+            assertUpdate("INSERT INTO " + tableName + " (id, name) VALUES (3, 'Carol')", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'US'", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'UK'", "VALUES(3, 'Carol', 'UK')");
+            assertUpdate("INSERT INTO " + tableName + " (id, name, country) VALUES (4, 'David', NULL), (5, 'Frank', 'FR')", 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK'), (4, 'David', NULL), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'US'", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country <> 'US'", "VALUES(3, 'Carol', 'UK'), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country = 'UK'", "VALUES(3, 'Carol', 'UK')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country IS NULL", "VALUES(4, 'David', NULL)");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country IS NOT NULL", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (3, 'Carol', 'UK'), (5, 'Frank', 'FR')");
+            assertQuery("SELECT * FROM " + tableName + " WHERE country in ('US', 'FR', 'CN')", "VALUES(1, 'Alice', 'US'), (2, 'Bob', 'US'), (5, 'Frank', 'FR')");
         }
         finally {
             dropTable(tableName);
