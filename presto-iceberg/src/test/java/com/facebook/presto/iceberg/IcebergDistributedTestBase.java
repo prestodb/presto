@@ -382,8 +382,21 @@ public abstract class IcebergDistributedTestBase
         assertEquals(icebergTable.schema().findField("country").initialDefault(), "IN");
         assertEquals(icebergTable.schema().findField("country").writeDefault(), "IN");
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown on column with initial-default (matching value)
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'IN' ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown on column with initial-default (non-matching value)
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'US'", "SELECT 1 WHERE false");
+        // Test filter pushdown with IS NOT NULL
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country IS NOT NULL ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        // Test filter pushdown with IS NULL
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country IS NULL", "SELECT 1 WHERE false");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES(3, 'Charlie', 'US')", 1);
         assertQuery(session, "SELECT id, name, country FROM " + tableName + " ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN'), (3, 'Charlie', 'US')");
+        // Test filter after new data inserted
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'IN' ORDER BY id", "VALUES (1, 'Alice', 'IN'), (2, 'Bob', 'IN')");
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE country = 'US'", "VALUES (3, 'Charlie', 'US')");
+        // Test combined filter on file column and default column
+        assertQuery(session, "SELECT id, name, country FROM " + tableName + " WHERE id > 1 AND country = 'IN'", "VALUES (2, 'Bob', 'IN')");
         assertUpdate(session, "DROP TABLE " + tableName);
 
         // Test empty string default
