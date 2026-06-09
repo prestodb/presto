@@ -16,6 +16,9 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.Connector;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -121,15 +124,17 @@ public class Catalog
                 .toString();
     }
 
-    public class CatalogContext
+    public static class CatalogContext
     {
         private final String catalogName;
         private final String connectorName;
+        private static final Map<String, String> connectorByCatalog = new HashMap<>();
 
         public CatalogContext(String catalogName, String connectorName)
         {
             this.catalogName = catalogName;
             this.connectorName = connectorName;
+            connectorByCatalog.put(catalogName, connectorName);
         }
 
         public String getCatalogName()
@@ -140,6 +145,11 @@ public class Catalog
         public String getConnectorName()
         {
             return connectorName;
+        }
+
+        public static Map<String, String> getConnectorByCatalog()
+        {
+            return connectorByCatalog;
         }
     }
 }

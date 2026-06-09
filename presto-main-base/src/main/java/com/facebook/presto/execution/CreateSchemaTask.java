@@ -16,23 +16,29 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.facebook.presto.metadata.Catalog.CatalogContext.getConnectorByCatalog;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
+import static com.facebook.presto.spi.StandardWarningCode.LAKEHOUSE_CONNECTORS_MIGHT_USE_SAME_METASTORE;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class CreateSchemaTask
@@ -61,6 +67,12 @@ public class CreateSchemaTask
 
         if (metadata.getMetadataResolver(session).schemaExists(schema)) {
             if (!statement.isNotExists()) {
+                String connectorName = getConnectorByCatalog().get(schema.getCatalogName());
+                if (isLakehouseConnector(connectorName)) {
+                    PrestoWarning warning = new PrestoWarning(LAKEHOUSE_CONNECTORS_MIGHT_USE_SAME_METASTORE, "The schema might be existing in another lakehouse " +
+                            "catalog (hive/hudi/delta/iceberg) which uses the same underlying metastore. Please check the value of `hive.metastore.uri` config in corresponding catalog.properties files");
+                    warningCollector.add(warning);
+                }
                 throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
             return immediateFuture(null);
@@ -77,5 +89,11 @@ public class CreateSchemaTask
         metadata.createSchema(session, schema, properties);
 
         return immediateFuture(null);
+    }
+
+    private boolean isLakehouseConnector(String connectorName)
+    {
+        Set<String> lakehouseConnectors = ImmutableSet.of("hive-hadoop2", "hudi", "iceberg", "delta");
+        return !isNullOrEmpty(connectorName) && lakehouseConnectors.contains(connectorName);
     }
 }

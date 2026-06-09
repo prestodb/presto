@@ -114,7 +114,7 @@ public class TestMemorySmoke
     {
         assertQueryFails("DROP SCHEMA schema1", "line 1:1: Schema 'memory.schema1' does not exist");
         assertUpdate("CREATE SCHEMA schema1");
-        assertQueryFails("CREATE SCHEMA schema1", "line 1:1: Schema 'memory.schema1' already exists");
+        assertQueryFails("CREATE SCHEMA schema1", "line 1:1: Schema 'schema1' already exists");
         assertUpdate("CREATE TABLE schema1.x(t int)");
         assertQueryFails("DROP SCHEMA schema1", "Schema not empty: schema1");
         assertUpdate("DROP TABLE schema1.x");
