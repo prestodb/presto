@@ -356,6 +356,8 @@ public class IcebergPageSourceProvider
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
             OptionalInt rowPositionColumnIndex = OptionalInt.empty();
+            ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
+
             for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = regularColumns.get(columnIndex);
                 namesBuilder.add(column.getName());
@@ -372,12 +374,16 @@ public class IcebergPageSourceProvider
                     }
                     else {
                         internalFields.add(Optional.empty());
+                        getInitialDefaultValue(tableSchema, column)
+                                .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                 }
                 else {
                     Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column);
                     if (!parquetField.isPresent()) {
                         internalFields.add(Optional.empty());
+                        getInitialDefaultValue(tableSchema, column)
+                                .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
                         internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.get().getName())));
@@ -386,28 +392,6 @@ public class IcebergPageSourceProvider
                 if (column.isRowPositionColumn()) {
                     checkArgument(rowPositionColumnIndex.isEmpty(), "Requesting more than 1 row number columns is not allowed.");
                     rowPositionColumnIndex = OptionalInt.of(columnIndex);
-                }
-            }
-
-            ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
-            for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
-                IcebergColumnHandle column = regularColumns.get(columnIndex);
-                if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
-                        !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
-                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
-                    if (!columnIO.isPresent()) {
-                        getInitialDefaultValue(tableSchema, column)
-                                .ifPresent(value -> defaultValues.put(column.getId(), value));
-                    }
-                }
-                else {
-                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column);
-                    if (!parquetField.isPresent()) {
-                        getInitialDefaultValue(tableSchema, column)
-                                .ifPresent(value -> defaultValues.put(column.getId(), value));
-                    }
                 }
             }
 
