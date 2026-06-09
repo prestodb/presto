@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>9.0.1</dep.elasticsearch.version>
+        <dep.elasticsearch.version>9.1.0</dep.elasticsearch.version>
         <dep.log4j.version>2.25.4</dep.log4j.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.lucene.version>9.12.0</dep.lucene.version>
