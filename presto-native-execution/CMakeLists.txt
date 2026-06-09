@@ -104,6 +104,11 @@ set(VELOX_ENABLE_CUDF ${PRESTO_ENABLE_CUDF} CACHE BOOL "Enable cuDF support")
 if(PRESTO_ENABLE_CUDF)
   add_compile_definitions(PRESTO_ENABLE_CUDF)
   enable_language(CUDA)
+  # Conda fmt is found by find_package() in a parent scope; rapids-cmake then
+  # tries to promote the imported fmt::fmt target to GLOBAL from a nested
+  # add_subdirectory (rapids_logger), which CMake forbids. Creating imported
+  # targets as GLOBAL up front makes rapids' make_global() a no-op.
+  set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
 endif()
