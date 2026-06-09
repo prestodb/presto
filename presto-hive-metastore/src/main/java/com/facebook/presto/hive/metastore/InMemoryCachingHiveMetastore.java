@@ -200,6 +200,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadAllDatabases),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setDatabaseNamesCache(databaseNamesCache);
 
         databaseCache = buildCache(
                 executor,
@@ -207,6 +208,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadDatabase),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setDatabaseCache(databaseCache);
 
         tableNamesCache = buildCache(
                 executor,
@@ -214,6 +216,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadAllTables),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setTableNamesCache(tableNamesCache);
 
         tableStatisticsCache = buildCache(
                 executor,
@@ -221,6 +224,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadTableColumnStatistics),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setTableStatisticsCache(tableStatisticsCache);
 
         partitionStatisticsCache = buildCache(
                 executor,
@@ -241,6 +245,7 @@ public class InMemoryCachingHiveMetastore
                 },
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setPartitionStatisticsCache(partitionStatisticsCache);
 
         tableCache = buildCache(
                 executor,
@@ -256,6 +261,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadTableConstraints),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setTableConstraintsCache(tableConstraintsCache);
 
         viewNamesCache = buildCache(
                 executor,
@@ -263,6 +269,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadAllViews),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setViewNamesCache(viewNamesCache);
 
         partitionNamesCache = buildCache(
                 executor,
@@ -270,6 +277,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadPartitionNames),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setPartitionNamesCache(partitionNamesCache);
 
         partitionFilterCache = buildCache(
                 executor,
@@ -277,7 +285,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadPartitionNamesByFilter),
                 perTransactionCache,
                 maximumSize);
-        metastoreCacheStats.setPartitionNamesCache(partitionFilterCache);
+        metastoreCacheStats.setPartitionFilterCache(partitionFilterCache);
 
         partitionCache = buildCache(
                 executor,
@@ -306,6 +314,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadTablePrivileges),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setTablePrivilegesCache(tablePrivilegesCache);
 
         rolesCache = buildCache(
                 executor,
@@ -313,6 +322,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadAllRoles),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setRolesCache(rolesCache);
 
         roleGrantsCache = buildCache(
                 executor,
@@ -320,6 +330,7 @@ public class InMemoryCachingHiveMetastore
                 CacheLoader.from(this::loadRoleGrants),
                 perTransactionCache,
                 maximumSize);
+        metastoreCacheStats.setRoleGrantsCache(roleGrantsCache);
     }
 
     @Override
