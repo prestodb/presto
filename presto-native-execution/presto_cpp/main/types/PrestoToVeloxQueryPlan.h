@@ -254,6 +254,7 @@ class VeloxQueryPlanConverterBase {
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
   TypeParser typeParser_;
+  velox::core::PlanFragment* planFragment_{nullptr};
 };
 
 class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
