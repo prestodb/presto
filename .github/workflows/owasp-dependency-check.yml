@@ -1,6 +1,5 @@
 name: Maven OWASP Dependency Check
-permissions:
-  contents: read
+
 on:
   pull_request: {}
   workflow_dispatch:
@@ -16,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     # Required permissions
     permissions:
+      contents: read
       pull-requests: read
     # Set job outputs to values from filter step
     outputs:
@@ -34,6 +34,8 @@ jobs:
   dependency-check:
     needs: changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     concurrency:
       group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
