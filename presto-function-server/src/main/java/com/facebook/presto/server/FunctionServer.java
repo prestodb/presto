@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
@@ -60,7 +61,8 @@ public class FunctionServer
             injector.getInstance(FunctionPluginManager.class).loadPlugins();
 
             HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
-            log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
+            URI serverUri = getServerUri(serverInfo);
+            log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverUri + " =========");
 
             Thread.currentThread().join();
         }
@@ -68,5 +70,24 @@ public class FunctionServer
             log.error(e);
             System.exit(1);
         }
+    }
+
+    /**
+     * Returns HTTPS URI if available, otherwise HTTP URI.
+     * This handles both HTTP-only and HTTPS-only configurations.
+     */
+    private static URI getServerUri(HttpServerInfo serverInfo)
+    {
+        URI httpsUri = serverInfo.getHttpsUri();
+        if (httpsUri != null) {
+            return httpsUri;
+        }
+
+        URI httpUri = serverInfo.getHttpUri();
+        if (httpUri != null) {
+            return httpUri;
+        }
+
+        throw new IllegalStateException("Neither HTTP nor HTTPS is enabled");
     }
 }

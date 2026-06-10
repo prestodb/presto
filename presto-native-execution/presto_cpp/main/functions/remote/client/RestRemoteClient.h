@@ -39,6 +39,13 @@ class RestRemoteClient {
   std::shared_ptr<http::HttpClient> httpClient_;
   std::shared_ptr<velox::memory::MemoryPool> memPool_;
 
+  // SSL/TLS configuration
+  std::string ciphers_;
+  folly::SSLContextPtr sslContext_;
+
+  // JWT configuration
+  http::JwtOptions jwtOptions_;
+
   const std::chrono::milliseconds requestTimeoutMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           SystemConfig::instance()->exchangeRequestTimeoutMs());

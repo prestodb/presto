@@ -67,6 +67,7 @@ public class PluginManagerUtil
             .add("com.facebook.drift.annotations.")
             .add("com.facebook.drift.TException")
             .add("com.facebook.drift.TApplicationException")
+            .add("io.jsonwebtoken.")
             .build();
 
     private PluginManagerUtil()

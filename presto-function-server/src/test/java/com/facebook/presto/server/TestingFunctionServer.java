@@ -24,7 +24,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
@@ -32,6 +34,8 @@ import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTi
 public class TestingFunctionServer
 {
     private final FunctionPluginManager functionPluginManager;
+    private final Injector injector;
+    private final HttpServerInfo serverInfo;
 
     public TestingFunctionServer(int port)
     {
@@ -46,17 +50,63 @@ public class TestingFunctionServer
                 new JaxrsModule());
 
         Bootstrap app = new Bootstrap(modules);
-        Injector injector = app
+        injector = app
                 .setRequiredConfigurationProperties(ImmutableMap.of("http-server.http.port", Integer.toString(port)))
                 .initialize();
 
         functionPluginManager = injector.getInstance(FunctionPluginManager.class);
-        HttpServerInfo serverInfo = injector.getInstance(HttpServerInfo.class);
+        serverInfo = injector.getInstance(HttpServerInfo.class);
         log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
+    }
+
+    /**
+     * Create function server with custom configuration properties.
+     */
+    public TestingFunctionServer(Map<String, String> properties)
+    {
+        verifyJvmRequirements();
+        verifySystemTimeIsReasonable();
+
+        Logger log = Logger.get(FunctionServer.class);
+
+        List<Module> modules = ImmutableList.of(
+                new FunctionServerModule(),
+                new HttpServerModule(),
+                new JaxrsModule());
+
+        Bootstrap app = new Bootstrap(modules);
+        injector = app
+                .setRequiredConfigurationProperties(new HashMap<>(properties))
+                .initialize();
+
+        functionPluginManager = injector.getInstance(FunctionPluginManager.class);
+        serverInfo = injector.getInstance(HttpServerInfo.class);
+
+        String uri = getServerUri(serverInfo);
+        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + uri + " =========");
     }
 
     public void installPlugin(Plugin plugin)
     {
         functionPluginManager.installPlugin(plugin);
+    }
+
+    /**
+     * Get the server URI (HTTPS if available, otherwise HTTP).
+     */
+    public String getServerUri(HttpServerInfo serverInfo)
+    {
+        if (serverInfo.getHttpsUri() != null) {
+            return serverInfo.getHttpsUri().toString();
+        }
+        if (serverInfo.getHttpUri() != null) {
+            return serverInfo.getHttpUri().toString();
+        }
+        throw new IllegalStateException("Neither HTTP nor HTTPS is enabled");
+    }
+
+    public String getServerUri()
+    {
+        return getServerUri(serverInfo);
     }
 }
