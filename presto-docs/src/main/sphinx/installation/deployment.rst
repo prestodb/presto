@@ -263,7 +263,7 @@ You may also wish to set the following properties:
 
 * ``jmx.rmiserver.port``:
   Specifies the port for the JMX RMI server. Presto exports many metrics
-  that are useful for monitoring via JMX.
+  that are useful for monitoring with JMX.
 
 See also :doc:`/admin/resource-groups`.
 
@@ -291,7 +291,7 @@ There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 Catalog Properties
 ^^^^^^^^^^^^^^^^^^
 
-Presto accesses data via *connectors*, which are mounted in catalogs.
+Presto accesses data through *connectors*, which are mounted in catalogs.
 The connector provides all of the schemas and tables inside of the catalog.
 For example, the Hive connector maps each Hive database to a schema,
 so if the Hive connector is mounted as the ``hive`` catalog, and Hive
@@ -376,7 +376,7 @@ If it is the first time to launch the Hive Metastore, prepare the corresponding 
 
 If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
 Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
-These jars can be found in Hadoop distribution (e.g., under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
+These jars can be found in Hadoop distribution (for example, under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
 or downloaded from `maven central repository <https://repo1.maven.org/>`_.
 
 .. code-block:: bash
