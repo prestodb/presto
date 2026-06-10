@@ -375,7 +375,7 @@ If it is the first time to launch the Hive Metastore, prepare the corresponding 
     bin/schematool -dbType derby -initSchema
 
 If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
-Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
+Hive needs the corresponding jars to access files with ``s3a://`` addresses and AWS credentials to access an S3 bucket (even if it is public).
 These jars can be found in Hadoop distribution (for example, under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
 or downloaded from `maven central repository <https://repo1.maven.org/>`_.
 
