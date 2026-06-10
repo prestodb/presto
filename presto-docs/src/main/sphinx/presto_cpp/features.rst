@@ -295,6 +295,122 @@ The function execution endpoint is responsible for:
 For complete API details, request/response schemas, and examples, refer to the
 `OpenAPI specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
 
+Secure Communication with the REST Function Server
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Presto C++ workers support two complementary mechanisms for authenticating with the REST
+Function Server: mutual TLS (mTLS) for certificate-based identity verification, and JWT
+for token-based request authentication. These can be used individually or together for
+maximum security.
+
+mTLS (Mutual TLS)
+"""""""""""""""""
+
+When mTLS is enabled, both the worker (as HTTP client) and the Function Server present
+X.509 certificates during the TLS handshake. The worker verifies the Function Server's
+certificate against a trusted CA, and the Function Server verifies the worker's client
+certificate against the same CA. This provides strong mutual identity verification at the
+transport layer.
+
+The following properties are set in the native worker's ``config.properties``:
+
+``https-cert-path``
+'''''''''''''''''''
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+Path to the PEM-encoded TLS certificate file used by the native worker when it acts as an
+HTTPS server (for coordinator→worker communication).
+
+``https-key-path``
+''''''''''''''''''
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+Path to the PEM-encoded private key corresponding to the certificate at ``https-cert-path``.
+
+``https-client-cert-key-path``
+''''''''''''''''''''''''''''''
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+Path to a combined PEM file containing the worker's client certificate and private key.
+This is presented to the Function Server during the mTLS handshake so the server can
+authenticate the worker. The file must contain both the ``CERTIFICATE`` and ``PRIVATE KEY``
+PEM blocks concatenated together.
+
+``https-client-ca-file``
+''''''''''''''''''''''''
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+Path to the PEM-encoded CA certificate used to verify the Function Server's TLS certificate
+during the mTLS handshake. Must be the CA that signed the Function Server's certificate.
+
+JWT
+"""
+
+JWT adds a second layer of authentication at the HTTP request level. The worker signs every
+request to the Function Server with a short-lived JWT token derived from a shared secret. The
+Function Server validates the token on receipt, rejecting requests with an invalid or expired
+token (HTTP 401). This is the same JWT mechanism used for coordinator↔worker internal
+communication; the same ``internal-communication.*`` properties apply here.
+
+The following properties are set in **both** the native worker's ``config.properties`` and
+the Function Server's ``config.properties``:
+
+``internal-communication.jwt.enabled``
+''''''''''''''''''''''''''''''''''''''
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Set to ``true`` to enable JWT authentication on all outbound requests from the worker to the
+Function Server and to require the Function Server to validate them.
+
+``internal-communication.shared-secret``
+''''''''''''''''''''''''''''''''''''''''
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+The shared secret used to sign and verify JWT tokens. Must be identical on the worker,
+coordinator, and Function Server. Keep this value secret and rotate it periodically.
+
+Combined mTLS + JWT example
+"""""""""""""""""""""""""""
+
+The following snippet shows a complete secure configuration for a native worker that connects
+to a Function Server using both mTLS and JWT:
+
+.. code-block:: properties
+
+   # Function Server URL — must use https:// when mTLS is active
+   remote-function-server.rest.url=https://function-server.example.com:8443
+
+   # mTLS — worker TLS server identity (used for coordinator→worker TLS)
+   https-cert-path=/etc/presto/certs/worker.crt
+   https-key-path=/etc/presto/certs/worker.key
+
+   # mTLS — worker client identity presented to the Function Server
+   https-client-cert-key-path=/etc/presto/certs/worker-combined.pem
+
+   # mTLS — CA used to verify the Function Server's certificate
+   https-client-ca-file=/etc/presto/certs/ca.crt
+
+   # JWT — token-based request authentication
+   internal-communication.jwt.enabled=true
+   internal-communication.shared-secret=<your-shared-secret>
+
+The Function Server must be configured with a matching HTTPS keystore, truststore, and the
+same ``internal-communication.shared-secret``. See
+`FunctionServer.java <https://github.com/prestodb/presto/blob/master/presto-function-server/src/main/java/com/facebook/presto/server/FunctionServer.java>`_
+for the Java-based reference implementation.
+
 JWT authentication support
 --------------------------
 
