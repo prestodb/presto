@@ -228,9 +228,11 @@ public class IcebergPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
-        for (WriteContext context : writers) {
+        for (int i = 0; i < writers.size(); i++) {
+            WriteContext context = writers.get(i);
             if (context != null) {
                 closeWriter(context);
+                writers.set(i, null);
             }
         }
 

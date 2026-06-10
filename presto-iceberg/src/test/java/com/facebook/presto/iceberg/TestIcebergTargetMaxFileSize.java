@@ -338,12 +338,7 @@ public class TestIcebergTargetMaxFileSize
                         "iceberg.target-max-file-size", "-1B"))
                 .build().getQueryRunner();
 
-        try {
-            negativeConfigRunner.close();
-        }
-        finally {
-            negativeConfigRunner.close();
-        }
+        negativeConfigRunner.close();
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*iceberg.target-max-file-size must be at least 1 byte.*")
@@ -358,12 +353,7 @@ public class TestIcebergTargetMaxFileSize
                         "iceberg.target-max-file-size", "0B"))
                 .build().getQueryRunner();
 
-        try {
-            zeroConfigRunner.close();
-        }
-        finally {
-            zeroConfigRunner.close();
-        }
+        zeroConfigRunner.close();
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*iceberg.target_max_file_size is invalid: -1B.*")
