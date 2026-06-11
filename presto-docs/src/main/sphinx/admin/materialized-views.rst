@@ -112,7 +112,7 @@ when the view's data may be stale:
   - The materialized view itself is not updated
 
 **FAIL**
-  Fails the query if the materialized view is stale.wit
+  Fails the query if the materialized view is stale.
 
   - Requires the materialized view to be refreshed before querying
   - Useful when you want to ensure queries only use pre-computed results
