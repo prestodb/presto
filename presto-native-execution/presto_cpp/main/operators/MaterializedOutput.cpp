@@ -242,14 +242,22 @@ void MaterializedOutput::serializeVariableWidthRows(
 void MaterializedOutput::ensureFlatBufferCapacity(int64_t additionalBytes) {
   const auto requiredSize = flatBufferSize_ + additionalBytes;
   const auto currentCapacity = flatBuffer_ ? flatBuffer_->capacity() : 0;
-  if (requiredSize > static_cast<int64_t>(currentCapacity)) {
-    const auto newSize =
-        std::max(requiredSize, static_cast<int64_t>(currentCapacity) * 2);
-    if (!flatBuffer_) {
-      flatBuffer_ = velox::AlignedBuffer::allocate<char>(newSize, pool());
-    } else {
-      velox::AlignedBuffer::reallocate<char>(&flatBuffer_, newSize);
-    }
+  // Nothing to do once a buffer exists and is large enough.
+  if (flatBuffer_ != nullptr &&
+      requiredSize <= static_cast<int64_t>(currentCapacity)) {
+    return;
+  }
+  // Always allocate a non-null buffer on first use, even for a zero-byte batch
+  // (e.g. a zero-column / row-count-only output type where
+  // CompactRow::fixedRowSize() == 0). serializeRows() and buildRowGroup() index
+  // into flatBuffer_ unconditionally, so a null buffer would be dereferenced
+  // and crash. Allocate at least one byte.
+  const auto newSize = std::max<int64_t>(
+      {requiredSize, static_cast<int64_t>(currentCapacity) * 2, 1});
+  if (!flatBuffer_) {
+    flatBuffer_ = velox::AlignedBuffer::allocate<char>(newSize, pool());
+  } else {
+    velox::AlignedBuffer::reallocate<char>(&flatBuffer_, newSize);
   }
 }
 

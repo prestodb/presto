@@ -418,6 +418,70 @@ TEST_F(MaterializedExchangeTest, emptyInput) {
   cleanupDirectory(tempDir_->getPath());
 }
 
+// Row-count-only output: the MaterializedOutputNode projects to a ZERO-column
+// output type (e.g. a count-only shuffle after a dedupe). CompactRow::
+// fixedRowSize(ROW({})) == 0, so each serialized row is zero bytes and the
+// flat buffer would never be allocated. serializeFixedWidthRows() and
+// buildRowGroup() index into the flat buffer unconditionally, so it must be
+// non-null. The partition routing still runs on the (non-empty) source
+// columns, so all input rows must round-trip as zero-column rows.
+TEST_F(MaterializedExchangeTest, zeroColumnOutput) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+  });
+  auto sourceType = asRowType(data->type());
+  auto emptyOutputType = ROW({}, {});
+
+  const int numPartitions = 4;
+  const int numDrivers = 1;
+
+  auto writeInfoStr = localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfoStr,
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      "zerocol.0.0.0.0",
+      rootPool_.get());
+
+  // Partition on the (non-empty) source column even though the projected
+  // output has no columns.
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          sourceType->childAt(0), sourceType->nameOf(0))};
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          sourceType, std::vector<column_index_t>{0});
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      emptyOutputType,
+      partitionFunctionSpec,
+      /*replicateNullsAndAny=*/false,
+      ShuffleWriterMetadata{},
+      valuesNode);
+
+  auto taskId = makeTaskId("write", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  MaterializedOutputBuffer::removeBuffer(taskId);
+
+  // Every input row must come back as a zero-column row across all partitions.
+  auto actual = runExchangeRead(numPartitions, emptyOutputType);
+  int64_t totalRows = 0;
+  for (const auto& vec : actual) {
+    EXPECT_EQ(vec->type()->size(), 0);
+    totalRows += vec->size();
+  }
+  EXPECT_EQ(totalRows, data->size());
+  cleanupDirectory(tempDir_->getPath());
+}
+
 // Verify that buffered RowGroups are tracked through the pool. With a
 // constrained pool, enqueuing too much data without draining should fail.
 TEST_F(MaterializedExchangeTest, bufferMemoryTracking) {
