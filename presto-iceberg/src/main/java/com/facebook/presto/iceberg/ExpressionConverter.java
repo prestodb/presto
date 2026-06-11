@@ -201,7 +201,18 @@ public final class ExpressionConverter
             return toIntExact(((Long) marker.getValue()));
         }
 
-        if (type instanceof TimestampType || type instanceof TimeType) {
+        if (type instanceof TimestampType) {
+            // TimestampType.getPrecision() returns a TimeUnit (MILLISECONDS or
+            // MICROSECONDS). Markers for TIMESTAMP_MICROSECONDS already carry
+            // values in micros; only millisecond-precision markers need the
+            // millis -> micros conversion before reaching Iceberg's micro API.
+            long value = (Long) marker.getValue();
+            return ((TimestampType) type).getPrecision() == MILLISECONDS
+                    ? MILLISECONDS.toMicros(value)
+                    : value;
+        }
+
+        if (type instanceof TimeType) {
             return MILLISECONDS.toMicros((Long) marker.getValue());
         }
 
