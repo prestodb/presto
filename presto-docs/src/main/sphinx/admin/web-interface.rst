@@ -3,7 +3,7 @@ Web Interface
 =============
 
 Presto provides a web interface for monitoring and managing queries.
-The web interface is accessible on the Presto coordinator via HTTP,
+The web interface is accessible on the Presto coordinator through HTTP,
 using the HTTP port number specified in the coordinator :ref:`config_properties`.
 
 The main page has a list of queries along with information like unique query ID, query text,
@@ -17,8 +17,8 @@ The possible query states are as follows:
 * ``PLANNING`` -- Query is being planned.
 * ``STARTING`` -- Query execution is being started.
 * ``RUNNING`` -- Query has at least one running task.
-* ``BLOCKED`` -- Query is blocked and is waiting for resources (buffer space, memory, splits, etc.).
-* ``FINISHING`` -- Query is finishing (e.g. commit for autocommit queries).
+* ``BLOCKED`` -- Query is blocked and is waiting for resources (buffer space, memory, or splits).
+* ``FINISHING`` -- Query is finishing (for example, commit for autocommit queries).
 * ``FINISHED`` -- Query has finished executing and all output has been consumed.
 * ``FAILED`` -- Query execution failed.
 

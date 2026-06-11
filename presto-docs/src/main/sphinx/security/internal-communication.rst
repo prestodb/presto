@@ -43,7 +43,7 @@ To enable SSL/TLS for Presto internal communication, do the following:
    - It is also possible to specify each node's fully-qualified hostname manually.
      This will be different for every host. Hosts should be in the same domain to
      make it easy to create the correct SSL/TLS certificates.
-     e.g.: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
+     For example: ``coordinator.example.com``, ``worker1.example.com``, ``worker2.example.com``.
 
      .. code-block:: none
 
@@ -123,7 +123,7 @@ It is
   between nodes of the cluster
 * Optional when configuring only :doc:`external authentication </security>` method
   between clients and the coordinator
-* Mandatory when configuring both the above i.e internal TLS along with external authentication.
+* Mandatory when configuring both internal TLS and external authentication.
 
 There are multiple ways to enable internal authentication:
 
@@ -187,7 +187,7 @@ Enabling encryption impacts performance. The performance degradation can vary
 based on the environment, queries, and concurrency.
 
 For queries that do not require transferring too much data between the Presto
-nodes (e.g. ``SELECT count(*) FROM table``), the performance impact is negligible.
+nodes (such as ``SELECT count(*) FROM table``), the performance impact is negligible.
 
 However, for CPU intensive queries which require a considerable amount of data
 to be transferred between the nodes (for example, distributed joins, aggregations and
@@ -203,8 +203,8 @@ significantly.
 
 By default, TLS encryption uses the ``/dev/urandom`` system device as a source of entropy.
 This device has limited throughput, so on environments with high network bandwidth
-(e.g. InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
-to switch the random number generator algorithm to ``SHA1PRNG``, by setting it via
+(for example, InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
+to switch the random number generator algorithm to ``SHA1PRNG``, by setting it with the 
 ``http-server.https.secure-random-algorithm`` property in ``config.properties`` on the coordinator
 and all of the workers:
 

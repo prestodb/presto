@@ -237,10 +237,10 @@ Memory Management Properties
 * **Type:** ``data size``
 * **Default value:** ``JVM max memory * 0.1``
 
-This is the max amount of user memory a query can use on a worker.
+This is the maximum amount of user memory a query can use on a worker.
 User memory is allocated during execution for things that are directly
 attributable to or controllable by a user query. For example, memory used
-by the hash tables built during execution, memory used during sorting, etc.
+by the hash tables built during execution, or memory used during sorting.
 When the user memory allocation of a query on any worker hits this limit
 it will be killed.
 
@@ -253,7 +253,7 @@ it will be killed.
 This is the max amount of user and system memory a query can use on a worker.
 System memory is allocated during execution for things that are not directly
 attributable to or controllable by a user query. For example, memory allocated
-by the readers, writers, network buffers, etc. When the sum of the user and
+by the readers, writers, and network buffers. When the sum of the user and
 system memory allocated by a query on any worker hits this limit it will be killed.
 The value of ``query.max-total-memory-per-node`` must be greater than
 ``query.max-memory-per-node``.
@@ -267,7 +267,7 @@ The value of ``query.max-total-memory-per-node`` must be greater than
 This is the max amount of user memory a query can use across the entire cluster.
 User memory is allocated during execution for things that are directly
 attributable to or controllable by a user query. For example, memory used
-by the hash tables built during execution, memory used during sorting, etc.
+by the hash tables built during execution, or memory used during sorting.
 When the user memory allocation of a query across all workers hits this limit
 it will be killed.
 
@@ -280,7 +280,7 @@ it will be killed.
 This is the max amount of user and system memory a query can use across the entire cluster.
 System memory is allocated during execution for things that are not directly
 attributable to or controllable by a user query. For example, memory allocated
-by the readers, writers, network buffers, etc. When the sum of the user and
+by the readers, writers, and network buffers. When the sum of the user and
 system memory allocated by a query across all workers hits this limit it will be
 killed. The value of ``query.max-total-memory`` must be greater than
 ``query.max-memory``.
@@ -701,7 +701,7 @@ or thousands of workers.
 
 Number of threads used to handle timeouts when generating HTTP responses. This value
 should be increased if all the threads are frequently in use. This can be monitored
-via the ``com.facebook.presto.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
+with the ``com.facebook.presto.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
 JMX object. If ``ActiveCount`` is always the same as ``PoolSize``, increase the
 number of threads.
 
@@ -736,7 +736,7 @@ Sets the number of threads used by workers to process splits. Increasing this nu
 can improve throughput if worker CPU utilization is low and all the threads are in use,
 but will cause increased heap space usage. Setting the value too high may cause a drop
 in performance due to a context switching. The number of active threads is available
-via the ``RunningSplits`` property of the
+through the ``RunningSplits`` property of the
 ``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 The number of threads can be configured using either an absolute value (for example, ``10``)
@@ -796,7 +796,7 @@ The target value for the number of splits that can be running for
 each worker node, assuming all splits have the standard split weight.
 
 Using a higher value is recommended if queries are submitted in large batches
-(e.g., running a large group of reports periodically) or for connectors that
+(such as running a large group of reports periodically) or for connectors that
 produce many splits that complete quickly but do not support assigning split
 weight values to express that to the split scheduler. Increasing this value
 may improve query latency by ensuring that the workers have enough splits to
@@ -1090,7 +1090,7 @@ null padded rows that may be produced by the outer join, the optimizer introduce
 join with corresponding aggregations over a single null value and then coalesces the aggregations
 from the join output with these null aggregated values.
 
-For certain aggregate functions (those that ignore nulls, ``COUNT``, etc) the cross join may be
+For certain aggregate functions (those that ignore nulls, ``COUNT``, or others) the cross join may be
 avoided and the default/known aggregate value over ``NULL`` may be coalesced  directly with the aggregate
 outputs of the join. This optimization eliminates the cross join, may convert the outer join into an inner
 join and thereby produces more optimal plans.
@@ -1536,7 +1536,7 @@ comprehensive coordinator load management. When both are configured:
 Without query-pacing, the cluster can admit multiple queries at once, which
 can lead to significantly more concurrent tasks than expected over this limit.
 
-Set to a lower value (e.g., ``50000``) to limit coordinator task management
+Set to a lower value such as ``50000`` to limit coordinator task management
 overhead. The default value effectively disables this feature.
 
 .. note::
@@ -1586,7 +1586,7 @@ for cross-cluster retry operations.
 Comma-separated list of error codes that allow cross-cluster retry. When a query
 fails with one of these error codes, it can be automatically retried on a backup
 cluster if a retry URL is provided. Available error codes include standard Presto
-error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``, etc.
+error codes such as ``REMOTE_TASK_ERROR``, ``CLUSTER_OUT_OF_MEMORY``.
 
 View and Materialized View Properties
 -------------------------------------

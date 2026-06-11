@@ -208,7 +208,7 @@ Here are the key properties that can be set for a Resource Group:
   scheduling policy. A higher weight means that the group gets a larger share of the parent group's
   resources.
 
-* ``jmxExport`` (optional):  If set to ``true``, the statistics of the resource group will be exported via JMX.
+* ``jmxExport`` (optional):  If set to ``true``, the statistics of the resource group will be exported with JMX.
   Defaults to ``false``.
 
 * ``perQueryLimits`` (optional): specifies max resources that each query in a

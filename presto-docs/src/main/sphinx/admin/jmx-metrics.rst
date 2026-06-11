@@ -2,7 +2,7 @@
 JMX Metrics Reference
 =====================
 
-Presto exposes comprehensive metrics via Java Management Extensions (JMX) for monitoring
+Presto exposes comprehensive metrics through Java Management Extensions (JMX) for monitoring
 cluster health, query performance, and system behavior. This page documents some
 important JMX metrics available for production monitoring.
 
@@ -15,7 +15,7 @@ JMX metrics can be accessed through:
 * **SQL queries**: Using the :doc:`/connector/jmx` connector
 * **Monitoring systems**: Prometheus, Grafana, or other JMX exporters
 
-Querying Metrics via SQL
+Querying Metrics with SQL
 -------------------------
 
 Once configured, you can query metrics using SQL:
