@@ -36,7 +36,6 @@ import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -44,10 +43,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.UnionNode;
-import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -80,60 +76,37 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
-public class FilterPredicateCSERewriter
+public class ProjectionAndFilterPlanRewriter
         extends ConnectorPlanRewriter<Set<VariableReferenceExpression>>
 {
-    private static final Logger LOG = Logger.get(FilterPredicateCSERewriter.class);
+    private static final Logger LOG = Logger.get(ProjectionAndFilterPlanRewriter.class);
 
     private final ConnectorSession session;
     private final SqlParser sqlParser;
     private final VariableAllocator variableAllocator;
-    private final IcebergTableProperties tableProperties;
     private final StandardFunctionResolution functionResolution;
     private final TypeManager typeManager;
-    private final FunctionMetadataManager functionMetadataManager;
     private final IcebergTransactionManager transactionManager;
     private final PlanNodeIdAllocator idAllocator;
     private final BiMap<String, VariableReferenceExpression> derivedColumnAliasMap;
 
-    public FilterPredicateCSERewriter(IcebergTableProperties tableProperties,
+    public ProjectionAndFilterPlanRewriter(
             StandardFunctionResolution functionResolution,
             TypeManager typeManager,
-            FunctionMetadataManager functionMetadataManager,
             IcebergTransactionManager transactionManager,
             PlanNodeIdAllocator idAllocator,
             ConnectorSession session,
             SqlParser sqlParser,
             VariableAllocator variableAllocator)
     {
-        this.tableProperties = tableProperties;
         this.functionResolution = functionResolution;
         this.typeManager = typeManager;
-        this.functionMetadataManager = functionMetadataManager;
         this.transactionManager = transactionManager;
         this.idAllocator = idAllocator;
         this.session = session;
         this.sqlParser = sqlParser;
         this.variableAllocator = variableAllocator;
         this.derivedColumnAliasMap = HashBiMap.create();
-    }
-
-    @Override
-    public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        return context.defaultRewrite(node, context.get());
-    }
-
-    @Override
-    public PlanNode visitUnion(UnionNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        return context.defaultRewrite(node, context.get());
-    }
-
-    @Override
-    public PlanNode visitUnnest(UnnestNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        return context.defaultRewrite(node, context.get());
     }
 
     @Override
@@ -179,13 +152,13 @@ public class FilterPredicateCSERewriter
         }
         Assignments assignments = projectNode.getAssignments();
         if (!(projectNode.getSource() instanceof FilterNode) && !(projectNode.getSource() instanceof JoinNode)) {
-            return projectNode;
+            return context.defaultRewrite(projectNode, context.get());
         }
         if (projectNode.getSource() instanceof FilterNode) {
             FilterNode filter = (FilterNode) projectNode.getSource();
             if (!(filter.getSource() instanceof TableScanNode) && !(filter.getSource() instanceof JoinNode)) {
                 // Any node type other than TableScanNode and JoinNode not supported for rewrite under FilterNode.
-                return projectNode;
+                return context.defaultRewrite(projectNode, context.get());
             }
 
             if (filter.getSource() instanceof JoinNode) {
@@ -364,7 +337,6 @@ public class FilterPredicateCSERewriter
             RowExpression derivedColumnRowExpression = astExpressionToRowExpression.process(expression, columnsMap);
             // Apply column aliases, as per the TableScan's assignment map.
             RowExpression aliasedDerivedColExpression = new RowExpressionTreeRewriter<>(applyAliasesRewriter).rewrite(derivedColumnRowExpression, aliasMap);
-            // String derivedColumnName = nextUniqueName(udfSpec.getDerivedColumnName(), tableMetadata.getTable());
             VariableReferenceExpression derivedColumn = new VariableReferenceExpression(Optional.empty(), udfSpec.getDerivedColumnName(),
                     columnsMap.get(udfSpec.getDerivedColumnName()).getType());
             String derivedColumnUniqueId = udfSpec.getDerivedColumnName() + "_" + tableMetadata.getTable().toString();

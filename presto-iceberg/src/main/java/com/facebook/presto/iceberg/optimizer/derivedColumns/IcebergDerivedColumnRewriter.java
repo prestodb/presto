@@ -13,54 +13,50 @@
  */
 package com.facebook.presto.iceberg.optimizer.derivedColumns;
 
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.VariableAllocator;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isDerivedColumnsEnabled;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 
 public class IcebergDerivedColumnRewriter
         implements ConnectorPlanOptimizer
 {
-    private final IcebergTableProperties tableProperties;
     private final IcebergTransactionManager transactionManager;
     private final SqlParser sqlParser;
     private final StandardFunctionResolution functionResolution;
     private final TypeManager typeManager;
-    private final FunctionMetadataManager functionMetadataManager;
 
     public IcebergDerivedColumnRewriter(
-            IcebergTableProperties tableProperties,
             IcebergTransactionManager transactionManager,
             StandardFunctionResolution functionResolution,
             TypeManager typeManager,
-            FunctionMetadataManager functionMetadataManager,
             SqlParser sqlParser)
     {
-        this.tableProperties = tableProperties;
         this.transactionManager = transactionManager;
         this.functionResolution = functionResolution;
         this.typeManager = typeManager;
-        this.functionMetadataManager = functionMetadataManager;
         this.sqlParser = sqlParser;
     }
 
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return rewriteWith(new FilterPredicateCSERewriter(
-                tableProperties,
+        if (!isDerivedColumnsEnabled(session) || session.getQueryType().isEmpty() ||
+                !((session.getQueryType().get()).equals(QueryType.SELECT) || session.getQueryType().get().equals(QueryType.EXPLAIN))) {
+            return maxSubplan;
+        }
+        return rewriteWith(new ExpressionsPlanRewriter(
                 functionResolution,
                 typeManager,
-                functionMetadataManager,
                 transactionManager,
                 idAllocator,
                 session,
