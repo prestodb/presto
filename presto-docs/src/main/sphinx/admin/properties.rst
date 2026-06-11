@@ -1090,7 +1090,7 @@ null padded rows that may be produced by the outer join, the optimizer introduce
 join with corresponding aggregations over a single null value and then coalesces the aggregations
 from the join output with these null aggregated values.
 
-For certain aggregate functions (those that ignore nulls, ``COUNT``, or others) the cross join may be
+For certain aggregate functions (those that ignore nulls, ``COUNT``, and similar functions) the cross join may be
 avoided and the default/known aggregate value over ``NULL`` may be coalesced  directly with the aggregate
 outputs of the join. This optimization eliminates the cross join, may convert the outer join into an inner
 join and thereby produces more optimal plans.
