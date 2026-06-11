@@ -88,7 +88,7 @@ Constructors
     than two non-empty points in the input array, an empty LineString will be
     returned.  Throws an exception if any element in the array is ``null`` or
     empty or same as the previous one.  The returned geometry may not be
-    simple: for instance it may self-intersect or may contain duplicate vertexes depending
+    simple: for instance, it may self-intersect or may contain duplicate vertices depending
     on the input.
 
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint

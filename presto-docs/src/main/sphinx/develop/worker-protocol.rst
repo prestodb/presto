@@ -19,8 +19,8 @@ query fragment and track execution status.
 * A ``POST`` to ``/v1/task/{taskId}`` starts execution of the query fragment
   specified in the ``POST`` body. The request optionally includes a set of
   initial splits to process. The request also specifies how to partition results,
-  either hash partition using specified output columns into specified number of
-  output buffers or combine all results into a single output buffer or broadcast
+  either hash partitioning using specified output columns into a specified number of output buffers 
+  or combine all results into a single output buffer or broadcast
   combined results into multiple output buffers.
 * A subsequent ``POST`` to ``/v1/task/{taskId}`` may provide additional splits
   for processing and eventually specify that no more splits will be coming.
