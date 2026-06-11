@@ -367,13 +367,6 @@ public class MongoMetadata
         return views.build();
     }
 
-//    @Override
-//    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-//    {
-//        return ImmutableMap.of();
-//
-//    }
-
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
@@ -388,9 +381,8 @@ public class MongoMetadata
                 if (prefix.getTableName() == null || prefix.getTableName().equals(viewName.getTableName())) {
                     views.put(viewName, new ConnectorViewDefinition(
                             viewName,
-                            Optional.empty(),   // no SQL definition available
-                            "MongoDB view"      // or however ConnectorViewDefinition takes a description
-                    ));
+                            Optional.empty(),
+                            "MongoDB view"));
                 }
             }
         }
