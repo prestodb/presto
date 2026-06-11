@@ -263,7 +263,7 @@ Accessors
     Returns the point value that is the mathematical centroid of a spherical geometry.
 
     It supports Points and MultiPoints as input and returns the three-dimensional centroid
-    projected onto the surface of the (spherical) Earth
+    projected onto the surface of the (spherical) Earth.
     
     ``MULTIPOINT (0 -45, 0 45, 30 0, -30 0)`` returns ``Point(0, 0)``
 
