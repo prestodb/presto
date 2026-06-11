@@ -19,7 +19,7 @@ support storing tables and views, but only functions.
 Each Presto function, whether built-in or user-defined, resides in
 a function namespace. All built-in functions reside in the
 ``presto.default`` function namespace. The qualified function name of
-a function is the function namespace in which it reside followed by
+a function is the function namespace in which it resides followed by
 its function name (for example, ``example.test.func``). Built-in functions can
 be referenced in queries with their function namespaces omitted, while
 user-defined functions needs to be referenced by its qualified function
