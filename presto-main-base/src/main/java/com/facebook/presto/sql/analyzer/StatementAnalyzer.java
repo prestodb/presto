@@ -41,6 +41,7 @@ import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
@@ -4707,8 +4708,9 @@ class StatementAnalyzer
                         expression,
                         warningCollector);
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, format("Invalid column mask for '%s.%s: %s'", tableName, column, e.getMessage()), e);
+            catch (PrestoException | SemanticException e) {
+                ErrorCodeSupplier errorCodeSupplier = e instanceof PrestoException ? ((PrestoException) e)::getErrorCode : INVALID_COLUMN_MASK;
+                throw new PrestoException(errorCodeSupplier, format("Invalid column mask for '%s.%s': %s", tableName, column, e.getMessage()), e);
             }
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
