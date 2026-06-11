@@ -554,6 +554,8 @@ public interface ConnectorMetadata
      * @param insertColumnNames the list of column names that are explicitly specified in the INSERT statement.
      *                          This allows connectors to distinguish between columns that are omitted (and should
      *                          use default values) versus columns that are explicitly set to NULL.
+     *                          An empty list indicates no explicit column specification (e.g. INSERT INTO table VALUES ...),
+     *                          which implies inserting into all columns.
      */
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
     {

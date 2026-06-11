@@ -317,19 +317,6 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    @Deprecated
-    public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
-    {
-        long startTime = System.nanoTime();
-        try {
-            return delegate.beginInsert(session, tableHandle);
-        }
-        finally {
-            stats.recordBeginInsertCall(System.nanoTime() - startTime);
-        }
-    }
-
-    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         long startTime = System.nanoTime();

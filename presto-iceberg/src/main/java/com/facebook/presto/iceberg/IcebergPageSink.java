@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.BigintType;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -62,7 +64,6 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,7 +72,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
-import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.FileContent.DATA;
@@ -155,7 +155,7 @@ public class IcebergPageSink
         this.targetMaxFileSize = targetMaxFileSize;
         requireNonNull(insertedColumns, "insertedColumns is null");
         this.inputColumns = ImmutableList.copyOf(inputColumns);
-        this.insertedColumns = new HashSet<>(insertedColumns);
+        this.insertedColumns = ImmutableSet.copyOf(insertedColumns);
         this.table = requireNonNull(table, "table is null");
         this.outputSchema = table.schema();
         this.partitionSpec = table.spec();
@@ -402,34 +402,8 @@ public class IcebergPageSink
 
     private Block fillBlockWithDefault(Block block, IcebergColumnHandle column)
     {
-        BlockBuilder blockBuilder = column.getType().createBlockBuilder(null, block.getPositionCount());
         Object writeDefaultValue = deserializeIcebergValue(column.getType(), column.getWriteDefaultValue().get(), column.getName());
-        for (int position = 0; position < block.getPositionCount(); position++) {
-            if (!block.isNull(position)) {
-                column.getType().appendTo(block, position, blockBuilder);
-                continue;
-            }
-
-            writeDefaultValue(column, blockBuilder, writeDefaultValue);
-        }
-
-        return blockBuilder.build();
-    }
-
-    private void writeDefaultValue(IcebergColumnHandle column, BlockBuilder blockBuilder, Object value)
-    {
-        Type type = column.getType();
-        if (value == null) {
-            blockBuilder.appendNull();
-            return;
-        }
-
-        if (type instanceof DecimalType && ((DecimalType) type).isShort() && value instanceof Number) {
-            type.writeLong(blockBuilder, ((Number) value).longValue());
-            return;
-        }
-
-        writeNativeValue(type, blockBuilder, value);
+        return RunLengthEncodedBlock.create(column.getType(), writeDefaultValue, block.getPositionCount());
     }
 
     private int[] getWriterIndexes(Page page)

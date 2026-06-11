@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
@@ -113,7 +114,7 @@ public class IcebergInsertTableHandle
                 sortOrder,
                 materializedViewName,
                 fullRefreshRequired);
-        this.insertedColumns = List.copyOf(requireNonNull(insertedColumns, "insertedColumns is null"));
+        this.insertedColumns = ImmutableList.copyOf(requireNonNull(insertedColumns, "insertedColumns is null"));
     }
 
     @JsonProperty
