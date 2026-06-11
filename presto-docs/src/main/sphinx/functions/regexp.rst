@@ -5,10 +5,10 @@ Regular Expression Functions
 All of the regular expression functions use the `Java pattern`_ syntax,
 with a few notable exceptions:
 
-* When using multi-line mode (enabled via the ``(?m)`` flag),
+* When using multi-line mode (enabled with the ``(?m)`` flag),
   only ``\n`` is recognized as a line terminator. Additionally,
   the ``(?d)`` flag is not supported and must not be used.
-* Case-insensitive matching (enabled via the ``(?i)`` flag) is always
+* Case-insensitive matching (enabled with the ``(?i)`` flag) is always
   performed in a Unicode-aware manner. However, context-sensitive and
   local-sensitive matching is not supported. Additionally, the
   ``(?u)`` flag is not supported and must not be used.

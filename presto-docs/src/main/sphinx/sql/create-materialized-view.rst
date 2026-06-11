@@ -108,7 +108,7 @@ Create a materialized view with timestamp-based staleness detection::
 
 .. note::
 
-    The ``use_timestamp_based_staleness`` property enables timestamp-based staleness detection for connectors where snapshot comparison is not feasible (e.g., non-Iceberg tables). This approach tracks only the time since last refresh, not individual base table modifications. This is a connector-specific property - consult your connector documentation for availability.
+    The ``use_timestamp_based_staleness`` property enables timestamp-based staleness detection for connectors where snapshot comparison is not feasible such as in non-Iceberg tables. This approach tracks only the time since last refresh, not individual base table modifications. This is a connector-specific property - consult your connector documentation for availability.
 
 Create a materialized view with connector properties::
 

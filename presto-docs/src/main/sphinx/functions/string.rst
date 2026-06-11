@@ -55,7 +55,7 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
 .. function:: hamming_distance(string1, string2) -> bigint
 
     Returns the Hamming distance of ``string1`` and ``string2``,
-    i.e. the number of positions at which the corresponding characters are different.
+    that is, the number of positions at which the corresponding characters are different.
     Note that the two strings must have the same length.
 
 .. function:: jarowinkler_similarity(string1, string2) -> double
@@ -69,7 +69,7 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
 .. function:: levenshtein_distance(string1, string2) -> bigint
 
     Returns the Levenshtein edit distance of ``string1`` and ``string2``,
-    i.e. the minimum number of single-character edits (insertions,
+    that is, the minimum number of single-character edits (insertions,
     deletions or substitutions) needed to change ``string1`` into ``string2``.
 
 .. function:: longest_common_prefix(string1, string2) -> varchar
@@ -156,14 +156,14 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
-    interpreted literally, i.e., as full string matches.
+    interpreted literally, as full string matches.
 
 .. function:: split_to_map(string, entryDelimiter, keyValueDelimiter, function(K,V1,V2,R)) -> map<varchar, varchar>
 
     Splits ``string`` by ``entryDelimiter`` and ``keyValueDelimiter`` and returns a map.
     ``entryDelimiter`` splits ``string`` into key-value pairs. ``keyValueDelimiter`` splits
     each pair into key and value. Note that ``entryDelimiter`` and ``keyValueDelimiter`` are
-    interpreted literally, i.e., as full string matches. ``function(K,V1,V2,R)``
+    interpreted literally, as full string matches. ``function(K,V1,V2,R)``
     is invoked in cases of duplicate keys to resolve the value that should be in the map. ::
 
         SELECT(split_to_map('a:1;b:2;a:3', ';', ':', (k, v1, v2) -> v1)); -- {"a": "1", "b": "2"}
@@ -176,7 +176,7 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
     into key-value pairs. ``keyValueDelimiter`` splits each pair into key and value. The
     values for each key will be in the same order as they appeared in ``string``.
     Note that ``entryDelimiter`` and ``keyValueDelimiter`` are interpreted literally,
-    i.e., as full string matches.
+    as full string matches.
 
 .. function:: strpos(string, substring) -> bigint
 

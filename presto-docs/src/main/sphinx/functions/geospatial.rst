@@ -88,7 +88,7 @@ Constructors
     than two non-empty points in the input array, an empty LineString will be
     returned.  Throws an exception if any element in the array is ``null`` or
     empty or same as the previous one.  The returned geometry may not be
-    simple, e.g. may self-intersect or may contain duplicate vertexes depending
+    simple: for instance it may self-intersect or may contain duplicate vertexes depending
     on the input.
 
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint
@@ -264,10 +264,13 @@ Accessors
 
     It supports Points and MultiPoints as input and returns the three-dimensional centroid
     projected onto the surface of the (spherical) Earth
-    e.g. MULTIPOINT (0 -45, 0 45, 30 0, -30 0) returns Point(0, 0)
+    
+    ``MULTIPOINT (0 -45, 0 45, 30 0, -30 0)`` returns ``Point(0, 0)``
+
     Note: In the case that the three-dimensional centroid is at (0, 0, 0), the spherical centroid
     is undefined and an arbitrary point will be returned
-    e.g. MULTIPOINT (0 0, -180 0) returns Point(-90, 45)
+    
+    ``MULTIPOINT (0 0, -180 0)`` returns ``Point(-90, 45)``
 
 .. function:: ST_ConvexHull(Geometry) -> Geometry
 
@@ -303,12 +306,12 @@ Accessors
 .. function:: ST_GeometryN(Geometry, index) -> Geometry
 
     Returns the geometry element at a given index (indices start at 1).
-    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or MULTI*),
+    If the geometry is a collection of geometries such as GEOMETRYCOLLECTION or MULTI*,
     returns the geometry at a given index.
     If the given index is less than 1 or greater than the total number of elements in the collection,
     returns ``NULL``.
     Use :func:``ST_NumGeometries`` to find out the total number of elements.
-    Singular geometries (e.g., POINT, LINESTRING, POLYGON), are treated as collections of one element.
+    Singular geometries such as POINT, LINESTRING, or POLYGON are treated as collections of one element.
     Empty geometries are treated as empty collections.
 
 .. function:: ST_InteriorRingN(Geometry, index) -> Geometry
@@ -409,7 +412,7 @@ Accessors
 .. function:: ST_NumGeometries(Geometry) -> bigint
 
     Returns the number of geometries in the collection.
-    If the geometry is a collection of geometries (e.g., GEOMETRYCOLLECTION or
+    If the geometry is a collection of geometries (GEOMETRYCOLLECTION or
     MULTI*), returns the number of geometries, for single geometries returns 1,
     for empty geometries returns 0.  Note that empty geometries inside of a
     GEOMETRYCOLLECTION will count as a geometry; eg

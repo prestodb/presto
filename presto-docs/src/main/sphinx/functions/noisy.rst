@@ -103,7 +103,7 @@ Approximate Distinct Counting/Sketching
 ---------------------------------------
 
 Noisy approximate distinct counting and sketching (analogous to the deterministic :doc:`hyperloglog`)
-is supported via the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
+is supported through the Sketch-Flip-Merge (SFM) data sketch [Hehir2023]_.
 
 .. function:: noisy_approx_set_sfm(col, epsilon[, buckets[, precision]]) -> SfmSketch
 
@@ -205,7 +205,7 @@ privacy-preserving purposes, including:
   This means a ``NULL`` return value noiselessly indicates the absence of data.
 - ``GROUP BY`` clauses used in combination with noisy aggregation functions
   reveal non-noisy information: the presence or absence of a group noiselessly
-  indicates the presence or absence of data. See, e.g., [Wilkins2024]_.
+  indicates the presence or absence of data. See [Wilkins2024]_.
 - Functions relying on floating-point noise may be susceptible to inference
   attacks such as those identified in [Mironov2012]_ and [Casacuberta2022]_.
 

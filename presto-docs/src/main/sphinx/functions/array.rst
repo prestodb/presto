@@ -39,7 +39,7 @@ For plugin-loaded array functions, see :ref:`functions/plugin-loaded-functions:a
 
 .. function:: array_cum_sum(array(T)) -> array(T)
 
-    Returns the array whose elements are the cumulative sum of the input array, i.e. result[i] = input[1]+input[2]+...+input[i].
+    Returns the array whose elements are the cumulative sum of the input array: result[i] = input[1]+input[2]+...+input[i].
     If there there is null elements in the array, the cumulative sum at and after the element is null. ::
 
         SELECT array_cum_sum(ARRAY [1, 2, null, 3]) -- array[1, 3, null, null]

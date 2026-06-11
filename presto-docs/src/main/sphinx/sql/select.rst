@@ -212,7 +212,7 @@ source is not deterministic.
 
 **CUBE**
 
-The ``CUBE`` operator generates all possible grouping sets (i.e. a power set)
+The ``CUBE`` operator generates all possible grouping sets (that is, a power set)
 for a given set of columns. For example, the query::
 
     SELECT origin_state, destination_state, sum(package_weight)
@@ -476,7 +476,7 @@ argument is not supported for ``INTERSECT`` or ``EXCEPT``.
 
 
 Multiple set operations are processed left to right, unless the order is explicitly
-specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
+specified with parentheses. Additionally, ``INTERSECT`` binds more tightly
 than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
 is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
 

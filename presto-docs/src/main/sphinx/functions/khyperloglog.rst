@@ -32,7 +32,7 @@ Functions
 .. function:: cardinality(khll) -> bigint
     :noindex:
 
-    This calculates the cardinality of the MinHash sketch, i.e. ``x``'s cardinality.
+    This calculates the cardinality of the MinHash sketch, that is, ``x``'s cardinality.
 
 .. function:: intersection_cardinality(khll1, khll2) ->  bigint
 
