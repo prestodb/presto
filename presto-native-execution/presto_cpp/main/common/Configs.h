@@ -715,6 +715,16 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaterializationReclaimHighPriority{
       "exchange.materialization.reclaim-high-priority"};
 
+  /// Skip coalescing a partition's buffered RowGroups into a single contiguous
+  /// buffer before handing them to the ShuffleWriter. When enabled, the
+  /// RowGroup IOBufs are linked into a chain and passed to the writer's
+  /// chain-aware collect(), eliminating the coalesce memcpy. Only writers that
+  /// can consume a chain without copying (Cosco) benefit; others fall back to
+  /// coalescing inside the default collect(). Applies to non-sort shuffle only.
+  /// Default: false.
+  static constexpr std::string_view kExchangeMaterializationSkipCoalesceEnabled{
+      "exchange.materialization.skip-coalesce-enabled"};
+
   static constexpr std::string_view kHttpEnableAccessLog{
       "http-server.enable-access-log"};
   static constexpr std::string_view kHttpEnableStatsFilter{
@@ -1187,6 +1197,8 @@ class SystemConfig : public ConfigBase {
   bool exchangeMaterializationReclaimWaitForWriterDrainEnabled() const;
 
   bool exchangeMaterializationReclaimHighPriority() const;
+
+  bool exchangeMaterializationSkipCoalesceEnabled() const;
 
   bool enableSerializedPageChecksum() const;
 

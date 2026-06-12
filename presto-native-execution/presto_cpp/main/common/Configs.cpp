@@ -242,6 +242,7 @@ SystemConfig::SystemConfig() {
               kExchangeMaterializationOutputBufferPerPartitionMaxBytes,
               130L * 1024),
           NUM_PROP(kExchangeMaterializationReclaimDrainThresholdRatio, 0.67),
+          BOOL_PROP(kExchangeMaterializationSkipCoalesceEnabled, false),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
           STR_PROP(kRemoteFunctionServerSerde, "presto_page"),
           BOOL_PROP(kHttpEnableAccessLog, false),
@@ -816,6 +817,11 @@ bool SystemConfig::exchangeMaterializationReclaimWaitForWriterDrainEnabled()
 
 bool SystemConfig::exchangeMaterializationReclaimHighPriority() const {
   return optionalProperty<bool>(kExchangeMaterializationReclaimHighPriority)
+      .value_or(false);
+}
+
+bool SystemConfig::exchangeMaterializationSkipCoalesceEnabled() const {
+  return optionalProperty<bool>(kExchangeMaterializationSkipCoalesceEnabled)
       .value_or(false);
 }
 
