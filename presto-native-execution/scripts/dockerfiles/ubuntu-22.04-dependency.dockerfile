@@ -35,7 +35,9 @@ COPY velox/scripts /velox/scripts
 # Copy extra script called during setup.
 # from https://github.com/facebookincubator/velox/pull/14016
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
+COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
 ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
+ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
 # install rpm needed for minio install.
 RUN mkdir build && \
     (cd build && ../scripts/setup-ubuntu.sh && \
