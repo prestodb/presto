@@ -42,6 +42,14 @@ services:
     #   podman compose build centos-native-dependency
     image: presto/prestissimo-dependency:centos9
     build:
+      args:
+        # Forward ARM_BUILD_TARGET to the build so callers can override
+        # Velox's default ("local"), which uses MIDR_EL1-based CPU detection.
+        # On AWS Graviton runners that default emits -mcpu=neoverse-n2, which
+        # SIGILLs on Apple Silicon and other non-Neoverse ARMv8 CPUs. CI sets
+        # this to "common" for portable -march=armv8-a+crc+crypto flags;
+        # empty default preserves upstream behavior for local-dev builds.
+        - ARM_BUILD_TARGET=${ARM_BUILD_TARGET:-}
       context: .
       dockerfile: scripts/dockerfiles/centos-dependency.dockerfile
 
