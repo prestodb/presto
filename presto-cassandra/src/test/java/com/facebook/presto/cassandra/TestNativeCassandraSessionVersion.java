@@ -55,7 +55,8 @@ public class TestNativeCassandraSessionVersion
                 listJsonCodec(ExtraColumnMetadata.class),
                 new ReopeningSession(supplier),
                 new Duration(1, MINUTES),
-                false);
+                false,
+                8192);
 
         assertEquals(cassandraSession.getCassandraVersion(), "3.11.10");
         // Repeated calls must not re-resolve and must never fall back to a CQL query.

@@ -37,7 +37,7 @@ public class TestCassandraClientConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
-                .setConsistencyLevel(DefaultConsistencyLevel.ONE)
+                .setConsistencyLevel(DefaultConsistencyLevel.LOCAL_ONE)
                 .setContactPoints("")
                 .setNativeProtocolPort(9042)
                 .setPartitionSizeForBatchSelect(100)
@@ -66,7 +66,8 @@ public class TestCassandraClientConfig
                 .setTlsEnabled(false)
                 .setCaseSensitiveNameMatchingEnabled(false)
                 .setProtocolVersion(null)
-                .setSecureConnectBundle(null));
+                .setSecureConnectBundle(null)
+                .setVectorMaxDimensions(8192));
     }
 
     @Test
@@ -104,6 +105,7 @@ public class TestCassandraClientConfig
                 .put("cassandra.cloud.secure-connect-bundle", "/tmp/secure-connect-bundle.zip")
                 .put("case-sensitive-name-matching", "true")
                 .put("cassandra.protocol-version", "V4")
+                .put("cassandra.vector.max-dimensions", "1024")
                 .build();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -137,7 +139,8 @@ public class TestCassandraClientConfig
                 .setTruststorePassword("truststore-password")
                 .setCaseSensitiveNameMatchingEnabled(true)
                 .setProtocolVersion("V4")
-                .setSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"));
+                .setSecureConnectBundle(new File("/tmp/secure-connect-bundle.zip"))
+                .setVectorMaxDimensions(1024);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

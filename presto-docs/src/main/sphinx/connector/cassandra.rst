@@ -68,7 +68,7 @@ Property Name                                      Description
                                                    to be used for both read and write operations.  More information
                                                    about consistency levels can be found in the
                                                    `Cassandra consistency`_ documentation. This property defaults to
-                                                   a consistency level of ``ONE``. Possible values include ``ALL``,
+                                                   a consistency level of ``LOCAL_ONE``. Possible values include ``ALL``,
                                                    ``EACH_QUORUM``, ``QUORUM``, ``LOCAL_QUORUM``, ``ONE``, ``TWO``,
                                                    ``THREE``, ``LOCAL_ONE``, ``ANY``, ``SERIAL``, ``LOCAL_SERIAL``.
 
@@ -174,6 +174,10 @@ Property Name                                                 Description
 ``cassandra.tls.keystore-password``                           Password for the key store.
 
 ``cassandra.tls.truststore-password``                         Password for the trust store.
+
+``cassandra.vector.max-dimensions``                           Maximum number of dimensions allowed for a Cassandra ``vector``
+                                                              column (defaults to ``8192``, Cassandra's maximum). A column whose
+                                                              declared dimension exceeds this value is rejected with a clear error.
 ============================================================= ======================================================================
 
 Querying Cassandra or Cassandra-compatible service Tables
@@ -242,10 +246,18 @@ VARINT            VARCHAR
 SMALLINT          INTEGER
 TINYINT           INTEGER
 DATE              DATE
+VECTOR<?>         ARRAY
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
 mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
+
+A Cassandra ``vector<subtype, n>`` is mapped to a Presto ``ARRAY`` of the corresponding
+element type. The common ``vector<float, n>`` maps to ``ARRAY(REAL)``, so the column can be
+used directly with Presto's vector similarity functions (``cosine_similarity``, ``dot_product``,
+``l2_squared``) and :doc:`/sql/create-vector-index`. Vector element types other than the
+numeric types (``FLOAT``, ``DOUBLE``, ``INT``, ``BIGINT``, ``SMALLINT``, ``TINYINT``) are not
+supported. The maximum allowed dimension is controlled by ``cassandra.vector.max-dimensions``.
 
 Data types not listed in the table above, such as UDT, are not supported.
 

@@ -40,7 +40,7 @@ public class TestCassandraClientModule
 
         assertEquals(profile.getDuration(DefaultDriverOption.REQUEST_TIMEOUT).toMillis(), 12_000L);
         assertEquals(profile.getDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT).toMillis(), 5_000L);
-        assertEquals(profile.getString(DefaultDriverOption.REQUEST_CONSISTENCY), "ONE");
+        assertEquals(profile.getString(DefaultDriverOption.REQUEST_CONSISTENCY), "LOCAL_ONE");
         assertEquals(profile.getInt(DefaultDriverOption.REQUEST_PAGE_SIZE), 5_000);
         assertEquals(profile.getString(DefaultDriverOption.RECONNECTION_POLICY_CLASS), "ExponentialReconnectionPolicy");
         assertEquals(profile.getDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY).toMillis(), 500L);

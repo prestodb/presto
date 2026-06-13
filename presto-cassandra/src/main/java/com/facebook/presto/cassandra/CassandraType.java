@@ -15,12 +15,16 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.ProtocolVersion;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.data.CqlVector;
 import com.datastax.oss.driver.api.core.data.TupleValue;
 import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.DataTypes;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
@@ -85,7 +89,10 @@ public enum CassandraType
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
     SET(createUnboundedVarcharType(), null),
-    TUPLE(createUnboundedVarcharType(), null);
+    TUPLE(createUnboundedVarcharType(), null),
+    // Placeholder native type; the precise element type is derived from the type argument
+    // via getPrestoType(). A vector<float, N> column reports ARRAY(REAL).
+    VECTOR(new ArrayType(RealType.REAL), null);
 
     private static class Constants
     {
@@ -115,12 +122,28 @@ public enum CassandraType
         switch (this) {
             case LIST:
             case SET:
+            case VECTOR:
                 return 1;
             case MAP:
                 return 2;
             default:
                 return 0;
         }
+    }
+
+    /**
+     * Returns the Presto type for a column, resolving parametric types from their type arguments.
+     * A Cassandra {@code vector<elem, N>} maps to {@code ARRAY(<elem>)} (e.g. {@code vector<float, N>}
+     * to {@code ARRAY(REAL)}) so the column plugs into Presto's vector index and similarity functions.
+     * All other types use their fixed native type.
+     */
+    public static Type getPrestoType(CassandraType cassandraType, List<CassandraType> typeArguments)
+    {
+        if (cassandraType == VECTOR) {
+            checkTypeArguments(VECTOR, 1, typeArguments);
+            return new ArrayType(typeArguments.get(0).getNativeType());
+        }
+        return cassandraType.getNativeType();
     }
 
     /**
@@ -200,6 +223,10 @@ public enum CassandraType
         else if (dataType instanceof com.datastax.oss.driver.api.core.type.TupleType) {
             return TUPLE;
         }
+        // VectorType extends CustomType, so this branch must precede the CustomType check below.
+        else if (dataType instanceof com.datastax.oss.driver.api.core.type.VectorType) {
+            return VECTOR;
+        }
         else if (dataType instanceof com.datastax.oss.driver.api.core.type.CustomType) {
             return CUSTOM;
         }
@@ -269,6 +296,11 @@ public enum CassandraType
                 case TUPLE:
                     TupleValue tupleValue = row.getTupleValue(position);
                     return NullableValue.of(nativeType, utf8Slice(tupleValue.toString()));
+                case VECTOR:
+                    checkTypeArguments(cassandraType, 1, typeArguments);
+                    CassandraType elementType = typeArguments.get(0);
+                    ArrayType arrayType = new ArrayType(elementType.getNativeType());
+                    return NullableValue.of(arrayType, buildVectorBlock(row, position, arrayType, elementType));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -334,6 +366,42 @@ public enum CassandraType
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    private static Block buildVectorBlock(Row row, int position, ArrayType arrayType, CassandraType elementType)
+    {
+        CqlVector<?> vector = row.getVector(position, elementType.javaType);
+        Type elementNativeType = arrayType.getElementType();
+        BlockBuilder builder = elementNativeType.createBlockBuilder(null, vector.size());
+        for (Object element : vector) {
+            writeVectorElement(elementNativeType, elementType, element, builder);
+        }
+        return builder.build();
+    }
+
+    private static void writeVectorElement(Type elementNativeType, CassandraType elementType, Object element, BlockBuilder builder)
+    {
+        if (element == null) {
+            builder.appendNull();
+            return;
+        }
+        switch (elementType) {
+            case FLOAT:
+                // REAL is stored as the raw int bits of the float, widened to long (see getColumnValue FLOAT).
+                elementNativeType.writeLong(builder, floatToRawIntBits((Float) element));
+                break;
+            case DOUBLE:
+                elementNativeType.writeDouble(builder, (Double) element);
+                break;
+            case INT:
+            case SMALLINT:
+            case TINYINT:
+            case BIGINT:
+                elementNativeType.writeLong(builder, ((Number) element).longValue());
+                break;
+            default:
+                throw new IllegalStateException("Unsupported Cassandra vector element type: " + elementType);
+        }
     }
 
     private static void checkTypeArguments(CassandraType type, int expectedSize, List<CassandraType> typeArguments)

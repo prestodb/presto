@@ -96,7 +96,8 @@ public class CassandraClientModule
                 extraColumnMetadataCodec,
                 reopeningSession,
                 config.getNoHostAvailableRetryTimeout(),
-                config.isCaseSensitiveNameMatchingEnabled());
+                config.isCaseSensitiveNameMatchingEnabled(),
+                config.getVectorMaxDimensions());
     }
 
     static void configureEndpoint(CqlSessionBuilder sessionBuilder, CassandraClientConfig config, Logger log)

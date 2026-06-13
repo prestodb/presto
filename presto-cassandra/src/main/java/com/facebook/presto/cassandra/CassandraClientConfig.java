@@ -50,7 +50,7 @@ public class CassandraClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private DefaultConsistencyLevel consistencyLevel = DefaultConsistencyLevel.ONE;
+    private DefaultConsistencyLevel consistencyLevel = DefaultConsistencyLevel.LOCAL_ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
     private int nativeProtocolPort = 9042;
@@ -81,6 +81,7 @@ public class CassandraClientConfig
     private File secureConnectBundle;
     private boolean caseSensitiveNameMatchingEnabled;
     private String protocolVersion;
+    private int vectorMaxDimensions = 8192;
 
     @NotNull
     @Size(min = 1)
@@ -483,6 +484,20 @@ public class CassandraClientConfig
     public CassandraClientConfig setCaseSensitiveNameMatchingEnabled(boolean caseSensitiveNameMatchingEnabled)
     {
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getVectorMaxDimensions()
+    {
+        return vectorMaxDimensions;
+    }
+
+    @Config("cassandra.vector.max-dimensions")
+    @ConfigDescription("Maximum number of dimensions allowed for a Cassandra vector column (defaults to 8192, Cassandra's maximum)")
+    public CassandraClientConfig setVectorMaxDimensions(int vectorMaxDimensions)
+    {
+        this.vectorMaxDimensions = vectorMaxDimensions;
         return this;
     }
 }

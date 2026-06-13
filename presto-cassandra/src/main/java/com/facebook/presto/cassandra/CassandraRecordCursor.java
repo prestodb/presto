@@ -133,13 +133,18 @@ public class CassandraRecordCursor
     @Override
     public Object getObject(int field)
     {
+        if (getCassandraType(field) == CassandraType.VECTOR) {
+            // Vector columns are read as ARRAY values; the engine materializes them through getObject.
+            return CassandraType.getColumnValue(currentRow, field, fullCassandraTypes.get(field)).getValue();
+        }
         throw new UnsupportedOperationException();
     }
 
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getNativeType();
+        FullCassandraType fullCassandraType = fullCassandraTypes.get(i);
+        return CassandraType.getPrestoType(fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
     @Override

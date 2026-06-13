@@ -63,7 +63,8 @@ public class TestNativeCassandraSessionReopen
                 listJsonCodec(ExtraColumnMetadata.class),
                 reopeningSession,
                 new Duration(1, MINUTES),
-                false);
+                false,
+                8192);
 
         // First operation creates the initial session.
         cassandraSession.execute("SELECT 1");

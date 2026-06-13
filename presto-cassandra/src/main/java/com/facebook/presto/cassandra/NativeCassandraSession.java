@@ -35,6 +35,7 @@ import com.datastax.oss.driver.api.core.type.DataType;
 import com.datastax.oss.driver.api.core.type.ListType;
 import com.datastax.oss.driver.api.core.type.MapType;
 import com.datastax.oss.driver.api.core.type.SetType;
+import com.datastax.oss.driver.api.core.type.VectorType;
 import com.datastax.oss.driver.api.querybuilder.select.Select;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
@@ -126,6 +127,7 @@ public class NativeCassandraSession
     private final Supplier<CqlSession> session;
     private final Duration noHostAvailableRetryTimeout;
     private static boolean caseSensitiveNameMatchingEnabled;
+    private final int vectorMaxDimensions;
 
     // The Cassandra release version is immutable for the lifetime of a session, so resolve it once and
     // cache it. Previously getCassandraVersion() ran a `SELECT release_version FROM system.local` query
@@ -137,7 +139,8 @@ public class NativeCassandraSession
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             ReopeningSession reopeningSession,
             Duration noHostAvailableRetryTimeout,
-            boolean caseSensitiveNameMatchingEnabled)
+            boolean caseSensitiveNameMatchingEnabled,
+            int vectorMaxDimensions)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
@@ -149,6 +152,7 @@ public class NativeCassandraSession
         // safe to resolve the live session on every call.
         this.session = reopeningSession::getSession;
         this.caseSensitiveNameMatchingEnabled = caseSensitiveNameMatchingEnabled;
+        this.vectorMaxDimensions = vectorMaxDimensions;
     }
 
     @Override
@@ -459,6 +463,17 @@ public class NativeCassandraSession
                 typeArguments = ImmutableList.of(
                         CassandraType.getCassandraType(mapType.getKeyType()),
                         CassandraType.getCassandraType(mapType.getValueType()));
+            }
+            else if (dataType instanceof VectorType) {
+                VectorType vectorType = (VectorType) dataType;
+                int dimensions = vectorType.getDimensions();
+                if (dimensions > vectorMaxDimensions) {
+                    throw new PrestoException(
+                            NOT_SUPPORTED,
+                            format("Cassandra vector column '%s' has %s dimensions, which exceeds the configured maximum of %s (cassandra.vector.max-dimensions)",
+                                    columnMeta.getName(), dimensions, vectorMaxDimensions));
+                }
+                typeArguments = ImmutableList.of(CassandraType.getCassandraType(vectorType.getElementType()));
             }
         }
         boolean indexed = false;

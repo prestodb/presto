@@ -95,7 +95,8 @@ public class CassandraServer
                 JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
                 reopeningSession,
                 new Duration(1, MINUTES),
-                false);
+                false,
+                8192);
         this.metadata = reopeningSession.getSession().getMetadata();
         this.reopeningSession = reopeningSession;
 
