@@ -800,8 +800,6 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.projectnessie.nessie:nessie-model</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.apache.httpcomponents.core5:httpcore5</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-s3</ignoredNonTestScopedDependency>
-                        <ignoredNonTestScopedDependency>com.amazonaws:aws-java-sdk-core</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <!--                    <ignoredUsedUndeclaredDependencies>-->
                     <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->
