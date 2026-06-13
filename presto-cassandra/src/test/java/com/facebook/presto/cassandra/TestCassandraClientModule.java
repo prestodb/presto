@@ -47,7 +47,10 @@ public class TestCassandraClientModule
         assertEquals(profile.getDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY).toMillis(), 10_000L);
         assertEquals(profile.getString(DefaultDriverOption.RETRY_POLICY_CLASS), "DefaultRetryPolicy");
         assertEquals(profile.getString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS), "DefaultLoadBalancingPolicy");
-        assertFalse(profile.isDefined(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS));
+        // Speculative execution is left at the driver's default policy (the connector only overrides it when limit > 1).
+        // The driver's bundled reference.conf always defines the policy class, so assert the default value rather than absence.
+        assertEquals(profile.getString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS), "NoSpeculativeExecutionPolicy");
+        assertFalse(profile.isDefined(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX));
         assertFalse(profile.isDefined(DefaultDriverOption.SOCKET_LINGER_INTERVAL));
         assertFalse(profile.isDefined(DefaultDriverOption.PROTOCOL_VERSION));
     }
@@ -107,7 +110,9 @@ public class TestCassandraClientModule
                 .setSpeculativeExecutionLimit(1);
         DriverExecutionProfile profile = buildProfile(config);
 
-        assertFalse(profile.isDefined(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS));
+        // A limit of 1 means no speculative execution, so the driver's default policy must remain in place.
+        assertEquals(profile.getString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS), "NoSpeculativeExecutionPolicy");
+        assertFalse(profile.isDefined(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX));
     }
 
     @Test
@@ -146,8 +151,10 @@ public class TestCassandraClientModule
                 .setDcAwareUsedHostsPerRemoteDc(0);
         DriverExecutionProfile profile = buildProfile(config);
 
-        assertFalse(profile.isDefined(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC));
-        assertFalse(profile.isDefined(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS));
+        // With zero remote hosts the connector writes no DC-failover options, so the driver's
+        // reference.conf defaults (0 nodes, failover disabled) must remain in effect.
+        assertEquals(profile.getInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC), 0);
+        assertFalse(profile.getBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS));
     }
 
     @Test
