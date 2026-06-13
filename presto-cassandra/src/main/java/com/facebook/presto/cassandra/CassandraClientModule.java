@@ -31,6 +31,7 @@ import jakarta.inject.Singleton;
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -81,155 +82,12 @@ public class CassandraClientModule
 
         ReopeningSession reopeningSession = new ReopeningSession(() -> {
             CqlSessionBuilder sessionBuilder = CqlSession.builder();
-
-            // Secure Connect Bundle (Astra) or Standard Configuration
-            if (config.getSecureConnectBundle().isPresent()) {
-                File bundlePath = config.getSecureConnectBundle().get();
-                if (!bundlePath.exists()) {
-                    throw new PrestoException(CASSANDRA_ERROR,
-                            "Secure connect bundle not found: " + bundlePath);
-                }
-
-                log.info("Using secure connect bundle for Astra: %s", bundlePath);
-                sessionBuilder.withCloudSecureConnectBundle(bundlePath.toPath());
-
-                // Warn if contact points are specified (they will be ignored)
-                if (!config.getContactPoints().isEmpty()) {
-                    log.warn("Contact points ignored when using secure connect bundle: %s",
-                            String.join(", ", config.getContactPoints()));
-                }
-            }
-            else {
-                // Standard Cassandra Configuration
-                List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
-                checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
-
-                List<InetSocketAddress> contactPointAddresses = contactPoints.stream()
-                        .map(host -> new InetSocketAddress(host, config.getNativeProtocolPort()))
-                        .collect(Collectors.toList());
-
-                sessionBuilder.addContactPoints(contactPointAddresses);
-
-                // Local datacenter is REQUIRED in driver 4.x
-                String localDc = config.getDcAwareLocalDC();
-                if (localDc == null || localDc.trim().isEmpty()) {
-                    throw new PrestoException(CASSANDRA_ERROR,
-                            "Local datacenter must be specified using 'cassandra.load-policy.dc-aware.local-dc' property");
-                }
-                sessionBuilder.withLocalDatacenter(localDc);
-            }
-
-            // Authentication (works for both Astra and standard Cassandra)
-            if (config.getUsername() != null && config.getPassword() != null) {
-                sessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
-            }
-
-            // Build driver configuration
-            ProgrammaticDriverConfigLoaderBuilder configLoaderBuilder = DriverConfigLoader.programmaticBuilder();
-
-            // Request timeout
-            configLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT,
-                    Duration.ofMillis(config.getClientReadTimeout().toMillis()));
-
-            // Connection timeout
-            configLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT,
-                    Duration.ofMillis(config.getClientConnectTimeout().toMillis()));
-
-            // Consistency level
-            configLoaderBuilder.withString(DefaultDriverOption.REQUEST_CONSISTENCY,
-                    config.getConsistencyLevel().name());
-
-            // Page size
-            configLoaderBuilder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE,
-                    config.getFetchSize());
-
-            // Protocol version: normally left unset. Driver 4.x negotiates it automatically, including
-            // across mixed-version clusters (it queries system.peers and uses the minimum version the
-            // nodes report), so forcing a version is generally unnecessary. Applied only as an escape
-            // hatch when explicitly configured.
-            config.getProtocolVersion().ifPresent(protocolVersion ->
-                    configLoaderBuilder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion));
-
-            // Reconnection policy
-            configLoaderBuilder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS,
-                    "ExponentialReconnectionPolicy");
-            configLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY,
-                    Duration.ofMillis(500));
-            configLoaderBuilder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY,
-                    Duration.ofMillis(10000));
-
-            // Retry policy. Configured by class name (the driver resolves built-in short names
-            // relative to its internal retry package), so we don't import driver-internal types.
-            configLoaderBuilder.withString(DefaultDriverOption.RETRY_POLICY_CLASS,
-                    config.getRetryPolicy().getPolicyClassName());
-
-            // Load balancing policy. "DefaultLoadBalancingPolicy" is the driver's built-in short name;
-            // referencing it by name keeps us off the driver's internal (non-API) classes.
-            configLoaderBuilder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS,
-                    "DefaultLoadBalancingPolicy");
-
-            // Token awareness
-            // In driver 4.x, token awareness is configured differently
-            // The DefaultLoadBalancingPolicy already includes token awareness by default
-            // We can configure it through the policy class if needed
-            if (config.isUseTokenAware()) {
-                // Token awareness is enabled by default in driver 4.x with DefaultLoadBalancingPolicy
-                log.info("Token-aware load balancing is enabled (default in driver 4.x)");
-            }
-
-            // DC-aware settings
-            if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
-                configLoaderBuilder.withInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC,
-                        config.getDcAwareUsedHostsPerRemoteDc());
-                if (config.isDcAwareAllowRemoteDCsForLocal()) {
-                    configLoaderBuilder.withBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS,
-                            true);
-                }
-            }
-
-            // Speculative execution
-            if (config.getSpeculativeExecutionLimit() > 1) {
-                configLoaderBuilder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS,
-                        "ConstantSpeculativeExecutionPolicy");
-                configLoaderBuilder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX,
-                        config.getSpeculativeExecutionLimit());
-                configLoaderBuilder.withDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY,
-                        Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
-            }
-
-            // SO_LINGER
-            if (config.getClientSoLinger() != null) {
-                configLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL,
-                        config.getClientSoLinger());
-            }
-
-            // Schema metadata configuration - include ALL keyspaces (including system)
-            // By default, driver 4.x filters out system keyspaces, but we need them for size estimates
-            // According to driver 4.x docs, an empty list means include ALL keyspaces
-            configLoaderBuilder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES,
-                    java.util.Collections.emptyList());
-
-            DriverConfigLoader configLoader = configLoaderBuilder.build();
-            sessionBuilder.withConfigLoader(configLoader);
-
-            // Register custom codec for INT <-> LocalDate conversion
-            // This is needed because we store DATE values as INT to avoid the "date" reserved keyword
+            configureEndpoint(sessionBuilder, config, log);
+            configureAuth(sessionBuilder, config);
+            sessionBuilder.withConfigLoader(buildDriverConfig(config));
             sessionBuilder.addTypeCodecs(new IntToLocalDateCodec());
-            // Driver 4.x removed built-in support for java.sql.Timestamp, so we register a custom codec
             sessionBuilder.addTypeCodecs(TimestampCodec.INSTANCE);
-
-            // TLS (only for non-Astra, as Astra bundle includes SSL config)
-            if (!config.getSecureConnectBundle().isPresent() && config.isTlsEnabled()) {
-                SslContextProvider sslContextProvider = new SslContextProvider(
-                        config.getKeystorePath(),
-                        config.getKeystorePassword(),
-                        config.getTruststorePath(),
-                        config.getTruststorePassword());
-
-                sslContextProvider.buildSslContext().ifPresent(sslContext ->
-                        sessionBuilder.withSslContext(sslContext));
-            }
-
+            configureTls(sessionBuilder, config);
             return sessionBuilder.build();
         });
 
@@ -239,5 +97,116 @@ public class CassandraClientModule
                 reopeningSession,
                 config.getNoHostAvailableRetryTimeout(),
                 config.isCaseSensitiveNameMatchingEnabled());
+    }
+
+    static void configureEndpoint(CqlSessionBuilder sessionBuilder, CassandraClientConfig config, Logger log)
+    {
+        if (config.getSecureConnectBundle().isPresent()) {
+            File bundlePath = config.getSecureConnectBundle().get();
+            if (!bundlePath.exists()) {
+                throw new PrestoException(CASSANDRA_ERROR,
+                        "Secure connect bundle not found: " + bundlePath);
+            }
+            log.info("Using secure connect bundle for Astra: %s", bundlePath);
+            sessionBuilder.withCloudSecureConnectBundle(bundlePath.toPath());
+            if (!config.getContactPoints().isEmpty()) {
+                log.warn("Contact points ignored when using secure connect bundle: %s",
+                        String.join(", ", config.getContactPoints()));
+            }
+        }
+        else {
+            List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
+            checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
+            List<InetSocketAddress> contactPointAddresses = contactPoints.stream()
+                    .map(host -> new InetSocketAddress(host, config.getNativeProtocolPort()))
+                    .collect(Collectors.toList());
+            sessionBuilder.addContactPoints(contactPointAddresses);
+            String localDc = config.getDcAwareLocalDC();
+            if (localDc == null || localDc.trim().isEmpty()) {
+                throw new PrestoException(CASSANDRA_ERROR,
+                        "Local datacenter must be specified using 'cassandra.load-policy.dc-aware.local-dc' property");
+            }
+            sessionBuilder.withLocalDatacenter(localDc);
+        }
+    }
+
+    private static void configureAuth(CqlSessionBuilder sessionBuilder, CassandraClientConfig config)
+    {
+        if (config.getUsername() != null && config.getPassword() != null) {
+            sessionBuilder.withAuthCredentials(config.getUsername(), config.getPassword());
+        }
+    }
+
+    static DriverConfigLoader buildDriverConfig(CassandraClientConfig config)
+    {
+        ProgrammaticDriverConfigLoaderBuilder builder = DriverConfigLoader.programmaticBuilder();
+
+        builder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT,
+                Duration.ofMillis(config.getClientReadTimeout().toMillis()));
+        builder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT,
+                Duration.ofMillis(config.getClientConnectTimeout().toMillis()));
+        builder.withString(DefaultDriverOption.REQUEST_CONSISTENCY,
+                config.getConsistencyLevel().name());
+        builder.withInt(DefaultDriverOption.REQUEST_PAGE_SIZE,
+                config.getFetchSize());
+        config.getProtocolVersion().ifPresent(protocolVersion ->
+                builder.withString(DefaultDriverOption.PROTOCOL_VERSION, protocolVersion));
+        builder.withString(DefaultDriverOption.RECONNECTION_POLICY_CLASS,
+                "ExponentialReconnectionPolicy");
+        builder.withDuration(DefaultDriverOption.RECONNECTION_BASE_DELAY,
+                Duration.ofMillis(500));
+        builder.withDuration(DefaultDriverOption.RECONNECTION_MAX_DELAY,
+                Duration.ofMillis(10000));
+        builder.withString(DefaultDriverOption.RETRY_POLICY_CLASS,
+                config.getRetryPolicy().getPolicyClassName());
+        builder.withString(DefaultDriverOption.LOAD_BALANCING_POLICY_CLASS,
+                "DefaultLoadBalancingPolicy");
+        configureDcFailover(builder, config);
+        configureSpeculativeExecution(builder, config);
+        if (config.getClientSoLinger() != null) {
+            builder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL,
+                    config.getClientSoLinger());
+        }
+        builder.withStringList(DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES,
+                Collections.emptyList());
+
+        return builder.build();
+    }
+
+    private static void configureDcFailover(ProgrammaticDriverConfigLoaderBuilder builder, CassandraClientConfig config)
+    {
+        if (config.getDcAwareUsedHostsPerRemoteDc() > 0) {
+            builder.withInt(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_MAX_NODES_PER_REMOTE_DC,
+                    config.getDcAwareUsedHostsPerRemoteDc());
+            if (config.isDcAwareAllowRemoteDCsForLocal()) {
+                builder.withBoolean(DefaultDriverOption.LOAD_BALANCING_DC_FAILOVER_ALLOW_FOR_LOCAL_CONSISTENCY_LEVELS,
+                        true);
+            }
+        }
+    }
+
+    private static void configureSpeculativeExecution(ProgrammaticDriverConfigLoaderBuilder builder, CassandraClientConfig config)
+    {
+        if (config.getSpeculativeExecutionLimit() > 1) {
+            builder.withString(DefaultDriverOption.SPECULATIVE_EXECUTION_POLICY_CLASS,
+                    "ConstantSpeculativeExecutionPolicy");
+            builder.withInt(DefaultDriverOption.SPECULATIVE_EXECUTION_MAX,
+                    config.getSpeculativeExecutionLimit());
+            builder.withDuration(DefaultDriverOption.SPECULATIVE_EXECUTION_DELAY,
+                    Duration.ofMillis(config.getSpeculativeExecutionDelay().toMillis()));
+        }
+    }
+
+    private static void configureTls(CqlSessionBuilder sessionBuilder, CassandraClientConfig config)
+    {
+        if (!config.getSecureConnectBundle().isPresent() && config.isTlsEnabled()) {
+            SslContextProvider sslContextProvider = new SslContextProvider(
+                    config.getKeystorePath(),
+                    config.getKeystorePassword(),
+                    config.getTruststorePath(),
+                    config.getTruststorePassword());
+            sslContextProvider.buildSslContext().ifPresent(sslContext ->
+                    sessionBuilder.withSslContext(sslContext));
+        }
     }
 }
