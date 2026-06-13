@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.oss.driver.api.core.Version;
 import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -33,6 +34,9 @@ import static java.util.Objects.requireNonNull;
 
 public class CassandraClusteringPredicatesExtractor
 {
+    // IN restrictions on a non-last clustering column are only supported from Cassandra 2.2 onwards.
+    private static final Version IN_PREDICATE_MIN_VERSION = Version.parse("2.2.0");
+
     private final List<CassandraColumnHandle> clusteringColumns;
     private final ClusteringPushDownResult clusteringPushDownResult;
     private final TupleDomain<ColumnHandle> predicates;
@@ -140,8 +144,8 @@ public class CassandraClusteringPredicatesExtractor
             if (predicateString == null) {
                 break;
             }
-            // IN restriction only on last clustering column for Cassandra version = 2.1
-            if (predicateString.contains(" IN (") && compareVersions(cassandraVersion, "2.2.0") < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
+            // IN restriction only on last clustering column for Cassandra versions prior to 2.2
+            if (predicateString.contains(" IN (") && Version.parse(cassandraVersion).compareTo(IN_PREDICATE_MIN_VERSION) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
                 break;
             }
             clusteringColumnSql.add(predicateString);
@@ -155,25 +159,6 @@ public class CassandraClusteringPredicatesExtractor
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
         return new ClusteringPushDownResult(domainsBuilder.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
-    }
-    /**
-     * Simple version comparison for Cassandra version strings (e.g., "2.1.0", "2.2.0")
-     * Returns negative if v1 < v2, zero if v1 == v2, positive if v1 > v2
-     */
-    private static int compareVersions(String v1, String v2)
-    {
-        String[] parts1 = v1.split("\\.");
-        String[] parts2 = v2.split("\\.");
-        int length = Math.max(parts1.length, parts2.length);
-
-        for (int i = 0; i < length; i++) {
-            int num1 = i < parts1.length ? Integer.parseInt(parts1[i]) : 0;
-            int num2 = i < parts2.length ? Integer.parseInt(parts2[i]) : 0;
-            if (num1 != num2) {
-                return num1 - num2;
-            }
-        }
-        return 0;
     }
 
     private static class ClusteringPushDownResult
