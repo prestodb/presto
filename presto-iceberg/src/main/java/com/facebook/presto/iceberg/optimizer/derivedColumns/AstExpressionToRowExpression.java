@@ -69,6 +69,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 
 // This class is work in progress, a lot of expression types are yet to be supported.
+// Need to evaluate if we can just use
 public class AstExpressionToRowExpression
         extends AstVisitor<RowExpression, Map<String, ColumnMetadata>>
 {
@@ -165,13 +166,13 @@ public class AstExpressionToRowExpression
             OperatorType operatorType = COMPARISON_OPERATORS.get(node.getOperator().getValue());
             return operatorMapper.apply(operatorType);
         }
-        return null;
+        throw new UnsupportedOperationException(format("Unknown comparison type found : %s", node.getOperator().getValue()));
     }
 
     @Override
     protected RowExpression visitExpression(Expression node, Map<String, ColumnMetadata> context)
     {
-        throw new UnsupportedOperationException(format("Unknown expression found : %s", node.toString()));
+        throw new UnsupportedOperationException(format("Unsupported expression found : %s", node.toString()));
     }
 
     @Override
@@ -202,9 +203,7 @@ public class AstExpressionToRowExpression
     @Override
     protected RowExpression visitStringLiteral(StringLiteral node, Map<String, ColumnMetadata> context)
     {
-//        BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, node.getValue().getBytes().length);
-//        VarcharType.VARCHAR.writeString(blockBuilder, node.getValue()); // TODO: should directly write the bytes - if encoding is not known.
-//        Slice slice = blockBuilder.getSlice(0, 0, blockBuilder.getSliceLength(0));
+        // We currently only support utf8 string literals
         return new ConstantExpression(Optional.empty(), Slices.utf8Slice(node.getValue()), VarcharType.VARCHAR);
     }
 
@@ -235,7 +234,7 @@ public class AstExpressionToRowExpression
         if (context != null && context.containsKey(node.getValue())) {
             return new VariableReferenceExpression(Optional.empty(), node.getValue(), context.get(node.getValue()).getType());
         }
-        throw new IllegalArgumentException(format("Column name identifier %s is not found in table.", node.getValue()));
+        throw new IllegalArgumentException(format("identifier %s is not found in table.", node.getValue()));
     }
 
     @Override
@@ -277,10 +276,6 @@ public class AstExpressionToRowExpression
         if (qualifiedName.getParts().size() == 1) {
             return functionResolution.lookupBuiltInFunction(qualifiedName.toString(), argumentTypes.stream().map(typeManager::getType).toList());
         }
-        return functionResolution.lookupFunction(
-                qualifiedName.getParts().get(0),
-                qualifiedName.getParts().get(1),
-                qualifiedName.getParts().get(2),
-                argumentTypes.stream().map(typeManager::getType).toList());
+        throw new UnsupportedOperationException(format("Only builtin functions are supported : %s", qualifiedName));
     }
 }

@@ -224,8 +224,8 @@ public class TestIcebergDerivedColumnOptimizer
             assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), concat('A', lower('B'))), (120, 'C', 12.3, lower('C'), concat('A', lower('C')))," +
                     " (121, 'A', 12.1, lower('A'), concat('A', lower('A')))", 3);
             @Language("SQL") String query = "SELECT a, b FROM (SELECT c1 as a, lower(c2) AS b FROM test_table1 WHERE lower(c2) = 'b')";
-            // assertQuery(query, "VALUES (123, 'b')");
-//            assertPlanFilterPredicate("(c2_derived) = (VARCHAR'b')", query);
+            assertQuery(query, "VALUES (123, 'b')");
+            assertPlanFilterPredicate("(c2_derived) = (VARCHAR'b')", query);
             // join with non co-related subqueries using CTE.
             @Language("SQL") String query2 = "WITH\n" +
                     "  t1 AS (SELECT c1 as a, lower(c2) AS b FROM test_table1 WHERE lower(c2) = 'b'),\n" +
@@ -233,19 +233,23 @@ public class TestIcebergDerivedColumnOptimizer
                     "SELECT t1.*, t2.*\n" +
                     "FROM t1\n" +
                     "JOIN t2 ON t1.a = t2.a";
-            // assertQuery(query2, "VALUES (123, 'b', 123, 'b')");
-//            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived2) = (VARCHAR'Ab')"),
-//                    List.of(List.of("c2_derived", "c1", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1), BIGINT'0'))"),
-//                            List.of("c2_derived_46", "c1_8", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_8), BIGINT'0'))")), query2);
-            @Language("SQL") String query3 =
-                    "SELECT concat('A', lower(a)) FROM ( SELECT t1.c1, t2.c1, t1.c2 as a FROM test_table1 t1, test_table2 t2 WHERE (lower(t1.c2) = 'b'))  ms, test2 WHERE (a = c2)";
-            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS c1 * 10.5 PERSISTENT)");
-            assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
-                    " (121, 'A', 121 * 10.5)", 3);
-            assertQuery(query3, "VALUES ('Ab'), ('Ab'), ('Ab')");
+            assertQuery(query2, "VALUES (123, 'b', 123, 'b')");
             assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived2) = (VARCHAR'Ab')"),
                     List.of(List.of("c2_derived", "c1", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1), BIGINT'0'))"),
-                            List.of("c2_derived_46", "c1_8", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_8), BIGINT'0'))")), query3);
+                            List.of("c2_derived_46", "c1_8", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_8), BIGINT'0'))")), query2);
+            @Language("SQL") String query3 =
+                    "SELECT lower(a) FROM ( SELECT t1.c1, t2.c1, t1.c2 as a FROM test_table1 t1, test_table2 t2 WHERE (lower(t1.c2) = 'b'))  ms, test2 WHERE (a = c2)";
+            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5), (121, 'A', 121 * 10.5)", 3);
+            // TODO: fix: This test is flaky, a different plan is generated each time we run this query and as a result even the output is different each time.
+            // This happens due to fact the projection `lower(a)` has two different but equivalent derived col rewrite rule.
+            // 1) The result should not have varied, that is a bug. And the generated plans are logically equivalent. Why they produce different result is unknown !
+            // 2) Somehow equi-join optimizer that comes after this - messes it up too.
+            // the generated filter expressions ends up looking like: filterPredicate = ((lower(c2)) = (VARCHAR'b')) AND ((c2_derived) = (VARCHAR'b'))
+            assertQuery(query3, "VALUES ('b'), ('b'), ('b')");
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived2) = (VARCHAR'Ab')"),
+                    List.of(List.of("c2", "c2_derived", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2), BIGINT'0'))"),
+                            List.of("c2_22", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2_22), BIGINT'0'))")), query3);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_table1");
@@ -378,6 +382,40 @@ public class TestIcebergDerivedColumnOptimizer
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS test2");
+        }
+    }
+
+    public void testQueriesWithExpressionInAggregation()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
+                    " (121, 'A', 121 * 10.5)", 3);
+            @Language("SQL") String query = "SELECT\n" +
+                    "   lower(t1.c2),\n" +
+                    "   avg(t1.c1)\n" +
+                    "FROM\n" +
+                    "   test_table1 as t1,\n" +
+                    "   test2 as t2\n" +
+                    "WHERE\n" +
+                    "   t2.c1 = t1.c1\n" +
+                    "GROUP BY t1.c2\n" +
+                    "ORDER BY lower(t1.c2) ASC, avg(t1.c1) ASC\n" +
+                    "LIMIT 2\n";
+            assertQuery(query, "VALUES ('a', 121.0), ('b', 123.0)");
+            // Asserting all 4 projections.
+            assertPlanFilterAndProject(ImmutableList.of(), ImmutableList.of(
+                    ImmutableList.of("c2_derived", "avg_10"),
+                    ImmutableList.of("c1", "c2", "c2_derived",
+                            "combine_hash(combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2_derived), BIGINT'0')), COALESCE($operator$hash_code(c2), BIGINT'0'))"),
+                    ImmutableList.of("c1", "c2", "c2_derived", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1), BIGINT'0'))"),
+                    ImmutableList.of("c1_0", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_0), BIGINT'0'))")), query);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test2");
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
         }
     }
 

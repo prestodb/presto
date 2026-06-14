@@ -17,17 +17,21 @@ package com.facebook.presto.iceberg.optimizer.derivedColumns;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 
-import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+
+import static java.util.Objects.requireNonNull;
 
 // TODO (prashant) Convert this to record class when checkstyle supports java 17.
-public final class RewrittenExpressionMetadata
+public final class RewrittenRowExpression
 {
     private final RowExpression rewrittenExpression;
-    private final List<VariableReferenceExpression> derivedColumnsAdded;
+    private final Set<VariableReferenceExpression> derivedColumnsAdded;
 
-    public RewrittenExpressionMetadata(RowExpression rewrittenExpression, List<VariableReferenceExpression> derivedColumnsAdded)
+    public RewrittenRowExpression(RowExpression rewrittenExpression, Set<VariableReferenceExpression> derivedColumnsAdded)
     {
+        requireNonNull(rewrittenExpression);
+        requireNonNull(derivedColumnsAdded);
         this.rewrittenExpression = rewrittenExpression;
         this.derivedColumnsAdded = derivedColumnsAdded;
     }
@@ -37,7 +41,7 @@ public final class RewrittenExpressionMetadata
         return rewrittenExpression;
     }
 
-    public List<VariableReferenceExpression> derivedColumnsAdded()
+    public Set<VariableReferenceExpression> derivedColumnsAdded()
     {
         return derivedColumnsAdded;
     }
@@ -51,7 +55,7 @@ public final class RewrittenExpressionMetadata
         if (obj == null || obj.getClass() != this.getClass()) {
             return false;
         }
-        var that = (RewrittenExpressionMetadata) obj;
+        var that = (RewrittenRowExpression) obj;
         return Objects.equals(this.rewrittenExpression, that.rewrittenExpression) &&
                 Objects.equals(this.derivedColumnsAdded, that.derivedColumnsAdded);
     }
@@ -65,7 +69,7 @@ public final class RewrittenExpressionMetadata
     @Override
     public String toString()
     {
-        return "RewrittenExpressionMetadata[" +
+        return "RewrittenRowExpression[" +
                 "rewrittenExpression=" + rewrittenExpression + ", " +
                 "derivedColumnsAdded=" + derivedColumnsAdded + ']';
     }

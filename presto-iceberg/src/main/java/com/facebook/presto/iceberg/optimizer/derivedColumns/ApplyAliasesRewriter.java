@@ -39,7 +39,10 @@ public class ApplyAliasesRewriter
     }
 
     @Override
-    public RowExpression rewriteCall(CallExpression call, Map<VariableReferenceExpression, VariableReferenceExpression> context, RowExpressionTreeRewriter<Map<VariableReferenceExpression, VariableReferenceExpression>> treeRewriter)
+    public RowExpression rewriteCall(
+            CallExpression call,
+            Map<VariableReferenceExpression, VariableReferenceExpression> context,
+            RowExpressionTreeRewriter<Map<VariableReferenceExpression, VariableReferenceExpression>> treeRewriter)
     {
         List<RowExpression> arguments = call.getArguments().stream().map(rowExpression ->
                 treeRewriter.rewrite(rowExpression, context)).toList();
@@ -48,7 +51,10 @@ public class ApplyAliasesRewriter
     }
 
     @Override
-    public RowExpression rewriteSpecialForm(SpecialFormExpression formExpression, Map<VariableReferenceExpression, VariableReferenceExpression> context, RowExpressionTreeRewriter<Map<VariableReferenceExpression, VariableReferenceExpression>> treeRewriter)
+    public RowExpression rewriteSpecialForm(
+            SpecialFormExpression formExpression,
+            Map<VariableReferenceExpression, VariableReferenceExpression> context,
+            RowExpressionTreeRewriter<Map<VariableReferenceExpression, VariableReferenceExpression>> treeRewriter)
     {
         List<RowExpression> arguments = formExpression.getArguments().stream().map(rowExpression ->
                 treeRewriter.rewrite(rowExpression, context)).toList();

@@ -19,60 +19,59 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Set;
 import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class RewriteCommonSubExpression
-        implements RowExpressionVisitor<RewrittenExpressionMetadata, TreeMap<RowExpression, RowExpression>>
+        implements RowExpressionVisitor<RewrittenRowExpression, TreeMap<RowExpression, RowExpression>>
 {
     @Override
-    public RewrittenExpressionMetadata visitExpression(RowExpression expression, TreeMap<RowExpression, RowExpression> context)
+    public RewrittenRowExpression visitExpression(RowExpression expression, TreeMap<RowExpression, RowExpression> context)
     {
-        return new RewrittenExpressionMetadata(expression, List.of());
+        return new RewrittenRowExpression(expression, ImmutableSet.of());
     }
 
     @Override
-    public RewrittenExpressionMetadata visitCall(CallExpression call, TreeMap<RowExpression, RowExpression> context)
+    public RewrittenRowExpression visitCall(CallExpression call, TreeMap<RowExpression, RowExpression> context)
     {
         checkArgument(context != null);
         if (context.containsKey(call.canonicalize())) {
             RowExpression rewrittenExpression = context.get(call.canonicalize());
             checkState(rewrittenExpression instanceof VariableReferenceExpression, "Derived column must be a VariableReferenceExpression");
             VariableReferenceExpression derivedColumnAdded = ((VariableReferenceExpression) rewrittenExpression);
-            return new RewrittenExpressionMetadata(rewrittenExpression, ImmutableList.of(derivedColumnAdded));
+            return new RewrittenRowExpression(rewrittenExpression, ImmutableSet.of(derivedColumnAdded));
         }
-        List<RewrittenExpressionMetadata> arguments = call.getArguments().stream().map(rowExpression -> rowExpression.accept(this, context)).toList();
-        List<VariableReferenceExpression> derivedColumnsAdded = arguments.stream()
-                .map(RewrittenExpressionMetadata::derivedColumnsAdded)
-                .reduce((list1, list2) ->
-                        ImmutableList.<VariableReferenceExpression>builder().addAll(list1).addAll(list2).build()).orElse(ImmutableList.of());
+        List<RewrittenRowExpression> arguments = call.getArguments().stream().map(rowExpression -> rowExpression.accept(this, context)).toList();
+        Set<VariableReferenceExpression> derivedColumnsAdded = arguments.stream()
+                .flatMap(rewrittenRowExpression -> rewrittenRowExpression.derivedColumnsAdded().stream()).collect(toImmutableSet());
+
         CallExpression callExpression = new CallExpression(call.getDisplayName(), call.getFunctionHandle(), call.getType(),
-                arguments.stream().map(RewrittenExpressionMetadata::rewrittenExpression).toList());
-        return new RewrittenExpressionMetadata(callExpression, derivedColumnsAdded);
+                arguments.stream().map(RewrittenRowExpression::rewrittenExpression).toList());
+        return new RewrittenRowExpression(callExpression, derivedColumnsAdded);
     }
 
     @Override
-    public RewrittenExpressionMetadata visitSpecialForm(SpecialFormExpression specialForm, TreeMap<RowExpression, RowExpression> context)
+    public RewrittenRowExpression visitSpecialForm(SpecialFormExpression specialForm, TreeMap<RowExpression, RowExpression> context)
     {
         checkArgument(context != null);
         if (context.containsKey(specialForm.canonicalize())) {
             RowExpression rewrittenExpression = context.get(specialForm.canonicalize());
             checkState(rewrittenExpression instanceof VariableReferenceExpression, "Derived column must be a VariableReferenceExpression");
             VariableReferenceExpression derivedColumnAdded = ((VariableReferenceExpression) rewrittenExpression);
-            return new RewrittenExpressionMetadata(rewrittenExpression, ImmutableList.of(derivedColumnAdded));
+            return new RewrittenRowExpression(rewrittenExpression, ImmutableSet.of(derivedColumnAdded));
         }
-        List<RewrittenExpressionMetadata> arguments = specialForm.getArguments().stream().map(rowExpression -> rowExpression.accept(this, context)).toList();
-        List<VariableReferenceExpression> derivedColumnsAdded = arguments.stream()
-                .map(RewrittenExpressionMetadata::derivedColumnsAdded)
-                .reduce((list1, list2) ->
-                        ImmutableList.<VariableReferenceExpression>builder().addAll(list1).addAll(list2).build()).orElse(ImmutableList.of());
+        List<RewrittenRowExpression> arguments = specialForm.getArguments().stream().map(rowExpression -> rowExpression.accept(this, context)).toList();
+        Set<VariableReferenceExpression> derivedColumnsAdded = arguments.stream()
+                .flatMap(rewrittenRowExpression -> rewrittenRowExpression.derivedColumnsAdded().stream()).collect(toImmutableSet());
         SpecialFormExpression specialFormExpression = new SpecialFormExpression(specialForm.getForm(), specialForm.getType(),
-                arguments.stream().map(RewrittenExpressionMetadata::rewrittenExpression).toList());
-        return new RewrittenExpressionMetadata(specialFormExpression, derivedColumnsAdded);
+                arguments.stream().map(RewrittenRowExpression::rewrittenExpression).toList());
+        return new RewrittenRowExpression(specialFormExpression, derivedColumnsAdded);
     }
 }

@@ -54,7 +54,7 @@ public class IcebergDerivedColumnRewriter
                 !((session.getQueryType().get()).equals(QueryType.SELECT) || session.getQueryType().get().equals(QueryType.EXPLAIN))) {
             return maxSubplan;
         }
-        return rewriteWith(new ExpressionsPlanRewriter(
+        PlanNode rewritten = rewriteWith(new SimplifySubExpressionsRewriter(
                 functionResolution,
                 typeManager,
                 transactionManager,
@@ -62,5 +62,6 @@ public class IcebergDerivedColumnRewriter
                 session,
                 sqlParser,
                 variableAllocator), maxSubplan);
+        return rewritten;
     }
 }
