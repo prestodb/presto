@@ -80,7 +80,7 @@ public class TestNativeExecutionSystemConfig
                 .put("order-by-spill-enabled", "true")
                 .put("max-spill-bytes", String.valueOf(600L << 30))
                 .put("plan-consistency-check-enabled", "true")
-                .put("exchange.materialization.enabled", "false")
+                .put("exchange.materialization.enabled", "true")
                 .build();
         assertEquals(nativeExecutionSystemConfig.getAllProperties(), expectedConfigs);
 

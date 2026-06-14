@@ -122,7 +122,7 @@ public class NativeExecutionSystemConfig
     private final String orderBySpillEnabledDefault = "true";
     private final String maxSpillBytesDefault = String.valueOf(600L << 30);
     private final String planConsistencyCheckEnabled = "true";
-    private final String exchangeMaterializationEnabledDefault = "false";
+    private final String exchangeMaterializationEnabledDefault = "true";
 
     private final Map<String, String> systemConfigs;
     private final Map<String, String> defaultSystemConfigs;

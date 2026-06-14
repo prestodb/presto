@@ -2221,7 +2221,7 @@ public final class SystemSessionProperties
                         !featuresConfig.isNativeExecutionEnabled()),
                 booleanProperty(NATIVE_EXCHANGE_MATERIALIZATION_ENABLED,
                         "Native Execution only. Enable materialized exchange operators in Velox (MaterializedOutput/MaterializedExchange). When false, uses PartitionAndSerialize + ShuffleWrite.",
-                        false,
+                        true,
                         false),
                 stringProperty(
                         EXPRESSION_OPTIMIZER_NAME,
