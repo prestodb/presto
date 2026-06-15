@@ -43,12 +43,10 @@ public class TestFunctionServerHttpsConfig
 
         HttpServerConfig config;
 
-        // Apply properties using Airlift's configuration system
         com.facebook.airlift.configuration.ConfigurationFactory configFactory =
                 new com.facebook.airlift.configuration.ConfigurationFactory(properties);
         config = configFactory.build(HttpServerConfig.class);
 
-        // Verify the configuration
         assertFalse(config.isHttpEnabled(), "HTTP should be disabled");
         assertTrue(config.isHttpsEnabled(), "HTTPS should be enabled");
         assertEquals(config.getHttpsPort(), 9443, "HTTPS port should be 9443");

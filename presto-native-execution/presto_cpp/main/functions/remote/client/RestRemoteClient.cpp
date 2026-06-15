@@ -54,8 +54,6 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
 
     auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
     if (!optionalClientCertPath.has_value()) {
-      // This config is not used in server but validated here, otherwise, it
-      // will fail later in the HttpClient during query execution.
       VELOX_USER_FAIL(
           "HTTPS client certificates are not configured correctly. "
           "Set 'https-client-cert-key-path' in config.properties");
@@ -78,7 +76,6 @@ RestRemoteClient::RestRemoteClient(const std::string& url) : url_(url) {
       sslContext_,
       std::move(httpClientOptions));
 
-  // Initialize JWT options
   jwtOptions_ = systemConfig->jwtOptions();
 }
 
@@ -97,20 +94,13 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
   try {
     folly::Uri uri(fullUrl);
     const std::string contentType = getContentType(serdeFormat);
-    // auto message = std::make_unique<proxygen::HTTPMessage>();
-    // message->setMethod(proxygen::HTTPMethod::POST);
-    // message->setURL(uri.path());
-    // message->setHTTPVersion(1, 1);
-    // message->getHeaders().add("Content-Type", contentType);
-    // message->getHeaders().add("Accept", contentType);
 
     requestPayload->coalesce();
     std::string requestBody = requestPayload->moveToFbString().toStdString();
 
-    // auto sendFuture = httpClient_->sendRequest(*message, requestBody);
     // Use RequestBuilder to automatically add JWT token
     auto sendFuture = http::RequestBuilder()
-        .jwtOptions(jwtOptions_)  // This enables JWT token addition
+        .jwtOptions(jwtOptions_)
         .method(proxygen::HTTPMethod::POST)
         .url(uri.path())
         .header("Content-Type", contentType)
