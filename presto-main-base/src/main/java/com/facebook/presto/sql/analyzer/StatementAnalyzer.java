@@ -575,7 +575,7 @@ class StatementAnalyzer
             // Query-level indirect sources (WHERE, JOIN, GROUP BY, etc.) apply to all columns.
             // Per-field indirect sources (CONDITIONAL, WINDOW) apply only to the column whose expression contains them.
             analysis.setUpdatedSourceColumns(Optional.of(Streams.zip(
-                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> new OutputColumnMetadata(column.getName(), column.getType(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field)))
+                            columnStream, queryScope.getRelationType().getVisibleFields().stream(), (column, field) -> OutputColumnMetadata.fromColumnLineage(column.getName(), column.getType(), analysis.getColumnLineageForField(field)))
                     .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified(insert.getLocation(), "rows", BIGINT));
@@ -826,7 +826,7 @@ class StatementAnalyzer
                         throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                     String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
-                    outputColumns.add(new OutputColumnMetadata(columnName, field.getType().toString(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field)));
+                    outputColumns.add(OutputColumnMetadata.fromColumnLineage(columnName, field.getType().toString(), analysis.getColumnLineageForField(field)));
                     aliasPosition++;
                 }
             }
@@ -842,7 +842,7 @@ class StatementAnalyzer
 
         private OutputColumnMetadata createOutputColumn(Field field)
         {
-            return new OutputColumnMetadata(field.getName().get(), field.getType().toString(), analysis.getSourceColumns(field), analysis.getAllIndirectSourcesForField(field));
+            return OutputColumnMetadata.fromColumnLineage(field.getName().get(), field.getType().toString(), analysis.getColumnLineageForField(field));
         }
 
         @Override
@@ -4369,26 +4369,46 @@ class StatementAnalyzer
                         }
                     }
                     Field newField = Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent());
-                    // Use getExpressionSourceColumns first — it correctly traces through
-                    // UNION, subqueries, and CTEs to all base table columns.
-                    // Only fall back to the originTable shortcut if expression tracing returns empty.
-                    Set<SourceColumn> expressionSources = analysis.getExpressionSourceColumns(expression);
-                    if (!expressionSources.isEmpty()) {
-                        // Remove CASE/IF condition-only and window-only columns from direct sources.
-                        // They are tracked separately as INDIRECT/CONDITIONAL and INDIRECT/WINDOW.
-                        Set<SourceColumn> excludeFromDirect = ImmutableSet.<SourceColumn>builder()
-                                .addAll(getConditionOnlySourceColumns(expression))
-                                .addAll(getWindowOnlySourceColumns(expression))
-                                .build();
-                        if (!excludeFromDirect.isEmpty()) {
-                            expressionSources = ImmutableSet.copyOf(Sets.difference(expressionSources, excludeFromDirect));
+                    TransformationSubtype directSubtype = determineDirectSubtype(expression);
+                    if (directSubtype == TransformationSubtype.IDENTITY) {
+                        // Bare Identifier / DereferenceExpression — preserve upstream subtype verbatim
+                        // so a chain like SELECT x FROM (SELECT sum(a) AS x ...) keeps AGGREGATION on `a`.
+                        // CASE/window cannot appear inside a bare reference, so no exclude filter is needed.
+                        Set<ColumnLineageEntry> inheritedDirect = analysis.getExpressionDirectLineageEntries(expression);
+                        if (!inheritedDirect.isEmpty()) {
+                            analysis.addColumnLineageEntries(newField, inheritedDirect);
                         }
-                        analysis.addSourceColumns(newField, expressionSources);
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    TransformationSubtype.IDENTITY);
+                        }
                     }
-                    else if (originTable.isPresent()) {
-                        analysis.addSourceColumns(newField, ImmutableSet.of(
-                                new SourceColumn(originTable.get(), originColumn.orElseThrow(
-                                        () -> new NoSuchElementException("originColumn not found")))));
+                    else {
+                        // TRANSFORMATION or AGGREGATION — retag all source columns with the new subtype.
+                        // Use getExpressionSourceColumns first — it correctly traces through UNION,
+                        // subqueries, and CTEs to all base table columns. Only fall back to the
+                        // originTable shortcut if expression tracing returns empty.
+                        Set<SourceColumn> expressionSources = analysis.getExpressionSourceColumns(expression);
+                        if (!expressionSources.isEmpty()) {
+                            // Remove CASE/IF condition-only and window-only columns from direct sources.
+                            // They are tracked separately as INDIRECT/CONDITIONAL and INDIRECT/WINDOW.
+                            Set<SourceColumn> excludeFromDirect = ImmutableSet.<SourceColumn>builder()
+                                    .addAll(getConditionOnlySourceColumns(expression))
+                                    .addAll(getWindowOnlySourceColumns(expression))
+                                    .build();
+                            if (!excludeFromDirect.isEmpty()) {
+                                expressionSources = ImmutableSet.copyOf(Sets.difference(expressionSources, excludeFromDirect));
+                            }
+                            analysis.addSourceColumns(newField, expressionSources, directSubtype);
+                        }
+                        else if (originTable.isPresent()) {
+                            analysis.addSourceColumns(newField, ImmutableSet.of(
+                                    new SourceColumn(originTable.get(), originColumn.orElseThrow(
+                                            () -> new NoSuchElementException("originColumn not found")))),
+                                    directSubtype);
+                        }
                     }
 
                     // Collect per-field indirect sources (CONDITIONAL, WINDOW).
@@ -4565,6 +4585,38 @@ class StatementAnalyzer
                     .map(sc -> new ColumnLineageEntry(sc.getTableName(), sc.getColumnName(), TransformationType.INDIRECT, subtype))
                     .collect(toImmutableSet());
             analysis.addIndirectSourceColumns(entries);
+        }
+
+        /**
+         * Pick the {@link TransformationSubtype} for the direct sources of a
+         * SELECT-list expression:
+         * <ul>
+         *   <li>{@link TransformationSubtype#AGGREGATION} if the expression
+         *   contains an aggregate function call (e.g. {@code sum(x)},
+         *   including aggregate functions used as window functions like
+         *   {@code sum(x) OVER (...)}).</li>
+         *   <li>{@link TransformationSubtype#IDENTITY} if the expression is a
+         *   bare column reference (an {@link Identifier} or
+         *   {@link DereferenceExpression}) — the output column is literally
+         *   that source column.</li>
+         *   <li>{@link TransformationSubtype#TRANSFORMATION} otherwise (any
+         *   non-aggregate scalar expression: arithmetic, function calls,
+         *   {@code CAST}, {@code CASE}, etc.). Pure window functions like
+         *   {@code ROW_NUMBER() OVER (...)} also fall into this bucket — they
+         *   are non-aggregate function calls. INDIRECT window-frame columns
+         *   (PARTITION BY / ORDER BY inputs) are tracked separately as
+         *   {@link TransformationSubtype#WINDOW}.</li>
+         * </ul>
+         */
+        private TransformationSubtype determineDirectSubtype(Expression expression)
+        {
+            if (!extractAggregateFunctions(analysis.getFunctionHandles(), ImmutableList.of(expression), functionAndTypeResolver).isEmpty()) {
+                return TransformationSubtype.AGGREGATION;
+            }
+            if (expression instanceof Identifier || expression instanceof DereferenceExpression) {
+                return TransformationSubtype.IDENTITY;
+            }
+            return TransformationSubtype.TRANSFORMATION;
         }
 
         /**
