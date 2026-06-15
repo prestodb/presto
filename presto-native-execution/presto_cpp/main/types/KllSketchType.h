@@ -19,7 +19,13 @@
 namespace facebook::presto {
 
 class KllSketchType final : public velox::VarbinaryType {
+ private:
+  struct PrivateTag {};
+
  public:
+  explicit KllSketchType(PrivateTag, const velox::TypePtr& dataType)
+      : parameter_(dataType) {}
+
   static std::shared_ptr<const KllSketchType> get(
       const velox::TypePtr& dataType);
 
@@ -29,6 +35,8 @@ class KllSketchType final : public velox::VarbinaryType {
     }
     return false;
   }
+
+  size_t hash() const noexcept override;
 
   const char* name() const override {
     return "KLLSKETCH";
@@ -57,9 +65,6 @@ class KllSketchType final : public velox::VarbinaryType {
   }
 
  private:
-  explicit KllSketchType(const velox::TypePtr& dataType)
-      : parameter_(dataType) {}
-
   const velox::TypeParameter parameter_;
 };
 

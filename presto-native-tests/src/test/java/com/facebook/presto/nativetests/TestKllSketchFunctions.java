@@ -19,7 +19,7 @@ import org.testng.annotations.BeforeClass;
 
 import static java.lang.Boolean.parseBoolean;
 
-public class TestPrestoNativeKllSketchFunctions
+public class TestKllSketchFunctions
         extends AbstractTestKllSketchFunctions
 {
     private String storageFormat;

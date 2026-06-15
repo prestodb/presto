@@ -36,16 +36,12 @@ void registerKllSketchType();
 
 void registerKllSketchFunctions(const std::string& prefix = "");
 
-} // namespace facebook::presto::functions
-
-namespace facebook::presto::functions::aggregate::kll_sketch {
-
 inline void registerAllKllSketchFunctions(const std::string& prefix = "") {
-  facebook::presto::functions::registerKllSketchType();
-  facebook::presto::functions::aggregate::registerKllSketchAggregate(prefix);
-  facebook::presto::functions::aggregate::registerKllSketchWithKAggregate(
-      prefix);
-  facebook::presto::functions::registerKllSketchFunctions(prefix);
+  registerKllSketchType();
+
+  aggregate::registerKllSketchAggregate(prefix);
+  aggregate::registerKllSketchWithKAggregate(prefix);
+  registerKllSketchFunctions(prefix);
 }
 
-} // namespace facebook::presto::functions::aggregate::kll_sketch
+} // namespace facebook::presto::functions

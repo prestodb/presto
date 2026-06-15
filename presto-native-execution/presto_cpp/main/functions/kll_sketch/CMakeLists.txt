@@ -15,6 +15,7 @@ add_library(presto_kll_sketch_functions KllSketchAggregate.cpp KllSketchFunction
 target_link_libraries(
   presto_kll_sketch_functions
   presto_kll_sketch_type
+  velox_exec
   velox_common_base
   Folly::folly
 )
