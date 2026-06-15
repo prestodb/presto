@@ -984,6 +984,137 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testExpressionGroupByKeys()
+    {
+        // CAST in GROUP BY
+        String originalViewSql = format("SELECT CAST(a AS VARCHAR) AS a_str, SUM(b) AS sum_b FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT CAST(a AS VARCHAR), SUM(b) FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a_str, SUM(sum_b) FROM %s GROUP BY a_str", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Rollup: query GROUP BY is subset of MV expression GROUP BY
+        originalViewSql = format("SELECT CAST(a AS VARCHAR) AS a_str, c, SUM(b) AS sum_b FROM %s GROUP BY CAST(a AS VARCHAR), c", BASE_TABLE_1);
+        baseQuerySql = format("SELECT CAST(a AS VARCHAR), SUM(b) FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a_str, SUM(sum_b) FROM %s GROUP BY a_str", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: different cast type
+        originalViewSql = format("SELECT CAST(a AS VARCHAR) AS a_str, SUM(b) AS sum_b FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        baseQuerySql = format("SELECT CAST(a AS BIGINT), SUM(b) FROM %s GROUP BY CAST(a AS BIGINT)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: expression GROUP BY without GROUP BY in query
+        originalViewSql = format("SELECT CAST(a AS VARCHAR) AS a_str, SUM(b) AS sum_b FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        baseQuerySql = format("SELECT CAST(a AS VARCHAR) FROM %s", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Aggregate-only rollup with expression GROUP BY
+        originalViewSql = format("SELECT CAST(a AS VARCHAR) AS a_str, SUM(b) AS sum_b FROM %s GROUP BY CAST(a AS VARCHAR)", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SUM(b) FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SUM(sum_b) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Multiple expression GROUP BY keys (substr + CAST together)
+        originalViewSql = format("SELECT substr(c, 1, 1) AS c_pre, CAST(a AS VARCHAR) AS a_str, SUM(b) AS sum_b FROM %s GROUP BY substr(c, 1, 1), CAST(a AS VARCHAR)", BASE_TABLE_1);
+        baseQuerySql = format("SELECT substr(c, 1, 1), CAST(a AS VARCHAR), SUM(b) FROM %s GROUP BY substr(c, 1, 1), CAST(a AS VARCHAR)", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT c_pre, a_str, SUM(sum_b) FROM %s GROUP BY c_pre, a_str", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // GROUP BY ordinal that resolves to an expression key (ordinal preserved, select item rewritten)
+        originalViewSql = format("SELECT substr(c, 1, 1) AS c_pre, SUM(b) AS sum_b FROM %s GROUP BY substr(c, 1, 1)", BASE_TABLE_1);
+        baseQuerySql = format("SELECT substr(c, 1, 1), SUM(b) FROM %s GROUP BY 1", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT c_pre, SUM(sum_b) FROM %s GROUP BY 1", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testScalarFunctionGroupByKeyInSelect()
+    {
+        // Scalar function (substr) as a GROUP BY key, selected in the output: must map to the MV column.
+        String originalViewSql = format("SELECT substr(c, 1, 1) AS c_pre, SUM(b) AS sum_b FROM %s GROUP BY substr(c, 1, 1)", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT substr(c, 1, 1), SUM(b) FROM %s GROUP BY substr(c, 1, 1)", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT c_pre, SUM(sum_b) FROM %s GROUP BY c_pre", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Scalar function GROUP BY key plus a rolled-up plain key (mimics ds partition).
+        originalViewSql = format("SELECT substr(c, 1, 1) AS c_pre, d, SUM(b) AS sum_b FROM %s GROUP BY substr(c, 1, 1), d", BASE_TABLE_1);
+        baseQuerySql = format("SELECT substr(c, 1, 1), SUM(b) FROM %s GROUP BY substr(c, 1, 1)", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT c_pre, SUM(sum_b) FROM %s GROUP BY c_pre", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testConditionalAggregates()
+    {
+        // SUM(IF(...)) with matching MV
+        String originalViewSql = format("SELECT a, SUM(IF(a > 0, b, 0)) AS cond_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, SUM(IF(a > 0, b, 0)) FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, SUM(cond_sum) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // SUM(CASE WHEN ... THEN ... ELSE ... END)
+        originalViewSql = format("SELECT a, SUM(CASE WHEN a > 0 THEN b ELSE 0 END) AS case_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(CASE WHEN a > 0 THEN b ELSE 0 END) FROM %s GROUP BY a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, SUM(case_sum) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Rollup: conditional aggregate without GROUP BY
+        originalViewSql = format("SELECT a, SUM(IF(a > 0, b, 0)) AS cond_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SUM(IF(a > 0, b, 0)) FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SUM(cond_sum) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: SUM(IF(...)) when MV only has SUM(b)
+        originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(IF(a > 0, b, 0)) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Multiple conditional aggregates
+        originalViewSql = format("SELECT a, SUM(IF(a > 0, b, 0)) AS pos_sum, SUM(IF(a <= 0, b, 0)) AS neg_sum FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(IF(a > 0, b, 0)), SUM(IF(a <= 0, b, 0)) FROM %s GROUP BY a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, SUM(pos_sum), SUM(neg_sum) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // MIN(CASE WHEN ... THEN ... END) — associative with conditional
+        originalViewSql = format("SELECT a, MIN(CASE WHEN a > 0 THEN b END) AS min_pos FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, MIN(CASE WHEN a > 0 THEN b END) FROM %s GROUP BY a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, MIN(min_pos) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Conditional COUNT: COUNT(IF(cond, 1, NULL)) rolls up to SUM of the stored conditional count
+        originalViewSql = format("SELECT a, COUNT(IF(a > 0, 1, NULL)) AS cond_cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, COUNT(IF(a > 0, 1, NULL)) FROM %s GROUP BY a", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, SUM(cond_cnt) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: COUNT(IF(cond, 1, 0)) differs from the MV's COUNT(IF(cond, 1, NULL)) (counts all rows) — fallback
+        originalViewSql = format("SELECT a, COUNT(IF(a > 0, 1, NULL)) AS cond_cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, COUNT(IF(a > 0, 1, 0)) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testSetUnionRollup()
+    {
+        // SET_UNION is an associative set monoid — rolls up to SET_UNION of the stored set column.
+        String originalViewSql = format("SELECT a, SET_UNION(c) AS union_c FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, SET_UNION(c) FROM %s GROUP BY a", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, SET_UNION(union_c) FROM %s GROUP BY a", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // Rollup: MV grouped by a, query aggregates globally.
+        originalViewSql = format("SELECT a, SET_UNION(c) AS union_c FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT SET_UNION(c) FROM %s", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SET_UNION(union_c) FROM %s", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // SET_UNION(DISTINCT ...) is rejected like other DISTINCT aggregates.
+        originalViewSql = format("SELECT a, SET_UNION(c) AS union_c FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SET_UNION(DISTINCT c) FROM %s GROUP BY a", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testWithGroupByCube()
     {
         String originalViewSql = format("SELECT SUM(a) AS a, SUM(b*c) AS bc, d, e FROM %s GROUP BY d, e", BASE_TABLE_1);
@@ -2297,6 +2428,26 @@ public class TestMaterializedViewQueryOptimizer
                 VIEW_1, BASE_TABLE_2,
                 VIEW_1, BASE_TABLE_2);
 
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinSetUnion()
+    {
+        // SET_UNION is associative — rewritten directly to SET_UNION of the stored set column on the swapped leaf.
+        String originalViewSql = format("SELECT a, SET_UNION(b) AS union_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SET_UNION(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SET_UNION(%s.union_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
