@@ -42,20 +42,16 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
-import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
-import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.base.Joiner;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -68,7 +64,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
@@ -133,32 +128,6 @@ public class SimplifySubExpressionsRewriter
     }
 
     @Override
-    public PlanNode visitPlan(PlanNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        return super.visitPlan(node, context);
-    }
-
-    @Override
-    public PlanNode visitSemiJoin(SemiJoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        return super.visitSemiJoin(node, context);
-    }
-
-    @Override
-    public PlanNode visitIntersect(IntersectNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        // TODO: support intersect node in the path
-        return super.visitIntersect(node, context);
-    }
-
-    @Override
-    public PlanNode visitUnion(UnionNode node, RewriteContext<Set<VariableReferenceExpression>> context)
-    {
-        // TODO: support union node in the path
-        return super.visitUnion(node, context);
-    }
-
-    @Override
     public PlanNode visitJoin(JoinNode node, RewriteContext<Set<VariableReferenceExpression>> context)
     {
         PlanNode left = node.getLeft();
@@ -176,14 +145,12 @@ public class SimplifySubExpressionsRewriter
             derivedColumnsAddedBuilder.addAll(rewrittenRowExpression.derivedColumnsAdded());
         }
         left = context.rewrite(left, derivedColumnsAddedBuilder.build());
-        System.out.println("Before rewrite Left:" + stringify(leftOldOutputVariables) + "\n After rewrite Left:" + stringify(left));
         // Sets difference should be safe because we always add more output variables and never prune.
         checkState(leftOldOutputVariables.size() <= left.getOutputVariables().size(), "Rewrite should not remove output variables.");
         Set<VariableReferenceExpression> leftDiff = Sets.difference(ImmutableSet.copyOf(left.getOutputVariables()), ImmutableSet.copyOf(leftOldOutputVariables));
         LinkedList<VariableReferenceExpression> outputVariables = new LinkedList<>(node.getOutputVariables());
         right = context.rewrite(right, derivedColumnsAddedBuilder.build());
         checkState(rightOldOutputVariables.size() <= right.getOutputVariables().size(), "Rewrite should not remove output variables.");
-        System.out.println("Before rewrite Right:" + stringify(rightOldOutputVariables) + " \n After rewrite Right:" + stringify(right));
         Set<VariableReferenceExpression> rightDiff = Sets.difference(ImmutableSet.copyOf(right.getOutputVariables()), ImmutableSet.copyOf(rightOldOutputVariables));
         leftDiff.forEach(outputVariables::addFirst);
         outputVariables.addAll(rightDiff);
@@ -436,30 +403,5 @@ public class SimplifySubExpressionsRewriter
         AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, typeManager);
         // Expression configured on a derived column as RowExpression
         return astExpressionToRowExpression.process(expression, columnsMap);
-    }
-
-    private static <T> String stringify(List<T> elements)
-    {
-        return Joiner.on(",").join(elements.stream().map(SimplifySubExpressionsRewriter::stringify).toList());
-    }
-
-    private static String stringify(Object obj)
-    {
-        if (obj instanceof PlanNode) {
-            return stringify((PlanNode) obj);
-        }
-        else if (obj instanceof RowExpression) {
-            RowExpression rowExpression = (RowExpression) obj;
-            return rowExpression.canonicalize().toString();
-        }
-
-        return Objects.toString(obj);
-    }
-
-    private static String stringify(PlanNode node)
-    {
-        return "\nNode: " + node + "Output variables:" +
-                stringify(node.getOutputVariables()) +
-                " Sources: " + stringify(node.getSources());
     }
 }

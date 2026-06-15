@@ -419,6 +419,40 @@ public class TestIcebergDerivedColumnOptimizer
         }
     }
 
+    public void testQueriesWithUnionNodeUnderProjection()
+    {
+        try {
+            assertUpdate(CREATE_TABLE_SQL);
+            assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
+            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
+                    " (121, 'A', 121 * 10.5)", 3);
+            @Language("SQL") String query = "SELECT lower(a), b * 10.5\n" +
+                    "    FROM (\n" +
+                    "    SELECT c2 as a, c1 as b FROM test_table1 WHERE lower(c2) = 'b'\n" +
+                    "    UNION\n" +
+                    "    SELECT c2 as a, c1 as b FROM test2 WHERE c1 * 10.5 = 1291.5\n" +
+                    "    )\n";
+            assertQuery(query, "VALUES ('b', 1291.5)");
+            // TODO: The rewrite of projections is non trivial, for following reasons.
+            // 1. We should be able to establish that columns that exist in two tables with same alias are actually equivalent.
+            // 2. Second they should have derived column definitions because they are from two different tables,
+            // The filter expressions are rewritten correctly.
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')"), List.of(
+                    List.of("lower(c2_16)", "(CAST(c1_17 AS decimal(19,0))) * (DECIMAL'10.5')"),
+                    List.of("c2_16", "c1_17", "combine_hash(combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2_16), BIGINT'0')), COALESCE($operator$hash_code(c1_17), BIGINT'0'))"),
+                    List.of("c2", "c1", "$hashvalue_28"),
+                    List.of("c2", "c1", "c2_derived", "combine_hash(combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2), BIGINT'0')), COALESCE($operator$hash_code(c1), BIGINT'0'))"),
+                    List.of("c2_16", "c1_17", "combine_hash(combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2_16), BIGINT'0')), COALESCE($operator$hash_code(c1_17), BIGINT'0'))"),
+                    List.of("c2_5", "c1_4", "$hashvalue_31"),
+                    List.of("c2_5", "c1_4", "combine_hash(combine_hash(BIGINT'0', COALESCE($operator$hash_code(c2_5), BIGINT'0')), COALESCE($operator$hash_code(c1_4), BIGINT'0'))")), query);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test2");
+            assertUpdate("DROP TABLE IF EXISTS test_table1");
+        }
+    }
+
     @Test
     public void testAddColumn()
     {
