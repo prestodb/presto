@@ -69,7 +69,7 @@ public class TestIcebergDerivedColumnOptimizer
                     " \"c1\" bigint,\n" +
                     " \"c2\" varchar,\n" +
                     " \"c3\" double,\n" +
-                    " \"c2_derived\" varchar AS lower(c2) PERSISTENT\n" +
+                    " \"c2_derived\" varchar AS lower(c2)\n" +
                     " )";
 
     @Language("SQL") private static final String CREATE_TABLE_SQL2 =

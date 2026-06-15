@@ -258,10 +258,10 @@ public class AstExpressionToRowExpression
     @Override
     protected RowExpression visitFunctionCall(FunctionCall node, Map<String, ColumnMetadata> context)
     {
-        List<RowExpression> argumentRowExpressions = node.getArguments().stream().map(x -> process(x, context)).toList();
+        List<RowExpression> argumentRowExpressions = node.getArguments().stream().map(expression -> process(expression, context)).toList();
 
         FunctionHandle functionHandle =
-                getFunctionHandle(node.getName(), argumentRowExpressions.stream().map(x -> x.getType().getTypeSignature()).toList());
+                getFunctionHandle(node.getName(), argumentRowExpressions.stream().map(rowExpression -> rowExpression.getType().getTypeSignature()).toList());
         if (functionHandle.getReturnType().isPresent()) {
             return new CallExpression(node.getName().toString(),
                     functionHandle,
