@@ -260,4 +260,150 @@ public abstract class AbstractTestKllSketchFunctions
                         "FROM (SELECT x FROM UNNEST(sequence(1, 1000)) AS t(x))",
                 "SELECT true");
     }
+
+    @Test
+    public void testKllSketchWithDuplicates()
+    {
+        // Test that duplicate values are handled correctly
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(x), CAST(5 AS BIGINT)) BETWEEN 0.95 AND 1.0 " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(3 AS BIGINT), " +
+                        "CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT), " +
+                        "CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(5 AS BIGINT)) AS t(x)",
+                "SELECT true");
+
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(x), 0.5) " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(1 AS BIGINT), CAST(1 AS BIGINT), " +
+                        "CAST(1 AS BIGINT), CAST(1 AS BIGINT), CAST(2 AS BIGINT)) AS t(x)",
+                "SELECT CAST(1 AS BIGINT)");
+
+        // Test rank with inclusive vs exclusive
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(x), CAST(2 AS BIGINT), true) BETWEEN 0.55 AND 0.65 " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), CAST(5 AS BIGINT)) AS t(x)",
+                "SELECT true");
+
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(x), CAST(2 AS BIGINT), false) BETWEEN 0.10 AND 0.20 " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), CAST(5 AS BIGINT)) AS t(x)",
+                "SELECT true");
+
+        // Verify that inclusive and exclusive can produce different results
+        assertQuery("SELECT " +
+                        "sketch_kll_rank(sketch_kll(x), CAST(2 AS BIGINT), true) > " +
+                        "sketch_kll_rank(sketch_kll(x), CAST(2 AS BIGINT), false) " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(2 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), CAST(5 AS BIGINT)) AS t(x)",
+                "SELECT true");
+
+        // Test quantile with inclusive vs exclusive
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(x), 0.5, true) " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(1 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), " +
+                        "CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(6 AS BIGINT), CAST(7 AS BIGINT)) AS t(x)",
+                "SELECT CAST(3 AS BIGINT)");
+
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(x), 0.5, false) " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(1 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), " +
+                        "CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(6 AS BIGINT), CAST(7 AS BIGINT)) AS t(x)",
+                "SELECT CAST(4 AS BIGINT)");
+
+        // Verify that inclusive and exclusive can produce different results
+        assertQuery("SELECT " +
+                        "sketch_kll_quantile(sketch_kll(x), 0.5, true) != " +
+                        "sketch_kll_quantile(sketch_kll(x), 0.5, false) " +
+                        "FROM (VALUES CAST(1 AS BIGINT), CAST(1 AS BIGINT), CAST(2 AS BIGINT), " +
+                        "CAST(2 AS BIGINT), CAST(3 AS BIGINT), CAST(4 AS BIGINT), " +
+                        "CAST(5 AS BIGINT), CAST(5 AS BIGINT), CAST(6 AS BIGINT), CAST(7 AS BIGINT)) AS t(x)",
+                "SELECT true");
+    }
+
+    @Test
+    public void testKllSketchNegativeNumbers()
+    {
+        // Test with negative numbers
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS DOUBLE)), 0.5) BETWEEN -5.0 AND 5.0 " +
+                        "FROM (SELECT x FROM UNNEST(sequence(-100, 100)) AS t(x))",
+                "SELECT true");
+
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(CAST(x AS DOUBLE)), CAST(0.0 AS DOUBLE)) BETWEEN 0.45 AND 0.55 " +
+                        "FROM (SELECT x FROM UNNEST(sequence(-100, 100)) AS t(x))",
+                "SELECT true");
+
+        // Test with all negative numbers
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS DOUBLE)), 0.5) BETWEEN -55.0 AND -45.0 " +
+                        "FROM (SELECT x FROM UNNEST(sequence(-100, -1)) AS t(x))",
+                "SELECT true");
+    }
+
+    @Test
+    public void testKllSketchAllSameValues()
+    {
+        // Test when all values are identical
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(CAST(x AS BIGINT)), CAST(42 AS BIGINT)) " +
+                        "FROM (VALUES CAST(42 AS BIGINT), CAST(42 AS BIGINT), CAST(42 AS BIGINT), " +
+                        "CAST(42 AS BIGINT), CAST(42 AS BIGINT)) AS t(x)",
+                "SELECT 1.0");
+
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS BIGINT)), 0.5) " +
+                        "FROM (VALUES CAST(42 AS BIGINT), CAST(42 AS BIGINT), CAST(42 AS BIGINT)) AS t(x)",
+                "SELECT CAST(42 AS BIGINT)");
+
+        // Any quantile should return the same value
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS BIGINT)), 0.0) " +
+                        "FROM (VALUES CAST(42 AS BIGINT), CAST(42 AS BIGINT)) AS t(x)",
+                "SELECT CAST(42 AS BIGINT)");
+
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS BIGINT)), 1.0) " +
+                        "FROM (VALUES CAST(42 AS BIGINT), CAST(42 AS BIGINT)) AS t(x)",
+                "SELECT CAST(42 AS BIGINT)");
+    }
+
+    @Test
+    public void testKllSketchEmptyStrings()
+    {
+        // Test with empty strings
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS VARCHAR)), CAST(0.0 AS DOUBLE)) " +
+                        "FROM (VALUES '', 'a', 'b', 'c') AS t(x)",
+                "SELECT ''");
+
+        assertQuery("SELECT sketch_kll_rank(sketch_kll(CAST(x AS VARCHAR)), '') < 0.3 " +
+                        "FROM (VALUES '', 'a', 'b', 'c') AS t(x)",
+                "SELECT true");
+
+        // Test with multiple empty strings
+        assertQuery("SELECT sketch_kll_quantile(sketch_kll(CAST(x AS VARCHAR)), 0.5) " +
+                        "FROM (VALUES '', '', '', 'a', 'b') AS t(x)",
+                "SELECT ''");
+    }
+
+    @Test
+    public void testKllSketchMultiColumnGroupBy()
+    {
+        // Test quantile with multi-column GROUP BY
+        assertQuery("SELECT region, category, " +
+                        "sketch_kll_quantile(sketch_kll(CAST(value AS DOUBLE)), 0.5) BETWEEN 49.0 AND 51.0 " +
+                        "FROM (VALUES ('North', 'A', CAST(50.0 AS DOUBLE)), " +
+                        "('North', 'A', CAST(51.0 AS DOUBLE)), " +
+                        "('North', 'A', CAST(49.0 AS DOUBLE)), " +
+                        "('South', 'B', CAST(25.0 AS DOUBLE)), " +
+                        "('South', 'B', CAST(26.0 AS DOUBLE)), " +
+                        "('North', 'B', CAST(75.0 AS DOUBLE))) AS t(region, category, value) " +
+                        "GROUP BY region, category " +
+                        "ORDER BY region, category",
+                "VALUES ('North', 'A', true), ('North', 'B', false), ('South', 'B', false)");
+
+        // Test rank with multi-column GROUP BY
+        assertQuery("SELECT region, category, " +
+                        "sketch_kll_rank(sketch_kll(CAST(value AS BIGINT)), CAST(50 AS BIGINT)) BETWEEN 0.55 AND 0.65 " +
+                        "FROM (VALUES ('East', 'X', CAST(40 AS BIGINT)), " +
+                        "('East', 'X', CAST(45 AS BIGINT)), " +
+                        "('East', 'X', CAST(50 AS BIGINT)), " +
+                        "('East', 'X', CAST(55 AS BIGINT)), " +
+                        "('East', 'X', CAST(60 AS BIGINT)), " +
+                        "('West', 'Y', CAST(100 AS BIGINT))) AS t(region, category, value) " +
+                        "GROUP BY region, category " +
+                        "ORDER BY region, category",
+                "VALUES ('East', 'X', true), ('West', 'Y', false)");
+    }
 }

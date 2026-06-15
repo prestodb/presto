@@ -19,6 +19,7 @@
 #include "DataSketches/kll_sketch.hpp"
 
 #include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+#include "presto_cpp/main/types/KllSketchType.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
@@ -33,9 +34,8 @@ namespace {
 class KllSketchTest : public AggregationTestBase {
  protected:
   void SetUp() override {
-    folly::SingletonVault::singleton()->registrationComplete();
     AggregationTestBase::SetUp();
-    presto::functions::aggregate::kll_sketch::registerAllKllSketchFunctions("");
+    presto::functions::registerAllKllSketchFunctions("");
   }
 
   template <typename T>
@@ -56,6 +56,34 @@ class KllSketchTest : public AggregationTestBase {
     auto result = AssertQueryBuilder(plan).copyResults(pool());
     EXPECT_EQ(result->size(), 1);
     return result;
+  }
+
+  // Run a partial → final aggregation over the given batches and return the
+  // resulting sketch row. Asserts the result is non-null.
+  RowVectorPtr buildPartialFinalSketch(
+      const std::vector<RowVectorPtr>& batches) {
+    auto plan = PlanBuilder()
+                    .values(batches)
+                    .partialAggregation({}, {"sketch_kll(c0)"})
+                    .finalAggregation()
+                    .planNode();
+
+    auto sketch = AssertQueryBuilder(plan).copyResults(pool());
+    EXPECT_EQ(sketch->size(), 1);
+    EXPECT_FALSE(sketch->childAt(0)->isNullAt(0));
+    return sketch;
+  }
+
+  // Run the plan, expect a VeloxException whose message contains `substr`.
+  void expectVeloxUserError(
+      const core::PlanNodePtr& plan,
+      const std::string& substr) {
+    try {
+      AssertQueryBuilder(plan).copyResults(pool());
+      FAIL() << "Expected a VeloxException containing: " << substr;
+    } catch (const VeloxException& e) {
+      EXPECT_NE(std::string(e.message()).find(substr), std::string::npos);
+    }
   }
 
   template <typename T>
@@ -108,9 +136,9 @@ class KllSketchTest : public AggregationTestBase {
   }
 };
 
-//
+// sketch_kll — basic correctness per type (single-stage aggregation)
+
 // DOUBLE
-//
 
 TEST_F(KllSketchTest, rankDouble) {
   std::vector<double> values(100);
@@ -136,9 +164,7 @@ TEST_F(KllSketchTest, quantileDouble) {
   EXPECT_NEAR(quantile<double>(sketch, 1.0), 99.0, 1.0);
 }
 
-//
 // BIGINT
-//
 
 TEST_F(KllSketchTest, rankBigint) {
   std::vector<int64_t> values(100);
@@ -163,9 +189,7 @@ TEST_F(KllSketchTest, quantileBigint) {
   EXPECT_NEAR(quantile<int64_t>(sketch, 1.0), 99, 1);
 }
 
-//
 // VARCHAR
-//
 
 TEST_F(KllSketchTest, rankString) {
   std::vector<std::string> values;
@@ -196,14 +220,11 @@ TEST_F(KllSketchTest, quantileString) {
   EXPECT_TRUE(q50 == "m" || q50 == "n");
   EXPECT_EQ(q100, "z");
 
-  // Test inclusive=false
   auto q50_excl = quantile<std::string>(sketch, 0.5, false);
   EXPECT_TRUE(q50_excl == "m" || q50_excl == "n");
 }
 
-//
 // BOOLEAN
-//
 
 TEST_F(KllSketchTest, rankBoolean) {
   std::vector<bool> values;
@@ -234,15 +255,12 @@ TEST_F(KllSketchTest, quantileBoolean) {
   EXPECT_EQ(quantile<bool>(sketch, 1.0), true);
 }
 
-//
-// Edge Cases
-//
+// sketch_kll — null / edge case handling
 
 TEST_F(KllSketchTest, emptyInput) {
   auto input = buildInput<int64_t>({});
   auto sketch = buildSketch(input);
 
-  // Empty input should result in NULL
   EXPECT_TRUE(sketch->childAt(0)->isNullAt(0));
 }
 
@@ -254,10 +272,9 @@ TEST_F(KllSketchTest, nullInput) {
 
   EXPECT_EQ(sketch->size(), 1);
 
-  // Verify sketch is queryable
-  auto r = rank<int64_t>(sketch, 2);
-  EXPECT_GT(r, 0.0);
-  EXPECT_LE(r, 1.0);
+  EXPECT_NEAR(rank<int64_t>(sketch, 2), 2.0 / 3.0, 0.05);
+  EXPECT_EQ(quantile<int64_t>(sketch, 0.0), 1);
+  EXPECT_EQ(quantile<int64_t>(sketch, 1.0), 3);
 }
 
 TEST_F(KllSketchTest, allNullInput) {
@@ -267,19 +284,27 @@ TEST_F(KllSketchTest, allNullInput) {
   auto input = makeRowVector({vector});
   auto sketch = buildSketch(input);
 
-  // All NULL input should result in NULL
   EXPECT_TRUE(sketch->childAt(0)->isNullAt(0));
 }
 
+TEST_F(KllSketchTest, singleElement) {
+  auto input = buildInput<int64_t>({42});
+  auto sketch = buildSketch(input);
+
+  EXPECT_EQ(quantile<int64_t>(sketch, 0.0), 42);
+  EXPECT_EQ(quantile<int64_t>(sketch, 0.5), 42);
+  EXPECT_EQ(quantile<int64_t>(sketch, 1.0), 42);
+
+  EXPECT_NEAR(rank<int64_t>(sketch, 42), 1.0, 0.01);
+  EXPECT_NEAR(rank<int64_t>(sketch, 41), 0.0, 0.01);
+}
+
 TEST_F(KllSketchTest, rankWithNullSketch) {
-  // Test that rank() on NULL sketch returns NULL
   auto input = buildInput<int64_t>({});
   auto sketch = buildSketch(input);
 
-  // Verify sketch is NULL
   EXPECT_TRUE(sketch->childAt(0)->isNullAt(0));
 
-  // rank() on NULL sketch should return NULL
   auto plan = PlanBuilder()
                   .values({sketch})
                   .project({"sketch_kll_rank(a0, CAST(5 AS BIGINT))"})
@@ -291,14 +316,11 @@ TEST_F(KllSketchTest, rankWithNullSketch) {
 }
 
 TEST_F(KllSketchTest, quantileWithNullSketch) {
-  // Test that quantile() on NULL sketch returns NULL
   auto input = buildInput<double>({});
   auto sketch = buildSketch(input);
 
-  // Verify sketch is NULL
   EXPECT_TRUE(sketch->childAt(0)->isNullAt(0));
 
-  // quantile() on NULL sketch should return NULL
   auto plan = PlanBuilder()
                   .values({sketch})
                   .project({"sketch_kll_quantile(a0, CAST(0.5 AS DOUBLE))"})
@@ -308,6 +330,8 @@ TEST_F(KllSketchTest, quantileWithNullSketch) {
   EXPECT_EQ(result->size(), 1);
   EXPECT_TRUE(result->childAt(0)->isNullAt(0));
 }
+
+// sketch_kll — error / validation
 
 TEST_F(KllSketchTest, invalidRankNegative) {
   auto input = buildInput<double>({1.0, 2.0, 3.0, 4.0, 5.0});
@@ -333,32 +357,27 @@ TEST_F(KllSketchTest, invalidRankTooLarge) {
   EXPECT_THROW(AssertQueryBuilder(plan).copyResults(pool()), VeloxException);
 }
 
-TEST_F(KllSketchTest, partialAggregation) {
-  // Create two batches: [0-49] and [50-99]
-  std::vector<std::optional<int64_t>> batch1(50);
-  std::generate(
-      batch1.begin(), batch1.end(), [n = 0]() mutable { return n++; });
-
-  std::vector<std::optional<int64_t>> batch2(50);
-  std::generate(
-      batch2.begin(), batch2.end(), [n = 50]() mutable { return n++; });
-
-  auto input1 = makeRowVector({makeNullableFlatVector(batch1)});
-  auto input2 = makeRowVector({makeNullableFlatVector(batch2)});
-
+TEST_F(KllSketchTest, invalidSketchBytesRank) {
+  auto garbage =
+      makeFlatVector<std::string>({"not_a_sketch"}, KLLSKETCH(BIGINT()));
   auto plan = PlanBuilder()
-                  .values({input1, input2})
-                  .partialAggregation({}, {"sketch_kll(c0)"})
-                  .finalAggregation()
+                  .values({makeRowVector({garbage})})
+                  .project({"sketch_kll_rank(c0, CAST(1 AS BIGINT))"})
                   .planNode();
-
-  auto result = AssertQueryBuilder(plan).copyResults(pool());
-  EXPECT_EQ(result->size(), 1);
-
-  // Verify merged sketch
-  auto r = rank(result, (int64_t)49);
-  EXPECT_NEAR(r, 0.5, 0.02);
+  expectVeloxUserError(plan, "Failed to deserialize KLL sketch");
 }
+
+TEST_F(KllSketchTest, invalidSketchBytesQuantile) {
+  auto garbage =
+      makeFlatVector<std::string>({"not_a_sketch"}, KLLSKETCH(BIGINT()));
+  auto plan = PlanBuilder()
+                  .values({makeRowVector({garbage})})
+                  .project({"sketch_kll_quantile(c0, CAST(0.5 AS DOUBLE))"})
+                  .planNode();
+  expectVeloxUserError(plan, "Failed to deserialize KLL sketch");
+}
+
+// sketch_kll_with_k — custom k parameter
 
 TEST_F(KllSketchTest, customK) {
   auto input = buildInput<double>({1.0, 2.0, 3.0, 4.0, 5.0});
@@ -371,23 +390,178 @@ TEST_F(KllSketchTest, customK) {
   auto sketch = AssertQueryBuilder(plan).copyResults(pool());
   EXPECT_EQ(sketch->size(), 1);
 
-  // Verify sketch works
-  auto r = rank(sketch, 3.0);
-  EXPECT_GT(r, 0.0);
-  EXPECT_LE(r, 1.0);
+  EXPECT_NEAR(quantile<double>(sketch, 0.0), 1.0, 0.01);
+  EXPECT_NEAR(quantile<double>(sketch, 0.5), 3.0, 0.01);
+  EXPECT_NEAR(quantile<double>(sketch, 1.0), 5.0, 0.01);
+  EXPECT_NEAR(rank(sketch, 3.0), 0.6, 0.1);
 }
 
-TEST_F(KllSketchTest, singleElement) {
-  auto input = buildInput<int64_t>({42});
-  auto sketch = buildSketch(input);
-
-  EXPECT_EQ(quantile<int64_t>(sketch, 0.0), 42);
-  EXPECT_EQ(quantile<int64_t>(sketch, 0.5), 42);
-  EXPECT_EQ(quantile<int64_t>(sketch, 1.0), 42);
-
-  EXPECT_NEAR(rank<int64_t>(sketch, 42), 1.0, 0.01);
-  EXPECT_NEAR(rank<int64_t>(sketch, 41), 0.0, 0.01);
+TEST_F(KllSketchTest, customKWithNullK) {
+  auto data = makeNullableFlatVector<double>({1.0, 2.0, 3.0});
+  auto kValues = makeNullableFlatVector<int64_t>(
+      {std::nullopt, std::nullopt, std::nullopt});
+  auto plan = PlanBuilder()
+                  .values({makeRowVector({data, kValues})})
+                  .singleAggregation({}, {"sketch_kll_with_k(c0, c1)"})
+                  .planNode();
+  expectVeloxUserError(plan, "k parameter cannot be NULL");
 }
+
+TEST_F(KllSketchTest, customKWithNullData) {
+  auto data = makeNullableFlatVector<double>(
+      {std::nullopt, std::nullopt, std::nullopt});
+  auto kValues = makeNullableFlatVector<int64_t>({200, 200, 200});
+  auto input = makeRowVector({data, kValues});
+
+  auto plan = PlanBuilder()
+                  .values({input})
+                  .singleAggregation({}, {"sketch_kll_with_k(c0, c1)"})
+                  .planNode();
+
+  auto result = AssertQueryBuilder(plan).copyResults(pool());
+  EXPECT_EQ(result->size(), 1);
+  EXPECT_TRUE(result->childAt(0)->isNullAt(0));
+}
+
+TEST_F(KllSketchTest, customKInconsistentValues) {
+  auto data = makeNullableFlatVector<int64_t>({1, 2, 3});
+  auto kValues = makeNullableFlatVector<int64_t>({100, 200, 100});
+  auto plan = PlanBuilder()
+                  .values({makeRowVector({data, kValues})})
+                  .singleAggregation({}, {"sketch_kll_with_k(c0, c1)"})
+                  .planNode();
+  expectVeloxUserError(plan, "k parameter must be constant");
+}
+
+// sketch_kll — distributed aggregation (partial → final round-trip)
+
+TEST_F(KllSketchTest, partialAggregationDouble) {
+  std::vector<std::optional<double>> batch1(50);
+  std::generate(
+      batch1.begin(), batch1.end(), [n = 0.0]() mutable { return n++; });
+  std::vector<std::optional<double>> batch2(50);
+  std::generate(
+      batch2.begin(), batch2.end(), [n = 50.0]() mutable { return n++; });
+
+  auto sketch = buildPartialFinalSketch(
+      {makeRowVector({makeNullableFlatVector(batch1)}),
+       makeRowVector({makeNullableFlatVector(batch2)})});
+
+  EXPECT_NEAR(rank<double>(sketch, 49.0), 0.5, 0.02);
+  EXPECT_NEAR(quantile<double>(sketch, 0.5), 49.0, 2.0);
+}
+
+TEST_F(KllSketchTest, partialAggregationVarchar) {
+  auto sketch = buildPartialFinalSketch(
+      {makeRowVector(
+           {makeNullableFlatVector<std::string>({"a", "b", "c", "d", "e"})}),
+       makeRowVector(
+           {makeNullableFlatVector<std::string>({"f", "g", "h", "i", "j"})})});
+
+  EXPECT_NEAR(rank(sketch, std::string("e")), 0.5, 0.1);
+  EXPECT_EQ(quantile<std::string>(sketch, 0.0), "a");
+  EXPECT_EQ(quantile<std::string>(sketch, 1.0), "j");
+}
+
+TEST_F(KllSketchTest, partialAggregationBoolean) {
+  auto sketch = buildPartialFinalSketch(
+      {makeRowVector(
+           {makeNullableFlatVector<bool>({false, false, false, false})}),
+       makeRowVector({makeNullableFlatVector<bool>(
+           {false, false, false, true, true, true})})});
+
+  EXPECT_EQ(quantile<bool>(sketch, 0.0), false);
+  EXPECT_EQ(quantile<bool>(sketch, 1.0), true);
+  EXPECT_NEAR(rank(sketch, false), 0.7, 0.05);
+  EXPECT_NEAR(rank(sketch, true), 1.0, 0.01);
+}
+
+TEST_F(KllSketchTest, partialAggregationBigint) {
+  std::vector<std::optional<int64_t>> batch1(50);
+  std::generate(
+      batch1.begin(), batch1.end(), [n = int64_t{0}]() mutable { return n++; });
+  std::vector<std::optional<int64_t>> batch2(50);
+  std::generate(batch2.begin(), batch2.end(), [n = int64_t{50}]() mutable {
+    return n++;
+  });
+
+  auto sketch = buildPartialFinalSketch(
+      {makeRowVector({makeNullableFlatVector(batch1)}),
+       makeRowVector({makeNullableFlatVector(batch2)})});
+
+  EXPECT_NEAR(rank<int64_t>(sketch, 49), 0.5, 0.02);
+  EXPECT_NEAR(quantile<int64_t>(sketch, 0.5), 49, 2);
+}
+
+TEST_F(KllSketchTest, multiStageMergeBigint) {
+  std::vector<RowVectorPtr> batches;
+  for (int b = 0; b < 5; b++) {
+    std::vector<std::optional<int64_t>> values(100);
+    std::generate(
+        values.begin(), values.end(), [n = b * 100]() mutable { return n++; });
+    batches.push_back(makeRowVector({makeNullableFlatVector(values)}));
+  }
+
+  auto sketch = buildPartialFinalSketch(batches);
+
+  EXPECT_NEAR(rank<int64_t>(sketch, 250), 0.5, 0.05);
+  EXPECT_NEAR(quantile<int64_t>(sketch, 0.5), 250, 10);
+}
+
+TEST_F(KllSketchTest, multiStageMergeDouble) {
+  std::vector<RowVectorPtr> batches;
+  for (int b = 0; b < 5; b++) {
+    std::vector<std::optional<double>> values(100);
+    std::generate(values.begin(), values.end(), [n = b * 100.0]() mutable {
+      return n++;
+    });
+    batches.push_back(makeRowVector({makeNullableFlatVector(values)}));
+  }
+
+  auto sketch = buildPartialFinalSketch(batches);
+
+  EXPECT_NEAR(rank<double>(sketch, 250.0), 0.5, 0.05);
+  EXPECT_NEAR(quantile<double>(sketch, 0.5), 250.0, 10.0);
+}
+
+TEST_F(KllSketchTest, multiStageMergeVarchar) {
+  std::vector<RowVectorPtr> batches;
+  char base = 'a';
+  for (int b = 0; b < 5; b++) {
+    std::vector<std::optional<std::string>> values;
+    for (int i = 0; i < 5; i++) {
+      values.push_back(std::string(1, base++));
+    }
+    batches.push_back(makeRowVector({makeNullableFlatVector(values)}));
+  }
+
+  auto sketch = buildPartialFinalSketch(batches);
+
+  EXPECT_NEAR(rank(sketch, std::string("m")), 0.5, 0.1);
+  EXPECT_EQ(quantile<std::string>(sketch, 0.0), "a");
+  EXPECT_EQ(quantile<std::string>(sketch, 1.0), "y");
+}
+
+TEST_F(KllSketchTest, multiStageMergeBoolean) {
+  std::vector<RowVectorPtr> batches;
+  for (int b = 0; b < 2; b++) {
+    batches.push_back(makeRowVector(
+        {makeNullableFlatVector<bool>({false, false, false, false, false})}));
+  }
+  for (int b = 0; b < 2; b++) {
+    batches.push_back(makeRowVector(
+        {makeNullableFlatVector<bool>({true, true, true, true, true})}));
+  }
+
+  auto sketch = buildPartialFinalSketch(batches);
+
+  EXPECT_EQ(quantile<bool>(sketch, 0.0), false);
+  EXPECT_EQ(quantile<bool>(sketch, 1.0), true);
+  EXPECT_NEAR(rank(sketch, false), 0.5, 0.05);
+  EXPECT_NEAR(rank(sketch, true), 1.0, 0.01);
+}
+
+// sketch_kll — scale and stability
 
 TEST_F(KllSketchTest, largeDataset) {
   std::vector<double> values;
@@ -395,17 +569,13 @@ TEST_F(KllSketchTest, largeDataset) {
     values.push_back(static_cast<double>(i));
   }
 
-  // Shuffle to test realistic streaming behavior
   std::shuffle(values.begin(), values.end(), std::mt19937(1));
 
   auto sketch = buildSketch(buildInput(values));
 
-  // Test compression works correctly at scale
-  // Focus on median which is most stable for shuffled data
   EXPECT_NEAR(quantile<double>(sketch, 0.5), 5000.0, 150.0);
   EXPECT_NEAR(rank(sketch, 5000.0), 0.5, 0.03);
 
-  // Min/max can have larger errors with shuffled data
   auto q0 = quantile<double>(sketch, 0.0);
   auto q100 = quantile<double>(sketch, 1.0);
   EXPECT_GE(q0, 0.0);
@@ -419,45 +589,15 @@ TEST_F(KllSketchTest, repeatedQueries) {
   auto input = buildInput<int64_t>(data);
   auto sketch = buildSketch(input);
 
-  // Verify deserialization doesn't corrupt memory across calls
-  for (int i = 0; i < data.size(); i++) {
+  for (size_t i = 0; i < data.size(); i++) {
     auto r = rank<int64_t>(sketch, 5);
-    EXPECT_GT(r, 0.3);
-    EXPECT_LT(r, 0.7);
+    EXPECT_NEAR(r, 5.0 / 9.0, 0.1);
   }
 
-  // Same for quantile
-  for (int i = 0; i < data.size(); i++) {
+  for (size_t i = 0; i < data.size(); i++) {
     auto q = quantile<int64_t>(sketch, 0.5);
-    EXPECT_GE(q, 3);
-    EXPECT_LE(q, 7);
+    EXPECT_EQ(q, 5);
   }
-}
-
-TEST_F(KllSketchTest, multiStageMerge) {
-  std::vector<RowVectorPtr> batches;
-
-  // Create 5 batches of 100 elements each (0-499)
-  for (int b = 0; b < 5; b++) {
-    std::vector<std::optional<int64_t>> values(100);
-    std::generate(
-        values.begin(), values.end(), [n = b * 100]() mutable { return n++; });
-    batches.push_back(makeRowVector({makeNullableFlatVector(values)}));
-  }
-
-  // Test multi-stage merge in distributed execution
-  auto plan = PlanBuilder()
-                  .values(batches)
-                  .partialAggregation({}, {"sketch_kll(c0)"})
-                  .finalAggregation()
-                  .planNode();
-
-  auto sketch = AssertQueryBuilder(plan).copyResults(pool());
-  EXPECT_EQ(sketch->size(), 1);
-
-  // Verify merged sketch accuracy
-  EXPECT_NEAR(rank<int64_t>(sketch, 250), 0.5, 0.05);
-  EXPECT_NEAR(quantile<int64_t>(sketch, 0.5), 250, 10);
 }
 
 } // namespace

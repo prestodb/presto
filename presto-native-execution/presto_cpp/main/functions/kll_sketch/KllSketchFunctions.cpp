@@ -15,49 +15,19 @@
 #include "DataSketches/kll_sketch.hpp"
 
 #include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
+#include "presto_cpp/main/functions/kll_sketch/KllSketchTypeTraits.h"
 #include "presto_cpp/main/types/KllSketchType.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 
 namespace facebook::presto::functions {
 
-namespace {
-
-//---------------------------------------------
-// Type mapping: Velox types -> DataSketches types
-//---------------------------------------------
-
-template <typename T>
-struct SketchTypeMapper {
-  using type = T;
-};
-
-// VARCHAR in Velox maps to std::string in DataSketches
-template <>
-struct SketchTypeMapper<velox::Varchar> {
-  using type = std::string;
-};
+using kll_sketch::SketchTypeMapper;
 
 template <typename T>
 using SketchType = typename SketchTypeMapper<T>::type;
 
-//---------------------------------------------
-// Type conversion helpers
-//---------------------------------------------
-
-template <typename T>
-inline SketchType<T> convertValue(const T& value) {
-  return value;
-}
-
-// Velox VARCHAR → std::string for DataSketches
-inline std::string convertValue(const velox::StringView& value) {
-  return std::string(value.data(), value.size());
-}
-
-//---------------------------------------------
-// Sketch deserialization helper
-//---------------------------------------------
+namespace {
 
 template <typename T>
 inline datasketches::kll_sketch<SketchType<T>> deserializeSketch(
@@ -66,23 +36,16 @@ inline datasketches::kll_sketch<SketchType<T>> deserializeSketch(
     return datasketches::kll_sketch<SketchType<T>>::deserialize(
         rawSketch.data(), rawSketch.size());
   } catch (const std::out_of_range& e) {
-    // Thrown by DataSketches for insufficient buffer size
     VELOX_USER_FAIL(
         "Invalid KLL sketch data - buffer out of range: {}", e.what());
   } catch (const std::logic_error& e) {
-    // Thrown by DataSketches for corrupted data (size mismatch, etc.)
     VELOX_USER_FAIL(
         "Failed to deserialize KLL sketch - corrupted data or logic error: {}",
         e.what());
   } catch (const std::exception& e) {
-    // Catch any other unexpected exceptions during deserialization
     VELOX_USER_FAIL("Failed to deserialize KLL sketch: {}", e.what());
   }
 }
-
-//---------------------------------------------
-// Rank Function (supports both 2 and 3 args)
-//---------------------------------------------
 
 template <typename T>
 struct KllSketchRankFunction {
@@ -100,7 +63,7 @@ struct KllSketchRankFunction {
       }
 
       auto sketch = deserializeSketch<T>(*rawSketch);
-      auto value = convertValue(*quantile);
+      auto value = std::move(SketchTypeMapper<T>::toSketchType(*quantile));
 
       result = sketch.get_rank(value, *inclusive);
       return true;
@@ -115,7 +78,7 @@ struct KllSketchRankFunction {
       }
 
       auto sketch = deserializeSketch<T>(*rawSketch);
-      auto value = convertValue(*quantile);
+      auto value = std::move(SketchTypeMapper<T>::toSketchType(*quantile));
 
       result = sketch.get_rank(value, true);
       return true;
@@ -123,17 +86,12 @@ struct KllSketchRankFunction {
   };
 };
 
-//---------------------------------------------
-// Quantile Function (supports both 2 and 3 args)
-//---------------------------------------------
-
 template <typename T>
 struct KllSketchQuantileFunction {
   template <typename TExec>
   struct udf {
     VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
-    // Helper to write result (handles VARCHAR differently)
     FOLLY_ALWAYS_INLINE void writeResult(
         out_type<T>& result,
         const SketchType<T>& value) {
@@ -177,12 +135,6 @@ struct KllSketchQuantileFunction {
   };
 };
 
-} // namespace
-
-//---------------------------------------------
-// Registration Helper
-//---------------------------------------------
-
 template <typename T, typename SketchArg>
 void registerKllType(
     const std::string& rankFuncName,
@@ -218,9 +170,7 @@ void registerKllType(
       double>({quantileFuncName});
 }
 
-//---------------------------------------------
-// Function Registration
-//---------------------------------------------
+} // namespace
 
 void registerKllSketchFunctions(const std::string& prefix) {
   const std::string rankFuncName = prefix + "sketch_kll_rank";
