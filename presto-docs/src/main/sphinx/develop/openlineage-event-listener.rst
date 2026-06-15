@@ -11,7 +11,9 @@ The plugin captures:
 
 * Query start events (``START``)
 * Query completion events (``COMPLETE`` or ``FAIL``)
-* Input and output dataset information including column-level lineage
+* Input and output dataset information including column-level lineage,
+  including indirect column lineage from ``JOIN``, ``WHERE``/``HAVING``,
+  ``GROUP BY``, ``ORDER BY``, window, and conditional expressions
 
 Installation
 ------------
