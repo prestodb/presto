@@ -64,10 +64,8 @@ public class TestAwsIamAuthentication
             throws Exception
     {
         elasticsearch = new ElasticsearchServer(elasticsearchImage,
-                ImmutableMap.<String, String>builder()
-                        .put("elasticsearch.yml", getElasticsearchConfig())
-                        .build(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableMap.of("xpack.security.enabled", "false"));
 
         HostAndPort address = elasticsearch.getAddress();
         client = Rest5Client.builder(new HttpHost(address.getHost(), address.getPort())).build();
@@ -191,24 +189,5 @@ public class TestAwsIamAuthentication
                 null,
                 client);
         assertEquals(deleteResponse.getStatusCode(), 200, "Index deletion should return 200 OK");
-    }
-
-    private String getElasticsearchConfig()
-    {
-        return "# Basic cluster identification\n" +
-                "cluster.name: test-cluster\n" +
-                "node.name: test-node\n" +
-                "# Allow external connections for testing (binds to all network interfaces)\n" +
-                "network.host: 0.0.0.0\n" +
-                "# Single node setup for testing - no cluster discovery needed\n" +
-                "discovery.type: single-node\n" +
-                "# Disable X-Pack security features for simplified testing environment\n" +
-                "xpack.security.enabled: false\n" +
-                "# Disable monitoring to reduce overhead in test environment\n" +
-                "xpack.monitoring.enabled: false\n" +
-                "# Disable watcher (alerting) as it's not needed for tests\n" +
-                "xpack.watcher.enabled: false\n" +
-                "# Disable machine learning features to reduce resource usage\n" +
-                "xpack.ml.enabled: false";
     }
 }
