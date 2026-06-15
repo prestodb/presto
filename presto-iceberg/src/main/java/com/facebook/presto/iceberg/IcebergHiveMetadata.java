@@ -166,7 +166,6 @@ public class IcebergHiveMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
     private final IcebergHiveTableOperationsConfig hiveTableOperationsConfig;
-    private final ConnectorSystemConfig connectorSystemConfig;
     private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
@@ -191,13 +190,12 @@ public class IcebergHiveMetadata
             boolean autoCommitContext)
     {
         super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec,
-                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, connectorSystemConfig, isolationLevel, autoCommitContext);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOperationsConfig = requireNonNull(hiveTableOperationsConfig, "hiveTableOperationsConfig is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
-        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     public ExtendedHiveMetastore getMetastore()

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -48,6 +49,7 @@ public class IcebergNativeMetadataFactory
     final FilterStatsCalculatorService filterStatsCalculatorService;
     final StatisticsFileCache statisticsFileCache;
     final IcebergTableProperties tableProperties;
+    final ConnectorSystemConfig connectorSystemConfig;
 
     @Inject
     public IcebergNativeMetadataFactory(
@@ -63,7 +65,8 @@ public class IcebergNativeMetadataFactory
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
-            IcebergTableProperties tableProperties)
+            IcebergTableProperties tableProperties,
+            ConnectorSystemConfig connectorSystemConfig)
     {
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -78,6 +81,7 @@ public class IcebergNativeMetadataFactory
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
     public IcebergTransactionMetadata create()
@@ -89,6 +93,6 @@ public class IcebergNativeMetadataFactory
     {
         return new IcebergNativeMetadata(catalogFactory, typeManager, procedureRegistry, functionResolution,
                 rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec, catalogType, nodeVersion,
-                filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                filterStatsCalculatorService, statisticsFileCache, tableProperties, connectorSystemConfig, isolationLevel, autoCommitContext);
     }
 }

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.iceberg.PartitionField;
 
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.regex.Matcher;
 
@@ -159,5 +160,42 @@ public class IcebergPartitionFieldHandle
                 }
                 throw new UnsupportedOperationException("Unsupported partition transform: " + transform);
         }
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IcebergPartitionFieldHandle that = (IcebergPartitionFieldHandle) o;
+        return Objects.equals(sourceColumnChannel, that.sourceColumnChannel) &&
+                Objects.equals(transform, that.transform) &&
+                Objects.equals(type, that.type) &&
+                Objects.equals(size, that.size) &&
+                Objects.equals(partitionFieldMessage, that.partitionFieldMessage);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(sourceColumnChannel, transform, type, size, partitionFieldMessage);
+    }
+
+    @Override
+    public String toString()
+    {
+        String transformString = size.isPresent()
+                ? transform + "[" + size.getAsInt() + "]"
+                : transform.toString();
+
+        return String.format(
+                "field(channel=%d, %s, %s)",
+                sourceColumnChannel,
+                transformString,
+                type);
     }
 }

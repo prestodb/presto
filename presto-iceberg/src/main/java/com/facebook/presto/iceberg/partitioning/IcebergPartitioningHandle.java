@@ -25,6 +25,7 @@ import org.apache.iceberg.types.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -68,5 +69,30 @@ public class IcebergPartitioningHandle
                 .collect(toImmutableList());
 
         return new IcebergPartitioningHandle(partitionFields);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        IcebergPartitioningHandle that = (IcebergPartitioningHandle) o;
+        return Objects.equals(partitionFieldHandles, that.partitionFieldHandles);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(partitionFieldHandles);
+    }
+
+    @Override
+    public String toString()
+    {
+        return partitionFieldHandles.toString();
     }
 }

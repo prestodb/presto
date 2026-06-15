@@ -1569,6 +1569,42 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testPlanFragmentPartitioningOfCTAS()
+    {
+        String tableName = "test_plan_fragment_partitioning_of_ctas";
+        try {
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                    format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // For partitioned target tables, the plan fragment containing the writer node is of IcebergPartitioningHandle distributed type.
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)'])" +
+                                    " AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // IcebergPartitioningHandle distributed type with multiple partition fields.
+            distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)', 'orderkey', 'suppkey'])" +
+                                    " AS SELECT * FROM %s", tableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint), field(channel=0, identity, bigint), field(channel=1, identity, bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
     public void testPartitionedInsertIntoTableWithLargeAmountOfPartitions()
     {
         String tableName = "test_partitioned_insert_with_many_partitions";
@@ -1604,6 +1640,48 @@ public abstract class IcebergDistributedSmokeTestBase
         }
         finally {
             dropTable(getSession(), tableName);
+        }
+    }
+
+    @Test
+    public void testPlanFragmentPartitioningOfInsertIntoTable()
+    {
+        String unpartitionedTableName = "plan_fragment_partitioning_of_unpartitioned_insert";
+        String partitionedTableName = "plan_fragment_partitioning_of_partitioned_insert";
+        try {
+            // For non-partitioned target tables, the plan fragment containing the writer node is of SCALED distributed type.
+            assertUpdate(format("CREATE TABLE %s AS SELECT * FROM %s WITH NO DATA", unpartitionedTableName, "lineitem"), 0);
+            String distributedPlanForUnpartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", unpartitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 1 [SCALED]"));
+            assertTrue(distributedPlanForUnpartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // For partitioned target tables, the plan fragment containing the writer node is of IcebergPartitioningHandle distributed type.
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)']) AS SELECT * FROM %s WITH NO DATA",
+                    partitionedTableName, "lineitem"), 0);
+            String distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", partitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+
+            // IcebergPartitioningHandle distributed type with multiple partition fields.
+            dropTable(getSession(), partitionedTableName);
+            assertUpdate(format("CREATE TABLE %s WITH(PARTITIONING = ARRAY['bucket(orderkey, 1000)', 'orderkey', 'suppkey']) AS SELECT * FROM %s WITH NO DATA",
+                    partitionedTableName, "lineitem"), 0);
+            distributedPlanForPartitionedTable = getQueryRunner().execute(
+                            format("EXPLAIN (TYPE DISTRIBUTED) INSERT INTO %s SELECT * FROM %s", partitionedTableName, "lineitem"))
+                    .getOnlyValue().toString();
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 0 [COORDINATOR_ONLY]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 1 [iceberg:[field(channel=0, bucket[1000], bigint), field(channel=0, identity, bigint), field(channel=1, identity, bigint)]]"));
+            assertTrue(distributedPlanForPartitionedTable.contains("Fragment 2 [SOURCE]"));
+        }
+        finally {
+            dropTable(getSession(), partitionedTableName);
+            dropTable(getSession(), unpartitionedTableName);
         }
     }
 

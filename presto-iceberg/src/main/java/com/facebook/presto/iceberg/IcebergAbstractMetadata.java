@@ -52,6 +52,7 @@ import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -356,6 +357,7 @@ public abstract class IcebergAbstractMetadata
     protected final IcebergTransactionContext transactionContext;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    private final ConnectorSystemConfig connectorSystemConfig;
     private final StandardFunctionResolution functionResolution;
     private static final JsonCodec<List<String>> STRING_LIST_CODEC = JsonCodec.listJsonCodec(String.class);
 
@@ -371,6 +373,7 @@ public abstract class IcebergAbstractMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties,
+            ConnectorSystemConfig connectorSystemConfig,
             com.facebook.presto.spi.transaction.IsolationLevel isolationLevel,
             boolean autoCommitContext)
     {
@@ -385,6 +388,7 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
         this.transactionContext = new IcebergTransactionContext(isolationLevel, autoCommitContext);
     }
 
@@ -898,7 +902,7 @@ public abstract class IcebergAbstractMetadata
 
     private Optional<ConnectorNewTableLayout> createNewTableLayout(Schema schema, PartitionSpec partitionSpec)
     {
-        if (partitionSpec.isUnpartitioned()) {
+        if (connectorSystemConfig.isNativeExecution() || partitionSpec.isUnpartitioned()) {
             return Optional.empty();
         }
 
