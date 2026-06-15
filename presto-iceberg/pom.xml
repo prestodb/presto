@@ -616,7 +616,20 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
-            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-parser</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.presto</groupId>
+                    <artifactId>presto-analyzer</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-math3</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -788,6 +801,10 @@
             <artifactId>commons-math3</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -800,6 +817,7 @@
                         <ignoredNonTestScopedDependency>com.facebook.airlift:node</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.projectnessie.nessie:nessie-model</ignoredNonTestScopedDependency>
                         <ignoredNonTestScopedDependency>org.apache.httpcomponents.core5:httpcore5</ignoredNonTestScopedDependency>
+                        <ignoredNonTestScopedDependency>commons-io:commons-io</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
                     <!--                    <ignoredUsedUndeclaredDependencies>-->
                     <!--                        &lt;!&ndash; Ignore these because they are picked up as false-positives when configuring logging in the IcebergQueryRunner &ndash;&gt;-->

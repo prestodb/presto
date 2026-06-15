@@ -2913,6 +2913,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``MAP``
   * - ``STRUCT``
     - ``ROW``
+  * - ``GEOMETRY``
+    - ``GEOMETRY``
 
 
 No other types are supported.
