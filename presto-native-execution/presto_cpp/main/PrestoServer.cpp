@@ -1544,8 +1544,7 @@ void PrestoServer::registerFunctions() {
       prestoBuiltinFunctionPrefix_);
 #endif
 
-  functions::aggregate::kll_sketch::registerAllKllSketchFunctions(
-      prestoBuiltinFunctionPrefix_);
+  functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
 
   // Register RPC function stubs so the sidecar's /v1/functions endpoint
   // exposes them to the coordinator for function discovery.

@@ -41,100 +41,31 @@ KLL sketches enable approximate quantile estimation and rank queries on datasets
 For more information on KLL sketches, please see the Apache DataSketches
 `KLL sketch documentation`_.
 
-.. function:: sketch_kll(x) -> kllsketch(T)
+.. function:: sketch_kll[T](x: T) -> kllsketch[T]
 
-    Computes a KLL sketch from an input dataset with default k=200. The return type
-    is parameterized by the input type T, creating type-specific sketches that are
-    not interchangeable. The output from this function can be used as an input to
-    any of the other ``sketch_kll_*`` family of functions.
-    
-    Supported types: ``bigint``, ``double``, ``varchar``, ``boolean``.
-    
-    Return types:
-    
-    * ``bigint`` input → ``kllsketch(bigint)``
-    * ``double`` input → ``kllsketch(double)``
-    * ``varchar`` input → ``kllsketch(varchar)``
-    * ``boolean`` input → ``kllsketch(boolean)``
+    Computes a KLL sketch from an input dataset with default k=200. The output
+    from this function can be used as an input to any of the other
+    ``sketch_kll_*`` family of functions.
 
-    Example::
+.. function:: sketch_kll_with_k[T](x: T, k: bigint) -> kllsketch[T]
 
-        SELECT sketch_kll(price) FROM orders;
-        -- Returns kllsketch(double) if price is double
+    Computes a KLL sketch from an input dataset with a custom ``k`` parameter.
+    The ``k`` parameter must be in the range [8..65535]. It controls the accuracy
+    of the sketch — smaller ``k`` is less accurate but consumes less storage.
+    For more information on ``k``, refer to the `KLL sketch documentation`_.
 
-.. function:: sketch_kll_with_k(x, k) -> kllsketch(T)
+.. function:: sketch_kll_rank[T](sketch: kllsketch[T], value: T[, inclusive: boolean]) -> double
 
-    Computes a KLL sketch from an input dataset with a custom k parameter
-    (8 ≤ k ≤ 65535). Higher k values provide better accuracy but use more memory.
-    The return type is parameterized by the input type T.
-    
-    Supported types: ``bigint``, ``double``, ``varchar``, ``boolean``.
+    Returns the approximate rank of ``value`` in the sketch — the fraction of
+    values in the sketch that are less than or equal to ``value``. When
+    ``inclusive`` is ``false``, counts only values strictly less than ``value``.
+    If omitted, the default is ``true``.
 
-    Example::
-
-        SELECT sketch_kll_with_k(price, 400) FROM orders;
-        -- Returns kllsketch(double) with k=400 for higher accuracy
-
-.. function:: sketch_kll_rank(sketch, value) -> double
-
-    Returns the approximate rank (percentile) of the given value in the sketch.
-    The rank is a value between 0.0 and 1.0, where 0.0 represents the minimum
-    value and 1.0 represents the maximum value. By default, uses inclusive mode
-    (values less than or equal to the given value). Supported types: ``bigint``,
-    ``double``, ``varchar``, ``boolean``.
-
-    Example::
-
-        SELECT sketch_kll_rank(sketch_kll(price), 50.0) FROM orders;
-        -- Returns the fraction of prices that are ≤ 50.0
-
-.. function:: sketch_kll_rank(sketch, value, inclusive) -> double
-
-    Returns the approximate rank of the given value in the sketch with explicit
-    boundary mode control. When ``inclusive`` is ``true``, counts values less than
-    or equal to the given value. When ``false``, counts only values strictly less
-    than the given value.
-
-    Example::
-
-        SELECT sketch_kll_rank(sketch_kll(price), 50.0, false) FROM orders;
-        -- Returns the fraction of prices that are < 50.0 (exclusive)
-
-.. function:: sketch_kll_quantile(sketch, rank) -> T
+.. function:: sketch_kll_quantile[T](sketch: kllsketch[T], rank: double[, inclusive: boolean]) -> T
 
     Returns the approximate value at the given rank (percentile) in the sketch.
-    The rank must be between 0.0 and 1.0, where 0.0 returns the minimum value
-    and 1.0 returns the maximum value. By default, uses inclusive mode.
-    
-    The return type T matches the input data type used to create the sketch:
-    
-    * ``kllsketch(bigint)`` → returns ``bigint``
-    * ``kllsketch(double)`` → returns ``double``
-    * ``kllsketch(varchar)`` → returns ``varchar``
-    * ``kllsketch(boolean)`` → returns ``boolean``
-
-    Example::
-
-        SELECT sketch_kll_quantile(sketch_kll(price), 0.5) FROM orders;
-        -- Returns the median price (50th percentile) as double
-
-        SELECT sketch_kll_quantile(sketch_kll(price), 0.95) FROM orders;
-        -- Returns the 95th percentile price
-
-        SELECT sketch_kll_quantile(sketch_kll(product_name), 0.5) FROM orders;
-        -- Returns the median product name (varchar) alphabetically
-
-.. function:: sketch_kll_quantile(sketch, rank, inclusive) -> T
-
-    Returns the approximate value at the given rank with explicit boundary mode
-    control. When ``inclusive`` is ``true``, uses inclusive boundaries. When
-    ``false``, uses exclusive boundaries. The return type T matches the input
-    data type used to create the sketch.
-
-    Example::
-
-        SELECT sketch_kll_quantile(sketch_kll(price), 0.5, false) FROM orders;
-        -- Returns the median with exclusive boundaries
+    The ``rank`` must be between 0.0 and 1.0. When ``inclusive`` is ``false``,
+    uses exclusive boundaries. If omitted, the default is ``true``.
 
 .. _Apache DataSketches: https://datasketches.apache.org/
 .. _Theta sketch documentation: https://datasketches.apache.org/docs/Theta/ThetaSketches.html#theta-sketch-framework
