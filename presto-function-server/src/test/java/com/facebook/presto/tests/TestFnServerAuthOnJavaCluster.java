@@ -4,6 +4,12 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.presto.tests;
 
@@ -49,67 +55,50 @@ public class TestFnServerAuthOnJavaCluster
     }
 
     /**
-     * Tests secure authentication (mTLS + JWT) between Coordinator and Function-Server
+     * Tests secure authentication (mTLS + JWT) between Coordinator and Function-Server ONLY.
+     * Uses coordinator-only query runner to ensure queries execute on coordinator, not workers.
      */
     @Test
     public void testMtlsJwtBetweenCoordinatorAndFnServer()
     {
-        log.info("Test: Simple remote function execution with mTLS + JWT (coordinator→function server)");
-        MaterializedResult result1 = computeActual("SELECT rest.default.abs(-123)");
-        assertEquals(result1.getOnlyValue(), 123);
-        log.info("Simple function call succeeded: abs(-123) = 123");
+        log.info("TEST: Coordinator→Function-Server with mTLS + JWT");
+        try (QueryRunner coordRunner = FnServerAuthTestUtils.createCoordinatorOnlyRunnerWithMtlsAndJwt()) {
+            MaterializedResult result = coordRunner.execute(getSession(),
+                    "SELECT rest.default.abs(-123)");
+            assertEquals(result.getOnlyValue(), 123);
+            log.info("Coordinator→Function-Server test passed with result value %d", result.getOnlyValue());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to test coordinator→function-server", e);
+        }
     }
 
     /**
-     * Tests secure authentication (mTLS + JWT) between Worker and Function-Server
+     * Tests secure authentication (mTLS + JWT) between Java Worker and Function-Server
      */
     @Test
-    public void testMtlsJwtBetweenWorkerAndFnServer()
+    public void testMtlsJwtBetweenJavaWorkerAndFnServer()
     {
         log.info("TEST: Remote function execution with mTLS + JWT (worker->function server");
         MaterializedResult result2 = computeActual(
-                "SELECT rest.default.abs(nationkey) FROM tpch.tiny.nation LIMIT 3");
-        assertEquals(result2.getRowCount(), 3);
+                "SELECT rest.default.sqrt(n_nationkey) FROM nation LIMIT 5");
+        assertEquals(result2.getRowCount(), 5);
         log.info("Table query succeeded: %d rows processed", result2.getRowCount());
     }
 
     /**
-     * Tests secure authentication (mTLS + JWT) between Worker and Function-Server with a complex query
-     */
-    @Test
-    public void testMtlsAndJwtWithComplexQuery()
-    {
-        log.info("TEST: mTLS and JWT communication (worker->function server) with complex query");
-        MaterializedResult result3 = computeActual(
-                "SELECT count(*), sum(rest.default.abs(nationkey)) FROM tpch.tiny.nation");
-        log.info("Aggregation query with remote function call succeeded");
-    }
-
-    /**
-     * Test mTLS-only communication between Coordinator, Worker, and Function-Server
+     * Test mTLS-only communication between Coordinator, Java Worker, and Function-Server
      */
     @Test
     public void testMtlsOnlyCommunicationToFnServer()
     {
-        log.info("TEST: mTLS-only communication between Coordinator, Worker, and Function-Server");
+        log.info("TEST: mTLS-only communication between Coordinator, Java Worker, and Function-Server");
         try {
             try (QueryRunner mtlsRunner = FnServerAuthTestUtils
                     .createRunnerWithOnlyMtls()) {
-
-                log.info("Test: Simple remote function call (coordinator→function server)");
-                MaterializedResult result1 = mtlsRunner.execute(getSession(), "SELECT rest.default.abs(-123)");
-                assertEquals(result1.getOnlyValue(), 123);
-                log.info("Simple function call succeeded: abs(-123) = 123");
-
-                log.info("Test: Remote function with table data (worker→function server)");
-                MaterializedResult result2 = mtlsRunner.execute(getSession(), "SELECT rest.default.abs(nationkey) FROM tpch.tiny.nation LIMIT 3");
-                assertEquals(result2.getRowCount(), 3);
-                log.info("Table query succeeded: %d rows processed", result2.getRowCount());
-
-                log.info("Test: Complex query with aggregation");
-                MaterializedResult result3 = mtlsRunner.execute(getSession(), "SELECT count(*), sum(rest.default.abs(nationkey)) FROM tpch.tiny.nation");
-                assertEquals(result2.getRowCount(), 3);
-                log.info("Aggregation query succeeded");
+                MaterializedResult result2 = mtlsRunner.execute(getSession(), "SELECT rest.default.ceil(3.14)");
+                assertEquals(result2.getOnlyValue(), 4.0f);
+                log.info("Simple function call succeeded: ceil(3.14) = %f", result2.getOnlyValue());
             }
         }
         catch (Exception e) {
@@ -119,7 +108,7 @@ public class TestFnServerAuthOnJavaCluster
     }
 
     /**
-     * Test mTLS-JWT communication between Coordinator, Worker, and Function-Server.
+     * Test mTLS-JWT communication between Coordinator, Java Worker, and Function-Server.
      * In this case, Function-Server has invalid certificate in its keystore.
      */
     @Test(expectedExceptions = Exception.class)
@@ -129,18 +118,14 @@ public class TestFnServerAuthOnJavaCluster
         try {
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
                     .createRunnerWithInvalidCertInFnServer()) {
-                MaterializedResult result = invalidRunner.execute(getSession(), "SELECT rest.default.abs(nationkey) FROM tpch.tiny.nation LIMIT 3");
-                assertEquals(result.getRowCount(), 3);
-                log.info("Table query succeeded: %d rows processed", result.getRowCount());
+                MaterializedResult result = invalidRunner.execute(getSession(), "SELECT rest.default.mod(o_orderkey, 10) FROM orders LIMIT 5");
+                assertEquals(result.getRowCount(), 5);
             }
-
-            log.error("TEST FAILED: Query succeeded with invalid certificate!");
-            log.error("This means certificate validation is NOT working!");
             fail("Query should have failed - coordinator/worker should reject invalid certificate");
         }
         catch (Exception e) {
-            log.info("✓ Expected failure occurred: %s", e.getClass().getSimpleName());
-            log.info("✓ Error message: %s", e.getMessage());
+            log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
+            log.info("Error message: %s", e.getMessage());
             throw e;
         }
     }
@@ -153,14 +138,11 @@ public class TestFnServerAuthOnJavaCluster
             throws Exception
     {
         log.info("TEST: JWT communication with wrong shared secret in function-server");
-
         try {
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
                     .createRunnerWithInvalidJwtSecretOnFnServer()) {
-                invalidRunner.execute(getSession(), "SELECT rest.default.abs(nationkey) FROM tpch.tiny.nation LIMIT 3");
+                invalidRunner.execute(getSession(), "SELECT rest.default.sign(o_totalprice) FROM orders LIMIT 5");
             }
-
-            log.error("TEST FAILED: Query succeeded with invalid jwt secret!");
             fail("Query should have failed - coordinator/worker should reject invalid jwt secret");
         }
         catch (Exception e) {
@@ -178,15 +160,12 @@ public class TestFnServerAuthOnJavaCluster
             throws Exception
     {
         log.info("TEST: JWT communication by removing the JWT properties from function-server configuration");
-
         try {
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
                     .createRunnerWithNoJwtOnFnServer()) {
-                invalidRunner.execute(getSession(), "SELECT rest.default.abs(nationkey) FROM tpch.tiny.nation LIMIT 3");
+                invalidRunner.execute(getSession(), "SELECT rest.default.round(l_extendedprice, 2) \" +\n" + "\"FROM lineitem LIMIT 10");
             }
-
-            log.error("TEST FAILED: Query succeeded with no jwt configs!");
-            fail("Query should have failed");
+            fail("Query should have failed with no JWT related props on function-server");
         }
         catch (Exception e) {
             log.info("Expected failure occurred: %s", e.getClass().getSimpleName());

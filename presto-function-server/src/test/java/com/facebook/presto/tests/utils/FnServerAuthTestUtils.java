@@ -4,6 +4,12 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.presto.tests.utils;
 
@@ -12,21 +18,21 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.AuthClientConfigs;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.rest.RestBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.facebook.presto.server.TestingFunctionServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
-import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.ServerSocket;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -42,25 +48,16 @@ public class FnServerAuthTestUtils
     private static final Logger log = Logger.get(FnServerAuthTestUtils.class);
     private static final String CERTS_BASE_PATH = "src/test/resources/certs/";
 
-    // JWT Configuration
     public static final String JWT_SHARED_SECRET = "supersecret";
     public static final String JWT_WRONG_SECRET = "wrongsecret";
 
-    /**
-     * Converts IP-based URI to localhost for certificate validation.
-     */
+    private FnServerAuthTestUtils() {}
+
     public static String convertToLocalhostUri(String uri)
     {
-        String localhostUri = uri.replaceFirst("://\\d+\\.\\d+\\.\\d+\\.\\d+:", "://localhost:");
-        if (!localhostUri.equals(uri)) {
-            log.info("Converted URI: %s -> %s", uri, localhostUri);
-        }
-        return localhostUri;
+        return uri.replaceFirst("://\\d+\\.\\d+\\.\\d+\\.\\d+:", "://127.0.0.1:");
     }
 
-    /**
-     * Find an unused port for testing.
-     */
     private static int findUnusedPort()
     {
         try (ServerSocket socket = new ServerSocket(0)) {
@@ -71,26 +68,20 @@ public class FnServerAuthTestUtils
         }
     }
 
-    /**
-     * Creates shared HTTPS properties for all nodes (coordinator + workers).
-     */
-    public static Map<String, String> getSharedHttpsMtlsProperties()
+    public static Map<String, String> getSharedMtlsProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("http-server.http.enabled", "false")
-//                .put("http-server.http.port", "0") // Ephemeral port
+                .put("http-server.http.enabled", "true") //true for discovery
+                .put("http-server.http.port", "0")
                 .put("http-server.https.enabled", "true")
-                .put("http-server.https.port", "0") // Ephemeral port
+                .put("http-server.https.port", "0")
 
-                // Worker HTTPS config (coordinator overrides with its own keystore)
                 .put("http-server.https.keystore.path", CERTS_BASE_PATH + "worker/worker-keystore.jks")
                 .put("http-server.https.keystore.key", "changeit")
 
-                // Worker mTLS
                 .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
                 .put("http-server.https.truststore.key", "changeit")
 
-                // Force internal communication to use HTTPS
                 .put("internal-communication.https.required", "true")
                 .put("internal-communication.https.keystore.path", CERTS_BASE_PATH + "worker/worker-keystore.jks")
                 .put("internal-communication.https.keystore.key", "changeit")
@@ -102,34 +93,31 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Creates coordinator-specific HTTPS + mTLS properties.
+     * Creates coordinator-specific mTLS properties.
      */
-    public static Map<String, String> getCoordinatorHttpsMtlsProperties()
+    public static Map<String, String> getCoordinatorMtlsProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("http-server.https.keystore.path",
-                        CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
+                .put("http-server.http.enabled", "true") //true for discovery
+                .put("http-server.http.port", "0")
+                .put("http-server.https.enabled", "true")
+                .put("http-server.https.port", "0")
+
+                .put("http-server.https.keystore.path", CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
                 .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path",
-                        CERTS_BASE_PATH + "truststore.jks")
+                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
                 .put("http-server.https.truststore.key", "changeit")
 
                 .put("internal-communication.https.required", "true")
-                .put("internal-communication.https.keystore.path",
-                        CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
+                .put("internal-communication.https.keystore.path", CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
                 .put("internal-communication.https.keystore.key", "changeit")
-                .put("internal-communication.https.trust-store-path",
-                        CERTS_BASE_PATH + "truststore.jks")
+                .put("internal-communication.https.trust-store-path", CERTS_BASE_PATH + "truststore.jks")
                 .put("internal-communication.https.trust-store-password", "changeit")
 
-                .put("node-scheduler.include-coordinator", "false")
                 .put("list-built-in-functions-only", "false")
                 .build();
     }
 
-    /**
-     * Creates JWT properties with specified shared secret.
-     */
     public static Map<String, String> getJwtProperties(String sharedSecret)
     {
         return ImmutableMap.<String, String>builder()
@@ -138,41 +126,23 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
-    /**
-     * Creates JWT properties with default shared secret.
-     */
-    public static Map<String, String> getJwtProperties()
-    {
-        return getJwtProperties(JWT_SHARED_SECRET);
-    }
-
-    /**
-     * Creates Function Server mTLS configuration.
-     */
     public static Map<String, String> getFunctionServerMtlsConfig(int port)
     {
         return ImmutableMap.<String, String>builder()
                 .put("http-server.http.enabled", "false")
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.port", String.valueOf(port))
-                .put("http-server.https.keystore.path",
-                        CERTS_BASE_PATH + "function-server/function-server-keystore.jks")
+                .put("http-server.https.keystore.path", CERTS_BASE_PATH + "function-server/function-server-keystore.jks")
                 .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path",
-                        CERTS_BASE_PATH + "truststore.jks")
+                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
                 .put("http-server.https.truststore.key", "changeit")
                 .build();
     }
 
-    /**
-     * Get function server configuration with INVALID certificate (not in coordinator/worker truststore).
-     * This is used for negative testing.
-     */
     public static Map<String, String> getFnServerMtlsConfigWithInvalidCert(int port)
     {
-        String invalidKeystorePath = CERTS_BASE_PATH + "invalid-keystore.jks";
+        String invalidKeystorePath = CERTS_BASE_PATH + "function-server/invalid-keystore.jks";
 
-        // Verify invalid keystore exists
         File invalidKeystore = new File(invalidKeystorePath);
         if (!invalidKeystore.exists()) {
             throw new IllegalStateException(
@@ -185,7 +155,6 @@ public class FnServerAuthTestUtils
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.port", String.valueOf(port))
 
-                // Use INVALID keystore (certificate not in coordinator/worker truststore)
                 .put("http-server.https.keystore.path", invalidKeystorePath)
                 .put("http-server.https.keystore.key", "changeit")
 
@@ -194,25 +163,16 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
-    /**
-     * Creates Function Server mTLS + JWT configuration.
-     */
-    public static Map<String, String> getFunctionServerMtlsAndJwtConfig(int port, String sharedSecret)
+    public static Map<String, String> getFunctionServerConfigWithAuth(int port, String sharedSecret, boolean includeJwt)
     {
-        return ImmutableMap.<String, String>builder()
-                .putAll(getFunctionServerMtlsConfig(port))
-                .putAll(getJwtProperties(sharedSecret))
-                .build();
-    }
+        ImmutableMap.Builder<String, String> fnServerPropsBuilder = ImmutableMap.<String, String>builder()
+                .putAll(getFunctionServerMtlsConfig(port));
 
-    /**
-     * Creates Function Server configuration without JWT.
-     */
-    public static Map<String, String> getFunctionServerConfigWithoutJwt(int port)
-    {
-        return ImmutableMap.<String, String>builder()
-                .putAll(getFunctionServerMtlsConfig(port))
-                .build();
+        if (includeJwt) {
+            fnServerPropsBuilder.putAll(getJwtProperties(sharedSecret));
+        }
+
+        return fnServerPropsBuilder.build();
     }
 
     /**
@@ -226,9 +186,6 @@ public class FnServerAuthTestUtils
                 .build();
     }
 
-    /**
-     * Loads function namespace manager on coordinator and workers.
-     */
     public static void loadFunctionNamespaceManager(
             DistributedQueryRunner queryRunner,
             String functionServerUri)
@@ -275,26 +232,22 @@ public class FnServerAuthTestUtils
         log.info("Function namespace manager loaded successfully on all nodes");
     }
 
-    /**
-     * Create QueryRunner with Function Server that includes valid mTLS and JWT configuration.
-     */
     public static DistributedQueryRunner createRunnerWithValidHttpsFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createQueryRunnerWithMtlsAndJwt(
-                getFunctionServerMtlsAndJwtConfig(functionServerPort, JWT_SHARED_SECRET));
+        return createHttpsQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_SHARED_SECRET, true),
+                true);
     }
 
-    /**
-     * Create QueryRunner with Function Server that includes mTLS and invalid JWT secret.
-     */
     public static DistributedQueryRunner createRunnerWithInvalidJwtSecretOnFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createQueryRunnerWithMtlsAndJwt(
-                getFunctionServerMtlsAndJwtConfig(functionServerPort, JWT_WRONG_SECRET));
+        return createHttpsQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, true),
+                true);
     }
 
     /**
@@ -305,8 +258,9 @@ public class FnServerAuthTestUtils
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createQueryRunnerWithMtlsAndJwt(
-                getFunctionServerConfigWithoutJwt(functionServerPort));
+        return createHttpsQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, false),
+                true);
     }
 
     /**
@@ -316,82 +270,78 @@ public class FnServerAuthTestUtils
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createQueryRunnerWithOnlyMtls(
-                getFunctionServerConfigWithoutJwt(functionServerPort));
+        return createHttpsQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, false),
+                false);
     }
 
-    /**
-     * Create QueryRunner with Function Server that has INVALID certificate.
-     */
     public static DistributedQueryRunner createRunnerWithInvalidCertInFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createQueryRunnerWithMtlsAndJwt(
-                getFunctionServerConfigWithInvalidCert(functionServerPort, JWT_SHARED_SECRET));
+        return createHttpsQueryRunnerWithFnServer(
+                getFunctionServerConfigWithInvalidCert(functionServerPort, JWT_SHARED_SECRET), true);
     }
 
-    /**
-     * Create QueryRunner with Native Workers and Function Server with valid mTLS and JWT.
-     */
     public static DistributedQueryRunner createNativeRunnerWithValidHttpsFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createNativeQueryRunnerWithMtlsAndJwt(
-                getFunctionServerMtlsAndJwtConfig(functionServerPort, JWT_SHARED_SECRET));
+        return createHttpsNativeQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_SHARED_SECRET, true), true);
     }
 
-    /**
-     * Create QueryRunner with Native Workers and Function Server with invalid JWT secret.
-     */
-    public static DistributedQueryRunner createNativeRunnerWithInvalidJwtSecretOnFnServer()
+    public static DistributedQueryRunner createNativeRunnerWithWrongJwtSecretOnFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createNativeQueryRunnerWithMtlsAndJwt(
-                getFunctionServerMtlsAndJwtConfig(functionServerPort, JWT_WRONG_SECRET));
+        return createHttpsNativeQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, true), true);
     }
 
-    /**
-     * Create QueryRunner with Native Workers and Function Server without JWT.
-     */
     public static DistributedQueryRunner createNativeRunnerWithNoJwtOnFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createNativeQueryRunnerWithMtlsAndJwt(
-                getFunctionServerConfigWithoutJwt(functionServerPort));
+        return createHttpsNativeQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, false), true);
     }
 
-    /**
-     * Create QueryRunner with Native Workers with only mTLS configuration.
-     */
     public static DistributedQueryRunner createNativeRunnerWithOnlyMtls()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createNativeQueryRunnerWithOnlyMtls(
-                getFunctionServerConfigWithoutJwt(functionServerPort));
+        return createHttpsNativeQueryRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_WRONG_SECRET, false), false);
     }
 
-    /**
-     * Create QueryRunner with Native Workers and Function Server with invalid certificate.
-     */
     public static DistributedQueryRunner createNativeRunnerWithInvalidCertInFnServer()
             throws Exception
     {
         int functionServerPort = findUnusedPort();
-        return createNativeQueryRunnerWithMtlsAndJwt(
-                getFunctionServerConfigWithInvalidCert(functionServerPort, JWT_SHARED_SECRET));
+        return createHttpsNativeQueryRunnerWithFnServer(
+                getFunctionServerConfigWithInvalidCert(functionServerPort, JWT_SHARED_SECRET), true);
     }
 
     /**
-     * Get external worker launcher for native (C++) workers with mTLS and JWT configuration.
+     * Create QueryRunner with coordinator-only execution (no workers) for testing
+     * coordinator→function-server communication directly.
      */
-    public static Optional<BiFunction<Integer, URI, Process>> getNativeWorkerLauncher(
+    public static DistributedQueryRunner createCoordinatorOnlyRunnerWithMtlsAndJwt()
+            throws Exception
+    {
+        int functionServerPort = findUnusedPort();
+        return createCoordinatorOnlyHttpsRunnerWithFnServer(
+                getFunctionServerConfigWithAuth(functionServerPort, JWT_SHARED_SECRET, true));
+    }
+
+    /**
+     * Get external worker launcher for native workers with HTTPS configuration.
+     */
+    public static Optional<BiFunction<Integer, URI, Process>> getHttpsNativeWorkerLauncher(
             String prestoServerPath,
-            String functionServerUri)
+            String functionServerUri,
+            boolean includeJwt)
     {
         return Optional.of((workerIndex, discoveryUri) -> {
             try {
@@ -400,63 +350,62 @@ public class FnServerAuthTestUtils
                 Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
                 log.info("Temp directory for Native Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
 
-//                String httpsDiscoveryUri = discoveryUri.toString().replace("http://", "https://");
-
-                // Get absolute paths for certificates
                 String workerCertPath = Paths.get(CERTS_BASE_PATH + "worker/worker.crt").toAbsolutePath().toString();
                 String workerKeyPath = Paths.get(CERTS_BASE_PATH + "worker/worker.key").toAbsolutePath().toString();
                 String workerCombinedPemPath = Paths.get(CERTS_BASE_PATH + "worker/worker-combined.pem").toAbsolutePath().toString();
                 String caCertPath = Paths.get(CERTS_BASE_PATH + "ca/ca.crt").toAbsolutePath().toString();
 
-                // Verify certificate files exist
                 if (!Files.exists(Paths.get(workerCombinedPemPath))) {
                     throw new IllegalStateException(
                             "Worker combined PEM file not found at: " + workerCombinedPemPath + "\n" +
                                     "Please run: cat " + workerCertPath + " " + workerKeyPath + " > " + workerCombinedPemPath);
                 }
 
-                // Write config.properties with native worker configuration
                 String configProperties = format(
-                        "discovery.uri=%s%n" +
+                                "discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "http-server.http.port=0%n" +
                                 "shutdown-onset-sec=1%n" +
                                 "runtime-metrics-collection-enabled=true%n" +
                                 "remote-function-server.rest.url=%s%n" +
                                 "remote-function-server.catalog-name=rest%n" +
-//                                "http-server.http.enabled=true%n" +
-//                                "http-server.https.enabled=true%n" +
-//                                "http-server.http2.enabled=false%n" +
-//                                "http-server.https.port=7443%n" +
-//                                "https-cert-path=%s%n" +
-//                                "https-key-path=%s%n" +
+                                "http-server.https.enabled=true%n" +
+                                "http-server.http2.enabled=false%n" +
+                                "http-server.https.port=0%n" +
+                                "https-cert-path=%s%n" +
+                                "https-key-path=%s%n" +
                                 "https-client-cert-key-path=%s%n" +
                                 "https-client-ca-file=%s%n",
-//                                "internal-communication.jwt.enabled=true%n" +
-//                                "internal-communication.shared-secret=%s%n",
                         discoveryUri,
                         functionServerUri,
-//                        workerCertPath,
-//                        workerKeyPath,
+                        workerCertPath,
+                        workerKeyPath,
                         workerCombinedPemPath,
-                        caCertPath
-//                        JWT_SHARED_SECRET
-                );
+                        caCertPath);
+
+                if (includeJwt) {
+                    configProperties = format(
+                            "%s%n" +
+                            "internal-communication.jwt.enabled=true%n" +
+                            "internal-communication.shared-secret=%s%n",
+                            configProperties,
+                            JWT_SHARED_SECRET);
+                }
 
                 Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
 
-                // Write node.properties
                 Files.write(tempDirectoryPath.resolve("node.properties"),
                         format("node.id=%s%n" +
                                 "node.internal-address=127.0.0.1%n" +
                                 "node.environment=testing%n" +
                                 "node.location=test-location", UUID.randomUUID()).getBytes());
 
-                // Create catalog directory and add tpch catalog
                 Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
                 Files.createDirectory(catalogDirectoryPath);
-                Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
-                        format("connector.name=tpch%n").getBytes());
+
+                Files.write(
+                        catalogDirectoryPath.resolve("tpch.properties"),
+                        "connector.name=tpch\n".getBytes());
 
                 Path workerLogFile = tempDirectoryPath.resolve("worker." + workerIndex + ".out");
                 log.info("Native Worker #%d log file: %s", workerIndex, workerLogFile.toAbsolutePath());
@@ -468,7 +417,6 @@ public class FnServerAuthTestUtils
                         .redirectError(ProcessBuilder.Redirect.to(workerLogFile.toFile()))
                         .start();
 
-                // Log if process starts successfully
                 try {
                     Thread.sleep(10000);
                     if (Files.exists(workerLogFile)) {
@@ -488,14 +436,55 @@ public class FnServerAuthTestUtils
         });
     }
 
-
     /**
-     * Creates query runner with mTLS + JWT.
+     * Creates coordinator-only query runner with HTTPS.
      */
-    private static DistributedQueryRunner createQueryRunnerWithMtlsAndJwt(Map<String, String> functionServerConfig)
+    private static DistributedQueryRunner createCoordinatorOnlyHttpsRunnerWithFnServer(
+            Map<String, String> functionServerConfig)
             throws Exception
     {
-        log.info("Creating mTLS + JWT Query Runner");
+        log.info("Creating Coordinator-Only mTLS + JWT Query Runner");
+
+        // Start Function Server
+        TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
+        String functionServerUri = convertToLocalhostUri(functionServer.getServerUri());
+        log.info("Function Server started at: %s", functionServerUri);
+
+        // Create session
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+
+        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
+                .putAll(getCoordinatorMtlsProperties())
+                .putAll(getJwtProperties(JWT_SHARED_SECRET))
+                .put("node-scheduler.include-coordinator", "true")
+                .build();
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                .setNodeCount(0)
+                .setCoordinatorProperties(coordinatorProperties)
+                .build();
+
+        queryRunner.installPlugin(new TpchPlugin());
+        Map<String, String> tpchProperties = ImmutableMap.of(
+                "tpch.column-naming", "standard");
+        queryRunner.createCatalog("tpch", "tpch", tpchProperties);
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        loadFunctionNamespaceManager(queryRunner, functionServerUri);
+
+        log.info("Coordinator-only query runner created successfully");
+        return queryRunner;
+    }
+
+    /**
+     * Creates query runner with HTTPS.
+     */
+    private static DistributedQueryRunner createHttpsQueryRunnerWithFnServer(Map<String, String> functionServerConfig, boolean includeJwt)
+            throws Exception
+    {
+        log.info("Creating HTTPS Query Runner");
 
         // Start Function Server with mTLS + JWT
         TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
@@ -508,86 +497,47 @@ public class FnServerAuthTestUtils
                 .setSchema("tiny")
                 .build();
 
-        // Build query runner with shared and coordinator-specific properties
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .putAll(getSharedHttpsMtlsProperties())
-                .putAll(getJwtProperties(JWT_SHARED_SECRET))
-                .build();
+        ImmutableMap.Builder<String, String> extraPropertiesBuilder = ImmutableMap.<String, String>builder()
+                .putAll(getSharedMtlsProperties());
+
+        if (includeJwt) {
+            extraPropertiesBuilder.putAll(getJwtProperties(JWT_SHARED_SECRET));
+        }
+
+        Map<String, String> extraProperties = extraPropertiesBuilder.build();
 
         Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
-                .putAll(getCoordinatorHttpsMtlsProperties())
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(2)
-                .setExtraProperties(extraProperties) // Worker
-                .setCoordinatorProperties(coordinatorProperties)  // Coordinator overrides
-                .build();
-
-        // Load function namespace manager on coordinator and workers
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        loadFunctionNamespaceManager(queryRunner, functionServerUri);
-
-        log.info("Query runner created successfully with mTLS + JWT");
-        return queryRunner;
-    }
-
-    /**
-     * Creates query runner with only mTLS configuration on Function-Server, Coordinator, and Worker nodes.
-     */
-    private static DistributedQueryRunner createQueryRunnerWithOnlyMtls(Map<String, String> functionServerConfig)
-            throws Exception
-    {
-        log.info("Creating only mTLS Query Runner");
-
-        // Start Function Server with only mTLS
-        TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
-        String functionServerUri = convertToLocalhostUri(functionServer.getServerUri());
-        log.info("Function Server started at: %s", functionServerUri);
-
-        // Create session
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-
-        // Build query runner with shared and coordinator-specific properties
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .putAll(getSharedHttpsMtlsProperties())
-                .build();
-
-        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
-                .putAll(getCoordinatorHttpsMtlsProperties())
+                .putAll(getCoordinatorMtlsProperties())
+                .put("node-scheduler.include-coordinator", "false")
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(2)
                 .setExtraProperties(extraProperties)
-                .setCoordinatorProperties(coordinatorProperties)  // Coordinator overrides
+                .setCoordinatorProperties(coordinatorProperties)
                 .build();
 
-        // Load function namespace manager on coordinator and workers
         queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
+        Map<String, String> tpchProperties = ImmutableMap.of(
+                "tpch.column-naming", "standard");
+        queryRunner.createCatalog("tpch", "tpch", tpchProperties);
         queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
         loadFunctionNamespaceManager(queryRunner, functionServerUri);
 
-        log.info("Query runner created successfully with only mTLS");
+        log.info("HTTPS Query runner created successfully");
         return queryRunner;
     }
 
     /**
-     * Creates native query runner with mTLS + JWT.
+     * Creates native query runner with HTTPS.
      */
-    private static DistributedQueryRunner createNativeQueryRunnerWithMtlsAndJwt(
-            Map<String, String> functionServerConfig)
+    private static DistributedQueryRunner createHttpsNativeQueryRunnerWithFnServer(
+            Map<String, String> functionServerConfig,
+            boolean includeJwt)
             throws Exception
     {
-        log.info("Creating Native Worker mTLS + JWT Query Runner");
+        log.info("Creating Native Worker HTTPS Query Runner");
 
-        // Get native worker binary path
         Path prestoServerPath = Paths.get(System.getProperty("PRESTO_SERVER",
                 "_build/debug/presto_cpp/main/presto_server")).toAbsolutePath();
 
@@ -599,7 +549,7 @@ public class FnServerAuthTestUtils
         }
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
 
-        // Start Function Server with mTLS + JWT
+        // Start Function Server
         TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
         String functionServerUri = convertToLocalhostUri(functionServer.getServerUri());
         log.info("Function Server started at: %s", functionServerUri);
@@ -610,96 +560,37 @@ public class FnServerAuthTestUtils
                 .setSchema("tiny")
                 .build();
 
-        // Build query runner with coordinator properties and native worker properties
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-//                .putAll(getSharedHttpsMtlsProperties())
-//                .putAll(getJwtProperties(JWT_SHARED_SECRET))
-                .putAll(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
-                .build();
+        ImmutableMap.Builder<String, String> coordinatorPropertiesBuilder = ImmutableMap.<String, String>builder()
+                .putAll(getCoordinatorMtlsProperties());
 
-        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
-                .put("http-server.http.enabled", "true")
-                .put("http-server.http.port", "8080") // Ephemeral port
-//                .put("http-server.https.enabled", "true")
-//                .put("http-server.https.port", "8443")
-//                .putAll(getCoordinatorHttpsMtlsProperties())
-//                .putAll(getJwtProperties(JWT_SHARED_SECRET))
-                .build();
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(1)
-//                .setExtraProperties(extraProperties)
-//                .setCoordinatorProperties(coordinatorProperties)
-                .setExternalWorkerLauncher(
-                        getNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri))
-                .build();
-
-        // Load function namespace manager on coordinator
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        loadFunctionNamespaceManager(queryRunner, functionServerUri);
-
-        log.info("Native query runner created successfully with mTLS + JWT");
-        return queryRunner;
-    }
-
-    /**
-     * Creates native query runner with only mTLS.
-     */
-    private static DistributedQueryRunner createNativeQueryRunnerWithOnlyMtls(
-            Map<String, String> functionServerConfig)
-            throws Exception
-    {
-        log.info("Creating Native Worker only mTLS Query Runner");
-
-        // Get native worker binary path
-        Path prestoServerPath = Paths.get(System.getProperty("PRESTO_SERVER",
-                "_build/debug/presto_cpp/main/presto_server")).toAbsolutePath();
-
-        if (!Files.exists(prestoServerPath)) {
-            throw new IllegalStateException(
-                    format("Native worker binary at %s not found.",
-                            prestoServerPath));
+        if (includeJwt) {
+            coordinatorPropertiesBuilder.putAll(getJwtProperties(JWT_SHARED_SECRET));
         }
-        log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);
 
-        // Start Function Server with only mTLS
-        TestingFunctionServer functionServer = new TestingFunctionServer(functionServerConfig);
-        String functionServerUri = convertToLocalhostUri(functionServer.getServerUri());
-        log.info("Function Server started at: %s", functionServerUri);
-
-        // Create session
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("tiny")
-                .build();
-
-        // Build query runner with only mTLS (no JWT)
-        Map<String, String> extraProperties = ImmutableMap.<String, String>builder()
-                .putAll(getSharedHttpsMtlsProperties())
-                .putAll(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
-                .build();
-
-        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
-                .putAll(getCoordinatorHttpsMtlsProperties())
-                .build();
+        Map<String, String> coordinatorProperties = coordinatorPropertiesBuilder.build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(1)
-                .setExtraProperties(extraProperties)
+                .setExtraProperties(NativeQueryRunnerUtils.getNativeWorkerSystemProperties())
                 .setCoordinatorProperties(coordinatorProperties)
                 .setExternalWorkerLauncher(
-                        getNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri))
+                        getHttpsNativeWorkerLauncher(prestoServerPath.toString(), functionServerUri, includeJwt))
                 .build();
 
-        // Load function namespace manager on coordinator
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
-        loadFunctionNamespaceManager(queryRunner, functionServerUri);
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            Map<String, String> tpchProperties = ImmutableMap.of(
+                    "tpch.column-naming", "standard");
+            queryRunner.createCatalog("tpch", "tpch", tpchProperties);
+            queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+            loadFunctionNamespaceManager(queryRunner, functionServerUri);
 
-        log.info("Native query runner created successfully with only mTLS");
-        return queryRunner;
+            log.info("HTTPS Native query runner created successfully");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
+        }
     }
 }

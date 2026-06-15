@@ -253,6 +253,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
           BOOL_PROP(kEnableMemoryLeakCheck, true),
           NONE_PROP(kRemoteFunctionServerThriftPort),
+          NONE_PROP(kRemoteFunctionServerRestURL),
           BOOL_PROP(kSkipRuntimeStatsInRunningTaskInfo, true),
           BOOL_PROP(kLogZombieTaskInfo, false),
           NUM_PROP(kLogNumZombieTasks, 20),

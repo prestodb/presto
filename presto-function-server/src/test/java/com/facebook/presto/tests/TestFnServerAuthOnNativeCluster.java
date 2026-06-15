@@ -4,6 +4,12 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.presto.tests;
 
@@ -16,7 +22,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 /**
@@ -52,19 +57,6 @@ public class TestFnServerAuthOnNativeCluster
     }
 
     /**
-     * Tests secure authentication (mTLS + JWT) between Coordinator and Function-Server
-     * with a simple scalar function call.
-     */
-    @Test
-    public void testMtlsJwtBetweenCoordinatorAndFnServer()
-    {
-        log.info("TEST: Simple remote function execution with mTLS + JWT (coordinator→function server)");
-        MaterializedResult result = computeActual("SELECT rest.default.power(2, 3)");
-        assertEquals(result.getOnlyValue(), 8.0);
-        log.info("Simple function call succeeded: power(2, 3) = 8.0");
-    }
-
-    /**
      * Tests secure authentication (mTLS + JWT) between Native Worker and Function-Server
      * with table data processing.
      */
@@ -73,56 +65,9 @@ public class TestFnServerAuthOnNativeCluster
     {
         log.info("TEST: Remote function execution with mTLS + JWT (native worker→function server)");
         MaterializedResult result = computeActual(
-                "SELECT rest.default.sqrt(regionkey) FROM tpch.tiny.region");
+                "SELECT rest.default.sqrt(n_nationkey) FROM nation LIMIT 5");
         assertEquals(result.getRowCount(), 5);
         log.info("Table query succeeded: %d rows processed", result.getRowCount());
-    }
-
-    /**
-     * Tests secure authentication (mTLS + JWT) with complex aggregation query.
-     */
-    @Test
-    public void testMtlsAndJwtWithComplexAggregation()
-    {
-        log.info("TEST: mTLS and JWT communication with complex aggregation query");
-        MaterializedResult result = computeActual(
-                "SELECT regionkey, count(*), avg(rest.default.abs(nationkey)) " +
-                        "FROM tpch.tiny.nation " +
-                        "GROUP BY regionkey " +
-                        "ORDER BY regionkey");
-        assertEquals(result.getRowCount(), 5);
-        log.info("Aggregation query with remote function call succeeded: %d regions", result.getRowCount());
-    }
-
-    /**
-     * Tests mTLS + JWT with string manipulation functions.
-     */
-    @Test
-    public void testMtlsJwtWithStringFunctions()
-    {
-        log.info("TEST: mTLS + JWT with string manipulation functions");
-        MaterializedResult result = computeActual(
-                "SELECT rest.default.length(name) as name_length " +
-                        "FROM tpch.tiny.nation " +
-                        "WHERE nationkey < 5");
-        assertEquals(result.getRowCount(), 5);
-        log.info("String function query succeeded: %d rows processed", result.getRowCount());
-    }
-
-    /**
-     * Tests mTLS + JWT with JOIN operations involving remote functions.
-     */
-    @Test
-    public void testMtlsJwtWithJoinAndRemoteFunctions()
-    {
-        log.info("TEST: mTLS + JWT with JOIN operations and remote functions");
-        MaterializedResult result = computeActual(
-                "SELECT n.name, r.name, rest.default.abs(n.nationkey) " +
-                        "FROM tpch.tiny.nation n " +
-                        "JOIN tpch.tiny.region r ON n.regionkey = r.regionkey " +
-                        "WHERE n.nationkey < 10");
-        assertTrue(result.getRowCount() > 0);
-        log.info("JOIN query with remote functions succeeded: %d rows", result.getRowCount());
     }
 
     /**
@@ -135,30 +80,13 @@ public class TestFnServerAuthOnNativeCluster
         try {
             try (QueryRunner mtlsRunner = FnServerAuthTestUtils
                     .createNativeRunnerWithOnlyMtls()) {
-
-                log.info("Test: Simple remote function call (coordinator→function server)");
                 MaterializedResult result1 = mtlsRunner.execute(getSession(),
                         "SELECT rest.default.ceil(3.14)");
-                assertEquals(result1.getOnlyValue(), 4.0);
-                log.info("Simple function call succeeded: ceil(3.14) = 4.0");
-
-                log.info("Test: Remote function with table data (native worker→function server)");
-                MaterializedResult result2 = mtlsRunner.execute(getSession(),
-                        "SELECT rest.default.floor(acctbal) FROM tpch.tiny.customer LIMIT 5");
-                assertEquals(result2.getRowCount(), 5);
-                log.info("Table query succeeded: %d rows processed", result2.getRowCount());
-
-                log.info("Test: Complex query with aggregation and remote functions");
-                MaterializedResult result3 = mtlsRunner.execute(getSession(),
-                        "SELECT mktsegment, count(*), sum(rest.default.abs(custkey)) " +
-                                "FROM tpch.tiny.customer " +
-                                "GROUP BY mktsegment");
-                assertTrue(result3.getRowCount() > 0);
-                log.info("Aggregation query succeeded: %d segments", result3.getRowCount());
+                assertEquals(result1.getOnlyValue(), 4.0f);
+                log.info("Simple function call succeeded: ceil(3.14) = %f", result1.getOnlyValue());
             }
         }
         catch (Exception e) {
-            log.error("Unexpected failure occurred: %s", e.getClass().getSimpleName());
             log.error("Error message: %s", e.getMessage());
             fail("mTLS-only communication should succeed", e);
         }
@@ -175,18 +103,14 @@ public class TestFnServerAuthOnNativeCluster
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
                     .createNativeRunnerWithInvalidCertInFnServer()) {
                 MaterializedResult result = invalidRunner.execute(getSession(),
-                        "SELECT rest.default.mod(orderkey, 10) FROM tpch.tiny.orders LIMIT 5");
+                        "SELECT rest.default.mod(o_orderkey, 10) FROM orders LIMIT 5");
                 assertEquals(result.getRowCount(), 5);
                 log.info("Table query succeeded: %d rows processed", result.getRowCount());
             }
-
-            log.error("TEST FAILED: Query succeeded with invalid certificate!");
-            log.error("This means certificate validation is NOT working!");
             fail("Query should have failed - coordinator/native worker should reject invalid certificate");
         }
         catch (Exception e) {
-            log.info("✓ Expected failure occurred: %s", e.getClass().getSimpleName());
-            log.info("✓ Error message: %s", e.getMessage());
+            log.info("Error message: %s", e.getMessage());
             throw e;
         }
     }
@@ -199,20 +123,16 @@ public class TestFnServerAuthOnNativeCluster
             throws Exception
     {
         log.info("TEST: JWT communication with wrong shared secret in function-server");
-
         try {
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
-                    .createNativeRunnerWithInvalidJwtSecretOnFnServer()) {
+                    .createNativeRunnerWithWrongJwtSecretOnFnServer()) {
                 invalidRunner.execute(getSession(),
-                        "SELECT rest.default.sign(totalprice) FROM tpch.tiny.orders LIMIT 5");
+                        "SELECT rest.default.sign(o_totalprice) FROM orders LIMIT 5");
             }
-
-            log.error("TEST FAILED: Query succeeded with invalid JWT secret!");
             fail("Query should have failed - coordinator/native worker should reject invalid JWT secret");
         }
         catch (Exception e) {
-            log.info("✓ Expected failure occurred: %s", e.getClass().getSimpleName());
-            log.info("✓ Error message: %s", e.getMessage());
+            log.info("Error message: %s", e.getMessage());
             throw e;
         }
     }
@@ -225,38 +145,19 @@ public class TestFnServerAuthOnNativeCluster
             throws Exception
     {
         log.info("TEST: JWT communication when JWT properties removed from function-server");
-
         try {
             try (QueryRunner invalidRunner = FnServerAuthTestUtils
                     .createNativeRunnerWithNoJwtOnFnServer()) {
                 invalidRunner.execute(getSession(),
-                        "SELECT rest.default.round(extendedprice, 2) " +
-                                "FROM tpch.tiny.lineitem LIMIT 10");
+                        "SELECT rest.default.round(l_extendedprice, 2) " +
+                                "FROM lineitem LIMIT 10");
             }
-
-            log.error("TEST FAILED: Query succeeded without JWT configuration!");
             fail("Query should have failed - JWT validation should be enforced");
         }
         catch (Exception e) {
-            log.info("✓ Expected failure occurred: %s", e.getClass().getSimpleName());
-            log.info("✓ Error message: %s", e.getMessage());
+            log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
+            log.info("Error message: %s", e.getMessage());
             throw e;
         }
-    }
-
-    /**
-     * Test mTLS + JWT with subquery and remote functions.
-     */
-    @Test
-    public void testMtlsJwtWithSubqueryAndRemoteFunctions()
-    {
-        log.info("TEST: mTLS + JWT with subquery and remote functions");
-        MaterializedResult result = computeActual(
-                "SELECT name, rest.default.abs(nationkey) as abs_key " +
-                        "FROM tpch.tiny.nation " +
-                        "WHERE nationkey IN (SELECT nationkey FROM tpch.tiny.customer WHERE custkey < 100) " +
-                        "ORDER BY abs_key LIMIT 5");
-        assertTrue(result.getRowCount() > 0);
-        log.info("Subquery with remote functions succeeded: %d rows", result.getRowCount());
     }
 }

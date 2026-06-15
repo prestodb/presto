@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 #include <folly/futures/Retrying.h>
+#include <folly/Uri.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/common/Configs.h"
 
@@ -82,6 +83,15 @@ void PeriodicServiceInventoryManager::sendRequest() {
                 << ":" << newAddress.getPort();
       std::swap(serviceAddress_, newAddress);
       auto systemConfig = SystemConfig::instance();
+      // Check if discovery URI uses HTTPS before using SSL context
+      bool useSSL = false;
+      if (sslContext_ != nullptr) {
+        auto discoveryUri = SystemConfig::instance()->discoveryUri();
+        if (discoveryUri.has_value()) {
+          auto uri = folly::Uri(discoveryUri.value());
+          useSSL = (uri.scheme() == "https");
+        }
+      }
       auto httpClientOptions = systemConfig->httpClientOptions();
       client_ = std::make_shared<http::HttpClient>(
           eventBaseThread_.getEventBase(),
@@ -94,7 +104,7 @@ void PeriodicServiceInventoryManager::sendRequest() {
           std::chrono::milliseconds(10'000),
           std::chrono::milliseconds(0),
           pool_,
-          sslContext_,
+          useSSL ? sslContext_ : nullptr,
           std::move(httpClientOptions));
     }
   } catch (const std::exception& ex) {
