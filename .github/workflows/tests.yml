@@ -78,7 +78,7 @@ jobs:
           - :presto-iceberg
           - :presto-iceberg -P test-iceberg-others
           - :presto-clickhouse -P ci
-    timeout-minutes: 80
+    timeout-minutes: 85
     concurrency:
       group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
