@@ -285,6 +285,77 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
+    public void testHavingCountToSumRollup()
+    {
+        // Single-table: COUNT(a) in HAVING rolls up to SUM(count_a) against an aggregating MV
+        String originalViewSql = format("SELECT c, COUNT(a) AS count_a FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COUNT(a) FROM %s GROUP BY c HAVING COUNT(a) > 5", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT SUM(count_a) FROM %s GROUP BY c HAVING SUM(count_a) > 5", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteCountDistinct()
+    {
+        // COUNT(DISTINCT) in HAVING is non-decomposable from a pre-aggregated MV → fallback
+        String originalViewSql = format("SELECT c, SUM(a) AS sum_a, COUNT(*) AS cnt FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING COUNT(DISTINCT a) > 1", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteSumDistinct()
+    {
+        // SUM(DISTINCT) in HAVING is non-decomposable from pre-aggregated sums → fallback
+        String originalViewSql = format("SELECT c, SUM(a) AS sum_a FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING SUM(DISTINCT a) > 10", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteAvgWithoutCountComponent()
+    {
+        // AVG in HAVING needs SUM(col) and COUNT(col); MV has COUNT(*) not COUNT(a) → fallback
+        String originalViewSql = format("SELECT c, SUM(a) AS sum_a, COUNT(*) AS cnt FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING AVG(a) > 5", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteFilteredAggregate()
+    {
+        // FILTER (WHERE ...) makes a different aggregate than the MV's SUM(a) → fallback
+        String originalViewSql = format("SELECT c, SUM(a) AS sum_a FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING SUM(a) FILTER (WHERE b > 0) > 10", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteArithmeticInAggregate()
+    {
+        // SUM(a * 2) in HAVING is not the MV's pre-computed SUM(a) → fallback
+        String originalViewSql = format("SELECT c, SUM(a) AS sum_a FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT SUM(a) FROM %s GROUP BY c HAVING SUM(a * 2) > 10", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingNoRewriteCountColumnVsCountStar()
+    {
+        // HAVING COUNT(a) must not reuse the MV's COUNT(*) column — they differ when a has NULLs
+        String originalViewSql = format("SELECT c, COUNT(*) AS cnt FROM %s GROUP BY c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT COUNT(*) FROM %s GROUP BY c HAVING COUNT(a) > 1", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
     public void testMismatchingColumnTypes()
     {
         // d is registered as bigint- expect optimization to fail
@@ -981,6 +1052,69 @@ public class TestMaterializedViewQueryOptimizer
         // REJECT: IF expression on aliased GROUP BY column without GROUP BY
         baseQuerySql = format("SELECT IF(a > 0, c, 0) FROM %s", BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testWithHaving()
+    {
+        // HAVING with pre-computed aggregate — SUM rollup in HAVING
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a HAVING SUM(b) > 10", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, SUM(sum_b) FROM %s GROUP BY a HAVING SUM(sum_b) > 10", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // HAVING with COUNT → SUM rewrite
+        originalViewSql = format("SELECT a, COUNT(b) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, COUNT(b) FROM %s GROUP BY a HAVING COUNT(b) > 5", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, SUM(cnt) FROM %s GROUP BY a HAVING SUM(cnt) > 5", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // HAVING with column rename
+        originalViewSql = format("SELECT a as mv_a, SUM(b) AS sum_b FROM %s GROUP BY mv_a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a HAVING SUM(b) > 10", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, SUM(sum_b) FROM %s GROUP BY mv_a HAVING SUM(sum_b) > 10", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // HAVING with comparison on GROUP BY column
+        originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a HAVING a > 0", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT a, SUM(sum_b) FROM %s GROUP BY a HAVING a > 0", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        // REJECT: HAVING references column not in MV (fallback)
+        originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a HAVING SUM(x) > 10", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingMinMaxRollup()
+    {
+        // MIN/MAX in HAVING are associative — roll up to the stored min/max columns
+        String originalViewSql = format("SELECT a, MIN(b) AS min_b, MAX(b) AS max_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, MIN(b) FROM %s GROUP BY a HAVING MAX(b) < 100", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, MIN(min_b) FROM %s GROUP BY a HAVING MAX(max_b) < 100", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingAggregateNotInSelect()
+    {
+        // Aggregate referenced only in HAVING (not in SELECT) still rolls up from the MV
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a FROM %s GROUP BY a HAVING SUM(b) > 10", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a FROM %s GROUP BY a HAVING SUM(sum_b) > 10", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testHavingArithmeticOnAggregates()
+    {
+        // Arithmetic over two rollable aggregates in HAVING (manual average) — both roll up
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(b) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, SUM(b) FROM %s GROUP BY a HAVING SUM(b) / COUNT(b) > 5", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, SUM(sum_b) FROM %s GROUP BY a HAVING SUM(sum_b) / SUM(cnt) > 5", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test
@@ -2978,9 +3112,9 @@ public class TestMaterializedViewQueryOptimizer
     }
 
     @Test
-    public void testJoinNoRewriteWithHaving()
+    public void testJoinWithHavingSumRollup()
     {
-        // HAVING clause is not supported — should not rewrite
+        // HAVING SUM(t1.b) rolls up to SUM(view_1.sum_b)
         String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
         String baseQuerySql = format(
                 "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) > 10",
@@ -2989,7 +3123,319 @@ public class TestMaterializedViewQueryOptimizer
                 BASE_TABLE_1, BASE_TABLE_2,
                 BASE_TABLE_1, BASE_TABLE_2,
                 BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.sum_b) > 10",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
 
+    @Test
+    public void testJoinWithHavingCountToSumRollup()
+    {
+        // COUNT(t1.b) in HAVING rolls up to SUM(view_1.count_b)
+        String originalViewSql = format("SELECT a, COUNT(b) AS count_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING COUNT(%s.b) > 5",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.count_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.count_b) > 5",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithHavingOnDimensionColumn()
+    {
+        // HAVING on a covered dimension column (t1.a) maps to view_1.a
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING %s.a > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING %s.a > 0",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithHavingMinMax()
+    {
+        // MIN/MAX are associative — HAVING MAX(t1.b) maps to MAX(view_1.max_b)
+        String originalViewSql = format("SELECT a, MIN(b) AS min_b, MAX(b) AS max_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, MIN(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING MAX(%s.b) > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, MIN(%s.min_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING MAX(%s.max_b) > 0",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinLeftJoinWithHaving()
+    {
+        // LEFT JOIN with the MV on the non-preserved (right) side, plus a HAVING rollup
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_2);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s LEFT JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) > 0",
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s LEFT JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.sum_b) > 0",
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                BASE_TABLE_1, VIEW_1,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_2, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithHavingCountStarRollup()
+    {
+        // COUNT(*) in HAVING rolls up to SUM(view_1.cnt)
+        String originalViewSql = format("SELECT a, c, COUNT(*) AS cnt, SUM(b) AS sum_b FROM %s GROUP BY a, c", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING COUNT(*) > 5",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.cnt) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.cnt) > 5",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithHavingMultipleConditions()
+    {
+        // HAVING combining an aggregate rollup AND a dimension predicate — both rewritten
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) > 10 AND %s.a > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.sum_b) > 10 AND %s.a > 0",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinWithHavingOnOtherTableColumn()
+    {
+        // HAVING references a non-swapped table column (t2.b) — passes through unchanged
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b HAVING %s.b > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        String expectedRewrittenSql = format(
+                "SELECT %s.a, SUM(%s.sum_b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.b HAVING %s.b > 0",
+                VIEW_1, VIEW_1,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                VIEW_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingUncoveredColumn()
+    {
+        // HAVING references a swapped-table column not covered by the MV (t1.c) → fallback
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING %s.c > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingUnmatchedAggregate()
+    {
+        // HAVING uses MAX but MV only pre-computes SUM(b) → fallback
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING MAX(%s.b) > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingMixedTableAggregate()
+    {
+        // HAVING aggregate spans both tables → fallback
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b * %s.a) > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingAggregateOnOtherTableWithGroupByMv()
+    {
+        // MV has GROUP BY; HAVING aggregates a non-swapped table column → fallback
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) > 0",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_2);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingCountDistinct()
+    {
+        // COUNT(DISTINCT) in HAVING is non-decomposable from a pre-aggregated MV → fallback.
+        // SUM of per-group distinct counts != global distinct count.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING COUNT(DISTINCT %s.b) > 1",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingSumDistinct()
+    {
+        // SUM(DISTINCT) in HAVING is non-decomposable from pre-aggregated sums → fallback
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(DISTINCT %s.b) > 10",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingAvgWithoutCountComponent()
+    {
+        // AVG in HAVING decomposes to SUM(col)/COUNT(col). MV has COUNT(*) but not COUNT(b),
+        // so AVG cannot be reconstructed → fallback (COUNT(*) != COUNT(b) when NULLs present).
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING AVG(%s.b) > 5",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingFilteredAggregate()
+    {
+        // FILTER (WHERE ...) on a HAVING aggregate is a different aggregate than the MV's
+        // pre-computed SUM(b) → fallback.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b) FILTER (WHERE %s.c > 0) > 10",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingArithmeticInAggregate()
+    {
+        // SUM(b * 2) in HAVING is not the MV's pre-computed SUM(b) → fallback.
+        String originalViewSql = format("SELECT a, SUM(b) AS sum_b FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, SUM(%s.b) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING SUM(%s.b * 2) > 10",
+                BASE_TABLE_1, BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testJoinNoRewriteHavingCountColumnVsCountStar()
+    {
+        // HAVING COUNT(b) must not reuse the MV's COUNT(*) column — they differ when b has NULLs.
+        String originalViewSql = format("SELECT a, COUNT(*) AS cnt FROM %s GROUP BY a", BASE_TABLE_1);
+        String baseQuerySql = format(
+                "SELECT %s.a, COUNT(*) FROM %s JOIN %s ON %s.a = %s.a GROUP BY %s.a, %s.a HAVING COUNT(%s.b) > 1",
+                BASE_TABLE_1,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1, BASE_TABLE_2,
+                BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
