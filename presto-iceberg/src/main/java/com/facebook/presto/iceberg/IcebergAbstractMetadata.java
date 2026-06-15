@@ -498,6 +498,13 @@ public abstract class IcebergAbstractMetadata
                     runtimeStats);
         }
 
+        // Native workers need the base table's column handles to read the data files behind a changelog scan
+        Map<String, IcebergColumnHandle> dataColumnHandles = ImmutableMap.of();
+        if (handle.getIcebergTableName().getTableType() == CHANGELOG) {
+            dataColumnHandles = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+                    .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
+        }
+
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
@@ -511,6 +518,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
+                        .setDataColumnHandles(dataColumnHandles)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
@@ -998,7 +1006,9 @@ public abstract class IcebergAbstractMetadata
     @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return !isPushdownFilterEnabled(session);
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+
+        return !isPushdownFilterEnabled(session) || icebergTableHandle.getIcebergTableName().getTableType() == CHANGELOG;
     }
 
     private ColumnMetadata getColumnMetadata(ConnectorSession session, Table table, String columnName)
