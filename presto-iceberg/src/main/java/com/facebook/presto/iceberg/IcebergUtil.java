@@ -504,11 +504,6 @@ public final class IcebergUtil
 
     private static HiveType icebergTypeToHiveType(org.apache.iceberg.types.Type icebergType)
     {
-        // Special handling for TIME type: use bigint instead of 'string'
-        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.TIME) {
-            return HiveType.HIVE_LONG;
-        }
-
         return HiveType.valueOf(sanitizeTypeString(icebergType));
     }
 
@@ -519,6 +514,16 @@ public final class IcebergUtil
      */
     private static String sanitizeTypeString(org.apache.iceberg.types.Type icebergType)
     {
+        // Special handling for TIME type: use bigint instead of 'string'
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.TIME) {
+            return HiveType.HIVE_LONG.toString();
+        }
+
+        // Special handling for GEOMETRY type: geometry stored as well-known binary in iceberg
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOMETRY) {
+            return HiveType.HIVE_BINARY.toString();
+        }
+
         if (icebergType.isPrimitiveType()) {
             return HiveSchemaUtil.convert(icebergType).getTypeName();
         }
