@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
@@ -376,7 +375,6 @@ public interface Block
      * This allows streaming data sources to skip sections that are not
      * accessed in a query.
      */
-    @JsonIgnore
     default Block getLoadedBlock()
     {
         return this;

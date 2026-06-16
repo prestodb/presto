@@ -13,16 +13,21 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 
 public class TestAssignments
@@ -41,5 +46,22 @@ public class TestAssignments
     public void testOutputsMemoized()
     {
         assertSame(assignments.getOutputs(), assignments.getOutputs());
+    }
+
+    @Test
+    public void testJsonCodecHandlesLongMapKeys()
+    {
+        // Guards against a regression where the JSON codec used to deserialize
+        // PlanFragment -> ProjectNode -> Assignments failed when an
+        // auto-generated variable name in the Assignments map exceeded the
+        // default JSON-property-name length cap. Assignments map keys carry
+        // VariableReferenceExpression names; for complex projection chains over
+        // deeply nested struct schemas the planner can synthesize names well
+        // over 50 KB, so the codec must tolerate them.
+        String longName = Strings.repeat("a", 60_000);
+        JsonCodec<Map<String, String>> codec = JsonCodec.mapJsonCodec(String.class, String.class);
+        String json = codec.toJson(ImmutableMap.of(longName, "value"));
+        Map<String, String> roundTripped = codec.fromJson(json);
+        assertEquals(roundTripped.get(longName), "value");
     }
 }
