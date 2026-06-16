@@ -62,4 +62,52 @@ public class TestQueryResults
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(goldenValue);
         assertEquals(results.getId(), "20160128_214710_00012_rk68b");
     }
+
+    @Test
+    public void testBinaryDataDeserialization()
+    {
+        String jsonWithBinaryData = "{\n" +
+                "  \"id\" : \"test_binary_query\",\n" +
+                "  \"infoUri\" : \"http://localhost:8080/query.html?test_binary_query\",\n" +
+                "  \"columns\" : [ {\n" +
+                "    \"name\" : \"_col0\",\n" +
+                "    \"type\" : \"varchar\",\n" +
+                "    \"typeSignature\" : {\n" +
+                "      \"rawType\" : \"varchar\",\n" +
+                "      \"typeArguments\" : [ ],\n" +
+                "      \"literalArguments\" : [ ],\n" +
+                "      \"arguments\" : [ ]\n" +
+                "    }\n" +
+                "  } ],\n" +
+                "  \"binaryData\" : [ \"YmluYXJ5X2RhdGFfMQ==\", \"YmluYXJ5X2RhdGFfMg==\" ],\n" +
+                "  \"stats\" : {\n" +
+                "    \"state\" : \"FINISHED\",\n" +
+                "    \"queued\" : false,\n" +
+                "    \"scheduled\" : false,\n" +
+                "    \"nodes\" : 0,\n" +
+                "    \"totalSplits\" : 0,\n" +
+                "    \"queuedSplits\" : 0,\n" +
+                "    \"runningSplits\" : 0,\n" +
+                "    \"completedSplits\" : 0,\n" +
+                "    \"cpuTimeMillis\" : 0,\n" +
+                "    \"wallTimeMillis\" : 0,\n" +
+                "    \"queuedTimeMillis\" : 0,\n" +
+                "    \"elapsedTimeMillis\" : 0,\n" +
+                "    \"processedRows\" : 0,\n" +
+                "    \"processedBytes\" : 0,\n" +
+                "    \"peakMemoryBytes\" : 0\n" +
+                "  }\n" +
+                "}";
+
+        QueryResults results = QUERY_RESULTS_CODEC.fromJson(jsonWithBinaryData);
+        assertEquals(results.getId(), "test_binary_query");
+        Iterable<String> binaryData = results.getBinaryData();
+        assertEquals(binaryData != null, true);
+        java.util.Iterator<String> iterator = binaryData.iterator();
+        assertEquals(iterator.hasNext(), true);
+        assertEquals(iterator.next(), "YmluYXJ5X2RhdGFfMQ==");
+        assertEquals(iterator.hasNext(), true);
+        assertEquals(iterator.next(), "YmluYXJ5X2RhdGFfMg==");
+        assertEquals(iterator.hasNext(), false);
+    }
 }

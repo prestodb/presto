@@ -83,6 +83,7 @@ public class TestFinalQueryInfo
                     true,
                     ImmutableMap.of(),
                     ImmutableMap.of(),
+                    false,
                     false);
 
             // start query
