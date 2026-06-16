@@ -3125,7 +3125,7 @@ by using :doc:`/sql/alter-materialized-view`; properties not specified in the
        Valid values: ``FAIL`` (throw an error), ``USE_VIEW_QUERY`` (query base tables instead).
      - Yes
    * - ``staleness_window``
-     - Duration window for staleness tolerance (e.g., ``1h``, ``30m``, ``0s``).
+     - Duration window for staleness tolerance (for example, ``1h``, ``30m``, ``0s``).
        Defaults to ``0s`` if only ``stale_read_behavior`` is set.
        When set to ``0s``, any staleness triggers the configured behavior.
      - Yes
@@ -3203,7 +3203,7 @@ Bounded Refresh
 Bounded refresh caps how far each base table advances per ``REFRESH MATERIALIZED VIEW``,
 splitting catch-up into a series of smaller refreshes. Each refresh advances each base's
 watermark by at most N snapshots; subsequent refreshes consume the remainder until the view
-reaches HEAD. Use it when a single refresh would otherwise be too large to complete, e.g.:
+reaches HEAD. Use it when a single refresh would otherwise be too large to complete, such as:
 
 * Initial refresh over a base table with a long history.
 * Catch-up after the view has fallen far behind.
@@ -3245,7 +3245,7 @@ change this default using the ``materialized_view_stale_read_behavior`` session 
 To configure staleness handling per view, set both of these properties together:
 
 - ``stale_read_behavior``: What to do when reading stale data (``FAIL``, ``USE_VIEW_QUERY``, or ``USE_STITCHING``)
-- ``staleness_window``: How much staleness to tolerate (e.g., ``1h``, ``30m``, ``0s``)
+- ``staleness_window``: How much staleness to tolerate (for example, ``1h``, ``30m``, ``0s``)
 
 When ``USE_STITCHING`` is configured, the Iceberg connector tracks staleness at the
 partition level, enabling predicate stitching to recompute only affected partitions

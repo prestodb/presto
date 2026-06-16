@@ -15,7 +15,7 @@ Each message is presented as a row in Presto.
 
 Topics can be live: rows will appear as data arrives and disappear as
 messages get dropped. This can result in strange behavior if accessing the
-same table multiple times in a single query (e.g., performing a self join).
+same table multiple times in a single query (for example, performing a self join).
 
 .. note::
 
@@ -506,7 +506,7 @@ Presto does not support schema-less Avro decoding.
 
 For key/message, using ``avro`` decoder, the ``dataSchema`` must be defined.
 This should point to the location of a valid Avro schema file of the message which needs to be decoded. This location can be a remote web server
-(e.g.: ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system(e.g.: ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
+(such as ``dataSchema: 'http://example.org/schema/avro_data.avsc'``) or local file system (such as ``dataSchema: '/usr/local/schema/avro_data.avsc'``).
 The decoder will fail if this location is not accessible from the Presto coordinator node.
 
 For fields, the following attributes are supported:

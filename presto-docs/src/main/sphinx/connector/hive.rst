@@ -549,7 +549,7 @@ Property Name                                Description
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
                                              set this to the AWS region-specific endpoint
-                                             (e.g., ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
+                                             (for example, ``http[s]://<bucket>.s3-<AWS-region>.amazonaws.com``).
 
 ``hive.s3.storage-class``                    The S3 storage class to use when writing the data. Currently only
                                              ``STANDARD`` and ``INTELLIGENT_TIERING`` storage classes are supported.
@@ -637,7 +637,7 @@ interface and provide a two-argument constructor that takes a
 as arguments. A custom credentials provider can be used to provide
 temporary credentials from STS (using ``STSSessionCredentialsProvider``),
 IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
-or credentials for a specific use case (e.g., bucket/user specific credentials).
+or credentials for a specific use case (such as bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
 
@@ -1262,9 +1262,9 @@ from a valid Avro schema file located locally or remotely in HDFS/Web server.
 
 To specify that Avro schema should be used for interpreting table's data one must use ``avro_schema_url`` table property.
 The schema can be placed remotely in
-HDFS (e.g. ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
-S3 (e.g. ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
-a web server (e.g. ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
+HDFS (for example, ``avro_schema_url = 'hdfs://user/avro/schema/avro_data.avsc'``),
+S3 (for example, ``avro_schema_url = 's3n:///schema_bucket/schema/avro_data.avsc'``),
+a web server (for example, ``avro_schema_url = 'http://example.org/schema/avro_data.avsc'``)
 as well as local file system. This url where the schema is located, must be accessible from the
 Hive metastore and Presto coordinator/worker nodes.
 
@@ -1348,7 +1348,7 @@ Sync Partition Metadata
 
   The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
   with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
-  file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+  file system paths to use lowercase (for example, ``col_x=SomeValue``). Partitions on the file system
   not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 Invalidate Directory List Cache

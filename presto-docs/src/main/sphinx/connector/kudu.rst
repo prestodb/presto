@@ -68,7 +68,7 @@ replacing the properties as appropriate:
 Querying Data
 -------------
 
-Apache Kudu does not support schemas, i.e. namespaces for tables.
+Apache Kudu does not support schemas: that is, namespaces for tables.
 The connector can optionally emulate schemas by table naming conventions.
 
 Default behaviour (without schema emulation)
@@ -139,7 +139,7 @@ Select the inserted data
 Behaviour With Schema Emulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
+If schema emulation has been enabled in the connector properties, for example ``etc/catalog/kudu.properties``,
 tables are mapped to schemas depending on some conventions.
 
 With ``kudu.schema-emulation.enabled=true`` and ``kudu.schema-emulation.prefix=``, the mapping works like:

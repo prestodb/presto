@@ -224,7 +224,7 @@ a split. This split gets passed to a Presto Worker to read the data from
 the ``Range`` via a ``BatchScanner``. When issuing a query that results
 in a full table scan, each Presto Worker gets a single ``Range`` that
 maps to a single tablet of the table. When issuing a query with a
-predicate (i.e. ``WHERE x = 10`` clause), Presto passes the values
+predicate such as a ``WHERE x = 10`` clause, Presto passes the values
 within the predicate (``10``) to the connector so it can use this
 information to scan less data. When the Accumulo row ID is used as part
 of the predicate clause, this narrows down the ``Range`` lookup to quickly
@@ -465,11 +465,11 @@ Property Name        Default Value    Description
                                       Otherwise, Presto will create and drop Accumulo tables where appropriate.
 ``locality_groups``  (none)           List of locality groups to set on the Accumulo table. Only valid on internal tables.
                                       String format is locality group name, colon, comma delimited list of column families in the group.
-                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|etc...``
+                                      Groups are delimited by pipes. Example: ``group1:famA,famB,famC|group2:famD,famE,famF|(...)``
 ``row_id``           (first column)   Presto column name that maps to the Accumulo row ID.
-``serializer``       ``default``      Serializer for Accumulo data encodings. Can either be ``default``, ``string``, ``lexicoder``
-                                      or a Java class name. Default is ``default``,
-                                      i.e. the value from ``AccumuloRowSerializer.getDefault()``, i.e. ``lexicoder``.
+``serializer``       ``default``      Serializer for Accumulo data encodings. Default is ``default``. Can either be ``default``, 
+                                      ``string``, ``lexicoder``, or a Java class name that is 
+                                      the value from ``AccumuloRowSerializer.getDefault()``, such as ``lexicoder``.
 ``scan_auths``       (user auths)     Scan-time authorizations set on the batch scanner.
 ==================== ================ ======================================================================================================
 
