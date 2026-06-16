@@ -15,7 +15,6 @@ package com.facebook.presto.common.predicate;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
@@ -103,7 +102,6 @@ public interface ValueSet
 
     boolean isSingleValue();
 
-    @JsonIgnore
     Object getSingleValue();
 
     boolean containsValue(Object value);
@@ -111,7 +109,6 @@ public interface ValueSet
     /**
      * @return value predicates for equatable Types (but not orderable)
      */
-    @JsonIgnore
     default DiscreteValues getDiscreteValues()
     {
         throw new UnsupportedOperationException();
@@ -125,7 +122,6 @@ public interface ValueSet
         throw new UnsupportedOperationException();
     }
 
-    @JsonIgnore
     ValuesProcessor getValuesProcessor();
 
     ValueSet intersect(ValueSet other);

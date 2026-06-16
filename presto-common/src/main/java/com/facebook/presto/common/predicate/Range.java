@@ -16,7 +16,6 @@ package com.facebook.presto.common.predicate;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -161,7 +160,6 @@ public final class Range
         return low.getBound() == Marker.Bound.EXACTLY && low.equals(high);
     }
 
-    @JsonIgnore
     public Object getSingleValue()
     {
         if (!isSingleValue()) {

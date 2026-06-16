@@ -43,8 +43,6 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -340,10 +338,7 @@ public class TestSqlTaskManager
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
                 new NoOpFragmentResultCacheManager(),
-                new ObjectMapper()
-                        .registerModule(new Jdk8Module())
-                        .configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false)
-                        .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false),
+                new ObjectMapper(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }
 
