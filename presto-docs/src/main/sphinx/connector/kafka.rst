@@ -448,7 +448,7 @@ used for standard table columns and a number of decoders for date and time
 based types.
 
 Table below lists Presto data types which can be used as in ``type`` and matching field decoders
-which can be specified via ``dataFormat`` attribute
+which can be specified with ``dataFormat`` attribute
 
 +-------------------------------------+--------------------------------------------------------------------------------+
 | Presto data type                    | Allowed ``dataFormat`` values                                                  |
@@ -489,7 +489,7 @@ To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH 
 * ``iso8601`` - text based, parses a text field as an ISO 8601 timestamp.
 * ``rfc2822`` - text based, parses a text field as an :rfc:`2822` timestamp.
 * ``custom-date-time`` - text based, parses a text field according to Joda format pattern
-                         specified via ``formatHint`` attribute. Format pattern should conform
+                         specified with ``formatHint`` attribute. Format pattern should conform
                          to https://www.joda.org/joda-time/apidocs/org/joda/time/format/DateTimeFormat.html.
 * ``milliseconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.
 * ``seconds-since-epoch`` - number based, interprets a text or number as number of milliseconds since the epoch.

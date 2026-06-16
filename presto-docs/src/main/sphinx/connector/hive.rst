@@ -17,7 +17,7 @@ data warehouse. Hive is a combination of three components:
   Hadoop Distributed File System (HDFS) or in Amazon S3.
 * Metadata about how the data files are mapped to schemas and tables.
   This metadata is stored in a database such as MySQL and is accessed
-  via the Hive metastore service.
+  by using the Hive metastore service.
 * A query language called HiveQL. This query language is executed
   on a distributed computing framework such as MapReduce or Tez.
 
@@ -469,7 +469,7 @@ For cache invalidation procedures, see `Invalidate Metastore Cache`_.
 .. note::
 
     All 14 caches are enabled by default when metastore caching is configured. Metrics are automatically 
-    exposed via JMX without additional configuration.
+    exposed through JMX without additional configuration.
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -852,9 +852,9 @@ Understanding and Tuning the Maximum Connections
 ################################################
 
 Presto can use its native S3 file system or EMRFS. When using the native FS, the
-maximum connections is configured via the ``hive.s3.max-connections``
+maximum connections is configured with the ``hive.s3.max-connections``
 configuration property. When using EMRFS, the maximum connections is configured
-via the ``fs.s3.maxConnections`` Hadoop configuration property.
+with the ``fs.s3.maxConnections`` Hadoop configuration property.
 
 S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
 predicate operations. In this case, the value of
@@ -1045,7 +1045,7 @@ the single ``alluxio-site.properties`` file. For details, see `Customize Alluxio
 
 Alternatively, add Alluxio configuration properties to the Hadoop configuration
 files (``core-site.xml``, ``hdfs-site.xml``) and configure the Hive connector
-to use the `Hadoop configuration files <#hdfs-configuration>`__ via the
+to use the `Hadoop configuration files <#hdfs-configuration>`__ with the
 ``hive.config.resources`` connector property.
 
 Deploy Alluxio with Presto
@@ -1060,7 +1060,7 @@ for more details.
 Alluxio Catalog Service
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-An alternative way for Presto to interact with Alluxio is via the
+An alternative way for Presto to interact with Alluxio is through the
 `Alluxio Catalog Service. <https://docs.alluxio.io/os/user/stable/en/core-services/Catalog.html?utm_source=prestodb&utm_medium=prestodocs>`_.
 The primary benefits for using the Alluxio Catalog Service are simpler
 deployment of Alluxio with Presto, and enabling schema-aware optimizations
@@ -1134,8 +1134,8 @@ Collecting table and column statistics
 --------------------------------------
 
 The Hive connector supports collection of table and partition statistics
-via the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
-the partitions to analyze can be specified via the optional ``partitions``
+by using the :doc:`/sql/analyze` statement. When analyzing a partitioned table,
+the partitions to analyze can be specified with the optional ``partitions``
 property, which is an array containing the values of the partition keys
 in the order they are declared in the table schema::
 
@@ -1357,7 +1357,7 @@ Invalidate Directory List Cache
 Invalidating directory list cache is useful when the files are added or deleted in the cache directory path and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache:
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting via jconsole or jmxterm. This procedure flushes all the cache entries.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.CachingDirectoryLister#flushCache``) to invalidate the directory list cache. You can call this procedure to invalidate the directory list cache by connecting with jconsole or jmxterm. This procedure flushes all the cache entries.
 
 * The Hive connector exposes ``system.invalidate_directory_list_cache`` procedure which gives the flexibility to invalidate the list cache completely or partially as per the requirement and can be invoked in various ways.
 
@@ -1405,7 +1405,7 @@ How to invalidate metastore cache?
 Invalidating metastore cache is useful when the Hive metastore is updated outside of Presto and you want to make the changes visible to Presto immediately.
 There are a couple of ways for invalidating this cache and are listed below -
 
-* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
+* The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore#invalidateAll``) to invalidate the metastore cache. You can call this procedure to invalidate the metastore cache by connecting with jconsole or jmxterm. However, this procedure flushes the cache for all the tables in all the schemas.
 
 * The Hive connector exposes ``system.invalidate_metastore_cache`` procedure which enables users to invalidate the metastore cache completely or partially as per the requirement and can be invoked with various arguments. See `Invalidate Metastore Cache`_ for more information.
 

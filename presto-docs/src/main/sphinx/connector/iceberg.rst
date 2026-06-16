@@ -2512,7 +2512,7 @@ original state.
 Time Travel
 -----------
 
-Iceberg and Presto Iceberg connector support time travel via table snapshots
+Iceberg and Presto Iceberg connector support time travel by using table snapshots
 identified by unique snapshot IDs. The snapshot IDs are stored in the ``$snapshots``
 metadata table. You can rollback the state of a table to a previous snapshot ID.
 It also supports time travel query using SYSTEM_VERSION (VERSION) and SYSTEM_TIME (TIMESTAMP) options.

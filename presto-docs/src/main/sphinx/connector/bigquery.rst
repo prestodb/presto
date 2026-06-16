@@ -22,7 +22,7 @@ Changes may include, but are not limited to:
 BigQuery Storage API
 --------------------
 
-The Storage API streams data in parallel directly from BigQuery via gRPC without
+The Storage API streams data in parallel directly from BigQuery with gRPC without
 using Google Cloud Storage as an intermediary.
 It has a number of advantages over using the previous export-based read flow
 that should generally lead to better read performance:

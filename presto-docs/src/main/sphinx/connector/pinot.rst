@@ -293,7 +293,7 @@ There are a few configurations that control this behavior:
   aggregation and limit queries.
 * ``pinot.forbid-segment-queries``: This config is false by default.
   Setting it to true will forbid parallel querying and force all
-  querying to happen via the broker.
+  querying to happen through the broker.
 * ``pinot.non-aggregate-limit-for-broker-queries``: To prevent
   overwhelming the broker, the connector only allows querying the
   pinot broker for ``short`` queries. We define a ``short`` query to
