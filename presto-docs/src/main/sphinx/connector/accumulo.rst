@@ -69,7 +69,7 @@ Unsupported Features
 
 The following features are not supported:
 
-* Adding columns with ``ALTER TABLE``: While you cannot add columns through SQL, you can using a tool.
+* Adding columns with ``ALTER TABLE``: While you cannot add columns through SQL, you can do so using a tool.
   See the below section on `Adding Columns <#adding-columns>`__ for more details.
 * ``DELETE``: Deletion of rows is not yet implemented for the connector.
 
