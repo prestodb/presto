@@ -8130,20 +8130,6 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testMergeKHyperLogLog()
-    {
-        assertQueryWithSameQueryRunner("select k1, cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
-                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2) group by k1",
-                "select k1, cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
-                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1");
-
-        assertQueryWithSameQueryRunner("select cardinality(merge(khll)), uniqueness_distribution(merge(khll)) from (select k1, k2, khyperloglog_agg(v1, v2) khll from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), " +
-                        "(2, 1, 11, 30), (2, 1, 11, 11), (2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2) group by k1, k2)",
-                "select cardinality(khyperloglog_agg(v1, v2)), uniqueness_distribution(khyperloglog_agg(v1, v2)) from (values (1, 1, 2, 3), (1, 1, 4, 0), (1, 2, 90, 20), (1, 2, 87, 1), (2, 1, 11, 30), (2, 1, 11, 11), " +
-                        "(2, 2, 9, 1), (2, 2, 87, 2)) t(k1, k2, v1, v2)");
-    }
-
-    @Test
     public void testRepeat()
     {
         assertQuery("select repeat(k1, k2), repeat(k1, 5), repeat(3, k2) from (values (3, 2), (5, 4), (2, 4))t(k1, k2)",

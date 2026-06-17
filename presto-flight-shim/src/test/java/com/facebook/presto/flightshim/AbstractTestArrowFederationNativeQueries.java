@@ -259,13 +259,6 @@ public abstract class AbstractTestArrowFederationNativeQueries
 
     @Override
     @Test(enabled = false)
-    public void testMergeKHyperLogLog()
-    {
-        // type not present under native execution
-    }
-
-    @Override
-    @Test(enabled = false)
     public void testStringFilters()
     {
         // function not available under native execution
