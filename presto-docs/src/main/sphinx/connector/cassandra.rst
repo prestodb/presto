@@ -7,13 +7,13 @@ The Cassandra connector allows querying data stored in Apache Cassandra® or in 
 Compatibility
 -------------
 
-Connector is compatible with all Cassandra versions starting from 2.1.5 and uses the DataStax Java Driver 4.19.2. Latest ScyllaDB tested is 5.1.11.
+Connector is compatible with all Cassandra versions starting from 2.1.5 and uses the DataStax Java Driver 4.19.3. Latest ScyllaDB tested is 5.1.11.
 
 .. note::
 
-    The connector has been upgraded from Cassandra Java Driver 3.x to 4.19.2, which provides improved performance,
+    The connector has been upgraded from Cassandra Java Driver 3.x to 4.19.3, which provides improved performance,
     better connection management, and support for newer Cassandra features. The upgrade is backward compatible
-    with Cassandra 2.1.5+ and does not require any configuration changes for existing deployments.
+    with Cassandra 2.1.5+ and does not require any configuration changes for existing deployments except for ones noted below.
 
 Configuration
 -------------

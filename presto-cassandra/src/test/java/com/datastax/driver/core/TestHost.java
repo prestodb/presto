@@ -13,10 +13,14 @@
  */
 package com.datastax.driver.core;
 
+import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.loadbalancing.NodeDistance;
+import com.datastax.oss.driver.api.core.metadata.EndPoint;
 import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.NodeState;
 
 import java.net.InetSocketAddress;
+import java.util.Optional;
 
 /**
  * Test utility class for creating mock Host/Node objects.
@@ -57,9 +61,9 @@ public class TestHost
         }
 
         @Override
-        public com.datastax.oss.driver.api.core.metadata.EndPoint getEndPoint()
+        public EndPoint getEndPoint()
         {
-            return new com.datastax.oss.driver.api.core.metadata.EndPoint() {
+            return new EndPoint() {
                 @Override
                 public InetSocketAddress resolve()
                 {
@@ -75,15 +79,15 @@ public class TestHost
         }
 
         @Override
-        public java.util.Optional<InetSocketAddress> getBroadcastAddress()
+        public Optional<InetSocketAddress> getBroadcastAddress()
         {
-            return java.util.Optional.of(address);
+            return Optional.of(address);
         }
 
         @Override
-        public java.util.Optional<InetSocketAddress> getListenAddress()
+        public Optional<InetSocketAddress> getListenAddress()
         {
-            return java.util.Optional.of(address);
+            return Optional.of(address);
         }
 
         @Override
@@ -99,7 +103,7 @@ public class TestHost
         }
 
         @Override
-        public com.datastax.oss.driver.api.core.Version getCassandraVersion()
+        public Version getCassandraVersion()
         {
             return null;
         }
@@ -123,9 +127,9 @@ public class TestHost
         }
 
         @Override
-        public com.datastax.oss.driver.api.core.metadata.NodeState getState()
+        public NodeState getState()
         {
-            return com.datastax.oss.driver.api.core.metadata.NodeState.UP;
+            return NodeState.UP;
         }
 
         @Override
@@ -147,9 +151,9 @@ public class TestHost
         }
 
         @Override
-        public java.util.Optional<InetSocketAddress> getBroadcastRpcAddress()
+        public Optional<InetSocketAddress> getBroadcastRpcAddress()
         {
-            return java.util.Optional.of(address);
+            return Optional.of(address);
         }
 
         @Override

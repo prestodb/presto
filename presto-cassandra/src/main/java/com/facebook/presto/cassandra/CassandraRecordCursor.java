@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import io.airlift.slice.Slice;
 
+import java.util.Iterator;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -32,7 +33,7 @@ public class CassandraRecordCursor
     private final ResultSet rs;
     private Row currentRow;
     private long count;
-    private java.util.Iterator<Row> iterator;
+    private Iterator<Row> iterator;
 
     public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
     {
