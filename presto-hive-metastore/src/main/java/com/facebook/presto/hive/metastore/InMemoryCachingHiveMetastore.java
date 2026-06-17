@@ -522,8 +522,12 @@ public class InMemoryCachingHiveMetastore
         finally {
             updates.forEach((partitionName, update) -> {
                 HivePartitionName hivePartitionName = hivePartitionName(databaseName, tableName, partitionName);
-                partitionStatisticsCache.invalidate(getCachingKey(metastoreContext, hivePartitionName));
-                partitionCache.invalidate(getCachingKey(metastoreContext, hivePartitionName));
+                partitionStatisticsCache.asMap().keySet().stream()
+                        .filter(partitionStatisticsCacheKey -> partitionStatisticsCacheKey.getKey().equals(hivePartitionName))
+                        .forEach(partitionStatisticsCache::invalidate);
+                partitionCache.asMap().keySet().stream()
+                        .filter(partitionCacheKey -> partitionCacheKey.getKey().equals(hivePartitionName))
+                        .forEach(partitionCache::invalidate);
             });
         }
     }
