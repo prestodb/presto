@@ -56,6 +56,7 @@ env:
   DOCKER_REPO: ${{ github.repository }}
   ORG_NAME: ${{ github.repository_owner }}
   IMAGE_NAME: presto-native
+  REGISTRY: ${{ vars.REGISTRY || 'dockerhub' }}
   RELEASE_BRANCH: release-${{ inputs.RELEASE_VERSION }}
   RELEASE_TAG: ${{ inputs.RELEASE_VERSION }}
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
@@ -208,6 +209,7 @@ jobs:
         run: ./mvnw clean install -DskipTests
 
       - name: Set up GPG key
+        if: ${{ github.event.inputs.publish_maven == 'true' }}
         env:
           GPG_TTY: $(tty)
           GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
@@ -303,6 +305,13 @@ jobs:
       packages: write
       contents: read
     steps:
+      - name: Validate REGISTRY
+        run: |
+          if [[ "${REGISTRY}" != "dockerhub" && "${REGISTRY}" != "ghcr" ]]; then
+            echo "::error::Unsupported REGISTRY '${REGISTRY}'. Must be 'dockerhub' or 'ghcr'."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -315,11 +324,28 @@ jobs:
           name: presto-artifacts-${{ env.RELEASE_TAG }}
           path: ./
 
-      - name: Login to dockerhub
+      - name: Login to Docker Hub
+        if: env.REGISTRY == 'dockerhub'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        if: env.REGISTRY == 'ghcr'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image prefix
+        run: |
+          if [[ "$REGISTRY" == "ghcr" ]]; then
+            echo "IMAGE_PREFIX=ghcr.io/" >> $GITHUB_ENV
+          else
+            echo "IMAGE_PREFIX=docker.io/" >> $GITHUB_ENV
+          fi
 
       - name: Set up qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -349,8 +375,8 @@ jobs:
             PRESTO_VERSION=${{ env.RELEASE_TAG }}
             JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
           tags: |
-            ${{ env.DOCKER_REPO }}:${{ env.RELEASE_TAG }}
-            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}:latest', env.DOCKER_REPO) || '' }}
+            ${{ env.IMAGE_PREFIX }}${{ github.repository }}:${{ env.RELEASE_TAG }}
+            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}{1}:latest', env.IMAGE_PREFIX, github.repository) || '' }}
 
   publish-native-image:
     needs: publish-release-tag
@@ -372,6 +398,13 @@ jobs:
           docker-images: false
           swap-storage: false
 
+      - name: Validate REGISTRY
+        run: |
+          if [[ "${REGISTRY}" != "dockerhub" && "${REGISTRY}" != "ghcr" ]]; then
+            echo "::error::Unsupported REGISTRY '${REGISTRY}'. Must be 'dockerhub' or 'ghcr'."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -385,11 +418,28 @@ jobs:
           cd presto-native-execution && make submodules
           echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Login to DockerHub
+      - name: Login to Docker Hub
+        if: env.REGISTRY == 'dockerhub'
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        if: env.REGISTRY == 'ghcr'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image prefix
+        run: |
+          if [[ "$REGISTRY" == "ghcr" ]]; then
+            echo "IMAGE_PREFIX=ghcr.io/" >> $GITHUB_ENV
+          else
+            echo "IMAGE_PREFIX=docker.io/" >> $GITHUB_ENV
+          fi
 
       - name: Set dependency image tag
         env:
@@ -399,7 +449,7 @@ jobs:
           if [[ -n "$DEPENDENCY_IMAGE" ]]; then
             echo "DEPENDENCY_IMAGE=$DEPENDENCY_IMAGE" >> $GITHUB_ENV
           else
-            echo "DEPENDENCY_IMAGE=${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
+            echo "DEPENDENCY_IMAGE=${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
           fi
 
       - name: Build Dependency Image
@@ -417,12 +467,12 @@ jobs:
             echo "Building new depedency image"
             docker compose build centos-native-dependency
             if [[ "$PUBLISH_NATIVE_IMAGE" == "true" ]]; then
-              docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
-              docker push ${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
+              docker tag presto/prestissimo-dependency:centos9 ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
+              docker push ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:$RELEASE_TAG-${{ env.COMMIT_SHA }}
 
               if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-                docker tag presto/prestissimo-dependency:centos9 ${{ github.repository_owner }}/presto-native-dependency:latest
-                docker push ${{ github.repository_owner }}/presto-native-dependency:latest
+                docker tag presto/prestissimo-dependency:centos9 ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:latest
+                docker push ${IMAGE_PREFIX}${{ github.repository_owner }}/presto-native-dependency:latest
               fi
             fi
           fi
@@ -451,21 +501,21 @@ jobs:
           ORG_NAME: ${{ env.ORG_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
+          docker tag presto/prestissimo-runtime:centos9 ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
           if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag presto/prestissimo-runtime:centos9 $ORG_NAME/${{ env.IMAGE_NAME }}:latest
+            docker tag presto/prestissimo-runtime:centos9 ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
           fi
 
-      - name: Push to DockerHub
+      - name: Push image
         env:
           TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
           ORG_NAME: ${{ env.ORG_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          docker push $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
+          docker push ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG
           if [[ "$TAG_IMAGE_AS_LATEST" == "true" ]]; then
-            docker tag $ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG $ORG_NAME/${{ env.IMAGE_NAME }}:latest
-            docker push $ORG_NAME/${{ env.IMAGE_NAME }}:latest
+            docker tag ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:$RELEASE_TAG ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
+            docker push ${IMAGE_PREFIX}$ORG_NAME/${{ env.IMAGE_NAME }}:latest
           fi
 
   publish-docs:
