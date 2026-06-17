@@ -13,13 +13,24 @@
  */
 package com.facebook.presto.plugin.redshift;
 
-import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import jakarta.inject.Inject;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class RedshiftClientModule
         implements Module
@@ -28,6 +39,34 @@ public class RedshiftClientModule
     public void configure(Binder binder)
     {
         binder.bind(JdbcClient.class).to(RedshiftClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
+        binder.bind(RedshiftClient.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(RedshiftConfig.class);
+
+        binder.install(new JsonModule());
+        jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
+        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+    }
+
+    private static final class TypeDeserializer
+            extends FromStringDeserializer<Type>
+    {
+        private static final long serialVersionUID = 1L;
+
+        private final TypeManager typeManager;
+
+        @Inject
+        public TypeDeserializer(TypeManager typeManager)
+        {
+            super(Type.class);
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
+        @Override
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
+            Type type = typeManager.getType(parseTypeSignature(value));
+            checkArgument(type != null, "Unknown type %s", value);
+            return type;
+        }
     }
 }
