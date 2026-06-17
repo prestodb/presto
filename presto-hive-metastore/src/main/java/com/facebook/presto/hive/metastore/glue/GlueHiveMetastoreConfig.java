@@ -38,7 +38,7 @@ public class GlueHiveMetastoreConfig
     private int readStatisticsThreads = 10;
     private int writeStatisticsThreads = 10;
     private Optional<String> iamRole = Optional.empty();
-    private boolean columnStatisticsEnabled = true;
+    private boolean columnStatisticsEnabled;
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
 

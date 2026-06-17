@@ -213,6 +213,7 @@ public class GlueHiveMetastore
     private final String catalogId;
     private final int partitionSegments;
     private final Executor partitionsReadExecutor;
+    private final boolean columnStatisticsEnabled;
 
     @Inject
     public GlueHiveMetastore(
@@ -229,8 +230,9 @@ public class GlueHiveMetastore
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
         this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "partitionsReadExecutor is null");
+        this.columnStatisticsEnabled = glueConfig.isColumnStatisticsEnabled();
 
-        if (glueConfig.isColumnStatisticsEnabled()) {
+        if (columnStatisticsEnabled) {
             this.statisticsFetcher = new DefaultGlueStatisticsFetcher(
                     glueClient,
                     catalogId,
@@ -387,7 +389,7 @@ public class GlueHiveMetastore
     @Override
     public Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type)
     {
-        return MetastoreUtil.getSupportedColumnStatistics(type);
+        return columnStatisticsEnabled ? MetastoreUtil.getSupportedColumnStatistics(type) : ImmutableSet.of();
     }
 
     private Table getTableOrElseThrow(MetastoreContext metastoreContext, String databaseName, String tableName)

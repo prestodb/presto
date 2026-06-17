@@ -23,8 +23,16 @@ import com.facebook.presto.hive.metastore.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.model.BinaryColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.BooleanColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.ColumnStatistics;
+import software.amazon.awssdk.services.glue.model.ColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.ColumnStatisticsType;
+import software.amazon.awssdk.services.glue.model.DateColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.DecimalColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.DecimalNumber;
+import software.amazon.awssdk.services.glue.model.DoubleColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.StringColumnStatisticsData;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -464,5 +472,616 @@ public class TestGlueStatisticsConverter
                         .setLocation("/test/location")
                         .setSerdeParameters(ImmutableMap.of(SERIALIZATION_LIB, "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")))
                 .build();
+    }
+
+    @Test
+    public void testIntegerStatisticsWithMissingMinMax()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("int_col")
+                .columnType("int")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.LONG)
+                        .longColumnStatisticsData(software.amazon.awssdk.services.glue.model.LongColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(5L)
+                                .numberOfDistinctValues(100L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(105));
+
+        HiveColumnStatistics stats = hiveStats.get("int_col");
+        assertNotNull(stats);
+        assertTrue(stats.getIntegerStatistics().isPresent());
+        assertEquals(stats.getIntegerStatistics().get().getMin(), OptionalLong.empty());
+        assertEquals(stats.getIntegerStatistics().get().getMax(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(5));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(99)); // Adjusted for null as distinct value
+    }
+
+    @Test
+    public void testIntegerStatisticsWithMissingNullCount()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("int_col")
+                .columnType("int")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.LONG)
+                        .longColumnStatisticsData(software.amazon.awssdk.services.glue.model.LongColumnStatisticsData.builder()
+                                .minimumValue(1L)
+                                .maximumValue(1000L)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(100L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("int_col");
+        assertNotNull(stats);
+        assertTrue(stats.getIntegerStatistics().isPresent());
+        assertEquals(stats.getIntegerStatistics().get().getMin(), OptionalLong.of(1));
+        assertEquals(stats.getIntegerStatistics().get().getMax(), OptionalLong.of(1000));
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty()); // Empty because nullsCount is missing
+    }
+
+    @Test
+    public void testIntegerStatisticsWithMissingNDV()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("int_col")
+                .columnType("int")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.LONG)
+                        .longColumnStatisticsData(software.amazon.awssdk.services.glue.model.LongColumnStatisticsData.builder()
+                                .minimumValue(1L)
+                                .maximumValue(1000L)
+                                .numberOfNulls(5L)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(105));
+
+        HiveColumnStatistics stats = hiveStats.get("int_col");
+        assertNotNull(stats);
+        assertTrue(stats.getIntegerStatistics().isPresent());
+        assertEquals(stats.getIntegerStatistics().get().getMin(), OptionalLong.of(1));
+        assertEquals(stats.getIntegerStatistics().get().getMax(), OptionalLong.of(1000));
+        assertEquals(stats.getNullsCount(), OptionalLong.of(5));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testIntegerStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("int_col")
+                .columnType("int")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.LONG)
+                        .longColumnStatisticsData(software.amazon.awssdk.services.glue.model.LongColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("int_col");
+        assertNotNull(stats);
+        assertTrue(stats.getIntegerStatistics().isPresent());
+        assertEquals(stats.getIntegerStatistics().get().getMin(), OptionalLong.empty());
+        assertEquals(stats.getIntegerStatistics().get().getMax(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testDoubleStatisticsWithMissingMinMax()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("double_col")
+                .columnType("double")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DOUBLE)
+                        .doubleColumnStatisticsData(DoubleColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(3L)
+                                .numberOfDistinctValues(50L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(53));
+
+        HiveColumnStatistics stats = hiveStats.get("double_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDoubleStatistics().isPresent());
+        assertEquals(stats.getDoubleStatistics().get().getMin(), OptionalDouble.empty());
+        assertEquals(stats.getDoubleStatistics().get().getMax(), OptionalDouble.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(3));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(49)); // Adjusted for null as distinct value
+    }
+
+    @Test
+    public void testDoubleStatisticsWithMissingNullCount()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("double_col")
+                .columnType("double")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DOUBLE)
+                        .doubleColumnStatisticsData(DoubleColumnStatisticsData.builder()
+                                .minimumValue(1.5)
+                                .maximumValue(999.9)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(50L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(50));
+
+        HiveColumnStatistics stats = hiveStats.get("double_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDoubleStatistics().isPresent());
+        assertEquals(stats.getDoubleStatistics().get().getMin(), OptionalDouble.of(1.5));
+        assertEquals(stats.getDoubleStatistics().get().getMax(), OptionalDouble.of(999.9));
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty()); // Empty because nullsCount is missing
+    }
+
+    @Test
+    public void testDoubleStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("double_col")
+                .columnType("double")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DOUBLE)
+                        .doubleColumnStatisticsData(DoubleColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("double_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDoubleStatistics().isPresent());
+        assertEquals(stats.getDoubleStatistics().get().getMin(), OptionalDouble.empty());
+        assertEquals(stats.getDoubleStatistics().get().getMax(), OptionalDouble.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testStringStatisticsWithMissingMaxLength()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("string_col")
+                .columnType("string")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.STRING)
+                        .stringColumnStatisticsData(StringColumnStatisticsData.builder()
+                                .maximumLength(null)
+                                .averageLength(50.0)
+                                .numberOfNulls(10L)
+                                .numberOfDistinctValues(80L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("string_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(10));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(79)); // Adjusted for null as distinct value
+        assertTrue(stats.getTotalSizeInBytes().isPresent());
+    }
+
+    @Test
+    public void testStringStatisticsWithMissingAverageLength()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("string_col")
+                .columnType("string")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.STRING)
+                        .stringColumnStatisticsData(StringColumnStatisticsData.builder()
+                                .maximumLength(100L)
+                                .averageLength(null)
+                                .numberOfNulls(10L)
+                                .numberOfDistinctValues(80L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("string_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.of(100));
+        assertEquals(stats.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(10));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(79)); // Adjusted for null as distinct value
+    }
+
+    @Test
+    public void testStringStatisticsWithMissingNullCountAndNDV()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("string_col")
+                .columnType("string")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.STRING)
+                        .stringColumnStatisticsData(StringColumnStatisticsData.builder()
+                                .maximumLength(100L)
+                                .averageLength(50.0)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("string_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.of(100));
+        assertEquals(stats.getTotalSizeInBytes(), OptionalLong.empty()); // Empty because both avg and nullsCount are missing
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testStringStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("string_col")
+                .columnType("string")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.STRING)
+                        .stringColumnStatisticsData(StringColumnStatisticsData.builder()
+                                .maximumLength(null)
+                                .averageLength(null)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("string_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testBinaryStatisticsWithMissingMaxLength()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("binary_col")
+                .columnType("binary")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BINARY)
+                        .binaryColumnStatisticsData(BinaryColumnStatisticsData.builder()
+                                .maximumLength(null)
+                                .averageLength(128.0)
+                                .numberOfNulls(5L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("binary_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.empty());
+        assertTrue(stats.getTotalSizeInBytes().isPresent());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(5));
+    }
+
+    @Test
+    public void testBinaryStatisticsWithMissingAverageLength()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("binary_col")
+                .columnType("binary")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BINARY)
+                        .binaryColumnStatisticsData(BinaryColumnStatisticsData.builder()
+                                .maximumLength(256L)
+                                .averageLength(null)
+                                .numberOfNulls(5L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("binary_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.of(256));
+        assertEquals(stats.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(5));
+    }
+
+    @Test
+    public void testBinaryStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("binary_col")
+                .columnType("binary")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BINARY)
+                        .binaryColumnStatisticsData(BinaryColumnStatisticsData.builder()
+                                .maximumLength(null)
+                                .averageLength(null)
+                                .numberOfNulls(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("binary_col");
+        assertNotNull(stats);
+        assertEquals(stats.getMaxValueSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testBooleanStatisticsWithMissingTrueCount()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("bool_col")
+                .columnType("boolean")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BOOLEAN)
+                        .booleanColumnStatisticsData(BooleanColumnStatisticsData.builder()
+                                .numberOfTrues(null)
+                                .numberOfFalses(50L)
+                                .numberOfNulls(10L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(60));
+
+        HiveColumnStatistics stats = hiveStats.get("bool_col");
+        assertNotNull(stats);
+        assertTrue(stats.getBooleanStatistics().isPresent());
+        assertEquals(stats.getBooleanStatistics().get().getTrueCount(), OptionalLong.empty());
+        assertEquals(stats.getBooleanStatistics().get().getFalseCount(), OptionalLong.of(50));
+        assertEquals(stats.getNullsCount(), OptionalLong.of(10));
+    }
+
+    @Test
+    public void testBooleanStatisticsWithMissingFalseCount()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("bool_col")
+                .columnType("boolean")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BOOLEAN)
+                        .booleanColumnStatisticsData(BooleanColumnStatisticsData.builder()
+                                .numberOfTrues(100L)
+                                .numberOfFalses(null)
+                                .numberOfNulls(10L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(110));
+
+        HiveColumnStatistics stats = hiveStats.get("bool_col");
+        assertNotNull(stats);
+        assertTrue(stats.getBooleanStatistics().isPresent());
+        assertEquals(stats.getBooleanStatistics().get().getTrueCount(), OptionalLong.of(100));
+        assertEquals(stats.getBooleanStatistics().get().getFalseCount(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(10));
+    }
+
+    @Test
+    public void testBooleanStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("bool_col")
+                .columnType("boolean")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.BOOLEAN)
+                        .booleanColumnStatisticsData(BooleanColumnStatisticsData.builder()
+                                .numberOfTrues(null)
+                                .numberOfFalses(null)
+                                .numberOfNulls(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("bool_col");
+        assertNotNull(stats);
+        assertTrue(stats.getBooleanStatistics().isPresent());
+        assertEquals(stats.getBooleanStatistics().get().getTrueCount(), OptionalLong.empty());
+        assertEquals(stats.getBooleanStatistics().get().getFalseCount(), OptionalLong.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testDateStatisticsWithMissingMinMax()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("date_col")
+                .columnType("date")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DATE)
+                        .dateColumnStatisticsData(DateColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(2L)
+                                .numberOfDistinctValues(100L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(102));
+
+        HiveColumnStatistics stats = hiveStats.get("date_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDateStatistics().isPresent());
+        assertEquals(stats.getDateStatistics().get().getMin(), Optional.empty());
+        assertEquals(stats.getDateStatistics().get().getMax(), Optional.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(2));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(99)); // Adjusted for null as distinct value
+    }
+
+    @Test
+    public void testDateStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("date_col")
+                .columnType("date")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DATE)
+                        .dateColumnStatisticsData(DateColumnStatisticsData.builder()
+                                .minimumValue(null)
+                                .maximumValue(null)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("date_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDateStatistics().isPresent());
+        assertEquals(stats.getDateStatistics().get().getMin(), Optional.empty());
+        assertEquals(stats.getDateStatistics().get().getMax(), Optional.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
+    }
+
+    @Test
+    public void testDecimalStatisticsWithMissingMinMax()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("decimal_col")
+                .columnType("decimal(10,2)")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DECIMAL)
+                        .decimalColumnStatisticsData(DecimalColumnStatisticsData.builder()
+                                .minimumValue((DecimalNumber) null)
+                                .maximumValue((DecimalNumber) null)
+                                .numberOfNulls(1L)
+                                .numberOfDistinctValues(50L)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(51));
+
+        HiveColumnStatistics stats = hiveStats.get("decimal_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDecimalStatistics().isPresent());
+        assertEquals(stats.getDecimalStatistics().get().getMin(), Optional.empty());
+        assertEquals(stats.getDecimalStatistics().get().getMax(), Optional.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.of(1));
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.of(49)); // Adjusted for null as distinct value
+    }
+
+    @Test
+    public void testDecimalStatisticsWithAllFieldsMissing()
+    {
+        ColumnStatistics glueStats = ColumnStatistics.builder()
+                .columnName("decimal_col")
+                .columnType("decimal(10,2)")
+                .statisticsData(ColumnStatisticsData.builder()
+                        .type(ColumnStatisticsType.DECIMAL)
+                        .decimalColumnStatisticsData(DecimalColumnStatisticsData.builder()
+                                .minimumValue((DecimalNumber) null)
+                                .maximumValue((DecimalNumber) null)
+                                .numberOfNulls(null)
+                                .numberOfDistinctValues(null)
+                                .build())
+                        .build())
+                .build();
+
+        Map<String, HiveColumnStatistics> hiveStats = GlueStatisticsConverter.fromGlueColumnStatistics(
+                ImmutableList.of(glueStats),
+                OptionalLong.of(100));
+
+        HiveColumnStatistics stats = hiveStats.get("decimal_col");
+        assertNotNull(stats);
+        assertTrue(stats.getDecimalStatistics().isPresent());
+        assertEquals(stats.getDecimalStatistics().get().getMin(), Optional.empty());
+        assertEquals(stats.getDecimalStatistics().get().getMax(), Optional.empty());
+        assertEquals(stats.getNullsCount(), OptionalLong.empty());
+        assertEquals(stats.getDistinctValuesCount(), OptionalLong.empty());
     }
 }

@@ -39,13 +39,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_NOT_FOUND;
 import static com.facebook.presto.hive.metastore.glue.GlueHiveMetastore.awsSyncRequest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -183,7 +183,7 @@ public class DefaultGlueStatisticsFetcher
             List<ColumnStatistics> currentStats = getTableColumnStatistics(table);
             Set<String> updatedColumnNames = columnStatistics.stream()
                     .map(ColumnStatistics::columnName)
-                    .collect(Collectors.toSet());
+                    .collect(toImmutableSet());
 
             List<String> columnsToDelete = currentStats.stream()
                     .map(ColumnStatistics::columnName)
@@ -249,7 +249,7 @@ public class DefaultGlueStatisticsFetcher
 
                 Set<String> updatedColumnNames = newStats.stream()
                         .map(ColumnStatistics::columnName)
-                        .collect(Collectors.toSet());
+                        .collect(toImmutableSet());
 
                 List<String> columnsToDelete = currentStats.getOrDefault(partition, ImmutableList.of()).stream()
                         .map(ColumnStatistics::columnName)

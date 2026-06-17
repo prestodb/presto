@@ -98,7 +98,7 @@ public final class GlueStatisticsConverter
         return hiveColumnStats.entrySet().stream()
                 .map(entry -> {
                     Column column = table.getColumn(entry.getKey())
-                            .orElseThrow(() -> new IllegalArgumentException("Column not found: " + entry.getKey()));
+                            .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "Column not found: " + entry.getKey()));
                     return toGlueColumnStatistics(column, entry.getValue(), rowCount);
                 })
                 .filter(GlueStatisticsConverter::isGlueWritable)
@@ -199,9 +199,9 @@ public final class GlueStatisticsConverter
         switch (type) {
             case BINARY: {
                 BinaryColumnStatisticsData data = glueStatsData.binaryColumnStatisticsData();
-                OptionalLong max = OptionalLong.of(data.maximumLength());
-                OptionalDouble avg = OptionalDouble.of(data.averageLength());
-                OptionalLong nulls = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong max = data.maximumLength() != null ? OptionalLong.of(data.maximumLength()) : OptionalLong.empty();
+                OptionalDouble avg = data.averageLength() != null ? OptionalDouble.of(data.averageLength()) : OptionalDouble.empty();
+                OptionalLong nulls = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
                 return createBinaryColumnStatistics(
                         max,
                         getTotalSizeInBytes(avg, rowCount, nulls),
@@ -209,17 +209,20 @@ public final class GlueStatisticsConverter
             }
             case BOOLEAN: {
                 BooleanColumnStatisticsData data = glueStatsData.booleanColumnStatisticsData();
+                OptionalLong trueCount = data.numberOfTrues() != null ? OptionalLong.of(data.numberOfTrues()) : OptionalLong.empty();
+                OptionalLong falseCount = data.numberOfFalses() != null ? OptionalLong.of(data.numberOfFalses()) : OptionalLong.empty();
+                OptionalLong nulls = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
                 return createBooleanColumnStatistics(
-                        OptionalLong.of(data.numberOfTrues()),
-                        OptionalLong.of(data.numberOfFalses()),
-                        fromMetastoreNullsCount(data.numberOfNulls()));
+                        trueCount,
+                        falseCount,
+                        nulls);
             }
             case DATE: {
                 DateColumnStatisticsData data = glueStatsData.dateColumnStatisticsData();
                 Optional<LocalDate> min = instantToLocalDate(data.minimumValue());
                 Optional<LocalDate> max = instantToLocalDate(data.maximumValue());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
+                OptionalLong nullsCount = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
+                OptionalLong distinctValues = data.numberOfDistinctValues() != null ? OptionalLong.of(data.numberOfDistinctValues()) : OptionalLong.empty();
                 return createDateColumnStatistics(
                         min,
                         max,
@@ -230,8 +233,8 @@ public final class GlueStatisticsConverter
                 DecimalColumnStatisticsData data = glueStatsData.decimalColumnStatisticsData();
                 Optional<BigDecimal> min = glueDecimalToBigDecimal(data.minimumValue());
                 Optional<BigDecimal> max = glueDecimalToBigDecimal(data.maximumValue());
-                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong distinctValues = data.numberOfDistinctValues() != null ? OptionalLong.of(data.numberOfDistinctValues()) : OptionalLong.empty();
+                OptionalLong nullsCount = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
                 return createDecimalColumnStatistics(
                         min,
                         max,
@@ -240,10 +243,10 @@ public final class GlueStatisticsConverter
             }
             case DOUBLE: {
                 DoubleColumnStatisticsData data = glueStatsData.doubleColumnStatisticsData();
-                OptionalDouble min = OptionalDouble.of(data.minimumValue());
-                OptionalDouble max = OptionalDouble.of(data.maximumValue());
-                OptionalLong nulls = fromMetastoreNullsCount(data.numberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
+                OptionalDouble min = data.minimumValue() != null ? OptionalDouble.of(data.minimumValue()) : OptionalDouble.empty();
+                OptionalDouble max = data.maximumValue() != null ? OptionalDouble.of(data.maximumValue()) : OptionalDouble.empty();
+                OptionalLong nulls = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
+                OptionalLong distinctValues = data.numberOfDistinctValues() != null ? OptionalLong.of(data.numberOfDistinctValues()) : OptionalLong.empty();
                 return createDoubleColumnStatistics(
                         min,
                         max,
@@ -252,10 +255,10 @@ public final class GlueStatisticsConverter
             }
             case LONG: {
                 LongColumnStatisticsData data = glueStatsData.longColumnStatisticsData();
-                OptionalLong min = OptionalLong.of(data.minimumValue());
-                OptionalLong max = OptionalLong.of(data.maximumValue());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
+                OptionalLong min = data.minimumValue() != null ? OptionalLong.of(data.minimumValue()) : OptionalLong.empty();
+                OptionalLong max = data.maximumValue() != null ? OptionalLong.of(data.maximumValue()) : OptionalLong.empty();
+                OptionalLong nullsCount = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
+                OptionalLong distinctValues = data.numberOfDistinctValues() != null ? OptionalLong.of(data.numberOfDistinctValues()) : OptionalLong.empty();
                 return createIntegerColumnStatistics(
                         min,
                         max,
@@ -264,10 +267,10 @@ public final class GlueStatisticsConverter
             }
             case STRING: {
                 StringColumnStatisticsData data = glueStatsData.stringColumnStatisticsData();
-                OptionalLong max = OptionalLong.of(data.maximumLength());
-                OptionalDouble avg = OptionalDouble.of(data.averageLength());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
+                OptionalLong max = data.maximumLength() != null ? OptionalLong.of(data.maximumLength()) : OptionalLong.empty();
+                OptionalDouble avg = data.averageLength() != null ? OptionalDouble.of(data.averageLength()) : OptionalDouble.empty();
+                OptionalLong nullsCount = data.numberOfNulls() != null ? fromMetastoreNullsCount(data.numberOfNulls()) : OptionalLong.empty();
+                OptionalLong distinctValues = data.numberOfDistinctValues() != null ? OptionalLong.of(data.numberOfDistinctValues()) : OptionalLong.empty();
                 return createStringColumnStatistics(
                         max,
                         getTotalSizeInBytes(avg, rowCount, nullsCount),
