@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
+import com.facebook.airlift.units.Duration;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
@@ -43,7 +45,10 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsSecretKey(null)
                 .setColumnStatisticsEnabled(false)
                 .setReadStatisticsThreads(10)
-                .setWriteStatisticsThreads(10));
+                .setWriteStatisticsThreads(10)
+                .setMaxUnprocessedKeysRetries(3)
+                .setUnprocessedKeysRetryMinDelay(new Duration(100, TimeUnit.MILLISECONDS))
+                .setUnprocessedKeysRetryMaxDelay(new Duration(5, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -66,6 +71,9 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.read-statistics-threads", "42")
                 .put("hive.metastore.glue.write-statistics-threads", "43")
                 .put("hive.metastore.glue.column-statistics-enabled", "true")
+                .put("hive.metastore.glue.max-unprocessed-keys-retries", "5")
+                .put("hive.metastore.glue.unprocessed-keys-retry-min-delay", "50ms")
+                .put("hive.metastore.glue.unprocessed-keys-retry-max-delay", "10s")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -84,7 +92,10 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsSecretKey("DEF")
                 .setReadStatisticsThreads(42)
                 .setWriteStatisticsThreads(43)
-                .setColumnStatisticsEnabled(true);
+                .setColumnStatisticsEnabled(true)
+                .setMaxUnprocessedKeysRetries(5)
+                .setUnprocessedKeysRetryMinDelay(new Duration(50, TimeUnit.MILLISECONDS))
+                .setUnprocessedKeysRetryMaxDelay(new Duration(10, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

@@ -167,10 +167,13 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toMap;
 
@@ -214,6 +217,9 @@ public class GlueHiveMetastore
     private final int partitionSegments;
     private final Executor partitionsReadExecutor;
     private final boolean columnStatisticsEnabled;
+    private final int maxUnprocessedKeysRetries;
+    private final long unprocessedKeysRetryMinDelayMillis;
+    private final long unprocessedKeysRetryMaxDelayMillis;
 
     @Inject
     public GlueHiveMetastore(
@@ -231,6 +237,9 @@ public class GlueHiveMetastore
         this.partitionSegments = glueConfig.getPartitionSegments();
         this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "partitionsReadExecutor is null");
         this.columnStatisticsEnabled = glueConfig.isColumnStatisticsEnabled();
+        this.maxUnprocessedKeysRetries = glueConfig.getMaxUnprocessedKeysRetries();
+        this.unprocessedKeysRetryMinDelayMillis = glueConfig.getUnprocessedKeysRetryMinDelay().toMillis();
+        this.unprocessedKeysRetryMaxDelayMillis = glueConfig.getUnprocessedKeysRetryMaxDelay().toMillis();
 
         if (columnStatisticsEnabled) {
             this.statisticsFetcher = new DefaultGlueStatisticsFetcher(
@@ -1070,7 +1079,32 @@ public class GlueHiveMetastore
 
             GluePartitionConverter converter = new GluePartitionConverter(databaseName, tableName);
 
+            int retryAttempt = 0;
             while (!pendingPartitions.isEmpty()) {
+                // Check if we've exceeded the maximum retry attempts
+                if (retryAttempt > 0) {
+                    if (retryAttempt > maxUnprocessedKeysRetries) {
+                        throw new PrestoException(
+                                HIVE_METASTORE_ERROR,
+                                format("Failed to fetch partitions after %d retries. %d unprocessed keys remain: %s",
+                                        maxUnprocessedKeysRetries,
+                                        pendingPartitions.size(),
+                                        pendingPartitions.stream()
+                                                .map(p -> p.values().toString())
+                                                .limit(10)
+                                                .collect(joining(", "))));
+                    }
+
+                    long delayMillis = min(
+                            unprocessedKeysRetryMinDelayMillis * (1L << (retryAttempt - 1)),
+                            unprocessedKeysRetryMaxDelayMillis);
+
+                    log.warn("Retrying %d unprocessed partition keys for table %s.%s (attempt %d/%d) after %dms delay",
+                            pendingPartitions.size(), databaseName, tableName, retryAttempt, maxUnprocessedKeysRetries, delayMillis);
+
+                    Thread.sleep(delayMillis);
+                }
+
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
                     GlueStatsAsyncHandler glueStatsAsyncHandler = new GlueStatsAsyncHandler(stats.getBatchGetPartitions());
 
@@ -1106,6 +1140,7 @@ public class GlueHiveMetastore
                     pendingPartitions.addAll(unprocessedKeys);
                 }
                 batchGetPartitionFutures.clear();
+                retryAttempt++;
             }
 
             return resultsBuilder.build();

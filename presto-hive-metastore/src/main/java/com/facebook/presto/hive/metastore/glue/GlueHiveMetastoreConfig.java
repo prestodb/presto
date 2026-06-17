@@ -17,10 +17,12 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.ConfigSecuritySensitive;
 import com.facebook.airlift.configuration.DefunctConfig;
+import com.facebook.airlift.units.Duration;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @DefunctConfig("hive.metastore.glue.pin-client-to-current-region")
 public class GlueHiveMetastoreConfig
@@ -41,6 +43,9 @@ public class GlueHiveMetastoreConfig
     private boolean columnStatisticsEnabled;
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
+    private int maxUnprocessedKeysRetries = 3;
+    private Duration unprocessedKeysRetryMinDelay = new Duration(100, TimeUnit.MILLISECONDS);
+    private Duration unprocessedKeysRetryMaxDelay = new Duration(5, TimeUnit.SECONDS);
 
     public Optional<String> getGlueRegion()
     {
@@ -256,6 +261,46 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxUnprocessedKeysRetries()
+    {
+        return maxUnprocessedKeysRetries;
+    }
+
+    @Config("hive.metastore.glue.max-unprocessed-keys-retries")
+    @ConfigDescription("Maximum number of retry attempts for unprocessed partition keys in batch get operations")
+    public GlueHiveMetastoreConfig setMaxUnprocessedKeysRetries(int maxUnprocessedKeysRetries)
+    {
+        this.maxUnprocessedKeysRetries = maxUnprocessedKeysRetries;
+        return this;
+    }
+
+    public Duration getUnprocessedKeysRetryMinDelay()
+    {
+        return unprocessedKeysRetryMinDelay;
+    }
+
+    @Config("hive.metastore.glue.unprocessed-keys-retry-min-delay")
+    @ConfigDescription("Minimum delay between retries for unprocessed partition keys (exponential backoff starts from this value)")
+    public GlueHiveMetastoreConfig setUnprocessedKeysRetryMinDelay(Duration unprocessedKeysRetryMinDelay)
+    {
+        this.unprocessedKeysRetryMinDelay = unprocessedKeysRetryMinDelay;
+        return this;
+    }
+
+    public Duration getUnprocessedKeysRetryMaxDelay()
+    {
+        return unprocessedKeysRetryMaxDelay;
+    }
+
+    @Config("hive.metastore.glue.unprocessed-keys-retry-max-delay")
+    @ConfigDescription("Maximum delay between retries for unprocessed partition keys (exponential backoff is capped at this value)")
+    public GlueHiveMetastoreConfig setUnprocessedKeysRetryMaxDelay(Duration unprocessedKeysRetryMaxDelay)
+    {
+        this.unprocessedKeysRetryMaxDelay = unprocessedKeysRetryMaxDelay;
         return this;
     }
 }
