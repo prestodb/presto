@@ -139,6 +139,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_NOT_FOUND;
 import static com.facebook.presto.hive.metastore.MetastoreOperationResult.EMPTY_RESULT;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.deleteDirectoryRecursively;
@@ -166,6 +167,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.immutableEntry;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -220,6 +222,7 @@ public class GlueHiveMetastore
     private final int maxUnprocessedKeysRetries;
     private final long unprocessedKeysRetryMinDelayMillis;
     private final long unprocessedKeysRetryMaxDelayMillis;
+    private final boolean failOnMissingPartitionInStatisticsUpdate;
 
     @Inject
     public GlueHiveMetastore(
@@ -240,6 +243,7 @@ public class GlueHiveMetastore
         this.maxUnprocessedKeysRetries = glueConfig.getMaxUnprocessedKeysRetries();
         this.unprocessedKeysRetryMinDelayMillis = glueConfig.getUnprocessedKeysRetryMinDelay().toMillis();
         this.unprocessedKeysRetryMaxDelayMillis = glueConfig.getUnprocessedKeysRetryMaxDelay().toMillis();
+        this.failOnMissingPartitionInStatisticsUpdate = glueConfig.isFailOnMissingPartitionInStatisticsUpdate();
 
         if (columnStatisticsEnabled) {
             this.statisticsFetcher = new DefaultGlueStatisticsFetcher(
@@ -499,13 +503,20 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(
+            MetastoreContext metastoreContext,
+            String databaseName,
+            String tableName,
+            Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         Iterables.partition(updates.entrySet(), BATCH_CREATE_PARTITION_MAX_PAGE_SIZE).forEach(partitionUpdates ->
-                updatePartitionStatisticsBatch(metastoreContext, databaseName, tableName, partitionUpdates.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
+                updatePartitionStatisticsBatch(databaseName, tableName, partitionUpdates.stream().collect(toImmutableMap(Entry::getKey, Entry::getValue))));
     }
 
-    private void updatePartitionStatisticsBatch(MetastoreContext metastoreContext, String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    private void updatePartitionStatisticsBatch(
+            String databaseName,
+            String tableName,
+            Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         ImmutableList.Builder<BatchUpdatePartitionRequestEntry> partitionUpdateRequests = ImmutableList.builder();
         ImmutableMap.Builder<Partition, List<ColumnStatistics>> glueStatsUpdates = ImmutableMap.builder();
@@ -514,6 +525,25 @@ public class GlueHiveMetastore
                 .collect(toImmutableMap(MetastoreUtil::toPartitionValues, identity()));
 
         List<Partition> partitions = batchGetPartition(databaseName, tableName, ImmutableList.copyOf(updates.keySet()));
+
+        // Validate that all requested partitions were fetched
+        if (failOnMissingPartitionInStatisticsUpdate && partitions.size() != updates.size()) {
+            Set<String> fetchedPartitionNames = partitions.stream()
+                    .map(partition -> partitionValuesToName.get(partition.getValues()))
+                    .collect(toImmutableSet());
+
+            Set<String> missingPartitions = updates.keySet().stream()
+                    .filter(partitionName -> !fetchedPartitionNames.contains(partitionName))
+                    .collect(toImmutableSet());
+
+            throw new PartitionNotFoundException(
+                    new SchemaTableName(databaseName, tableName),
+                    missingPartitions.stream().findFirst().map(MetastoreUtil::toPartitionValues).orElse(ImmutableList.of()),
+                    format("Failed to update partition statistics. %d partition(s) not found: %s",
+                            missingPartitions.size(),
+                            missingPartitions.stream().limit(10).collect(joining(", "))));
+        }
+
         Map<Partition, List<ColumnStatistics>> glueStatsPerPartition =
                 statisticsFetcher.getPartitionColumnStatistics(ImmutableSet.copyOf(partitions));
 
@@ -1085,7 +1115,7 @@ public class GlueHiveMetastore
                 if (retryAttempt > 0) {
                     if (retryAttempt > maxUnprocessedKeysRetries) {
                         throw new PrestoException(
-                                HIVE_METASTORE_ERROR,
+                                HIVE_PARTITION_NOT_FOUND,
                                 format("Failed to fetch partitions after %d retries. %d unprocessed keys remain: %s",
                                         maxUnprocessedKeysRetries,
                                         pendingPartitions.size(),

@@ -48,7 +48,8 @@ public class TestGlueHiveMetastoreConfig
                 .setWriteStatisticsThreads(10)
                 .setMaxUnprocessedKeysRetries(3)
                 .setUnprocessedKeysRetryMinDelay(new Duration(100, TimeUnit.MILLISECONDS))
-                .setUnprocessedKeysRetryMaxDelay(new Duration(5, TimeUnit.SECONDS)));
+                .setUnprocessedKeysRetryMaxDelay(new Duration(5, TimeUnit.SECONDS))
+                .setFailOnMissingPartitionInStatisticsUpdate(true));
     }
 
     @Test
@@ -74,6 +75,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.max-unprocessed-keys-retries", "5")
                 .put("hive.metastore.glue.unprocessed-keys-retry-min-delay", "50ms")
                 .put("hive.metastore.glue.unprocessed-keys-retry-max-delay", "10s")
+                .put("hive.metastore.glue.fail-on-missing-partition-in-statistics-update", "false")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -95,7 +97,8 @@ public class TestGlueHiveMetastoreConfig
                 .setColumnStatisticsEnabled(true)
                 .setMaxUnprocessedKeysRetries(5)
                 .setUnprocessedKeysRetryMinDelay(new Duration(50, TimeUnit.MILLISECONDS))
-                .setUnprocessedKeysRetryMaxDelay(new Duration(10, TimeUnit.SECONDS));
+                .setUnprocessedKeysRetryMaxDelay(new Duration(10, TimeUnit.SECONDS))
+                .setFailOnMissingPartitionInStatisticsUpdate(false);
 
         assertFullMapping(properties, expected);
     }

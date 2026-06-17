@@ -46,6 +46,7 @@ public class GlueHiveMetastoreConfig
     private int maxUnprocessedKeysRetries = 3;
     private Duration unprocessedKeysRetryMinDelay = new Duration(100, TimeUnit.MILLISECONDS);
     private Duration unprocessedKeysRetryMaxDelay = new Duration(5, TimeUnit.SECONDS);
+    private boolean failOnMissingPartitionInStatisticsUpdate = true;
 
     public Optional<String> getGlueRegion()
     {
@@ -301,6 +302,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setUnprocessedKeysRetryMaxDelay(Duration unprocessedKeysRetryMaxDelay)
     {
         this.unprocessedKeysRetryMaxDelay = unprocessedKeysRetryMaxDelay;
+        return this;
+    }
+
+    public boolean isFailOnMissingPartitionInStatisticsUpdate()
+    {
+        return failOnMissingPartitionInStatisticsUpdate;
+    }
+
+    @Config("hive.metastore.glue.fail-on-missing-partition-in-statistics-update")
+    @ConfigDescription("Fail partition statistics update if any requested partition is missing or dropped")
+    public GlueHiveMetastoreConfig setFailOnMissingPartitionInStatisticsUpdate(boolean failOnMissingPartitionInStatisticsUpdate)
+    {
+        this.failOnMissingPartitionInStatisticsUpdate = failOnMissingPartitionInStatisticsUpdate;
         return this;
     }
 }
