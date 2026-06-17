@@ -192,14 +192,6 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-native-sidecar-plugin</artifactId>
-            <scope>test</scope>
-            <type>test-jar</type>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
             <type>test-jar</type>

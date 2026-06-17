@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativetests.GeoSpatialTestUtils.createCoordinates;
 import static com.facebook.presto.nativetests.GeoSpatialTestUtils.generateRandomTableName;
-import static com.facebook.presto.sidecar.TestNativeSidecarPlugin.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 
@@ -68,9 +67,6 @@ public class TestPrestoNativeGeospatial
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 

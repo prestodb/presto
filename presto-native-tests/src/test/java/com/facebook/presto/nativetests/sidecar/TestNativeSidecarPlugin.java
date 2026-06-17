@@ -111,8 +111,8 @@ public class TestNativeSidecarPlugin
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
+                .setSidecarPluginConfig(ImmutableMap.of("sidecar.http-client.max-content-length", SIDECAR_HTTP_CLIENT_MAX_CONTENT_SIZE_MB + "MB"))
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
 

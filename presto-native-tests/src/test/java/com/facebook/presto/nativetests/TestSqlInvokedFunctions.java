@@ -22,7 +22,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestSqlInvokedFunctions
@@ -52,10 +51,7 @@ public class TestSqlInvokedFunctions
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .setExtraProperties(ImmutableMap.of("inline-sql-functions", "true"))
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
-        else {
+        if (!sidecarEnabled) {
             queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         }
         return queryRunner;

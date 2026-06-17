@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar.expressions;
+package com.facebook.presto.nativetests.sidecar.expressions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.nativeworker.NativeSidecarPluginQueryRunner;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
-import com.facebook.presto.sidecar.NativeSidecarPluginQueryRunner;
+import com.facebook.presto.sidecar.expressions.NativeExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
@@ -66,7 +67,7 @@ public class TestNativeExpressionOptimizer
         closeAllRuntimeException(queryRunner);
     }
 
-    @Test
+    @Test(groups = "sidecar")
     public void testLambdaBodyConstantFolding()
     {
         // Simple lambda constant folding.
@@ -90,7 +91,7 @@ public class TestNativeExpressionOptimizer
                 "filter(transform(ARRAY[unbound_long, unbound_long2], x -> 2), x -> false)");
     }
 
-    @Test
+    @Test(groups = "sidecar")
     public void testSessionPropertiesPropagatingThroughOptimizer()
     {
         assertOptimizedEquals(
@@ -120,7 +121,7 @@ public class TestNativeExpressionOptimizer
                         .build());
     }
 
-    @Test
+    @Test(groups = "sidecar")
     public void testCurrentTimestamp()
     {
         ZoneId zone = ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId());

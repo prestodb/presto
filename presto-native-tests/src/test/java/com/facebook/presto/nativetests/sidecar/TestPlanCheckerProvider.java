@@ -11,12 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.sidecar.NativeSidecarFailureInfo;
 import com.facebook.presto.sidecar.nativechecker.NativePlanChecker;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerConfig;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProvider;
@@ -54,6 +55,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+@Test(groups = "sidecar")
 public class TestPlanCheckerProvider
 {
     private static final JsonCodec<SimplePlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(SimplePlanFragment.class);

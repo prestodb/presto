@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -27,9 +27,9 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static org.testng.Assert.assertTrue;
 
+@Test(groups = "sidecar")
 public class TestNativeSidecarWithPluginLoadedTypes
         extends AbstractTestQueryFramework
 {
@@ -41,7 +41,6 @@ public class TestNativeSidecarWithPluginLoadedTypes
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
         queryRunner.installPlugin(new MongoPlugin());
         queryRunner.installPlugin(new MLPlugin());
         return queryRunner;

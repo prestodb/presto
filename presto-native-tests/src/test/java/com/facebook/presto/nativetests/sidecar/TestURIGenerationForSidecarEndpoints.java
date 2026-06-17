@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.presto.client.NodeVersion;
@@ -31,6 +31,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
+@Test(groups = "sidecar")
 public class TestURIGenerationForSidecarEndpoints
 {
     private InMemoryNodeManager inMemoryNodeManager;

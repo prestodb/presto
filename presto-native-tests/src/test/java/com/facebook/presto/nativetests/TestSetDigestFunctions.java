@@ -22,7 +22,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.nativetests.SetDigestTestUtils.createJaccardIndexValues;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestSetDigestFunctions
@@ -65,9 +64,6 @@ public class TestSetDigestFunctions
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 

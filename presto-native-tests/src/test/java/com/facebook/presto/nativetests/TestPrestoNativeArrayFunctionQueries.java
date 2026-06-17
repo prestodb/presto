@@ -20,7 +20,6 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestPrestoNativeArrayFunctionQueries
@@ -49,10 +48,7 @@ public class TestPrestoNativeArrayFunctionQueries
                 .setUseThrift(true)
                 .setCoordinatorSidecarEnabled(sidecarEnabled)
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
-        else {
+        if (!sidecarEnabled) {
             queryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
         }
         return queryRunner;

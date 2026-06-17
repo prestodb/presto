@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 import static java.lang.Boolean.parseBoolean;
 
 public class TestRepartitionQueriesWithSmallPages
@@ -50,9 +49,6 @@ public class TestRepartitionQueriesWithSmallPages
                     // Use small SerializedPages to force flushing
                     ImmutableMap.of("driver.max-page-partitioning-buffer-size", "200B"))
                 .build();
-        if (sidecarEnabled) {
-            setupNativeSidecarPlugin(queryRunner);
-        }
         return queryRunner;
     }
 

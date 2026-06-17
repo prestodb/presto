@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sidecar;
+package com.facebook.presto.nativetests.sidecar;
 
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.QueryRunner;
@@ -25,8 +25,8 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createNati
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrders;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createOrdersEx;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.createRegion;
-import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
+@Test(groups = "sidecar")
 public class TestNativeSidecarQueriesOnSystemTables
         extends AbstractTestQueryFramework
 {
@@ -45,14 +45,12 @@ public class TestNativeSidecarQueriesOnSystemTables
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
+        return (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.nativeHiveQueryRunnerBuilder()
                 .setAddStorageFormatToPath(true)
                 .setCoordinatorSidecarEnabled(true)
                 .setExtraCoordinatorProperties(
                         ImmutableMap.of("expression-optimizer-name", "native"))
                 .build();
-        setupNativeSidecarPlugin(queryRunner);
-        return queryRunner;
     }
 
     @Override
