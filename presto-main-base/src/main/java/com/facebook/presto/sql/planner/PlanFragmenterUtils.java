@@ -38,9 +38,11 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
@@ -191,8 +193,19 @@ public class PlanFragmenterUtils
         PlanOptimizerResult result =
                 optimizer.optimize(oldRoot, session, types, variableAllocator, idAllocator, warningCollector);
 
+        // PushDownWidenCast leaves the top Project as an all-identity {v := v}
+        // assignments node after pushing the cast — its Javadoc relies on
+        // InlineProjections to elide it, but InlineProjections runs pre-fragmentation
+        // in PlanOptimizers' main chain, not here. So we elide any post-rewrite
+        // identity Project ourselves; otherwise it stays on the hot path as a
+        // costly no-op rebuild (observed in production: ~15% fragment CPU spent
+        // copying GBs through an identity Project that does nothing).
+        PlanNode rewritten = result.isOptimizerTriggered()
+                ? pruneIdentityProjects(result.getPlanNode())
+                : oldRoot;
+
         PlanFragment newFragment = result.isOptimizerTriggered()
-                ? fragment.withRoot(result.getPlanNode(), variableAllocatorVariables(variableAllocator))
+                ? fragment.withRoot(rewritten, variableAllocatorVariables(variableAllocator))
                 : fragment;
 
         ImmutableList.Builder<SubPlan> newChildren = ImmutableList.builder();
@@ -200,6 +213,46 @@ public class PlanFragmenterUtils
             newChildren.add(rewriteSubPlanWithCastPushdown(child, session, optimizer, warningCollector));
         }
         return new SubPlan(newFragment, newChildren.build());
+    }
+
+    /**
+     * Walks the plan post-order and elides every {@link ProjectNode} whose assignments are
+     * all of the form {@code v := v} and whose output variables are all produced by the
+     * source. Downstream operators and the fragment's {@code partitioningScheme.outputLayout}
+     * reference variables by name, so removing the Project doesn't change semantics — the
+     * column reordering it provided is naturally absorbed.
+     *
+     * <p>Pairs with {@code PushDownWidenCast}, whose Phase-1 REPLACE pass leaves a
+     * {@code wide := wide} identity assignment behind every CAST it pushes. Without this
+     * step those Projects persist on the hot path as no-op rebuilds.
+     */
+    private static PlanNode pruneIdentityProjects(PlanNode node)
+    {
+        java.util.List<PlanNode> newSources = new java.util.ArrayList<>(node.getSources().size());
+        boolean sourcesChanged = false;
+        for (PlanNode source : node.getSources()) {
+            PlanNode rewritten = pruneIdentityProjects(source);
+            newSources.add(rewritten);
+            sourcesChanged = sourcesChanged || (rewritten != source);
+        }
+        PlanNode current = sourcesChanged ? node.replaceChildren(newSources) : node;
+        if (!(current instanceof ProjectNode)) {
+            return current;
+        }
+        ProjectNode project = (ProjectNode) current;
+        Set<com.facebook.presto.spi.relation.VariableReferenceExpression> sourceVars =
+                ImmutableSet.copyOf(project.getSource().getOutputVariables());
+        for (Map.Entry<com.facebook.presto.spi.relation.VariableReferenceExpression, RowExpression> e :
+                project.getAssignments().entrySet()) {
+            // Assignment must be the identity v := v, and v must be produced by the source.
+            if (!e.getValue().equals(e.getKey())) {
+                return current;
+            }
+            if (!sourceVars.contains(e.getKey())) {
+                return current;
+            }
+        }
+        return project.getSource();
     }
 
     private static int nextIdForFragment(PlanNode root)
