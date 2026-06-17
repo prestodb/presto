@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.CachingStatsProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.VariableAllocator;
@@ -52,6 +56,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getRpcDispatchBatchSize;
 import static com.facebook.presto.SystemSessionProperties.getRpcStreamingMode;
 import static com.facebook.presto.SystemSessionProperties.isRpcFunctionOptimizerEnabled;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class RpcFunctionOptimizer
@@ -59,15 +64,30 @@ public class RpcFunctionOptimizer
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final Supplier<Set<String>> rpcFunctionNamesSupplier;
+    // Nullable: when absent, the execution policy receives a NaN row estimate.
+    private final StatsCalculator statsCalculator;
+    private final RpcExecutionPolicy executionPolicy;
 
     public RpcFunctionOptimizer()
     {
-        this(ImmutableSet::of);
+        this(ImmutableSet::of, null, new DefaultRpcExecutionPolicy());
     }
 
     public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier)
     {
+        this(rpcFunctionNamesSupplier, null, new DefaultRpcExecutionPolicy());
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator)
+    {
+        this(rpcFunctionNamesSupplier, statsCalculator, new DefaultRpcExecutionPolicy());
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy)
+    {
         this.rpcFunctionNamesSupplier = requireNonNull(rpcFunctionNamesSupplier, "rpcFunctionNamesSupplier is null");
+        this.statsCalculator = statsCalculator;
+        this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
     }
 
     public boolean isRpcFunction(CallExpression call)
@@ -95,7 +115,10 @@ public class RpcFunctionOptimizer
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get());
+        StatsProvider statsProvider = statsCalculator != null
+                ? new CachingStatsProvider(statsCalculator, session, types)
+                : null;
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), statsProvider, executionPolicy);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -107,14 +130,19 @@ public class RpcFunctionOptimizer
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
         private final Set<String> rpcFunctionNames;
+        // Nullable: when null, the execution policy receives a NaN row estimate.
+        private final StatsProvider statsProvider;
+        private final RpcExecutionPolicy executionPolicy;
         private boolean planChanged;
 
-        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames)
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            this.statsProvider = statsProvider;
+            this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         }
 
         public boolean isPlanChanged()
@@ -164,7 +192,13 @@ public class RpcFunctionOptimizer
             //    constants.
             PlanNode currentSource = rewrittenSource;
             for (ExtractedRpcCall extracted : extractedCalls) {
-                RPCNode.StreamingMode streamingMode = parseStreamingMode(extracted.originalCall);
+                // Resolve the streaming mode against rewrittenSource (the input feeding the whole
+                // chain). Every RPC call in this ProjectNode, and the projections interleaved
+                // between them, are row-count-preserving, so they all share rewrittenSource's
+                // cardinality. Using rewrittenSource (rather than walking currentSource onto the
+                // prior RPCNode) keeps the estimate well-defined even if no stats rule exists for
+                // RPCNode.
+                RPCNode.StreamingMode streamingMode = resolveExecutionProperties(extracted.originalCall, rewrittenSource).getStreamingMode();
                 int dispatchBatchSize = parseDispatchBatchSize(extracted.originalCall);
 
                 List<RowExpression> substitutedArgs = extracted.substitutedCall.getArguments();
@@ -513,6 +547,36 @@ public class RpcFunctionOptimizer
             catch (IOException e) {
                 return Optional.empty();
             }
+        }
+
+        // Resolves the plan-time execution properties for one RPC call. The requested mode (from
+        // options JSON or the session property), the requested dispatch size, and the estimated
+        // input stats are handed to the injected RpcExecutionPolicy as an RpcExecutionIntent; the
+        // policy returns the resolved RpcExecutionProperties. AUTOMATIC is resolved here so the
+        // RPCNode never carries it. The default policy carries no batching heuristic
+        // (AUTOMATIC -> PER_ROW, no overrides); a deployment may bind a stats-driven policy.
+        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source)
+        {
+            RPCNode.StreamingMode requested = parseStreamingMode(rpcCall);
+            PlanNodeStatsEstimate sourceStats = statsProvider == null
+                    ? PlanNodeStatsEstimate.unknown()
+                    : statsProvider.getStats(source);
+            RpcExecutionIntent intent = RpcExecutionIntent.builder()
+                    .setRequestedMode(requested)
+                    .setInputStats(sourceStats)
+                    .setSession(session)
+                    .setFunctionName(rpcCall.getDisplayName())
+                    .build();
+            RpcExecutionProperties properties = executionPolicy.translateIntent(intent);
+            // Enforce the policy contract at plan time: AUTOMATIC is coordinator-only and must
+            // be resolved to a concrete mode here. A custom policy that returns AUTOMATIC (e.g.
+            // by passing the requested mode through) would otherwise leak it into the serialized
+            // RPCNode and fail at the native worker, far from the offending policy.
+            checkArgument(
+                    properties.getStreamingMode() != RPCNode.StreamingMode.AUTOMATIC,
+                    "RpcExecutionPolicy must return a concrete streaming mode, not AUTOMATIC (call %s)",
+                    rpcCall.getDisplayName());
+            return properties;
         }
 
         private RPCNode.StreamingMode parseStreamingMode(CallExpression rpcCall)

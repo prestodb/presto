@@ -185,6 +185,7 @@ import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HistoricalStatisticsEquivalentPlanMarkingOptimizer;
@@ -214,6 +215,7 @@ import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableRefe
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.RpcFunctionOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ShardJoins;
@@ -267,7 +269,8 @@ public class PlanOptimizers
             ExpressionOptimizerManager expressionOptimizerManager,
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl,
-            @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames)
+            @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames,
+            RpcExecutionPolicy rpcExecutionPolicy)
     {
         this(metadata,
                 sqlParser,
@@ -286,7 +289,8 @@ public class PlanOptimizers
                 expressionOptimizerManager,
                 taskManagerConfig,
                 accessControl,
-                rpcFunctionNames);
+                rpcFunctionNames,
+                rpcExecutionPolicy);
     }
 
     @PostConstruct
@@ -303,6 +307,11 @@ public class PlanOptimizers
         optimizerStats.unexport(exporter);
     }
 
+    // Non-injected convenience constructor (no RPC functions configured): used by callers that
+    // build PlanOptimizers outside Guice, e.g. tests. It hardcodes an empty rpc-function set and
+    // the no-op DefaultRpcExecutionPolicy; the production path uses the @Inject constructor, which
+    // receives the (possibly deployment-overridden) RpcExecutionPolicy binding. Since no RPC
+    // function is registered here, the policy is never consulted anyway.
     public PlanOptimizers(
             Metadata metadata,
             SqlParser sqlParser,
@@ -339,7 +348,8 @@ public class PlanOptimizers
                 expressionOptimizerManager,
                 taskManagerConfig,
                 accessControl,
-                ImmutableSet::of);
+                ImmutableSet::of,
+                new DefaultRpcExecutionPolicy());
     }
 
     public PlanOptimizers(
@@ -360,7 +370,8 @@ public class PlanOptimizers
             ExpressionOptimizerManager expressionOptimizerManager,
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl,
-            Supplier<Set<String>> rpcFunctionNames)
+            Supplier<Set<String>> rpcFunctionNames,
+            RpcExecutionPolicy rpcExecutionPolicy)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -655,7 +666,7 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
-        builder.add(new RpcFunctionOptimizer(rpcFunctionNames));
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy));
 
         builder.add(new IterativeOptimizer(
                 metadata,

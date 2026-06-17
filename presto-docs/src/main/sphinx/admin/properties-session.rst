@@ -209,6 +209,59 @@ When enabled, JSON objects are cast to ROW types by matching fields by name inst
 
 For more information and examples, see :ref:`functions/json:cast to json`.
 
+Remote Function (RPC) Properties
+--------------------------------
+
+These properties control execution of remote (RPC) functions, which dispatch each
+invocation to an external service.
+
+``rpc_function_optimizer_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Enables the RPC function optimizer, which rewrites RPC function calls to use
+asynchronous ``RPCNode`` execution.
+
+``rpc_streaming_mode``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Allowed values:** ``PER_ROW``, ``BATCH``, ``AUTOMATIC``
+* **Default value:** ``PER_ROW``
+
+Controls how RPC function calls are dispatched. ``PER_ROW`` dispatches each row
+individually. ``BATCH`` accumulates rows and dispatches them in batches (see
+``rpc_dispatch_batch_size``). ``AUTOMATIC`` is resolved to ``PER_ROW`` or ``BATCH``
+at query planning time from the estimated input row count (see
+``rpc_batch_min_rows``); if the planner has no row-count estimate, it falls back to
+``PER_ROW``. The default deployment resolves ``AUTOMATIC`` to ``PER_ROW``; a
+deployment may install a custom ``RpcExecutionPolicy`` to enable stats-driven
+resolution.
+
+``rpc_batch_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than ``0``
+* **Default value:** ``2000``
+
+When ``rpc_streaming_mode`` is ``AUTOMATIC``, the estimated input row count at or
+above which ``BATCH`` is chosen; below it, ``PER_ROW`` is chosen. Has no effect
+unless a deployment installs a stats-driven RPC execution policy: the default
+policy ignores this value and always resolves ``AUTOMATIC`` to ``PER_ROW``.
+
+``rpc_dispatch_batch_size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``128``
+
+Batch size for RPC function dispatch in ``BATCH`` streaming mode. ``0`` collects all
+rows and dispatches once at the end; values greater than ``0`` flush every N rows
+during input processing.
+
 Spilling Properties
 -------------------
 

@@ -245,6 +245,9 @@ public final class SystemSessionProperties
     public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
     public static final String RPC_STREAMING_MODE = "rpc_streaming_mode";
     public static final String RPC_DISPATCH_BATCH_SIZE = "rpc_dispatch_batch_size";
+    // Coordinator-only: consumed at plan time by RpcExecutionPolicy; the resolved PER_ROW/BATCH
+    // mode is what ships to workers, so this needs no native SessionProperties.cpp mapping.
+    public static final String RPC_BATCH_MIN_ROWS = "rpc_batch_min_rows";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -1371,7 +1374,8 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         RPC_STREAMING_MODE,
                         format("Streaming mode for RPC function execution. Options are %s. "
-                                        + "PER_ROW dispatches each row individually, BATCH accumulates rows and dispatches in batches.",
+                                        + "PER_ROW dispatches each row individually, BATCH accumulates rows and dispatches in batches, "
+                                        + "AUTOMATIC picks PER_ROW or BATCH from the estimated input row count (see rpc_batch_min_rows).",
                                 Stream.of(RPCNode.StreamingMode.values())
                                         .map(RPCNode.StreamingMode::name)
                                         .collect(joining(","))),
@@ -1388,6 +1392,24 @@ public final class SystemSessionProperties
                                 + "Values > 0 flush every N rows during input processing.",
                         128,
                         false),
+                // Coordinator-only: consumed at plan time by RpcExecutionPolicy.translateIntent().
+                // The resolved PER_ROW/BATCH mode is what ships to workers, so this needs no native
+                // SessionProperties.cpp mapping. Uses the raw PropertyMetadata form (not the
+                // integerProperty() helper) because that helper does not accept the custom > 0
+                // validator below.
+                new PropertyMetadata<>(
+                        RPC_BATCH_MIN_ROWS,
+                        "When rpc_streaming_mode=AUTOMATIC, the estimated input row count at or above which "
+                                + "BATCH is chosen (below it, PER_ROW). Seeded at the measured per-row/batch crossover. "
+                                + "If the planner has no row estimate, AUTOMATIC falls back to PER_ROW. Must be greater than 0. "
+                                + "Honored only by a deployment-specific RpcExecutionPolicy; the OSS DefaultRpcExecutionPolicy "
+                                + "ignores it and resolves AUTOMATIC to PER_ROW.",
+                        INTEGER,
+                        Integer.class,
+                        2000,
+                        false,
+                        value -> validateIntegerValue(value, RPC_BATCH_MIN_ROWS, 1, false),
+                        value -> value),
                 booleanProperty(
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
@@ -3251,6 +3273,14 @@ public final class SystemSessionProperties
     public static int getRpcDispatchBatchSize(Session session)
     {
         return session.getSystemProperty(RPC_DISPATCH_BATCH_SIZE, Integer.class);
+    }
+
+    // Coordinator-only: read by RpcExecutionPolicy to resolve AUTOMATIC streaming mode at plan
+    // time. The OSS DefaultRpcExecutionPolicy ignores it, so it has no effect without a custom
+    // deployment policy.
+    public static int getRpcBatchMinRows(Session session)
+    {
+        return session.getSystemProperty(RPC_BATCH_MIN_ROWS, Integer.class);
     }
 
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)

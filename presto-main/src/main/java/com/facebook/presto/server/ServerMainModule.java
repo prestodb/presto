@@ -239,6 +239,8 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
+import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
@@ -376,6 +378,10 @@ public class ServerMainModule
         binder.bind(BuiltInQueryAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);
         binder.bind(AnalyzerProviderManager.class).in(Scopes.SINGLETON);
+
+        // RPC execution policy: the OSS default carries no batching heuristic (AUTOMATIC ->
+        // PER_ROW); a deployment may bind an override to enable stats-driven resolution.
+        newOptionalBinder(binder, RpcExecutionPolicy.class).setDefault().to(DefaultRpcExecutionPolicy.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 
