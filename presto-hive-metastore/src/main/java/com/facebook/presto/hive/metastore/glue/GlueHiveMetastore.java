@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.facebook.airlift.concurrent.MoreFutures;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
@@ -81,6 +80,7 @@ import software.amazon.awssdk.services.glue.model.BatchCreatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchCreatePartitionResponse;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionResponse;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionFailureEntry;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequestEntry;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionResponse;
@@ -600,9 +600,16 @@ public class GlueHiveMetastore
 
         try {
             statisticsFetcher.updatePartitionColumnStatistics(glueStatsUpdates.build());
-            partitionUpdateRequestsFutures.forEach(MoreFutures::getFutureValue);
+
+            for (CompletableFuture<BatchUpdatePartitionResponse> future : partitionUpdateRequestsFutures) {
+                BatchUpdatePartitionResponse result = future.get();
+                propagateBatchUpdatePartitionErrorToPrestoException(databaseName, tableName, result.errors());
+            }
         }
-        catch (AwsServiceException e) {
+        catch (AwsServiceException | InterruptedException | ExecutionException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -1246,16 +1253,29 @@ public class GlueHiveMetastore
     {
         if (partitionErrors != null && !partitionErrors.isEmpty()) {
             ErrorDetail errorDetail = partitionErrors.get(0).errorDetail();
-            String glueExceptionCode = errorDetail.errorCode();
+            propagateErrorDetailToPrestoException(databaseName, tableName, errorDetail);
+        }
+    }
 
-            switch (glueExceptionCode) {
-                case "AlreadyExistsException":
-                    throw new PrestoException(ALREADY_EXISTS, errorDetail.errorMessage());
-                case "EntityNotFoundException":
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), errorDetail.errorMessage());
-                default:
-                    throw new PrestoException(HIVE_METASTORE_ERROR, errorDetail.errorCode() + ": " + errorDetail.errorMessage());
-            }
+    private static void propagateBatchUpdatePartitionErrorToPrestoException(String databaseName, String tableName, List<BatchUpdatePartitionFailureEntry> failureEntries)
+    {
+        if (failureEntries != null && !failureEntries.isEmpty()) {
+            ErrorDetail errorDetail = failureEntries.get(0).errorDetail();
+            propagateErrorDetailToPrestoException(databaseName, tableName, errorDetail);
+        }
+    }
+
+    private static void propagateErrorDetailToPrestoException(String databaseName, String tableName, ErrorDetail errorDetail)
+    {
+        String glueExceptionCode = errorDetail.errorCode();
+
+        switch (glueExceptionCode) {
+            case "AlreadyExistsException":
+                throw new PrestoException(ALREADY_EXISTS, errorDetail.errorMessage());
+            case "EntityNotFoundException":
+                throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), errorDetail.errorMessage());
+            default:
+                throw new PrestoException(HIVE_METASTORE_ERROR, errorDetail.errorCode() + ": " + errorDetail.errorMessage());
         }
     }
 
