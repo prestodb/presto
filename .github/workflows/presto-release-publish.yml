@@ -56,7 +56,7 @@ env:
   IMAGE_REPO: ${{ github.repository }}
   ORG_NAME: ${{ github.repository_owner }}
   IMAGE_NAME: presto-native
-  REGISTRY: ${{ vars.REGISTRY || 'dockerhub' }}
+  REGISTRY: ${{ vars.REGISTRY || 'docker.io' }}
   RELEASE_BRANCH: release-${{ inputs.RELEASE_VERSION }}
   RELEASE_TAG: ${{ inputs.RELEASE_VERSION }}
   RELEASE_NOTES_COMMIT: ${{ inputs.release-notes-commit }}
@@ -319,20 +319,20 @@ jobs:
 
       - name: Validate REGISTRY
         run: |
-          if [[ "$REGISTRY" != "dockerhub" && "$REGISTRY" != "ghcr" ]]; then
-            echo "::error::Unsupported REGISTRY '$REGISTRY'. Must be 'dockerhub' or 'ghcr'."
+          if [[ "$REGISTRY" != "docker.io" && "$REGISTRY" != "ghcr.io" ]]; then
+            echo "::error::Unsupported REGISTRY '$REGISTRY'. Must be 'docker.io' or 'ghcr.io'."
             exit 1
           fi
 
       - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'dockerhub' }}
+        if: ${{ env.REGISTRY == 'docker.io' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr' }}
+        if: ${{ env.REGISTRY == 'ghcr.io' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
@@ -340,12 +340,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image prefix
-        run: |
-          if [[ "$REGISTRY" == "ghcr" ]]; then
-            echo "IMAGE_PREFIX=ghcr.io/" >> $GITHUB_ENV
-          else
-            echo "IMAGE_PREFIX=docker.io/" >> $GITHUB_ENV
-          fi
+        run: echo "IMAGE_PREFIX=${REGISTRY}/" >> $GITHUB_ENV
 
       - name: Set up qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -407,20 +402,20 @@ jobs:
 
       - name: Validate REGISTRY
         run: |
-          if [[ "$REGISTRY" != "dockerhub" && "$REGISTRY" != "ghcr" ]]; then
-            echo "::error::Unsupported REGISTRY '$REGISTRY'. Must be 'dockerhub' or 'ghcr'."
+          if [[ "$REGISTRY" != "docker.io" && "$REGISTRY" != "ghcr.io" ]]; then
+            echo "::error::Unsupported REGISTRY '$REGISTRY'. Must be 'docker.io' or 'ghcr.io'."
             exit 1
           fi
 
       - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'dockerhub' }}
+        if: ${{ env.REGISTRY == 'docker.io' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr' }}
+        if: ${{ env.REGISTRY == 'ghcr.io' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
@@ -428,12 +423,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image prefix
-        run: |
-          if [[ "$REGISTRY" == "ghcr" ]]; then
-            echo "IMAGE_PREFIX=ghcr.io/" >> $GITHUB_ENV
-          else
-            echo "IMAGE_PREFIX=docker.io/" >> $GITHUB_ENV
-          fi
+        run: echo "IMAGE_PREFIX=${REGISTRY}/" >> $GITHUB_ENV
 
       - name: Initialize Prestissimo submodules
         run: |
