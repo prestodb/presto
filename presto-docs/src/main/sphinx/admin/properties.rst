@@ -907,6 +907,21 @@ to make the query plan easier to read.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`optimize_hash_generation\`\``.
 
+``optimizer.optimize-join-fan-out``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
+inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
+are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
+key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
+This moves the row multiplication out of the distributed join (smaller build, less shuffle of
+duplicated rows) into a streaming local ``UNNEST``.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`optimize_join_fan_out\`\``.
+
 ``optimizer.optimize-metadata-queries``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

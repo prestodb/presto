@@ -72,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRA
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOIN_FAN_OUT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PARALLELIZE_CHAINED_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
@@ -1638,6 +1639,84 @@ public abstract class AbstractTestQueries
 
         for (String query : queries) {
             assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
+    public void testOptimizeJoinFanOut()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "false")
+                .build();
+
+        String[] queries = {
+                // INNER join, aggregation on the build (right) side grouped by a strict superset
+                // (regionkey, nationkey) of the join key (regionkey): the canonical fan-out shape.
+                "SELECT r.regionkey, r.name, b.nationkey, b.cnt " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, count(*) AS cnt FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // INNER join, aggregation on the probe (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // LEFT join, aggregation on the preserved (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "LEFT JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // RIGHT join, aggregation on the preserved (right) side.
+                "SELECT r.name, b.regionkey, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "RIGHT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // Multiple measures and an extra grouping key, larger source (orders/lineitem).
+                "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
+                        "FROM orders o " +
+                        "JOIN (SELECT orderkey, shipmode, sum(extendedprice) AS revenue, count(*) AS lines " +
+                        "      FROM lineitem GROUP BY orderkey, shipmode) b " +
+                        "  ON o.orderkey = b.orderkey " +
+                        "WHERE o.orderkey < 1000 " +
+                        "ORDER BY o.orderkey, b.shipmode",
+                // Negative case: join key equals the grouping key, so the build side is already
+                // unique on the key. The rule must not fire and results must still match.
+                "SELECT r.regionkey, b.total FROM region r " +
+                        "JOIN (SELECT regionkey, sum(nationkey) AS total FROM nation GROUP BY regionkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey",
+                // Nested-join fan-out: the build side is itself an INNER join keyed on
+                // (regionkey, nationkey) — a strict superset of the outer join key (regionkey).
+                "SELECT r.regionkey, r.name, j.nationkey, j.nname " +
+                        "FROM region r " +
+                        "JOIN (SELECT n1.regionkey AS regionkey, n1.nationkey AS nationkey, n2.name AS nname " +
+                        "      FROM nation n1 " +
+                        "      JOIN nation n2 ON n1.regionkey = n2.regionkey AND n1.nationkey = n2.nationkey) j " +
+                        "  ON r.regionkey = j.regionkey " +
+                        "ORDER BY r.regionkey, j.nationkey",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+
+        // Also exercise the optimization under the non-legacy (flattened) UNNEST form: the rule
+        // emits one column per row field instead of a single ROW column, so results must still
+        // match the unoptimized plan with legacy_unnest=false.
+        Session enabledNonLegacyUnnest = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "false")
+                .build();
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabledNonLegacyUnnest, query, disabled);
         }
     }
 
