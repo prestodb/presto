@@ -1,0 +1,7 @@
+{
+    "__copyright": "Copyright Teradata Inc., 2015, All Rights Reserved",
+
+    "smoketest": [
+        "create_as_select"
+    ]
+}

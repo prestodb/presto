@@ -1,0 +1,360 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.tests;
+
+import com.facebook.presto.Session;
+import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
+import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
+import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.Test;
+
+import java.util.Optional;
+
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
+import static com.facebook.presto.SystemSessionProperties.PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE;
+import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.collect.Iterables.getOnlyElement;
+
+public class TestLocalQueries
+        extends AbstractTestQueries
+{
+    @Override
+    protected QueryRunner createQueryRunner()
+    {
+        return createLocalQueryRunner();
+    }
+
+    public static LocalQueryRunner createLocalQueryRunner()
+    {
+        Session defaultSession = testSessionBuilder()
+                .setCatalog("local")
+                .setSchema(TINY_SCHEMA_NAME)
+                .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
+                .build();
+
+        LocalQueryRunner localQueryRunner = new LocalQueryRunner(defaultSession);
+
+        // add the tpch catalog
+        // local queries run directly against the generator
+        localQueryRunner.createCatalog(
+                defaultSession.getCatalog().get(),
+                new TpchConnectorFactory(1),
+                ImmutableMap.of());
+
+        localQueryRunner.getMetadata().registerBuiltInFunctions(CUSTOM_FUNCTIONS);
+
+        SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
+
+        localQueryRunner.installPlugin(new SqlInvokedFunctionsPlugin());
+
+        return localQueryRunner;
+    }
+
+    @Test
+    public void testShowColumnStats()
+    {
+        // FIXME Add tests for more complex scenario with more stats
+        MaterializedResult result = computeActual("SHOW STATS FOR nation");
+
+        MaterializedResult expectedStatistics =
+                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR, VARCHAR)
+                        .row("nationkey", null, 25.0, 0.0, null, "0", "24", null)
+                        .row("name", 177.0, 25.0, 0.0, null, null, null, null)
+                        .row("regionkey", null, 5.0, 0.0, null, "0", "4", null)
+                        .row("comment", 1857.0, 25.0, 0.0, null, null, null, null)
+                        .row(null, null, null, null, 25.0, null, null, null)
+                        .build();
+
+        assertEquals(result, expectedStatistics);
+    }
+
+    @Test
+    public void testRejectStarQueryWithoutFromRelation()
+    {
+        assertQueryFails("SELECT *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+        assertQueryFails("SELECT 1, '2', *", "line \\S+ SELECT \\* not allowed in queries without FROM clause");
+    }
+
+    @Test
+    public void testDecimal()
+    {
+        assertQuery("SELECT DECIMAL '1.0'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '1.'", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT DECIMAL '0.1'", "SELECT CAST('0.1' AS DECIMAL)");
+        assertQuery("SELECT 1.0", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
+        assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
+    }
+
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
+    }
+
+    @Test
+    public void testIOExplain()
+    {
+        String query = "SELECT * FROM orders";
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
+        TableColumnInfo input = new TableColumnInfo(
+                new CatalogSchemaTableName("local", "sf0.01", "orders"),
+                ImmutableSet.of(
+                        new ColumnConstraint(
+                                "orderstatus",
+                                createVarcharType(1).getTypeSignature(),
+                                new FormattedDomain(
+                                        false,
+                                        ImmutableSet.of(
+                                                new FormattedRange(
+                                                        new FormattedMarker(Optional.of("F"), EXACTLY),
+                                                        new FormattedMarker(Optional.of("F"), EXACTLY)),
+                                                new FormattedRange(
+                                                        new FormattedMarker(Optional.of("O"), EXACTLY),
+                                                        new FormattedMarker(Optional.of("O"), EXACTLY)),
+                                                new FormattedRange(
+                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                        new FormattedMarker(Optional.of("P"), EXACTLY)))))));
+        assertEquals(
+                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IOPlan(ImmutableSet.of(input), Optional.empty()));
+    }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+    }
+
+    @Test
+    public void testPushProjectionThroughCrossJoinWithCascadingProjects()
+    {
+        // Verifies that push_projection_through_cross_join handles cascading projects
+        // where the intermediate level has a both-sides expression (non-identity residual)
+        // and a higher level pushes an expression to one side.
+        // Without the fix, the intermediate residual drops the pushed variable,
+        // causing: "Expression dependencies ([r_scaled]) not in source plan output"
+        String sql = "SELECT " +
+                "    sub.nationkey + sub.regionkey AS mixed, " +
+                "    sub.r_scaled " +
+                "FROM ( " +
+                "    SELECT " +
+                "        n.nationkey, " +
+                "        r.regionkey, " +
+                "        n.nationkey + r.regionkey AS nr_sum, " +
+                "        r.regionkey * 100 AS r_scaled " +
+                "    FROM nation n " +
+                "    CROSS JOIN region r " +
+                ") sub";
+
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("push_projection_through_cross_join", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("push_projection_through_cross_join", "true")
+                .build();
+
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testTopNStreamPropertyDerivation()
+    {
+        // Regression test for propagating streamPropertiesFromUniqueColumn through TopN.
+        // Without the fix, stream properties were lost after TopN, which could cause
+        // incorrect plans when downstream operators depend on stream ordering properties.
+
+        // TopN with downstream filter
+        assertQuery("SELECT * FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 10) t WHERE regionkey = 1");
+
+        // TopN with downstream aggregation depending on stream properties
+        assertQuery("SELECT regionkey, count(*) FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 20) t GROUP BY regionkey");
+
+        // TopN with downstream join where ordering matters
+        assertQuery("SELECT t.nationkey, r.name FROM (SELECT * FROM nation ORDER BY nationkey LIMIT 10) t " +
+                "JOIN region r ON t.regionkey = r.regionkey");
+    }
+
+    @Test
+    public void testOptimizeTopNUsingRowId()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "true")
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, "1")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "false")
+                .build();
+
+        // Basic wide-table TopN (lineitem has 16 columns, well above threshold)
+        assertQuery(enabled, "SELECT * FROM lineitem ORDER BY orderkey LIMIT 10",
+                disabled, "SELECT * FROM lineitem ORDER BY orderkey LIMIT 10");
+
+        // Another wide table with DESC ordering
+        assertQuery(enabled, "SELECT * FROM orders ORDER BY orderkey DESC LIMIT 5",
+                disabled, "SELECT * FROM orders ORDER BY orderkey DESC LIMIT 5");
+
+        // TopN with filter
+        assertQuery(enabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10",
+                disabled, "SELECT * FROM lineitem WHERE shipdate > DATE '1995-01-01' ORDER BY orderkey LIMIT 10");
+    }
+
+    @Test
+    public void testJoinPrefilterUnionAll()
+    {
+        String sql = "SELECT * FROM " +
+                "(SELECT regionkey FROM nation UNION ALL SELECT regionkey FROM nation) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterCrossJoin()
+    {
+        String sql = "SELECT t.regionkey, t.rname, r2.name FROM " +
+                "(SELECT n.regionkey, r.name AS rname FROM nation n CROSS JOIN region r) t " +
+                "JOIN region r2 ON t.regionkey = r2.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .setSystemProperty("join_reordering_strategy", "NONE")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .setSystemProperty("join_reordering_strategy", "NONE")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterAggregationLeft()
+    {
+        String sql = "SELECT t.regionkey, t.cnt, r.name FROM " +
+                "(SELECT regionkey, count(*) AS cnt FROM nation GROUP BY regionkey) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterUnnestLeft()
+    {
+        String sql = "SELECT t.regionkey, t.x, r.name FROM " +
+                "(SELECT n.regionkey, x FROM nation n CROSS JOIN UNNEST(ARRAY[1,2,3]) t(x)) t " +
+                "JOIN region r ON t.regionkey = r.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testJoinPrefilterRightSidePushdown()
+    {
+        String sql = "SELECT n.nationkey, t.regionkey, t.cnt FROM nation n " +
+                "JOIN (SELECT regionkey, count(*) AS cnt FROM nation GROUP BY regionkey) t " +
+                "ON n.regionkey = t.regionkey";
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "false")
+                .build();
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty("join_prefilter_build_side", "true")
+                .setSystemProperty("join_prefilter_build_side_with_complex_probe_side", "true")
+                .build();
+        assertQuery(enabled, sql, disabled, sql);
+    }
+
+    @Test
+    public void testPullConstantProjectionAboveExchange()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, "false")
+                .build();
+
+        // Basic constant projection
+        assertQuery(enabled, "SELECT nationkey, 'constant' AS label FROM nation",
+                disabled, "SELECT nationkey, 'constant' AS label FROM nation");
+
+        // Constant with join (triggers a remote exchange in distributed mode)
+        assertQuery(enabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey",
+                disabled,
+                "SELECT n.nationkey, 42 AS fixed_val, r.name FROM nation n JOIN region r ON n.regionkey = r.regionkey");
+
+        // Multiple constants with a filter
+        assertQuery(enabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1",
+                disabled, "SELECT nationkey, 1 AS one, 'hello' AS greeting FROM nation WHERE regionkey = 1");
+
+        // Constants across a UNION ALL (multi-source exchange): only constants identical
+        // across all sources are pulled above the exchange.
+        assertQuery(enabled,
+                "SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 2",
+                disabled,
+                "SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 1 " +
+                        "UNION ALL SELECT nationkey, 7 AS k FROM nation WHERE regionkey = 2");
+
+        // Non-deterministic expression must NOT be treated as a pullable constant:
+        // results stay correct (per-row evaluation) under both sessions.
+        assertQuery(enabled,
+                "SELECT count(DISTINCT label) >= 1 FROM (SELECT nationkey, CAST(random() < 2 AS VARCHAR) AS label FROM nation)",
+                disabled,
+                "SELECT count(DISTINCT label) >= 1 FROM (SELECT nationkey, CAST(random() < 2 AS VARCHAR) AS label FROM nation)");
+    }
+}

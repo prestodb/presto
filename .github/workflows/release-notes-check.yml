@@ -1,0 +1,52 @@
+name: release-notes
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+env:
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.16' }}
+
+jobs:
+  check_release_note:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: ${{ github.workflow }}-check-release-note-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 8
+          cache: maven
+      - name: Get presto-release-tools
+        run: |
+          curl -L -o /tmp/presto_release "https://github.com/${{ github.repository_owner }}/presto-release-tools/releases/download/${RELEASE_TOOLS_VERSION}/presto-release-tools-${RELEASE_TOOLS_VERSION}-executable.jar"
+          chmod 755 /tmp/presto_release
+      - name: Get PR body from event
+        id: graphql_query
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY_RAW: ${{ github.event.pull_request.body }}
+        run: |
+          echo "pr_bodytext<<EOF" >> $GITHUB_OUTPUT
+          echo "$PR_BODY_RAW" >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
+      - name: Echo PR Text
+        env:
+          PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
+        run: echo "${PR_BODY}"
+      - name: Check release notes
+        env:
+          PR_BODY: ${{ steps.graphql_query.outputs.pr_bodytext }}
+        run: echo "${PR_BODY}" | /tmp/presto_release check-release-notes

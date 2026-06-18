@@ -1,0 +1,168 @@
+name: prestocpp-linux-build
+
+on: [workflow_dispatch, pull_request]
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
+
+  prestocpp-linux-build-gpu-engine:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    needs: changes
+    container:
+      image: prestodb/presto-native-dependency:0.299-202606161331-03dfaf88
+      volumes:
+        - /usr:/host_usr
+        - /opt:/host_opt
+    concurrency:
+      group: ${{ github.workflow }}-prestocpp-linux-build-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      cudf_SOURCE: BUNDLED
+      CUDA_COMPILER: /usr/local/cuda-${CUDA_VERSION}/bin/nvcc
+      # Set compiler to GCC 14
+      CUDA_FLAGS: -ccbin /opt/rh/gcc-toolset-14/root/usr/bin
+      BUILD_SCRIPT: |
+        unset CC && unset CXX
+        source /opt/rh/gcc-toolset-14/enable
+        cd presto-native-execution
+        cmake \
+          -B _build/release \
+          -GNinja \
+          -DTREAT_WARNINGS_AS_ERRORS=1 \
+          -DENABLE_ALL_WARNINGS=1 \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DPRESTO_ENABLE_S3=ON \
+          -DPRESTO_ENABLE_GCS=ON \
+          -DPRESTO_ENABLE_ABFS=OFF \
+          -DPRESTO_ENABLE_HDFS=ON \
+          -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+          -DPRESTO_ENABLE_JWT=ON \
+          -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
+          -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
+          -DPRESTO_ENABLE_TESTING=OFF \
+          -DPRESTO_ENABLE_CUDF=ON \
+          -DCMAKE_CUDA_ARCHITECTURES=75 \
+          -DCMAKE_PREFIX_PATH=/usr/local \
+          -DThrift_ROOT=/usr/local \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -DMAX_LINK_JOBS=4
+        ninja -C _build/release -j 4
+
+    steps:
+      # We cannot use the github action to free disk space from the runner
+      # because we are in the container and not on the runner anymore.
+      - name: Free Disk Space
+        run: |
+          # Re-used from free-disk-space github action.
+          getAvailableSpace() { echo $(df -a $1 | awk 'NR > 1 {avail+=$4} END {print avail}'); }
+          # Show before
+          echo "Original available disk space: " $(getAvailableSpace)
+          # Remove DotNet.
+          rm -rf /host_usr/share/dotnet || true
+          # Remove android
+          rm -rf /host_usr/local/lib/android || true
+          # Remove CodeQL
+          rm -rf /host_opt/hostedtoolcache/CodeQL || true
+          # Show after
+          echo "New available disk space: " $(getAvailableSpace)
+
+      - uses: actions/checkout@v6
+        if: needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
+
+      - name: Fix git permissions
+        if: needs.changes.outputs.codechange == 'true'
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Update velox
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+
+      - name: Install Github CLI for using apache/infrastructure-actions/stash
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          curl -L https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.rpm > gh_2.63.2_linux_amd64.rpm
+          rpm -iv gh_2.63.2_linux_amd64.rpm
+
+      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: needs.changes.outputs.codechange == 'true'
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-engine
+
+      - name: Zero ccache statistics
+        if: needs.changes.outputs.codechange == 'true'
+        run: ccache -sz
+
+      - name: Remove files not needed for the build
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          find . -name data | xargs rm -r
+          find . -name tests | xargs rm -r
+          find . -name test | xargs rm -rf
+          find . -name "*.md" -not -path "./.github/*" | xargs rm -f
+          find . -name "docs" | xargs rm -rf
+          find . -name "examples" | xargs rm -rf
+          find . -name ".git" -not -path "./.git*" | xargs rm -rf
+
+      - name: Disk space consumption before build
+        if: needs.changes.outputs.codechange == 'true'
+        run: df
+
+      - name: Generate build command script for reuse
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+
+      - name: Build engine
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          eval ${{ env.BUILD_SCRIPT }}
+
+      - name: Disk space consumption after build
+        if: needs.changes.outputs.codechange == 'true'
+        run: df
+
+      - name: Ccache after
+        if: needs.changes.outputs.codechange == 'true'
+        run: ccache -s
+
+      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: needs.changes.outputs.codechange == 'true'
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-linux-build-engine
+
+      - name: Regenerate the protocol files
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          export PRESTO_HOME=$(pwd)
+          cd presto-native-execution
+          make presto_protocol
+
+      - name: Incrementally rebuild presto_server with the new protocol
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          eval ${{ env.BUILD_SCRIPT }}

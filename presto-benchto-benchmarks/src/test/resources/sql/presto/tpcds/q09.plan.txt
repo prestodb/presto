@@ -1,0 +1,93 @@
+cross join:
+    cross join:
+        cross join:
+            cross join:
+                cross join:
+                    cross join:
+                        cross join:
+                            cross join:
+                                cross join:
+                                    cross join:
+                                        cross join:
+                                            cross join:
+                                                cross join:
+                                                    cross join:
+                                                        cross join:
+                                                            final aggregation over ()
+                                                                local exchange (GATHER, SINGLE, [])
+                                                                    remote exchange (GATHER, SINGLE, [])
+                                                                        partial aggregation over ()
+                                                                            scan store_sales
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    scan reason
+                                                        final aggregation over ()
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (GATHER, SINGLE, [])
+                                                                    partial aggregation over ()
+                                                                        scan store_sales
+                                                    final aggregation over ()
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (GATHER, SINGLE, [])
+                                                                partial aggregation over ()
+                                                                    scan store_sales
+                                                final aggregation over ()
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (GATHER, SINGLE, [])
+                                                            partial aggregation over ()
+                                                                scan store_sales
+                                            final aggregation over ()
+                                                local exchange (GATHER, SINGLE, [])
+                                                    remote exchange (GATHER, SINGLE, [])
+                                                        partial aggregation over ()
+                                                            scan store_sales
+                                        final aggregation over ()
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (GATHER, SINGLE, [])
+                                                    partial aggregation over ()
+                                                        scan store_sales
+                                    final aggregation over ()
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (GATHER, SINGLE, [])
+                                                partial aggregation over ()
+                                                    scan store_sales
+                                final aggregation over ()
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (GATHER, SINGLE, [])
+                                            partial aggregation over ()
+                                                scan store_sales
+                            final aggregation over ()
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (GATHER, SINGLE, [])
+                                        partial aggregation over ()
+                                            scan store_sales
+                        final aggregation over ()
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (GATHER, SINGLE, [])
+                                    partial aggregation over ()
+                                        scan store_sales
+                    final aggregation over ()
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (GATHER, SINGLE, [])
+                                partial aggregation over ()
+                                    scan store_sales
+                final aggregation over ()
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (GATHER, SINGLE, [])
+                            partial aggregation over ()
+                                scan store_sales
+            final aggregation over ()
+                local exchange (GATHER, SINGLE, [])
+                    remote exchange (GATHER, SINGLE, [])
+                        partial aggregation over ()
+                            scan store_sales
+        final aggregation over ()
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (GATHER, SINGLE, [])
+                    partial aggregation over ()
+                        scan store_sales
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    scan store_sales

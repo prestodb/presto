@@ -1,0 +1,166 @@
+{
+  "rowCount" : 120527,
+  "columns" : {
+    "ss_sold_date_sk" : {
+      "distinctValuesCount" : 1783,
+      "nullsCount" : 5335,
+      "min" : 2450816,
+      "max" : 2452642,
+      "dataSize" : null
+    },
+    "ss_sold_time_sk" : {
+      "distinctValuesCount" : 8841,
+      "nullsCount" : 5372,
+      "min" : 28810,
+      "max" : 75585,
+      "dataSize" : null
+    },
+    "ss_item_sk" : {
+      "distinctValuesCount" : 2000,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2000,
+      "dataSize" : null
+    },
+    "ss_customer_sk" : {
+      "distinctValuesCount" : 1000,
+      "nullsCount" : 5298,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "ss_cdemo_sk" : {
+      "distinctValuesCount" : 9973,
+      "nullsCount" : 5380,
+      "min" : 37,
+      "max" : 1920695,
+      "dataSize" : null
+    },
+    "ss_hdemo_sk" : {
+      "distinctValuesCount" : 5418,
+      "nullsCount" : 5333,
+      "min" : 1,
+      "max" : 7200,
+      "dataSize" : null
+    },
+    "ss_addr_sk" : {
+      "distinctValuesCount" : 999,
+      "nullsCount" : 5291,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "ss_store_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 5422,
+      "min" : 1,
+      "max" : 2,
+      "dataSize" : null
+    },
+    "ss_promo_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 5303,
+      "min" : 1,
+      "max" : 3,
+      "dataSize" : null
+    },
+    "ss_ticket_number" : {
+      "distinctValuesCount" : 10000,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 10000,
+      "dataSize" : null
+    },
+    "ss_quantity" : {
+      "distinctValuesCount" : 100,
+      "nullsCount" : 5450,
+      "min" : 1,
+      "max" : 100,
+      "dataSize" : null
+    },
+    "ss_wholesale_cost" : {
+      "distinctValuesCount" : 9901,
+      "nullsCount" : 5369,
+      "min" : 100,
+      "max" : 10000,
+      "dataSize" : null
+    },
+    "ss_list_price" : {
+      "distinctValuesCount" : 18329,
+      "nullsCount" : 5429,
+      "min" : 103,
+      "max" : 19998,
+      "dataSize" : null
+    },
+    "ss_sales_price" : {
+      "distinctValuesCount" : 14126,
+      "nullsCount" : 5436,
+      "min" : 0,
+      "max" : 19956,
+      "dataSize" : null
+    },
+    "ss_ext_discount_amt" : {
+      "distinctValuesCount" : 20342,
+      "nullsCount" : 5327,
+      "min" : 0,
+      "max" : 1628977,
+      "dataSize" : null
+    },
+    "ss_ext_sales_price" : {
+      "distinctValuesCount" : 79659,
+      "nullsCount" : 5344,
+      "min" : 0,
+      "max" : 1872388,
+      "dataSize" : null
+    },
+    "ss_ext_wholesale_cost" : {
+      "distinctValuesCount" : 88855,
+      "nullsCount" : 5369,
+      "min" : 114,
+      "max" : 1000000,
+      "dataSize" : null
+    },
+    "ss_ext_list_price" : {
+      "distinctValuesCount" : 95679,
+      "nullsCount" : 5328,
+      "min" : 129,
+      "max" : 1965150,
+      "dataSize" : null
+    },
+    "ss_ext_tax" : {
+      "distinctValuesCount" : 27830,
+      "nullsCount" : 5310,
+      "min" : 0,
+      "max" : 159218,
+      "dataSize" : null
+    },
+    "ss_coupon_amt" : {
+      "distinctValuesCount" : 20342,
+      "nullsCount" : 5327,
+      "min" : 0,
+      "max" : 1628977,
+      "dataSize" : null
+    },
+    "ss_net_paid" : {
+      "distinctValuesCount" : 81601,
+      "nullsCount" : 5290,
+      "min" : 0,
+      "max" : 1769096,
+      "dataSize" : null
+    },
+    "ss_net_paid_inc_tax" : {
+      "distinctValuesCount" : 91312,
+      "nullsCount" : 5313,
+      "min" : 0,
+      "max" : 1928314,
+      "dataSize" : null
+    },
+    "ss_net_profit" : {
+      "distinctValuesCount" : 86941,
+      "nullsCount" : 5469,
+      "min" : -975389,
+      "max" : 846300,
+      "dataSize" : null
+    }
+  }
+}

@@ -1,0 +1,160 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.sql.planner.iterative.rule;
+
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.tpch.TpchColumnHandle;
+import com.facebook.presto.tpch.TpchTableHandle;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.Test;
+
+import java.util.Optional;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
+import static com.facebook.presto.tpch.TpchMetadata.TINY_SCALE_FACTOR;
+
+public class TestPruneCountAggregationOverScalar
+        extends BaseRuleTest
+{
+    @Test
+    public void testDoesNotFireOnNonNestedAggregate()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p ->
+                        p.aggregation((a) -> a
+                                .globalGrouping()
+                                .addAggregation(
+                                        p.variable("count_1", BIGINT),
+                                        p.rowExpression("count()"))
+                                .source(
+                                        p.tableScan(ImmutableList.of(), ImmutableMap.of())))
+                ).doesNotFire();
+    }
+
+    @Test
+    public void testFiresOnNestedCountAggregate()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p ->
+                        p.aggregation((a) -> a
+                                .addAggregation(
+                                        p.variable("count_1", BIGINT),
+                                        p.rowExpression("count()"))
+                                .globalGrouping()
+                                .step(AggregationNode.Step.SINGLE)
+                                .source(
+                                        p.aggregation((aggregationBuilder) -> aggregationBuilder
+                                                .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()))
+                                                .globalGrouping()
+                                                .step(AggregationNode.Step.SINGLE)))))
+                .matches(values(ImmutableMap.of("count_1", 0)));
+    }
+
+    @Test
+    public void testFiresOnCountAggregateOverValues()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p ->
+                        p.aggregation((a) -> a
+                                .addAggregation(
+                                        p.variable("count_1", BIGINT),
+                                        p.rowExpression("count()"))
+                                .step(AggregationNode.Step.SINGLE)
+                                .globalGrouping()
+                                .source(p.values(
+                                        ImmutableList.of(p.variable("orderkey")),
+                                        ImmutableList.of(constantExpressions(BIGINT, 1L))))))
+                .matches(values(ImmutableMap.of("count_1", 0)));
+    }
+
+    @Test
+    public void testFiresOnCountAggregateOverEnforceSingleRow()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p ->
+                        p.aggregation((a) -> a
+                                .addAggregation(
+                                        p.variable("count_1", BIGINT),
+                                        p.rowExpression("count()"))
+                                .step(AggregationNode.Step.SINGLE)
+                                .globalGrouping()
+                                .source(p.enforceSingleRow(p.tableScan(ImmutableList.of(), ImmutableMap.of())))))
+                .matches(values(ImmutableMap.of("count_1", 0)));
+    }
+
+    @Test
+    public void testDoesNotFireOnNestedCountAggregateWithNonEmptyGroupBy()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p ->
+                        p.aggregation((a) -> a
+                                .addAggregation(
+                                        p.variable("count_1", BIGINT),
+                                        p.rowExpression("count()"))
+                                .step(AggregationNode.Step.SINGLE)
+                                .globalGrouping()
+                                .source(
+                                        p.aggregation(aggregationBuilder -> {
+                                            aggregationBuilder
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of())).groupingSets(
+                                                            new GroupingSetDescriptor(ImmutableList.of(p.variable("orderkey")), 2, ImmutableSet.of(1)));
+                                            aggregationBuilder
+                                                    .source(p.tableScan(ImmutableList.of(), ImmutableMap.of()));
+                                        }))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireOnNestedNonCountAggregate()
+    {
+        tester().assertThat(new PruneCountAggregationOverScalar(getFunctionManager()))
+                .on(p -> {
+                    p.registerVariable(p.variable("totalprice", DOUBLE));
+                    VariableReferenceExpression totalPriceVariable = p.variable("total_price", DOUBLE);
+                    AggregationNode inner = p.aggregation((a) -> a
+                            .addAggregation(totalPriceVariable, p.rowExpression("sum(totalprice)"))
+                            .globalGrouping()
+                            .source(
+                                    p.project(
+                                            assignment(totalPriceVariable, totalPriceVariable),
+                                            p.tableScan(
+                                                    new TableHandle(
+                                                            new ConnectorId("local"),
+                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                                            TestingTransactionHandle.create(),
+                                                            Optional.empty()),
+                                                    ImmutableList.of(totalPriceVariable),
+                                                    ImmutableMap.of(totalPriceVariable, new TpchColumnHandle(totalPriceVariable.getName(), DOUBLE))))));
+
+                    return p.aggregation((a) -> a
+                            .addAggregation(
+                                    p.variable("sum_outer", DOUBLE),
+                                    p.registerVariable(p.variable("sum_inner", DOUBLE)).rowExpression("sum(sum_inner)"))
+                            .globalGrouping()
+                            .source(inner));
+                }).doesNotFire();
+    }
+}

@@ -1,0 +1,66 @@
+openapi: 3.0.0
+info:
+  title: Presto Cluster Stats API
+  description: API for retrieving cluster statistics in Presto.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/cluster:
+    get:
+      summary: Retrieve cluster statistics
+      description: Retrieves statistics about the Presto cluster, such as running queries, blocked queries, and memory usage.
+      parameters:
+        - name: includeLocalInfoOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include only local information
+      responses:
+        '200':
+          description: Cluster statistics
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/ClusterStats'
+  /v1/cluster/memory:
+    get:
+      summary: Retrieve cluster memory pool information
+      description: Retrieves information about the memory pools in the Presto cluster.
+      responses:
+        '200':
+          description: Cluster memory pool information
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: './schemas.yaml/#/components/schemas/MemoryPoolInfo'
+  /v1/cluster/workerMemory:
+    get:
+      summary: Retrieve worker memory information
+      description: Retrieves information about the memory usage of workers in the Presto cluster.
+      responses:
+        '200':
+          description: Worker memory information
+          content:
+            application/json:
+              schema:
+                type: object
+
+                additionalProperties:
+                  $ref: './schemas.yaml/#/components/schemas/MemoryInfo'
+  /v1/cluster/ttl:
+    get:
+      summary: Retrieve cluster TTL information
+      description: Retrieves time-to-live (TTL) information for the Presto cluster.
+      responses:
+        '200':
+          description: Cluster TTL information
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/ConfidenceBasedTtlInfo'

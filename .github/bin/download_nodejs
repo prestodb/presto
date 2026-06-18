@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+NODE_VERSION="22.15.1"
+YARN_VERSION="1.22.22"
+
+wget_retry() {
+  local max=$1; shift;
+  local interval=$1; shift;
+  local dest=$1; shift;
+  local src=$1; shift;
+  local check=$1; shift;
+
+  fileList=$(mktemp)
+  until wget -q -O "${dest}" "${src}" && tar -tf "${dest}" > "$fileList"  && grep -q "${check}" "${fileList}" ; do
+    max=$((max-1))
+    if [[ "$max" -eq 0 ]]; then
+      return 1
+    fi
+    sleep "$interval"
+  done
+
+  return 0
+}
+
+# GH action variables: https://docs.github.com/en/actions/learn-github-actions/variables
+# Use the RUNNER_OS variable to get the os string for the download file
+get_os() {
+  case "${RUNNER_OS}" in
+    Linux) echo "linux" ;;
+    macOS) echo "darwin" ;;
+    Windows) echo "win" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+# Use the RUNNER_ARCH variable to get the arch string for the download file
+get_arch() {
+  case "${RUNNER_ARCH}" in
+    X86) echo "x86" ;;
+    X64) echo "x64" ;;
+    ARM) echo "armv7l" ;;
+    ARM64) echo "arm64" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+download_node() {
+  if [[ -a "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" ]]; then
+    echo "Node binary exists. Skipped download"
+    return 0
+  fi
+  
+  if ! wget_retry 3 10 "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" \
+      "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz" "node"; then
+    rm "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz"
+    return 1
+  fi
+}
+
+download_yarn() {
+  if [[ -a "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" ]]; then
+    echo "Yarn binary exists. Skipped download"
+    return 0
+  fi
+
+  if ! wget_retry 3 10 "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz" \
+      "https://github.com/yarnpkg/yarn/releases/download/v${YARN_VERSION}/yarn-v${YARN_VERSION}.tar.gz" "yarn"; then
+      rm "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}/yarn-${YARN_VERSION}.tar.gz"
+      return 1
+  fi
+}
+
+NODE_OS=$(get_os)
+NODE_ARCH=$(get_arch)
+
+mkdir -p "${HOME}/.m2/repository/com/github/eirslett/node/${NODE_VERSION}"
+mkdir -p "${HOME}/.m2/repository/com/github/eirslett/yarn/${YARN_VERSION}"
+
+if download_node; then
+  echo "node-v${NODE_VERSION}-${NODE_OS}-${NODE_ARCH}.tar.gz is ready for use"
+else
+  echo "failed to download node binary"
+  exit 1
+fi
+
+if download_yarn; then
+  echo "yarn-v${YARN_VERSION}.tar.gz is ready for use"
+else
+  echo "failed to download yarn binary"
+  exit 1
+fi

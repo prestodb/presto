@@ -1,0 +1,106 @@
+ {
+    "rowCount" : 3.0E7,
+     "columns" : {
+        "c_first_name" : {
+             "dataSize" : 1.68978794E8,
+             "nullsCount" : 1048745.0,
+             "distinctValuesCount" : 5529.0
+        },
+        "c_current_addr_sk" : {
+             "distinctValuesCount" : 1.7465542E7,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 15000000
+        },
+        "c_birth_day" : {
+             "distinctValuesCount" : 23.0,
+             "nullsCount" : 1050937.0,
+             "min" : 1,
+             "max" : 31
+        },
+        "c_last_name" : {
+             "dataSize" : 1.77481785E8,
+             "nullsCount" : 1050668.0,
+             "distinctValuesCount" : 7820.0
+        },
+        "c_customer_id" : {
+             "dataSize" : 4.8E8,
+             "nullsCount" : 0.0,
+             "distinctValuesCount" : 3.9779123E7
+        },
+        "c_birth_year" : {
+             "distinctValuesCount" : 49.0,
+             "nullsCount" : 1050423.0,
+             "min" : 1924,
+             "max" : 1992
+        },
+        "c_birth_month" : {
+             "distinctValuesCount" : 13.0,
+             "nullsCount" : 1049422.0,
+             "min" : 1,
+             "max" : 12
+        },
+        "c_salutation" : {
+             "dataSize" : 9.3858171E7,
+             "nullsCount" : 1050068.0,
+             "distinctValuesCount" : 7.0
+        },
+        "c_birth_country" : {
+             "dataSize" : 2.5162486599999997E8,
+             "nullsCount" : 1049811.0,
+             "distinctValuesCount" : 196.0
+        },
+        "c_customer_sk" : {
+             "distinctValuesCount" : 4.5300013E7,
+             "nullsCount" : 0.0,
+             "min" : 1,
+             "max" : 30000000
+        },
+        "c_current_cdemo_sk" : {
+             "distinctValuesCount" : 1835839.0,
+             "nullsCount" : 1049861.0,
+             "min" : 1,
+             "max" : 1920800
+        },
+        "c_first_sales_date_sk" : {
+             "distinctValuesCount" : 3585.0,
+             "nullsCount" : 1050303.0,
+             "min" : 2448998,
+             "max" : 2452648
+        },
+        "c_last_review_date_sk" : {
+             "distinctValuesCount" : 266.0,
+             "nullsCount" : 1049890.0,
+             "min" : 2452283,
+             "max" : 2452648
+        },
+        "c_login" : {
+             "dataSize" : 0.0,
+             "nullsCount" : 30000000.0,
+             "distinctValuesCount" : 1.0
+        },
+        "c_first_shipto_date_sk" : {
+             "distinctValuesCount" : 3585.0,
+             "nullsCount" : 1051228.0,
+             "min" : 2449028,
+             "max" : 2452678
+        },
+        "c_email_address" : {
+             "dataSize" : 7.95203808E8,
+             "nullsCount" : 1050182.0,
+             "distinctValuesCount" : 3.4931085E7
+        },
+        "c_preferred_cust_flag" : {
+             "dataSize" : 2.8949058E7,
+             "nullsCount" : 1050942.0,
+             "distinctValuesCount" : 2.0
+        },
+        "c_current_hdemo_sk" : {
+             "distinctValuesCount" : 9299.0,
+             "nullsCount" : 1049211.0,
+             "min" : 1,
+             "max" : 7200
+        },
+        "dummyColumn" : {}
+    }
+}

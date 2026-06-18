@@ -1,0 +1,31 @@
+{
+  "queues": {
+    "q0": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q1": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    },
+    "q2": {
+      "maxConcurrent": 5,
+      "maxQueued": 20
+    }
+  },
+  "rules": [
+    {
+      "user": "bob",
+      "queues": [
+        "q0",
+        "q1"
+      ]
+    },
+    {
+      "queues": [
+        "q0",
+        "q2"
+      ]
+    }
+  ]
+}

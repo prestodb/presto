@@ -1,0 +1,102 @@
+name: test
+
+on: pull_request
+
+env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: -Xmx1024M -XX:+ExitOnOutOfMemoryError
+  MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
+  MAVEN_FAST_INSTALL: -B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true
+  MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
+  RETRY: .github/bin/retry
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['17']
+        modules:
+          - :presto-tests -P presto-tests-execution-memory
+          - :presto-tests -P presto-tests-general
+          - :presto-tests -P ci-only-distributed-non-hash-gen
+          - :presto-tests -P ci-only-tpch-distributed-queries
+          - :presto-tests -P ci-only-local-queries
+          - :presto-tests -P ci-only-distributed-queries
+          - :presto-tests -P ci-only-aggregation-queries
+          - :presto-tests -P ci-only-plan-determinism
+          - :presto-tests -P ci-only-resource-manager
+          - :presto-accumulo
+          - :presto-cassandra -P ci-full-tests
+          - :presto-hive
+          - :presto-hive -P test-hive-materialized-queries
+          - :presto-hive -P test-hive-materialized-aggregations
+          - :presto-hive -P test-hive-recoverable-execution
+          - :presto-hive -P test-hive-pushdown-filter-queries-basic
+          - :presto-hive -P test-hive-pushdown-filter-queries-advanced
+          - :presto-hive -P test-hive-repartitioning
+          - :presto-hive -P test-hive-parquet
+          - :presto-main-base
+          - :presto-main
+          - :presto-mongodb -P ci-full-tests
+          - :presto-redis -P ci-full-tests
+          - :presto-elasticsearch
+          - :presto-oracle -P ci
+          - :presto-orc
+          - :presto-thrift-connector
+          - :presto-spark-base -P presto-spark-tests-smoke
+          - :presto-spark-base -P presto-spark-tests-all-queries
+          - :presto-spark-base -P presto-spark-tests-spill-queries
+          - :presto-iceberg
+          - :presto-iceberg -P test-iceberg-others
+          - :presto-clickhouse -P ci
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}-${{ matrix.java }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        if: needs.changes.outputs.codechange == 'true'
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        if: needs.changes.outputs.codechange == 'true'
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - name: Download nodejs to maven cache
+        if: needs.changes.outputs.codechange == 'true'
+        run: .github/bin/download_nodejs
+      - name: Maven Install
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+      - name: Maven Tests
+        if: needs.changes.outputs.codechange == 'true'
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}

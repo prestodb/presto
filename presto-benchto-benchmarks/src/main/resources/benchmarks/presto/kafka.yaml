@@ -1,0 +1,34 @@
+datasource: presto
+query-names: presto/kafka/${query}.sql
+runs: 6
+prewarm-runs: 2
+before-execution: sleep-4s
+frequency: 7
+database: kafka
+
+# define schemas and upload data according to
+# https://github.com/starburstdata/benchmarks/tree/master/generators/kafka/clusters/irisperf
+schema_small_message: benchmark_1
+schema_medium_message: benchmark_10
+schema_large_message: benchmark_100
+
+variables:
+  1:
+    query: count
+    schema: ${schema_small_message}, ${schema_medium_message}, ${schema_large_message}
+    table: csv, json, raw
+
+  2:
+    query: count_column_1
+    schema: ${schema_small_message}
+    table: csv, json, raw
+
+  3:
+    query: count_column_10
+    schema: ${schema_medium_message}
+    table: csv, json, raw
+
+  4:
+    query: count_column_100
+    schema: ${schema_large_message}
+    table: csv, json, raw

@@ -1,0 +1,16 @@
+{
+  "rootGroups": [
+    {
+      "name": "glo.bal",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000
+    }
+  ],
+  "selectors": [
+    {
+      "group": "glo.bal"
+    }
+  ]
+}
+

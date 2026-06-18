@@ -1,0 +1,138 @@
+{
+  "rowCount" : 3,
+  "columns" : {
+    "p_promo_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 3,
+      "dataSize" : null
+    },
+    "p_promo_id" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAADAAAAAAA",
+      "dataSize" : 48
+    },
+    "p_start_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450118,
+      "max" : 2450675,
+      "dataSize" : null
+    },
+    "p_end_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 2450150,
+      "max" : 2450712,
+      "dataSize" : null
+    },
+    "p_item_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : 686,
+      "max" : 1468,
+      "dataSize" : null
+    },
+    "p_cost" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 100000,
+      "max" : 100000,
+      "dataSize" : null
+    },
+    "p_response_targe" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "p_promo_name" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "pri",
+      "dataSize" : 12
+    },
+    "p_channel_dmail" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Y",
+      "max" : "Y",
+      "dataSize" : 1
+    },
+    "p_channel_email" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_catalog" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_tv" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_radio" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_press" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_event" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_demo" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_details" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 0,
+      "min" : "Companies shall not pr",
+      "max" : "So willing buildings coul",
+      "dataSize" : 87
+    },
+    "p_purpose" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "p_discount_active" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    }
+  }
+}

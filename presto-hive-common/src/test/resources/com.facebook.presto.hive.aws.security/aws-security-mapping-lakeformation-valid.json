@@ -1,0 +1,15 @@
+{
+  "mappings": [
+    {
+      "user": "admin",
+      "iamRole": "arn:aws:iam::123456789101:role/admin_role"
+    },
+    {
+      "user": "analyst",
+      "iamRole": "arn:aws:iam::123456789101:role/analyst_role"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default_role"
+    }
+  ]
+}

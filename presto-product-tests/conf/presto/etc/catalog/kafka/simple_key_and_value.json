@@ -1,0 +1,35 @@
+{
+  "tableName": "simple_key_and_value",
+  "schemaName": "product_tests",
+  "topicName": "simple_key_and_value",
+  "message": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "varchar_value",
+        "type": "VARCHAR",
+        "mapping": "0"
+      },
+      {
+        "name": "bigint_value",
+        "type": "BIGINT",
+        "mapping": "1"
+      }
+    ]
+  },
+  "key": {
+    "dataFormat": "csv",
+    "fields": [
+      {
+        "name": "varchar_key",
+        "type": "VARCHAR",
+        "mapping": "0"
+      },
+      {
+        "name": "bigint_key",
+        "type": "BIGINT",
+        "mapping": "1"
+      }
+    ]
+  }
+}

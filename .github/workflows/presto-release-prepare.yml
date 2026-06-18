@@ -1,0 +1,229 @@
+name: Presto Stable Release - Prepare
+
+on:
+  workflow_dispatch:
+    inputs:
+      prepare_release:
+        description: Prepare release branch and tag
+        type: boolean
+        default: true
+        required: false
+      prepare_release_notes:
+        description: Prepare release notes pull request
+        type: boolean
+        default: true
+        required: false
+
+env:
+  JAVA_VERSION: ${{ vars.JAVA_VERSION || '17.0.13' }}
+  JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
+  MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
+  GIT_CI_USER: ${{ vars.GIT_CI_USER || 'prestodb-ci' }}
+  GIT_CI_EMAIL: ${{ vars.GIT_CI_EMAIL || 'ci@lists.prestodb.io' }}
+  RELEASE_TOOLS_VERSION: ${{ vars.RELEASE_TOOLS_VERSION || '0.14' }}
+
+jobs:
+  prepare-release-branch:
+    if: ${{ inputs.prepare_release }}
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout presto source
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          show-progress: false
+          fetch-depth: 5
+          persist-credentials: true
+
+      - name: Ensure checkout latest code
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          git fetch origin $REF_NAME
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/$REF_NAME)" ]; then
+            echo "Branch $REF_NAME has new commits. Resetting to latest."
+            git reset --hard origin/$REF_NAME
+          else
+            echo "Branch $REF_NAME is already up to date."
+          fi
+
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Configure git
+        env:
+          GIT_CI_EMAIL: ${{ env.GIT_CI_EMAIL }}
+          GIT_CI_USER: ${{ env.GIT_CI_USER }}
+        run: |
+          git config --global --add safe.directory ${{github.workspace}}
+          git config --global user.email "$GIT_CI_EMAIL"
+          git config --global user.name "$GIT_CI_USER"
+          git config --global alias.ls 'log --pretty=format:"%cd %h %ce: %s" --date=short --no-merges'
+          git config pull.rebase false
+
+      - name: Validate Maven publishing requirements
+        run: |
+          echo "=== Validating Maven plugins ==="
+
+          ERROR_FILE=$(mktemp)
+          MISSING_NAME_COUNT=0
+          EMPTY_PLUGIN_COUNT=0
+          TOTAL_POM_COUNT=0
+          TOTAL_PLUGIN_COUNT=0
+
+          echo "Checking all pom.xml files for <name> field..."
+
+          POM_FILES=$(find . -name "pom.xml" -type f \
+              | grep -v "target/" \
+              | grep -v "node_modules" \
+              | grep -v ".vscode" \
+              | sort)
+
+          for POM_FILE in $POM_FILES; do
+              TOTAL_POM_COUNT=$((TOTAL_POM_COUNT + 1))
+              if ! grep -q "<name>[^<]" "$POM_FILE"; then
+                  echo "ERROR: $POM_FILE is missing <name> field or has empty <name>" | tee -a "$ERROR_FILE"
+                  MISSING_NAME_COUNT=$((MISSING_NAME_COUNT + 1))
+              fi
+          done
+
+          echo "Found $TOTAL_POM_COUNT pom.xml files, $MISSING_NAME_COUNT missing <name> field"
+
+          echo "Checking all plugins for Java files..."
+
+          PLUGIN_DIRS=$(find . -name "pom.xml" -type f -exec \
+              grep -l "<packaging>presto-plugin</packaging>" {} \; \
+              | xargs -I{} dirname {})
+
+          for PLUGIN_DIR in $PLUGIN_DIRS; do
+              TOTAL_PLUGIN_COUNT=$((TOTAL_PLUGIN_COUNT + 1))
+
+              JAVA_FILES=$(find "$PLUGIN_DIR/src/main/java" -name "*.java" -type f 2>/dev/null | wc -l)
+
+              if [ "$JAVA_FILES" -eq 0 ]; then
+                  echo "ERROR: Plugin $PLUGIN_DIR has no Java files in src/main/java" | tee -a "$ERROR_FILE"
+                  EMPTY_PLUGIN_COUNT=$((EMPTY_PLUGIN_COUNT + 1))
+              else
+                  echo "Plugin $PLUGIN_DIR has $JAVA_FILES Java files"
+              fi
+          done
+
+          echo "Found $TOTAL_PLUGIN_COUNT Maven plugins, $EMPTY_PLUGIN_COUNT without Java files"
+
+          if [ -s "$ERROR_FILE" ]; then
+              echo "=== Validation failed! ==="
+              echo "Summary:"
+              echo "- $MISSING_NAME_COUNT/$TOTAL_POM_COUNT pom.xml files missing <name> field"
+              echo "- $EMPTY_PLUGIN_COUNT/$TOTAL_PLUGIN_COUNT plugins without Java files"
+              echo ""
+              echo "Errors:"
+              cat "$ERROR_FILE"
+              exit 1
+          else
+              echo "=== All validations passed! ==="
+              echo "Summary:"
+              echo "- All $TOTAL_POM_COUNT pom.xml files have <name>"
+              echo "- All $TOTAL_PLUGIN_COUNT plugins have Java files"
+          fi
+
+      - name: Set presto release version
+        run: |
+          unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
+
+      - name: Get presto release version
+        id: get-version
+        run: |
+          PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
+            -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_ENV
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
+
+      - name: Prepare release tag and commits
+        run: |
+          git reset --hard
+          unset MAVEN_CONFIG && ./mvnw release:prepare --batch-mode \
+            -DskipTests \
+            -DautoVersionSubmodules \
+            -DdevelopmentVersion=${{ env.PRESTO_RELEASE_VERSION }} \
+            -DreleaseVersion=${{ env.PRESTO_RELEASE_VERSION }}
+          grep -m 2 "<version>" pom.xml
+          echo "commits on branch $REF_NAME"
+          git ls -5
+        env:
+          REF_NAME: ${{ github.ref_name }}
+
+      - name: Push release tag, branch and commits
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          echo "In case this job failed, please delete the tag ${{ env.PRESTO_RELEASE_VERSION }} and the branch release-${{ env.PRESTO_RELEASE_VERSION }}, and re-run the job"
+          git checkout ${{ env.PRESTO_RELEASE_VERSION }}
+          git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}
+          echo "Pushing release branch release-${{ env.PRESTO_RELEASE_VERSION }} and tag ${{ env.PRESTO_RELEASE_VERSION }}"
+
+          echo "commits on release-${{ env.PRESTO_RELEASE_VERSION }} branch"
+          git ls -4
+          git push origin release-${{ env.PRESTO_RELEASE_VERSION }} --tags
+          echo -e "\nPushed release tag to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.PRESTO_RELEASE_VERSION }}"
+          echo "Pushed release branch to: ${{ github.server_url }}/${{ github.repository }}/tree/release-${{ env.PRESTO_RELEASE_VERSION }}"
+
+          echo "Pushing to branch $REF_NAME"
+          git checkout $REF_NAME
+          echo "commits on branch $REF_NAME"
+          git ls -5
+          git push origin $REF_NAME
+
+  prepare-release-notes:
+    needs: prepare-release-branch
+    if: (!failure() && !cancelled()) && github.event.inputs.prepare_release_notes == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout presto source
+        uses: actions/checkout@v6
+        with:
+          fetch-tags: true
+          show-progress: false
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK ${{ env.JAVA_DISTRIBUTION }}/${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Configure git
+        env:
+          GIT_CI_EMAIL: ${{ env.GIT_CI_EMAIL }}
+          GIT_CI_USER: ${{ env.GIT_CI_USER }}
+        run: |
+          git config --global --add safe.directory ${{github.workspace}}
+          git config --global user.email "$GIT_CI_EMAIL"
+          git config --global user.name "$GIT_CI_USER"
+          git config pull.rebase false
+
+      - name: Add git upstream
+        run: |
+          git remote add upstream ${{ github.server_url }}/${{ github.repository }}.git
+          git fetch upstream --tags
+          git remote -v
+
+      - name: Create release notes pull request
+        env:
+          JVM_OPTS: ${{ env.MAVEN_OPTS }}
+          RELEASE_TOOLS_VERSION: ${{ env.RELEASE_TOOLS_VERSION }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "In case this job failed, please delete the release notes branch(e.g. release-notes-0.292) in repository ${{ github.repository }}, and re-run the job"
+          ./src/release/release-notes.sh ${{ github.repository_owner }} ${{ secrets.PRESTODB_CI_TOKEN }}

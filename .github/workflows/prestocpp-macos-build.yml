@@ -1,0 +1,146 @@
+name: prestocpp-macos-build
+
+on:
+  workflow_dispatch: {}
+  pull_request: {}
+
+jobs:
+  changes:
+    runs-on: macos-15
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+      # For pull requests it's not necessary to checkout the code
+      - name: Run changes check for PRs
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - 'presto-native-execution/**'
+              - '.github/workflows/prestocpp-macos-build.yml'
+
+  prestocpp-macos-build-engine:
+    strategy:
+      matrix:
+        os: [macos-15]
+    runs-on: ${{ matrix.os }}
+    needs: changes
+    permissions:
+      contents: read
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+      HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "TRUE"
+      # The arm runners (macos-14 and later) have only 7GB RAM.
+      BUILD_TYPE: "${{ matrix.os ==  'macos-15' && 'release' || 'debug' }}"
+      INSTALL_PREFIX: /tmp/deps-install
+    concurrency:
+      group: ${{ github.workflow }}-prestocpp-macos-build-${{ github.event.pull_request.number }}-${{ matrix.os }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        with:
+          persist-credentials: false
+
+      - name: Fix git permissions
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Update submodules
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: |
+          cd presto-native-execution
+          make submodules
+
+      - name: Setup MacOS
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: |
+          set -xu
+          source presto-native-execution/scripts/setup-macos.sh
+          export PROMPT_ALWAYS_RESPOND=y
+
+          # First selectively install the minimal dependencies for Velox.
+          install_build_prerequisites
+          install_velox_deps_from_brew
+          install_double_conversion
+
+          # Install glog/gflags because they are not installed from homebrew.
+          install_gflags
+          install_glog
+
+          # Install protobuf because it is not installed from homebrew.
+          install_protobuf
+
+          # Velox deps needed by proxygen, a presto dependency.
+          install_boost
+          install_fmt
+          install_fast_float
+          install_folly
+          install_fizz
+          install_wangle
+          install_mvfst
+
+          # FileUtils.h pulls Buffer.h without declaring the dependency leading
+          # to a missing xsimd header if bundled.
+          install_xsimd
+
+          # Velox dependencies that Presto directly depends on.
+          install_re2
+          install_fbthrift
+
+          # Now install the presto dependencies.
+          install_presto_deps
+
+          echo "NUM_THREADS=`sysctl -n hw.ncpu`" >> $GITHUB_ENV
+
+      - name: Install Github CLI for using apache/infrastructure-actions/stash
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: |
+          brew install gh
+
+      - uses: apache/infrastructure-actions/stash/restore@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-macos-build-engine-${{ matrix.os }}
+
+      - name: Zero ccache statistics
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: PATH=${INSTALL_PREFIX}/bin:${PATH} ccache -sz
+
+      - name: Build presto_cpp on MacOS
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: |
+          clang --version
+          export PATH=$(brew --prefix m4)/bin:$(brew --prefix bison)/bin:${PATH}
+          export BOOST_ROOT=${INSTALL_PREFIX}
+          cd presto-native-execution
+          make ${BUILD_TYPE}
+
+      - name: Ccache after
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        run: PATH=${INSTALL_PREFIX}/bin:${PATH} ccache -s
+
+      - uses: apache/infrastructure-actions/stash/save@4ab8682fbd4623d2b4fc1c98db38aba5091924c3
+        if: |
+          needs.changes.outputs.codechange == 'true'
+        with:
+          path: '${{ env.CCACHE_DIR }}'
+          key: ccache-prestocpp-macos-build-engine-${{ matrix.os }}

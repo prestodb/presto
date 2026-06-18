@@ -1,0 +1,189 @@
+name: Maven OWASP Dependency Check
+on:
+  pull_request: {}
+  workflow_dispatch:
+    inputs:
+      cvss-threshold:
+        description: CVSS score threshold for failing (7.0 = high/critical)
+        required: false
+        default: '7.0'
+        type: string
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    # Required permissions
+    permissions:
+      pull-requests: read
+    # Set job outputs to values from filter step
+    outputs:
+      codechange: ${{ steps.filter.outputs.codechange }}
+    steps:
+      # For pull requests it's not necessary to checkout the code
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: filter
+        with:
+          filters: |
+            codechange:
+              - '!presto-docs/**'
+              - '!presto-native-execution/presto_cpp/**'
+              - 'presto-docs/pom.xml'
+
+  dependency-check:
+    needs: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: ${{ github.workflow }}-owasp-dependency-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      CVSS_THRESHOLD: ${{ github.event.inputs.cvss-threshold || '0.1' }}
+      OWASP_VERSION: 12.1.3
+    steps:
+      # Checkout PR branch first to get access to the composite action
+      - name: Checkout PR branch
+        if: needs.changes.outputs.codechange == 'true'
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Find merge base
+        if: needs.changes.outputs.codechange == 'true'
+        id: merge-base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          merge_base=$(gh api -q '.merge_base_commit.sha' \
+            "/repos/$REPO/compare/$BASE_REF...$HEAD_SHA")
+          echo "sha=$merge_base" >> "$GITHUB_OUTPUT"
+          echo "Using merge base: $merge_base"
+
+      - name: Checkout base branch
+        if: needs.changes.outputs.codechange == 'true'
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ steps.merge-base.outputs.sha }}
+          path: base
+
+      - name: Set up Java
+        if: needs.changes.outputs.codechange == 'true'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # Refreshed by owasp-nvd-cache.yml; forks can read default-branch caches.
+      - name: Restore cached NVD database
+        if: needs.changes.outputs.codechange == 'true'
+        uses: actions/cache/restore@v4
+        id: cache-owasp-restore
+        with:
+          path: /tmp/.owasp/dependency-check-data
+          restore-keys: |
+            owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-
+          key: owasp-nvd-db-${{ runner.os }}-v${{ env.OWASP_VERSION }}-restore-only
+
+      # A missing DB is an infra gap, not a CVE regression: warn instead of failing.
+      - name: Skip if NVD database unavailable
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key == ''
+        run: |
+          echo "::warning::OWASP NVD database cache not found; skipping the dependency check for this run."
+          echo "::warning::Trigger the 'OWASP NVD Database Cache' workflow to repopulate the cache."
+
+      - name: Run OWASP check on base branch
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
+        uses: ./.github/actions/maven-owasp-scan
+        with:
+          working-directory: base
+          owasp-version: ${{ env.OWASP_VERSION }}
+          data-directory: /tmp/.owasp/dependency-check-data
+          auto-update: 'false'
+
+      - name: Run OWASP check on PR branch
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
+        uses: ./.github/actions/maven-owasp-scan
+        with:
+          working-directory: .
+          owasp-version: ${{ env.OWASP_VERSION }}
+          data-directory: /tmp/.owasp/dependency-check-data
+          auto-update: 'false'
+
+      - name: Compare and fail on new CVEs above threshold
+        if: needs.changes.outputs.codechange == 'true' && steps.cache-owasp-restore.outputs.cache-matched-key != ''
+        run: |
+          # Extract CVEs above threshold from both branches (CVSS >= $CVSS_THRESHOLD)
+          threshold=$CVSS_THRESHOLD
+
+          # Validate report files exist
+          if [ ! -f base/target/dependency-check-report.json ]; then
+            echo "❌ Missing base report: base/target/dependency-check-report.json"
+            exit 1
+          fi
+          if [ ! -f target/dependency-check-report.json ]; then
+            echo "❌ Missing PR report: target/dependency-check-report.json"
+            exit 1
+          fi
+
+          # Validate report files are valid JSON
+          if ! jq empty base/target/dependency-check-report.json >/dev/null 2>&1; then
+            echo "❌ Malformed JSON in base/target/dependency-check-report.json"
+            exit 1
+          fi
+          if ! jq empty target/dependency-check-report.json >/dev/null 2>&1; then
+            echo "❌ Malformed JSON in target/dependency-check-report.json"
+            exit 1
+          fi
+
+          base_cves=$(jq -r ".dependencies[].vulnerabilities[]? | select((.cvssv2.score // 0) >= $threshold or (.cvssv3.baseScore // 0) >= $threshold) | .name" base/target/dependency-check-report.json | grep -E '^CVE-[0-9]{4}-[0-9]+$' | sort -u)
+          pr_cves=$(jq -r ".dependencies[].vulnerabilities[]? | select((.cvssv2.score // 0) >= $threshold or (.cvssv3.baseScore // 0) >= $threshold) | .name" target/dependency-check-report.json | grep -E '^CVE-[0-9]{4}-[0-9]+$' | sort -u)
+
+          # Find new CVEs introduced in PR
+          new_cves=$(comm -13 <(echo "$base_cves") <(echo "$pr_cves"))
+
+          if [ -n "$new_cves" ]; then
+            echo "❌ New vulnerabilities with CVSS >= $threshold introduced in PR:"
+            echo "$new_cves"
+            echo ""
+
+            for cve in $new_cves; do
+              echo "=================================================="
+              echo "CVE: $cve"
+              echo "=================================================="
+
+              # Find which dependencies have this CVE
+              jq -r '
+                .dependencies[]
+                | select(.vulnerabilities[]?.name == "'"$cve"'")
+                | "Module: " + (.projectReferences // ["root"])[0]
+                  + "\nDependency: " + .fileName
+                  + "\nPackage: " + (if .packages and .packages[0] then .packages[0].id else "N/A" end)
+                  + "\nDescription: " + (
+                      [.vulnerabilities[] | select(.name == "'"$cve"'") | .description]
+                      | unique
+                      | join("\nDescription: ")
+                    )
+              ' target/dependency-check-report.json
+
+              echo ""
+            done
+
+            exit 1
+          else
+            echo "✅ No new vulnerabilities introduced"
+          fi
+
+      - name: Upload reports
+        if: needs.changes.outputs.codechange == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-reports
+          path: |
+            base/target/dependency-check-report.json
+            target/dependency-check-report.json

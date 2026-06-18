@@ -1,0 +1,20 @@
+services:
+
+  mysql-mixed-case-on:
+    hostname: mysql
+    image: 'mysql:8.0'
+    ports:
+      - '13306:13306'
+    command:
+      mysqld --port 13306 --lower_case_table_names=0 # Configuration to enforce case-sensitive behavior in MySQL, regardless of the underlying operating system
+    environment:
+      MYSQL_USER: swarm
+      MYSQL_PASSWORD: swarm
+      MYSQL_ROOT_PASSWORD: swarm
+      MYSQL_DATABASE: test
+    volumes:
+      - ${MYSQL_INIT_PATH}:/docker-entrypoint-initdb.d
+
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-mysql-mixed-case-on/mysql.properties:/docker/volumes/conf/presto/etc/catalog/mysql.properties

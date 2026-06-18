@@ -1,0 +1,187 @@
+{
+  "rowCount" : 2,
+  "columns" : {
+    "web_site_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2,
+      "dataSize" : null
+    },
+    "web_site_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAACAAAAAAA",
+      "dataSize" : 32
+    },
+    "web_rec_start_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 10089,
+      "max" : 10089,
+      "dataSize" : null
+    },
+    "web_rec_end_date" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 11184,
+      "max" : 11184,
+      "dataSize" : null
+    },
+    "web_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "site_0",
+      "max" : "site_0",
+      "dataSize" : 6
+    },
+    "web_open_date_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 2450798,
+      "max" : 2450807,
+      "dataSize" : null
+    },
+    "web_close_date_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 1,
+      "min" : 2448973,
+      "max" : 2448973,
+      "dataSize" : null
+    },
+    "web_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "web_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Ronald Shaffer",
+      "max" : "Tommy Jones",
+      "dataSize" : 25
+    },
+    "web_mkt_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 4,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "web_mkt_class" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Completely excellent things ought to pro",
+      "max" : "Grey lines ought to result indeed centres. Tod",
+      "dataSize" : 86
+    },
+    "web_mkt_desc" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Lucky passengers know. Red details will not hang alive, international s",
+      "max" : "Well similar decisions used to keep hardly democratic, personal priorities.",
+      "dataSize" : 146
+    },
+    "web_market_manager" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "David Myers",
+      "max" : "Joe George",
+      "dataSize" : 21
+    },
+    "web_company_id" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 4,
+      "max" : 6,
+      "dataSize" : null
+    },
+    "web_company_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "cally",
+      "max" : "ese",
+      "dataSize" : 8
+    },
+    "web_street_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "358",
+      "max" : "51",
+      "dataSize" : 5
+    },
+    "web_street_name" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Dogwood Sunset",
+      "max" : "Ridge Wilson",
+      "dataSize" : 26
+    },
+    "web_street_type" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Cir.",
+      "max" : "Ln",
+      "dataSize" : 6
+    },
+    "web_suite_number" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Suite 150",
+      "max" : "Suite 330",
+      "dataSize" : 18
+    },
+    "web_city" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Midway",
+      "max" : "Midway",
+      "dataSize" : 6
+    },
+    "web_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "web_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "web_zip" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "31904",
+      "dataSize" : 5
+    },
+    "web_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "web_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    },
+    "web_tax_percentage" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : 0,
+      "max" : 10,
+      "dataSize" : null
+    }
+  }
+}

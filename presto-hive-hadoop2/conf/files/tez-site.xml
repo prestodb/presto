@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+<configuration>
+    <property>
+        <name>tez.lib.uris.ignore</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>tez.lib.uris</name>
+        <value>file:///usr/hdp/current/tez-client/lib/tez.tar.gz</value>
+    </property>
+    <property>
+        <name>tez.am.mode.session</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>tez.am.acl.enabled</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>tez.am.log.level</name>
+        <value>WARN</value>
+    </property>
+    <property>
+        <name>tez.task.log.level</name>
+        <value>WARN</value>
+    </property>
+    <property>
+        <name>tez.runtime.io.sort.mb</name>
+        <value>8</value>
+    </property>
+    <property>
+        <name>tez.am.max.app.attempts</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>tez.am.task.max.failed.attempts</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>tez.shuffle-vertex-manager.min-src-fraction</name>
+        <value>0.10</value>
+    </property>
+    <property>
+        <name>tez.shuffle-vertex-manager.max-src-fraction</name>
+        <value>1.00</value>
+    </property>
+    <property>
+        <name>tez.am.launch.cmd-opts</name>
+        <value>-server -Djava.net.preferIPv4Stack=true -XX:+UseParallelGC -Dhadoop.metrics.log.level=WARN</value>
+    </property>
+    <property>
+        <name>tez.am.resource.memory.mb</name>
+        <value>512</value>
+    </property>
+    <property>
+        <name>tez.task.launch.cmd-opts</name>
+        <value>-server -Djava.net.preferIPv4Stack=true -XX:+UseParallelGC -Dhadoop.metrics.log.level=WARN</value>
+    </property>
+    <property>
+        <name>tez.task.resource.memory.mb</name>
+        <value>512</value>
+    </property>
+    <property>
+        <name>tez.task.resource.cpu.vcores</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>tez.runtime.sort.threads</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>tez.runtime.io.sort.factor</name>
+        <value>100</value>
+    </property>
+    <property>
+        <name>tez.runtime.shuffle.memory-to-memory.enable</name>
+        <value>false</value>
+    </property>
+    <property>
+        <name>tez.runtime.optimize.local.fetch</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hive.tez.container.size</name>
+        <value>2048</value>
+    </property>
+</configuration>

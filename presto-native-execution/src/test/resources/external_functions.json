@@ -1,0 +1,166 @@
+{
+  "udfSignatureMap": {
+    "eq":[
+      {
+        "docString":"function to check equivalence of the two values",
+        "functionKind": "SCALAR",
+        "outputType": "BOOLEAN",
+        "paramTypes":[
+          "INTEGER",
+          "INTEGER"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "array_constructor":[
+      {
+        "docString":"function to construct an array from scalar parameters",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY(INTEGER)",
+        "paramTypes":[
+          "INTEGER"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "map":[
+      {
+        "docString":"function to construct a map from arrays of keys and values",
+        "functionKind": "SCALAR",
+        "outputType": "MAP(INTEGER, INTEGER)",
+        "paramTypes":[
+          "ARRAY(INTEGER)",
+          "ARRAY(INTEGER)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "map_entries":[
+      {
+        "docString":"return an array of all entries in the given map.",
+        "functionKind": "SCALAR",
+        "outputType": "ARRAY(ROW(INTEGER, INTEGER))",
+        "paramTypes":[
+          "MAP(INTEGER, INTEGER)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ],
+    "sum": [
+      {
+        "docString": "Returns sum of integers",
+        "functionKind": "AGGREGATE",
+        "outputType": "BIGINT",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "BIGINT",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_partial": [
+      {
+        "docString": "Partial companion function of avg, returning accumulator structs {sum, count} of input integers",
+        "functionKind": "AGGREGATE",
+        "outputType": "ROW(DOUBLE, BIGINT)",
+        "paramTypes": [
+          "INTEGER"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_merge": [
+      {
+        "docString": "Merge companion function of avg, returning merged accumulator structs {sum, count}",
+        "functionKind": "AGGREGATE",
+        "outputType": "ROW(DOUBLE, BIGINT)",
+        "paramTypes": [
+          "ROW(DOUBLE, BIGINT)"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_merge_extract_double": [
+      {
+        "docString": "Merge-extract companion function of avg, merging input accumulator structs {sum, count} and returning the averages",
+        "functionKind": "AGGREGATE",
+        "outputType": "DOUBLE",
+        "paramTypes": [
+          "ROW(sum DOUBLE, count BIGINT)"
+        ],
+        "schema": "test_schema",
+        "routineCharacteristics": {
+          "language": "CPP",
+          "determinism": "DETERMINISTIC",
+          "nullCallClause": "CALLED_ON_NULL_INPUT"
+        },
+        "aggregateMetadata": {
+          "intermediateType": "ROW(DOUBLE, BIGINT)",
+          "isOrderSensitive": false
+        }
+      }
+    ],
+    "avg_extract_double":[
+      {
+        "docString":"Extract companion function of avg, returning the averages from input accumulator structs {sum, count}",
+        "functionKind": "SCALAR",
+        "outputType": "DOUBLE",
+        "paramTypes":[
+          "ROW(DOUBLE, BIGINT)"
+        ],
+        "schema":"test_schema",
+        "routineCharacteristics": {
+          "language":"CPP",
+          "determinism":"DETERMINISTIC",
+          "nullCallClause":"CALLED_ON_NULL_INPUT"
+        }
+      }
+    ]
+  }
+}

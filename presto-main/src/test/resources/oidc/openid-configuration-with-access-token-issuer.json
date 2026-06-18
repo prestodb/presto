@@ -1,0 +1,87 @@
+{
+    "issuer": "https://issuer.com",
+    "authorization_endpoint": "https://issuer.com/connect/authorize",
+    "token_endpoint": "https://issuer.com/connect/token",
+    "jwks_uri": "https://issuer.com/jwks.json",
+    "token_endpoint_auth_methods_supported": [
+        "client_secret_post",
+        "client_secret_basic",
+        "private_key_jwt",
+        "windows_client_authentication"
+    ],
+    "response_types_supported": [
+        "code",
+        "id_token",
+        "code id_token",
+        "id_token token",
+        "code token",
+        "code id_token token"
+    ],
+    "response_modes_supported": [
+        "query",
+        "fragment",
+        "form_post"
+    ],
+    "grant_types_supported": [
+        "authorization_code",
+        "refresh_token",
+        "client_credentials",
+        "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        "implicit",
+        "password",
+        "srv_challenge",
+        "urn:ietf:params:oauth:grant-type:device_code",
+        "device_code"
+    ],
+    "subject_types_supported": [
+        "pairwise"
+    ],
+    "scopes_supported": [
+        "user_impersonation",
+        "vpn_cert",
+        "email",
+        "openid",
+        "profile",
+        "allatclaims",
+        "logon_cert",
+        "aza",
+        "winhello_cert"
+    ],
+    "id_token_signing_alg_values_supported": [
+        "RS256"
+    ],
+    "token_endpoint_auth_signing_alg_values_supported": [
+        "RS256"
+    ],
+    "access_token_issuer": "http://access-token-issuer.com/adfs/services/trust",
+    "claims_supported": [
+        "aud",
+        "iss",
+        "iat",
+        "exp",
+        "auth_time",
+        "nonce",
+        "at_hash",
+        "c_hash",
+        "sub",
+        "upn",
+        "unique_name",
+        "pwd_url",
+        "pwd_exp",
+        "mfa_auth_time",
+        "sid",
+        "nbf"
+    ],
+    "microsoft_multi_refresh_token": true,
+    "userinfo_endpoint": "https://issuer.com/connect/userinfo",
+    "capabilities": [],
+    "end_session_endpoint": "https://issuer.com/adfs/oauth2/logout",
+    "as_access_token_token_binding_supported": true,
+    "as_refresh_token_token_binding_supported": true,
+    "resource_access_token_token_binding_supported": true,
+    "op_id_token_token_binding_supported": true,
+    "rp_id_token_token_binding_supported": true,
+    "frontchannel_logout_supported": true,
+    "frontchannel_logout_session_supported": true,
+    "device_authorization_endpoint": "https://issuer.com/adfs/oauth2/devicecode"
+}

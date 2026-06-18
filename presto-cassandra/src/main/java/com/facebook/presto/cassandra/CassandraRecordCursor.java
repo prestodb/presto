@@ -1,0 +1,156 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.cassandra;
+
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.RecordCursor;
+import io.airlift.slice.Slice;
+
+import java.util.Iterator;
+import java.util.List;
+
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
+
+public class CassandraRecordCursor
+        implements RecordCursor
+{
+    private final List<FullCassandraType> fullCassandraTypes;
+    private final ResultSet rs;
+    private Row currentRow;
+    private long count;
+    private Iterator<Row> iterator;
+
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
+    {
+        this.fullCassandraTypes = fullCassandraTypes;
+        rs = cassandraSession.execute(cql);
+        this.iterator = rs.iterator();
+        currentRow = null;
+    }
+
+    @Override
+    public boolean advanceNextPosition()
+    {
+        if (iterator.hasNext()) {
+            currentRow = iterator.next();
+            count++;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void close()
+    {
+    }
+
+    @Override
+    public boolean getBoolean(int i)
+    {
+        return currentRow.getBool(i);
+    }
+
+    @Override
+    public long getCompletedBytes()
+    {
+        return count;
+    }
+
+    @Override
+    public long getReadTimeNanos()
+    {
+        return 0;
+    }
+
+    @Override
+    public double getDouble(int i)
+    {
+        switch (getCassandraType(i)) {
+            case DOUBLE:
+                return currentRow.getDouble(i);
+            case FLOAT:
+                return currentRow.getFloat(i);
+            case DECIMAL:
+                return currentRow.getBigDecimal(i).doubleValue();
+            default:
+                throw new IllegalStateException("Cannot retrieve double for " + getCassandraType(i));
+        }
+    }
+
+    @Override
+    public long getLong(int i)
+    {
+        switch (getCassandraType(i)) {
+            case INT:
+                return currentRow.getInt(i);
+            case SMALLINT:
+                return currentRow.getShort(i);
+            case TINYINT:
+                return currentRow.getByte(i);
+            case BIGINT:
+            case COUNTER:
+                return currentRow.getLong(i);
+            case TIMESTAMP:
+                return currentRow.getInstant(i).toEpochMilli();
+            case DATE:
+                return currentRow.getLocalDate(i).toEpochDay();
+            case FLOAT:
+                return floatToRawIntBits(currentRow.getFloat(i));
+            default:
+                throw new IllegalStateException("Cannot retrieve long for " + getCassandraType(i));
+        }
+    }
+
+    private CassandraType getCassandraType(int i)
+    {
+        return fullCassandraTypes.get(i).getCassandraType();
+    }
+
+    @Override
+    public Slice getSlice(int i)
+    {
+        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        if (value.getValue() instanceof Slice) {
+            return (Slice) value.getValue();
+        }
+        return utf8Slice(value.getValue().toString());
+    }
+
+    @Override
+    public Object getObject(int field)
+    {
+        if (getCassandraType(field) == CassandraType.VECTOR) {
+            // Vector columns are read as ARRAY values; the engine materializes them through getObject.
+            return CassandraType.getColumnValue(currentRow, field, fullCassandraTypes.get(field)).getValue();
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Type getType(int i)
+    {
+        FullCassandraType fullCassandraType = fullCassandraTypes.get(i);
+        return CassandraType.getPrestoType(fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
+    }
+
+    @Override
+    public boolean isNull(int i)
+    {
+        return currentRow.isNull(i);
+    }
+}

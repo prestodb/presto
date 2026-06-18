@@ -1,0 +1,31 @@
+datasource: presto
+query-names: presto/tpch/${query}.sql
+runs: 6
+prewarm-runs: 2
+before-execution: sleep-4s, presto/session_set_cbo_flags.sql
+frequency: 7
+database: hive
+tpch_300: tpch_sf300_orc
+tpch_1000: tpch_sf1000_orc
+tpch_3000: tpch_sf3000_orc
+prefix: ""
+variables:
+# queries are assigned to groups so they execute within 15-60s each (for an arbitrary benchmark cluster)
+# groups are sorted by schema size
+  1:
+    query: q05, q07, q08, q09, q17, q18, q21
+    schema: ${tpch_300}
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC
+
+  2:
+    query: q01, q02, q03, q04, q10, q12, q13, q15, q20
+    schema: ${tpch_1000}
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC
+
+  3:
+    query: q06, q11, q14, q16, q19, q22
+    schema: ${tpch_3000}
+    join_reordering_strategy: ELIMINATE_CROSS_JOINS, AUTOMATIC
+    join_distribution_type: PARTITIONED, AUTOMATIC

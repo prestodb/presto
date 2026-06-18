@@ -1,0 +1,6 @@
+# vim: set filetype=yaml :
+
+line_length: 100
+indent: 2
+definitions:
+- presto_cpp/main/thrift/ThriftLibrary.cmake

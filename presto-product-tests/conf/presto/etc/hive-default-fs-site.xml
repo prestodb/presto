@@ -1,0 +1,6 @@
+<configuration>
+    <property>
+        <name>fs.default.name</name>
+        <value>hdfs://hadoop-master:9000</value>
+    </property>
+</configuration>

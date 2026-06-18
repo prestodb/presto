@@ -1,0 +1,54 @@
+hdfs:
+  username: hdfs/hadoop-master@LABS.TERADATA.COM
+  webhdfs:
+    authentication: SPNEGO
+    keytab: /etc/hadoop/conf/hdfs.keytab
+    spnego_use_canonical_hostname: false
+
+databases:
+  hive:
+    host: hadoop-master
+    jdbc_url: jdbc:hive2://${databases.hive.host}:10000/default;principal=hive/hadoop-master@LABS.TERADATA.COM;auth=kerberos;kerberosAuthType=fromSubject;
+    jdbc_user: hdfs # Note: databases.hive.jdbc_user is not being used in kerberized environment as of now
+    jdbc_password: na
+
+    # The primary part in kerberos_principal should be "hdfs" in order to pass the Hive authorization.
+    # The reason being this user, which is used by Tempto to run CREATE TABLE queries in Hive, should match
+    # the user that owns the "/product-test" directory in HDFS (i.e. the "hdfs" user).
+    kerberos_principal: hdfs/hadoop-master@LABS.TERADATA.COM
+    kerberos_keytab: /etc/hadoop/conf/hdfs.keytab
+
+    inject_stats_for_immutable_tables: false
+    inject_stats_for_mutable_tables: false
+
+  presto:
+    host: presto-master.docker.cluster
+    port: 7778
+    http_port: 8080
+    https_port: ${databases.presto.port}
+    server_address: https://${databases.presto.host}:${databases.presto.port}
+
+    # jdbc_user in here should satisfy two requirements in order to pass SQL standard access control checks in Presto:
+    #   1) It should belong to the "admin" role in hive
+    #   2) It should have the required privileges (such as SELECT) on Hive tables (such as hive.default.nation)
+    jdbc_user: hdfs
+
+    https_keystore_path: /docker/volumes/conf/presto/etc/docker.cluster.jks
+    https_keystore_password: '123456'
+    cli_kerberos_authentication: true
+    cli_kerberos_principal: presto-client/presto-master.docker.cluster@LABS.TERADATA.COM
+    cli_kerberos_keytab: /etc/presto/conf/presto-client.keytab
+    cli_kerberos_config_path: /etc/krb5.conf
+    cli_kerberos_service_name: presto-server
+    cli_kerberos_use_canonical_hostname: false
+    configured_hdfs_user: hdfs
+
+    jdbc_url: "jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
+      SSL=true&\
+      SSLTrustStorePath=${databases.presto.https_keystore_path}&\
+      SSLTrustStorePassword=${databases.presto.https_keystore_password}&\
+      KerberosRemoteServiceName=${databases.presto.cli_kerberos_service_name}&\
+      KerberosPrincipal=${databases.presto.cli_kerberos_principal}&\
+      KerberosUseCanonicalHostname=${databases.presto.cli_kerberos_use_canonical_hostname}&\
+      KerberosConfigPath=${databases.presto.cli_kerberos_config_path}&\
+      KerberosKeytabPath=${databases.presto.cli_kerberos_keytab}"

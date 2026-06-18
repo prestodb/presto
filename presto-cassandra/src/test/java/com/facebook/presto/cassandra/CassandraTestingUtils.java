@@ -1,0 +1,259 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.cassandra;
+
+import com.datastax.oss.driver.api.core.metadata.Metadata;
+import com.datastax.oss.driver.api.core.type.DataTypes;
+import com.datastax.oss.driver.api.core.type.TupleType;
+import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.insert.RegularInsert;
+import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.net.InetAddresses;
+import com.google.common.primitives.Ints;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.Date;
+import java.util.UUID;
+
+import static org.testng.Assert.assertEquals;
+
+public class CassandraTestingUtils
+{
+    public static final String TABLE_ALL_TYPES = "table_all_types";
+    public static final String TABLE_ALL_TYPES_INSERT = "table_all_types_insert";
+    public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
+    public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
+    public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
+    public static final String TABLE_CLUSTERING_KEYS_INEQUALITY = "table_clustering_keys_inequality";
+
+    private CassandraTestingUtils() {}
+
+    public static void createTestTables(CassandraSession cassandraSession, Metadata metadata, String keyspace, Date date)
+    {
+        createKeyspace(cassandraSession, keyspace);
+        createTableAllTypes(cassandraSession, metadata, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date, 9);
+        createTableAllTypes(cassandraSession, metadata, new SchemaTableName(keyspace, TABLE_ALL_TYPES_INSERT), date, 0);
+        createTableAllTypesPartitionKey(cassandraSession, metadata, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
+        createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
+        createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
+        createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
+        createTableClusteringKeysInequality(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_INEQUALITY), date, 4);
+    }
+
+    public static void createKeyspace(CassandraSession session, String keyspaceName)
+    {
+        session.execute("CREATE KEYSPACE IF NOT EXISTS " + keyspaceName + " WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+    }
+
+    public static void createTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "key text, " +
+                "clust_one text, " +
+                "clust_two text, " +
+                "clust_three text, " +
+                "data text, " +
+                "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableClusteringKeys(session, table, rowsCount);
+    }
+
+    public static void insertIntoTableClusteringKeys(CassandraSession session, SchemaTableName table, int rowsCount)
+    {
+        for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
+            RegularInsert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("key", QueryBuilder.literal("key_" + rowNumber))
+                    .value("clust_one", QueryBuilder.literal("clust_one"))
+                    .value("clust_two", QueryBuilder.literal("clust_two_" + rowNumber))
+                    .value("clust_three", QueryBuilder.literal("clust_three_" + rowNumber));
+            session.execute(insert.build());
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+
+    public static void createTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "partition_one text, " +
+                "partition_two text, " +
+                "clust_one text, " +
+                "clust_two text, " +
+                "clust_three text, " +
+                "data text, " +
+                "PRIMARY KEY((partition_one, partition_two), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableMultiPartitionClusteringKeys(session, table);
+    }
+
+    public static void insertIntoTableMultiPartitionClusteringKeys(CassandraSession session, SchemaTableName table)
+    {
+        for (int rowNumber = 1; rowNumber < 10; rowNumber++) {
+            RegularInsert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("partition_one", QueryBuilder.literal("partition_one_" + rowNumber))
+                    .value("partition_two", QueryBuilder.literal("partition_two_" + rowNumber))
+                    .value("clust_one", QueryBuilder.literal("clust_one"))
+                    .value("clust_two", QueryBuilder.literal("clust_two_" + rowNumber))
+                    .value("clust_three", QueryBuilder.literal("clust_three_" + rowNumber));
+            session.execute(insert.build());
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 9);
+    }
+
+    public static void createTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                "key text, " +
+                "clust_one text, " +
+                "clust_two int, " +
+                "clust_three timestamp, " +
+                "data text, " +
+                "PRIMARY KEY((key), clust_one, clust_two, clust_three) " +
+                ")");
+        insertIntoTableClusteringKeysInequality(session, table, date, rowsCount);
+    }
+
+    public static void insertIntoTableClusteringKeysInequality(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
+    {
+        for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
+            RegularInsert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("key", QueryBuilder.literal("key_1"))
+                    .value("clust_one", QueryBuilder.literal("clust_one"))
+                    .value("clust_two", QueryBuilder.literal(rowNumber))
+                    .value("clust_three", QueryBuilder.literal(date.getTime() + rowNumber * 10));
+            session.execute(insert.build());
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+
+    public static void createTableAllTypes(CassandraSession session, Metadata metadata, SchemaTableName table, Date date, int rowsCount)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (" +
+                " key text PRIMARY KEY, " +
+                " typeuuid uuid, " +
+                " typeinteger int, " +
+                " typelong bigint, " +
+                " typebytes blob, " +
+                " typetimestamp timestamp, " +
+                " typeansi ascii, " +
+                " typeboolean boolean, " +
+                " typedecimal decimal, " +
+                " typedouble double, " +
+                " typefloat float, " +
+                " typeinet inet, " +
+                " typevarchar varchar, " +
+                " typevarint varint, " +
+                " typetimeuuid timeuuid, " +
+                " typelist list<text>, " +
+                " typemap map<int, bigint>, " +
+                " typeset set<boolean>, " +
+                " typetuple tuple<bigint, varchar> " +
+                ")");
+        insertTestData(session, metadata, table, date, rowsCount);
+    }
+
+    public static void createTableAllTypesPartitionKey(CassandraSession session, Metadata metadata, SchemaTableName table, Date date)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+
+        session.execute("CREATE TABLE " + table + " (" +
+                " key text, " +
+                " typeuuid uuid, " +
+                " typeinteger int, " +
+                " typelong bigint, " +
+                " typebytes blob, " +
+                " typetimestamp timestamp, " +
+                " typeansi ascii, " +
+                " typeboolean boolean, " +
+                " typedecimal decimal, " +
+                " typedouble double, " +
+                " typefloat float, " +
+                " typeinet inet, " +
+                " typevarchar varchar, " +
+                " typevarint varint, " +
+                " typetimeuuid timeuuid, " +
+                " typelist frozen <list<text>>, " +
+                " typemap frozen <map<int, bigint>>, " +
+                " typeset frozen <set<boolean>>, " +
+                " typetuple frozen <tuple<bigint, varchar>>, " +
+                " PRIMARY KEY ((" +
+                "   key, " +
+                "   typeuuid, " +
+                "   typeinteger, " +
+                "   typelong, " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                "   typebytes, " +
+                "   typetimestamp, " +
+                "   typeansi, " +
+                "   typeboolean, " +
+                // TODO: PRECISION LOST. IMPLEMENT IT AS STRING
+                "   typedecimal, " +
+                "   typedouble, " +
+                "   typefloat, " +
+                "   typeinet, " +
+                "   typevarchar, " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                "   typevarint, " +
+                "   typetimeuuid, " +
+                // TODO: NOT YET SUPPORTED AS A PARTITION KEY
+                "   typelist, " +
+                "   typemap, " +
+                "   typeset," +
+                "   typetuple" +
+                " ))" +
+                ")");
+
+        insertTestData(session, metadata, table, date, 9);
+    }
+
+    private static void insertTestData(CassandraSession session, Metadata metadata, SchemaTableName table, Date date, int rowsCount)
+    {
+        TupleType tupleType = DataTypes.tupleOf(DataTypes.BIGINT, DataTypes.TEXT);
+
+        for (int rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
+            RegularInsert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
+                    .value("key", QueryBuilder.literal("key " + rowNumber))
+                    .value("typeuuid", QueryBuilder.literal(UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber))))
+                    .value("typeinteger", QueryBuilder.literal(rowNumber))
+                    .value("typelong", QueryBuilder.literal(rowNumber + 1000))
+                    .value("typebytes", QueryBuilder.literal(ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer()))
+                    .value("typetimestamp", QueryBuilder.literal(date.toInstant()))
+                    .value("typeansi", QueryBuilder.literal("ansi " + rowNumber))
+                    .value("typeboolean", QueryBuilder.literal(rowNumber % 2 == 0))
+                    .value("typedecimal", QueryBuilder.literal(new BigDecimal(Math.pow(2, rowNumber))))
+                    .value("typedouble", QueryBuilder.literal(Math.pow(4, rowNumber)))
+                    .value("typefloat", QueryBuilder.literal((float) Math.pow(8, rowNumber)))
+                    .value("typeinet", QueryBuilder.literal(InetAddresses.forString("127.0.0.1")))
+                    .value("typevarchar", QueryBuilder.literal("varchar " + rowNumber))
+                    .value("typevarint", QueryBuilder.literal(BigInteger.TEN.pow(rowNumber)))
+                    .value("typetimeuuid", QueryBuilder.literal(UUID.fromString(String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber))))
+                    .value("typelist", QueryBuilder.literal(ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber)))
+                    .value("typemap", QueryBuilder.literal(ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L)))
+                    .value("typeset", QueryBuilder.literal(ImmutableSet.of(false, true)))
+                    .value("typetuple", QueryBuilder.literal(tupleType.newValue((long) rowNumber, "row=" + rowNumber)));
+
+            session.execute(insert.build());
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+}

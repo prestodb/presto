@@ -1,0 +1,208 @@
+{
+  "rowCount" : 12,
+  "columns" : {
+    "s_store_sk" : {
+      "distinctValuesCount" : 12,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 12,
+      "dataSize" : null
+    },
+    "s_store_id" : {
+      "distinctValuesCount" : 6,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAABAAAAAAA",
+      "max" : "AAAAAAAAKAAAAAAA",
+      "dataSize" : 96
+    },
+    "s_rec_start_date" : {
+      "distinctValuesCount" : 4,
+      "nullsCount" : 0,
+      "min" : 9933,
+      "max" : 11394,
+      "dataSize" : null
+    },
+    "s_rec_end_date" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 6,
+      "min" : 10663,
+      "max" : 11393,
+      "dataSize" : null
+    },
+    "s_closed_date_sk" : {
+      "distinctValuesCount" : 3,
+      "nullsCount" : 9,
+      "min" : 2450910,
+      "max" : 2451189,
+      "dataSize" : null
+    },
+    "s_store_name" : {
+      "distinctValuesCount" : 8,
+      "nullsCount" : 0,
+      "min" : "able",
+      "max" : "ought",
+      "dataSize" : 33
+    },
+    "s_number_employees" : {
+      "distinctValuesCount" : 9,
+      "nullsCount" : 0,
+      "min" : 218,
+      "max" : 297,
+      "dataSize" : null
+    },
+    "s_floor_space" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 0,
+      "min" : 5219562,
+      "max" : 9341467,
+      "dataSize" : null
+    },
+    "s_hours" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "8AM-12AM",
+      "max" : "8AM-4PM",
+      "dataSize" : 15
+    },
+    "s_manager" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : "Brett Yates",
+      "max" : "William Ward",
+      "dataSize" : 86
+    },
+    "s_market_id" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : 2,
+      "max" : 10,
+      "dataSize" : null
+    },
+    "s_geography_class" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_market_desc" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 0,
+      "min" : "Architects coul",
+      "max" : "Various bars make most. Difficult levels introduce at a boots. Buildings welcome only never el",
+      "dataSize" : 504
+    },
+    "s_market_manager" : {
+      "distinctValuesCount" : 7,
+      "nullsCount" : 0,
+      "min" : "Charles Bartley",
+      "max" : "Thomas Pollack",
+      "dataSize" : 97
+    },
+    "s_division_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "s_division_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_company_id" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "s_company_name" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "s_street_number" : {
+      "distinctValuesCount" : 9,
+      "nullsCount" : 0,
+      "min" : "175",
+      "max" : "877",
+      "dataSize" : 26
+    },
+    "s_street_name" : {
+      "distinctValuesCount" : 12,
+      "nullsCount" : 0,
+      "min" : "12th ",
+      "max" : "Sycamore ",
+      "dataSize" : 79
+    },
+    "s_street_type" : {
+      "distinctValuesCount" : 8,
+      "nullsCount" : 0,
+      "min" : "Boulevard",
+      "max" : "Wy",
+      "dataSize" : 35
+    },
+    "s_suite_number" : {
+      "distinctValuesCount" : 11,
+      "nullsCount" : 0,
+      "min" : "Suite 100",
+      "max" : "Suite T",
+      "dataSize" : 92
+    },
+    "s_city" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "Fairview",
+      "max" : "Midway",
+      "dataSize" : 14
+    },
+    "s_county" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "Williamson County",
+      "max" : "Williamson County",
+      "dataSize" : 17
+    },
+    "s_state" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "TN",
+      "max" : "TN",
+      "dataSize" : 2
+    },
+    "s_zip" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 0,
+      "min" : "31904",
+      "max" : "35709",
+      "dataSize" : 10
+    },
+    "s_country" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : "United States",
+      "max" : "United States",
+      "dataSize" : 13
+    },
+    "s_gmt_offset" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 0,
+      "min" : -500,
+      "max" : -500,
+      "dataSize" : null
+    },
+    "s_tax_precentage" : {
+      "distinctValuesCount" : 5,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 11,
+      "dataSize" : null
+    }
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "rowCount" : 8923,
+  "columns" : {
+    "cr_returned_date_sk" : {
+      "distinctValuesCount" : 1968,
+      "nullsCount" : 0,
+      "min" : 2450851,
+      "max" : 2452989,
+      "dataSize" : null
+    },
+    "cr_returned_time_sk" : {
+      "distinctValuesCount" : 8370,
+      "nullsCount" : 0,
+      "min" : 76,
+      "max" : 86370,
+      "dataSize" : null
+    },
+    "cr_item_sk" : {
+      "distinctValuesCount" : 1917,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 2000,
+      "dataSize" : null
+    },
+    "cr_refunded_customer_sk" : {
+      "distinctValuesCount" : 997,
+      "nullsCount" : 176,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "cr_refunded_cdemo_sk" : {
+      "distinctValuesCount" : 5802,
+      "nullsCount" : 180,
+      "min" : 277,
+      "max" : 1920724,
+      "dataSize" : null
+    },
+    "cr_refunded_hdemo_sk" : {
+      "distinctValuesCount" : 3982,
+      "nullsCount" : 178,
+      "min" : 1,
+      "max" : 7200,
+      "dataSize" : null
+    },
+    "cr_refunded_addr_sk" : {
+      "distinctValuesCount" : 996,
+      "nullsCount" : 166,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "cr_returning_customer_sk" : {
+      "distinctValuesCount" : 1000,
+      "nullsCount" : 183,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "cr_returning_cdemo_sk" : {
+      "distinctValuesCount" : 8685,
+      "nullsCount" : 183,
+      "min" : 84,
+      "max" : 1920365,
+      "dataSize" : null
+    },
+    "cr_returning_hdemo_sk" : {
+      "distinctValuesCount" : 5101,
+      "nullsCount" : 169,
+      "min" : 1,
+      "max" : 7199,
+      "dataSize" : null
+    },
+    "cr_returning_addr_sk" : {
+      "distinctValuesCount" : 1000,
+      "nullsCount" : 185,
+      "min" : 1,
+      "max" : 1000,
+      "dataSize" : null
+    },
+    "cr_call_center_sk" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 178,
+      "min" : 1,
+      "max" : 2,
+      "dataSize" : null
+    },
+    "cr_catalog_page_sk" : {
+      "distinctValuesCount" : 3404,
+      "nullsCount" : 191,
+      "min" : 1,
+      "max" : 10040,
+      "dataSize" : null
+    },
+    "cr_ship_mode_sk" : {
+      "distinctValuesCount" : 20,
+      "nullsCount" : 184,
+      "min" : 1,
+      "max" : 20,
+      "dataSize" : null
+    },
+    "cr_warehouse_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 179,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "cr_reason_sk" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 160,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "cr_order_number" : {
+      "distinctValuesCount" : 5904,
+      "nullsCount" : 0,
+      "min" : 2,
+      "max" : 9998,
+      "dataSize" : null
+    },
+    "cr_return_quantity" : {
+      "distinctValuesCount" : 99,
+      "nullsCount" : 179,
+      "min" : 1,
+      "max" : 99,
+      "dataSize" : null
+    },
+    "cr_return_amount" : {
+      "distinctValuesCount" : 8174,
+      "nullsCount" : 200,
+      "min" : 0,
+      "max" : 1816756,
+      "dataSize" : null
+    },
+    "cr_return_tax" : {
+      "distinctValuesCount" : 5028,
+      "nullsCount" : 173,
+      "min" : 0,
+      "max" : 139159,
+      "dataSize" : null
+    },
+    "cr_return_amt_inc_tax" : {
+      "distinctValuesCount" : 8389,
+      "nullsCount" : 186,
+      "min" : 0,
+      "max" : 1889426,
+      "dataSize" : null
+    },
+    "cr_fee" : {
+      "distinctValuesCount" : 5807,
+      "nullsCount" : 171,
+      "min" : 50,
+      "max" : 9999,
+      "dataSize" : null
+    },
+    "cr_return_ship_cost" : {
+      "distinctValuesCount" : 7755,
+      "nullsCount" : 170,
+      "min" : 0,
+      "max" : 874720,
+      "dataSize" : null
+    },
+    "cr_refunded_cash" : {
+      "distinctValuesCount" : 7899,
+      "nullsCount" : 189,
+      "min" : 0,
+      "max" : 1437985,
+      "dataSize" : null
+    },
+    "cr_reversed_charge" : {
+      "distinctValuesCount" : 7032,
+      "nullsCount" : 181,
+      "min" : 0,
+      "max" : 1157057,
+      "dataSize" : null
+    },
+    "cr_store_credit" : {
+      "distinctValuesCount" : 6936,
+      "nullsCount" : 188,
+      "min" : 0,
+      "max" : 1461221,
+      "dataSize" : null
+    },
+    "cr_net_loss" : {
+      "distinctValuesCount" : 8376,
+      "nullsCount" : 181,
+      "min" : 387,
+      "max" : 920267,
+      "dataSize" : null
+    }
+  }
+}

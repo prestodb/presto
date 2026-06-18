@@ -1,0 +1,138 @@
+{
+  "rowCount" : 300,
+  "columns" : {
+    "p_promo_sk" : {
+      "distinctValuesCount" : 300,
+      "nullsCount" : 0,
+      "min" : 1,
+      "max" : 300,
+      "dataSize" : null
+    },
+    "p_promo_id" : {
+      "distinctValuesCount" : 300,
+      "nullsCount" : 0,
+      "min" : "AAAAAAAAAABAAAAA",
+      "max" : "AAAAAAAAPPAAAAAA",
+      "dataSize" : 4800
+    },
+    "p_start_date_sk" : {
+      "distinctValuesCount" : 255,
+      "nullsCount" : 6,
+      "min" : 2450100,
+      "max" : 2450913,
+      "dataSize" : null
+    },
+    "p_end_date_sk" : {
+      "distinctValuesCount" : 249,
+      "nullsCount" : 6,
+      "min" : 2450132,
+      "max" : 2450955,
+      "dataSize" : null
+    },
+    "p_item_sk" : {
+      "distinctValuesCount" : 291,
+      "nullsCount" : 7,
+      "min" : 28,
+      "max" : 17926,
+      "dataSize" : null
+    },
+    "p_cost" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 6,
+      "min" : 100000,
+      "max" : 100000,
+      "dataSize" : null
+    },
+    "p_response_targe" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 7,
+      "min" : 1,
+      "max" : 1,
+      "dataSize" : null
+    },
+    "p_promo_name" : {
+      "distinctValuesCount" : 10,
+      "nullsCount" : 7,
+      "min" : "able",
+      "max" : "pri",
+      "dataSize" : 40
+    },
+    "p_channel_dmail" : {
+      "distinctValuesCount" : 2,
+      "nullsCount" : 5,
+      "min" : "N",
+      "max" : "Y",
+      "dataSize" : 2
+    },
+    "p_channel_email" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 5,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_catalog" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 4,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_tv" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 6,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_radio" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 6,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_press" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 7,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_event" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 4,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_demo" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 3,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    },
+    "p_channel_details" : {
+      "distinctValuesCount" : 298,
+      "nullsCount" : 2,
+      "min" : "Able patients will lend as. Southern components must com",
+      "max" : "Young, valuable companies watch walls. Payments can flour",
+      "dataSize" : 11989
+    },
+    "p_purpose" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 4,
+      "min" : "Unknown",
+      "max" : "Unknown",
+      "dataSize" : 7
+    },
+    "p_discount_active" : {
+      "distinctValuesCount" : 1,
+      "nullsCount" : 7,
+      "min" : "N",
+      "max" : "N",
+      "dataSize" : 1
+    }
+  }
+}

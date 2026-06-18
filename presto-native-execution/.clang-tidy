@@ -1,0 +1,96 @@
+Checks: >
+  *,
+  -abseil-*,
+  -android-*,
+  -cert-err58-cpp,
+  -cert-err58-cpp,
+  -clang-analyzer-osx-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-goto,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-special-member-functions,
+  -fuchsia-*,
+  -google-*,
+  -hicpp-avoid-c-arrays,
+  -hicpp-avoid-goto,
+  -hicpp-deprecated-headers,
+  -hicpp-no-array-decay,
+  -hicpp-special-member-functions,
+  -hicpp-use-equals-default,
+  -hicpp-vararg,
+  -hicpp-vararg,
+  -llvm-header-guard,
+  -llvm-include-order,
+  -llvmlibc-*,
+  -misc-no-recursion,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  -misc-unused-parameters,
+  -modernize-avoid-c-arrays,
+  -modernize-deprecated-headers,
+  -modernize-use-nodiscard,
+  -modernize-use-trailing-return-type,
+  -mpi-*,
+  -objc-*,
+  -openmp-*,
+  -readability-avoid-const-params-in-decls,
+  -readability-convert-member-functions-to-static,
+  -readability-implicit-bool-conversion,
+  -readability-magic-numbers,
+  -zircon-*,
+
+HeaderFilterRegex: '.*'
+
+WarningsAsErrors: ''
+
+CheckOptions:
+  # Naming conventions as explicitly stated in CODING_STYLE.md
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeTemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberSuffix
+    value: _
+  - key: readability-identifier-naming.ProtectedMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ProtectedMemberSuffix
+    value: _
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.NamespaceCase
+    value: lower_case
+  - key: readability-identifier-naming.StaticConstantPrefix
+    value: k
+  - key: readability-identifier-naming.EnumConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.EnumConstantPrefix
+    value: k
+
+  # Use nullptr instead of NULL or 0
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+
+  # Prefer enum class over enum
+  - key: modernize-use-using.IgnoreUsingStdAllocator
+    value: 1

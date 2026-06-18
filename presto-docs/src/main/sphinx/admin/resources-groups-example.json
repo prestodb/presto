@@ -1,0 +1,110 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "80%",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "schedulingPolicy": "weighted",
+      "jmxExport": true,
+      "subGroups": [
+        {
+          "name": "data_definition",
+          "softMemoryLimit": "10%",
+          "hardConcurrencyLimit": 5,
+          "maxQueued": 100,
+          "schedulingWeight": 1
+        },
+        {
+          "name": "adhoc",
+          "softMemoryLimit": "10%",
+          "hardConcurrencyLimit": 50,
+          "maxQueued": 1,
+          "schedulingWeight": 10,
+          "subGroups": [
+            {
+              "name": "other",
+              "softMemoryLimit": "10%",
+              "hardConcurrencyLimit": 2,
+              "maxQueued": 1,
+              "schedulingWeight": 10,
+              "schedulingPolicy": "weighted_fair",
+              "subGroups": [
+                {
+                  "name": "${USER}",
+                  "softMemoryLimit": "10%",
+                  "hardConcurrencyLimit": 1,
+                  "maxQueued": 100
+                }
+              ]
+            },
+            {
+              "name": "bi-${toolname}",
+              "softMemoryLimit": "10%",
+              "hardConcurrencyLimit": 10,
+              "maxQueued": 100,
+              "schedulingWeight": 10,
+              "schedulingPolicy": "weighted_fair",
+              "subGroups": [
+                {
+                  "name": "${USER}",
+                  "softMemoryLimit": "10%",
+                  "hardConcurrencyLimit": 3,
+                  "maxQueued": 10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "pipeline",
+          "softMemoryLimit": "80%",
+          "hardConcurrencyLimit": 45,
+          "maxQueued": 100,
+          "schedulingWeight": 1,
+          "jmxExport": true,
+          "subGroups": [
+            {
+              "name": "pipeline_${USER}",
+              "softMemoryLimit": "50%",
+              "hardConcurrencyLimit": 5,
+              "maxQueued": 100
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "admin",
+      "softMemoryLimit": "100%",
+      "hardConcurrencyLimit": 50,
+      "maxQueued": 100,
+      "schedulingPolicy": "query_priority",
+      "jmxExport": true
+    }
+  ],
+  "selectors": [
+    {
+      "user": "bob",
+      "group": "admin"
+    },
+    {
+      "source": ".*pipeline.*",
+      "queryType": "DATA_DEFINITION",
+      "group": "global.data_definition"
+    },
+    {
+      "source": ".*pipeline.*",
+      "group": "global.pipeline.pipeline_${USER}"
+    },
+    {
+      "source": "jdbc#(?<toolname>.*)",
+      "clientTags": ["hipri"],
+      "group": "global.adhoc.bi-${toolname}.${USER}"
+    },
+    {
+      "group": "global.adhoc.other.${USER}"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}

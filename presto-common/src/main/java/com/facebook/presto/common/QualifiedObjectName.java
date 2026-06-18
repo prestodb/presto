@@ -1,0 +1,135 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.common;
+
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.Immutable;
+
+import java.util.Objects;
+
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+
+@Immutable
+@ThriftStruct
+public class QualifiedObjectName
+{
+    private final String catalogName;
+    private final String schemaName;
+    private final String objectName;
+
+    @JsonCreator
+    public static QualifiedObjectName valueOf(String name)
+    {
+        requireNonNull(name, "name is null");
+
+        String[] parts = name.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException(format("QualifiedObjectName should have exactly 3 parts, found %s: %s", parts.length, name));
+        }
+
+        return new QualifiedObjectName(parts[0], parts[1], parts[2]);
+    }
+
+    public static QualifiedObjectName valueOf(CatalogSchemaName catalogSchemaName, String objectName)
+    {
+        return new QualifiedObjectName(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), objectName.toLowerCase(ENGLISH));
+    }
+
+    public static QualifiedObjectName valueOf(String catalogName, String schemaName, String objectName)
+    {
+        return new QualifiedObjectName(catalogName, schemaName, objectName.toLowerCase(ENGLISH));
+    }
+
+    @JsonCreator
+    @ThriftConstructor
+    public QualifiedObjectName(
+            @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("objectName") String objectName)
+    {
+        checkLowerCase(catalogName, "catalogName");
+        this.catalogName = catalogName;
+        this.schemaName = schemaName;
+        this.objectName = objectName;
+    }
+
+    public CatalogSchemaName getCatalogSchemaName()
+    {
+        return new CatalogSchemaName(catalogName, schemaName);
+    }
+
+    @ThriftField(1)
+    @JsonProperty("catalogName")
+    public String getCatalogName()
+    {
+        return catalogName;
+    }
+
+    @ThriftField(2)
+    @JsonProperty("schemaName")
+    public String getSchemaName()
+    {
+        return schemaName;
+    }
+
+    @ThriftField(3)
+    @JsonProperty("objectName")
+    public String getObjectName()
+    {
+        return objectName;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj == this) {
+            return true;
+        }
+        if ((obj == null) || (getClass() != obj.getClass())) {
+            return false;
+        }
+        QualifiedObjectName o = (QualifiedObjectName) obj;
+        return Objects.equals(catalogName, o.catalogName) &&
+                Objects.equals(schemaName, o.schemaName) &&
+                Objects.equals(objectName, o.objectName);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(catalogName, schemaName, objectName);
+    }
+
+    @JsonValue
+    @Override
+    public String toString()
+    {
+        return catalogName + '.' + schemaName + '.' + objectName;
+    }
+
+    private static void checkLowerCase(String value, String name)
+    {
+        requireNonNull(value, format("%s is null", name));
+        if (!value.equals(value.toLowerCase(ENGLISH))) {
+            throw new IllegalArgumentException(format("%s is not lowercase: %s", name, value));
+        }
+    }
+}
