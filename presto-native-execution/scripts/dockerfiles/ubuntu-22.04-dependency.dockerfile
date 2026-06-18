@@ -35,7 +35,15 @@ COPY velox/scripts /velox/scripts
 # Copy extra script called during setup.
 # from https://github.com/facebookincubator/velox/pull/14016
 COPY velox/CMake/resolve_dependency_modules/arrow/cmake-compatibility.patch /velox
-ENV VELOX_ARROW_CMAKE_PATCH=/velox/cmake-compatibility.patch
+COPY velox/CMake/resolve_dependency_modules/arrow/arrow-testing-boost.patch /velox
+COPY velox/CMake/resolve_dependency_modules/fbthrift/compactv1-protocol-refiller.patch /velox
+# NOTE: VELOX_ARROW_CMAKE_PATCH is a space-separated list and, when
+# set, OVERRIDES velox's auto-resolution in install_arrow — every
+# patch velox would have applied must be COPYed above and listed here.
+# Adding a new patch to velox/CMake/resolve_dependency_modules/arrow/
+# without also adding it below will silently fail to apply.
+ENV VELOX_ARROW_CMAKE_PATCH="/velox/cmake-compatibility.patch /velox/arrow-testing-boost.patch"
+ENV VELOX_FBTHRIFT_CMAKE_PATCH=/velox/compactv1-protocol-refiller.patch
 # install rpm needed for minio install.
 RUN mkdir build && \
     (cd build && ../scripts/setup-ubuntu.sh && \
