@@ -59,6 +59,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJo
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topN;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.topNRowNumber;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -179,6 +180,87 @@ public class TestOptimizeTopNUsingRowId
                                                                         tableScan("nation", ImmutableMap.of("NAME", "name", "ROW_ID", "$row_id"))),
                                                                 anyTree(
                                                                         tableScan("nation", ImmutableMap.of("ROW_ID_CLONE", "$row_id"))))))))));
+    }
+
+    @Test
+    public void testTopNRowNumberBasicRewrite()
+    {
+        // lineitem has 16 columns; row_number() partitioned by orderkey ordered by linenumber
+        // narrows to 2 key columns, savings of 14 >= 10 threshold. With a unique column available,
+        // the optimization should produce an outer TopNRowNumber over a SemiJoin whose build side
+        // is an inner (narrow) TopNRowNumber.
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2",
+                enabledSession(),
+                true,
+                output(
+                        anyTree(
+                                topNRowNumber(outer -> outer.partial(false),
+                                        anyTree(
+                                                node(FilterNode.class,
+                                                        anyTree(
+                                                                semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
+                                                                        anyTree(
+                                                                                tableScan("lineitem", ImmutableMap.of("ROW_ID", "$row_id"))),
+                                                                        anyTree(
+                                                                                topNRowNumber(inner -> inner.partial(false),
+                                                                                        anyTree(
+                                                                                                tableScan("lineitem", ImmutableMap.of("ROW_ID_CLONE", "$row_id")))))))))))));
+    }
+
+    @Test
+    public void testTopNRowNumberNoRewriteWhenDisabled()
+    {
+        // With optimization disabled, should produce a plain TopNRowNumber directly over the scan.
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2",
+                disabledSession(),
+                true,
+                output(
+                        anyTree(
+                                topNRowNumber(outer -> outer.partial(false),
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey", "LINENUMBER", "linenumber")))))));
+    }
+
+    @Test
+    public void testTopNRowNumberNoRewriteNarrowTable()
+    {
+        // nation has only 4 columns. Narrowing to regionkey + name gives savings of 2,
+        // below the default threshold of 10, so the rewrite should not fire.
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY regionkey ORDER BY name) rn FROM nation) WHERE rn <= 2",
+                enabledSession(),
+                true,
+                output(
+                        anyTree(
+                                topNRowNumber(outer -> outer.partial(false),
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey", "NAME", "name")))))));
+    }
+
+    @Test
+    public void testTopNRowNumberRewriteUnpartitioned()
+    {
+        // Unpartitioned row_number() over the wide orders table (9 columns). With a low
+        // column-savings threshold the rewrite fires, producing the $row_id / $row_id_clone
+        // SemiJoin (the outer/inner TopNRowNumber nesting is asserted in testTopNRowNumberBasicRewrite).
+        Session lowThreshold = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "true")
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, "1")
+                .build();
+
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT *, row_number() OVER (ORDER BY orderkey) rn FROM orders) WHERE rn <= 5",
+                lowThreshold,
+                true,
+                output(
+                        anyTree(
+                                semiJoin("ROW_ID", "ROW_ID_CLONE", "SEMI_JOIN_OUTPUT",
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ROW_ID", "$row_id"))),
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ROW_ID_CLONE", "$row_id")))))));
     }
 
     private Session enabledSession()
