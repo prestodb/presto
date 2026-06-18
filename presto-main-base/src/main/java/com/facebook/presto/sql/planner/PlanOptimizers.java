@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.iterative.rule.AddDistinctForSemiJoinBuil
 import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
+import com.facebook.presto.sql.planner.iterative.rule.CoalesceCascadingProjections;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxDistinctFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.CreatePartialTopN;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.planner.iterative.rule.InlineSqlFunctions;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinNullFilterToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.LeftJoinWithArrayContainsToEquiJoinCondition;
 import com.facebook.presto.sql.planner.iterative.rule.MergeDuplicateAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.MergeFilterAndProjection;
 import com.facebook.presto.sql.planner.iterative.rule.MergeFilters;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
@@ -1224,6 +1226,20 @@ public class PlanOptimizers
         builder.add(new MetadataDeleteOptimizer(metadata));
 
         builder.add(new RewriteWriterTarget(metadata, accessControl));
+
+        // Velox-oriented CSE preparation: coalesce cascading projections and merge adjacent
+        // filter/project so shared subexpressions are co-located within a single operator for
+        // native (Velox) common-subexpression elimination. Gated behind
+        // optimize_cascading_filters_and_projections (default OFF). Runs last, just before the
+        // distributed plan / fragments are generated.
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new CoalesceCascadingProjections(metadata.getFunctionAndTypeManager()),
+                        new MergeFilterAndProjection(metadata.getFunctionAndTypeManager()))));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

@@ -890,6 +890,23 @@ Enables optimization for aggregations on dictionaries.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`dictionary_aggregation\`\``.
 
+``optimizer.optimize-cascading-filters-and-projections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Coalesce cascading projections by fully inlining deterministic child expressions into the parent
+projection (the opposite tradeoff from ``InlineProjections``), and merge an adjacent filter and
+projection by inlining the projection's expressions into the filter predicate. This co-locates
+shared subexpressions within a single operator so the native (Velox) engine's
+common-subexpression elimination can deduplicate them, which matches Velox's preferred
+filter-then-project shape. Non-deterministic expressions that are referenced more than once and
+inputs to ``TRY(...)`` are never inlined, preserving semantics. Runs as the last planning-time
+optimizer.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`optimize_cascading_filters_and_projections\`\``.
+
 ``optimizer.optimize-hash-generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

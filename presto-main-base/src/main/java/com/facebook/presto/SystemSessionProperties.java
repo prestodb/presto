@@ -180,6 +180,7 @@ public final class SystemSessionProperties
     public static final String PUSH_AGGREGATION_THROUGH_JOIN = "push_aggregation_through_join";
     public static final String PUSH_SEMI_JOIN_THROUGH_UNION = "push_semi_join_through_union";
     public static final String PUSH_AGGREGATION_THROUGH_DISJOINT_UNION = "push_aggregation_through_disjoint_union";
+    public static final String OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS = "optimize_cascading_filters_and_projections";
     public static final String SIMPLIFY_COALESCE_OVER_JOIN_KEYS = "simplify_coalesce_over_join_keys";
     public static final String PUSHDOWN_THROUGH_UNNEST = "pushdown_through_unnest";
     public static final String SIMPLIFY_AGGREGATIONS_OVER_CONSTANT = "simplify_aggregations_over_constant";
@@ -980,6 +981,11 @@ public final class SystemSessionProperties
                         PUSH_AGGREGATION_THROUGH_DISJOINT_UNION,
                         "Push aggregation completely below UNION ALL when at least one grouping key has constant values that are disjoint across union branches, eliminating the final aggregation",
                         featuresConfig.isPushAggregationThroughDisjointUnion(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS,
+                        "Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE",
+                        featuresConfig.isOptimizeCascadingFiltersAndProjections(),
                         false),
                 booleanProperty(
                         SIMPLIFY_COALESCE_OVER_JOIN_KEYS,
@@ -2863,6 +2869,10 @@ public final class SystemSessionProperties
         return session.getSystemProperty(PUSH_AGGREGATION_THROUGH_DISJOINT_UNION, Boolean.class);
     }
 
+    public static boolean isOptimizeCascadingFiltersAndProjections(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, Boolean.class);
+    }
     public static boolean isSimplifyCoalesceOverJoinKeys(Session session)
     {
         return session.getSystemProperty(SIMPLIFY_COALESCE_OVER_JOIN_KEYS, Boolean.class);

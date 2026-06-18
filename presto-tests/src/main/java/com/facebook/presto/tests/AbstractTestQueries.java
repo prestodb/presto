@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
@@ -1593,6 +1594,62 @@ public abstract class AbstractTestQueries
                 "SELECT n.nationkey * 2, n.nationkey + r.regionkey, r.name FROM nation n CROSS JOIN region r",
                 // Multiple expressions per side
                 "SELECT n.nationkey * 2, length(n.name), r.regionkey * 10, length(r.name) FROM nation n CROSS JOIN region r",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
+    public void testOptimizeCascadingFiltersAndProjections()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "false")
+                .build();
+
+        // Compare results with the optimization enabled vs disabled to validate correctness.
+        // These queries produce cascading projections and adjacent filter/project shapes that the
+        // rules coalesce/merge; results must be identical regardless of the property.
+        String[] queries = {
+                // Nested arithmetic projections (cascading projects)
+                "SELECT (nationkey * 2 + 1) * 3 FROM nation",
+                // Multiply-referenced computed column across projections
+                "SELECT a + 1, a + 2, a * a FROM (SELECT nationkey * 2 AS a FROM nation)",
+                // WHERE over a computed column (filter over project)
+                "SELECT nationkey FROM (SELECT nationkey, nationkey * 2 AS d FROM nation) WHERE d > 10",
+                // Filter and projection both reference the same computed expression
+                "SELECT d + 1 FROM (SELECT nationkey * 2 AS d FROM nation) WHERE d > 10 AND d < 40",
+                // Computed column used in both predicate and projection over a real source
+                "SELECT region_tag, cnt FROM (" +
+                        "SELECT regionkey + 1 AS region_tag, count(*) AS cnt FROM nation GROUP BY regionkey) " +
+                        "WHERE region_tag > 2",
+                // Deeper cascade with string functions
+                "SELECT upper(substr(name, 1, 3)) FROM (SELECT name FROM nation WHERE length(name) > 4)",
+                // TRY over a computed column must preserve semantics (no unsafe inlining)
+                "SELECT try(d / 0) FROM (SELECT nationkey - nationkey AS d FROM nation)",
+                // Interleaved filter/project at multiple nesting levels: each level filters on a
+                // computed column, so Filter/Project must reorder and collapse while keeping the
+                // filters applied at the correct positions in the data flow.
+                "SELECT e2 FROM (" +
+                        "  SELECT e + 1 AS e2 FROM (" +
+                        "    SELECT d * 2 AS e FROM (" +
+                        "      SELECT nationkey + 1 AS d FROM nation WHERE nationkey > 3) " +
+                        "    WHERE d < 20) " +
+                        "  WHERE e > 10) " +
+                        "WHERE e2 < 35",
+                // Filter sandwiched between two projections over an aggregation
+                "SELECT s + 1 FROM (" +
+                        "  SELECT c * c AS s FROM (" +
+                        "    SELECT count(*) AS c FROM nation GROUP BY regionkey) " +
+                        "  WHERE c > 1)",
+                // Predicate combines an aggregated column and a computed column at different levels
+                "SELECT t.k, t.total FROM (" +
+                        "  SELECT regionkey AS k, sum(nationkey) * 2 AS total FROM nation GROUP BY regionkey) t " +
+                        "WHERE t.total > 50 AND t.k < 4",
         };
 
         for (String query : queries) {

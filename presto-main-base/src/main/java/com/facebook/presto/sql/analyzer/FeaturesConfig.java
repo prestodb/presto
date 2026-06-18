@@ -162,6 +162,7 @@ public class FeaturesConfig
     private boolean pushPartialAggregationThroughJoin;
     private boolean pushSemiJoinThroughUnion;
     private boolean pushAggregationThroughDisjointUnion;
+    private boolean optimizeCascadingFiltersAndProjections;
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
@@ -1764,6 +1765,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isOptimizeCascadingFiltersAndProjections()
+    {
+        return optimizeCascadingFiltersAndProjections;
+    }
+
+    @Config("optimizer.optimize-cascading-filters-and-projections")
+    @ConfigDescription("Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE")
+    public FeaturesConfig setOptimizeCascadingFiltersAndProjections(boolean optimizeCascadingFiltersAndProjections)
+    {
+        this.optimizeCascadingFiltersAndProjections = optimizeCascadingFiltersAndProjections;
+        return this;
+    }
     public boolean isSimplifyCoalesceOverJoinKeys()
     {
         return simplifyCoalesceOverJoinKeys;
