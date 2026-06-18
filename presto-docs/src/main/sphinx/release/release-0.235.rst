@@ -23,7 +23,7 @@ Pinot Connector Changes
 _______________________
 * Add support for mapping Pinot ``BYTES`` data type to Presto ``VARBINARY`` type.
 * Add support for mapping Pinot time fields with days since epoch value to Presto ``DATE`` type with the system property ``pinot.infer-date-type-in-schema``.
-* Add support for mapping Pinot time fields with milliseconds since epoch value to Presto ``TIMESTAMP`` type with the system prpoerty ``pinot.infer-timestamp-type-in-schema``.
+* Add support for mapping Pinot time fields with milliseconds since epoch value to Presto ``TIMESTAMP`` type with the system property ``pinot.infer-timestamp-type-in-schema``.
 * Add Pinot Field type in to column comment field shown as ``DIMENSION``, ``METRIC``, ``TIME``, ``DATETIME``, to provide more information.
 * Add support for pushing down distinct count query to Pinot on a best-effort basis.
 * Add support for new Pinot Routing Table APIs.
