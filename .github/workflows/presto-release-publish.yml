@@ -324,14 +324,14 @@ jobs:
             exit 1
           fi
 
-      - name: Login to Docker Hub
+      - name: Login to docker.io
         if: ${{ env.REGISTRY == 'dockerhub' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GHCR
+      - name: Login to ghcr.io
         if: ${{ env.REGISTRY == 'ghcr' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
@@ -412,14 +412,14 @@ jobs:
             exit 1
           fi
 
-      - name: Login to Docker Hub
+      - name: Login to docker.io
         if: ${{ env.REGISTRY == 'dockerhub' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to GHCR
+      - name: Login to ghcr.io
         if: ${{ env.REGISTRY == 'ghcr' }}
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
