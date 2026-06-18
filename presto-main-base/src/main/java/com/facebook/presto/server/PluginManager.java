@@ -61,6 +61,8 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -110,6 +112,7 @@ public class PluginManager
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final ExpressionOptimizerManager expressionOptimizerManager;
     private final PluginInstaller pluginInstaller;
+    private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
 
     @Inject
     public PluginManager(
@@ -172,6 +175,7 @@ public class PluginManager
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
         this.pluginInstaller = new MainPluginInstaller(this);
+        this.cachedPluginClassLoaders = Suppliers.memoize(this::createPluginClassLoaders);
     }
 
     public void loadPlugins()
@@ -182,35 +186,21 @@ public class PluginManager
     }
 
     public void loadCoordinatorPluginsOnly()
-            throws Exception
     {
         PluginManagerUtil.loadCoordinatorPluginsOnly(
                 pluginsLoading,
-                installedPluginsDir,
-                plugins,
-                resolver,
-                SPI_PACKAGES,
-                COORDINATOR_PLUGIN_SERVICES_FILE,
-                PLUGIN_SERVICES_FILE,
                 pluginInstaller,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void loadRemainingPlugins()
-            throws Exception
     {
         PluginManagerUtil.loadRemainingPlugins(
                 pluginsLoading,
                 pluginsLoaded,
-                installedPluginsDir,
-                plugins,
                 metadata,
-                resolver,
-                SPI_PACKAGES,
-                COORDINATOR_PLUGIN_SERVICES_FILE,
-                PLUGIN_SERVICES_FILE,
                 pluginInstaller,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void installPlugin(Plugin plugin)
@@ -384,6 +374,23 @@ public class PluginManager
         public void installCoordinatorPlugin(CoordinatorPlugin plugin)
         {
             pluginManager.installCoordinatorPlugin(plugin);
+        }
+    }
+
+    private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
+    {
+        try {
+            return PluginManagerUtil.buildClassLoaders(
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    SPI_PACKAGES,
+                    COORDINATOR_PLUGIN_SERVICES_FILE,
+                    PLUGIN_SERVICES_FILE,
+                    getClass().getClassLoader());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build plugin classloaders", e);
         }
     }
 }

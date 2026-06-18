@@ -25,6 +25,8 @@ import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.router.SchedulerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.resolver.ArtifactResolver;
@@ -53,6 +55,7 @@ public class RouterPluginManager
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
     private final PluginInstaller pluginInstaller;
     private final PrestoAuthenticatorManager prestoAuthenticatorManager;
+    private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
 
     List<SchedulerFactory> registeredSchedulerFactoryList = new ArrayList<>();
 
@@ -80,6 +83,7 @@ public class RouterPluginManager
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.pluginInstaller = new RouterPluginInstaller(this);
         this.prestoAuthenticatorManager = requireNonNull(prestoAuthenticatorManager, "prestoAuthenticatorManager is null");
+        this.cachedPluginClassLoaders = Suppliers.memoize(this::createPluginClassLoaders);
     }
 
     public void loadPlugins()
@@ -88,15 +92,9 @@ public class RouterPluginManager
         PluginManagerUtil.loadPlugins(
                 pluginsLoading,
                 pluginsLoaded,
-                installedPluginsDir,
-                plugins,
                 null,
-                resolver,
-                SPI_PACKAGES,
-                null,
-                SERVICES_FILE,
                 pluginInstaller,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void installPlugin(Plugin plugin)
@@ -146,6 +144,23 @@ public class RouterPluginManager
         public void installRouterPlugin(RouterPlugin plugin)
         {
             pluginManager.installRouterPlugin(plugin);
+        }
+    }
+
+    private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
+    {
+        try {
+            return PluginManagerUtil.buildClassLoaders(
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    SPI_PACKAGES,
+                    null,
+                    SERVICES_FILE,
+                    getClass().getClassLoader());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build plugin classloaders", e);
         }
     }
 }

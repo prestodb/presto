@@ -41,6 +41,8 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
@@ -72,6 +74,7 @@ public class FlightShimPluginManager
     private final StaticCatalogStore staticCatalogStore;
     private final TypeDeserializer typeDeserializer;
     private final BlockEncodingManager blockEncodingManager;
+    private final Supplier<List<PluginManagerUtil.PluginClassLoaderHandle>> cachedPluginClassLoaders;
 
     @Inject
     public FlightShimPluginManager(
@@ -96,6 +99,7 @@ public class FlightShimPluginManager
             this.plugins = ImmutableList.copyOf(pluginManagerConfig.getPlugins());
         }
         this.resolver = new ArtifactResolver(pluginManagerConfig.getMavenLocalRepository(), pluginManagerConfig.getMavenRemoteRepository());
+        this.cachedPluginClassLoaders = Suppliers.memoize(this::createPluginClassLoaders);
     }
 
     @PreDestroy
@@ -110,15 +114,9 @@ public class FlightShimPluginManager
         PluginManagerUtil.loadPlugins(
                 pluginsLoading,
                 pluginsLoaded,
-                installedPluginsDir,
-                plugins,
                 null,
-                resolver,
-                SPI_PACKAGES,
-                null,
-                SERVICES_FILE,
                 this,
-                getClass().getClassLoader());
+                cachedPluginClassLoaders.get());
     }
 
     public void loadCatalogs(Map<String, Map<String, String>> additionalCatalogs)
@@ -208,6 +206,23 @@ public class FlightShimPluginManager
         JsonCodec<? extends ConnectorTransactionHandle> getCodecTransactionHandle()
         {
             return codecTransactionHandle;
+        }
+    }
+
+    private List<PluginManagerUtil.PluginClassLoaderHandle> createPluginClassLoaders()
+    {
+        try {
+            return PluginManagerUtil.buildClassLoaders(
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    SPI_PACKAGES,
+                    null,
+                    SERVICES_FILE,
+                    getClass().getClassLoader());
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Failed to build plugin classloaders", e);
         }
     }
 }
