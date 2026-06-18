@@ -11,15 +11,6 @@
 # limitations under the License.
 
 find_program(THRIFT1 thrift1)
-find_library(THRIFTCPP2 thriftcpp2)
-find_library(THRIFT_CORE thrift-core)
-find_library(THRIFT_PROTOCOL thriftprotocol)
-find_library(THRIFT_METADATA thriftmetadata)
-find_library(THRIFT_TRANSPORT transport)
-find_library(THRIFT_ASYNC async)
-find_library(THRIFT_RPC_METADATA rpcmetadata)
-find_library(THRIFT_TYPEREP thrifttyperep)
-
 find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h PATH_SUFFIXES include REQUIRED)
 
 # In the CI /opt/homebrew/include is not included and it leads to missing
@@ -28,17 +19,7 @@ if(APPLE AND EXISTS "/opt/homebrew")
   include_directories(SYSTEM /opt/homebrew/include)
 endif()
 
-set(
-  presto_thrift_library_dependencies
-  ${THRIFT_PROTOCOL}
-  ${THRIFT_METADATA}
-  ${THRIFT_CORE}
-  ${THRIFT_TYPEREP}
-  ${THRIFT_ASYNC}
-  ${THRIFT_TRANSPORT}
-  ${THRIFT_RPC_METADATA}
-  ${FOLLY_WITH_DEPENDENCIES}
-)
+set(presto_thrift_library_dependencies FBThrift::thriftcpp2 ${FOLLY_WITH_DEPENDENCIES})
 
 include(ThriftLibrary.cmake)
 
