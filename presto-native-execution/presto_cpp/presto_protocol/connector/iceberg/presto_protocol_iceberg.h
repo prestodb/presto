@@ -80,12 +80,17 @@ void to_json(json& j, const ChangelogSplitInfo& p);
 void from_json(const json& j, ChangelogSplitInfo& p);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileContent { DATA, POSITION_DELETES, EQUALITY_DELETES };
+enum class FileContent {
+  DATA,
+  POSITION_DELETES,
+  EQUALITY_DELETES,
+  DELETION_VECTOR
+};
 extern void to_json(json& j, const FileContent& e);
 extern void from_json(const json& j, FileContent& e);
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
-enum class FileFormat { ORC, PARQUET, AVRO, METADATA, PUFFIN };
+enum class FileFormat { ORC, PARQUET, AVRO, METADATA, PUFFIN, DWRF, NIMBLE };
 extern void to_json(json& j, const FileFormat& e);
 extern void from_json(const json& j, FileFormat& e);
 } // namespace facebook::presto::protocol::iceberg
@@ -99,6 +104,10 @@ struct DeleteFile {
   List<Integer> equalityFieldIds = {};
   Map<Integer, String> lowerBounds = {};
   Map<Integer, String> upperBounds = {};
+  std::shared_ptr<Long> contentOffset = {};
+  std::shared_ptr<Long> contentSizeInBytes = {};
+  std::shared_ptr<String> referencedDataFile = {};
+  int64_t dataSequenceNumber = {};
 };
 void to_json(json& j, const DeleteFile& p);
 void from_json(const json& j, DeleteFile& p);
@@ -279,6 +288,17 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
+struct IcebergMergeTableHandle : public ConnectorMergeTableHandle {
+  IcebergTableHandle tableHandle = {};
+  IcebergInsertTableHandle insertTableHandle = {};
+  Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = {};
+
+  IcebergMergeTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergMergeTableHandle& p);
+void from_json(const json& j, IcebergMergeTableHandle& p);
+} // namespace facebook::presto::protocol::iceberg
 // IcebergOutputTableHandle is special since it needs an usage of
 // hive::.
 
@@ -325,4 +345,29 @@ struct IcebergSplit : public ConnectorSplit {
 };
 void to_json(json& j, const IcebergSplit& p);
 void from_json(const json& j, IcebergSplit& p);
+} // namespace facebook::presto::protocol::iceberg
+
+// IcebergDeleteTableHandle is special since its Java source lives in
+// presto-facebook-iceberg (FB-only) and is not reachable from the regen yml's
+// PRESTO_HOME-relative JavaClasses paths. Inject the regen-equivalent struct
+// here manually until the yml is taught the FB-trunk path.
+namespace facebook::presto::protocol::iceberg {
+struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
+  String schemaName = {};
+  IcebergTableName tableName = {};
+  PrestoIcebergSchema schema = {};
+  PrestoIcebergPartitionSpec partitionSpec = {};
+  List<IcebergColumnHandle> inputColumns = {};
+  String outputPath = {};
+  FileFormat fileFormat = {};
+  hive::HiveCompressionCodec compressionCodec = {};
+  Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
+  std::shared_ptr<SchemaTableName> materializedViewName = {};
+  FileContent fileContent = {};
+
+  IcebergDeleteTableHandle() noexcept;
+};
+void to_json(json& j, const IcebergDeleteTableHandle& p);
+void from_json(const json& j, IcebergDeleteTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg

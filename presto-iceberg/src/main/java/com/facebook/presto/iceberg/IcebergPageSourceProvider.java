@@ -1036,6 +1036,9 @@ public class IcebergPageSourceProvider
         }
 
         for (DeleteFile delete : deleteFiles) {
+            if (delete.format() == com.facebook.presto.iceberg.FileFormat.PUFFIN) {
+                throw new PrestoException(NOT_SUPPORTED, "Iceberg deletion vectors using PUFFIN format are not supported");
+            }
             if (delete.content() == POSITION_DELETES) {
                 if (startRowPosition.isPresent()) {
                     byte[] lowerBoundBytes = delete.getLowerBounds().get(DELETE_FILE_POS.fieldId());

@@ -404,6 +404,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER = "native_max_split_preload_per_driver";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_UPDATE_MERGE_ENABLED = "native_update_merge_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
@@ -1893,6 +1894,14 @@ public final class SystemSessionProperties
                         featuresConfig.isNativeExecutionEnabled(),
                         true),
                 booleanProperty(
+                        NATIVE_UPDATE_MERGE_ENABLED,
+                        "Allow UPDATE / MERGE planning when native execution is enabled. " +
+                                "Requires that the Velox/Prestissimo workers ship the IcebergMergeProcessor / IcebergMergeSink ports " +
+                                "AND that PrestoToVeloxQueryPlan dispatches UpdateNode/MergeWriterNode/MergeProcessorNode. " +
+                                "Default true now that Layer 3b MergeWriterNode→TableWriteNode wiring is in.",
+                        true,
+                        false),
+                booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
@@ -2876,6 +2885,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeUpdateMergeEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_UPDATE_MERGE_ENABLED, Boolean.class);
     }
 
     public static boolean isSingleNodeExecutionEnabled(Session session)

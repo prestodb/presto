@@ -40,6 +40,7 @@
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/IcebergMergeProcessorOperator.h"
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/MaterializedExchange.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
@@ -1483,6 +1484,8 @@ void PrestoServer::registerShuffleInterfaceFactories() {
 }
 
 void PrestoServer::registerCustomOperators() {
+  velox::exec::Operator::registerOperator(
+      std::make_unique<operators::IcebergMergeProcessorTranslator>());
   velox::exec::Operator::registerOperator(
       std::make_unique<operators::PartitionAndSerializeTranslator>());
   velox::exec::Operator::registerOperator(

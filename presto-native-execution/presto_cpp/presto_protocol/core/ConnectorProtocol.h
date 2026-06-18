@@ -168,6 +168,17 @@ class ConnectorProtocol {
   virtual void deserialize(
       const std::string& thrift,
       std::shared_ptr<ConnectorIndexHandle>& proto) const = 0;
+
+  // Layer 3b: MERGE handle dispatch (mirrors the ConnectorDeleteTableHandle
+  // pair above). Wired through ConnectorMergeTableHandleType template slot
+  // below; connectors that don't support MERGE leave the slot as
+  // NotImplemented (default), which yields a VELOX_NYI on dispatch.
+  virtual void to_json(
+      json& j,
+      const std::shared_ptr<ConnectorMergeTableHandle>& p) const = 0;
+  virtual void from_json(
+      const json& j,
+      std::shared_ptr<ConnectorMergeTableHandle>& p) const = 0;
 };
 
 namespace {
@@ -185,7 +196,8 @@ template <
     typename ConnectorTransactionHandleType = NotImplemented,
     typename ConnectorDistributedProcedureHandleType = NotImplemented,
     typename ConnectorDeleteTableHandleType = NotImplemented,
-    typename ConnectorIndexHandleType = NotImplemented>
+    typename ConnectorIndexHandleType = NotImplemented,
+    typename ConnectorMergeTableHandleType = NotImplemented>
 class ConnectorProtocolTemplate final : public ConnectorProtocol {
  public:
   void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p)
@@ -397,6 +409,16 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
     deserializeTemplate<ConnectorIndexHandleType>(thrift, proto);
   }
 
+  // Layer 3b: ConnectorMergeTableHandle dispatch.
+  void to_json(json& j, const std::shared_ptr<ConnectorMergeTableHandle>& p)
+      const final {
+    to_json_template<ConnectorMergeTableHandleType>(j, p);
+  }
+  void from_json(const json& j, std::shared_ptr<ConnectorMergeTableHandle>& p)
+      const final {
+    from_json_template<ConnectorMergeTableHandleType>(j, p);
+  }
+
  private:
   template <typename DERIVED, typename BASE>
   static void to_json_template(
@@ -486,6 +508,7 @@ using SystemConnectorProtocol = ConnectorProtocolTemplate<
     SystemSplit,
     SystemPartitioningHandle,
     SystemTransactionHandle,
+    NotImplemented,
     NotImplemented,
     NotImplemented,
     NotImplemented>;

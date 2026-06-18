@@ -73,6 +73,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
@@ -115,6 +116,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeUpdateMergeEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
@@ -984,9 +987,37 @@ public class LogicalPlanner
 
     private RelationPlan createUpdatePlan(Analysis analysis, Update node)
     {
+        if (isNativeExecutionEnabled(session) && !isNativeUpdateMergeEnabled(session)) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "UPDATE is not supported on native (Prestissimo) workers when " +
+                            "native_update_merge_enabled is false. Enable that session property " +
+                            "(or run on a Java cluster) to use UPDATE.");
+        }
+
         SqlPlannerContext context = new SqlPlannerContext(0);
-        UpdateNode updateNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
+        // [ICEBERG-FIX]: plan(Update) now returns InternalPlanNode --
+        // either an UpdateNode (legacy/Java path) or a MergeWriterNode when
+        // native_update_merge_enabled is on. Branch the TableFinishNode
+        // wrapping below on the actual returned shape.
+        InternalPlanNode planNode = new QueryPlanner(analysis, variableAllocator, idAllocator, buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)
                 .plan(node);
+
+        if (planNode instanceof MergeWriterNode) {
+            MergeWriterNode mergeWriterNode = (MergeWriterNode) planNode;
+            TableFinishNode commitNode = new TableFinishNode(
+                    mergeWriterNode.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    mergeWriterNode,
+                    Optional.of(mergeWriterNode.getTarget()),
+                    variableAllocator.newVariable("rows", BIGINT),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+            return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputVariables());
+        }
+
+        UpdateNode updateNode = (UpdateNode) planNode;
 
         TableHandle handle = analysis.getTableHandle(node.getTable());
         ImmutableList.Builder<String> updatedColumnNamesBuilder = ImmutableList.builder();
@@ -1026,6 +1057,14 @@ public class LogicalPlanner
 
     private RelationPlan createMergePlan(Analysis analysis, Merge node)
     {
+        if (isNativeExecutionEnabled(session) && !isNativeUpdateMergeEnabled(session)) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "MERGE is not supported on native (Prestissimo) workers when " +
+                            "native_update_merge_enabled is false. Enable that session property " +
+                            "(or run on a Java cluster) to use MERGE.");
+        }
+
         SqlPlannerContext context = new SqlPlannerContext(0);
         MergeWriterNode mergeNode = new QueryPlanner(analysis, variableAllocator, idAllocator,
                 buildLambdaDeclarationToVariableMap(analysis, variableAllocator), metadata, session, context, sqlParser)

@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/TaskResource.h"
 #include <presto_cpp/main/common/Exception.h>
+#include <typeinfo>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
@@ -261,10 +262,34 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                     summarize,
                     startProcessCpuTimeNs,
                     receiveThrift);
-              } catch (const velox::VeloxException&) {
+              } catch (const velox::VeloxException& ex) {
+                // Log VeloxException before converting to an error task so
+                // the failure reason is captured in worker stderr.
+                LOG(ERROR) << "createOrUpdateTask VeloxException for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " what=" << ex.what();
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
+                try {
+                  taskInfo = taskManager_.createOrUpdateErrorTask(
+                      taskId,
+                      std::current_exception(),
+                      summarize,
+                      startProcessCpuTimeNs);
+                } catch (const velox::VeloxUserError&) {
+                  throw;
+                }
+              } catch (const std::exception& ex) {
+                // Catch non-Velox std::exception (e.g., nlohmann::json
+                // deserialization errors) and route through the same
+                // error-task path. Without this, such exceptions propagate
+                // past the VeloxException catch and proxygen returns HTTP
+                // 500 with no log line, making the root cause invisible.
+                LOG(ERROR) << "createOrUpdateTask std::exception for taskId="
+                           << taskId << " bodyLen=" << requestBody.size()
+                           << " type=" << typeid(ex).name()
+                           << " what=" << ex.what();
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId,

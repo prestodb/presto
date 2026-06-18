@@ -3101,9 +3101,15 @@ public class LocalExecutionPlanner
             }
             OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId().get()), tableCommitContextCodec);
 
+            // [ICEBERG-FIX bug 1B]: DeleteNode declares 3 output
+            // variables matching the runtime DeleteOperator page layout
+            // (rows, fragments, commitcontext). Map all three so the
+            // downstream operators see the same channel order the
+            // operator emits.
             Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
                     .put(node.getOutputVariables().get(0), 0)
                     .put(node.getOutputVariables().get(1), 1)
+                    .put(node.getOutputVariables().get(2), 2)
                     .build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);

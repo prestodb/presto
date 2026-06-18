@@ -295,7 +295,8 @@ static const std::pair<FileContent, json> FileContent_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {FileContent::DATA, "DATA"},
         {FileContent::POSITION_DELETES, "POSITION_DELETES"},
-        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"}};
+        {FileContent::EQUALITY_DELETES, "EQUALITY_DELETES"},
+        {FileContent::DELETION_VECTOR, "DELETION_VECTOR"}};
 void to_json(json& j, const FileContent& e) {
   static_assert(
       std::is_enum<FileContent>::value, "FileContent must be an enum!");
@@ -335,7 +336,9 @@ static const std::pair<FileFormat, json> FileFormat_enum_table[] =
         {FileFormat::PARQUET, "PARQUET"},
         {FileFormat::AVRO, "AVRO"},
         {FileFormat::METADATA, "METADATA"},
-        {FileFormat::PUFFIN, "PUFFIN"}};
+        {FileFormat::PUFFIN, "PUFFIN"},
+        {FileFormat::DWRF, "DWRF"},
+        {FileFormat::NIMBLE, "NIMBLE"}};
 void to_json(json& j, const FileFormat& e) {
   static_assert(std::is_enum<FileFormat>::value, "FileFormat must be an enum!");
   const auto* it = std::find_if(
@@ -400,6 +403,34 @@ void to_json(json& j, const DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  to_json_key(
+      j,
+      "contentOffset",
+      p.contentOffset,
+      "DeleteFile",
+      "Long",
+      "contentOffset");
+  to_json_key(
+      j,
+      "contentSizeInBytes",
+      p.contentSizeInBytes,
+      "DeleteFile",
+      "Long",
+      "contentSizeInBytes");
+  to_json_key(
+      j,
+      "referencedDataFile",
+      p.referencedDataFile,
+      "DeleteFile",
+      "String",
+      "referencedDataFile");
+  to_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 
 void from_json(const json& j, DeleteFile& p) {
@@ -437,6 +468,34 @@ void from_json(const json& j, DeleteFile& p) {
       "DeleteFile",
       "Map<Integer, String>",
       "upperBounds");
+  from_json_key(
+      j,
+      "contentOffset",
+      p.contentOffset,
+      "DeleteFile",
+      "Long",
+      "contentOffset");
+  from_json_key(
+      j,
+      "contentSizeInBytes",
+      p.contentSizeInBytes,
+      "DeleteFile",
+      "Long",
+      "contentSizeInBytes");
+  from_json_key(
+      j,
+      "referencedDataFile",
+      p.referencedDataFile,
+      "DeleteFile",
+      "String",
+      "referencedDataFile");
+  from_json_key(
+      j,
+      "dataSequenceNumber",
+      p.dataSequenceNumber,
+      "DeleteFile",
+      "int64_t",
+      "dataSequenceNumber");
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
@@ -1533,6 +1592,62 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
 }
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
+IcebergMergeTableHandle::IcebergMergeTableHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergMergeTableHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergTableHandle",
+      "tableHandle");
+  to_json_key(
+      j,
+      "insertTableHandle",
+      p.insertTableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergInsertTableHandle",
+      "insertTableHandle");
+  to_json_key(
+      j,
+      "partitionSpecs",
+      p.partitionSpecs,
+      "IcebergMergeTableHandle",
+      "Map<Integer, PrestoIcebergPartitionSpec>",
+      "partitionSpecs");
+}
+
+void from_json(const json& j, IcebergMergeTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "tableHandle",
+      p.tableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergTableHandle",
+      "tableHandle");
+  from_json_key(
+      j,
+      "insertTableHandle",
+      p.insertTableHandle,
+      "IcebergMergeTableHandle",
+      "IcebergInsertTableHandle",
+      "insertTableHandle");
+  from_json_key(
+      j,
+      "partitionSpecs",
+      p.partitionSpecs,
+      "IcebergMergeTableHandle",
+      "Map<Integer, PrestoIcebergPartitionSpec>",
+      "partitionSpecs");
+}
+} // namespace facebook::presto::protocol::iceberg
+namespace facebook::presto::protocol::iceberg {
 IcebergOutputTableHandle::IcebergOutputTableHandle() noexcept {
   _type = "hive-iceberg";
 }
@@ -1852,5 +1967,190 @@ void from_json(const json& j, IcebergSplit& p) {
       "IcebergSplit",
       "int64_t",
       "affinitySchedulingSectionSize");
+}
+} // namespace facebook::presto::protocol::iceberg
+
+// IcebergDeleteTableHandle implementation. See header for why this is hand-
+// injected rather than regen-produced.
+namespace facebook::presto::protocol::iceberg {
+IcebergDeleteTableHandle::IcebergDeleteTableHandle() noexcept {
+  _type = "hive-iceberg";
+}
+
+void to_json(json& j, const IcebergDeleteTableHandle& p) {
+  j = json::object();
+  j["@type"] = "hive-iceberg";
+  to_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDeleteTableHandle",
+      "String",
+      "schemaName");
+  to_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDeleteTableHandle",
+      "IcebergTableName",
+      "tableName");
+  to_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  to_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  to_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDeleteTableHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  to_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDeleteTableHandle",
+      "String",
+      "outputPath");
+  to_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDeleteTableHandle",
+      "FileFormat",
+      "fileFormat");
+  to_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDeleteTableHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  to_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDeleteTableHandle",
+      "Map<String, String>",
+      "storageProperties");
+  to_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDeleteTableHandle",
+      "List<SortField>",
+      "sortOrder");
+  to_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergDeleteTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
+  to_json_key(
+      j,
+      "fileContent",
+      p.fileContent,
+      "IcebergDeleteTableHandle",
+      "FileContent",
+      "fileContent");
+}
+
+void from_json(const json& j, IcebergDeleteTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "schemaName",
+      p.schemaName,
+      "IcebergDeleteTableHandle",
+      "String",
+      "schemaName");
+  from_json_key(
+      j,
+      "tableName",
+      p.tableName,
+      "IcebergDeleteTableHandle",
+      "IcebergTableName",
+      "tableName");
+  from_json_key(
+      j,
+      "schema",
+      p.schema,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergSchema",
+      "schema");
+  from_json_key(
+      j,
+      "partitionSpec",
+      p.partitionSpec,
+      "IcebergDeleteTableHandle",
+      "PrestoIcebergPartitionSpec",
+      "partitionSpec");
+  from_json_key(
+      j,
+      "inputColumns",
+      p.inputColumns,
+      "IcebergDeleteTableHandle",
+      "List<IcebergColumnHandle>",
+      "inputColumns");
+  from_json_key(
+      j,
+      "outputPath",
+      p.outputPath,
+      "IcebergDeleteTableHandle",
+      "String",
+      "outputPath");
+  from_json_key(
+      j,
+      "fileFormat",
+      p.fileFormat,
+      "IcebergDeleteTableHandle",
+      "FileFormat",
+      "fileFormat");
+  from_json_key(
+      j,
+      "compressionCodec",
+      p.compressionCodec,
+      "IcebergDeleteTableHandle",
+      "HiveCompressionCodec",
+      "compressionCodec");
+  from_json_key(
+      j,
+      "storageProperties",
+      p.storageProperties,
+      "IcebergDeleteTableHandle",
+      "Map<String, String>",
+      "storageProperties");
+  from_json_key(
+      j,
+      "sortOrder",
+      p.sortOrder,
+      "IcebergDeleteTableHandle",
+      "List<SortField>",
+      "sortOrder");
+  from_json_key(
+      j,
+      "materializedViewName",
+      p.materializedViewName,
+      "IcebergDeleteTableHandle",
+      "SchemaTableName",
+      "materializedViewName");
+  from_json_key(
+      j,
+      "fileContent",
+      p.fileContent,
+      "IcebergDeleteTableHandle",
+      "FileContent",
+      "fileContent");
 }
 } // namespace facebook::presto::protocol::iceberg
