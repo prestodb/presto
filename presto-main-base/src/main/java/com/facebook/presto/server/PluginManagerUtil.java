@@ -40,10 +40,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
 import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static com.google.common.base.Preconditions.checkState;
 
 public class PluginManagerUtil
 {
     private static final Logger log = Logger.get(PluginManagerUtil.class);
+    // Temporary cache to share classloaders between loadCoordinatorPluginsOnly and loadRemainingPlugins
+    // within a single initialization sequence. Cleared after loadRemainingPlugins completes.
+    private static volatile List<PluginClassLoaderHandle> sharedPluginClassLoaders;
 
     /*
      When generating code the AfterBurner module loads classes with *some* classloader.
@@ -87,30 +91,34 @@ public class PluginManagerUtil
             ClassLoader parent)
             throws Exception
     {
-        if (!pluginsLoading.compareAndSet(false, true)) {
-            return;
-        }
-
-        List<String> pluginsToLoad = new ArrayList<>();
-
-        for (File file : listFiles(installedPluginsDir)) {
-            if (file.isDirectory()) {
-                pluginsToLoad.add(file.getAbsolutePath());
-            }
-        }
-
-        pluginsToLoad.addAll(plugins);
-        loadPlugins(pluginsToLoad, resolver, spiPackages, coordinatorPluginServicesFile, pluginServicesFile, pluginInstaller, parent);
-
-        if (metadata != null) {
-            metadata.verifyComparableOrderableContract();
-        }
-
-        pluginsLoaded.set(true);
+        loadCoordinatorPluginsOnly(
+                pluginsLoading,
+                installedPluginsDir,
+                plugins,
+                resolver,
+                spiPackages,
+                coordinatorPluginServicesFile,
+                pluginServicesFile,
+                pluginInstaller,
+                parent);
+        loadRemainingPlugins(
+                pluginsLoading,
+                pluginsLoaded,
+                installedPluginsDir,
+                plugins,
+                metadata,
+                resolver,
+                spiPackages,
+                coordinatorPluginServicesFile,
+                pluginServicesFile,
+                pluginInstaller,
+                parent);
     }
 
-    public static void loadPlugins(
-            List<String> pluginsList,
+    public static synchronized void loadCoordinatorPluginsOnly(
+            AtomicBoolean pluginsLoading,
+            File installedPluginsDir,
+            List<String> plugins,
             ArtifactResolver resolver,
             List<String> spiPackages,
             String coordinatorPluginServicesFile,
@@ -119,9 +127,100 @@ public class PluginManagerUtil
             ClassLoader parent)
             throws Exception
     {
+        if (!pluginsLoading.compareAndSet(false, true)) {
+            return;
+        }
+
+        // Build classloaders and store them for reuse in loadRemainingPlugins
+        sharedPluginClassLoaders = buildClassLoaders(
+                installedPluginsDir,
+                plugins,
+                resolver,
+                spiPackages,
+                coordinatorPluginServicesFile,
+                pluginServicesFile,
+                parent);
+
+        loadPlugins(sharedPluginClassLoaders, CoordinatorPlugin.class, pluginInstaller);
+    }
+
+    public static synchronized void loadRemainingPlugins(
+            AtomicBoolean pluginsLoading,
+            AtomicBoolean pluginsLoaded,
+            File installedPluginsDir,
+            List<String> plugins,
+            Metadata metadata,
+            ArtifactResolver resolver,
+            List<String> spiPackages,
+            String coordinatorPluginServicesFile,
+            String pluginServicesFile,
+            PluginInstaller pluginInstaller,
+            ClassLoader parent)
+            throws Exception
+    {
+        if (pluginsLoaded.get()) {
+            return;
+        }
+
+        // If loadCoordinatorPluginsOnly wasn't called yet, call it first to ensure
+        // coordinator plugins are loaded and classloaders are built
+        if (!pluginsLoading.get()) {
+            loadCoordinatorPluginsOnly(
+                    pluginsLoading,
+                    installedPluginsDir,
+                    plugins,
+                    resolver,
+                    spiPackages,
+                    coordinatorPluginServicesFile,
+                    pluginServicesFile,
+                    pluginInstaller,
+                    parent);
+        }
+
+        // Reuse classloaders from loadCoordinatorPluginsOnly
+        checkState(
+                sharedPluginClassLoaders != null,
+                "sharedPluginClassLoaders is null in loadRemainingPlugins (installedPluginsDir=%s, plugins=%s)",
+                installedPluginsDir,
+                plugins);
+
+        try {
+            loadPlugins(sharedPluginClassLoaders, Plugin.class, pluginInstaller);
+            loadPlugins(sharedPluginClassLoaders, RouterPlugin.class, pluginInstaller);
+
+            if (metadata != null) {
+                metadata.verifyComparableOrderableContract();
+            }
+
+            pluginsLoaded.set(true);
+        }
+        finally {
+            // Clear the shared reference to allow GC of the handle list
+            sharedPluginClassLoaders = null;
+        }
+    }
+
+    private static List<PluginClassLoaderHandle> buildClassLoaders(
+            File installedPluginsDir,
+            List<String> plugins,
+            ArtifactResolver resolver,
+            List<String> spiPackages,
+            String coordinatorPluginServicesFile,
+            String pluginServicesFile,
+            ClassLoader parent)
+            throws Exception
+    {
+        List<String> pluginsToLoad = new ArrayList<>();
+        for (File file : listFiles(installedPluginsDir)) {
+            if (file.isDirectory()) {
+                pluginsToLoad.add(file.getAbsolutePath());
+            }
+        }
+        pluginsToLoad.addAll(plugins);
+
         List<PluginClassLoaderHandle> pluginClassLoaders = new ArrayList<>();
         try {
-            for (String plugin : pluginsList) {
+            for (String plugin : pluginsToLoad) {
                 pluginClassLoaders.add(new PluginClassLoaderHandle(
                         plugin,
                         buildClassLoader(
@@ -138,11 +237,7 @@ public class PluginManagerUtil
             throw e;
         }
 
-        // Ensuring all coordinator plugins are installed before any plugins across all plugin bundles.
-        // router plugins ordering is not relevant here.
-        loadPlugins(pluginClassLoaders, CoordinatorPlugin.class, pluginInstaller);
-        loadPlugins(pluginClassLoaders, Plugin.class, pluginInstaller);
-        loadPlugins(pluginClassLoaders, RouterPlugin.class, pluginInstaller);
+        return pluginClassLoaders;
     }
 
     private static void loadPlugins(

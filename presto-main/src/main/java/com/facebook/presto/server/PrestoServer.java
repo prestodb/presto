@@ -168,7 +168,19 @@ public class PrestoServer
         try {
             Injector injector = app.initialize();
 
-            injector.getInstance(PluginManager.class).loadPlugins();
+            PluginManager pluginManager = injector.getInstance(PluginManager.class);
+
+            // Load only CoordinatorPlugin service providers first
+            pluginManager.loadCoordinatorPluginsOnly();
+
+            // todo: fix this hack
+            //  Load type managers before loading any other plugin service providers as we could have a new serving type manager.
+            //  Currently, when sidecar plugin is installed, the serving type manager is NativeTypeManager and we need to ensure
+            //  any types loaded from plugins are added to the serving type manager.
+            injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
+
+            // Load remaining service providers (Plugin and RouterPlugin)
+            pluginManager.loadRemainingPlugins();
 
             // get all required auth configs to pass down to http clients
             AuthClientConfigs authClientConfigs =
@@ -195,7 +207,6 @@ public class PrestoServer
                     injector.getInstance(DriftServer.class));
 
             injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(authClientConfigs);
-            injector.getInstance(StaticTypeManagerStore.class).loadTypeManagers();
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             if (injector.getInstance(FeaturesConfig.class).isBuiltInSidecarFunctionsEnabled()) {

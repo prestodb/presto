@@ -177,7 +177,29 @@ public class PluginManager
     public void loadPlugins()
             throws Exception
     {
-        PluginManagerUtil.loadPlugins(
+        loadCoordinatorPluginsOnly();
+        loadRemainingPlugins();
+    }
+
+    public void loadCoordinatorPluginsOnly()
+            throws Exception
+    {
+        PluginManagerUtil.loadCoordinatorPluginsOnly(
+                pluginsLoading,
+                installedPluginsDir,
+                plugins,
+                resolver,
+                SPI_PACKAGES,
+                COORDINATOR_PLUGIN_SERVICES_FILE,
+                PLUGIN_SERVICES_FILE,
+                pluginInstaller,
+                getClass().getClassLoader());
+    }
+
+    public void loadRemainingPlugins()
+            throws Exception
+    {
+        PluginManagerUtil.loadRemainingPlugins(
                 pluginsLoading,
                 pluginsLoaded,
                 installedPluginsDir,
