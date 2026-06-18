@@ -1018,15 +1018,6 @@ void to_json(json& j, const AggregationNode& p) {
       "aggregations");
   to_json_key(
       j,
-      "aggregationOutputs",
-      p.aggregationOutputs,
-      "AggregationNode",
-      "List<VariableReferenceExpression>",
-      "aggregationOutputs");
-  // to_json_key for std::shared_ptr only emits when the pointer is non-null,
-  // matching the pattern for other Optional<> ExtraFields.
-  to_json_key(
-      j,
       "groupingSets",
       p.groupingSets,
       "AggregationNode",
@@ -1062,6 +1053,13 @@ void to_json(json& j, const AggregationNode& p) {
       "AggregationNode",
       "Integer",
       "aggregationId");
+  to_json_key(
+      j,
+      "aggregationOutputs",
+      p.aggregationOutputs,
+      "AggregationNode",
+      "List<VariableReferenceExpression>",
+      "aggregationOutputs");
 }
 
 void from_json(const json& j, AggregationNode& p) {
@@ -1075,17 +1073,6 @@ void from_json(const json& j, AggregationNode& p) {
       "AggregationNode",
       "Map<VariableReferenceExpression, Aggregation>",
       "aggregations");
-  // from_json_key for std::shared_ptr tolerates a missing key, so older
-  // coordinators that predate this field deserialize cleanly with
-  // p.aggregationOutputs left as nullptr; the converter falls back to
-  // iterating `aggregations` in that case.
-  from_json_key(
-      j,
-      "aggregationOutputs",
-      p.aggregationOutputs,
-      "AggregationNode",
-      "List<VariableReferenceExpression>",
-      "aggregationOutputs");
   from_json_key(
       j,
       "groupingSets",
@@ -1123,6 +1110,13 @@ void from_json(const json& j, AggregationNode& p) {
       "AggregationNode",
       "Integer",
       "aggregationId");
+  from_json_key(
+      j,
+      "aggregationOutputs",
+      p.aggregationOutputs,
+      "AggregationNode",
+      "List<VariableReferenceExpression>",
+      "aggregationOutputs");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -9051,6 +9045,20 @@ void to_json(json& j, const StageExecutionDescriptor& p) {
       "StageExecutionDescriptor",
       "int",
       "totalLifespans");
+  to_json_key(
+      j,
+      "groupedExecutionPartitionValues",
+      p.groupedExecutionPartitionValues,
+      "StageExecutionDescriptor",
+      "List<Map<String, String>>",
+      "groupedExecutionPartitionValues");
+  to_json_key(
+      j,
+      "partitionColumnMappings",
+      p.partitionColumnMappings,
+      "StageExecutionDescriptor",
+      "Map<PlanNodeId, Map<String, String>>",
+      "partitionColumnMappings");
 }
 
 void from_json(const json& j, StageExecutionDescriptor& p) {
@@ -9075,6 +9083,20 @@ void from_json(const json& j, StageExecutionDescriptor& p) {
       "StageExecutionDescriptor",
       "int",
       "totalLifespans");
+  from_json_key(
+      j,
+      "groupedExecutionPartitionValues",
+      p.groupedExecutionPartitionValues,
+      "StageExecutionDescriptor",
+      "List<Map<String, String>>",
+      "groupedExecutionPartitionValues");
+  from_json_key(
+      j,
+      "partitionColumnMappings",
+      p.partitionColumnMappings,
+      "StageExecutionDescriptor",
+      "Map<PlanNodeId, Map<String, String>>",
+      "partitionColumnMappings");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

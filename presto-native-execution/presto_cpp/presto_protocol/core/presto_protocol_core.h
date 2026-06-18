@@ -424,13 +424,13 @@ namespace facebook::presto::protocol {
 struct AggregationNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   Map<VariableReferenceExpression, Aggregation> aggregations = {};
-  std::shared_ptr<List<VariableReferenceExpression>> aggregationOutputs = {};
   GroupingSetDescriptor groupingSets = {};
   List<VariableReferenceExpression> preGroupedVariables = {};
   AggregationNodeStep step = {};
   std::shared_ptr<VariableReferenceExpression> hashVariable = {};
   std::shared_ptr<VariableReferenceExpression> groupIdVariable = {};
   std::shared_ptr<Integer> aggregationId = {};
+  std::shared_ptr<List<VariableReferenceExpression>> aggregationOutputs = {};
 
   AggregationNode() noexcept;
 };
@@ -2096,6 +2096,8 @@ struct StageExecutionDescriptor {
   StageExecutionStrategy stageExecutionStrategy = {};
   List<PlanNodeId> groupedExecutionScanNodes = {};
   int totalLifespans = {};
+  List<Map<String, String>> groupedExecutionPartitionValues = {};
+  Map<PlanNodeId, Map<String, String>> partitionColumnMappings = {};
 };
 void to_json(json& j, const StageExecutionDescriptor& p);
 void from_json(const json& j, StageExecutionDescriptor& p);
