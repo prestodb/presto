@@ -31,7 +31,7 @@ are now specified using a duration rather than milliseconds (this makes
 them consistent with all other such properties in Presto). If you were
 previously specifying a value such as ``25``, change it to ``25ms``.
 
-The retry policy for the Cassandra client is now configurable via the
+The retry policy for the Cassandra client is now configurable with the
 ``cassandra.retry-policy`` property. In particular, the custom ``BACKOFF``
 retry policy may be useful.
 

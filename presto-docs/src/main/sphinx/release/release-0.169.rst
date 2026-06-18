@@ -19,7 +19,7 @@ JDBC Driver Changes
 CLI Changes
 -----------
 
-* Fix support for non-standard offset time zones (e.g., ``GMT+01:00``).
+* Fix support for non-standard offset time zones (for example, ``GMT+01:00``).
 
 Cassandra Changes
 -----------------

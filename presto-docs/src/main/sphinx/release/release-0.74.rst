@@ -13,7 +13,7 @@ old implementation in case of issues. To do so, add ``compiler.new-bytecode-gene
 Hive Storage Format
 -------------------
 
-The storage format to use when writing data to Hive can now be configured via the ``hive.storage-format`` option
+The storage format to use when writing data to Hive can now be configured with the ``hive.storage-format`` option
 in your Hive catalog properties file. Valid options are ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE`` and ``TEXTFILE``.
 The default format if the property is not set is ``RCBINARY``.
 

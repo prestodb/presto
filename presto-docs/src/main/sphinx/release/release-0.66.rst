@@ -99,7 +99,7 @@ Both timestamps represent the same instant in time;
 they differ only in the time zone used to print them.
 
 The time zone of the session can be set on a per-query basis using the
-``X-Presto-Time-Zone`` HTTP header, or via the
+``X-Presto-Time-Zone`` HTTP header, or through the
 ``PrestoConnection.setTimeZoneId(String)`` method in the JDBC driver.
 
 Localization
@@ -118,7 +118,7 @@ If we set the language to Japanese::
     SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M'); -- 1月
 
 The language of the session can be set on a per-query basis using the
-``X-Presto-Language`` HTTP header, or via the
+``X-Presto-Language`` HTTP header, or by using the
 ``PrestoConnection.setLocale(Locale)`` method in the JDBC driver.
 
 Optimizations

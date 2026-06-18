@@ -50,6 +50,6 @@ SPI Changes
 -----------
 * Move ``FunctionMetadata`` to SPI.
 * Add ``FunctionMetadataManager`` and ``StandardFunctionResolution`` in ``ConnectorContext``.
-  The two interfaces allow connectors to obtain the metadata of a Presto system function as well as to resolve standard functions, such as add, minus, and, or, etc.
+  The two interfaces allow connectors to obtain the metadata of a Presto system function as well as to resolve standard functions, such as add, minus, and, or.
 * Remove ``distributedPlanningTime`` from ``QueryStatistics``
 * Remove redundant offset parameter in ``Block#getByte``, ``Block#getShort``, and ``Block#getInt``.

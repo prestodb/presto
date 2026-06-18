@@ -17,7 +17,7 @@ Release 0.298
 * Add incremental refresh for materialized views in the Iceberg connector, enabling efficient partial refreshes instead of full recomputation. `#26959 <https://github.com/prestodb/presto/pull/26959>`_
 * Add support for Azure Blob Storage (``wasb[s]://``) and Azure Data Lake Storage Gen2 (``abfs[s]://``) in the Hive connector, with shared key and OAuth2 authentication. `#25107 <https://github.com/prestodb/presto/pull/25107>`_
 * Add ``ALTER MATERIALIZED VIEW <name> SET PROPERTIES (...)`` SQL statement to update materialized view properties after creation. `#27806 <https://github.com/prestodb/presto/pull/27806>`_
-* Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column, sorting only sort keys first and fetching full rows via SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
+* Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column, sorting only sort keys first and fetching full rows with SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
 * Add TLS/SSL configuration, i18n character set, and configurable JDBC fetch size support for the Oracle connector. `#27671 <https://github.com/prestodb/presto/pull/27671>`_ `#27670 <https://github.com/prestodb/presto/pull/27670>`_ `#27669 <https://github.com/prestodb/presto/pull/27669>`_
 * Add read support for Iceberg V3 row lineage hidden columns `_row_id` and `_last_updated_sequence_number`. `#27240 <https://github.com/prestodb/presto/pull/27240>`_
 * Add support for ``min/max/count`` aggregation push down based on file stats. This can be toggled with the ``aggregate_push_down_enabled`` session property or the ``iceberg.aggregate-push-down-enabled`` configuration property. See :ref:`connector/iceberg:session properties` and :ref:`connector/iceberg:configuration properties`. `#27085 <https://github.com/prestodb/presto/pull/27085>`_
@@ -66,7 +66,7 @@ _______________
 * Add :ref:`admin/properties:\`\`cluster-overload.bypass-resource-groups\`\`` configuration property to allow named resource groups to bypass cluster-overload throttling while continuing to honor per-group concurrency, memory, and CPU limits. `#27642 <https://github.com/prestodb/presto/pull/27642>`_
 * Add :ref:`admin/properties-session:\`\`optimize_row_in_predicate\`\`` session property (default off) that rewrites multi-column ``ROW IN`` / ``ROW NOT IN`` predicates to expose per-column ``IN`` / ``NOT IN`` predicates, enabling partition pruning and other domain-based optimizations. `#27708 <https://github.com/prestodb/presto/pull/27708>`_
 * Add :ref:`admin/properties-session:\`\`push_filter_through_selecting_aggregation\`\`` session property and ``optimizer.push-filter-through-selecting-aggregation`` configuration property (default ``false``) to push HAVING predicates beneath single-value aggregates (MAX/MIN/ARBITRARY) for earlier row reduction. `#27712 <https://github.com/prestodb/presto/pull/27712>`_
-* Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column. Sorts only sort keys plus ``$row_id`` first, then fetches full rows via SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
+* Add TopN late materialization optimization for ``ORDER BY ... LIMIT`` over wide tables with a unique ``$row_id`` column. Sorts only sort keys plus ``$row_id`` first, then fetches full rows with SemiJoin. `#27641 <https://github.com/prestodb/presto/pull/27641>`_
 * Add ``split_part_reverse`` as a global Presto SQL function, replacing the Velox C++ UDF with a SQL-invoked scalar function available in all queries. `#27480 <https://github.com/prestodb/presto/pull/27480>`_
 * Remove configuration property ``use-new-nan-definition``. `#27829 <https://github.com/prestodb/presto/pull/27829>`_
 * Remove ``warn-on-common-nan-patterns`` server config and ``warn_on_common_nan_patterns`` session property. The NaN definition migration is complete and these warnings are no longer needed. `#27830 <https://github.com/prestodb/presto/pull/27830>`_
@@ -140,7 +140,7 @@ _________________________
 Lance Connector Changes
 _______________________
 * Add SQL filter pushdown to reduce data read from disk for selective queries. Supports equality, comparisons, IN lists, IS NULL, and range predicates on Boolean, Integer, Bigint, Real, Double, Varchar, Date, and Timestamp types. See :ref:`connector/lance:predicate pushdown`. `#27430 <https://github.com/prestodb/presto/pull/27430>`_
-* Add configurable index and metadata cache sizes via lance.index-cache-size and lance.metadata-cache-size. `#27325 <https://github.com/prestodb/presto/pull/27325>`_
+* Add configurable index and metadata cache sizes by using lance.index-cache-size and lance.metadata-cache-size. `#27325 <https://github.com/prestodb/presto/pull/27325>`_
 * Add version-aware dataset caching with snapshot isolation for consistent query reads. `#27325 <https://github.com/prestodb/presto/pull/27325>`_
 
 MongoDB Connector Changes

@@ -184,7 +184,7 @@ struct PrestoThriftBigintArray {
 /**
  * A set containing zero or more Ranges of the same type over a continuous space of possible values.
  * Ranges are coalesced into the most compact representation of non-overlapping Ranges.
- * This structure is used with comparable and orderable types like bigint, integer, double, varchar, etc.
+ * This structure is used with comparable and orderable types like bigint, integer, double, or varchar.
  */
 struct PrestoThriftRangeValueSet {
   1: list<PrestoThriftRange> ranges;

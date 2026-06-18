@@ -51,9 +51,9 @@ and must be removed from ``etc/config.properties``.
 The Raptor connector stores data on the Presto machines in a
 columnar format using the same layout that Presto uses for in-memory
 data. Currently, it has major limitations: lack of replication,
-dropping a table does not reclaim the storage, etc. It is only
-suitable for experimentation, temporary tables, caching of data from
-slower connectors, etc. The metadata and data formats are subject to
+dropping a table does not reclaim the storage, and others. It is only
+suitable for experimentation, temporary tables, or caching of data from
+slower connectors. The metadata and data formats are subject to
 change in incompatible ways between releases.
 
 If you would like to experiment with the connector, create a catalog

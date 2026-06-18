@@ -62,7 +62,7 @@ ______________________
 * Fix filtering by info columns ``$file_size`` and ``$file_modified_time``, which were ignored before. :pr:`23411`
 * Fix hash calculation for Timestamp column to be hive compatible when writing to a table bucketed by Timestamp.  :pr:`22980`
 * Add config ``hive.legacy-timestamp-bucketing`` and session property ``hive.legacy_timestamp_bucketing`` to use the original hash function for Timestamp column, which is not hive compatible. :pr:`22980`
-* Add support for setting the max size in bytes for the directory listing cache. This can be set via the new ``hive.file-status-cache.max-retained-size`` configuration property. ``hive.file-status-cache-size`` is now deprecated. :pr:`23176`
+* Add support for setting the max size in bytes for the directory listing cache. This can be set with the new ``hive.file-status-cache.max-retained-size`` configuration property. ``hive.file-status-cache-size`` is now deprecated. :pr:`23176`
 * Add support to skip empty files using configuration property ``hive.skip_empty_files``. :pr:`22727`
 * Add support for decimal batch reader :pr:`22636`
 

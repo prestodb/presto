@@ -332,7 +332,7 @@ Accessors
 
 .. function:: ST_IsEmpty(Geometry) -> boolean
 
-    Returns ``true`` if this Geometry is an empty geometrycollection, polygon, point etc.
+    Returns ``true`` if this Geometry is an empty geometrycollection, polygon, or point.
 
 .. function:: ST_IsSimple(Geometry) -> boolean
 

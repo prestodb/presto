@@ -14,7 +14,7 @@ _______________
 * Fix :func:`!ROUND` to prevent returning incorrect results due to integer / double overflows.
 * Fix the compilation error when aggregation has order by clause and the input is a function.
 * Optimize ``IF(predicate, AGG(x))`` to aggregation with mask in plan level. This is controlled by system property ``optimize_conditional_aggregation_enabled`` and defaults to false.
-* Add new security API ``selectAuthorizedIdentity`` and new configuration property ``permissions.authorized-identity-selection-enable`` to enable ``selectAuthorizedIdentity``. ``selectAuthorizedIdentity`` prevents potential security loopholes, e.g., reading illegal data from a fake username.
+* Add new security API ``selectAuthorizedIdentity`` and new configuration property ``permissions.authorized-identity-selection-enable`` to enable ``selectAuthorizedIdentity``. ``selectAuthorizedIdentity`` prevents potential security loopholes, for example, reading illegal data from a fake username.
 * Add memory limit check for HashBuilderOperator during memory revoke.
 * Add null masking for the Parquet decryption feature. When this feature is enabled and the user is denied access encrypted column, the columns will be removed in the requested schema sent to Parquet. Then it is filled out with ``NULL``  when the result is returned.
 * Add optimization for :func:`!approx_percentile` functions evaluation. Multiple :func:`!approx_percentile` functions on the same field will be combined into one :func:`!approx_percentile` function which takes an array of percentile as arguments. The optimization is controlled by session property ``optimize_multiple_approx_percentile_on_same_field`` which is true by default.
