@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
-#include <folly/futures/Retrying.h>
 #include <folly/Uri.h>
+#include <folly/futures/Retrying.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/common/Configs.h"
 

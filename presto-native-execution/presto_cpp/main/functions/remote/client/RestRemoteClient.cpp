@@ -100,12 +100,12 @@ std::unique_ptr<folly::IOBuf> RestRemoteClient::invokeFunction(
 
     // Use RequestBuilder to automatically add JWT token
     auto sendFuture = http::RequestBuilder()
-        .jwtOptions(jwtOptions_)
-        .method(proxygen::HTTPMethod::POST)
-        .url(uri.path())
-        .header("Content-Type", contentType)
-        .header("Accept", contentType)
-        .send(httpClient_.get(), requestBody);
+                          .jwtOptions(jwtOptions_)
+                          .method(proxygen::HTTPMethod::POST)
+                          .url(uri.path())
+                          .header("Content-Type", contentType)
+                          .header("Accept", contentType)
+                          .send(httpClient_.get(), requestBody);
     sendFuture.wait();
 
     VELOX_CHECK(
