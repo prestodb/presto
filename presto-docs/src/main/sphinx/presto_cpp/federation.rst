@@ -15,7 +15,7 @@ information from the coordinator.
 Installing FlightShim
 ---------------------
 
-Download the Presto FlightShim tarball, :maven_download:`flight-shim`, and unpack it.
+Download the Presto FlightShim tarball, :maven_download:`flightshim`, and unpack it.
 The tarball will contain a single top-level directory,
 |presto_flight_shim_release|, which we will call the *installation* directory.
 
