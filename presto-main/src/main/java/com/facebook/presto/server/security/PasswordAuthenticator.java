@@ -68,6 +68,9 @@ public class PasswordAuthenticator
         catch (AccessDeniedException e) {
             throw needAuthentication(e.getMessage());
         }
+        catch (IllegalArgumentException e) {
+            throw needAuthentication(e.getMessage());
+        }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
         }
