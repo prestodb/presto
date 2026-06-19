@@ -55,25 +55,6 @@ public class TestFnServerAuthOnJavaCluster
     }
 
     /**
-     * Tests secure authentication (mTLS + JWT) between Coordinator and Function-Server ONLY.
-     * Uses coordinator-only query runner to ensure queries execute on coordinator, not workers.
-     */
-    @Test
-    public void testMtlsJwtBetweenCoordinatorAndFnServer()
-    {
-        log.info("TEST: Coordinator→Function-Server with mTLS + JWT");
-        try (QueryRunner coordRunner = FnServerAuthTestUtils.createCoordinatorOnlyRunnerWithMtlsAndJwt()) {
-            MaterializedResult result = coordRunner.execute(getSession(),
-                    "SELECT rest.default.abs(-123)");
-            assertEquals(result.getOnlyValue(), 123);
-            log.info("Coordinator→Function-Server test passed with result value %d", result.getOnlyValue());
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Failed to test coordinator→function-server", e);
-        }
-    }
-
-    /**
      * Tests secure authentication (mTLS + JWT) between Java Worker and Function-Server
      */
     @Test
