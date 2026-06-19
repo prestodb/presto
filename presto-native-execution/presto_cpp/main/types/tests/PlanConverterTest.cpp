@@ -92,6 +92,17 @@ const core::ExchangeNode* findExchangeNode(
   return nullptr;
 }
 
+// Returns the transport type annotated for 'nodeId' in 'transportTypes', or
+// TransportKind::kHttp when the node is absent, matching PlanFragment's
+// "a node absent from the map uses kHttp" contract.
+std::string_view transportTypeOrDefault(
+    const folly::F14FastMap<core::PlanNodeId, std::string>& transportTypes,
+    const core::PlanNodeId& nodeId) {
+  const auto it = transportTypes.find(nodeId);
+  return it == transportTypes.end() ? core::TransportKind::kHttp
+                                    : std::string_view{it->second};
+}
+
 } // namespace
 
 class PlanConverterTest : public ::testing::Test {
@@ -337,13 +348,14 @@ TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToHttp) {
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
   ASSERT_EQ(
-      veloxFragment.outputTransportType(partitionedOutput->id()),
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
       core::TransportKind::kHttp);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
   ASSERT_EQ(
-      veloxFragment.inputTransportType(exchange->id()),
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
       core::TransportKind::kHttp);
 }
 
@@ -365,13 +377,14 @@ TEST_F(PlanConverterTest, transportTypeAny) {
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
   ASSERT_EQ(
-      veloxFragment.outputTransportType(partitionedOutput->id()),
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
       core::TransportKind::kUcx);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
   ASSERT_EQ(
-      veloxFragment.inputTransportType(exchange->id()),
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
       core::TransportKind::kUcx);
 }
 
@@ -393,12 +406,13 @@ TEST_F(PlanConverterTest, transportTypeHttp) {
       veloxFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
   ASSERT_EQ(
-      veloxFragment.outputTransportType(partitionedOutput->id()),
+      transportTypeOrDefault(
+          veloxFragment.outputTransportTypes, partitionedOutput->id()),
       core::TransportKind::kHttp);
 
   auto* exchange = findExchangeNode(veloxFragment.planNode);
   ASSERT_NE(exchange, nullptr);
   ASSERT_EQ(
-      veloxFragment.inputTransportType(exchange->id()),
+      transportTypeOrDefault(veloxFragment.inputTransportTypes, exchange->id()),
       core::TransportKind::kHttp);
 }
