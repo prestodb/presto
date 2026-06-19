@@ -22,6 +22,7 @@ import com.facebook.presto.spi.MaterializedViewRefreshType;
 import com.facebook.presto.spi.MaterializedViewStaleReadBehavior;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationIfToFilterRewriteStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.CteMaterializationStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.DistributedDynamicFilterStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.LeftJoinArrayContainsToInnerJoinStrategy;
@@ -129,6 +130,12 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(10, KILOBYTE))
                 .setDynamicFilteringRangeRowLimitPerDriver(0)
+                .setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy.DISABLED)
+                .setDistributedDynamicFilterMaxWaitTime(new Duration(2, SECONDS))
+                .setDistributedDynamicFilterMaxWaitExtensions(2)
+                .setDistributedDynamicFilterMaxSize(new DataSize(1, MEGABYTE))
+                .setDistributedDynamicFilterCardinalityRatioThreshold(0.1)
+                .setDistributedDynamicFilterOnReplicatedJoins(false)
                 .setFragmentResultCachingEnabled(false)
                 .setEnableStatsCalculator(true)
                 .setEnableStatsCollectionForTemporaryTable(false)
@@ -570,6 +577,12 @@ public class TestFeaturesConfig
                 .put("use-connector-provided-serialization-codecs", "true")
                 .put("optimizer.remote-function-names-for-fixed-parallelism", "remote_.*")
                 .put("optimizer.remote-function-fixed-parallelism-task-count", "100")
+                .put("distributed-dynamic-filter.strategy", "COST_BASED")
+                .put("distributed-dynamic-filter.max-wait-time", "5s")
+                .put("distributed-dynamic-filter.max-wait-extensions", "3")
+                .put("distributed-dynamic-filter.max-size", "2MB")
+                .put("distributed-dynamic-filter.cardinality-ratio-threshold", "0.2")
+                .put("distributed-dynamic-filter.on-replicated-joins", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -584,6 +597,12 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(new DataSize(64, KILOBYTE))
                 .setDynamicFilteringRangeRowLimitPerDriver(1000)
+                .setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy.COST_BASED)
+                .setDistributedDynamicFilterMaxWaitTime(new Duration(5, SECONDS))
+                .setDistributedDynamicFilterMaxWaitExtensions(3)
+                .setDistributedDynamicFilterMaxSize(new DataSize(2, MEGABYTE))
+                .setDistributedDynamicFilterCardinalityRatioThreshold(0.2)
+                .setDistributedDynamicFilterOnReplicatedJoins(true)
                 .setFragmentResultCachingEnabled(true)
                 .setEnableStatsCalculator(false)
                 .setEnableStatsCollectionForTemporaryTable(true)

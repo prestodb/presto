@@ -189,6 +189,12 @@ public class FeaturesConfig
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
     private int dynamicFilteringRangeRowLimitPerDriver;
+    private DistributedDynamicFilterStrategy distributedDynamicFilterStrategy = DistributedDynamicFilterStrategy.DISABLED;
+    private Duration distributedDynamicFilterMaxWaitTime = new Duration(2, SECONDS);
+    private int distributedDynamicFilterMaxWaitExtensions = 2;
+    private DataSize distributedDynamicFilterMaxSize = new DataSize(1, MEGABYTE);
+    private double distributedDynamicFilterCardinalityRatioThreshold = 0.1;
+    private boolean distributedDynamicFilterOnReplicatedJoins;
 
     private boolean fragmentResultCachingEnabled;
 
@@ -478,6 +484,13 @@ public class FeaturesConfig
     }
 
     public enum ShardedJoinStrategy
+    {
+        DISABLED,
+        COST_BASED,
+        ALWAYS
+    }
+
+    public enum DistributedDynamicFilterStrategy
     {
         DISABLED,
         COST_BASED,
@@ -1635,6 +1648,86 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringRangeRowLimitPerDriver(int dynamicFilteringRangeRowLimitPerDriver)
     {
         this.dynamicFilteringRangeRowLimitPerDriver = dynamicFilteringRangeRowLimitPerDriver;
+        return this;
+    }
+
+    public DistributedDynamicFilterStrategy getDistributedDynamicFilterStrategy()
+    {
+        return distributedDynamicFilterStrategy;
+    }
+
+    @Config("distributed-dynamic-filter.strategy")
+    @ConfigDescription("When to add distributed dynamic filters to joins for split-level pruning")
+    public FeaturesConfig setDistributedDynamicFilterStrategy(DistributedDynamicFilterStrategy distributedDynamicFilterStrategy)
+    {
+        this.distributedDynamicFilterStrategy = distributedDynamicFilterStrategy;
+        return this;
+    }
+
+    public Duration getDistributedDynamicFilterMaxWaitTime()
+    {
+        return distributedDynamicFilterMaxWaitTime;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-time")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitTime(Duration distributedDynamicFilterMaxWaitTime)
+    {
+        this.distributedDynamicFilterMaxWaitTime = distributedDynamicFilterMaxWaitTime;
+        return this;
+    }
+
+    @Min(0)
+    public int getDistributedDynamicFilterMaxWaitExtensions()
+    {
+        return distributedDynamicFilterMaxWaitExtensions;
+    }
+
+    @Config("distributed-dynamic-filter.max-wait-extensions")
+    @ConfigDescription("Maximum number of additional max-wait-time cycles to grant a partitioned dynamic filter when partition contributions are still arriving. Total wall = (1 + extensions) * max-wait-time. Set to 0 to disable adaptive extension.")
+    public FeaturesConfig setDistributedDynamicFilterMaxWaitExtensions(int distributedDynamicFilterMaxWaitExtensions)
+    {
+        this.distributedDynamicFilterMaxWaitExtensions = distributedDynamicFilterMaxWaitExtensions;
+        return this;
+    }
+
+    public DataSize getDistributedDynamicFilterMaxSize()
+    {
+        return distributedDynamicFilterMaxSize;
+    }
+
+    @Config("distributed-dynamic-filter.max-size")
+    @ConfigDescription("Maximum size of coordinator-side merged dynamic filter before collapsing to min/max range")
+    public FeaturesConfig setDistributedDynamicFilterMaxSize(DataSize distributedDynamicFilterMaxSize)
+    {
+        this.distributedDynamicFilterMaxSize = distributedDynamicFilterMaxSize;
+        return this;
+    }
+
+    @DecimalMin("0.0")
+    @DecimalMax("1.0")
+    public double getDistributedDynamicFilterCardinalityRatioThreshold()
+    {
+        return distributedDynamicFilterCardinalityRatioThreshold;
+    }
+
+    @Config("distributed-dynamic-filter.cardinality-ratio-threshold")
+    @ConfigDescription("Maximum build/probe cardinality ratio for cost-based dynamic filter creation")
+    public FeaturesConfig setDistributedDynamicFilterCardinalityRatioThreshold(double distributedDynamicFilterCardinalityRatioThreshold)
+    {
+        this.distributedDynamicFilterCardinalityRatioThreshold = distributedDynamicFilterCardinalityRatioThreshold;
+        return this;
+    }
+
+    public boolean isDistributedDynamicFilterOnReplicatedJoins()
+    {
+        return distributedDynamicFilterOnReplicatedJoins;
+    }
+
+    @Config("distributed-dynamic-filter.on-replicated-joins")
+    @ConfigDescription("Add distributed dynamic filters to REPLICATED (broadcast) joins. Disabled by default because Velox's in-fragment pushdown already covers them")
+    public FeaturesConfig setDistributedDynamicFilterOnReplicatedJoins(boolean distributedDynamicFilterOnReplicatedJoins)
+    {
+        this.distributedDynamicFilterOnReplicatedJoins = distributedDynamicFilterOnReplicatedJoins;
         return this;
     }
 
