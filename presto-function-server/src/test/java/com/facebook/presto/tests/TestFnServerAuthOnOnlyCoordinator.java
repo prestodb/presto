@@ -12,7 +12,7 @@ import static org.testng.Assert.assertEquals;
 public class TestFnServerAuthOnOnlyCoordinator
         extends AbstractTestQueryFramework
 {
-    private static final Logger log = Logger.get(TestFnServerAuthOnJavaCluster.class);
+    private static final Logger log = Logger.get(TestFnServerAuthOnOnlyCoordinator.class);
 
     @Override
     protected DistributedQueryRunner createQueryRunner()

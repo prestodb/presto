@@ -75,20 +75,14 @@ public class TestFnServerAuthOnNativeCluster
      */
     @Test
     public void testMtlsOnlyCommunicationToFnServer()
+            throws Exception
     {
         log.info("TEST: mTLS-only communication between Coordinator, Native Worker, and Function-Server");
-        try {
-            try (QueryRunner mtlsRunner = FnServerAuthTestUtils
-                    .createNativeRunnerWithOnlyMtls()) {
-                MaterializedResult result1 = mtlsRunner.execute(getSession(),
-                        "SELECT rest.default.ceil(3.14)");
-                assertEquals(result1.getOnlyValue(), 4.0f);
-                log.info("Simple function call succeeded: ceil(3.14) = %f", result1.getOnlyValue());
-            }
-        }
-        catch (Exception e) {
-            log.error("Error message: %s", e.getMessage());
-            fail("mTLS-only communication should succeed", e);
+
+        try (QueryRunner mtlsRunner = FnServerAuthTestUtils.createNativeRunnerWithOnlyMtls()) {
+            MaterializedResult result = mtlsRunner.execute(getSession(), "SELECT rest.default.ceil(3.14)");
+            assertEquals(result.getOnlyValue(), 4.0f);
+            log.info("Simple function call succeeded: ceil(3.14) = %f", result.getOnlyValue());
         }
     }
 
@@ -96,20 +90,17 @@ public class TestFnServerAuthOnNativeCluster
      * Test mTLS + JWT communication when Function-Server has invalid certificate.
      */
     @Test(expectedExceptions = Exception.class)
-    public void testMtlsJwtCommunicationWhenFnServerHasInvalidCert() throws Exception
+    public void testMtlsJwtCommunicationWhenFnServerHasInvalidCert()
+            throws Exception
     {
         log.info("TEST: mTLS + JWT when Function Server has Invalid Certificate");
-        try {
-            try (QueryRunner invalidRunner = FnServerAuthTestUtils
-                    .createNativeRunnerWithInvalidCertInFnServer()) {
-                MaterializedResult result = invalidRunner.execute(getSession(),
-                        "SELECT rest.default.mod(o_orderkey, 10) FROM orders LIMIT 5");
-                assertEquals(result.getRowCount(), 5);
-                log.info("Table query succeeded: %d rows processed", result.getRowCount());
-            }
+
+        try (QueryRunner invalidRunner = FnServerAuthTestUtils.createNativeRunnerWithInvalidCertInFnServer()) {
+            invalidRunner.execute(getSession(), "SELECT rest.default.mod(o_orderkey, 10) FROM orders LIMIT 5");
             fail("Query should have failed - coordinator/native worker should reject invalid certificate");
         }
         catch (Exception e) {
+            log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
             log.info("Error message: %s", e.getMessage());
             throw e;
         }
@@ -123,15 +114,13 @@ public class TestFnServerAuthOnNativeCluster
             throws Exception
     {
         log.info("TEST: JWT communication with wrong shared secret in function-server");
-        try {
-            try (QueryRunner invalidRunner = FnServerAuthTestUtils
-                    .createNativeRunnerWithWrongJwtSecretOnFnServer()) {
-                invalidRunner.execute(getSession(),
-                        "SELECT rest.default.sign(o_totalprice) FROM orders LIMIT 5");
-            }
+
+        try (QueryRunner invalidRunner = FnServerAuthTestUtils.createNativeRunnerWithWrongJwtSecretOnFnServer()) {
+            invalidRunner.execute(getSession(), "SELECT rest.default.sign(o_totalprice) FROM orders LIMIT 5");
             fail("Query should have failed - coordinator/native worker should reject invalid JWT secret");
         }
         catch (Exception e) {
+            log.info("Expected failure occurred: %s", e.getClass().getSimpleName());
             log.info("Error message: %s", e.getMessage());
             throw e;
         }
@@ -145,13 +134,9 @@ public class TestFnServerAuthOnNativeCluster
             throws Exception
     {
         log.info("TEST: JWT communication when JWT properties removed from function-server");
-        try {
-            try (QueryRunner invalidRunner = FnServerAuthTestUtils
-                    .createNativeRunnerWithNoJwtOnFnServer()) {
-                invalidRunner.execute(getSession(),
-                        "SELECT rest.default.round(l_extendedprice, 2) " +
-                                "FROM lineitem LIMIT 10");
-            }
+
+        try (QueryRunner invalidRunner = FnServerAuthTestUtils.createNativeRunnerWithNoJwtOnFnServer()) {
+            invalidRunner.execute(getSession(), "SELECT rest.default.round(l_extendedprice, 2) FROM lineitem LIMIT 10");
             fail("Query should have failed - JWT validation should be enforced");
         }
         catch (Exception e) {
