@@ -71,6 +71,7 @@ jobs:
           - :presto-spark-base -P presto-spark-tests-all-queries
           - :presto-spark-base -P presto-spark-tests-spill-queries
           - :presto-iceberg
+          - :presto-iceberg -P test-iceberg-others
           - :presto-clickhouse -P ci
     timeout-minutes: 80
     concurrency:
