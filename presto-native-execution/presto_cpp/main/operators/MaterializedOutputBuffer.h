@@ -261,8 +261,13 @@ class MaterializedOutputBuffer {
   /// Update drain stats and subtract from buffered bytes counter.
   void updateDrainStats(int64_t drainedBytes);
 
-  // Coalesce data into a contiguous buffer and send to the ShuffleWriter.
-  void flushToWriter(int32_t partition, std::unique_ptr<folly::IOBuf> data);
+  // Send a partition's drained RowGroups to the ShuffleWriter. Coalesces into a
+  // contiguous pool-tracked buffer and sends it as a string_view by default;
+  // when skipCoalesce_ is set, links them into a chain (no copy) handed to the
+  // writer's chain-aware collect().
+  void flushDrained(
+      int32_t partition,
+      std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
 
   // Merge a deque of RowGroup IOBufs into a single contiguous IOBuf.
   std::unique_ptr<folly::IOBuf> coalesceRowGroups(
@@ -277,6 +282,9 @@ class MaterializedOutputBuffer {
   const int64_t maxBufferedBytes_;
   const int64_t partitionDrainThreshold_;
   const int64_t reclaimDrainThresholdBytes_;
+  // When true, drain partitions by chaining RowGroup IOBufs and using the
+  // writer's chain-aware collect() instead of coalescing into one buffer.
+  const bool skipCoalesce_;
 
   // Pool created first so the writer can allocate from it.
   const std::shared_ptr<velox::memory::MemoryPool> pool_;

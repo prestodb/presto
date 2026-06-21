@@ -14,6 +14,7 @@
 #pragma once
 
 #include <fmt/format.h>
+#include <folly/io/IOBuf.h>
 #include "velox/exec/Exchange.h"
 #include "velox/exec/Operator.h"
 
@@ -30,6 +31,23 @@ class ShuffleWriter {
   /// Write to the shuffle one row at a time.
   virtual void
   collect(int32_t partition, std::string_view key, std::string_view data) = 0;
+
+  /// Write to the shuffle one row at a time, taking ownership of a (possibly
+  /// multi-node) folly::IOBuf chain as the row value. The default coalesces the
+  /// chain and forwards to the string_view collect(); writers that can consume
+  /// a chain without copying (e.g. Cosco) override this. 'data' must be
+  /// non-null.
+  virtual void collect(
+      int32_t partition,
+      std::string_view key,
+      std::unique_ptr<folly::IOBuf> data) {
+    data->coalesce();
+    collect(
+        partition,
+        key,
+        std::string_view(
+            reinterpret_cast<const char*>(data->data()), data->length()));
+  }
 
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.

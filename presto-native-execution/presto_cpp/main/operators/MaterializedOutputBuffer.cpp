@@ -101,8 +101,7 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
   auto drainedBytes = bufferedBytes_.load();
   bufferedBytes_ = 0;
 
-  auto coalesced = buffer_->coalesceRowGroups(toDrain);
-  buffer_->flushToWriter(partition, std::move(coalesced));
+  buffer_->flushDrained(partition, toDrain);
   return drainedBytes;
 }
 
@@ -147,6 +146,9 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
               partitionDrainThreshold_ *
               SystemConfig::instance()
                   ->exchangeMaterializationReclaimDrainThresholdRatio())),
+      skipCoalesce_(
+          SystemConfig::instance()
+              ->exchangeMaterializationSkipCoalesceEnabled()),
       pool_(pool->addLeafChild(
           fmt::format("materialized_output_buffer.{}", taskId),
           true,
@@ -224,15 +226,49 @@ void MaterializedOutputBuffer::enqueue(
   }
 }
 
-void MaterializedOutputBuffer::flushToWriter(
-    int32_t partition,
-    std::unique_ptr<folly::IOBuf> data) {
-  auto dataSize = data->computeChainDataLength();
-  if (dataSize == 0) {
-    return;
+namespace {
+// Link a deque of RowGroup IOBufs into a single chain (no copy). The chain's
+// concatenated bytes are identical to coalesceRowGroups()'s contiguous buffer.
+std::unique_ptr<folly::IOBuf> chainRowGroups(
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
+  std::unique_ptr<folly::IOBuf> head;
+  for (auto& rowGroup : rowGroups) {
+    if (head == nullptr) {
+      head = std::move(rowGroup);
+    } else {
+      head->appendToChain(std::move(rowGroup));
+    }
   }
-  std::string_view view(reinterpret_cast<const char*>(data->data()), dataSize);
-  writer_->collect(partition, /*key=*/"", view);
+  return head;
+}
+} // namespace
+
+void MaterializedOutputBuffer::flushDrained(
+    int32_t partition,
+    std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
+  if (skipCoalesce_) {
+    // Link the RowGroups into a chain (no copy) and hand it to the writer's
+    // chain-aware collect(); Cosco consumes it zero-copy, other writers
+    // coalesce inside the default collect() overload.
+    auto chain = chainRowGroups(rowGroups);
+    if (chain == nullptr || chain->computeChainDataLength() == 0) {
+      return;
+    }
+    writer_->collect(partition, /*key=*/"", std::move(chain));
+  } else {
+    // Coalesce into a single contiguous (pool-tracked) buffer and send it as a
+    // string_view.
+    auto coalesced = coalesceRowGroups(rowGroups);
+    auto dataSize = coalesced->computeChainDataLength();
+    if (dataSize == 0) {
+      return;
+    }
+    writer_->collect(
+        partition,
+        /*key=*/"",
+        std::string_view(
+            reinterpret_cast<const char*>(coalesced->data()), dataSize));
+  }
   ++collectCountPerPartition_[partition];
 }
 
@@ -282,8 +318,7 @@ int64_t MaterializedOutputBuffer::drainPartition(
   }
 
   if (!toDrain.empty()) {
-    auto coalesced = coalesceRowGroups(toDrain);
-    flushToWriter(partition, std::move(coalesced));
+    flushDrained(partition, toDrain);
     updateDrainStats(drainedBytes);
   }
 
