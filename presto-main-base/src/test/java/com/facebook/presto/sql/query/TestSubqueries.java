@@ -356,6 +356,17 @@ public class TestSubqueries
     }
 
     @Test
+    public void testCorrelatedScalarSubqueryMultipleRowsGuard()
+    {
+        tpchAssertions.assertFails(
+                "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey > n.regionkey)",
+                "Scalar sub-query has returned multiple rows");
+        tpchAssertions.assertFails(
+                "SELECT name FROM nation n WHERE (SELECT name FROM region WHERE regionkey > n.regionkey) = 'AFRICA'",
+                "Scalar sub-query has returned multiple rows");
+    }
+
+    @Test
     public void testCorrelatedSubqueryWithExplicitCoercion()
     {
         assertions.assertQuery(

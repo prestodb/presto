@@ -47,6 +47,7 @@ import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarg
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -532,6 +533,14 @@ public final class GraphvizPrinter
         {
             String expression = formatter.apply(node.getPredicate());
             printNode(node, "Filter", expression, NODE_COLORS.get(NodeType.FILTER));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
+        {
+            String expression = formatter.apply(node.getPredicate());
+            printNode(node, "UnmergeableFilter", expression, NODE_COLORS.get(NodeType.FILTER));
             return node.getSource().accept(this, context);
         }
 

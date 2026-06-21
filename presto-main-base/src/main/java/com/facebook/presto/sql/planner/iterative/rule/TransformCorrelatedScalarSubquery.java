@@ -17,10 +17,10 @@ import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -162,7 +162,7 @@ public class TransformCorrelatedScalarSubquery
                 new ConstantExpression((long) SUBQUERY_MULTIPLE_ROWS.toErrorCode().getCode(), INTEGER),
                 new ConstantExpression(Slices.utf8Slice("Scalar sub-query has returned multiple rows"), VARCHAR));
 
-        FilterNode filterNode = new FilterNode(
+        UnmergeableFilterNode filterNode = new UnmergeableFilterNode(
                 markDistinctNode.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 markDistinctNode,

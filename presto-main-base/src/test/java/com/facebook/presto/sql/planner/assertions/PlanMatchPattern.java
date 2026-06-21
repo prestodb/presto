@@ -47,6 +47,7 @@ import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -607,6 +608,21 @@ public final class PlanMatchPattern
     public static PlanMatchPattern filter(PlanMatchPattern source)
     {
         return node(FilterNode.class, source);
+    }
+
+    public static PlanMatchPattern unmergeableFilter(String expectedPredicate, PlanMatchPattern source)
+    {
+        return unmergeableFilter(rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expectedPredicate)), source);
+    }
+
+    public static PlanMatchPattern unmergeableFilter(Expression expectedPredicate, PlanMatchPattern source)
+    {
+        return node(UnmergeableFilterNode.class, source).with(new UnmergeableFilterMatcher(expectedPredicate));
+    }
+
+    public static PlanMatchPattern unmergeableFilter(PlanMatchPattern source)
+    {
+        return node(UnmergeableFilterNode.class, source);
     }
 
     public static PlanMatchPattern apply(List<String> correlationSymbolAliases, Map<String, ExpressionMatcher> subqueryAssignments, PlanMatchPattern inputPattern, PlanMatchPattern subqueryPattern)

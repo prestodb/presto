@@ -19,6 +19,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -107,6 +108,13 @@ public class ExpressionExtractor
         {
             context.add(node.getPredicate());
             return super.visitFilter(node, context);
+        }
+
+        @Override
+        public Void visitUnmergeableFilter(UnmergeableFilterNode node, ImmutableList.Builder<RowExpression> context)
+        {
+            context.add(node.getPredicate());
+            return super.visitUnmergeableFilter(node, context);
         }
 
         @Override

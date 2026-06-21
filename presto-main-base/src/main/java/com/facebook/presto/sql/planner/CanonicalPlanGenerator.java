@@ -52,6 +52,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -1167,6 +1168,24 @@ public class CanonicalPlanGenerator
         }
 
         PlanNode canonicalPlan = new FilterNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                inlineAndCanonicalize(context.getExpressions(), node.getPredicate()));
+
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitUnmergeableFilter(UnmergeableFilterNode node, Context context)
+    {
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode canonicalPlan = new UnmergeableFilterNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get(),

@@ -44,6 +44,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -498,6 +499,15 @@ public class SymbolMapper
     public FilterNode map(FilterNode node, PlanNode source, PlanNodeId newNodeId)
     {
         return new FilterNode(
+                node.getSourceLocation(),
+                newNodeId,
+                source,
+                map(node.getPredicate()));
+    }
+
+    public UnmergeableFilterNode map(UnmergeableFilterNode node, PlanNode source, PlanNodeId newNodeId)
+    {
+        return new UnmergeableFilterNode(
                 node.getSourceLocation(),
                 newNodeId,
                 source,

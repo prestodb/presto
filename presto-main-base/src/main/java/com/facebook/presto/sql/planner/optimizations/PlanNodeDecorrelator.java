@@ -29,6 +29,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -109,6 +110,14 @@ public class PlanNodeDecorrelator
                     ImmutableList.of(),
                     ImmutableMultimap.of(),
                     false));
+        }
+
+        @Override
+        public Optional<DecorrelationResult> visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
+        {
+            // The unmergeable filter must remain intact: decorrelating it would split its predicate
+            // across the lateral join boundary and let other filters fold into it.
+            return Optional.empty();
         }
 
         @Override

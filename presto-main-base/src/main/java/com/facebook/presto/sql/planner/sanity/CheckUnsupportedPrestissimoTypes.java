@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -130,6 +131,14 @@ public class CheckUnsupportedPrestissimoTypes
 
         @Override
         public Void visitFilter(FilterNode node, Void context)
+        {
+            visitPlan(node, context);
+            node.getPredicate().accept(unsupportedTypeChecker, null);
+            return null;
+        }
+
+        @Override
+        public Void visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
         {
             visitPlan(node, context);
             node.getPredicate().accept(unsupportedTypeChecker, null);

@@ -78,6 +78,7 @@ import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarg
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -947,6 +948,16 @@ public class PlanPrinter
         public Void visitFilter(FilterNode node, Void context)
         {
             return visitScanFilterAndProjectInfo(node, Optional.of(node), Optional.empty(), context);
+        }
+
+        @Override
+        public Void visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
+        {
+            // Render the unmergeable filter as a regular filter so EXPLAIN works on intermediate plans;
+            // the terminal rewrite removes this node before fragmentation, so this only matters for
+            // EXPLAIN of mid-pipeline plans.
+            FilterNode equivalent = new FilterNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), node.getSource(), node.getPredicate());
+            return visitScanFilterAndProjectInfo(node, Optional.of(equivalent), Optional.empty(), context);
         }
 
         @Override

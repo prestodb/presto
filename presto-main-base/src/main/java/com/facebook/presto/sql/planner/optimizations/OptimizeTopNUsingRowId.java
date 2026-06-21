@@ -30,6 +30,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNNode.Step;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -307,6 +308,11 @@ public class OptimizeTopNUsingRowId
                 FilterNode filterNode = (FilterNode) node;
                 return replaceTableScan(filterNode.getSource(), newTableScan, idAllocator)
                         .map(newSource -> new FilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate()));
+            }
+            if (node instanceof UnmergeableFilterNode) {
+                UnmergeableFilterNode filterNode = (UnmergeableFilterNode) node;
+                return replaceTableScan(filterNode.getSource(), newTableScan, idAllocator)
+                        .map(newSource -> new UnmergeableFilterNode(filterNode.getSourceLocation(), idAllocator.getNextId(), newSource, filterNode.getPredicate()));
             }
             if (node instanceof ProjectNode) {
                 ProjectNode projectNode = (ProjectNode) node;

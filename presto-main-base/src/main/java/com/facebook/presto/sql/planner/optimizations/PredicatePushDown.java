@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -452,6 +453,21 @@ public class PredicatePushDown
             }
 
             return node;
+        }
+
+        @Override
+        public PlanNode visitUnmergeableFilter(UnmergeableFilterNode node, RewriteContext<RowExpression> context)
+        {
+            // Don't fold inherited predicates into the unmergeable filter, and don't push them through it.
+            // Inherited predicates are placed in a separate FilterNode above; the source is rewritten with TRUE.
+            PlanNode rewrittenSource = context.rewrite(node.getSource(), TRUE_CONSTANT);
+            PlanNode result = rewrittenSource == node.getSource() ? node :
+                    new UnmergeableFilterNode(node.getSourceLocation(), node.getId(), node.getStatsEquivalentPlanNode(), rewrittenSource, node.getPredicate());
+            if (!context.get().equals(TRUE_CONSTANT)) {
+                planChanged = true;
+                result = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), result, context.get());
+            }
+            return result;
         }
 
         @Override

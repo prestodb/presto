@@ -18,6 +18,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -137,6 +138,16 @@ public final class QueryCardinalityUtil
 
         @Override
         public Range<Long> visitFilter(FilterNode node, Void context)
+        {
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+            if (sourceCardinalityRange.hasUpperBound()) {
+                return Range.closed(0L, sourceCardinalityRange.upperEndpoint());
+            }
+            return Range.atLeast(0L);
+        }
+
+        @Override
+        public Range<Long> visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
         {
             Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
             if (sourceCardinalityRange.hasUpperBound()) {

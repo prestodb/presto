@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ExistsExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -624,6 +625,13 @@ class SubqueryPlanner
         {
             FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
             return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
+        }
+
+        @Override
+        public PlanNode visitUnmergeableFilter(UnmergeableFilterNode node, RewriteContext<Void> context)
+        {
+            UnmergeableFilterNode rewrittenNode = (UnmergeableFilterNode) context.defaultRewrite(node);
+            return new UnmergeableFilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
         }
 
         @Override

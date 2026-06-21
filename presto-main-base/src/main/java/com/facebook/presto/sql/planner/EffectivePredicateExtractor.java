@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -137,6 +138,15 @@ public class EffectivePredicateExtractor
             predicate = logicalRowExpressions.filterDeterministicConjuncts(predicate);
 
             return logicalRowExpressions.combineConjuncts(predicate, underlyingPredicate);
+        }
+
+        @Override
+        public RowExpression visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
+        {
+            // The unmergeable filter's predicate must not be exposed for predicate inference: doing so
+            // would let downstream optimizers push predicates below it, eliminating rows before the
+            // guard observes them. Return only the source's effective predicate.
+            return node.getSource().accept(this, context);
         }
 
         @Override

@@ -70,6 +70,7 @@ import com.facebook.presto.spi.plan.TableWriterNode.MergeParadigmAndTypes;
 import com.facebook.presto.spi.plan.TableWriterNode.MergeTarget;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -338,6 +339,11 @@ public class PlanBuilder
     public FilterNode filter(PlanNodeId planNodeId, RowExpression predicate, PlanNode source)
     {
         return new FilterNode(source.getSourceLocation(), planNodeId, source, predicate);
+    }
+
+    public UnmergeableFilterNode unmergeableFilter(RowExpression predicate, PlanNode source)
+    {
+        return new UnmergeableFilterNode(source.getSourceLocation(), idAllocator.getNextId(), source, predicate);
     }
 
     public AggregationNode aggregation(Consumer<AggregationBuilder> aggregationBuilderConsumer)

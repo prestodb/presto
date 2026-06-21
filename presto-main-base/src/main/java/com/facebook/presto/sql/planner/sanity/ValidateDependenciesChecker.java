@@ -52,6 +52,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -383,6 +384,25 @@ public final class ValidateDependenciesChecker
             checkArgument(
                     inputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(dependencies),
                     "Symbol from filter (%s) not in sources (%s)",
+                    dependencies,
+                    inputs);
+
+            return null;
+        }
+
+        @Override
+        public Void visitUnmergeableFilter(UnmergeableFilterNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables);
+
+            Set<VariableReferenceExpression> inputs = createInputs(source, boundVariables);
+            checkDependencies(inputs, node.getOutputVariables(), "Invalid node. Output symbols (%s) not in source plan output (%s)", node.getOutputVariables(), node.getSource().getOutputVariables());
+
+            Set<String> dependencies = VariablesExtractor.extractUnique(node.getPredicate()).stream().map(VariableReferenceExpression::getName).collect(toImmutableSet());
+            checkArgument(
+                    inputs.stream().map(VariableReferenceExpression::getName).collect(toImmutableSet()).containsAll(dependencies),
+                    "Symbol from unmergeable filter (%s) not in sources (%s)",
                     dependencies,
                     inputs);
 

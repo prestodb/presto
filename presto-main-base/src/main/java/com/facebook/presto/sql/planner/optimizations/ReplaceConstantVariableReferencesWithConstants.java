@@ -32,6 +32,7 @@ import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -218,6 +219,22 @@ public class ReplaceConstantVariableReferencesWithConstants
             }
 
             return new PlanNodeWithConstant(replaceChildren(newFilterNode, ImmutableList.of(rewrittenChild.getPlanNode())), newConstantMap);
+        }
+
+        @Override
+        public PlanNodeWithConstant visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
+        {
+            PlanNodeWithConstant rewrittenChild = accept(node.getSource());
+
+            RowExpression predicate = node.getPredicate();
+            UnmergeableFilterNode newFilterNode = node;
+            if (!rewrittenChild.getConstantExpressionMap().isEmpty()) {
+                predicate = predicate.accept(new ExpressionRewriter(rewrittenChild.getConstantExpressionMap()), null);
+                newFilterNode = new UnmergeableFilterNode(node.getSourceLocation(), idAllocator.getNextId(), node.getSource(), predicate);
+            }
+
+            // Don't propagate the constants up: the unmergeable filter must not let downstream rules use its predicate for inference.
+            return new PlanNodeWithConstant(replaceChildren(newFilterNode, ImmutableList.of(rewrittenChild.getPlanNode())), rewrittenChild.getConstantExpressionMap());
         }
 
         @Override

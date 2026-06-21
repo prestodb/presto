@@ -25,6 +25,7 @@ import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InSubqueryExpression;
@@ -351,6 +352,14 @@ public class TransformCorrelatedInPredicateToJoin
                                 decorrelated.getDecorrelatedNode(),
                                 assignments.build()));
             });
+        }
+
+        @Override
+        public Optional<Decorrelated> visitUnmergeableFilter(UnmergeableFilterNode node, PlanNode reference)
+        {
+            // The unmergeable filter must remain intact: decorrelating it would split its predicate
+            // across the lateral join boundary and let other filters fold into it.
+            return Optional.empty();
         }
 
         @Override

@@ -51,6 +51,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -807,6 +808,13 @@ public class PropertyDerivations
                     .constants(constants)
                     .propertiesFromUniqueColumn(properties.getPropertiesFromUniqueColumn())
                     .build();
+        }
+
+        @Override
+        public ActualProperties visitUnmergeableFilter(UnmergeableFilterNode node, List<ActualProperties> inputProperties)
+        {
+            // Don't extract constants from the unmergeable filter's predicate — its purpose is to be opaque to other optimizers.
+            return Iterables.getOnlyElement(inputProperties);
         }
 
         @Override

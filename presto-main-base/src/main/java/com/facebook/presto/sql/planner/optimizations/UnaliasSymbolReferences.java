@@ -53,6 +53,7 @@ import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.TopNRowNumberNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -606,6 +607,14 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
 
             return new FilterNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getPredicate()));
+        }
+
+        @Override
+        public PlanNode visitUnmergeableFilter(UnmergeableFilterNode node, RewriteContext<Void> context)
+        {
+            PlanNode source = context.rewrite(node.getSource());
+
+            return new UnmergeableFilterNode(node.getSourceLocation(), node.getId(), Optional.empty(), source, canonicalize(node.getPredicate()));
         }
 
         @Override

@@ -1449,6 +1449,14 @@ public abstract class AbstractTestNativeGeneralQueries
 
         // Subquery returns more than one row.
         assertQueryFails("SELECT name FROM nation WHERE regionkey = (SELECT regionkey FROM region)", "(?s).*Expected single row of input. Received 5 rows.*");
+
+        // Correlated scalar subquery guard must fire even when combined with other predicates.
+        assertQueryFails(
+                "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey > n.regionkey)",
+                "Scalar sub-query has returned multiple rows");
+        assertQueryFails(
+                "SELECT name FROM nation n WHERE (SELECT name FROM region WHERE regionkey > n.regionkey) = 'AFRICA'",
+                "Scalar sub-query has returned multiple rows");
     }
 
     @Test

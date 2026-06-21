@@ -52,6 +52,33 @@ public class TestMergeFilters
                 .matches(filter("(a < 42) AND (b > 44)", values(ImmutableMap.of("a", 0, "b", 1))));
     }
 
+    @Test
+    public void testDoesNotMergeWhenChildIsUnmergeable()
+    {
+        // MergeFilters keys on Patterns.filter() (FilterNode only). When the child is an
+        // UnmergeableFilterNode, the parent FilterNode's source is not a FilterNode, so the
+        // pattern does not match and no merge happens.
+        tester().assertThat(new MergeFilters(getFunctionManager()))
+                .on(p ->
+                        p.filter(sqlToRowExpression("b > 44"),
+                                p.unmergeableFilter(sqlToRowExpression("a < 42"),
+                                        p.values(p.variable("a"), p.variable("b")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotMergeWhenParentIsUnmergeable()
+    {
+        // MergeFilters' parent pattern is filter() (FilterNode only). When the parent is an
+        // UnmergeableFilterNode, the rule does not match it at all.
+        tester().assertThat(new MergeFilters(getFunctionManager()))
+                .on(p ->
+                        p.unmergeableFilter(sqlToRowExpression("b > 44"),
+                                p.filter(sqlToRowExpression("a < 42"),
+                                        p.values(p.variable("a"), p.variable("b")))))
+                .doesNotFire();
+    }
+
     private RowExpression sqlToRowExpression(String sql)
     {
         return sqlToRowExpressionTranslator.translate(PlanBuilder.expression(sql), TypeProvider.copyOf(ImmutableMap.of("a", BIGINT, "b", BIGINT)));

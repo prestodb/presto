@@ -42,6 +42,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
@@ -101,6 +102,11 @@ public class Patterns
     public static Pattern<FilterNode> filter()
     {
         return typeOf(FilterNode.class);
+    }
+
+    public static Pattern<UnmergeableFilterNode> unmergeableFilter()
+    {
+        return typeOf(UnmergeableFilterNode.class);
     }
 
     public static Pattern<IndexSourceNode> indexSource()

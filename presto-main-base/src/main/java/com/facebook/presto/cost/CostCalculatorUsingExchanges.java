@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
@@ -157,6 +158,13 @@ public class CostCalculatorUsingExchanges
 
         @Override
         public PlanCostEstimate visitFilter(FilterNode node, Void context)
+        {
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getSource()));
+            return costForStreaming(node, localCost);
+        }
+
+        @Override
+        public PlanCostEstimate visitUnmergeableFilter(UnmergeableFilterNode node, Void context)
         {
             LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getSource()));
             return costForStreaming(node, localCost);

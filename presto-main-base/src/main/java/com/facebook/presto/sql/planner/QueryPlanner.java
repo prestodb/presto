@@ -48,6 +48,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.UnmergeableFilterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -636,7 +637,11 @@ public class QueryPlanner
                         BOOLEAN.getTypeSignature().toString()),
                 TRUE_LITERAL);
 
-        FilterNode filterMultipleMatches = new FilterNode(getSourceLocation(mergeStmt), idAllocator.getNextId(),
+        // Use UnmergeableFilterNode so the guard is not folded with other predicates: native execution of
+        // a merged predicate evaluates conjuncts stage-wise over selectivity vectors and can short-circuit
+        // the fail() error away. The terminal RewriteUnmergeableFilterToFilter pass converts this back to
+        // a regular FilterNode after all optimizers have run.
+        UnmergeableFilterNode filterMultipleMatches = new UnmergeableFilterNode(getSourceLocation(mergeStmt), idAllocator.getNextId(),
                 markDistinctNode, rowExpression(multipleMatchesExpression, sqlPlannerContext));
 
         TableHandle targetTableHandle = analysis.getTableHandle(targetTable);

@@ -43,6 +43,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.lateral;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.unmergeableFilter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
@@ -110,7 +111,7 @@ public class TestTransformCorrelatedScalarSubquery
                 })
                 .matches(
                         project(
-                                filter(
+                                unmergeableFilter(
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
@@ -141,7 +142,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                         p.values(ImmutableList.of(p.variable("a")), TWO_ROWS))))))
                 .matches(
                         project(
-                                filter(
+                                unmergeableFilter(
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
@@ -176,7 +177,7 @@ public class TestTransformCorrelatedScalarSubquery
                                                                 p.values(ImmutableList.of(p.variable("a")), TWO_ROWS)))))))
                 .matches(
                         project(
-                                filter(
+                                unmergeableFilter(
                                         ensureScalarSubquery(),
                                         markDistinct(
                                                 "is_distinct",
