@@ -32,6 +32,7 @@ public class IcebergHiveTableOperationsConfig
     private double tableRefreshBackoffScaleFactor = 4.0;
     private int tableRefreshRetries = 20;
     private boolean lockingEnabled = true;
+    private boolean commitTableDataEnabled;
 
     @MinDuration("1ms")
     public Duration getTableRefreshBackoffMinSleepTime()
@@ -114,5 +115,23 @@ public class IcebergHiveTableOperationsConfig
     public boolean getLockingEnabled()
     {
         return lockingEnabled;
+    }
+
+    private boolean commitTableDataEnabled;
+
+    private boolean commitTableDataEnabled;
+
+    public boolean getCommitTableDataEnabled()
+    {
+        return commitTableDataEnabled;
+    }
+
+    @Config("iceberg.hive.commit-table-data-enabled")
+    @ConfigDescription("Use commit_table_data CAS API instead of alter_table for Iceberg metadata commits. " +
+            "Requires metastore support for the commit_table_data API.")
+    public IcebergHiveTableOperationsConfig setCommitTableDataEnabled(boolean commitTableDataEnabled)
+    {
+        this.commitTableDataEnabled = commitTableDataEnabled;
+        return this;
     }
 }
