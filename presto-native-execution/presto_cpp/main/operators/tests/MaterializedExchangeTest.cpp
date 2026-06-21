@@ -158,6 +158,62 @@ class FailingCloseShuffleFactory : public ShuffleInterfaceFactory {
   ShuffleInterfaceFactory* delegate_;
 };
 
+class RecordingShuffleWriter : public ShuffleWriter {
+ public:
+  RecordingShuffleWriter(
+      std::shared_ptr<ShuffleWriter> delegate,
+      std::shared_ptr<std::vector<size_t>> collectSizes)
+      : delegate_(std::move(delegate)),
+        collectSizes_(std::move(collectSizes)) {}
+
+  void collect(int32_t partition, std::string_view key, std::string_view data)
+      override {
+    collectSizes_->push_back(data.size());
+    delegate_->collect(partition, key, data);
+  }
+
+  void noMoreData(bool success) override {
+    delegate_->noMoreData(success);
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return delegate_->stats();
+  }
+
+ private:
+  std::shared_ptr<ShuffleWriter> delegate_;
+  std::shared_ptr<std::vector<size_t>> collectSizes_;
+};
+
+class RecordingShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  explicit RecordingShuffleFactory(ShuffleInterfaceFactory* delegate)
+      : delegate_(delegate),
+        collectSizes_(std::make_shared<std::vector<size_t>>()) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      int32_t partition,
+      velox::memory::MemoryPool* pool) override {
+    return delegate_->createReader(serializedShuffleInfo, partition, pool);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    return std::make_shared<RecordingShuffleWriter>(
+        delegate_->createWriter(serializedShuffleInfo, pool), collectSizes_);
+  }
+
+  const std::vector<size_t>& collectSizes() const {
+    return *collectSizes_;
+  }
+
+ private:
+  ShuffleInterfaceFactory* delegate_;
+  std::shared_ptr<std::vector<size_t>> collectSizes_;
+};
+
 } // namespace
 
 class MaterializedExchangeTest : public exec::test::OperatorTestBase {
@@ -363,6 +419,75 @@ TEST_F(MaterializedExchangeTest, largeDataEndToEnd) {
   auto actual = runExchangeRead(numPartitions, asRowType(data->type()));
 
   exec::test::assertEqualResults(expected, actual);
+  cleanupDirectory(tempDir_->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, boundsCollectSizeForLargeInputBatch) {
+  constexpr int numRows = 128;
+  constexpr int valueBytes = 8 * 1024;
+
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(numRows, [](auto /*row*/) { return 0; }),
+      makeFlatVector<std::string>(
+          numRows,
+          [](auto row) {
+            return std::string(valueBytes, static_cast<char>('a' + row % 26));
+          }),
+  });
+  auto dataType = asRowType(data->type());
+
+  constexpr int numPartitions = 1;
+  constexpr int numDrivers = 1;
+  auto writeInfoStr = localShuffleWriteInfo(tempDir_->getPath(), numPartitions);
+  RecordingShuffleFactory recordingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_));
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfoStr,
+      &recordingFactory,
+      "split.0.0.0.0",
+      rootPool_.get());
+
+  std::vector<core::TypedExprPtr> keys{
+      std::make_shared<core::FieldAccessTypedExpr>(
+          dataType->childAt(0), dataType->nameOf(0))};
+  auto partitionFunctionSpec =
+      std::make_shared<exec::HashPartitionFunctionSpec>(
+          dataType, std::vector<column_index_t>{0});
+
+  auto valuesNode = exec::test::PlanBuilder().values({data}, true).planNode();
+  auto exchangeWriteNode = std::make_shared<MaterializedOutputNode>(
+      "exchangeWrite",
+      keys,
+      numPartitions,
+      dataType,
+      partitionFunctionSpec,
+      /*replicateNullsAndAny=*/false,
+      ShuffleWriterMetadata{},
+      valuesNode);
+
+  auto taskId = makeTaskId("write", 0);
+  MaterializedOutputBuffer::registerBuffer(taskId, buffer);
+  auto task = makeTask(taskId, exchangeWriteNode, 0);
+  task->start(numDrivers);
+
+  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  MaterializedOutputBuffer::removeBuffer(taskId);
+
+  auto stats = buffer->stats();
+  const auto collectCount =
+      stats.at(std::string(MaterializedOutputBuffer::kTotalCollectCalls)).sum;
+  const auto collectSizeLimit =
+      stats.at(std::string(MaterializedOutputBuffer::kCurrentDrainThreshold))
+          .sum;
+  EXPECT_GT(collectCount, 1);
+  ASSERT_EQ(recordingFactory.collectSizes().size(), collectCount);
+  for (auto collectSize : recordingFactory.collectSizes()) {
+    EXPECT_LE(collectSize, collectSizeLimit);
+  }
+
+  auto actual = runExchangeRead(numPartitions, dataType);
+  exec::test::assertEqualResults({data}, actual);
   cleanupDirectory(tempDir_->getPath());
 }
 

@@ -191,9 +191,14 @@ class MaterializedOutputBuffer {
     return bufferedBytes_;
   }
 
+  /// Maximum bytes buffered per partition before draining to the writer.
+  int64_t partitionDrainThreshold() const {
+    return partitionDrainThreshold_;
+  }
+
   /// For testing: returns the current per-partition drain threshold.
   int64_t testingCurrentDrainThreshold() const {
-    return partitionDrainThreshold_;
+    return partitionDrainThreshold();
   }
 
   /// Returns combined writer + buffer stats with typed units

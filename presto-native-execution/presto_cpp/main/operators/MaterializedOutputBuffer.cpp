@@ -88,21 +88,30 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
   std::lock_guard<std::mutex> lock(mutex_);
   VELOX_CHECK(!closed_, "enqueue called on closed partition");
   auto dataSize = static_cast<int64_t>(rowGroup->computeChainDataLength());
+  auto drain = [&]() {
+    std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
+    toDrain.swap(rowGroups_);
+    auto drainedBytes = bufferedBytes_.load();
+    bufferedBytes_ = 0;
+
+    auto coalesced = buffer_->coalesceRowGroups(toDrain);
+    buffer_->flushToWriter(partition, std::move(coalesced));
+    return drainedBytes;
+  };
+
+  int64_t drainedBytes = 0;
+  if (!rowGroups_.empty() && bufferedBytes_ + dataSize > drainThreshold_) {
+    drainedBytes += drain();
+  }
+
   rowGroups_.push_back(std::move(rowGroup));
   bufferedBytes_ += dataSize;
 
   if (bufferedBytes_ < drainThreshold_) {
-    return 0;
+    return drainedBytes;
   }
 
-  // Drain: coalesce + flush under the same lock.
-  std::deque<std::unique_ptr<folly::IOBuf>> toDrain;
-  toDrain.swap(rowGroups_);
-  auto drainedBytes = bufferedBytes_.load();
-  bufferedBytes_ = 0;
-
-  auto coalesced = buffer_->coalesceRowGroups(toDrain);
-  buffer_->flushToWriter(partition, std::move(coalesced));
+  drainedBytes += drain();
   return drainedBytes;
 }
 
