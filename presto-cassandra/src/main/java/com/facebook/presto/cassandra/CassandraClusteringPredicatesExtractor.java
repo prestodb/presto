@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.datastax.oss.driver.api.core.Version.parse;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -35,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class CassandraClusteringPredicatesExtractor
 {
     // IN restrictions on a non-last clustering column are only supported from Cassandra 2.2 onwards.
-    private static final Version IN_PREDICATE_MIN_VERSION = Version.parse("2.2.0");
+    private static final Version IN_PREDICATE_MIN_VERSION = parse("2.2.0");
 
     private final List<CassandraColumnHandle> clusteringColumns;
     private final ClusteringPushDownResult clusteringPushDownResult;
@@ -45,7 +46,7 @@ public class CassandraClusteringPredicatesExtractor
     {
         this.clusteringColumns = ImmutableList.copyOf(clusteringColumns);
         this.predicates = requireNonNull(predicates, "predicates is null");
-        this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
+        this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, parse(requireNonNull(cassandraVersion, "cassandraVersion is null")));
     }
 
     public String getClusteringKeyPredicates()
@@ -65,7 +66,7 @@ public class CassandraClusteringPredicatesExtractor
         return TupleDomain.withColumnDomains(notPushedDown);
     }
 
-    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, String cassandraVersion)
+    private static ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)
     {
         ImmutableMap.Builder<ColumnHandle, Domain> domainsBuilder = ImmutableMap.builder();
         ImmutableList.Builder<String> clusteringColumnSql = ImmutableList.builder();
@@ -145,7 +146,7 @@ public class CassandraClusteringPredicatesExtractor
                 break;
             }
             // IN restriction only on last clustering column for Cassandra versions prior to 2.2
-            if (predicateString.contains(" IN (") && Version.parse(cassandraVersion).compareTo(IN_PREDICATE_MIN_VERSION) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
+            if (predicateString.contains(" IN (") && cassandraVersion.compareTo(IN_PREDICATE_MIN_VERSION) < 0 && currentClusteringColumn != (clusteringColumns.size() - 1)) {
                 break;
             }
             clusteringColumnSql.add(predicateString);
