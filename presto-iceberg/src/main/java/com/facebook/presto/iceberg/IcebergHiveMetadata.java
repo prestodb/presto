@@ -56,6 +56,7 @@ import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
@@ -68,6 +69,7 @@ import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -196,13 +198,15 @@ public class IcebergHiveMetadata
             IcebergHiveTableOperationsConfig hiveTableOperationsConfig,
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
+            FunctionMetadataManager functionMetadataManager,
+            SqlParser sqlParser,
             IcebergTableProperties tableProperties,
             ConnectorSystemConfig connectorSystemConfig,
             IsolationLevel isolationLevel,
             boolean autoCommitContext)
     {
         super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec,
-                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, functionMetadataManager, sqlParser, isolationLevel, autoCommitContext);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");

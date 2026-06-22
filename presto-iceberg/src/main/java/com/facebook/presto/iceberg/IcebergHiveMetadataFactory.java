@@ -22,11 +22,13 @@ import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionMetadata;
 import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.sql.parser.SqlParser;
 import jakarta.inject.Inject;
 
 import java.util.List;
@@ -53,7 +55,9 @@ public class IcebergHiveMetadataFactory
     final IcebergHiveTableOperationsConfig operationsConfig;
     final StatisticsFileCache statisticsFileCache;
     final ManifestFileCache manifestFileCache;
+    private final FunctionMetadataManager functionMetadataManager;
     final IcebergTableProperties tableProperties;
+    private final SqlParser sqlParser;
     final ConnectorSystemConfig connectorSystemConfig;
 
     @Inject
@@ -74,6 +78,8 @@ public class IcebergHiveMetadataFactory
             StatisticsFileCache statisticsFileCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
+            FunctionMetadataManager functionMetadataManager,
+            SqlParser sqlParser,
             ConnectorSystemConfig connectorSystemConfig)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -91,7 +97,9 @@ public class IcebergHiveMetadataFactory
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.tableProperties = requireNonNull(tableProperties, "icebergTableProperties is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.connectorSystemConfig = requireNonNull(connectorSystemConfig, "connectorSystemConfig is null");
     }
 
@@ -118,6 +126,8 @@ public class IcebergHiveMetadataFactory
                 operationsConfig,
                 statisticsFileCache,
                 manifestFileCache,
+                functionMetadataManager,
+                sqlParser,
                 tableProperties,
                 connectorSystemConfig,
                 isolationLevel,

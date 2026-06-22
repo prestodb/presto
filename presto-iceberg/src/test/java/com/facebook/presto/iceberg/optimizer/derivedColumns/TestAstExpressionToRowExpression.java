@@ -22,6 +22,7 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -48,7 +49,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.intellij.lang.annotations.Language;
-import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -79,7 +79,6 @@ public class TestAstExpressionToRowExpression
     private File warehouseLocation;
     private TestingHttpServer restServer;
     private AstExpressionToRowExpression astExpressionToRowExpression;
-    private ConnectorSession session;
     private RowExpressionService rowExpressionService;
     @Language("SQL") private static final String CREATE_TABLE_QUERY =
             "CREATE TABLE test_table (\n" +
@@ -134,7 +133,8 @@ public class TestAstExpressionToRowExpression
                     "(7, DOUBLE '7.5', 7, CAST(29 AS SMALLINT), CAST(3 AS SMALLINT), 4, 59000.00, 3500.00, 4.1, 'Grace', 'F', 5.8, CAST(0 AS SMALLINT), TRUE, TRUE, 'Mike', 1, DATE '2024-06-10', 'Leadership Summit'),\n" +
                     "(8, DOUBLE '8.5', 8, CAST(31 AS SMALLINT), CAST(2 AS SMALLINT), 7, 70000.00, 6000.00, 4.6, 'Henry', 'M', 6.2, CAST(1 AS SMALLINT), TRUE, FALSE, 'Sarah', 2, DATE '2024-05-01', 'Team Building Day'),\n" +
                     "(9, DOUBLE '9.5', 9, CAST(24 AS SMALLINT), CAST(1 AS SMALLINT), 2, 50000.00, 2000.00, 4.2, 'Ivy', 'F', 5.4, CAST(1 AS SMALLINT), TRUE, TRUE, 'John', 1, DATE '2024-04-15', 'Innovation Fair'),\n" +
-                    "(10, DOUBLE '10.5', 10, CAST(26 AS SMALLINT), CAST(3 AS SMALLINT), 5, 62000.00, 4000.00, 4.3, 'Jack', 'M', 6.1, CAST(1 AS SMALLINT), FALSE, FALSE, 'Mike', 3, DATE '2024-03-30', 'End-of-Year Celebration')\n";
+                    "(10, DOUBLE '10.5', 10, CAST(23 AS SMALLINT), CAST(2 AS SMALLINT), 2, 50000.00, 2000.00, 4.2, NULL, 'F', 5.4, CAST(1 AS SMALLINT), TRUE, TRUE, 'John', 1, DATE '2024-04-15', 'Innovation Fair'),\n" +
+                    "(11, DOUBLE '11.5', 11, CAST(26 AS SMALLINT), CAST(3 AS SMALLINT), 5, 62000.00, 4000.00, 4.3, 'Jack', 'M', 6.1, CAST(1 AS SMALLINT), FALSE, FALSE, 'Mike', 3, DATE '2024-03-30', 'End-of-Year Celebration')\n";
 
     @BeforeClass
     @Override
@@ -148,7 +148,7 @@ public class TestAstExpressionToRowExpression
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         FunctionAndTypeManager functionAndTypeManager = queryRunner.getMetadata().getFunctionAndTypeManager();
         StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-        astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionAndTypeManager);
+        astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionAndTypeManager, functionAndTypeManager, getSession().getSqlFunctionProperties());
         rowExpressionService = new RowExpressionService()
         {
             @Override
@@ -182,7 +182,7 @@ public class TestAstExpressionToRowExpression
             }
         };
         assertUpdate(CREATE_TABLE_QUERY);
-        assertUpdate(INSERT_QUERY, 10);
+        assertUpdate(INSERT_QUERY, 11);
     }
 
     @AfterClass(alwaysRun = true)
@@ -214,25 +214,137 @@ public class TestAstExpressionToRowExpression
 
     public void testBasicArithmeticExpressions()
     {
-        checkExpression("c1 + c2");
-        checkExpression("c1 * c2");
-        checkExpression("c1 + bigint_col");
-        checkExpression("double_col * smallint_col");
-        checkExpression("smallint_col + real_col");
-        checkExpression("c2 / double_col");
-        checkExpression("smallint_col + bigint_col");
-        checkExpression("double_col - real_col");
+        checkExpressionInProject("c1 + c2");
+        checkExpressionInProject("c1 * c2");
+        checkExpressionInProject("c1 + bigint_col");
+        checkExpressionInProject("double_col * smallint_col");
+        checkExpressionInProject("smallint_col + real_col");
+        checkExpressionInProject("c2 / double_col");
+        checkExpressionInProject("smallint_col + bigint_col");
+        checkExpressionInProject("real_col * decimal_col");
+        checkExpressionInProject("(real_col * decimal_col) + double_col");
+        checkExpressionInProject("(real_col * bigint_col) + decimal_col");
+        checkExpressionInProject("double_col - real_col");
+        checkExpressionInProject("(double_col / decimal_col)");
+        checkExpressionInProject("(double_col * decimal_col) / decimal_col");
+        checkExpressionInProject("((smallint_col + integer_col) * (double_col)) % integer_col");
+        checkExpressionInFilter("abs(-decimal_col) = decimal_col");
     }
 
-    private void checkExpression(String expression)
+    public void testFunctionCalls()
     {
-        @Language("SQL") String query = String.format("SELECT %s from test_table", expression);
-        Plan plan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP).getQueryPlan();
-        ProjectNode project = PlanNodeSearcher.searchFrom(plan.getRoot()).where(planNode -> planNode instanceof ProjectNode).findOnlyElement();
-        Map<VariableReferenceExpression, RowExpression> rowExpressionMap = project.getAssignments().getMap();
-        assertEquals(rowExpressionMap.size(), 1, "Only one mapping should exist");
-        RowExpression expected = rowExpressionMap.values().stream().findFirst().get();
+        checkExpressionInProject("abs(decimal_col)");
+        checkExpressionInFilter("lower(varchar_col) = 'alice'");
+        checkExpressionInProject("concat(varchar_col, 'A')");
+        checkExpressionInFilter("concat(varchar_col, 'A') in ('AliceA', 'BobA')");
+    }
 
+    public void testCastExpressions()
+    {
+        checkExpressionInProject("CAST(smallint_col AS bigint)");
+        checkExpressionInProject("CAST(integer_col AS smallint)");
+        checkExpressionInProject("CAST(double_col AS smallint)");
+    }
+
+    public void testComparisonExpressions()
+    {
+        checkExpressionInFilter("smallint_col > bigint_col");
+        checkExpressionInFilter("double_col > bigint_col");
+        checkExpressionInFilter("varchar_col = lower(varchar_col)");
+        checkExpressionInFilter("real_col > smallint_col");
+        checkExpressionInFilter("varchar_col IS NULL");
+    }
+
+    public void testLiterals()
+    {
+        checkExpressionInFilter("real_col = REAL '4.1'");
+        checkExpressionInFilter("decimal_col > 10.00");
+        checkExpressionInFilter("decimal_col = 50000.00");
+        checkExpressionInFilter("bigint_col > BIGINT '5'");
+        checkExpressionInFilter("smallint_col < 30");
+        checkExpressionInFilter("smallint_col > 1");
+
+        // json
+        checkExpressionInProject("CAST(NULL AS JSON)");
+        // date time literals
+        checkExpressionInProject("TIME '01:02:03.456'");
+        checkExpressionInProject("DATE '2001-08-22'");
+        checkExpressionInProject("TIMESTAMP '2001-08-22 03:04:05.321'");
+        checkExpressionInProject("TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'");
+        // the following expression does not get matched with it's equivalent SQL, because presto promotes Date literal to a timestamp literal before performing any
+        // arithmetic on date type.
+        // checkExpressionInFilter("(DATE '2024-01-30' - date_col) < (INTERVAL '90' DAY)");
+    }
+
+    public void testInvalidExpressions()
+    {
+        checkInvalidExpression("real_col = 4.1", "Types on expression (real_col = DECIMAL '4.1') are not same real != decimal(2,1)");
+        checkInvalidExpression("bigint_col >  5", "Types on expression (bigint_col > 5) are not same bigint != integer");
+        checkInvalidExpression("varchar_col = real_col", "Types on expression (varchar_col = real_col) are not same varchar != real");
+        // TODO: Add sub-expressions which are constant foldable as invalid, because they cannot be matched.
+    }
+
+    public void testUnsupportedExpressions()
+    {
+        checkUnsupportedExpression("concat(varchar_col, 'A') in (VALUES 'AliceA', 'BobA')", "subquery : ( VALUES \n" +
+                "  'AliceA'\n" +
+                ", 'BobA'\n" +
+                ") is not supported as expression on derived column. Full expression: (\"concat\"(varchar_col, 'A') IN ( VALUES \n" +
+                "  'AliceA'\n" +
+                ", 'BobA'\n" +
+                "))");
+    }
+
+    private void checkInvalidExpression(String expression, String errorMessage)
+    {
+        @Language("SQL") String query = "SELECT * from test_table LIMIT 1";
+        Plan plan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP).getQueryPlan();
+        try {
+            translateToRowExpression(expression, plan);
+        }
+        catch (IllegalStateException e) {
+            assertEquals(e.getMessage(), errorMessage);
+        }
+    }
+
+    private void checkUnsupportedExpression(String expression, String errorMessage)
+    {
+        @Language("SQL") String query = "SELECT * from test_table LIMIT 1";
+        Plan plan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP).getQueryPlan();
+        try {
+            translateToRowExpression(expression, plan);
+        }
+        catch (UnsupportedOperationException e) {
+            assertEquals(e.getMessage(), errorMessage);
+        }
+    }
+
+    private void checkExpressionInFilter(String expression)
+    {
+        @Language("SQL") String query = String.format("SELECT real_col from test_table WHERE %s", expression);
+        Plan plan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP).getQueryPlan();
+        FilterNode filter = PlanNodeSearcher.searchFrom(plan.getRoot()).where(planNode -> planNode instanceof FilterNode).findOnlyElement();
+
+        RowExpression expected = filter.getPredicate();
+
+        assertRowExpression(expression, plan, expected);
+    }
+
+    private void assertRowExpression(String expression, Plan plan, RowExpression expected)
+    {
+        RowExpression actual = translateToRowExpression(expression, plan);
+        String actualFormatted = rowExpressionService.formatRowExpression(getSession().toConnectorSession(), actual);
+
+        String expectedFormatted = rowExpressionService.formatRowExpression(getSession().toConnectorSession(), expected);
+        assertEquals(actual.getType(), expected.getType());
+        // A row expression may not be equivalent even if their formatted versions are equal. e.g. they may have implicit casts etc..
+        assertTrue(actual.accept(new RowExpressionEquivalenceVisitor(), expected),
+                format("\nActual row expression: %s : %s and \nExpected row expression: %s : %s", actual, actualFormatted, expected, expectedFormatted));
+        assertEquals(actualFormatted, expectedFormatted);
+    }
+
+    private RowExpression translateToRowExpression(String expression, Plan plan)
+    {
         Set<TableScanNode> tableScanNodes = plan.getRoot().accept(new FindTableScanNodesPlanVisitor(), null);
         assertEquals(tableScanNodes.size(), 1);
 
@@ -251,12 +363,18 @@ public class TestAstExpressionToRowExpression
         assertTrue(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
 
         RowExpression actual = astExpressionToRowExpression.process(expressionParsed, columnMetadataMap);
-        String actualFormatted = rowExpressionService.formatRowExpression(getSession().toConnectorSession(), actual);
+        return actual;
+    }
 
-        String expectedFormatted = rowExpressionService.formatRowExpression(getSession().toConnectorSession(), expected);
-        assertEquals(actual.getType(), expected.getType());
-        // A row expression may not be equivalent even if their formatted versions are equal. e.g. they may have implicit casts etc..
-        assertTrue(actual.accept(new RowExpressionEquivalenceVisitor(), expected), format("\nActual row expression: %s : %s and \nExpected row expression: %s : %s", actual, actualFormatted, expected, expectedFormatted));
-        assertEquals(actualFormatted, expectedFormatted);
+    private void checkExpressionInProject(String expression)
+    {
+        @Language("SQL") String query = String.format("SELECT %s from test_table", expression);
+        Plan plan = getQueryRunner().executeWithPlan(getSession(), query, WarningCollector.NOOP).getQueryPlan();
+        ProjectNode project = PlanNodeSearcher.searchFrom(plan.getRoot()).where(planNode -> planNode instanceof ProjectNode).findOnlyElement();
+        Map<VariableReferenceExpression, RowExpression> rowExpressionMap = project.getAssignments().getMap();
+        assertEquals(rowExpressionMap.size(), 1, "Only one mapping should exist");
+        RowExpression expected = rowExpressionMap.values().stream().findFirst().get();
+
+        assertRowExpression(expression, plan, expected);
     }
 }

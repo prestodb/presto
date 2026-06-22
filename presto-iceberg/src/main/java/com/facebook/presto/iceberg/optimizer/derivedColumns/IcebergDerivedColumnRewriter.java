@@ -19,6 +19,7 @@ import com.facebook.presto.iceberg.transaction.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -32,16 +33,19 @@ public class IcebergDerivedColumnRewriter
 {
     private final IcebergTransactionManager transactionManager;
     private final SqlParser sqlParser;
+    private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
     private final TypeManager typeManager;
 
     public IcebergDerivedColumnRewriter(
             IcebergTransactionManager transactionManager,
+            FunctionMetadataManager functionMetadataManager,
             StandardFunctionResolution functionResolution,
             TypeManager typeManager,
             SqlParser sqlParser)
     {
         this.transactionManager = transactionManager;
+        this.functionMetadataManager = functionMetadataManager;
         this.functionResolution = functionResolution;
         this.typeManager = typeManager;
         this.sqlParser = sqlParser;
@@ -56,6 +60,7 @@ public class IcebergDerivedColumnRewriter
         }
         PlanNode rewritten = rewriteWith(new SimplifySubExpressionsRewriter(
                 functionResolution,
+                functionMetadataManager,
                 typeManager,
                 transactionManager,
                 idAllocator,

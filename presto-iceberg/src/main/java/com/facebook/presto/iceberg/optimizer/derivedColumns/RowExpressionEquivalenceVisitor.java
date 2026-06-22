@@ -43,6 +43,12 @@ public class RowExpressionEquivalenceVisitor
         if (!(context instanceof ConstantExpression) || !compare(context.getType(), literal.getType())) {
             return false;
         }
+        if (literal.getValue() == null && ((ConstantExpression) context).getValue() == null) {
+            return true;
+        }
+        else if (literal.getValue() == null || ((ConstantExpression) context).getValue() == null) {
+            return false;
+        }
         return ((ConstantExpression) context).getValue().equals(literal.getValue());
     }
 

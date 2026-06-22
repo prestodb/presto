@@ -63,7 +63,7 @@ public class IcebergPlanOptimizerProvider
                 new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
                 new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties),
                 new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager),
-                new IcebergDerivedColumnRewriter(transactionManager, functionResolution, typeManager, sqlParser));
+                new IcebergDerivedColumnRewriter(transactionManager, functionMetadataManager, functionResolution, typeManager, sqlParser));
     }
 
     @Override

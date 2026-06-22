@@ -37,6 +37,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.optimizer.derivedColumns.AstExpressionToRowExpression;
 import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
@@ -79,6 +80,7 @@ import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpecList;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
@@ -92,6 +94,9 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
@@ -287,6 +292,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -349,6 +355,8 @@ public abstract class IcebergAbstractMetadata
     protected final IcebergTransactionContext transactionContext;
     protected final StatisticsFileCache statisticsFileCache;
     protected final IcebergTableProperties tableProperties;
+    private final FunctionMetadataManager functionMetadataManager;
+    private final SqlParser sqlParser;
     private final StandardFunctionResolution functionResolution;
 
     public IcebergAbstractMetadata(
@@ -363,6 +371,8 @@ public abstract class IcebergAbstractMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             StatisticsFileCache statisticsFileCache,
             IcebergTableProperties tableProperties,
+            FunctionMetadataManager functionMetadataManager,
+            SqlParser sqlParser,
             com.facebook.presto.spi.transaction.IsolationLevel isolationLevel,
             boolean autoCommitContext)
     {
@@ -377,6 +387,8 @@ public abstract class IcebergAbstractMetadata
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.transactionContext = new IcebergTransactionContext(isolationLevel, autoCommitContext);
     }
 
@@ -694,6 +706,19 @@ public abstract class IcebergAbstractMetadata
         ImmutableMap.Builder<String, Object> propertiesMapBuilder = ImmutableMap.<String, Object>builder().putAll(tableMetadata.getProperties());
         List<DerivedColumnSpec> derivedColumnSpecList = tableMetadata.getColumns().stream().filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
                 .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get()).toList();
+        for (DerivedColumnSpec derivedColumnSpec : derivedColumnSpecList) {
+            List<String> parserWarnings = new ArrayList<>();
+            Expression expressionParsed = sqlParser.createExpression(derivedColumnSpec.getDerivedColumnExpression(),
+                    ParsingOptions.builder().setWarningConsumer(parsingWarning -> {
+                        String message = format("derived column expression: %s has parse warnings: %s", derivedColumnSpec.getDerivedColumnExpression(), parsingWarning.getMessage());
+                        parserWarnings.add(message);
+                    }).setDecimalLiteralTreatment(AS_DECIMAL).build());
+            checkState(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
+            AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
+            Map<String, ColumnMetadata> columnMetadataMap = tableMetadata.getColumns().stream().collect(toImmutableMap(k -> k.getName(), v -> v));
+            astExpressionToRowExpression.process(expressionParsed, columnMetadataMap);
+        }
+
         propertiesMapBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, new DerivedColumnSpecList(derivedColumnSpecList));
         ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(), tableMetadata.getColumns(), propertiesMapBuilder.build());
         finishCreateTable(session, beginCreateTable(session, connectorTableMetadata, layout), ImmutableList.of(), ImmutableList.of());

@@ -243,6 +243,7 @@
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
         <module>presto-lance</module>
         <module>presto-flight-shim</module>
+        <module>presto-utils</module>
     </modules>
 
     <dependencyManagement>
@@ -325,6 +326,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-analyzer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-utils</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

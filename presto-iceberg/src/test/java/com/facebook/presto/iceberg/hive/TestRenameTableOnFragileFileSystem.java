@@ -67,6 +67,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -425,6 +426,8 @@ public class TestRenameTableOnFragileFileSystem
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 new IcebergTableProperties(new IcebergConfig()),
+                FUNCTION_AND_TYPE_MANAGER,
+                new SqlParser(),
                 () -> false);
         return icebergHiveMetadataFactory.create();
     }

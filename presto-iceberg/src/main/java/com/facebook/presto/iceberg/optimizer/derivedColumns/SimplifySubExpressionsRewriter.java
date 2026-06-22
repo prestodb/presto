@@ -38,6 +38,7 @@ import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.derivedColumns.DerivedColumnSpec;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -52,7 +53,6 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -92,6 +92,7 @@ public class SimplifySubExpressionsRewriter
     private final SqlParser sqlParser;
     private final VariableAllocator variableAllocator;
     private final StandardFunctionResolution functionResolution;
+    private final FunctionMetadataManager functionMetadataManager;
     private final TypeManager typeManager;
     private final IcebergTransactionManager transactionManager;
     private final PlanNodeIdAllocator idAllocator;
@@ -100,6 +101,7 @@ public class SimplifySubExpressionsRewriter
 
     public SimplifySubExpressionsRewriter(
             StandardFunctionResolution functionResolution,
+            FunctionMetadataManager functionMetadataManager,
             TypeManager typeManager,
             IcebergTransactionManager transactionManager,
             PlanNodeIdAllocator idAllocator,
@@ -108,6 +110,7 @@ public class SimplifySubExpressionsRewriter
             VariableAllocator variableAllocator)
     {
         this.functionResolution = functionResolution;
+        this.functionMetadataManager = functionMetadataManager;
         this.typeManager = typeManager;
         this.transactionManager = transactionManager;
         this.idAllocator = idAllocator;
@@ -401,7 +404,7 @@ public class SimplifySubExpressionsRewriter
                     LOG.warn(message);
                     session.getWarningCollector().add(new PrestoWarning(PARSER_WARNING, message));
                 }).setDecimalLiteralTreatment(AS_DECIMAL).build());
-        AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, typeManager);
+        AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
         // Expression configured on a derived column as RowExpression
         return astExpressionToRowExpression.process(expression, columnsMap);
     }
