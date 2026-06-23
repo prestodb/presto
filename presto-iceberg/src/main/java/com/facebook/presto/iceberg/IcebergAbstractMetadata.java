@@ -675,12 +675,16 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+        return buildColumnMetadata((IcebergColumnHandle) columnHandle);
+    }
+
+    private static ColumnMetadata buildColumnMetadata(IcebergColumnHandle column)
+    {
         return ColumnMetadata.builder()
                 .setName(column.getName())
                 .setType(column.getType())
                 .setComment(column.getComment().orElse(null))
-                .setHidden(false)
+                .setHidden(column.getColumnType() == SYNTHESIZED)
                 .build();
     }
 

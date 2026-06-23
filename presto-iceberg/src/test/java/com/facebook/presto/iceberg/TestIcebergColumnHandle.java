@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -32,7 +33,11 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -89,6 +94,36 @@ public class TestIcebergColumnHandle
         // Predicate pushdown exclusion is handled separately in getNonMetadataColumnConstraints().
         assertFalse(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
         assertFalse(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
+    }
+
+    @Test
+    public void testSynthesizedColumnHandlesAreHidden()
+    {
+        assertTrue(buildColumnMetadata(PATH_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(IS_DELETED_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DELETE_FILE_PATH_COLUMN_HANDLE).isHidden());
+    }
+
+    @Test
+    public void testRegularColumnHandleIsNotHidden()
+    {
+        IcebergColumnHandle regularColumn = primitiveIcebergColumnHandle(1, "amount", BIGINT, Optional.empty());
+        assertFalse(buildColumnMetadata(regularColumn).isHidden());
+        assertFalse(buildColumnMetadata(ROW_ID_COLUMN_HANDLE).isHidden());
+        assertFalse(buildColumnMetadata(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
+    }
+
+    private static com.facebook.presto.spi.ColumnMetadata buildColumnMetadata(IcebergColumnHandle column)
+    {
+        try {
+            Method method = IcebergAbstractMetadata.class.getDeclaredMethod("buildColumnMetadata", IcebergColumnHandle.class);
+            method.setAccessible(true);
+            return (com.facebook.presto.spi.ColumnMetadata) method.invoke(null, column);
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)
