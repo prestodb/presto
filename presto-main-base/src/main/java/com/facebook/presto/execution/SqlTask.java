@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -45,9 +47,12 @@ import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -79,6 +84,8 @@ public class SqlTask
 
     private final AtomicLong lastHeartbeat = new AtomicLong(System.currentTimeMillis());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final ConcurrentMap<String, TupleDomain<String>> dynamicFilters = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Long> dynamicFilterVersions = new ConcurrentHashMap<>();
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -513,6 +520,20 @@ public class SqlTask
     {
         taskStateMachine.abort();
         return getTaskInfo();
+    }
+
+    public Map<String, TupleDomain<String>> getDynamicFiltersSince(long sinceVersion)
+    {
+        ImmutableMap.Builder<String, TupleDomain<String>> result = ImmutableMap.builder();
+        for (Map.Entry<String, Long> entry : dynamicFilterVersions.entrySet()) {
+            if (entry.getValue() > sinceVersion) {
+                TupleDomain<String> filter = dynamicFilters.get(entry.getKey());
+                if (filter != null) {
+                    result.put(entry.getKey(), filter);
+                }
+            }
+        }
+        return result.build();
     }
 
     @Override
