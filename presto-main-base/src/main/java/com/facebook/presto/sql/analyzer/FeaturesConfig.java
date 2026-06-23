@@ -163,6 +163,7 @@ public class FeaturesConfig
     private boolean pushSemiJoinThroughUnion;
     private boolean pushAggregationThroughDisjointUnion;
     private boolean optimizeCascadingFiltersAndProjections;
+    private boolean optimizeJoinFanOut;
     private boolean simplifyCoalesceOverJoinKeys;
     private boolean pushdownThroughUnnest;
     private boolean simplifyAggregationsOverConstant;
@@ -1777,6 +1778,19 @@ public class FeaturesConfig
         this.optimizeCascadingFiltersAndProjections = optimizeCascadingFiltersAndProjections;
         return this;
     }
+    public boolean isOptimizeJoinFanOut()
+    {
+        return optimizeJoinFanOut;
+    }
+
+    @Config("optimizer.optimize-join-fan-out")
+    @ConfigDescription("Collapse a fan-out equi-join whose preserved side is an aggregation grouped by a strict superset of the join keys by packing non-key columns with array_agg(row(...)) and re-expanding them with a local UNNEST above the join")
+    public FeaturesConfig setOptimizeJoinFanOut(boolean optimizeJoinFanOut)
+    {
+        this.optimizeJoinFanOut = optimizeJoinFanOut;
+        return this;
+    }
+
     public boolean isSimplifyCoalesceOverJoinKeys()
     {
         return simplifyCoalesceOverJoinKeys;

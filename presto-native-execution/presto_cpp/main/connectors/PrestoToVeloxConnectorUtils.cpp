@@ -831,11 +831,38 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
   }
 }
 
+// DEPRECATED: delegates to the overload that takes `indexColumns`; retained for
+// backward compatibility while callers are migrated, and will be removed.
 std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
+    const protocol::TableHandle& tableHandle,
+    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+        columnHandles,
+    const protocol::Map<protocol::String, protocol::String>& tableParameters,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) {
+  return toHiveTableHandle(
+      domainPredicate,
+      remainingPredicate,
+      tableName,
+      dataColumns,
+      /*indexColumns=*/{},
+      tableHandle,
+      columnHandles,
+      tableParameters,
+      exprConverter,
+      typeParser);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
+    const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
+    const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
+    const std::string& tableName,
+    const protocol::List<protocol::Column>& dataColumns,
+    const std::vector<std::string>& indexColumns,
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
         columnHandles,
@@ -889,6 +916,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
+      indexColumns,
       finalTableParameters,
       columnHandles);
 }

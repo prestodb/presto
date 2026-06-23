@@ -32,9 +32,14 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.DELETE_FILE_PATH_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.IS_DELETED_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.apache.iceberg.MetadataColumns.ROW_ID;
@@ -89,6 +94,24 @@ public class TestIcebergColumnHandle
         // Predicate pushdown exclusion is handled separately in getNonMetadataColumnConstraints().
         assertFalse(IcebergMetadataColumn.isMetadataColumnId(ROW_ID_COLUMN_HANDLE.getId()));
         assertFalse(IcebergMetadataColumn.isMetadataColumnId(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE.getId()));
+    }
+
+    @Test
+    public void testSynthesizedColumnHandlesAreHidden()
+    {
+        assertTrue(buildColumnMetadata(PATH_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DATA_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(IS_DELETED_COLUMN_HANDLE).isHidden());
+        assertTrue(buildColumnMetadata(DELETE_FILE_PATH_COLUMN_HANDLE).isHidden());
+    }
+
+    @Test
+    public void testRegularColumnHandleIsNotHidden()
+    {
+        IcebergColumnHandle regularColumn = primitiveIcebergColumnHandle(1, "amount", BIGINT, Optional.empty());
+        assertFalse(buildColumnMetadata(regularColumn).isHidden());
+        assertFalse(buildColumnMetadata(ROW_ID_COLUMN_HANDLE).isHidden());
+        assertFalse(buildColumnMetadata(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)

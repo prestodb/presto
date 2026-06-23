@@ -318,6 +318,18 @@ public class PlannerUtils
                 ImmutableList.of());
     }
 
+    /**
+     * Builds an {@code array_agg(argument)} aggregation that packs the (non-grouped) input rows
+     * into an array. The result type is {@code array(argument type)}; the aggregation has no
+     * filter, ordering, mask and is not distinct. Useful for collapsing a fan-out into one row
+     * per group that can later be re-expanded with a {@code CROSS JOIN UNNEST}.
+     */
+    public static AggregationNode.Aggregation createArrayAggregation(FunctionAndTypeManager functionAndTypeManager, RowExpression argument)
+    {
+        CallExpression call = call(functionAndTypeManager, "array_agg", new ArrayType(argument.getType()), argument);
+        return new AggregationNode.Aggregation(call, Optional.empty(), Optional.empty(), false, Optional.empty());
+    }
+
     private static PlanNode cloneFilterNode(FilterNode filterNode, Session session, Metadata metadata, PlanNodeIdAllocator planNodeIdAllocator, List<VariableReferenceExpression> variablesToKeep, Map<VariableReferenceExpression, VariableReferenceExpression> varMap, PlanNodeIdAllocator idAllocator)
     {
         PlanNode newSource = clonePlanNode(filterNode.getSource(), session, metadata, planNodeIdAllocator, variablesToKeep, varMap);

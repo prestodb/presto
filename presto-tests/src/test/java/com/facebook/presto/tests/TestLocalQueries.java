@@ -236,6 +236,34 @@ public class TestLocalQueries
     }
 
     @Test
+    public void testOptimizeTopNRowNumberUsingRowId()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "true")
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS, "1")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_TOP_N_USING_ROW_ID, "false")
+                .build();
+
+        // Partitioned row_number() over a wide table (lineitem has 16 columns)
+        String partitioned = "SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2";
+        assertQuery(enabled, partitioned, disabled, partitioned);
+
+        // Unpartitioned row_number() over a wide table
+        String unpartitioned = "SELECT * FROM (SELECT *, row_number() OVER (ORDER BY orderkey) rn FROM orders) WHERE rn <= 5";
+        assertQuery(enabled, unpartitioned, disabled, unpartitioned);
+
+        // rank() variant to cover RankingFunction.RANK
+        String ranked = "SELECT * FROM (SELECT *, rank() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2";
+        assertQuery(enabled, ranked, disabled, ranked);
+
+        // dense_rank() variant to cover RankingFunction.DENSE_RANK
+        String denseRanked = "SELECT * FROM (SELECT *, dense_rank() OVER (PARTITION BY orderkey ORDER BY linenumber) rn FROM lineitem) WHERE rn <= 2";
+        assertQuery(enabled, denseRanked, disabled, denseRanked);
+    }
+
+    @Test
     public void testJoinPrefilterUnionAll()
     {
         String sql = "SELECT * FROM " +
