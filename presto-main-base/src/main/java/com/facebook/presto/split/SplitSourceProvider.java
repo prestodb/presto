@@ -18,12 +18,23 @@ import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 
 import java.util.Map;
 
 public interface SplitSourceProvider
 {
     SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector);
+
+    default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter)
+    {
+        return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector, dynamicFilter, java.util.Collections.emptyMap());
+    }
+
+    default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, DynamicFilter dynamicFilter, Map<String, String> partitionColumnMapping)
+    {
+        return getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
+    }
 
     default SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector, Map<String, String> partitionColumnMapping)
     {
