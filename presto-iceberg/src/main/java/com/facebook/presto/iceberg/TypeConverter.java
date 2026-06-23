@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.geospatial.SphericalGeographyType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -123,6 +124,8 @@ public final class TypeConverter
                 return TimeType.TIME;
             case GEOMETRY:
                 return GeometryType.GEOMETRY;
+            case GEOGRAPHY:
+                return SphericalGeographyType.SPHERICAL_GEOGRAPHY;
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
                 if (timestampType.shouldAdjustToUTC()) {

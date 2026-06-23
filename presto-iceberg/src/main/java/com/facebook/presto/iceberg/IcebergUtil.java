@@ -514,6 +514,11 @@ public final class IcebergUtil
             return HiveType.HIVE_BINARY;
         }
 
+        // Special handling for GEOGRAPHY type: geography stored as well-known binary in iceberg
+        if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.GEOGRAPHY) {
+            return HiveType.HIVE_BINARY;
+        }
+
         return HiveType.valueOf(sanitizeTypeString(icebergType));
     }
 
