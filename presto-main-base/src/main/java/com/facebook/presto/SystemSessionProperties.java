@@ -987,6 +987,8 @@ public final class SystemSessionProperties
                         OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS,
                         "Coalesce cascading projections by fully inlining deterministic child expressions and merge adjacent filter/project so shared subexpressions are co-located for native (Velox) CSE",
                         featuresConfig.isOptimizeCascadingFiltersAndProjections(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_JOIN_FAN_OUT,
                         "Collapse a fan-out equi-join whose preserved side is an aggregation grouped by a strict superset of the join keys by packing non-key columns with array_agg(row(...)) and re-expanding them with a local UNNEST above the join",
                         featuresConfig.isOptimizeJoinFanOut(),
