@@ -178,9 +178,13 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
       connectorQueryCtx_->sessionProperties(),
       callOptsAddHeaders);
 
-  AFC_ASSIGN_OR_RAISE(
-      currentReader_,
-      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket));
+  auto result =
+      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket);
+  if (!result.ok()) {
+    handleArrowError(result.status());
+    VELOX_FAIL(result.status().message());
+  }
+  currentReader_ = std::move(result).ValueUnsafe();
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
@@ -188,7 +192,12 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
     velox::ContinueFuture& /* unused */) {
   VELOX_CHECK_NOT_NULL(currentReader_, "Missing split, call addSplit() first");
 
-  AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());
+  auto result = currentReader_->Next();
+  if (!result.ok()) {
+    handleArrowError(result.status());
+    VELOX_FAIL(result.status().message());
+  }
+  auto chunk = std::move(result).ValueUnsafe();
 
   // Null values in the chunk indicates that the Flight stream is complete.
   if (!chunk.data) {
