@@ -1255,7 +1255,7 @@ public class Analysis
      */
     public void propagateLineage(Field newField, Field sourceField)
     {
-        originColumnDetails.putAll(newField, originColumnDetails.get(sourceField));
+        addColumnLineageEntries(newField, getDirectLineageEntries(sourceField));
         addPerFieldIndirectSources(newField, getPerFieldIndirectSources(sourceField));
     }
 
@@ -1272,7 +1272,7 @@ public class Analysis
     public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
     {
         return fieldLineage.get(NodeRef.of(expression)).stream()
-                .flatMap(field -> originColumnDetails.get(field).stream())
+                .flatMap(field -> getDirectLineageEntries(field).stream())
                 .map(entry -> new SourceColumn(entry.getTableName(), entry.getColumnName()))
                 .collect(toImmutableSet());
     }
