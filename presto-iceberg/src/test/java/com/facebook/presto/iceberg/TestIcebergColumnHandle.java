@@ -25,7 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -40,6 +39,7 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUE
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
+import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.apache.iceberg.MetadataColumns.ROW_ID;
@@ -112,18 +112,6 @@ public class TestIcebergColumnHandle
         assertFalse(buildColumnMetadata(regularColumn).isHidden());
         assertFalse(buildColumnMetadata(ROW_ID_COLUMN_HANDLE).isHidden());
         assertFalse(buildColumnMetadata(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE).isHidden());
-    }
-
-    private static com.facebook.presto.spi.ColumnMetadata buildColumnMetadata(IcebergColumnHandle column)
-    {
-        try {
-            Method method = IcebergAbstractMetadata.class.getDeclaredMethod("buildColumnMetadata", IcebergColumnHandle.class);
-            method.setAccessible(true);
-            return (com.facebook.presto.spi.ColumnMetadata) method.invoke(null, column);
-        }
-        catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private void testRoundTrip(IcebergColumnHandle expected)
