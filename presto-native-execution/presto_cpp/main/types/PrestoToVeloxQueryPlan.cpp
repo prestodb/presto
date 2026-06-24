@@ -1809,21 +1809,9 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::AssignUniqueId>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
-  const auto prestoTaskId = PrestoTaskId(taskId);
-  // `taskUniqueId` is an integer to uniquely identify the generated id
-  // across all the nodes executing the same query stage in a distributed
-  // query execution.
-  //
-  // 10 bit for stageId && 14-bit for taskId should be sufficient
-  // given the max stage per query is 100 by default.
-
-  // taskUniqueId = last 10 bit of stageId | last 14 bits of taskId
-  int32_t taskUniqueId = (prestoTaskId.stageId() & ((1 << 10) - 1)) << 14 |
-      (prestoTaskId.id() & ((1 << 14) - 1));
   return std::make_shared<core::AssignUniqueIdNode>(
       node->id,
       node->idVariable.name,
-      taskUniqueId,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
