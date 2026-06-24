@@ -95,8 +95,8 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
 // reader selects its PostScript proto schema purely from the FileFormat it is
 // handed (ReaderBase: FileFormat::ORC -> proto::orc::PostScript, otherwise the
 // DWRF proto::PostScript) rather than sniffing magic bytes. Mapping ORC ->
-// Velox DWRF on read (as toVeloxFileFormat does for the writer's sake) makes the
-// reader parse a genuine-ORC PostScript with the DWRF schema, where the
+// Velox DWRF on read (as toVeloxFileFormat does for the writer's sake) makes
+// the reader parse a genuine-ORC PostScript with the DWRF schema, where the
 // compression enum ordinals diverge (ORC ZSTD=5 collides with DWRF LZ4=5),
 // yielding "lz4 failed to decompress" on ZSTD-compressed streams. Map ORC ->
 // Velox ORC here so the ORC reader (registered via registerOrcReaderFactory)
