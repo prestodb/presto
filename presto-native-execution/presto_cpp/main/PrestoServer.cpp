@@ -86,6 +86,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -190,6 +191,8 @@ void registerVeloxCudf() {
         systemConfig->values());
     if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
       velox::cudf_velox::registerCudf();
+      velox::cudf_velox::registerPrestoFunctions(
+          velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix);
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
