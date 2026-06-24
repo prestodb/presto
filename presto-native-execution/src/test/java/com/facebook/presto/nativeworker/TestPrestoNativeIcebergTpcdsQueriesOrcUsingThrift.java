@@ -29,6 +29,7 @@ public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
         return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
                 .setStorageFormat(this.storageFormat)
                 .setUseThrift(true)
+                .setExtraConnectorProperty("iceberg.compression-codec", "NONE")
                 .build();
     }
 
@@ -39,6 +40,7 @@ public class TestPrestoNativeIcebergTpcdsQueriesOrcUsingThrift
         this.storageFormat = "ORC";
         return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
                 .setStorageFormat(this.storageFormat)
+                .setExtraConnectorProperty("iceberg.compression-codec", "NONE")
                 .build();
     }
 
