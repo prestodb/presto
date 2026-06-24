@@ -85,6 +85,9 @@ public class IcebergConfig
     private int materializedViewDefaultMaxSnapshotsPerRefresh;
     private boolean aggregatePushDownEnabled = true;
     private DataSize targetMaxFileSize = succinctDataSize(1, GIGABYTE);
+    private boolean dynamicFilterExtendedMetrics;
+    private boolean dynamicFilterWarmupEnabled = true;
+    private double dynamicFilterWarmupWeightPerTask = Runtime.getRuntime().availableProcessors();
 
     @NotNull
     public FileFormat getFileFormat()
@@ -592,6 +595,48 @@ public class IcebergConfig
             throw new IllegalArgumentException("iceberg.target-max-file-size must be at least 1 byte");
         }
         this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public boolean isDynamicFilterExtendedMetrics()
+    {
+        return dynamicFilterExtendedMetrics;
+    }
+
+    @Config("iceberg.dynamic-filter-extended-metrics")
+    @ConfigDescription("Emit extended metrics for dynamic filter diagnostics in Iceberg split sources")
+    public IcebergConfig setDynamicFilterExtendedMetrics(boolean dynamicFilterExtendedMetrics)
+    {
+        this.dynamicFilterExtendedMetrics = dynamicFilterExtendedMetrics;
+        return this;
+    }
+
+    public boolean isDynamicFilterWarmupEnabled()
+    {
+        return dynamicFilterWarmupEnabled;
+    }
+
+    @Config("iceberg.dynamic-filter-warmup-enabled")
+    @ConfigDescription("When enabled, dispatch a warmup batch of splits proportional to task count before pausing " +
+            "for the dynamic filter. When the filter resolves, a filtered re-scan with manifest-level pruning begins.")
+    public IcebergConfig setDynamicFilterWarmupEnabled(boolean dynamicFilterWarmupEnabled)
+    {
+        this.dynamicFilterWarmupEnabled = dynamicFilterWarmupEnabled;
+        return this;
+    }
+
+    @DecimalMin("0")
+    public double getDynamicFilterWarmupWeightPerTask()
+    {
+        return dynamicFilterWarmupWeightPerTask;
+    }
+
+    @Config("iceberg.dynamic-filter-warmup-weight-per-task")
+    @ConfigDescription("Split weight per task to dispatch during warmup before pausing for the dynamic filter. " +
+            "Multiplied by task count to compute total warmup budget. 0 disables warmup budget (full eager dispatch).")
+    public IcebergConfig setDynamicFilterWarmupWeightPerTask(double dynamicFilterWarmupWeightPerTask)
+    {
+        this.dynamicFilterWarmupWeightPerTask = dynamicFilterWarmupWeightPerTask;
         return this;
     }
 }

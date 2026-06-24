@@ -448,6 +448,33 @@ Property Name                                           Description             
                                                         ``256MB``, ``1GB``). Supported units are: ``B`` (bytes),
                                                         ``kB`` (kilobytes), ``MB`` (megabytes), ``GB`` (gigabytes),
                                                         ``TB`` (terabytes), ``PB`` (petabytes).
+
+``iceberg.dynamic-filter-extended-metrics``             When set to ``true``, the Iceberg split source emits        ``false``                          Yes                 Yes
+                                                        additional runtime metrics for dynamic filter diagnostics,
+                                                        such as constraint column counts, partition evaluator
+                                                        outcomes, and wait-time histograms. Intended for
+                                                        troubleshooting and benchmarking, not production use.
+                                                        Overridable per session with the
+                                                        ``dynamic_filter_extended_metrics`` session property.
+
+``iceberg.dynamic-filter-warmup-enabled``               When ``true``, the split source dispatches a warmup batch  ``true``                           Yes                 Yes
+                                                        of splits (up to the budget set by
+                                                        ``iceberg.dynamic-filter-warmup-weight-per-task``) before
+                                                        pausing to wait for the coordinator-collected dynamic
+                                                        filter. When the filter arrives, the source performs a
+                                                        filtered re-scan using Iceberg manifest pruning and
+                                                        deduplicates warmup splits. Set to ``false`` to wait for
+                                                        the filter before enumerating any splits.
+                                                        Overridable per session with the
+                                                        ``dynamic_filter_warmup_enabled`` session property.
+
+``iceberg.dynamic-filter-warmup-weight-per-task``       Split weight per coordinator task to dispatch during the   ``Number of available processors`` Yes                 Yes
+                                                        warmup phase. The total warmup budget is this value
+                                                        multiplied by the task count hint. Set to ``0`` to
+                                                        disable the warmup budget (dispatch all splits
+                                                        immediately before pausing).
+                                                        Overridable per session with the
+                                                        ``dynamic_filter_warmup_weight_per_task`` session property.
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
@@ -696,6 +723,27 @@ Session properties set behavior changes for queries executed within the given se
        ``aggregate_push_down_enabled``
      - Overrides the behavior of the connector property
        ``iceberg.aggregate-push-down-enabled`` in the current session.
+     - Yes
+     - Yes
+   * - .. _iceberg-sess-dynamic-filter-extended-metrics:
+
+       ``dynamic_filter_extended_metrics``
+     - Overrides the behavior of the connector property
+       ``iceberg.dynamic-filter-extended-metrics`` in the current session.
+     - Yes
+     - Yes
+   * - .. _iceberg-sess-dynamic-filter-warmup-enabled:
+
+       ``dynamic_filter_warmup_enabled``
+     - Overrides the behavior of the connector property
+       ``iceberg.dynamic-filter-warmup-enabled`` in the current session.
+     - Yes
+     - Yes
+   * - .. _iceberg-sess-dynamic-filter-warmup-weight-per-task:
+
+       ``dynamic_filter_warmup_weight_per_task``
+     - Overrides the behavior of the connector property
+       ``iceberg.dynamic-filter-warmup-weight-per-task`` in the current session.
      - Yes
      - Yes
 
