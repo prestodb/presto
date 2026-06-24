@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.server.PluginInstaller;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.PluginManagerUtil;
@@ -29,7 +30,6 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.inject.Inject;
 
 import java.io.File;
