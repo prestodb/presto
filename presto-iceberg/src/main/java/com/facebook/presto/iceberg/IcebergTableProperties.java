@@ -177,7 +177,7 @@ public class IcebergTableProperties
                 .add(integerProperty(
                         TableProperties.COMMIT_NUM_RETRIES,
                         "Determines the number of attempts in case of concurrent upserts and deletes",
-                        TableProperties.COMMIT_NUM_RETRIES_DEFAULT,
+                        icebergConfig.getCommitNumberRetries(),
                         false))
                 .add(new PropertyMetadata<>(
                         TableProperties.DELETE_MODE,
