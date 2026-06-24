@@ -28,7 +28,6 @@ public class TestPrestoNativeIcebergPositionDeleteQueriesOrcUsingThrift
         return PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
                 .setUseThrift(true)
-                .setExtraConnectorProperty("iceberg.compression-codec", "NONE")
                 .build();
     }
 
@@ -38,7 +37,6 @@ public class TestPrestoNativeIcebergPositionDeleteQueriesOrcUsingThrift
     {
         return PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder()
                 .setStorageFormat(storageFormat)
-                .setExtraConnectorProperty("iceberg.compression-codec", "NONE")
                 .build();
     }
 }

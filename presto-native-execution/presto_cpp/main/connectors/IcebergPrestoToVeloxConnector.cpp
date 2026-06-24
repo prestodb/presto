@@ -89,6 +89,26 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
 
+// Read-path file-format mapping. A file reported as Iceberg "ORC" on the wire
+// may be a genuine ORC file (written by the Java/presto-orc writer, the default
+// for table data in tests) whose footer follows the ORC proto schema. The Velox
+// reader selects its PostScript proto schema purely from the FileFormat it is
+// handed (ReaderBase: FileFormat::ORC -> proto::orc::PostScript, otherwise the
+// DWRF proto::PostScript) rather than sniffing magic bytes. Mapping ORC ->
+// Velox DWRF on read (as toVeloxFileFormat does for the writer's sake) makes the
+// reader parse a genuine-ORC PostScript with the DWRF schema, where the
+// compression enum ordinals diverge (ORC ZSTD=5 collides with DWRF LZ4=5),
+// yielding "lz4 failed to decompress" on ZSTD-compressed streams. Map ORC ->
+// Velox ORC here so the ORC reader (registered via registerOrcReaderFactory)
+// parses the correct schema; all other formats reuse the write mapping.
+velox::dwio::common::FileFormat toVeloxReadFileFormat(
+    const presto::protocol::iceberg::FileFormat format) {
+  if (format == protocol::iceberg::FileFormat::ORC) {
+    return velox::dwio::common::FileFormat::ORC;
+  }
+  return toVeloxFileFormat(format);
+}
+
 std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
@@ -299,7 +319,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
         veloxContent,
         deleteFile.path,
-        toVeloxFileFormat(deleteFile.format),
+        toVeloxReadFileFormat(deleteFile.format),
         deleteFile.recordCount,
         deleteFile.fileSizeInBytes,
         std::vector(deleteFile.equalityFieldIds),
@@ -351,7 +371,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
-      toVeloxFileFormat(icebergSplit->fileFormat),
+      toVeloxReadFileFormat(icebergSplit->fileFormat),
       icebergSplit->start,
       icebergSplit->length,
       partitionKeys,
