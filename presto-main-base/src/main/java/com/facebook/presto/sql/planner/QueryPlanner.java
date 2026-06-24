@@ -131,6 +131,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isNativeUpdateMergeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSkipRedundantSort;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -349,10 +350,19 @@ public class QueryPlanner
         // rather than honoring the declared outputLayout — a leniency
         // Velox does not share. Declaring the 3rd var fixes both paths
         // and matches the precedent in TableWriterNode.
-        List<VariableReferenceExpression> deleteNodeOutputVariables = ImmutableList.of(
-                variableAllocator.newVariable("partialrows", BIGINT),
-                variableAllocator.newVariable("fragment", VARBINARY),
-                variableAllocator.newVariable("commitcontext", VARBINARY));
+        // [ICEBERG-FIX]: the commitcontext (3rd) output is emitted only by the
+        // native (Velox) DeleteOperator -> TableFinishOperator CONTEXT_CHANNEL=2
+        // pipeline. Non-native (Java) execution emits only 2 columns
+        // (partialrows, fragment); declaring a 3rd there fails at runtime with
+        // "Runtime channel not found for variable: commitcontext" (e.g. DELETE
+        // inside a multi-statement transaction). Gate the 3rd var on native.
+        ImmutableList.Builder<VariableReferenceExpression> deleteOutputsBuilder = ImmutableList.builder();
+        deleteOutputsBuilder.add(variableAllocator.newVariable("partialrows", BIGINT));
+        deleteOutputsBuilder.add(variableAllocator.newVariable("fragment", VARBINARY));
+        if (isNativeExecutionEnabled(session)) {
+            deleteOutputsBuilder.add(variableAllocator.newVariable("commitcontext", VARBINARY));
+        }
+        List<VariableReferenceExpression> deleteNodeOutputVariables = deleteOutputsBuilder.build();
 
         return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), finalBuilder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
     }
@@ -376,7 +386,15 @@ public class QueryPlanner
         // beginUpdate to avoid mutating the connector handle along the
         // wrong code path (iceberg's beginUpdate stamps updatedColumns; we
         // don't want that handle reaching the merge pipeline).
-        boolean rewriteAsMerge = isNativeUpdateMergeEnabled(session);
+        //
+        // Gate on native execution as well: the MERGE rewrite emits
+        // MergeWriterNode/MergeProcessorNode that only Velox/Prestissimo
+        // workers execute, and IcebergAbstractMetadata.beginMerge() requires
+        // autocommit (it rejects multi-statement transactions). For non-native
+        // execution -- which includes UPDATE inside an explicit
+        // (non-autocommit) transaction on the Java connector -- fall back to
+        // the legacy beginUpdate path, which supports transactional UPDATE.
+        boolean rewriteAsMerge = isNativeUpdateMergeEnabled(session) && isNativeExecutionEnabled(session);
         // [ICEBERG-FIX bug 5 — defensive]: IcebergAbstractMetadata.beginMerge()
         // throws NOT_SUPPORTED for tables outside the supported row-level
         // format-version range (today: format-version 2..3). Avoid an
@@ -486,10 +504,16 @@ public class QueryPlanner
         // declaration drops the runtime 3rd commit-context block and
         // throws ArrayIndexOutOfBoundsException there. Same root cause
         // as Bug 1B, just on the MergeWriterNode side.
-        List<VariableReferenceExpression> outputs = ImmutableList.of(
-                variableAllocator.newVariable("partialrows", BIGINT),
-                variableAllocator.newVariable("fragment", VARBINARY),
-                variableAllocator.newVariable("commitcontext", VARBINARY));
+        // [ICEBERG-FIX]: 3rd commitcontext output is native-only (see
+        // plan(Delete)). rewriteAsMerge implies native execution, so the MERGE
+        // pipeline still gets all 3; a non-native legacy UpdateNode emits 2.
+        ImmutableList.Builder<VariableReferenceExpression> outputsBuilder = ImmutableList.builder();
+        outputsBuilder.add(variableAllocator.newVariable("partialrows", BIGINT));
+        outputsBuilder.add(variableAllocator.newVariable("fragment", VARBINARY));
+        if (isNativeExecutionEnabled(session)) {
+            outputsBuilder.add(variableAllocator.newVariable("commitcontext", VARBINARY));
+        }
+        List<VariableReferenceExpression> outputs = outputsBuilder.build();
 
         Optional<PlanNodeId> tableScanId = getIdForLeftTableScan(relationPlan.getRoot());
         checkArgument(tableScanId.isPresent(), "tableScanId not present");
