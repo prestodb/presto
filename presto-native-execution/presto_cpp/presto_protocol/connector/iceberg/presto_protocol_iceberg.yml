@@ -78,6 +78,7 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergOutputTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergInsertTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergMergeTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergDeleteTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergDistributedProcedureHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
