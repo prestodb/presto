@@ -12,18 +12,164 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/TaskResource.h"
+#include <folly/json.h>
 #include <presto_cpp/main/common/Exception.h>
+#include <cctype>
+#include <fstream>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/PlanConsistencyChecker.h"
+#include "velox/core/PlanNode.h"
+#if __has_include("filesystem")
+#include <filesystem>
+#else
+#include <experimental/filesystem>
+#endif
 
 namespace facebook::presto {
 
+// Preserve readability while replacing separators that are unsafe in filenames.
+std::string sanitizeTaskIdForPlanDumpFile(const std::string& taskId) {
+  std::string safeId;
+  safeId.reserve(taskId.size());
+  for (char c : taskId) {
+    if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-') {
+      safeId.push_back(c);
+    } else {
+      safeId.push_back('_');
+    }
+  }
+  return safeId.empty() ? std::string("task") : safeId;
+}
+
 namespace {
+
+// Returns the dump file path for taskId with the given suffix, creating the
+// dump directory if needed. Returns nullopt when plan-dump-dir is not set.
+// May throw on filesystem errors.
+std::optional<std::string> prepareDumpPath(
+    const protocol::TaskId& taskId,
+    const std::string& suffix) {
+  auto dirOpt = SystemConfig::instance()->planDumpDir();
+  if (!dirOpt.has_value() || dirOpt->empty()) {
+    return std::nullopt;
+  }
+  const std::string& dir = dirOpt.value();
+#if __has_include("filesystem")
+  std::filesystem::create_directories(dir);
+#else
+  std::experimental::filesystem::create_directories(dir);
+#endif
+  return dir + "/" + sanitizeTaskIdForPlanDumpFile(taskId) + suffix;
+}
+
+// Returns a stable per-path mutex so callers can serialize file updates for
+// the same path across concurrent threads.
+std::shared_ptr<std::mutex> getSplitsFileMutex(const std::string& path) {
+  static std::mutex mapMutex;
+  static std::unordered_map<std::string, std::shared_ptr<std::mutex>> mutexMap;
+  std::lock_guard<std::mutex> lock(mapMutex);
+  auto& ptr = mutexMap[path];
+  if (!ptr) {
+    ptr = std::make_shared<std::mutex>();
+  }
+  return ptr;
+}
+
+void maybeDumpVeloxPlan(
+    const protocol::TaskId& taskId,
+    const velox::core::PlanNodePtr& planNode) {
+  try {
+    auto pathOpt = prepareDumpPath(taskId, ".json");
+    if (!pathOpt) {
+      return;
+    }
+    const std::string& path = *pathOpt;
+    folly::dynamic json = planNode->serialize();
+    std::ofstream outFile;
+    outFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    outFile.open(path);
+    outFile << folly::toPrettyJson(json);
+    outFile.close();
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "Failed to dump plan for task " << taskId << ": "
+                 << e.what();
+  }
+}
+
+// Dump splits (sources) for a task. Called on every task update (not only the
+// first one that has the plan fragment) because Presto sends splits in multiple
+// batches. Accumulates: reads existing file, merges new splits, writes back.
+void maybeDumpSplits(
+    const protocol::TaskId& taskId,
+    const std::vector<protocol::TaskSource>& sources) {
+  // Only dump sources that actually contain splits.
+  bool hasSplits = false;
+  for (const auto& source : sources) {
+    if (!source.splits.empty()) {
+      hasSplits = true;
+      break;
+    }
+  }
+  if (!hasSplits) {
+    return;
+  }
+  try {
+    auto pathOpt = prepareDumpPath(taskId, ".splits.json");
+    if (!pathOpt) {
+      return;
+    }
+    const std::string path = *pathOpt;
+
+    // Serialize all updates to the same file to prevent lost writes when
+    // multiple createOrUpdate*Task calls run concurrently for the same task.
+    auto fileMutex = getSplitsFileMutex(path);
+    std::lock_guard<std::mutex> fileLock(*fileMutex);
+
+    // Read existing accumulated splits (if any) so we can merge.
+    nlohmann::json existing = nlohmann::json::object();
+    {
+      std::ifstream inFile(path);
+      if (inFile.good()) {
+        try {
+          inFile >> existing;
+        } catch (...) {
+          existing = nlohmann::json::object();
+        }
+      }
+    }
+    // Merge new splits into existing, grouped by planNodeId.
+    for (const auto& source : sources) {
+      for (const auto& split : source.splits) {
+        nlohmann::json sjson;
+        protocol::to_json(sjson, split);
+        // Append to the array for this planNodeId.
+        if (!existing.contains(source.planNodeId) ||
+            !existing[source.planNodeId].is_array()) {
+          existing[source.planNodeId] = nlohmann::json::array();
+        }
+        existing[source.planNodeId].push_back(sjson);
+      }
+    }
+    std::ofstream outFile;
+    outFile.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+    outFile.open(path);
+    outFile << existing.dump(2);
+    outFile.close();
+  } catch (const std::exception& e) {
+    LOG(WARNING) << "Failed to dump splits for task " << taskId << ": "
+                 << e.what();
+  }
+}
 
 void sendTaskNotFound(
     proxygen::ResponseHandler* downstream,
@@ -341,6 +487,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         if (SystemConfig::instance()->planConsistencyCheckEnabled()) {
           velox::core::PlanConsistencyChecker::check(planFragment.planNode);
         }
+        maybeDumpVeloxPlan(taskId, planFragment.planNode);
+        maybeDumpSplits(taskId, updateRequest.sources);
 
         return taskManager_.createOrUpdateBatchTask(
             taskId,
@@ -392,7 +540,12 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
             velox::core::PlanConsistencyChecker::check(planFragment.planNode);
           }
           planValidator_->validatePlanFragment(planFragment);
+          maybeDumpVeloxPlan(taskId, planFragment.planNode);
         }
+
+        // Dump splits on every task update (not only the first one with a
+        // fragment) because Presto sends splits in subsequent requests.
+        maybeDumpSplits(taskId, updateRequest.sources);
 
         return taskManager_.createOrUpdateTask(
             taskId,
