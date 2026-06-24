@@ -57,7 +57,9 @@ import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -71,6 +73,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
 
 public class TestDomainTranslator
@@ -78,6 +81,8 @@ public class TestDomainTranslator
     private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression(Optional.empty(), "c_bigint", BIGINT);
     private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression(Optional.empty(), "c_bigint_array", new ArrayType(BIGINT));
     private static final VariableReferenceExpression C_BIGINT_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_bigint_to_bigint_map", mapType(BIGINT, BIGINT));
+    private static final VariableReferenceExpression C_DOUBLE_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_double_to_bigint_map", mapType(DOUBLE, BIGINT));
+    private static final VariableReferenceExpression C_REAL_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_real_to_bigint_map", mapType(REAL, BIGINT));
     private static final VariableReferenceExpression C_VARCHAR_TO_BIGINT_MAP = new VariableReferenceExpression(Optional.empty(), "c_varchar_to_bigint_map", mapType(VARCHAR, BIGINT));
     private static final VariableReferenceExpression C_STRUCT = new VariableReferenceExpression(Optional.empty(), "c_struct", RowType.from(ImmutableList.of(
             RowType.field("a", BIGINT),
@@ -163,6 +168,13 @@ public class TestDomainTranslator
         assertPredicateTranslates(isNull(C_BIGINT_TO_BIGINT_MAP), C_BIGINT_TO_BIGINT_MAP.getName(), Domain.create(ValueSet.none(mapType), true));
         assertPredicateTranslates(not(isNull(C_BIGINT_TO_BIGINT_MAP)), C_BIGINT_TO_BIGINT_MAP.getName(), Domain.create(ValueSet.all(mapType), false));
         assertPredicateDoesNotTranslate(equal(C_BIGINT_TO_BIGINT_MAP, createConstantExpression(createMapBlock(mapType, ImmutableMap.of(1, 100)), mapType)));
+    }
+
+    @Test
+    public void testFloatingPointMapKeysDoNotTranslate()
+    {
+        assertPredicateDoesNotTranslate(equal(mapSubscript(C_DOUBLE_TO_BIGINT_MAP, constant(0.99, DOUBLE)), bigintLiteral(2L)));
+        assertPredicateDoesNotTranslate(equal(mapSubscript(C_REAL_TO_BIGINT_MAP, constant((long) floatToRawIntBits(0.99f), REAL)), bigintLiteral(2L)));
     }
 
     private RowExpression dereference(RowExpression base, int field)

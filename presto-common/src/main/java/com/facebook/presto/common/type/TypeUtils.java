@@ -70,6 +70,11 @@ public final class TypeUtils
         return type.equals(DOUBLE) || type.equals(REAL);
     }
 
+    public static boolean hasFloatingPointMapKey(Type type)
+    {
+        return type instanceof MapType && isApproximateNumericType(((MapType) type).getKeyType());
+    }
+
     public static boolean isEnumType(Type type)
     {
         return type instanceof EnumType || type instanceof TypeWithName && ((TypeWithName) type).getType() instanceof EnumType;
