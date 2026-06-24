@@ -16,7 +16,6 @@ package com.facebook.presto.plugin.openlineage;
 import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
-import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.resourceGroups.QueryType;
@@ -59,12 +58,11 @@ public class TestOpenLineageColumnLineage
     @Test
     public void testColumnLineageEmitsDirectAndIndirectSources()
     {
-        OutputColumnMetadata totalRevenueColumn = new OutputColumnMetadata(
+        OutputColumnMetadata totalRevenueColumn = OutputColumnMetadata.fromColumnLineage(
                 "total_revenue",
                 "double",
                 ImmutableSet.of(
-                        new SourceColumn(ORDERS, "totalprice")),
-                ImmutableSet.of(
+                        new ColumnLineageEntry(ORDERS, "totalprice", TransformationType.DIRECT, TransformationSubtype.AGGREGATION),
                         new ColumnLineageEntry(ORDERS, "orderstatus", TransformationType.INDIRECT, TransformationSubtype.FILTER),
                         new ColumnLineageEntry(CUSTOMER, "custkey", TransformationType.INDIRECT, TransformationSubtype.JOIN),
                         new ColumnLineageEntry(CUSTOMER, "nationkey", TransformationType.INDIRECT, TransformationSubtype.GROUP_BY)));
@@ -82,7 +80,6 @@ public class TestOpenLineageColumnLineage
         assertThat(perOutput).isNotNull();
 
         List<OpenLineage.InputField> inputFields = perOutput.getInputFields();
-        // Direct source totalprice + 3 indirect sources, all distinct → 4 input fields
         assertThat(inputFields).hasSize(4);
 
         Map<String, OpenLineage.InputField> byField = new HashMap<>();
@@ -90,11 +87,14 @@ public class TestOpenLineageColumnLineage
             byField.put(field.getField(), field);
         }
 
-        OpenLineage.InputField direct = byField.get("totalprice");
-        assertThat(direct).isNotNull();
-        assertThat(direct.getName()).isEqualTo("hive.tpch.orders");
-        // Direct source emits without explicit transformations for backward compatibility
-        assertThat(direct.getTransformations()).isNullOrEmpty();
+        OpenLineage.InputField aggregated = byField.get("totalprice");
+        assertThat(aggregated).isNotNull();
+        assertThat(aggregated.getName()).isEqualTo("hive.tpch.orders");
+        assertThat(aggregated.getTransformations()).hasSize(1);
+        assertThat(aggregated.getTransformations().get(0).getType()).isEqualTo("DIRECT");
+        assertThat(aggregated.getTransformations().get(0).getSubtype()).isEqualTo("AGGREGATION");
+        assertThat(aggregated.getTransformations().get(0).getDescription())
+                .isEqualTo("Source column aggregated in the projection");
 
         OpenLineage.InputField filter = byField.get("orderstatus");
         assertThat(filter).isNotNull();
@@ -120,13 +120,11 @@ public class TestOpenLineageColumnLineage
     @Test
     public void testIndirectAttachesToExistingDirectInputField()
     {
-        // Same upstream column appears as both direct and indirect (e.g. projected and also a JOIN key).
-        // The merged InputField carries the indirect transformations; no duplicate InputField.
-        OutputColumnMetadata column = new OutputColumnMetadata(
+        OutputColumnMetadata column = OutputColumnMetadata.fromColumnLineage(
                 "customer_name",
                 "varchar",
-                ImmutableSet.of(new SourceColumn(CUSTOMER, "name")),
                 ImmutableSet.of(
+                        new ColumnLineageEntry(CUSTOMER, "name", TransformationType.DIRECT, TransformationSubtype.IDENTITY),
                         new ColumnLineageEntry(CUSTOMER, "name", TransformationType.INDIRECT, TransformationSubtype.JOIN)));
 
         RunEvent event = runListener(ImmutableList.of(column));
@@ -146,7 +144,7 @@ public class TestOpenLineageColumnLineage
     @Test
     public void testNoLineageEmitsEmptyInputFieldList()
     {
-        OutputColumnMetadata column = new OutputColumnMetadata(
+        OutputColumnMetadata column = OutputColumnMetadata.fromColumnLineage(
                 "literal_one",
                 "integer",
                 ImmutableSet.of());
@@ -158,6 +156,51 @@ public class TestOpenLineageColumnLineage
                         .getFields().getAdditionalProperties().get("literal_one");
 
         assertThat(perOutput.getInputFields()).isEmpty();
+    }
+
+    @Test
+    public void testDirectIdentityEmitsNoTransformations()
+    {
+        OutputColumnMetadata column = OutputColumnMetadata.fromColumnLineage(
+                "order_id",
+                "bigint",
+                ImmutableSet.of(
+                        new ColumnLineageEntry(ORDERS, "orderkey", TransformationType.DIRECT, TransformationSubtype.IDENTITY)));
+
+        RunEvent event = runListener(ImmutableList.of(column));
+
+        OpenLineage.ColumnLineageDatasetFacetFieldsAdditional perOutput =
+                event.getOutputs().get(0).getFacets().getColumnLineage()
+                        .getFields().getAdditionalProperties().get("order_id");
+
+        List<OpenLineage.InputField> inputFields = perOutput.getInputFields();
+        assertThat(inputFields).hasSize(1);
+        assertThat(inputFields.get(0).getField()).isEqualTo("orderkey");
+        assertThat(inputFields.get(0).getTransformations()).isNullOrEmpty();
+    }
+
+    @Test
+    public void testDirectTransformationEmitsTransformations()
+    {
+        OutputColumnMetadata column = OutputColumnMetadata.fromColumnLineage(
+                "total_with_tax",
+                "double",
+                ImmutableSet.of(
+                        new ColumnLineageEntry(ORDERS, "totalprice", TransformationType.DIRECT, TransformationSubtype.TRANSFORMATION)));
+
+        RunEvent event = runListener(ImmutableList.of(column));
+
+        OpenLineage.ColumnLineageDatasetFacetFieldsAdditional perOutput =
+                event.getOutputs().get(0).getFacets().getColumnLineage()
+                        .getFields().getAdditionalProperties().get("total_with_tax");
+
+        List<OpenLineage.InputField> inputFields = perOutput.getInputFields();
+        assertThat(inputFields).hasSize(1);
+        assertThat(inputFields.get(0).getTransformations()).hasSize(1);
+        assertThat(inputFields.get(0).getTransformations().get(0).getType()).isEqualTo("DIRECT");
+        assertThat(inputFields.get(0).getTransformations().get(0).getSubtype()).isEqualTo("TRANSFORMATION");
+        assertThat(inputFields.get(0).getTransformations().get(0).getDescription())
+                .isEqualTo("Source column transformed in the projection");
     }
 
     private static RunEvent runListener(List<OutputColumnMetadata> outputColumns)

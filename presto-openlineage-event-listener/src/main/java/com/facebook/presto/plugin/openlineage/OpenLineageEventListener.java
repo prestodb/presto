@@ -16,8 +16,8 @@ package com.facebook.presto.plugin.openlineage;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.TransformationSubtype;
+import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
@@ -381,32 +381,24 @@ public class OpenLineageEventListener
         return ImmutableList.of();
     }
 
-    /**
-     * Build per-output-column input fields, merging direct (projected) sources with
-     * indirect sources from JOIN, FILTER, GROUP BY, ORDER BY, WINDOW, and CONDITIONAL
-     * relationships. Each unique upstream (namespace, dataset, field) becomes one
-     * InputField; indirect relationships are attached as transformations so consumers
-     * can distinguish how the column was used. Direct sources emit without explicit
-     * transformations to preserve byte-for-byte compatibility for existing consumers.
-     */
     private List<InputField> buildInputFieldsForOutputColumn(OutputColumnMetadata column)
     {
         LinkedHashMap<InputFieldKey, ImmutableList.Builder<InputFieldTransformations>> perInput = new LinkedHashMap<>();
 
-        for (SourceColumn source : column.getSourceColumns()) {
-            InputFieldKey key = inputKeyFor(source.getTableName(), source.getColumnName());
-            perInput.computeIfAbsent(key, k -> ImmutableList.builder());
-        }
-
-        for (ColumnLineageEntry entry : column.getIndirectSourceColumns()) {
+        for (ColumnLineageEntry entry : column.getColumnLineage()) {
             InputFieldKey key = inputKeyFor(entry.getTableName(), entry.getColumnName());
-            perInput.computeIfAbsent(key, k -> ImmutableList.builder())
-                    .add(openLineage.newInputFieldTransformationsBuilder()
-                            .type(entry.getTransformationType().name())
-                            .subtype(entry.getTransformationSubtype().name())
-                            .description(describeSubtype(entry.getTransformationSubtype()))
-                            .masking(false)
-                            .build());
+            ImmutableList.Builder<InputFieldTransformations> transformations =
+                    perInput.computeIfAbsent(key, k -> ImmutableList.builder());
+            if (entry.getTransformationType() == TransformationType.DIRECT
+                    && entry.getTransformationSubtype() == TransformationSubtype.IDENTITY) {
+                continue;
+            }
+            transformations.add(openLineage.newInputFieldTransformationsBuilder()
+                    .type(entry.getTransformationType().name())
+                    .subtype(entry.getTransformationSubtype().name())
+                    .description(describeSubtype(entry.getTransformationSubtype()))
+                    .masking(false)
+                    .build());
         }
 
         ImmutableList.Builder<InputField> result = ImmutableList.builder();
