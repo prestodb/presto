@@ -27,7 +27,7 @@ import static java.lang.String.format;
  * workers. Each scenario evolves an Iceberg table's schema and asserts that the
  * native reader resolves columns by Iceberg field id (not by name or position).
  *
- * Concrete subclasses bind the storage format (DWRF, PARQUET) so the same matrix
+ * Concrete subclasses bind the storage format (PARQUET) so the same matrix
  * runs against every reader and proves parity.
  *
  * Two velox-level scenarios are intentionally absent because they are not
