@@ -25,7 +25,8 @@ public enum FileContent
 {
     DATA(0),
     POSITION_DELETES(1),
-    EQUALITY_DELETES(2);
+    EQUALITY_DELETES(2),
+    DELETION_VECTOR(3);
 
     private final int id;
 
@@ -51,6 +52,9 @@ public enum FileContent
                 break;
             case EQUALITY_DELETES:
                 prestoFileContent = EQUALITY_DELETES;
+                break;
+            case DELETION_VECTOR:
+                prestoFileContent = DELETION_VECTOR;
                 break;
             default:
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported iceberg content type: " + fileContent);

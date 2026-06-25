@@ -43,6 +43,10 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     return velox::connector::hive::iceberg::FileContent::kData;
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
     return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+  } else if (content == protocol::iceberg::FileContent::EQUALITY_DELETES) {
+    return velox::connector::hive::iceberg::FileContent::kEqualityDeletes;
+  } else if (content == protocol::iceberg::FileContent::DELETION_VECTOR) {
+    return velox::connector::hive::iceberg::FileContent::kDeletionVector;
   }
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
@@ -53,6 +57,8 @@ velox::dwio::common::FileFormat toVeloxFileFormat(
     return velox::dwio::common::FileFormat::ORC;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return velox::dwio::common::FileFormat::PARQUET;
+  } else if (format == protocol::iceberg::FileFormat::PUFFIN) {
+    return velox::dwio::common::FileFormat::PUFFIN;
   }
   VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
