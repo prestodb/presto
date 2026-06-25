@@ -39,13 +39,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZED_WITH_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.sql.rewrite.MaterializedViewRewriteResult.materializedViewRewriteResult;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewOptimizationRewrite
-        implements StatementRewrite.Rewrite
 {
-    @Override
-    public Statement rewrite(
+    public MaterializedViewRewriteResult rewrite(
             Session session,
             Metadata metadata,
             SqlParser parser,
@@ -58,9 +57,8 @@ public class MaterializedViewOptimizationRewrite
             String query,
             ViewDefinitionReferences viewDefinitionReferences)
     {
-        return (Statement) new MaterializedViewOptimizationRewrite
-                .Visitor(metadata, session, parser, accessControl)
-                .process(node, null);
+        Statement rewritten = (Statement) new Visitor(metadata, session, parser, accessControl).process(node, null);
+        return materializedViewRewriteResult(rewritten, rewritten != node);
     }
 
     private static final class Visitor

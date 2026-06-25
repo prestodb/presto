@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -30,6 +31,7 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.QueryAssertions;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -91,6 +93,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -1208,6 +1211,147 @@ public class TestHiveMaterializedViewLogicalPlanner
                             "shipmode", multipleValues(createVarcharType(10), utf8Slices("AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP", "TRUCK")),
                             "ds", singleValue(createVarcharType(10), utf8Slice("2020-01-02"))))),
                     anyTree(constrainedTableScan(view, ImmutableMap.of()))));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRewrittenQueryCaptured()
+    {
+        Session queryOptimizationWithMaterializedView = sessionWithMaterializedViewRewrite();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_mv_rewrite_capture";
+        String view = "test_orders_view_mv_rewrite_capture";
+        try {
+            createMaterializedViewWithFreshPartitions(table, view);
+
+            String baseQuery = format("SELECT orderkey, orderpriority, ds FROM %s", table);
+            ResultWithQueryId<MaterializedResult> resultWithQueryId =
+                    ((DistributedQueryRunner) queryRunner).executeWithQueryId(queryOptimizationWithMaterializedView, baseQuery);
+            QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+
+            Optional<String> rewrittenQuery = queryInfo.getMaterializedViewRewrittenQuery();
+            assertTrue(
+                    rewrittenQuery.isPresent(),
+                    "Expected materializedViewRewrittenQuery to be captured for a materialized view auto-rewrite");
+            assertTrue(
+                    rewrittenQuery.get().contains(view),
+                    format("Expected the rewritten query to read from materialized view %s, but was: %s", view, rewrittenQuery.get()));
+            assertFalse(
+                    rewrittenQuery.get().contains(table),
+                    format("Expected the rewritten query to no longer read from base table %s, but was: %s", table, rewrittenQuery.get()));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRewrittenQueryNotCapturedWhenNoRewrite()
+    {
+        Session sessionWithoutMaterializedViewRewrite = Session.builder(getSession())
+                .setSystemProperty(QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED, "false")
+                .build();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_mv_no_rewrite";
+        String view = "test_orders_view_mv_no_rewrite";
+        try {
+            createMaterializedViewWithFreshPartitions(table, view);
+
+            String baseQuery = format("SELECT orderkey, orderpriority, ds FROM %s", table);
+            ResultWithQueryId<MaterializedResult> resultWithQueryId =
+                    ((DistributedQueryRunner) queryRunner).executeWithQueryId(sessionWithoutMaterializedViewRewrite, baseQuery);
+            QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+
+            assertTrue(
+                    queryInfo.getMaterializedViewRewrittenQuery().isEmpty(),
+                    "Expected materializedViewRewrittenQuery to be empty when materialized view query optimization is disabled");
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRewrittenQueryNotCapturedWhenNoEligibleMaterializedView()
+    {
+        Session queryOptimizationWithMaterializedView = sessionWithMaterializedViewRewrite();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_mv_no_eligible_view";
+        try {
+            createPartitionedOrdersTable(table);
+
+            String baseQuery = format("SELECT orderkey, orderpriority, ds FROM %s", table);
+            ResultWithQueryId<MaterializedResult> resultWithQueryId =
+                    ((DistributedQueryRunner) queryRunner).executeWithQueryId(queryOptimizationWithMaterializedView, baseQuery);
+            QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+
+            assertTrue(
+                    queryInfo.getMaterializedViewRewrittenQuery().isEmpty(),
+                    "Expected materializedViewRewrittenQuery to be empty when no eligible materialized view exists");
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRewrittenQueryCapturedForSubquery()
+    {
+        Session queryOptimizationWithMaterializedView = sessionWithMaterializedViewRewrite();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_mv_subquery_capture";
+        String view = "test_orders_view_mv_subquery_capture";
+        try {
+            createMaterializedViewWithFreshPartitions(table, view);
+
+            String subqueryRewrite = format("SELECT count(*) FROM (SELECT orderkey, orderpriority, ds FROM %s) t", table);
+            ResultWithQueryId<MaterializedResult> resultWithQueryId =
+                    ((DistributedQueryRunner) queryRunner).executeWithQueryId(queryOptimizationWithMaterializedView, subqueryRewrite);
+            QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+
+            Optional<String> rewrittenQuery = queryInfo.getMaterializedViewRewrittenQuery();
+            assertTrue(
+                    rewrittenQuery.isPresent(),
+                    "Expected materializedViewRewrittenQuery to be captured for a materialized view subquery rewrite");
+            assertTrue(
+                    rewrittenQuery.get().contains(view),
+                    format("Expected the subquery to be rewritten to read from materialized view %s, but was: %s", view, rewrittenQuery.get()));
+            assertFalse(
+                    rewrittenQuery.get().contains(table),
+                    format("Expected the subquery to no longer read from base table %s, but was: %s", table, rewrittenQuery.get()));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewRewrittenQueryNotCapturedForExplain()
+    {
+        Session queryOptimizationWithMaterializedView = sessionWithMaterializedViewRewrite();
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_partitioned_mv_explain_capture";
+        String view = "test_orders_view_mv_explain_capture";
+        try {
+            createMaterializedViewWithFreshPartitions(table, view);
+
+            String explainQuery = format("EXPLAIN SELECT orderkey, orderpriority, ds FROM %s", table);
+            ResultWithQueryId<MaterializedResult> resultWithQueryId =
+                    ((DistributedQueryRunner) queryRunner).executeWithQueryId(queryOptimizationWithMaterializedView, explainQuery);
+            QueryInfo queryInfo = ((DistributedQueryRunner) queryRunner).getQueryInfo(resultWithQueryId.getQueryId());
+
+            assertTrue(
+                    queryInfo.getMaterializedViewRewrittenQuery().isEmpty(),
+                    format(
+                            "Expected materializedViewRewrittenQuery to be empty for an EXPLAIN statement, but was: %s",
+                            queryInfo.getMaterializedViewRewrittenQuery()));
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
@@ -3880,5 +4024,29 @@ public class TestHiveMaterializedViewLogicalPlanner
     {
         getQueryRunner().execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
         getQueryRunner().execute("DROP TABLE IF EXISTS " + table);
+    }
+
+    private void createPartitionedOrdersTable(String table)
+    {
+        getQueryRunner().execute(format(
+                "CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                        "SELECT orderkey, orderpriority, '2020-01-01' as ds FROM orders WHERE orderkey < 1000 " +
+                        "UNION ALL " +
+                        "SELECT orderkey, orderpriority, '2020-01-02' as ds FROM orders WHERE orderkey > 1000",
+                table));
+    }
+
+    private void createMaterializedViewWithFreshPartitions(String table, String view)
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        createPartitionedOrdersTable(table);
+        assertUpdate(format(
+                "CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) " +
+                        "AS SELECT orderkey, orderpriority, ds FROM %s",
+                view, table));
+        assertTrue(queryRunner.tableExists(getSession(), view));
+        setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, table, ImmutableList.of(view));
+        computeActual(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-01'", view));
+        computeActual(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2020-01-02'", view));
     }
 }

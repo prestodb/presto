@@ -225,6 +225,8 @@ public class Analysis
 
     private Optional<String> expandedQuery = Optional.empty();
 
+    private Optional<String> materializedViewRewrittenQuery = Optional.empty();
+
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
@@ -1120,6 +1122,16 @@ public class Analysis
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    public void setMaterializedViewRewrittenQuery(String materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery = Optional.of(materializedViewRewrittenQuery);
+    }
+
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return materializedViewRewrittenQuery;
     }
 
     public void setCurrentSubquery(QuerySpecification currentSubQuery)

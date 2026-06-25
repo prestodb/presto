@@ -89,6 +89,7 @@ public class TestQueryInfo
         assertEquals(actual.getQuery(), expected.getQuery());
         assertEquals(actual.getQueryHash(), expected.getQueryHash());
         assertEquals(actual.getExpandedQuery(), expected.getExpandedQuery());
+        assertEquals(actual.getMaterializedViewRewrittenQuery(), expected.getMaterializedViewRewrittenQuery());
         assertEquals(actual.getPreparedQuery(), expected.getPreparedQuery());
         // Assert all of queryStats
         TestQueryStats.assertExpectedQueryStats(actual.getQueryStats());
@@ -172,6 +173,7 @@ public class TestQueryInfo
                 ImmutableList.of("number"),
                 "SELECT 1",
                 Optional.of("expanded_query"),
+                Optional.of("materialized_view_rewritten_query"),
                 Optional.of("prepared_query"),
                 TestQueryStats.EXPECTED,
                 Optional.of("set_catalog"),
