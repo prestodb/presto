@@ -446,6 +446,52 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
 }
 
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::DeleteHandle* deleteHandle,
+    const TypeParser& typeParser) const {
+  auto icebergDeleteTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergDeleteTableHandle>(
+          deleteHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergDeleteTableHandle,
+      "Unexpected delete table handle type {}",
+      deleteHandle->handle.connectorHandle->_type);
+
+  const auto inputColumns =
+      toIcebergColumns(icebergDeleteTableHandle->inputColumns, typeParser);
+
+  // Derive Velox WriteKind from the protocol's fileContent. Only the V3
+  // deletion-vector branch routes through this bridge today; V2
+  // POSITION_DELETES flows through the Java row-id-rewrite path on the
+  // coordinator and never reaches the C++ worker as a typed DeleteHandle.
+  // If we do see a non-DELETION_VECTOR fileContent here we fall back to
+  // kData so the existing IcebergDataSink raises a clear error rather
+  // than silently emitting a deletion vector for the wrong format.
+  const auto writeKind = icebergDeleteTableHandle->fileContent ==
+          protocol::iceberg::FileContent::DELETION_VECTOR
+      ? velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kDeletionVector
+      : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+            kData;
+
+  return std::make_unique<
+      velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
+          velox::connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
+      toVeloxIcebergPartitionSpec(
+          icebergDeleteTableHandle->partitionSpec, typeParser),
+      std::optional(
+          toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
+      /*serdeParameters=*/{},
+      writeKind);
+}
+
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
 IcebergPrestoToVeloxConnector::toIcebergColumns(
     const protocol::List<protocol::iceberg::IcebergColumnHandle>& inputColumns,
