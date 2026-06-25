@@ -53,8 +53,13 @@ env:
   JAVA_VERSION: ${{ vars.JAVA_VERSION || '17' }}
   JAVA_DISTRIBUTION: ${{ vars.JAVA_DISTRIBUTION || 'temurin' }}
   MAVEN_OPTS: ${{ vars.MAVEN_OPTS }}
-  IMAGE_REPO: ${{ github.repository }}
-  ORG_NAME: ${{ github.repository_owner }}
+  # GHCR packages are namespaced under the account that owns them. The auto
+  # GITHUB_TOKEN (the GHCR login default) can only write to this repo owner's
+  # namespace. To publish to a different org, set BOTH: ORG_NAME (vars override
+  # below) to that org AND a GHCR_TOKEN secret whose account is a member of it
+  # (with GHCR_USERNAME var = that account's login). Overriding ORG_NAME alone
+  # rewrites the tag but leaves a token that can't write there -> GHCR denies.
+  ORG_NAME: ${{ vars.ORG_NAME || github.repository_owner }}
   IMAGE_NAME: presto-native
   REGISTRY: ${{ vars.REGISTRY || 'docker.io' }}
   RELEASE_BRANCH: release-${{ inputs.RELEASE_VERSION }}
@@ -336,11 +341,9 @@ jobs:
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set image prefix
-        run: echo "IMAGE_PREFIX=${REGISTRY}/" >> $GITHUB_ENV
+          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
+          username: ${{ vars.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Set up qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -370,8 +373,8 @@ jobs:
             PRESTO_VERSION=${{ env.RELEASE_TAG }}
             JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
           tags: |
-            ${{ env.IMAGE_PREFIX }}${{ env.IMAGE_REPO }}:${{ env.RELEASE_TAG }}
-            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}{1}:latest', env.IMAGE_PREFIX, env.IMAGE_REPO) || '' }}
+            ${{ env.REGISTRY }}/${{ env.ORG_NAME }}/presto:${{ env.RELEASE_TAG }}
+            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}/{1}/presto:latest', env.REGISTRY, env.ORG_NAME) || '' }}
 
   validate-native-release:
     needs: publish-release-tag
@@ -440,14 +443,15 @@ jobs:
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
+          username: ${{ vars.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Set dependency image tag
         env:
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
-          echo "DEPENDENCY_IMAGE=${REGISTRY}/${{ github.repository_owner }}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
 
       - name: Build Dependency Image
         working-directory: presto-native-execution
@@ -493,8 +497,9 @@ jobs:
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
+          username: ${{ vars.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create multi-arch dep manifest
         env:
@@ -502,7 +507,7 @@ jobs:
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
           COMMIT_SHA: ${{ needs.publish-native-dependency-image.outputs.COMMIT_SHA }}
         run: |
-          DEP_TARGET=${REGISTRY}/${{ github.repository_owner }}/presto-native-dependency
+          DEP_TARGET=${REGISTRY}/${ORG_NAME}/presto-native-dependency
           tags=(--tag ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA})
           [[ "${TAG_IMAGE_AS_LATEST}" == "true" ]] && tags+=(--tag ${DEP_TARGET}:latest)
           docker buildx imagetools create "${tags[@]}" \
@@ -561,8 +566,9 @@ jobs:
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
+          username: ${{ vars.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Initialize Prestissimo submodules
         run: |
@@ -578,7 +584,7 @@ jobs:
           if [[ -n "${DEPENDENCY_IMAGE}" ]]; then
             echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> ${GITHUB_ENV}
           else
-            echo "DEPENDENCY_IMAGE=${REGISTRY}/${{ github.repository_owner }}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+            echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
           fi
 
       - name: Pull Dependency Image
@@ -640,8 +646,9 @@ jobs:
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
+          username: ${{ vars.GHCR_USERNAME || github.actor }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Create multi-arch runtime manifest
         env:
