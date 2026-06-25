@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.flightshim;
 
-import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.spi.function.table.Descriptor;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 public class FlightShimRequest
 {
     private final String connectorId;
-    private final List<RowType.Field> fields;
+    private final List<Descriptor.Field> fields;
     private final byte[] splitBytes;
     private final List<byte[]> columnHandlesBytes;
     private final byte[] tableHandleBytes;
@@ -36,7 +36,7 @@ public class FlightShimRequest
     @JsonCreator
     public FlightShimRequest(
             @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("fields") List<RowType.Field> fields,
+            @JsonProperty("fields") List<Descriptor.Field> fields,
             @JsonProperty("splitBytes") byte[] splitBytes,
             @JsonProperty("columnHandlesBytes") List<byte[]> columnHandlesBytes,
             @JsonProperty("tableHandleBytes") byte[] tableHandleBytes,
@@ -59,7 +59,7 @@ public class FlightShimRequest
     }
 
     @JsonProperty
-    public List<RowType.Field> getFields()
+    public List<Descriptor.Field> getFields()
     {
         return fields;
     }

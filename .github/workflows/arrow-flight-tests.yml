@@ -92,7 +92,7 @@ jobs:
       # Run Maven tests for the target module, excluding native tests
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*"
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} -Dtest="*,!TestArrowFlightNativeQueries*,!TestArrowFederationNativeQueries*"
 
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
@@ -235,7 +235,8 @@ jobs:
       fail-fast: false
       matrix:
         modules:
-          - :presto-base-arrow-flight # Only run tests for the `presto-base-arrow-flight` module
+          - :presto-base-arrow-flight
+          - :presto-flight-shim
 
     timeout-minutes: 80
     concurrency:
@@ -320,7 +321,7 @@ jobs:
           mvn test \
             ${MAVEN_TEST} \
             -pl ${{ matrix.modules }} \
-            -Dtest="TestArrowFlightNativeQueries*" \
+            -Dtest="TestArrowFlightNativeQueries*,TestArrowFederationNativeQueries*" \
             -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
             -DDATA_DIR=${RUNNER_TEMP} \
             -Duser.timezone=America/Bahia_Banderas \

@@ -1045,6 +1045,21 @@ void to_json(json& j, const DeleteNode& p);
 void from_json(const json& j, DeleteNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct Field {
+  std::shared_ptr<String> name = {};
+  std::shared_ptr<Type> type = {};
+};
+void to_json(json& j, const Field& p);
+void from_json(const json& j, Field& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct Descriptor {
+  List<Field> fields = {};
+};
+void to_json(json& j, const Descriptor& p);
+void from_json(const json& j, Descriptor& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct DistinctLimitNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   int64_t limit = {};
@@ -2186,7 +2201,7 @@ void to_json(json& j, const ProjectNode& p);
 void from_json(const json& j, ProjectNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-enum class RPCNodeStreamingMode { PER_ROW, BATCH };
+enum class RPCNodeStreamingMode { PER_ROW, BATCH, AUTOMATIC };
 extern void to_json(json& j, const RPCNodeStreamingMode& e);
 extern void from_json(const json& j, RPCNodeStreamingMode& e);
 } // namespace facebook::presto::protocol
