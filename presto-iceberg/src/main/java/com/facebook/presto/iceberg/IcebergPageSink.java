@@ -93,8 +93,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -548,7 +546,9 @@ public class IcebergPageSink
         }
         if (type instanceof TimestampType) {
             long timestamp = type.getLong(block, position);
-            return ((TimestampType) type).getPrecision() == MILLISECONDS ? MILLISECONDS.toMicros(timestamp) : timestamp;
+            return ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION
+                    ? MILLISECONDS.toMicros(timestamp)
+                    : timestamp;
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
@@ -560,16 +560,19 @@ public class IcebergPageSink
     public static Object adjustTimestampForPartitionTransform(SqlFunctionProperties functionProperties, Type type, Object value)
     {
         if (type instanceof TimestampType && functionProperties.isLegacyTimestamp()) {
-            long timestampValue = (long) value;
             TimestampType timestampType = (TimestampType) type;
-            Instant instant = Instant.ofEpochSecond(timestampType.getPrecision().toSeconds(timestampValue),
-                    timestampType.getPrecision().toNanos(timestampValue % timestampType.getPrecision().convert(1, SECONDS)));
+            if (!timestampType.isShort()) {
+                throw new UnsupportedOperationException(
+                        "Legacy timezone adjustment is not supported for TIMESTAMP(" + timestampType.getPrecision() + "); only short timestamps (p ≤ 6) are supported");
+            }
+            long timestampValue = (long) value;
+            Instant instant = Instant.ofEpochSecond(timestampType.getEpochSecond(timestampValue),
+                    timestampType.getNanos(timestampValue));
             LocalDateTime localDateTime = instant
                     .atZone(ZoneId.of(functionProperties.getTimeZoneKey().getId()))
                     .toLocalDateTime();
 
-            return timestampType.getPrecision().convert(localDateTime.toEpochSecond(ZoneOffset.UTC), SECONDS) +
-                    timestampType.getPrecision().convert(localDateTime.getNano(), NANOSECONDS);
+            return timestampType.fromEpochComponents(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
         }
         return value;
     }

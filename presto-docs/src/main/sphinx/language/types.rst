@@ -197,19 +197,44 @@ Values of this type are rendered using the time zone from the value.
 
 Example: ``TIME '01:02:03.456 America/Los_Angeles'``
 
-``TIMESTAMP``
-^^^^^^^^^^^^^
+``TIMESTAMP`` / ``TIMESTAMP(p)``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Instant in time that includes the date and time of day without a time zone.
 Values of this type are parsed and rendered in the session time zone.
 
-Example: ``TIMESTAMP '2001-08-22 03:04:05.321'``
+An optional precision parameter ``p`` (0–12) specifies the number of fractional
+second digits retained:
+
+* ``TIMESTAMP(0)`` — seconds
+* ``TIMESTAMP(3)`` — milliseconds (the default when no precision is given)
+* ``TIMESTAMP(6)`` — microseconds
+* ``TIMESTAMP(9)`` — nanoseconds
+* ``TIMESTAMP(12)`` — picoseconds
+
+Bare ``TIMESTAMP`` is equivalent to ``TIMESTAMP(3)`` and is retained for backward
+compatibility. Precision values 0–6 are stored as a single scaled integer; precision
+values 7–12 store an additional sub-microsecond remainder, enabling nanosecond and
+picosecond resolution.
+
+.. note::
+
+    Implicit coercion widens from lower to higher precision (for example, ``TIMESTAMP(3)``
+    to ``TIMESTAMP(6)``) automatically. Narrowing requires an explicit ``CAST``, which
+    truncates (floor) rather than rounds.
+
+Examples::
+
+    TIMESTAMP '2001-08-22 03:04:05.321'            -- TIMESTAMP(3), milliseconds
+    TIMESTAMP '2001-08-22 03:04:05.123456'         -- TIMESTAMP(6), microseconds
+    TIMESTAMP '2001-08-22 03:04:05.123456789'      -- TIMESTAMP(9), nanoseconds
 
 ``TIMESTAMP WITH TIME ZONE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Instant in time that includes the date and time of day with a time zone.
 Values of this type are rendered using the time zone from the value.
+Stored with millisecond precision.
 
 Example: ``TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'``
 

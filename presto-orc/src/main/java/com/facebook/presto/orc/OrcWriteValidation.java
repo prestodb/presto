@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -685,7 +684,7 @@ public class OrcWriteValidation
                 return hash;
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP)) {
+            if (type == TIMESTAMP) {
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
@@ -695,7 +694,7 @@ public class OrcWriteValidation
                 }
             }
 
-            if (type.getTypeSignature().getBase().equals(StandardTypes.TIMESTAMP_MICROSECONDS)) {
+            if (type == TIMESTAMP_MICROSECONDS) {
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000000, exclusive, and 1970-01-01 00:00:00.000000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.

@@ -23,6 +23,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.SqlFunctionResult;
 import com.facebook.presto.common.type.DistinctTypeInfo;
 import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.TimestampParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
@@ -658,6 +659,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(BING_TILE);
         addType(KDB_TREE);
         addType(SPHERICAL_GEOGRAPHY);
+        addParametricType(TimestampParametricType.TIMESTAMP);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
