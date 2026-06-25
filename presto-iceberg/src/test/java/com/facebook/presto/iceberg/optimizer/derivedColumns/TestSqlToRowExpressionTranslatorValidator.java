@@ -73,12 +73,12 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test
-public class TestAstExpressionToRowExpression
+public class TestSqlToRowExpressionTranslatorValidator
         extends AbstractTestQueryFramework
 {
     private File warehouseLocation;
     private TestingHttpServer restServer;
-    private AstExpressionToRowExpression astExpressionToRowExpression;
+    private SqlToRowExpressionTranslatorValidator sqlToRowExpressionTranslatorValidator;
     private RowExpressionService rowExpressionService;
     @Language("SQL") private static final String CREATE_TABLE_QUERY =
             "CREATE TABLE test_table (\n" +
@@ -148,7 +148,7 @@ public class TestAstExpressionToRowExpression
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         FunctionAndTypeManager functionAndTypeManager = queryRunner.getMetadata().getFunctionAndTypeManager();
         StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
-        astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionAndTypeManager, functionAndTypeManager, getSession().getSqlFunctionProperties());
+        sqlToRowExpressionTranslatorValidator = new SqlToRowExpressionTranslatorValidator(functionResolution, functionAndTypeManager, functionAndTypeManager, getSession().getSqlFunctionProperties());
         rowExpressionService = new RowExpressionService()
         {
             @Override
@@ -362,7 +362,7 @@ public class TestAstExpressionToRowExpression
                 }).setDecimalLiteralTreatment(AS_DECIMAL).build());
         assertTrue(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
 
-        RowExpression actual = astExpressionToRowExpression.process(expressionParsed, columnMetadataMap);
+        RowExpression actual = sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
         return actual;
     }
 

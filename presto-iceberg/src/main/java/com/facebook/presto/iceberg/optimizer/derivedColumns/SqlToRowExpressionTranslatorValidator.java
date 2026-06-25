@@ -135,6 +135,7 @@ import static com.facebook.presto.util.DateTimeUtils.parseTimestampLiteral;
 import static com.facebook.presto.util.DateTimeUtils.parseYearMonthInterval;
 import static com.facebook.presto.util.DateTimeUtils.timeHasTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.timestampHasTimeZone;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
@@ -143,8 +144,8 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 
 // The code is adapted from com.facebook.presto.sql.relational.SqlToRowExpressionTranslator
-
-public class AstExpressionToRowExpression
+// In addition to sql to -> row expressions and Apply validation applicable to derived column expressions.
+public class SqlToRowExpressionTranslatorValidator
         extends AstVisitor<RowExpression, Map<String, ColumnMetadata>>
 {
     public static final Map<String, OperatorType> COMPARISON_OPERATORS =
@@ -158,7 +159,7 @@ public class AstExpressionToRowExpression
     private final TypeManager typeManager;
     private final SqlFunctionProperties sqlFunctionProperties;
 
-    public AstExpressionToRowExpression(StandardFunctionResolution functionResolution, FunctionMetadataManager functionMetadataManager, TypeManager typeManager, SqlFunctionProperties sqlFunctionProperties)
+    public SqlToRowExpressionTranslatorValidator(StandardFunctionResolution functionResolution, FunctionMetadataManager functionMetadataManager, TypeManager typeManager, SqlFunctionProperties sqlFunctionProperties)
     {
         this.functionResolution = functionResolution;
         this.functionMetadataManager = functionMetadataManager;
@@ -427,7 +428,7 @@ public class AstExpressionToRowExpression
                 return new ConstantExpression((long) floatToRawIntBits(Float.parseFloat(value)), REAL);
             }
             else if (DateType.DATE.equals(type)) {
-                return new ConstantExpression(Long.valueOf(parseDate(value)), DateType.DATE);
+                return new ConstantExpression((long) parseDate(value), DateType.DATE);
             }
         }
         catch (NumberFormatException e) {
@@ -440,7 +441,9 @@ public class AstExpressionToRowExpression
     protected RowExpression visitIdentifier(Identifier node, Map<String, ColumnMetadata> context)
     {
         if (context != null && context.containsKey(node.getValue())) {
-            return new VariableReferenceExpression(Optional.empty(), node.getValue(), context.get(node.getValue()).getType());
+            ColumnMetadata columnMetadata = context.get(node.getValue());
+            checkArgument(columnMetadata.getDerivedColumnSpec().isEmpty(), "expression cannot make reference to derived column.");
+            return new VariableReferenceExpression(Optional.empty(), node.getValue(), columnMetadata.getType());
         }
         throw new IllegalArgumentException(format("identifier %s is not found in table.", node.getValue()));
     }
@@ -744,13 +747,13 @@ public class AstExpressionToRowExpression
 
     private CallExpression call(String name, FunctionHandle functionHandle, List<RowExpression> arguments)
     {
-        checkState(functionMetadataManager.getFunctionMetadata(functionHandle).isDeterministic(), "Only deterministic functions are supported");
-        checkState(functionMetadataManager.getFunctionMetadata(functionHandle).getFunctionKind() == FunctionKind.SCALAR, "Only scalar functions are supported");
+        checkArgument(functionMetadataManager.getFunctionMetadata(functionHandle).isDeterministic(), "Only deterministic functions are supported");
+        checkArgument(functionMetadataManager.getFunctionMetadata(functionHandle).getFunctionKind() == FunctionKind.SCALAR, "Only scalar functions are supported");
         if (functionHandle.getReturnType().isPresent()) {
             Type returnType = functionHandle.getReturnType().map(typeManager::getType).get();
             return new CallExpression(name, functionHandle, returnType, arguments);
         }
-        throw new IllegalStateException("lookup of builtin function failed: " + name);
+        throw new IllegalArgumentException("builtin function not found, name: " + name);
     }
 
     private ConstantExpression translateLiteral(ConstantExpression expression, Type targetType)

@@ -37,7 +37,7 @@ import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
-import com.facebook.presto.iceberg.optimizer.derivedColumns.AstExpressionToRowExpression;
+import com.facebook.presto.iceberg.optimizer.derivedColumns.SqlToRowExpressionTranslatorValidator;
 import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
@@ -706,6 +706,15 @@ public abstract class IcebergAbstractMetadata
         ImmutableMap.Builder<String, Object> propertiesMapBuilder = ImmutableMap.<String, Object>builder().putAll(tableMetadata.getProperties());
         List<DerivedColumnSpec> derivedColumnSpecList = tableMetadata.getColumns().stream().filter(columnMetadata -> columnMetadata.getDerivedColumnSpec().isPresent())
                 .map(columnMetadata -> columnMetadata.getDerivedColumnSpec().get()).toList();
+        validateDerivedColumnExpressions(session, tableMetadata.getColumns(), derivedColumnSpecList);
+
+        propertiesMapBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, new DerivedColumnSpecList(derivedColumnSpecList));
+        ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(), tableMetadata.getColumns(), propertiesMapBuilder.build());
+        finishCreateTable(session, beginCreateTable(session, connectorTableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+    }
+
+    private void validateDerivedColumnExpressions(ConnectorSession session, List<ColumnMetadata> columns, List<DerivedColumnSpec> derivedColumnSpecList)
+    {
         for (DerivedColumnSpec derivedColumnSpec : derivedColumnSpecList) {
             List<String> parserWarnings = new ArrayList<>();
             Expression expressionParsed = sqlParser.createExpression(derivedColumnSpec.getDerivedColumnExpression(),
@@ -714,14 +723,10 @@ public abstract class IcebergAbstractMetadata
                         parserWarnings.add(message);
                     }).setDecimalLiteralTreatment(AS_DECIMAL).build());
             checkState(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
-            AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
-            Map<String, ColumnMetadata> columnMetadataMap = tableMetadata.getColumns().stream().collect(toImmutableMap(k -> k.getName(), v -> v));
-            astExpressionToRowExpression.process(expressionParsed, columnMetadataMap);
+            SqlToRowExpressionTranslatorValidator sqlToRowExpressionTranslatorValidator = new SqlToRowExpressionTranslatorValidator(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
+            Map<String, ColumnMetadata> columnMetadataMap = columns.stream().collect(toImmutableMap(k -> k.getName(), v -> v));
+            sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
         }
-
-        propertiesMapBuilder.put(DERIVED_COLUMN_EXPRESSION_SPEC, new DerivedColumnSpecList(derivedColumnSpecList));
-        ConnectorTableMetadata connectorTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(), tableMetadata.getColumns(), propertiesMapBuilder.build());
-        finishCreateTable(session, beginCreateTable(session, connectorTableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
     @Override
@@ -1334,10 +1339,14 @@ public abstract class IcebergAbstractMetadata
         }
         if (column.getDerivedColumnSpec().isPresent()) {
             DerivedColumnSpec derivedColumnSpec = column.getDerivedColumnSpec().get();
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+            columns.addAll(getColumnMetadata(session, icebergTable));
+            columns.add(column);
+            validateDerivedColumnExpressions(session, columns.build(), ImmutableList.of(derivedColumnSpec));
             String json = icebergTable.properties().getOrDefault(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COL_EMPTY_SPEC);
-            DerivedColumnSpecList specList = DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(json);
+            DerivedColumnSpecList existingDerivedColumnsSpecs = DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.fromJson(json);
             List<DerivedColumnSpec> expressionSpecs =
-                    ImmutableList.<DerivedColumnSpec>builder().addAll(specList.getDerivedColumnSpecs()).add(derivedColumnSpec).build();
+                    ImmutableList.<DerivedColumnSpec>builder().addAll(existingDerivedColumnsSpecs.getDerivedColumnSpecs()).add(derivedColumnSpec).build();
             UpdateProperties updateProperties = icebergTable.updateProperties();
             updateProperties.set(DERIVED_COLUMN_EXPRESSION_SPEC,
                     DERIVED_COLUMN_UDF_SPEC_LIST_JSON_CODEC.toJson(new DerivedColumnSpecList(expressionSpecs)));

@@ -404,8 +404,8 @@ public class SimplifySubExpressionsRewriter
                     LOG.warn(message);
                     session.getWarningCollector().add(new PrestoWarning(PARSER_WARNING, message));
                 }).setDecimalLiteralTreatment(AS_DECIMAL).build());
-        AstExpressionToRowExpression astExpressionToRowExpression = new AstExpressionToRowExpression(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
+        SqlToRowExpressionTranslatorValidator sqlToRowExpressionTranslatorValidator = new SqlToRowExpressionTranslatorValidator(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
         // Expression configured on a derived column as RowExpression
-        return astExpressionToRowExpression.process(expression, columnsMap);
+        return sqlToRowExpressionTranslatorValidator.process(expression, columnsMap);
     }
 }
