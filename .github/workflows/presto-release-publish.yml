@@ -329,8 +329,16 @@ jobs:
             exit 1
           fi
 
+      - name: Checkout workflow actions
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
       - name: Registry login
-        uses: ./.github/actions/registry-login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
           registry: ${{ env.REGISTRY }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -430,9 +438,18 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
-        uses: ./.github/actions/registry-login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
           registry: ${{ env.REGISTRY }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -490,9 +507,18 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
-        uses: ./.github/actions/registry-login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
           registry: ${{ env.REGISTRY }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -553,8 +579,16 @@ jobs:
           submodules: true
           persist-credentials: false
 
+      - name: Checkout workflow actions
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
       - name: Registry login
-        uses: ./.github/actions/registry-login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
           registry: ${{ env.REGISTRY }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -627,9 +661,18 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
+      - name: Checkout workflow actions
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions/registry-login
+          path: workflow-actions
+          persist-credentials: false
+
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
-        uses: ./.github/actions/registry-login
+        uses: ./workflow-actions/.github/actions/registry-login
         with:
           registry: ${{ env.REGISTRY }}
           dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
