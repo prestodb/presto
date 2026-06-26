@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
@@ -76,6 +77,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.Row;
@@ -87,7 +89,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
@@ -95,6 +96,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -168,6 +170,16 @@ public class SqlToRowExpressionTranslatorValidator
     }
 
     @Override
+    public RowExpression process(Node node, Map<String, ColumnMetadata> context)
+    {
+        RowExpression rowExpression = super.process(node, context);
+        Set<VariableReferenceExpression> variableRefs = rowExpression.accept(new GetVariablesFromRowExpressionVisitor(), null);
+        checkArgument(!variableRefs.isEmpty() || rowExpression instanceof ConstantExpression,
+                format("%s sub-expression is constant foldable and thus cannot be matched when it appears on a Query. Please consider replacing it with its constant value.", node));
+        return rowExpression;
+    }
+
+    @Override
     protected RowExpression visitIsNotNullPredicate(IsNotNullPredicate node, Map<String, ColumnMetadata> context)
     {
         return new CallExpression("not", functionResolution.notFunction(), BOOLEAN, ImmutableList.of(process(node.getValue(), context)));
@@ -187,7 +199,7 @@ public class SqlToRowExpressionTranslatorValidator
         RowExpression leftRowExpression = process(node.getLeft(), context);
         RowExpression rightRowExpression = process(node.getRight(), context);
         RewrittenRowExpressions rewrittenRowExpressions = addRelevantCasts(leftRowExpression, rightRowExpression);
-        checkState(rewrittenRowExpressions.leftRowExpression.getType().getTypeSignature().getBase()
+        checkArgument(rewrittenRowExpressions.leftRowExpression.getType().getTypeSignature().getBase()
                         .equals(rewrittenRowExpressions.rightRowExpression.getType().getTypeSignature().getBase()),
                 format("Types on expression %s are not same %s != %s", node, leftRowExpression.getType(), rightRowExpression.getType()));
         if (ARITHMETIC_OPERATORS.containsKey(node.getOperator().getValue())) {
@@ -227,7 +239,7 @@ public class SqlToRowExpressionTranslatorValidator
     {
         RowExpression leftExpression = process(node.getLeft(), context);
         RowExpression rightExpression = process(node.getRight(), context);
-        checkState(leftExpression.getType().getTypeSignature().getBase().equals(rightExpression.getType().getTypeSignature().getBase()),
+        checkArgument(leftExpression.getType().getTypeSignature().getBase().equals(rightExpression.getType().getTypeSignature().getBase()),
                 format("left side expression : %s return type should match with right side expression : %s", leftExpression, rightExpression));
         Form form = Form.valueOf(node.getOperator().name());
         checkState(form.equals(Form.AND) || form.equals(Form.OR), "Unknown logical operator: " + node.getOperator());
@@ -241,7 +253,7 @@ public class SqlToRowExpressionTranslatorValidator
         RowExpression leftRowExpression = process(node.getLeft(), context);
         RowExpression rightRowExpression = process(node.getRight(), context);
         RewrittenRowExpressions rewrittenRowExpressions = addRelevantCasts(leftRowExpression, rightRowExpression);
-        checkState(rewrittenRowExpressions.leftRowExpression.getType().getTypeSignature().getBase()
+        checkArgument(rewrittenRowExpressions.leftRowExpression.getType().getTypeSignature().getBase()
                         .equals(rewrittenRowExpressions.rightRowExpression.getType().getTypeSignature().getBase()),
                 format("Types on expression %s are not same %s != %s", node, leftRowExpression.getType(), rightRowExpression.getType()));
         Function<OperatorType, CallExpression> operatorMapper = (ops) -> new CallExpression(ops.name(),
@@ -673,11 +685,6 @@ public class SqlToRowExpressionTranslatorValidator
     @Override
     protected RowExpression visitValues(Values node, Map<String, ColumnMetadata> context)
     {
-        // VALUES can be converted into a InList if all entries are constants, however presto replaces them with
-        // a variable ref expression and then it becomes a tricky rewrite rule. e.g. lower(x) in (VALUES 'a', 'b', 'c') ->
-        // lower(x) in expr1,
-        // A conversion of type (VALUES 'a', 'b') -> ('a', 'b') is doable, however user expression may not be matched.
-        // So, we throw exception instead.
         throw new UnsupportedOperationException("subqueries are not supported in expression for derived columns.");
     }
 
@@ -756,6 +763,9 @@ public class SqlToRowExpressionTranslatorValidator
         throw new IllegalArgumentException("builtin function not found, name: " + name);
     }
 
+    /**
+     * Convert any numeric type to decimal of target precision/scale and vice-versa.
+     */
     private ConstantExpression translateLiteral(ConstantExpression expression, Type targetType)
     {
         if (targetType instanceof DecimalType) {
@@ -794,46 +804,39 @@ public class SqlToRowExpressionTranslatorValidator
         if (leftRowExpression instanceof ConstantExpression || rightRowExpression instanceof ConstantExpression) {
             return new RewrittenRowExpressions(leftRowExpression, rightRowExpression);
         }
-        // DoubleType< RealType< DecimalType<BigIntType< Integer< small_int< tiny_int.
-        Map<Type, Integer> typeCastPriority = ImmutableMap.of(DOUBLE, 200, REAL, 160, BIGINT, 10, INTEGER, 8, SMALLINT, 6, TINYINT, 4);
         // if the type of LHS != RHS, presto tries to add relevant CASTs, we try to emulate that as follows.
         if (!leftRowExpression.getType().equals(rightRowExpression.getType())) {
-            int leftPriority = leftRowExpression.getType() instanceof DecimalType ? ((DecimalType) leftRowExpression.getType()).getPrecision() + 10 : typeCastPriority.get(leftRowExpression.getType());
-            int rightPriority = rightRowExpression.getType() instanceof DecimalType ? ((DecimalType) rightRowExpression.getType()).getPrecision() + 10 : typeCastPriority.get(rightRowExpression.getType());
+            int leftPriority = getExpressionCastPriority(leftRowExpression);
+            int rightPriority = getExpressionCastPriority(rightRowExpression);
             if (leftPriority > rightPriority) {
                 Type targetType = leftRowExpression.getType();
-//                if (leftRowExpression instanceof ConstantExpression || rightRowExpression instanceof ConstantExpression) {
-//                    if (rightRowExpression instanceof ConstantExpression) {
-//                        // Do not apply casts to constant expression, directly translate to the target type literals.
-//                        rightRowExpression = translateLiteral((ConstantExpression) rightRowExpression, targetType);
-//                    }
-//                    else {
-//                        leftRowExpression = translateLiteral((ConstantExpression) leftRowExpression, rightRowExpression.getType());
-//                    }
-//                }
-//                else {
                 FunctionHandle functionHandle = functionResolution.lookupCast(CAST_NAME, rightRowExpression.getType(), targetType);
                 rightRowExpression = new CallExpression(CAST_NAME, functionHandle, targetType, ImmutableList.of(rightRowExpression));
-//                }
             }
             else {
                 Type targetType = rightRowExpression.getType();
-//                if (leftRowExpression instanceof ConstantExpression || rightRowExpression instanceof ConstantExpression) {
-//                    if (leftRowExpression instanceof ConstantExpression) {
-//                        leftRowExpression = translateLiteral((ConstantExpression) leftRowExpression, targetType);
-//                    }
-//                    else {
-//                        rightRowExpression = translateLiteral((ConstantExpression) rightRowExpression, leftRowExpression.getType());
-//                    }
-//                }
-//                else {
                 FunctionHandle functionHandle = functionResolution.lookupCast(CAST_NAME, leftRowExpression.getType(), targetType);
                 leftRowExpression = new CallExpression(CAST_NAME, functionHandle, targetType, ImmutableList.of(leftRowExpression));
-//                }
             }
         }
 
         return new RewrittenRowExpressions(leftRowExpression, rightRowExpression);
+    }
+
+    private static int getExpressionCastPriority(RowExpression leftRowExpression)
+    {
+        checkArgument(TypeUtils.isNumericType(leftRowExpression.getType()));
+        int size;
+        checkState(leftRowExpression.getType() instanceof FixedWidthType);
+        FixedWidthType type = (FixedWidthType) leftRowExpression.getType();
+        size = type.getFixedSize();
+        if (TypeUtils.isApproximateNumericType(leftRowExpression.getType())) {
+            size += 1000; // During cast, we give a higher priority to DOUBLE and REAL over other types.
+        }
+        if (type instanceof DecimalType) {
+            size += 100; // Decimal type get higher priority over BIGINT, INTEGER, SMALLINT etc...
+        }
+        return size;
     }
 
     private record RewrittenRowExpressions(RowExpression leftRowExpression, RowExpression rightRowExpression) {}

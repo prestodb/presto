@@ -72,6 +72,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+/**
+ * These tests cover scenarios for SqlToRowExpressionTranslatorValidator, i.e. scenarios for translator
+ * and also expression validator. Since each expression is compared using com.facebook.presto.iceberg.optimizer.derivedColumns.RowExpressionComparator
+ * it covers all the scenarios for comparator too.
+ */
 @Test
 public class TestSqlToRowExpressionTranslatorValidator
         extends AbstractTestQueryFramework
@@ -100,7 +105,7 @@ public class TestSqlToRowExpressionTranslatorValidator
                     "    team_head_varchar VARCHAR(255),\n" +
                     "    reference_id_bigint BIGINT,\n" +
                     "    date_col DATE,\n" +
-                    "    event_name_varchar VARCHAR(255)\n" +
+                    "    team_head_derived VARCHAR(255) AS lower(team_head_varchar)\n" +
                     ")\n";
     @Language("SQL") private static final String INSERT_QUERY =
             "INSERT INTO test_table (\n" +
@@ -122,7 +127,7 @@ public class TestSqlToRowExpressionTranslatorValidator
                     "team_head_varchar,\n" +
                     "reference_id_bigint,\n" +
                     "date_col,\n" +
-                    "event_name_varchar\n" +
+                    "team_head_derived\n" +
                     ") VALUES\n" +
                     "(10, DOUBLE '10.5', 1, CAST(30 AS SMALLINT), CAST(1 AS SMALLINT), 5, 60000.00, 5000.00, 4.5, 'Alice', 'F', 5.4, CAST(1 AS SMALLINT), TRUE, FALSE, 'John', 1, DATE '2024-12-01', 'Annual Company Retreat'),\n" +
                     "(-1, DOUBLE '-1.5', 2, CAST(25 AS SMALLINT), CAST(2 AS SMALLINT), 3, 55000.00, 4000.00, 4.2, 'Bob', 'M', 5.8, CAST(1 AS SMALLINT), TRUE, TRUE, 'Sarah', 1, DATE '2024-11-15', 'Monthly Team Meeting'),\n" +
@@ -205,6 +210,7 @@ public class TestSqlToRowExpressionTranslatorValidator
                 .setCatalogType(REST)
                 .setExtraConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(restConnectorProperties(restServer.getBaseUrl().toString()))
+                        .put("iceberg.derived_columns.enable", "false")
                         .build())
                 .setDataDirectory(Optional.of(warehouseLocation.toPath()))
                 .setCreateTpchTables(false)
@@ -281,11 +287,15 @@ public class TestSqlToRowExpressionTranslatorValidator
         checkInvalidExpression("real_col = 4.1", "Types on expression (real_col = DECIMAL '4.1') are not same real != decimal(2,1)");
         checkInvalidExpression("bigint_col >  5", "Types on expression (bigint_col > 5) are not same bigint != integer");
         checkInvalidExpression("varchar_col = real_col", "Types on expression (varchar_col = real_col) are not same varchar != real");
-        // TODO: Add sub-expressions which are constant foldable as invalid, because they cannot be matched.
+        // sub-expressions which are constant foldable are invalid, because they cannot be matched.
+        checkInvalidExpression("lower(varchar_col) = lower('N')", "\"lower\"('N') sub-expression is constant foldable and thus cannot be matched when " +
+                "it appears on a Query. Please consider replacing it with its constant value.");
     }
 
     public void testUnsupportedExpressions()
     {
+        // concat(varchar_col, 'A') in ('AliceA', 'BobA') is valid but concat(varchar_col, 'A') in (VALUES 'AliceA', 'BobA') is
+        // unsupported. Because VALUES <expr> makes it a subquery.
         checkUnsupportedExpression("concat(varchar_col, 'A') in (VALUES 'AliceA', 'BobA')", "subquery : ( VALUES \n" +
                 "  'AliceA'\n" +
                 ", 'BobA'\n" +
@@ -302,7 +312,7 @@ public class TestSqlToRowExpressionTranslatorValidator
         try {
             translateToRowExpression(expression, plan);
         }
-        catch (IllegalStateException e) {
+        catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), errorMessage);
         }
     }
@@ -337,9 +347,9 @@ public class TestSqlToRowExpressionTranslatorValidator
 
         String expectedFormatted = rowExpressionService.formatRowExpression(getSession().toConnectorSession(), expected);
         assertEquals(actual.getType(), expected.getType());
-        // A row expression may not be equivalent even if their formatted versions are equal. e.g. they may have implicit casts etc..
         assertTrue(actual.accept(new RowExpressionEquivalenceVisitor(), expected),
                 format("\nActual row expression: %s : %s and \nExpected row expression: %s : %s", actual, actualFormatted, expected, expectedFormatted));
+        // A row expression may be equivalent even if their formatted versions are not equal, esp. when they have type params. e.g. lower(x) may return varchar(N) based on x.
         assertEquals(actualFormatted, expectedFormatted);
     }
 
@@ -362,8 +372,7 @@ public class TestSqlToRowExpressionTranslatorValidator
                 }).setDecimalLiteralTreatment(AS_DECIMAL).build());
         assertTrue(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
 
-        RowExpression actual = sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
-        return actual;
+        return sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
     }
 
     private void checkExpressionInProject(String expression)
