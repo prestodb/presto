@@ -461,8 +461,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
           COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${ARCH}" >> ${GITHUB_ENV}
 
       - name: Initialize Prestissimo submodules
         run: |
@@ -601,11 +602,12 @@ jobs:
           DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
           COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
+          ARCH: ${{ matrix.arch }}
         run: |
           if [[ -n "${DEPENDENCY_IMAGE}" ]]; then
             echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> ${GITHUB_ENV}
           else
-            echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+            echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${ARCH}" >> ${GITHUB_ENV}
           fi
 
       - name: Pull Dependency Image
@@ -634,16 +636,20 @@ jobs:
         working-directory: presto-native-execution
         env:
           ORG_NAME: ${{ env.ORG_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          docker tag presto/prestissimo-runtime:centos9 ${REGISTRY}/${ORG_NAME}/${{ env.IMAGE_NAME }}:${RELEASE_TAG}-${{ matrix.arch }}
+          docker tag presto/prestissimo-runtime:centos9 ${REGISTRY}/${ORG_NAME}/${IMAGE_NAME}:${RELEASE_TAG}-${ARCH}
 
       - name: Push image
         env:
           ORG_NAME: ${{ env.ORG_NAME }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          ARCH: ${{ matrix.arch }}
         run: |
-          docker push ${REGISTRY}/${ORG_NAME}/${{ env.IMAGE_NAME }}:${RELEASE_TAG}-${{ matrix.arch }}
+          docker push ${REGISTRY}/${ORG_NAME}/${IMAGE_NAME}:${RELEASE_TAG}-${ARCH}
 
   publish-native-image-manifest:
     needs: publish-native-image
