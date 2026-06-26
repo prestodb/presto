@@ -484,6 +484,12 @@ jobs:
       packages: write
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
         uses: ./.github/actions/registry-login
@@ -615,6 +621,12 @@ jobs:
       packages: write
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
         uses: ./.github/actions/registry-login
