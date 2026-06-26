@@ -667,6 +667,21 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder().add(new RemoveRedundantCastToVarcharInJoinClause(metadata.getFunctionAndTypeManager()))
                                 .addAll(new RemoveMapCastRule(metadata.getFunctionAndTypeManager()).rules()).build()));
 
+        // RewriteRowExpressions below may rewrite certain external functions into RPC functions,
+        // which RpcFunctionOptimizer subsequently converts into RPCNodes. To simplify the plan that
+        // RpcFunctionOptimizer has to process, extract the remote functions into their own
+        // projections first, before RewriteRowExpressions runs. As a result, RewriteRowExpressions
+        // emits the RPC functions within a dedicated remote ProjectNode rather than nested inside
+        // arbitrary expressions.
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
+                        new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
+
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
         builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy));
@@ -925,14 +940,6 @@ public class PlanOptimizers
         // Pass a supplier so that we pickup connector optimizers that are installed later
         builder.add(
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
-                new IterativeOptimizer(
-                        metadata,
-                        ruleStats,
-                        statsCalculator,
-                        costCalculator,
-                        ImmutableSet.of(
-                                new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
-                                new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
 
