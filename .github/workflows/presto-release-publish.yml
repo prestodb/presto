@@ -329,21 +329,14 @@ jobs:
             exit 1
           fi
 
-      - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'docker.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        uses: ./.github/actions/registry-login
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
-          username: ${{ vars.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Set up qemu
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
@@ -431,21 +424,15 @@ jobs:
           echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> ${GITHUB_ENV}
           echo "commit_sha=$(git rev-parse --short HEAD)" >> ${GITHUB_OUTPUT}
 
-      - name: Login to Docker Hub
-        if: env.REGISTRY == 'docker.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./.github/actions/registry-login
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to GHCR
-        if: env.REGISTRY == 'ghcr.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
-          username: ${{ vars.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Set dependency image tag
         env:
@@ -485,21 +472,15 @@ jobs:
       packages: write
       contents: read
     steps:
-      - name: Login to Docker Hub
-        if: env.REGISTRY == 'docker.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./.github/actions/registry-login
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to GHCR
-        if: env.REGISTRY == 'ghcr.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
-          username: ${{ vars.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Create multi-arch dep manifest
         env:
@@ -554,21 +535,14 @@ jobs:
           submodules: true
           persist-credentials: false
 
-      - name: Login to docker.io
-        if: ${{ env.REGISTRY == 'docker.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        uses: ./.github/actions/registry-login
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to ghcr.io
-        if: ${{ env.REGISTRY == 'ghcr.io' }}
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
-          username: ${{ vars.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Initialize Prestissimo submodules
         run: |
@@ -634,21 +608,15 @@ jobs:
       packages: write
       contents: read
     steps:
-      - name: Login to Docker Hub
-        if: env.REGISTRY == 'docker.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      - name: Registry login
+        if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
+        uses: ./.github/actions/registry-login
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Login to GHCR
-        if: env.REGISTRY == 'ghcr.io'
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ghcr.io
-          # See ORG_NAME note; defaults to the repo-owner-scoped GITHUB_TOKEN.
-          username: ${{ vars.GHCR_USERNAME || github.actor }}
-          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+          ghcr_username: ${{ vars.GHCR_USERNAME }}
+          ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Create multi-arch runtime manifest
         env:
