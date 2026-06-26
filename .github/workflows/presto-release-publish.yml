@@ -373,8 +373,11 @@ jobs:
     needs: publish-release-tag
     if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true'
     runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    outputs:
+      COMMIT_SHA: ${{ steps.sha.outputs.commit_sha }}
     steps:
       - name: Validate REGISTRY
         run: |
@@ -382,6 +385,19 @@ jobs:
             echo "::error::Unsupported REGISTRY '${REGISTRY}'. Must be 'docker.io' or 'ghcr.io'."
             exit 1
           fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - name: Get dependency commit sha
+        id: sha
+        working-directory: presto-native-execution
+        run: |
+          make submodules
+          echo "commit_sha=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
 
   publish-native-dependency-image:
     needs: [publish-release-tag, validate-native-release]
@@ -394,8 +410,6 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    outputs:
-      COMMIT_SHA: ${{ steps.set-commit-sha.outputs.commit_sha }}
     permissions:
       contents: read
       packages: write
@@ -416,14 +430,6 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
           persist-credentials: false
 
-      - name: Initialize Prestissimo submodules
-        id: set-commit-sha
-        run: |
-          df -h
-          cd presto-native-execution && make submodules
-          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> ${GITHUB_ENV}
-          echo "commit_sha=$(git rev-parse --short HEAD)" >> ${GITHUB_OUTPUT}
-
       - name: Registry login
         if: env.REGISTRY == 'docker.io' || env.REGISTRY == 'ghcr.io'
         uses: ./.github/actions/registry-login
@@ -437,8 +443,14 @@ jobs:
       - name: Set dependency image tag
         env:
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
         run: |
-          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${{ env.COMMIT_SHA }}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+          echo "DEPENDENCY_IMAGE=${REGISTRY}/${ORG_NAME}/presto-native-dependency:${RELEASE_TAG}-${COMMIT_SHA}-${{ matrix.arch }}" >> ${GITHUB_ENV}
+
+      - name: Initialize Prestissimo submodules
+        run: |
+          df -h
+          cd presto-native-execution && make submodules
 
       - name: Build Dependency Image
         working-directory: presto-native-execution
@@ -463,7 +475,7 @@ jobs:
           docker images
 
   publish-native-dependency-image-manifest:
-    needs: publish-native-dependency-image
+    needs: [publish-native-dependency-image, validate-native-release]
     if: (!failure() && !cancelled()) && github.event.inputs.publish_native_image == 'true' && github.event.inputs.dependency_image == ''
     runs-on: ubuntu-latest
     environment: release
@@ -486,7 +498,7 @@ jobs:
         env:
           TAG_IMAGE_AS_LATEST: ${{ github.event.inputs.tag_image_as_latest }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
-          COMMIT_SHA: ${{ needs.publish-native-dependency-image.outputs.COMMIT_SHA }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
         run: |
           DEP_TARGET=${REGISTRY}/${ORG_NAME}/presto-native-dependency
           tags=(--tag ${DEP_TARGET}:${RELEASE_TAG}-${COMMIT_SHA})
@@ -544,16 +556,11 @@ jobs:
           ghcr_username: ${{ vars.GHCR_USERNAME }}
           ghcr_token: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Initialize Prestissimo submodules
-        run: |
-          df -h
-          cd presto-native-execution && make submodules
-          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> ${GITHUB_ENV}
-
       - name: Set dependency image tag
         env:
           DEPENDENCY_IMAGE: ${{ github.event.inputs.dependency_image }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          COMMIT_SHA: ${{ needs.validate-native-release.outputs.COMMIT_SHA }}
         run: |
           if [[ -n "${DEPENDENCY_IMAGE}" ]]; then
             echo "DEPENDENCY_IMAGE=${DEPENDENCY_IMAGE}" >> ${GITHUB_ENV}
