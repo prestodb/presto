@@ -28,6 +28,7 @@ import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -55,6 +56,7 @@ import static com.facebook.presto.verifier.framework.QueryState.TIMED_OUT;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_QUERY_TIMED_OUT;
 import static com.facebook.presto.verifier.framework.SkippedReason.CONTROL_SETUP_QUERY_FAILED;
+import static com.facebook.presto.verifier.framework.SkippedReason.DETERMINISM_ANALYSIS_FAILED;
 import static com.facebook.presto.verifier.framework.SkippedReason.FAILED_BEFORE_CONTROL_QUERY;
 import static com.facebook.presto.verifier.framework.SkippedReason.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
@@ -547,8 +549,21 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             case NOT_RUN:
                 return Optional.of(FAILED_BEFORE_CONTROL_QUERY);
         }
-        if (determinismAnalysis.isPresent() && determinismAnalysis.get().isNonDeterministic()) {
+        return getDeterminismSkippedReason(determinismAnalysis);
+    }
+
+    @VisibleForTesting
+    static Optional<SkippedReason> getDeterminismSkippedReason(Optional<DeterminismAnalysis> determinismAnalysis)
+    {
+        if (!determinismAnalysis.isPresent()) {
+            return Optional.empty();
+        }
+        DeterminismAnalysis analysis = determinismAnalysis.get();
+        if (analysis.isNonDeterministic()) {
             return Optional.of(NON_DETERMINISTIC);
+        }
+        if (analysis.isUnknown()) {
+            return Optional.of(DETERMINISM_ANALYSIS_FAILED);
         }
         return Optional.empty();
     }
