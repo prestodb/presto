@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static org.testng.Assert.assertEquals;
@@ -49,7 +50,7 @@ public class TestLanceSplitManager
         namespaceHolder = new LanceNamespaceHolder(config);
         splitManager = new LanceSplitManager(namespaceHolder);
         tableHandle = new LanceTableHandle("default", "test_table1");
-        fragmentCount = namespaceHolder.getFragments("test_table1").size();
+        fragmentCount = namespaceHolder.getFragments("test_table1", Optional.empty()).size();
     }
 
     @Test
