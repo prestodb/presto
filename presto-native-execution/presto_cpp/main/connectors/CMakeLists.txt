@@ -29,11 +29,6 @@ if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_connectors velox_cudf_hive_connector cudf::cudf)
 endif()
 
-target_link_libraries(
-  presto_connectors
-  presto_velox_expr_conversion
-  velox_type_fbhive
-  velox_tpcds_connector
-)
+target_link_libraries(presto_connectors presto_velox_expr_conversion velox)
 
 add_subdirectory(hive)
