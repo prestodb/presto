@@ -814,6 +814,7 @@ public abstract class IcebergAbstractMetadata
                                                           ChangelogOperation operationType,
                                                           Optional<RowExpression> writeScope)
     {
+        requireNonNull(writeScope, "writeScope is null");
         if (fragments.isEmpty()) {
             return Optional.empty();
         }
@@ -831,9 +832,9 @@ public abstract class IcebergAbstractMetadata
             rowDelta.toBranch(branchName.get());
         }
 
-        if (writeScope != null && writeScope.isPresent()) {
+        writeScope.ifPresent(scope -> {
             DomainTranslator.ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
-                    .fromPredicate(session, writeScope.get(), new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
+                    .fromPredicate(session, scope, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
 
             Map<String, IcebergColumnHandle> nameToColumnHandlesMapping = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager)
                     .stream()
@@ -845,7 +846,7 @@ public abstract class IcebergAbstractMetadata
             if (!entireColumnDomain.isAll()) {
                 rowDelta.conflictDetectionFilter(toIcebergExpression(entireColumnDomain));
             }
-        }
+        });
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
