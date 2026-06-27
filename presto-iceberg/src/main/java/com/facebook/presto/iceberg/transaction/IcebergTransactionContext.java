@@ -144,13 +144,13 @@ public class IcebergTransactionContext
     public void setQueryWriteScope(String queryId, Optional<RowExpression> writeScope)
     {
         verify(!this.queryWriteScopes.containsKey(queryId),
-                format("write scope for query %s must not null present", queryId));
+                format("write scope for query %s must not be present", queryId));
         this.queryWriteScopes.put(queryId, writeScope);
     }
 
     public Optional<RowExpression> getQueryWriteScope(String queryId)
     {
-        return this.queryWriteScopes.containsKey(queryId) ? this.queryWriteScopes.get(queryId) : Optional.empty();
+        return this.queryWriteScopes.getOrDefault(queryId, Optional.empty());
     }
 
     public void commit()
