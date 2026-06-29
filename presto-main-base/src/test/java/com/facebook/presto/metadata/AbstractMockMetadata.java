@@ -466,7 +466,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         throw new UnsupportedOperationException();
     }
