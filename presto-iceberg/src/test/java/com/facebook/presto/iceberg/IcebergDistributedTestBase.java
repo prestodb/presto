@@ -3479,6 +3479,23 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'4th'), (3,'third')");
     }
 
+    @Test
+    public void testUpdateWithSemiJoinWhereCondition()
+    {
+        String tableName = "test_update_with_semi_join_where_condition_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (2, 'second'), (3, 'third')", 3);
+
+            assertUpdate("UPDATE " + tableName + " SET a = a + 100 WHERE b IN" +
+                    " (SELECT col FROM (VALUES('first'), ('third'), ('fourth')) AS t(col))", 2);
+            assertQuery("SELECT  * FROM " + tableName, "VALUES(101, 'first'), (2, 'second'), (103, 'third')");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
     @DataProvider
     public Object[][] partitionedProvider()
     {
