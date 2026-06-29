@@ -243,6 +243,7 @@ public class TestSqlToRowExpressionTranslatorValidator
         checkExpressionInFilter("lower(varchar_col) = 'alice'");
         checkExpressionInProject("concat(varchar_col, 'A')");
         checkExpressionInFilter("concat(varchar_col, 'A') in ('AliceA', 'BobA')");
+        checkExpressionInFilter("lpad(varchar_col, BIGINT'10', 'X') = 'XXXXXXXXXA'");
     }
 
     public void testCastExpressions()

@@ -94,6 +94,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
@@ -717,15 +718,20 @@ public abstract class IcebergAbstractMetadata
     {
         for (DerivedColumnSpec derivedColumnSpec : derivedColumnSpecList) {
             List<String> parserWarnings = new ArrayList<>();
-            Expression expressionParsed = sqlParser.createExpression(derivedColumnSpec.getDerivedColumnExpression(),
-                    ParsingOptions.builder().setWarningConsumer(parsingWarning -> {
-                        String message = format("derived column expression: %s has parse warnings: %s", derivedColumnSpec.getDerivedColumnExpression(), parsingWarning.getMessage());
-                        parserWarnings.add(message);
-                    }).setDecimalLiteralTreatment(AS_DECIMAL).build());
-            checkState(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
-            SqlToRowExpressionTranslatorValidator sqlToRowExpressionTranslatorValidator = new SqlToRowExpressionTranslatorValidator(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
-            Map<String, ColumnMetadata> columnMetadataMap = columns.stream().collect(toImmutableMap(k -> k.getName(), v -> v));
-            sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
+            try {
+                Expression expressionParsed = sqlParser.createExpression(derivedColumnSpec.getDerivedColumnExpression(),
+                        ParsingOptions.builder().setWarningConsumer(parsingWarning -> {
+                            String message = format("derived column expression: %s has parse warnings: %s", derivedColumnSpec.getDerivedColumnExpression(), parsingWarning.getMessage());
+                            parserWarnings.add(message);
+                        }).setDecimalLiteralTreatment(AS_DECIMAL).build());
+                checkState(parserWarnings.isEmpty(), "Found warnings: " + Joiner.on(",").join(parserWarnings));
+                SqlToRowExpressionTranslatorValidator sqlToRowExpressionTranslatorValidator = new SqlToRowExpressionTranslatorValidator(functionResolution, functionMetadataManager, typeManager, session.getSqlFunctionProperties());
+                Map<String, ColumnMetadata> columnMetadataMap = columns.stream().collect(toImmutableMap(k -> k.getName(), v -> v));
+                sqlToRowExpressionTranslatorValidator.process(expressionParsed, columnMetadataMap);
+            }
+            catch (ParsingException parseException) {
+                throw new IllegalArgumentException(format("Parse errors in the provided expression %s", derivedColumnSpec.getDerivedColumnExpression()), parseException);
+            }
         }
     }
 

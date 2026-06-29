@@ -78,7 +78,7 @@ public class TestIcebergDerivedColumnOptimizer
                     "     \"c2\" varchar,                                                \n" +
                     "     \"c3\" double,\n" +
                     "     \"c2_derived\" varchar AS lower(c2) PERSISTENT,\n" +
-                    "     \"c2_derived2\" varchar AS concat('A', lower(c2)) PERSISTENT\n" +
+                    "     \"c2_derived2\" varchar AS concat('A', c2) PERSISTENT\n" +
                     "  )";
 
     private File warehouseLocation;
@@ -234,12 +234,12 @@ public class TestIcebergDerivedColumnOptimizer
                     "FROM t1\n" +
                     "JOIN t2 ON t1.a = t2.a";
             assertQuery(query2, "VALUES (123, 'b', 123, 'b')");
-            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(c2_derived2) = (VARCHAR'Ab')"),
+            assertPlanFilterAndProject(List.of("(c2_derived) = (VARCHAR'b')", "(concat(VARCHAR'A', c2_derived_46)) = (VARCHAR'Ab')"),
                     List.of(List.of("c2_derived", "c1", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1), BIGINT'0'))"),
                             List.of("c2_derived_46", "c1_8", "combine_hash(BIGINT'0', COALESCE($operator$hash_code(c1_8), BIGINT'0'))")), query2);
             @Language("SQL") String query3 =
                     "SELECT lower(a) FROM ( SELECT t1.c1, t2.c1, t1.c2 as a FROM test_table1 t1, test_table2 t2 WHERE (lower(t1.c2) = 'b'))  ms, test2 WHERE (a = c2)";
-            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate("CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS CAST(c1 AS decimal) * 10.5 PERSISTENT)");
             assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5), (121, 'A', 121 * 10.5)", 3);
             // TODO: fix: This test is flaky, a different plan is generated each time we run this query and as a result even the output is different each time.
             // This happens due to fact the projection `lower(a)` has two different but equivalent derived col rewrite rule.
@@ -271,7 +271,7 @@ public class TestIcebergDerivedColumnOptimizer
             assertPlanFilterAndProject("(c2_derived) = (VARCHAR'a')", ImmutableList.of("c2_derived", "c1"), query);
             @Language("SQL") String query2 = "SELECT t1.c2, t2.c1 FROM test_table1 t1, test_table2 t2 WHERE lower(t1.c2) = 'a' and  concat('A', lower(t2.c2)) = 'Aa'";
             assertQuery(query2, "VALUES ('A', 121)");
-            assertPlanFilterAndProject(ImmutableList.of("(c2_derived) = (VARCHAR'a')", "(c2_derived2) = (VARCHAR'Aa')"), ImmutableList.of(ImmutableList.of("c1_0")), query2);
+            assertPlanFilterAndProject(ImmutableList.of("(c2_derived) = (VARCHAR'a')", "(concat(VARCHAR'A', c2_derived_17)) = (VARCHAR'Aa')"), ImmutableList.of(ImmutableList.of("c1_0")), query2);
             @Language("SQL") String queryWithProjectionRewrite = "SELECT lower(t1.c2), t2.c1 FROM test_table1 t1, test_table2 t2 WHERE lower(t2.c2) = 'a'";
             assertQuery(queryWithProjectionRewrite, "VALUES ('b', 121), ('c', 121), ('a', 121)");
             assertPlanFilterAndProject("(c2_derived) = (VARCHAR'a')", ImmutableList.of("c2_derived", "c1"), query);
@@ -307,12 +307,12 @@ public class TestIcebergDerivedColumnOptimizer
     { // TODO: fix flaky
         try {
             assertUpdate(" CREATE TABLE test_table2 (                   \n" +
-                    "     \"c1\" bigint,                                                 \n" +
-                    "     \"c2\" varchar,                                                \n" +
-                    "     \"c3\" double,\n" +
-                    "     \"c2_derived\" varchar GENERATED ALWAYS AS lower(c2) PERSISTENT,\n" +
-                    "     \"c2_derived2\" varchar AS lpad(c2, 10, 'X') PERSISTENT\n" +
-                    "  )");
+                         "     \"c1\" bigint,                                                 \n" +
+                         "     \"c2\" varchar,                                                \n" +
+                         "     \"c3\" double,\n" +
+                         "     \"c2_derived\" varchar GENERATED ALWAYS AS lower(c2) PERSISTENT,\n" +
+                         "     \"c2_derived2\" varchar AS lpad(c2, BIGINT'10', 'X') \n" +
+                         "  )");
 
             assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), lpad('B', 10, 'X')), (120, 'C', 12.3, lower('C'), lpad('C', 10, 'X'))," +
                     " (121, 'A', 12.1, lower('A'), lpad('A', 10, 'X'))", 3);
@@ -328,9 +328,9 @@ public class TestIcebergDerivedColumnOptimizer
     }
 
     @Test
-    public void testSpecWithOverlappingDerivedColumnsRulesDefinition()
+    public void testSpecWithMultipleDerivedColumnsRulesDefinitionsOnSameColumns()
     { // i.e. Expressions with overlapping rules: Rule 1: lower(c2) -> c2_derived
-        // Rule 2: concat('A', lower(c2)) -> c2_derived2
+        // Rule 2: concat('A', c2) -> c2_derived2
         try {
             assertUpdate(CREATE_TABLE_SQL2);
             assertUpdate("INSERT INTO test_table2 VALUES (123, 'B', 12.2, lower('B'), concat('B', lower('B'))), (120, 'C', 12.3, lower('C'), concat('C', lower('C')))," +
@@ -339,8 +339,8 @@ public class TestIcebergDerivedColumnOptimizer
             assertQuery(query, "VALUES (121, 'A')");
             @Language("SQL") String query2 = "SELECT c1, c2 FROM test_table2 WHERE (concat('A', lower(c2)) = 'Aa') OR  lower(c2) = 'b'";
             assertQuery(query2, "VALUES (121, 'A'), (123, 'B')");
-            assertPlanFilterPredicate("(c2_derived2) = (VARCHAR'Aa')", query);
-            assertPlanFilterPredicate("((c2_derived2) = (VARCHAR'Aa')) OR ((c2_derived) = (VARCHAR'b'))", query2);
+            assertPlanFilterPredicate("(concat(VARCHAR'A', c2_derived)) = (VARCHAR'Aa')", query);
+            assertPlanFilterPredicate("((concat(VARCHAR'A', c2_derived)) = (VARCHAR'Aa')) OR ((c2_derived) = (VARCHAR'b'))", query2);
         }
         finally {
             assertUpdate("DROP TABLE test_table2");
@@ -351,8 +351,8 @@ public class TestIcebergDerivedColumnOptimizer
     public void testExpressionSpecsWithImplicitTypeCasts()
     {
         try {
-            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS c1 * 10.5 PERSISTENT)");
-            assertUpdate(" CREATE TABLE test3 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS 10.5 * c1 PERSISTENT)");
+            assertUpdate("CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS CAST(c1 AS decimal) * 10.5 PERSISTENT)");
+            assertUpdate("CREATE TABLE test3 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19, 2) AS 10.5 * CAST(c1 AS decimal) PERSISTENT)");
             assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
                     " (121, 'A', 121 * 10.5)", 3);
             assertUpdate("INSERT INTO test3 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
@@ -390,7 +390,7 @@ public class TestIcebergDerivedColumnOptimizer
         try {
             assertUpdate(CREATE_TABLE_SQL);
             assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
-            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate("CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS CAST(c1 AS decimal) * 10.5 PERSISTENT)");
             assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
                     " (121, 'A', 121 * 10.5)", 3);
             @Language("SQL") String query = "SELECT\n" +
@@ -424,7 +424,7 @@ public class TestIcebergDerivedColumnOptimizer
         try {
             assertUpdate(CREATE_TABLE_SQL);
             assertUpdate("INSERT INTO test_table1 VALUES (123, 'B', 12.2, lower('B')), (120, 'C', 12.3, lower('C')), (121, 'A', 12.1, lower('A'))", 3);
-            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS c1 * 10.5 PERSISTENT)");
+            assertUpdate(" CREATE TABLE test2 (c1 BIGINT, c2 VARCHAR, c1_derived decimal(19,2) AS CAST(c1 AS decimal) * 10.5 PERSISTENT)");
             assertUpdate("INSERT INTO test2 VALUES (123, 'B', 123 * 10.5), (120, 'C', 120 * 10.5)," +
                     " (121, 'A', 121 * 10.5)", 3);
             @Language("SQL") String query = "SELECT lower(a), b * 10.5\n" +

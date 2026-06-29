@@ -34,7 +34,7 @@ public final class ColumnDefinition
     private final Optional<String> comment;
     private final Optional<Expression> defaultExpression;
     private Optional<Expression> derivedColumnExpression;
-    private final Optional<DerivedColumnSpec> derivedColumnExpressionSpec;
+    private final Optional<DerivedColumnSpec> derivedColumnSpec;
 
     public ColumnDefinition(Identifier name, String type, boolean nullable, List<Property> properties, Optional<String> comment)
     {
@@ -78,7 +78,7 @@ public final class ColumnDefinition
             Optional<String> comment,
             Optional<Expression> defaultExpression,
             Optional<Expression> derivedColumnExpression,
-            Optional<DerivedColumnSpec> derivedColumnExpressionSpec)
+            Optional<DerivedColumnSpec> derivedColumnSpec)
     {
         super(location);
         checkArgument(!(defaultExpression.isPresent() && derivedColumnExpression.isPresent()),
@@ -90,7 +90,7 @@ public final class ColumnDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.defaultExpression = requireNonNull(defaultExpression, "defaultExpression is null");
         this.derivedColumnExpression = requireNonNull(derivedColumnExpression, "derivedColumnExpression is null");
-        this.derivedColumnExpressionSpec = requireNonNull(derivedColumnExpressionSpec, "derivedColumnExpressionSpec is null");
+        this.derivedColumnSpec = requireNonNull(derivedColumnSpec, "derivedColumnSpec is null");
     }
 
     public Identifier getName()
@@ -123,9 +123,9 @@ public final class ColumnDefinition
         return defaultExpression;
     }
 
-    public Optional<DerivedColumnSpec> getDerivedColumnExpressionSpec()
+    public Optional<DerivedColumnSpec> getDerivedColumnSpec()
     {
-        return derivedColumnExpressionSpec;
+        return derivedColumnSpec;
     }
 
     @Override
@@ -160,13 +160,13 @@ public final class ColumnDefinition
                 Objects.equals(this.comment, o.comment) &&
                 Objects.equals(this.defaultExpression, o.defaultExpression) &&
                 Objects.equals(this.derivedColumnExpression, o.derivedColumnExpression) &&
-                Objects.equals(this.derivedColumnExpressionSpec, o.derivedColumnExpressionSpec);
+                Objects.equals(this.derivedColumnSpec, o.derivedColumnSpec);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, properties, comment, nullable, defaultExpression, derivedColumnExpression, derivedColumnExpressionSpec);
+        return Objects.hash(name, type, properties, comment, nullable, defaultExpression, derivedColumnExpression, derivedColumnSpec);
     }
 
     @Override
@@ -180,7 +180,7 @@ public final class ColumnDefinition
                 .add("comment", comment)
                 .add("defaultExpression", defaultExpression)
                 .add("derivedColumnExpression", derivedColumnExpression)
-                .add("derivedColumnExpressionSpec", derivedColumnExpressionSpec)
+                .add("derivedColumnSpec", derivedColumnSpec)
                 .toString();
     }
 }

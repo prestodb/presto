@@ -2367,8 +2367,7 @@ class AstBuilder
         if (context.AS() != null && !context.expression().isEmpty()) {
             SqlBaseParser.ExpressionContext tree = context.expression().get(0);
             check(tree != null, "expression is null ", context);
-            String expressionAsString = tree.getPayload().getText();
-            derivedColumnExpression = Optional.of((Expression) visit(tree)); // validate the expression.
+            Expression validatedDerivedColumnExpression = (Expression) visit(tree);
             DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
             if (context.GENERATED() != null && context.ALWAYS() != null) {
                 derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
@@ -2376,8 +2375,9 @@ class AstBuilder
             if (context.VIRTUAL() != null) {
                 derivedColumnType = DerivedColumnType.VIRTUAL;
             }
+            derivedColumnExpression = Optional.of(validatedDerivedColumnExpression);
             derivedColumnExpressionSpec = Optional.of(
-                    new DerivedColumnSpec(derivedColumnType, expressionAsString, columnIdentifier.getValue()));
+                    new DerivedColumnSpec(derivedColumnType, validatedDerivedColumnExpression.toString(), columnIdentifier.getValue()));
         }
 
         if (derivedColumnExpressionSpec.isPresent()) {

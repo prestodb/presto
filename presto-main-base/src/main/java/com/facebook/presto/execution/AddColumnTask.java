@@ -120,7 +120,7 @@ public class AddColumnTask
 
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
-        if (element.getDefaultExpression().isPresent() && element.getDerivedColumnExpressionSpec().isPresent()) {
+        if (element.getDefaultExpression().isPresent() && element.getDerivedColumnSpec().isPresent()) {
             throw new SemanticException(NOT_SUPPORTED, element, "Both default expression and derived column expression cannot be set on the same column %s.", element.getName());
         }
         // Handle default expression if present
@@ -138,7 +138,7 @@ public class AddColumnTask
                 .setNullable(element.isNullable())
                 .setComment(element.getComment().orElse(null))
                 .setProperties(columnProperties)
-                .setDerivedColumnSpec(element.getDerivedColumnExpressionSpec().orElse(null))
+                .setDerivedColumnSpec(element.getDerivedColumnSpec().orElse(null))
                 .build();
 
         metadata.addColumn(session, tableHandle.get(), column);
