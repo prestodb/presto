@@ -1125,6 +1125,58 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    public void testRLELongDecimalBackedByBinary()
+            throws Exception
+    {
+        int precision = 38;
+        int scale = 4;
+        MessageType parquetSchema = parseMessageType(
+                format("message hive_decimal { optional BINARY test (DECIMAL(%d, %d)); }", precision, scale));
+
+        List<HiveDecimal> writeValues = new ArrayList<>();
+        List<SqlDecimal> expectedValues = new ArrayList<>();
+        BigInteger base = BigInteger.TEN.pow(precision - 1);
+        for (int i = 0; i < 2000; i++) {
+            BigInteger v = base.add(BigInteger.valueOf(i % 50));
+            writeValues.add(HiveDecimal.create(v, scale));
+            expectedValues.add(new SqlDecimal(v, precision, scale));
+        }
+
+        tester.testRoundTrip(
+                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                writeValues,
+                expectedValues,
+                createDecimalType(precision, scale),
+                Optional.of(parquetSchema));
+    }
+
+    @Test
+    public void testRLEShortDecimalBackedByBinary()
+            throws Exception
+    {
+        int precision = 3;
+        int scale = 2;
+        MessageType parquetSchema = parseMessageType(
+                format("message hive_decimal { optional BINARY test (DECIMAL(%d, %d)); }", precision, scale));
+
+        List<HiveDecimal> writeValues = new ArrayList<>();
+        List<SqlDecimal> expectedValues = new ArrayList<>();
+        BigInteger base = BigInteger.TEN.pow(precision - 1);
+        for (int i = 0; i < 2000; i++) {
+            BigInteger v = base.add(BigInteger.valueOf(i % 50));
+            writeValues.add(HiveDecimal.create(v, scale));
+            expectedValues.add(new SqlDecimal(v, precision, scale));
+        }
+
+        tester.testRoundTrip(
+                new JavaHiveDecimalObjectInspector(new DecimalTypeInfo(precision, scale)),
+                writeValues,
+                expectedValues,
+                createDecimalType(precision, scale),
+                Optional.of(parquetSchema));
+    }
+
+    @Test
     public void testSchemaWithRepeatedOptionalRequiredFields()
             throws Exception
     {

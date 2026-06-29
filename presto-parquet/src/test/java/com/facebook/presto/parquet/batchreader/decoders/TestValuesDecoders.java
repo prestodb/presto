@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
+import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimeAndTimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.LongDecimalValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.ShortDecimalValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.UuidValuesDecoder;
@@ -37,17 +39,24 @@ import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryVa
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.LongDecimalRLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.ShortDecimalRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.UuidRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
 import com.facebook.presto.parquet.dictionary.IntegerDictionary;
 import com.facebook.presto.parquet.dictionary.LongDictionary;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.parquet.bytes.HeapByteBufferAllocator;
+import org.apache.parquet.column.values.plain.PlainValuesWriter;
+import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -81,6 +91,16 @@ public abstract class TestValuesDecoders
     private static BinaryValuesDecoder binaryDictionary(byte[] pageBytes, int dictionarySize, BinaryBatchDictionary dictionary)
     {
         return new BinaryRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static LongDecimalValuesDecoder binaryLongDecimalDictionary(byte[] pageBytes, int dictionarySize, BinaryBatchDictionary dictionary)
+    {
+        return new LongDecimalRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static ShortDecimalValuesDecoder binaryShortDecimalDictionary(byte[] pageBytes, int dictionarySize, BinaryBatchDictionary dictionary)
+    {
+        return new ShortDecimalRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
     }
 
     private static Int64ValuesDecoder int64Plain(byte[] pageBytes)
@@ -218,6 +238,54 @@ public abstract class TestValuesDecoders
             }
 
             inputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
+    private static void longDecimalBatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, LongDecimalValuesDecoder decoder, List<BigInteger> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount * 2];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                Slice expected = Decimals.encodeUnscaledValue(expectedValues.get(inputOffset + i));
+                assertEquals(actualValues[2 * (outputOffset + i)], expected.getLong(0));
+                assertEquals(actualValues[2 * (outputOffset + i) + 1], expected.getLong(SIZE_OF_LONG));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
+    private static void shortDecimalBatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, ShortDecimalValuesDecoder decoder, List<BigInteger> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                assertEquals(actualValues[outputOffset + i], expectedValues.get(inputOffset + i).longValueExact());
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
 
             int skipBatchSize = min(skipSize, valueCount - inputOffset);
             decoder.skip(skipBatchSize);
@@ -460,6 +528,78 @@ public abstract class TestValuesDecoders
         binaryBatchReadWithSkipHelper(256, 29, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
         binaryBatchReadWithSkipHelper(89, 29, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
         binaryBatchReadWithSkipHelper(1024, 1024, valueCount, binaryDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+    }
+
+    @Test
+    public void testBinaryLongDecimalRLEDictionary()
+            throws IOException
+    {
+        int valueCount = 2048;
+        int dictionarySize = 29;
+
+        PlainValuesWriter writer = new PlainValuesWriter(64, 1024, new HeapByteBufferAllocator());
+        List<BigInteger> dictionary = new ArrayList<>();
+        BigInteger base = BigInteger.TEN.pow(30);
+        for (int i = 0; i < dictionarySize; i++) {
+            BigInteger v = base.add(BigInteger.valueOf(i));
+            dictionary.add(v);
+            byte[] bytes = v.toByteArray();
+            writer.writeBytes(Binary.fromConstantByteArray(bytes, 0, bytes.length));
+        }
+        byte[] dictionaryPage = writer.getBytes().toByteArray();
+
+        List<Integer> dictionaryIds = new ArrayList<>();
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
+
+        List<BigInteger> expectedValues = dictionaryIds.stream().map(dictionary::get).collect(toImmutableList());
+
+        BinaryBatchDictionary binaryDictionary = new BinaryBatchDictionary(
+                new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY));
+
+        longDecimalBatchReadWithSkipHelper(valueCount, 0, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        longDecimalBatchReadWithSkipHelper(29, 0, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        longDecimalBatchReadWithSkipHelper(89, 0, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        longDecimalBatchReadWithSkipHelper(1024, 0, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+
+        longDecimalBatchReadWithSkipHelper(256, 29, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        longDecimalBatchReadWithSkipHelper(89, 29, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        longDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, binaryLongDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+    }
+
+    @Test
+    public void testBinaryShortDecimalRLEDictionary()
+            throws IOException
+    {
+        int valueCount = 2048;
+        int dictionarySize = 29;
+
+        PlainValuesWriter writer = new PlainValuesWriter(64, 1024, new HeapByteBufferAllocator());
+        List<BigInteger> dictionary = new ArrayList<>();
+        BigInteger base = BigInteger.TEN.pow(3);
+        for (int i = 0; i < dictionarySize; i++) {
+            BigInteger v = base.add(BigInteger.valueOf(i));
+            dictionary.add(v);
+            byte[] bytes = v.toByteArray();
+            writer.writeBytes(Binary.fromConstantByteArray(bytes, 0, bytes.length));
+        }
+        byte[] dictionaryPage = writer.getBytes().toByteArray();
+
+        List<Integer> dictionaryIds = new ArrayList<>();
+        byte[] dataPage = generateDictionaryIdPage2048(dictionarySize - 1, dictionaryIds);
+
+        List<BigInteger> expectedValues = dictionaryIds.stream().map(dictionary::get).collect(toImmutableList());
+
+        BinaryBatchDictionary binaryDictionary = new BinaryBatchDictionary(
+                new DictionaryPage(Slices.wrappedBuffer(dictionaryPage), dictionarySize, PLAIN_DICTIONARY));
+
+        shortDecimalBatchReadWithSkipHelper(valueCount, 0, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        shortDecimalBatchReadWithSkipHelper(29, 0, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        shortDecimalBatchReadWithSkipHelper(89, 0, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        shortDecimalBatchReadWithSkipHelper(1024, 0, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+
+        shortDecimalBatchReadWithSkipHelper(256, 29, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        shortDecimalBatchReadWithSkipHelper(89, 29, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
+        shortDecimalBatchReadWithSkipHelper(1024, 1024, valueCount, binaryShortDecimalDictionary(dataPage, dictionarySize, binaryDictionary), expectedValues);
     }
 
     @Test
