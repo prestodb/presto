@@ -17,10 +17,6 @@ FROM quay.io/centos/centos:stream9
 ARG ARM_BUILD_TARGET
 ARG CUDA_VERSION
 
-# This defaults to 13.0 but can be overridden with a build arg
-ARG CUDA_VERSION
-
-# This defaults to 1.20.1 but can be overridden with a build arg
 ARG UCX_VERSION
 
 ENV PROMPT_ALWAYS_RESPOND=y
