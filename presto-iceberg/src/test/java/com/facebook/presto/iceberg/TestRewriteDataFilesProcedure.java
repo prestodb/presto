@@ -1300,7 +1300,7 @@ public class TestRewriteDataFilesProcedure
 
             // Test rewrite_data_files with sorted_by using zorder function
             // The zorder function now uses ROW type: zorder(ROW(orderkey, partkey))
-            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)'], options => map(array['rewrite-all'], array['true']))",
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                     TEST_SCHEMA, tableName), 6);
 
             table.refresh();
@@ -1357,13 +1357,13 @@ public class TestRewriteDataFilesProcedure
 
             // Test that mixing zorder with regular column names fails
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'comment'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'comment'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Cannot mix zorder function with regular column names in sorted_by.*");
 
             // Also test the reverse order
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['comment', 'zorder(orderkey, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['comment', 'zorder(orderkey, partkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Cannot mix zorder function with regular column names in sorted_by.*");
         }
@@ -1382,7 +1382,7 @@ public class TestRewriteDataFilesProcedure
 
             // Test that using decimal type in zorder fails
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(price, quantity)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(price, quantity)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Cannot use column of type .* in ZOrdering, the type is unsupported.*");
         }
@@ -1401,19 +1401,19 @@ public class TestRewriteDataFilesProcedure
 
             // Test that using non-existent column in zorder fails with clear error
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid_column, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid_column, partkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Z-order column\\(s\\) not found in table: \\[invalid_column\\].*");
 
             // Test with multiple invalid columns
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid1, invalid2, partkey)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(invalid1, invalid2, partkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Z-order column\\(s\\) not found in table: \\[invalid1, invalid2\\].*");
 
             // Test with all invalid columns
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(nonexistent1, nonexistent2)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(nonexistent1, nonexistent2)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Z-order column\\(s\\) not found in table: \\[nonexistent1, nonexistent2\\].*");
         }
@@ -1432,19 +1432,19 @@ public class TestRewriteDataFilesProcedure
 
             // Test malformed zorder expression (missing closing parenthesis)
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
 
             // Test malformed zorder expression (invalid syntax)
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey partkey)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey partkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
 
             // Test malformed zorder expression (extra characters)
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey))'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey))'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Malformed zorder\\(\\.\\.\\.\\) expression.*");
         }
@@ -1463,9 +1463,183 @@ public class TestRewriteDataFilesProcedure
 
             // Test multiple zorder expressions
             assertQueryFails(
-                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'zorder(suppkey)'], options => map(array['rewrite-all'], array['true']))",
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['zorder(orderkey, partkey)', 'zorder(suppkey)'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
                             TEST_SCHEMA, tableName),
                     ".*Multiple zorder\\(\\.\\.\\.\\) expressions are not supported in sorted_by.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithBinpackStrategy()
+    {
+        String tableName = "test_binpack_strategy";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c'), (1, 'a'), (2, 'b')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (4, 'd'), (5, 'e')", 3);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Rewrite with binpack strategy - should combine files without sorting
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'binpack', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 6);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Verify all data is present (binpack preserves data)
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
+            assertQuery("SELECT * FROM " + tableName,
+                    "VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e'), (6, 'f')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesWithSortStrategy()
+    {
+        String tableName = "test_sort_strategy";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c'), (1, 'a'), (2, 'b')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (4, 'd'), (5, 'e')", 3);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Rewrite with sort strategy and sorted_by
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 6);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Verify data IS sorted
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1, 2, 3, 4, 5, 6");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesStrategyDefaultsToBinpack()
+    {
+        String tableName = "test_default_strategy";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c'), (1, 'a'), (2, 'b')", 3);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'f'), (4, 'd'), (5, 'e')", 3);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Rewrite without specifying strategy - should default to binpack
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 6);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 1);
+
+            // Verify all data is present (default binpack behavior)
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 6");
+            assertQuery("SELECT * FROM " + tableName,
+                    "VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e'), (6, 'f')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesInvalidStrategyThrows()
+    {
+        String tableName = "test_invalid_strategy";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+            // Test invalid strategy value
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'invalid')",
+                            TEST_SCHEMA, tableName),
+                    ".*Invalid rewrite strategy.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesSortedByRequiresSortStrategy()
+    {
+        String tableName = "test_sorted_by_requires_sort";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a'), (2, 'b')", 2);
+
+            // Test that sorted_by with binpack strategy fails
+            assertQueryFails(
+                    format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', sorted_by => ARRAY['id'], strategy => 'binpack')",
+                            TEST_SCHEMA, tableName),
+                    ".*Cannot use binpack strategy with sorted_by option.*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesBinpackWithoutSortedBy()
+    {
+        String tableName = "test_binpack_no_sorted_by";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c'), (1, 'a')", 2);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Binpack without sorted_by should work
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'binpack', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 3);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (3, 'c'), (1, 'a'), (2, 'b')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteDataFilesSortStrategyWithoutSortedBy()
+    {
+        String tableName = "test_sort_no_sorted_by";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'c'), (1, 'a')", 2);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+
+            Table table = loadTable(tableName);
+            assertHasDataFiles(table.currentSnapshot(), 2);
+
+            // Sort strategy without sorted_by should use table's default sort order (or no sort if none)
+            assertUpdate(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', strategy => 'sort', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 3);
+
+            table.refresh();
+            assertHasDataFiles(table.currentSnapshot(), 1);
+            // Should have all data
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 3");
         }
         finally {
             dropTable(tableName);
