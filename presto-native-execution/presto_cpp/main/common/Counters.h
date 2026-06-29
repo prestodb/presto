@@ -248,4 +248,13 @@ constexpr std::string_view kCounterMemoryPushbackReductionBytes{
 /// meantime.
 constexpr std::string_view kCounterMemoryPushbackExpectedReductionBytes{
     "presto_cpp.memory_pushback_expected_reduction_bytes"};
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+constexpr std::string_view kCounterDppFilterCacheCurrentBytes{
+    "presto_cpp.memory_dpp_filter_cache_current_bytes"};
+constexpr std::string_view kCounterDppFilterCacheMaxBytes{
+    "presto_cpp.memory_dpp_filter_cache_max_bytes"};
+constexpr std::string_view kCounterDppFilterCachePushRejected{
+    "presto_cpp.memory_dpp_filter_cache_push_rejected"};
+#endif
 } // namespace facebook::presto

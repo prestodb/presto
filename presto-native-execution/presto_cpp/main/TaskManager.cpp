@@ -26,6 +26,10 @@
 #include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
+#include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
+#endif
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
@@ -522,6 +526,27 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
       startProcessCpuTime);
 }
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
+    const protocol::TaskId& taskId,
+    const protocol::TaskUpdateRequest& updateRequest,
+    const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+    bool summarize,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
+  return createOrUpdateTaskImpl(
+      taskId,
+      planFragment,
+      dynamicFilterInfos,
+      updateRequest.sources,
+      updateRequest.outputIds,
+      summarize,
+      std::move(queryCtx),
+      startProcessCpuTime);
+}
+#endif
+
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
@@ -542,6 +567,31 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       std::move(queryCtx),
       startProcessCpuTime);
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
+    const protocol::TaskId& taskId,
+    const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
+    const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+    bool summarize,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
+  auto updateRequest = batchUpdateRequest.taskUpdateRequest;
+
+  checkSplitsForBatchTask(planFragment.planNode, updateRequest.sources);
+
+  return createOrUpdateTaskImpl(
+      taskId,
+      planFragment,
+      dynamicFilterInfos,
+      updateRequest.sources,
+      updateRequest.outputIds,
+      summarize,
+      std::move(queryCtx),
+      startProcessCpuTime);
+}
+#endif
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
@@ -747,6 +797,225 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   return ret;
 }
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
+    const TaskId& taskId,
+    const velox::core::PlanFragment& planFragment,
+    const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+    const std::vector<protocol::TaskSource>& sources,
+    const protocol::OutputBuffers& outputBuffers,
+    bool summarize,
+    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    long startProcessCpuTime) {
+  auto receiveTaskUpdateMs = getCurrentTimeMs();
+  std::shared_ptr<exec::Task> execTask;
+  bool startTask = false;
+  auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
+  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
+    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
+  }
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateCoordinatorHeartbeatLocked();
+    if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
+      // If the task is aborted, no need to do anything else.
+      // This takes care of DELETE task message coming before CREATE task.
+      if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
+        return std::make_unique<TaskInfo>(
+            prestoTask->updateInfoLocked(summarize));
+      }
+
+      const auto baseSpillDir = *(baseSpillDir_.rlock());
+      auto spillDiskOpts =
+          getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
+
+      auto newExecTask = exec::Task::create(
+          taskId,
+          planFragment,
+          prestoTask->id.id(),
+          std::move(queryCtx),
+          exec::Task::ExecutionMode::kParallel,
+          static_cast<exec::Consumer>(nullptr),
+          prestoTask->id.stageId(),
+          spillDiskOpts);
+
+      prestoTask->task = std::move(newExecTask);
+      prestoTask->info.needsPlan = false;
+      startTask = true;
+      prestoTask->createFinishTimeMs = getCurrentTimeMs();
+
+      auto weakTask = std::weak_ptr<PrestoTask>(prestoTask);
+      operators::DynamicFilterCallbackRegistry::instance().registerCallbacks(
+          taskId,
+          [weakTask](const auto& filters, const auto& flushedIds) {
+            if (auto task = weakTask.lock()) {
+              task->storeDynamicFilters(filters);
+              task->markFilterIdsFlushed(flushedIds);
+            }
+          },
+          [weakTask](const auto& filterIds) {
+            if (auto task = weakTask.lock()) {
+              task->registerDynamicFilterIds(filterIds);
+            }
+          });
+
+      for (const auto& info : dynamicFilterInfos) {
+        std::unordered_set<std::string> filterIds;
+        for (const auto& ch : info.channels) {
+          filterIds.insert(ch.filterId);
+        }
+        prestoTask->registerDynamicFilterIds(filterIds);
+
+        auto channels = info.channels;
+        auto taskIdCopy = std::string(taskId);
+        auto leafPool =
+            velox::memory::MemoryManager::getInstance()->addLeafPool(
+                fmt::format("df_bridge_{}_{}", taskId, info.joinNodeId));
+        auto weakPrestoTask = std::weak_ptr<PrestoTask>(prestoTask);
+        prestoTask->task->registerHashJoinBridgeCallback(
+            info.joinNodeId,
+            [taskIdCopy,
+             channels = std::move(channels),
+             leafPool = std::move(leafPool),
+             weakPrestoTask](
+                const velox::exec::BaseHashTable& mainTable,
+                const std::vector<std::unique_ptr<velox::exec::BaseHashTable>>&
+                    otherTables,
+                bool /*hasNullKeys*/) {
+              try {
+                operators::extractAndDeliverFilters(
+                    taskIdCopy,
+                    channels,
+                    mainTable,
+                    otherTables,
+                    leafPool.get(),
+                    [weakPrestoTask](const std::string& error) {
+                      if (auto pt = weakPrestoTask.lock()) {
+                        pt->recordDppBridgeError(error);
+                      }
+                    });
+              } catch (const std::exception& e) {
+                if (auto pt = weakPrestoTask.lock()) {
+                  pt->recordDppBridgeError(e.what());
+                }
+                throw;
+              }
+            });
+      }
+    }
+    execTask = prestoTask->task;
+  }
+  // Outside of prestoTask->mutex.
+  VELOX_CHECK_NOT_NULL(
+      execTask,
+      "Task update received before setting a plan. The splits in "
+      "this update could not be delivered for {}",
+      taskId);
+  std::unordered_map<int64_t, std::shared_ptr<ResultRequest>> resultRequests;
+  PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskStatus>> statusRequest;
+  PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
+
+  bool startNextQueuedTask = false;
+  std::unique_ptr<TaskInfo> ret;
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+
+    if (startTask) {
+      maybeStartTaskLocked(prestoTask, startNextQueuedTask);
+
+      resultRequests = std::move(prestoTask->resultRequests);
+      statusRequest = prestoTask->statusRequest;
+      infoRequest = prestoTask->infoRequest;
+    }
+
+    getDataForResultRequests(resultRequests);
+
+    if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
+        !execTask->updateOutputBuffers(
+            outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
+      VLOG(1) << "Failed to update output buffers for task: " << taskId;
+    }
+
+    folly::F14FastMap<protocol::PlanNodeId, protocol::TaskSource> sourcesMap;
+    for (const auto& source : sources) {
+      auto it = sourcesMap.find(source.planNodeId);
+      if (it == sourcesMap.end()) {
+        sourcesMap.emplace(source.planNodeId, source);
+        continue;
+      }
+
+      auto& merged = it->second;
+
+      merged.splits.insert(
+          merged.splits.end(), source.splits.begin(), source.splits.end());
+
+      merged.noMoreSplitsForLifespan.insert(
+          merged.noMoreSplitsForLifespan.end(),
+          source.noMoreSplitsForLifespan.begin(),
+          source.noMoreSplitsForLifespan.end());
+
+      merged.noMoreSplits = merged.noMoreSplits || source.noMoreSplits;
+    }
+
+    for (const auto& [_, source] : sourcesMap) {
+      VLOG(1) << "Adding " << source.splits.size() << " splits to " << taskId
+              << " for node " << source.planNodeId;
+      int64_t maxSplitSequenceId{-1};
+      for (const auto& protocolSplit : source.splits) {
+        auto split = toVeloxSplit(protocolSplit);
+        if (split.hasConnectorSplit()) {
+          maxSplitSequenceId =
+              std::max(maxSplitSequenceId, protocolSplit.sequenceId);
+          execTask->addSplitWithSequence(
+              source.planNodeId, std::move(split), protocolSplit.sequenceId);
+        }
+      }
+      execTask->setMaxSplitSequenceId(source.planNodeId, maxSplitSequenceId);
+
+      for (const auto& lifespan : source.noMoreSplitsForLifespan) {
+        if (lifespan.isgroup) {
+          LOG(INFO) << "No more splits for group " << lifespan.groupid
+                    << " for " << taskId << " for node " << source.planNodeId;
+          execTask->noMoreSplitsForGroup(source.planNodeId, lifespan.groupid);
+        }
+      }
+
+      if (source.noMoreSplits) {
+        LOG(INFO) << "No more splits for " << taskId << " for node "
+                  << source.planNodeId;
+        if (prestoTask->taskStarted) {
+          execTask->noMoreSplits(source.planNodeId);
+        } else {
+          prestoTask->delayedNoMoreSplitsPlanNodes_.emplace(source.planNodeId);
+        }
+      }
+    }
+
+    auto info =
+        prestoTask->updateInfoLocked(summarize);
+    if (auto promiseHolder = infoRequest.lock()) {
+      promiseHolder->promise.setValue(
+          std::make_unique<protocol::TaskInfo>(info));
+    }
+    if (auto promiseHolder = statusRequest.lock()) {
+      promiseHolder->promise.setValue(
+          std::make_unique<protocol::TaskStatus>(info.taskStatus));
+    }
+    ret = std::make_unique<TaskInfo>(info);
+  }
+
+  if (startTask) {
+    prestoTask->applyPendingExternalFilters();
+  }
+
+  if (startNextQueuedTask) {
+    maybeStartNextQueuedTask();
+  }
+
+  return ret;
+}
+#endif
+
 void TaskManager::maybeStartTaskLocked(
     std::shared_ptr<PrestoTask>& prestoTask,
     bool& startNextQueuedTask) {
@@ -922,6 +1191,12 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     VLOG(1) << "Task not found for delete: " << taskId;
     prestoTask = findOrCreateTask(taskId, 0);
   }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  operators::DynamicFilterCallbackRegistry::instance().removeCallback(taskId);
+
+  prestoTask->wakeDynamicFilterWaiters(0);
+#endif
 
   std::lock_guard<std::mutex> l(prestoTask->mutex);
   prestoTask->updateHeartbeatLocked();
@@ -1533,5 +1808,50 @@ void TaskManager::shutdown() {
     }
   });
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+folly::SemiFuture<PrestoTask::DynamicFilterSnapshot>
+TaskManager::getDynamicFilters(
+    const TaskId& taskId,
+    int64_t sinceVersion,
+    std::optional<std::chrono::milliseconds> maxWait) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it == taskMap->end()) {
+    PrestoTask::DynamicFilterSnapshot empty;
+    return folly::makeSemiFuture(std::move(empty));
+  }
+  return it->second->getDynamicFilters(sinceVersion, maxWait);
+}
+
+void TaskManager::removeDynamicFiltersThrough(
+    const TaskId& taskId,
+    int64_t throughVersion) {
+  auto taskMap = taskMap_.rlock();
+  auto it = taskMap->find(taskId);
+  if (it != taskMap->end()) {
+    it->second->removeDynamicFiltersThrough(throughVersion);
+  }
+}
+
+bool TaskManager::addExternalDynamicFilter(
+    const TaskId& taskId,
+    const std::string& filterId,
+    const std::string& scanPlanNodeId,
+    const protocol::TupleDomain<std::string>& tupleDomain) {
+  std::shared_ptr<PrestoTask> prestoTask;
+  {
+    auto taskMap = taskMap_.rlock();
+    auto it = taskMap->find(taskId);
+    if (it == taskMap->end()) {
+      return false;
+    }
+    prestoTask = it->second;
+  }
+  prestoTask->addExternalDynamicFilter(filterId, scanPlanNodeId, tupleDomain);
+  prestoTask->applyPendingExternalFilters();
+  return true;
+}
+#endif
 
 } // namespace facebook::presto

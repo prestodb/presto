@@ -139,6 +139,28 @@ Worker Properties
 
 The configuration properties of Presto C++ workers are described here, in alphabetical order.
 
+``dpp.filter-cache.max-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string`` (data size)
+* **Default value:** ``2GB``
+* **Requires build flag:** ``PRESTO_ENABLE_NATIVE_DPP=ON``
+
+  Maximum bytes the DPP filter cache pool may hold across all tasks. When the
+  limit is reached and reclaim fails, incoming filter pushes are rejected with
+  HTTP 503 and the filter is dropped (the query continues without that filter).
+
+``dpp.filter-push.max-body-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string`` (data size)
+* **Default value:** ``16MB``
+* **Requires build flag:** ``PRESTO_ENABLE_NATIVE_DPP=ON``
+
+  Maximum serialized size of a dynamic filter payload accepted by the worker's
+  ``POST /v1/task/{taskId}/dynamicFilter/{filterId}`` endpoint. Requests
+  exceeding this limit are rejected with HTTP 413.
+
 ``runtime-metrics-collection-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``

@@ -20,6 +20,7 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
@@ -230,7 +231,7 @@ public class PrestoSparkRddFactory
         List<PrestoSparkSource> sources = findTableScanNodes(fragment.getRoot());
         if (!sources.isEmpty()) {
             try (CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager)) {
-                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, metadata);
+                SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, WarningCollector.NOOP, new DynamicFilterService(), metadata);
                 Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(fragment, session, tableWriteInfo);
                 taskSourceRdd = Optional.of(createTaskSourcesRdd(
                         fragment.getId(),

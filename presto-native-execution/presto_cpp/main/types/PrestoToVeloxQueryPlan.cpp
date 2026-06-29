@@ -15,6 +15,9 @@
 // clang-format off
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/connectors/PrestoToVeloxConnector.h"
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/operators/HashBuildFilterExtractor.h"
+#endif
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <folly/io/IOBuf.h>
@@ -50,6 +53,29 @@ using namespace facebook::velox::exec;
 namespace facebook::presto {
 
 namespace {
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+/// Accumulates dynamic filter metadata for later registration as a
+/// HashJoinBridge callback. Called during plan conversion when the join node
+/// has dynamic filters.
+void maybeAccumulateDynamicFilterInfo(
+    const std::map<std::string, protocol::VariableReferenceExpression>&
+        dynamicFilters,
+    const std::string& joinNodeId,
+    const core::PlanNodePtr& buildSide,
+    std::vector<JoinDynamicFilterInfo>& infoOut) {
+  if (dynamicFilters.empty()) {
+    return;
+  }
+  std::vector<operators::DynamicFilterChannel> channels;
+  for (const auto& [filterId, buildVar] : dynamicFilters) {
+    auto index = buildSide->outputType()->getChildIdx(buildVar.name);
+    auto type = buildSide->outputType()->childAt(index);
+    channels.push_back({filterId, static_cast<column_index_t>(index), type});
+  }
+  infoOut.push_back({joinNodeId, std::move(channels)});
+}
+#endif
 
 // Check if this is a broadcast join with cached hash table enabled.
 // Works with both JoinNode and SemiJoinNode.
@@ -704,6 +730,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     auto right =
         toVeloxQueryPlan(semiJoin->filteringSource, tableWriteInfo, taskId);
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+    maybeAccumulateDynamicFilterInfo(
+        semiJoin->dynamicFilters, semiJoin->id, right, dynamicFilterInfos_);
+#endif
+
     const auto& leftNames = left->outputType()->names();
     const auto& leftTypes = left->outputType()->children();
 
@@ -1297,6 +1328,13 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     rightKeys.emplace_back(exprConverter_.toVeloxExpr(right));
   }
 
+  auto right = toVeloxQueryPlan(node->right, tableWriteInfo, taskId);
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  maybeAccumulateDynamicFilterInfo(
+      node->dynamicFilters, node->id, right, dynamicFilterInfos_);
+#endif
+
   return std::make_shared<core::HashJoinNode>(
       node->id,
       joinType,
@@ -1305,7 +1343,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       rightKeys,
       node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
       toVeloxQueryPlan(node->left, tableWriteInfo, taskId),
-      toVeloxQueryPlan(node->right, tableWriteInfo, taskId),
+      std::move(right),
       toRowType(node->outputVariables, typeParser_),
       useCachedHashTable(*node));
 }
@@ -1323,6 +1361,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   auto left = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
   auto right = toVeloxQueryPlan(node->filteringSource, tableWriteInfo, taskId);
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  maybeAccumulateDynamicFilterInfo(
+      node->dynamicFilters, node->id, right, dynamicFilterInfos_);
+#endif
 
   std::vector<std::string> outputNames = left->outputType()->names();
   outputNames.push_back(node->semiJoinOutput.name);

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.metadata.Split;
@@ -78,4 +79,6 @@ public interface RemoteTask
     int getUnacknowledgedPartitionedSplitCount();
 
     PlanFragment getPlanFragment();
+
+    default void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint) {}
 }

@@ -25,6 +25,7 @@ import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
 import com.facebook.presto.execution.scheduler.SectionExecutionFactory;
 import com.facebook.presto.execution.scheduler.SplitSchedulerStats;
@@ -130,6 +131,7 @@ public class SqlQueryExecution
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService timeoutThreadExecutor;
     private final SectionExecutionFactory sectionExecutionFactory;
+    private final DynamicFilterService dynamicFilterService;
     private final InternalNodeManager internalNodeManager;
 
     private final AtomicReference<SqlQuerySchedulerInterface> queryScheduler = new AtomicReference<>();
@@ -168,6 +170,7 @@ public class SqlQueryExecution
             ExecutorService queryExecutor,
             ScheduledExecutorService timeoutThreadExecutor,
             SectionExecutionFactory sectionExecutionFactory,
+            DynamicFilterService dynamicFilterService,
             ExecutorService eagerPlanValidationExecutor,
             InternalNodeManager internalNodeManager,
             ExecutionPolicy executionPolicy,
@@ -194,6 +197,7 @@ public class SqlQueryExecution
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -244,6 +248,7 @@ public class SqlQueryExecution
                 if (scheduler != null) {
                     scheduler.abort();
                 }
+                dynamicFilterService.removeFiltersForQuery(stateMachine.getQueryId());
             });
 
             this.remoteTaskFactory = new TrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
@@ -685,7 +690,7 @@ public class SqlQueryExecution
                     .withNoMoreBufferIds();
         }
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector(), metadata);
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector(), dynamicFilterService, metadata);
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = SqlQueryScheduler.createSqlQueryScheduler(
                 locationFactory,
@@ -931,6 +936,7 @@ public class SqlQueryExecution
         private final ScheduledExecutorService timeoutThreadExecutor;
         private final ExecutorService queryExecutor;
         private final SectionExecutionFactory sectionExecutionFactory;
+        private final DynamicFilterService dynamicFilterService;
         private final ExecutorService eagerPlanValidationExecutor;
         private final InternalNodeManager internalNodeManager;
         private final Map<String, ExecutionPolicy> executionPolicies;
@@ -953,6 +959,7 @@ public class SqlQueryExecution
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForTimeoutThread ScheduledExecutorService timeoutThreadExecutor,
                 SectionExecutionFactory sectionExecutionFactory,
+                DynamicFilterService dynamicFilterService,
                 @ForEagerPlanValidation ExecutorService eagerPlanValidationExecutor,
                 InternalNodeManager internalNodeManager,
                 Map<String, ExecutionPolicy> executionPolicies,
@@ -975,6 +982,7 @@ public class SqlQueryExecution
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
             this.eagerPlanValidationExecutor = requireNonNull(eagerPlanValidationExecutor, "eagerPlanValidationExecutor is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
@@ -1020,6 +1028,7 @@ public class SqlQueryExecution
                     queryExecutor,
                     timeoutThreadExecutor,
                     sectionExecutionFactory,
+                    dynamicFilterService,
                     eagerPlanValidationExecutor,
                     internalNodeManager,
                     executionPolicy,

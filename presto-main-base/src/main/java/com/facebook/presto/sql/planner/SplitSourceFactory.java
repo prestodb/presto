@@ -14,18 +14,29 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.JoinDynamicFilter;
+import com.facebook.presto.execution.scheduler.StreamingSubPlan;
+import com.facebook.presto.execution.scheduler.TableScanDynamicFilter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.connector.DynamicFilter;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexJoinNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
@@ -35,6 +46,7 @@ import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.MetadataDeleteNode;
 import com.facebook.presto.spi.plan.OutputNode;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -51,9 +63,11 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.SampledSplitSource;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.split.SplitSourceProvider;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -74,13 +88,22 @@ import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxSize;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxWaitExtensions;
+import static com.facebook.presto.SystemSessionProperties.getDistributedDynamicFilterMaxWaitTime;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.REWINDABLE_GROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -94,12 +117,203 @@ public class SplitSourceFactory
     private final SplitSourceProvider splitSourceProvider;
     private final WarningCollector warningCollector;
     private final Metadata metadata;
+    private final DynamicFilterService dynamicFilterService;
+    private final List<TableScanDynamicFilter> createdDynamicFilters = new ArrayList<>();
 
-    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, Metadata metadata)
+    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector, DynamicFilterService dynamicFilterService, Metadata metadata)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
+    public void registerDynamicFilters(StreamingSubPlan rootPlan, Session session)
+    {
+        if (!isDistributedDynamicFilterEnabled(session)) {
+            return;
+        }
+        QueryId queryId = session.getQueryId();
+        Duration waitTimeout = getDistributedDynamicFilterMaxWaitTime(session);
+
+        Map<PlanFragmentId, PlanFragment> fragmentIndex = new HashMap<>();
+        collectFragments(rootPlan, fragmentIndex);
+
+        registerFiltersInSubPlan(rootPlan, queryId, waitTimeout, session, fragmentIndex);
+    }
+
+    private static void collectFragments(StreamingSubPlan plan, Map<PlanFragmentId, PlanFragment> index)
+    {
+        index.put(plan.getFragment().getId(), plan.getFragment());
+        for (StreamingSubPlan child : plan.getChildren()) {
+            collectFragments(child, index);
+        }
+    }
+
+    private void registerFiltersInSubPlan(
+            StreamingSubPlan plan,
+            QueryId queryId,
+            Duration waitTimeout,
+            Session session,
+            Map<PlanFragmentId, PlanFragment> fragmentIndex)
+    {
+        registerFiltersForFragment(plan.getFragment(), queryId, waitTimeout, session, fragmentIndex);
+        for (StreamingSubPlan child : plan.getChildren()) {
+            registerFiltersInSubPlan(child, queryId, waitTimeout, session, fragmentIndex);
+        }
+    }
+
+    private void registerFiltersForFragment(
+            PlanFragment fragment,
+            QueryId queryId,
+            Duration waitTimeout,
+            Session session,
+            Map<PlanFragmentId, PlanFragment> fragmentIndex)
+    {
+        List<JoinNode> joinNodes = PlanNodeSearcher.searchFrom(fragment.getRoot())
+                .where(node -> node instanceof JoinNode)
+                .findAll();
+
+        for (JoinNode joinNode : joinNodes) {
+            if (joinNode.getDynamicFilters().isEmpty()) {
+                continue;
+            }
+
+            Map<VariableReferenceExpression, VariableReferenceExpression> buildToProbe = new HashMap<>();
+            for (EquiJoinClause clause : joinNode.getCriteria()) {
+                buildToProbe.put(clause.getRight(), clause.getLeft());
+            }
+
+            Map<String, Set<String>> localFilterColumns = new HashMap<>();
+            Set<String> joinFilterIds = joinNode.getDynamicFilters().keySet();
+            for (Map.Entry<String, VariableReferenceExpression> entry : joinNode.getDynamicFilters().entrySet()) {
+                VariableReferenceExpression probeVar = buildToProbe.get(entry.getValue());
+                String columnName = probeVar != null ? probeVar.getName() : "";
+                registerFilterIfAbsent(queryId, entry.getKey(), columnName, waitTimeout, session);
+                if (!columnName.isEmpty()) {
+                    localFilterColumns.computeIfAbsent(columnName, k -> new HashSet<>()).add(entry.getKey());
+                }
+            }
+
+            if (!localFilterColumns.isEmpty()) {
+                matchFiltersToScans(joinNode.getLeft(), localFilterColumns, queryId);
+            }
+
+            wireProbeChildFragments(joinNode.getLeft(), joinFilterIds, fragmentIndex, queryId, new HashSet<>());
+        }
+
+        List<SemiJoinNode> semiJoinNodes = PlanNodeSearcher.searchFrom(fragment.getRoot())
+                .where(node -> node instanceof SemiJoinNode)
+                .findAll();
+
+        for (SemiJoinNode semiJoinNode : semiJoinNodes) {
+            if (semiJoinNode.getDynamicFilters().isEmpty()) {
+                continue;
+            }
+
+            String columnName = semiJoinNode.getSourceJoinVariable().getName();
+            Map<String, Set<String>> localFilterColumns = new HashMap<>();
+            Set<String> semiJoinFilterIds = semiJoinNode.getDynamicFilters().keySet();
+            for (String filterId : semiJoinFilterIds) {
+                registerFilterIfAbsent(queryId, filterId, columnName, waitTimeout, session);
+                if (!columnName.isEmpty()) {
+                    localFilterColumns.computeIfAbsent(columnName, k -> new HashSet<>()).add(filterId);
+                }
+            }
+
+            if (!localFilterColumns.isEmpty()) {
+                matchFiltersToScans(semiJoinNode.getSource(), localFilterColumns, queryId);
+            }
+
+            wireProbeChildFragments(semiJoinNode.getSource(), semiJoinFilterIds, fragmentIndex, queryId, new HashSet<>());
+        }
+    }
+
+    private void wireProbeChildFragments(
+            PlanNode probeRoot,
+            Set<String> filterIds,
+            Map<PlanFragmentId, PlanFragment> fragmentIndex,
+            QueryId queryId,
+            Set<PlanFragmentId> visited)
+    {
+        Map<String, Set<String>> filterColumns = new HashMap<>();
+        for (String filterId : filterIds) {
+            dynamicFilterService.getFilter(queryId, filterId).ifPresent(f -> {
+                String col = f.getColumnName();
+                if (!col.isEmpty()) {
+                    filterColumns.computeIfAbsent(col, k -> new HashSet<>()).add(filterId);
+                }
+            });
+        }
+
+        if (filterColumns.isEmpty()) {
+            return;
+        }
+
+        for (RemoteSourceNode remoteSource : collectProbeChainRemoteSources(probeRoot)) {
+            for (PlanFragmentId childFragId : remoteSource.getSourceFragmentIds()) {
+                if (!visited.add(childFragId)) {
+                    continue;
+                }
+                PlanFragment childFragment = fragmentIndex.get(childFragId);
+                if (childFragment == null) {
+                    continue;
+                }
+                matchFiltersToScans(childFragment.getRoot(), filterColumns, queryId);
+                wireProbeChildFragments(childFragment.getRoot(), filterIds, fragmentIndex, queryId, visited);
+            }
+        }
+    }
+
+    private void registerFilterIfAbsent(QueryId queryId, String filterId, String columnName, Duration waitTimeout, Session session)
+    {
+        if (!dynamicFilterService.hasFilter(queryId, filterId)) {
+            JoinDynamicFilter filter = new JoinDynamicFilter(
+                    filterId,
+                    columnName,
+                    waitTimeout,
+                    getDistributedDynamicFilterMaxWaitExtensions(session),
+                    getDistributedDynamicFilterMaxSize(session).toBytes(),
+                    dynamicFilterService.getStats(),
+                    session.getRuntimeStats(),
+                    isVerboseRuntimeStatsEnabled(session));
+            dynamicFilterService.registerFilter(queryId, filterId, filter);
+        }
+    }
+
+    private void matchFiltersToScans(PlanNode root, Map<String, Set<String>> filterColumnToFilterIds, QueryId queryId)
+    {
+        Map<PlanNodeId, Map<String, String>> scanToFilterColumns = root.accept(new FilterToScanMatcher(), filterColumnToFilterIds);
+        for (Map.Entry<PlanNodeId, Map<String, String>> entry : scanToFilterColumns.entrySet()) {
+            PlanNodeId scanNodeId = entry.getKey();
+            Map<String, String> filterIdToLocalColumn = entry.getValue();
+            dynamicFilterService.registerScanFilterMapping(queryId, scanNodeId, filterIdToLocalColumn.keySet());
+        }
+    }
+
+    private static List<RemoteSourceNode> collectProbeChainRemoteSources(PlanNode node)
+    {
+        if (node instanceof RemoteSourceNode) {
+            return ImmutableList.of((RemoteSourceNode) node);
+        }
+        if (node instanceof JoinNode) {
+            return collectProbeChainRemoteSources(((JoinNode) node).getLeft());
+        }
+        if (node instanceof SemiJoinNode) {
+            return collectProbeChainRemoteSources(((SemiJoinNode) node).getSource());
+        }
+        ImmutableList.Builder<RemoteSourceNode> result = ImmutableList.builder();
+        for (PlanNode child : node.getSources()) {
+            result.addAll(collectProbeChainRemoteSources(child));
+        }
+        return result.build();
+    }
+
+    public void setTaskCountHint(int taskCountHint)
+    {
+        for (TableScanDynamicFilter filter : createdDynamicFilters) {
+            filter.setTaskCountHint(taskCountHint);
+        }
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
@@ -158,16 +372,62 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Context context)
         {
-            // get dataSource for table
             TableHandle table = node.getTable();
+
+            DynamicFilter dynamicFilter = DynamicFilter.EMPTY;
+            if (isDistributedDynamicFilterEnabled(session)) {
+                Set<String> filterIds = dynamicFilterService.getFilterIdsForScan(session.getQueryId(), node.getId());
+                if (!filterIds.isEmpty()) {
+                    Map<String, ColumnHandle> variableNameToHandle = new HashMap<>();
+                    for (Map.Entry<VariableReferenceExpression, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                        variableNameToHandle.put(assignment.getKey().getName(), assignment.getValue());
+                    }
+
+                    List<JoinDynamicFilter> matchingFilters = new ArrayList<>();
+                    Map<String, ColumnHandle> columnNameToHandle = new HashMap<>();
+                    for (String filterId : filterIds) {
+                        dynamicFilterService.getFilter(session.getQueryId(), filterId).ifPresent(joinFilter -> {
+                            ColumnHandle handle = variableNameToHandle.get(joinFilter.getColumnName());
+                            if (handle != null) {
+                                matchingFilters.add(joinFilter);
+                                columnNameToHandle.put(joinFilter.getColumnName(), handle);
+                            }
+                        });
+                    }
+
+                    if (!matchingFilters.isEmpty()) {
+                        if (table.getLayout().isPresent()) {
+                            TableLayout layout = metadata.getLayout(session, table);
+                            TupleDomain<ColumnHandle> predicate = layout.getPredicate();
+                            if (predicate.getDomains().isPresent()) {
+                                for (JoinDynamicFilter joinFilter : matchingFilters) {
+                                    ColumnHandle handle = columnNameToHandle.get(joinFilter.getColumnName());
+                                    if (handle != null) {
+                                        Domain columnDomain = predicate.getDomains().get().get(handle);
+                                        if (columnDomain != null) {
+                                            joinFilter.setProbeColumnDomain(columnDomain);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        TableScanDynamicFilter tableScanFilter = new TableScanDynamicFilter(matchingFilters, columnNameToHandle);
+                        createdDynamicFilters.add(tableScanFilter);
+                        dynamicFilter = tableScanFilter;
+                    }
+                }
+            }
+
             Map<String, String> partitionColumnMapping = stageExecutionDescriptor.isScanGroupedExecution(node.getId())
                     ? stageExecutionDescriptor.getPartitionColumnMapping(node.getId())
                     : ImmutableMap.of();
+            DynamicFilter finalDynamicFilter = dynamicFilter;
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     table,
                     getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()),
                     warningCollector,
+                    finalDynamicFilter,
                     partitionColumnMapping);
 
             SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
@@ -534,6 +794,58 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitMergeProcessor(MergeProcessorNode node, Context context)
         {
             return node.getSource().accept(this, context);
+        }
+    }
+
+    private static final class FilterToScanMatcher
+            extends InternalPlanVisitor<Map<PlanNodeId, Map<String, String>>, Map<String, Set<String>>>
+    {
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitPlan(PlanNode node, Map<String, Set<String>> context)
+        {
+            ImmutableMap.Builder<PlanNodeId, Map<String, String>> result = ImmutableMap.builder();
+            for (PlanNode child : node.getSources()) {
+                result.putAll(child.accept(this, context));
+            }
+            return result.build();
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitTableScan(TableScanNode node, Map<String, Set<String>> filterColumnToFilterIds)
+        {
+            Map<String, String> filterIdToColumn = new HashMap<>();
+            for (Map.Entry<String, Set<String>> entry : filterColumnToFilterIds.entrySet()) {
+                String columnName = entry.getKey();
+                boolean columnInScan = node.getAssignments().keySet().stream()
+                        .anyMatch(var -> var.getName().equals(columnName));
+                if (columnInScan) {
+                    for (String filterId : entry.getValue()) {
+                        filterIdToColumn.put(filterId, columnName);
+                    }
+                }
+            }
+            if (filterIdToColumn.isEmpty()) {
+                return ImmutableMap.of();
+            }
+            return ImmutableMap.of(node.getId(), filterIdToColumn);
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitJoin(JoinNode node, Map<String, Set<String>> context)
+        {
+            return node.getLeft().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitSemiJoin(SemiJoinNode node, Map<String, Set<String>> context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, Map<String, String>> visitRemoteSource(RemoteSourceNode node, Map<String, Set<String>> context)
+        {
+            return ImmutableMap.of();
         }
     }
 

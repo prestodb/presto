@@ -30,6 +30,8 @@ import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
@@ -48,6 +50,8 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
+import com.facebook.presto.execution.scheduler.DynamicFilterService;
+import com.facebook.presto.execution.scheduler.DynamicFilterStats;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataManager;
@@ -105,6 +109,18 @@ import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isVerboseRuntimeStatsEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_HTTP_STATUS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_RETRIED_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_RETRY_GAVE_UP_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_NOT_FOUND_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.DYNAMIC_FILTER_PUSH_TO_WORKER_THROTTLED_COUNT;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.TaskInfo.createInitialTask;
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
@@ -161,6 +177,8 @@ public final class HttpRemoteTaskWithEventLoop
     private static final double UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE = 0.01;
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
+    private final JsonCodec<DynamicFilterPushRequest> pushRequestCodec;
+
     private final TaskId taskId;
     private final URI taskLocation;
     private final URI remoteTaskLocation;
@@ -178,6 +196,7 @@ public final class HttpRemoteTaskWithEventLoop
     private final RemoteTaskStats stats;
     private final TaskInfoFetcherWithEventLoop taskInfoFetcher;
     private final ContinuousTaskStatusFetcherWithEventLoop taskStatusFetcher;
+    private final DynamicFilterFetcher dynamicFilterFetcher;
 
     private final LongArrayList taskUpdateTimeline = new LongArrayList();
     private Future<?> currentRequest;
@@ -235,6 +254,7 @@ public final class HttpRemoteTaskWithEventLoop
 
     private final SafeEventLoopGroup.SafeEventLoop taskEventLoop;
     private final String loggingPrefix;
+    private final boolean shouldFetchDynamicFilters;
 
     private long startTime;
     private long startedTime;
@@ -276,7 +296,11 @@ public final class HttpRemoteTaskWithEventLoop
             boolean taskUpdateSizeTrackingEnabled,
             HandleResolver handleResolver,
             SchedulerStatsTracker schedulerStatsTracker,
-            SafeEventLoopGroup.SafeEventLoop taskEventLoop)
+            SafeEventLoopGroup.SafeEventLoop taskEventLoop,
+            DynamicFilterService dynamicFilterService,
+            JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
+            DynamicFilterStats dynamicFilterStats)
     {
         HttpRemoteTaskWithEventLoop task = new HttpRemoteTaskWithEventLoop(session,
                 taskId,
@@ -314,7 +338,11 @@ public final class HttpRemoteTaskWithEventLoop
                 taskUpdateSizeTrackingEnabled,
                 handleResolver,
                 schedulerStatsTracker,
-                taskEventLoop);
+                taskEventLoop,
+                dynamicFilterService,
+                dynamicFilterResponseCodec,
+                dynamicFilterPushRequestCodec,
+                dynamicFilterStats);
         task.initialize();
         return task;
     }
@@ -355,7 +383,11 @@ public final class HttpRemoteTaskWithEventLoop
             boolean taskUpdateSizeTrackingEnabled,
             HandleResolver handleResolver,
             SchedulerStatsTracker schedulerStatsTracker,
-            SafeEventLoopGroup.SafeEventLoop taskEventLoop)
+            SafeEventLoopGroup.SafeEventLoop taskEventLoop,
+            DynamicFilterService dynamicFilterService,
+            JsonCodec<DynamicFilterResponse> dynamicFilterResponseCodec,
+            JsonCodec<DynamicFilterPushRequest> dynamicFilterPushRequestCodec,
+            DynamicFilterStats dynamicFilterStats)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -381,7 +413,11 @@ public final class HttpRemoteTaskWithEventLoop
         requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
         requireNonNull(schedulerStatsTracker, "schedulerStatsTracker is null");
         requireNonNull(taskEventLoop, "taskEventLoop is null");
+        requireNonNull(dynamicFilterService, "dynamicFilterService is null");
+        requireNonNull(dynamicFilterResponseCodec, "dynamicFilterResponseCodec is null");
+        requireNonNull(dynamicFilterPushRequestCodec, "dynamicFilterPushRequestCodec is null");
 
+        this.pushRequestCodec = dynamicFilterPushRequestCodec;
         this.taskEventLoop = taskEventLoop;
         this.taskId = taskId;
         this.taskLocation = location;
@@ -477,6 +513,22 @@ public final class HttpRemoteTaskWithEventLoop
                 queryManager,
                 handleResolver,
                 thriftProtocol);
+        this.dynamicFilterFetcher = new DynamicFilterFetcher(
+                taskId,
+                location,
+                httpClient,
+                taskEventLoop,
+                maxErrorDuration,
+                taskStatusRefreshMaxWait,
+                stats,
+                dynamicFilterResponseCodec,
+                dynamicFilterService,
+                session.getQueryId(),
+                dynamicFilterStats,
+                isVerboseRuntimeStatsEnabled(session),
+                this::failTask);
+        // Build-side DPP collection is C++ only; Java workers use no fetcher.
+        this.shouldFetchDynamicFilters = isDistributedDynamicFilterEnabled(session) && isNativeExecutionEnabled(session);
         this.loggingPrefix = format("Query: %s, Task: %s", session.getQueryId(), taskId);
     }
 
@@ -495,6 +547,10 @@ public final class HttpRemoteTaskWithEventLoop
                 updateSplitQueueSpace();
             }
         });
+
+        if (shouldFetchDynamicFilters) {
+            dynamicFilterFetcher.start();
+        }
 
         updateTaskStats();
         safeExecuteOnEventLoop(this::updateSplitQueueSpace, "updateSplitQueueSpace");
@@ -1156,6 +1212,7 @@ public final class HttpRemoteTaskWithEventLoop
             }
 
             taskStatusFetcher.stop();
+            dynamicFilterFetcher.stopAfterFinalFetch();
 
             // The remote task is likely to get a delete from the PageBufferClient first.
             // We send an additional delete anyway to get the final TaskInfo
@@ -1258,6 +1315,7 @@ public final class HttpRemoteTaskWithEventLoop
         // the entire duration of abort retries. If the task is failed, it is not that important to actually
         // record the final statistics and the final information about a failed task.
         taskInfoFetcher.updateTaskInfo(getTaskInfo().withTaskStatus(failedTaskStatus));
+        dynamicFilterFetcher.abort();
 
         // Initiate abort request
         abort(failedTaskStatus);
@@ -1462,5 +1520,99 @@ public final class HttpRemoteTaskWithEventLoop
     private void safeExecuteOnEventLoop(Runnable r, String methodName)
     {
         taskEventLoop.execute(r, this::failTask, schedulerStatsTracker, loggingPrefix + ", method: " + methodName);
+    }
+
+    private static final int MAX_DYNAMIC_FILTER_PUSH_ATTEMPTS = 3;
+    private static final long MAX_DYNAMIC_FILTER_PUSH_RETRY_DELAY_MS = 5_000;
+
+    @Override
+    public void pushDynamicFilter(PlanNodeId scanNodeId, String filterId, TupleDomain<String> constraint)
+    {
+        DynamicFilterPushRequest pushRequest = new DynamicFilterPushRequest(true, scanNodeId.toString(), constraint);
+        byte[] body = pushRequestCodec.toJsonBytes(pushRequest);
+
+        URI uri = uriBuilderFrom(taskLocation)
+                .appendPath("dynamicFilter")
+                .appendPath(filterId)
+                .build();
+
+        sendDynamicFilterPush(uri, body, filterId, 1);
+    }
+
+    private void sendDynamicFilterPush(URI uri, byte[] body, String filterId, int attempt)
+    {
+        Request request = preparePost()
+                .setUri(uri)
+                .setHeader("Content-Type", "application/json")
+                .setBodyGenerator(createStaticBodyGenerator(body))
+                .build();
+
+        long startMs = System.currentTimeMillis();
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+
+        addCallback(httpClient.executeAsync(request, createStatusResponseHandler()), new FutureCallback<StatusResponse>()
+        {
+            @Override
+            public void onSuccess(StatusResponse result)
+            {
+                long latencyMs = System.currentTimeMillis() - startMs;
+                int statusCode = result.getStatusCode();
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS, NONE, latencyMs);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_HTTP_STATUS, NONE, statusCode);
+                if (statusCode == 200) {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_SUCCESS_COUNT, NONE, 1);
+                }
+                else if (statusCode == 404) {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_TASK_NOT_FOUND_COUNT, NONE, 1);
+                    log.warn("Dynamic filter push: task %s not found on worker (filter %s, latency %dms)", taskId, filterId, latencyMs);
+                }
+                else if (statusCode == 503) {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_THROTTLED_COUNT, NONE, 1);
+                    if (attempt >= MAX_DYNAMIC_FILTER_PUSH_ATTEMPTS) {
+                        runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_RETRY_GAVE_UP_COUNT, NONE, 1);
+                        log.warn(
+                                "Dynamic filter push to task %s rejected with HTTP 503 (filter %s, attempt %d, latency %dms); giving up",
+                                taskId, filterId, attempt, latencyMs);
+                        return;
+                    }
+                    long retryDelayMs = Math.min(parseRetryAfterMs(result), MAX_DYNAMIC_FILTER_PUSH_RETRY_DELAY_MS);
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_RETRIED_COUNT, NONE, 1);
+                    log.debug(
+                            "Dynamic filter push to task %s throttled by worker (filter %s, attempt %d); retrying after %dms",
+                            taskId, filterId, attempt, retryDelayMs);
+                    taskEventLoop.schedule(
+                            () -> sendDynamicFilterPush(uri, body, filterId, attempt + 1),
+                            retryDelayMs,
+                            TimeUnit.MILLISECONDS);
+                }
+                else {
+                    runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT, NONE, 1);
+                    log.warn("Dynamic filter push to task %s returned HTTP %d (filter %s, latency %dms)", taskId, statusCode, filterId, latencyMs);
+                }
+            }
+
+            @Override
+            public void onFailure(Throwable throwable)
+            {
+                long latencyMs = System.currentTimeMillis() - startMs;
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_LATENCY_MS, NONE, latencyMs);
+                runtimeStats.addMetricValue(DYNAMIC_FILTER_PUSH_TO_WORKER_FAILURE_COUNT, NONE, 1);
+                log.warn("Failed to push dynamic filter %s to task %s (latency %dms): %s", filterId, taskId, latencyMs, throwable.getMessage());
+            }
+        }, taskEventLoop);
+    }
+
+    private static long parseRetryAfterMs(StatusResponse response)
+    {
+        String header = response.getHeader("Retry-After");
+        if (header == null) {
+            return 1_000;
+        }
+        try {
+            return Math.max(0, Long.parseLong(header.trim()) * 1_000);
+        }
+        catch (NumberFormatException e) {
+            return 1_000;
+        }
     }
 }

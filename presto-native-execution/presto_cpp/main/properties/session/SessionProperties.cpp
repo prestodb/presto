@@ -662,6 +662,27 @@ SessionProperties::SessionProperties() {
       QueryConfig::kAggregationMemoryCompactionReclaimEnabled,
       util::boolToLowerCaseString(
           c.aggregationMemoryCompactionReclaimEnabled()));
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  addSessionProperty(
+      kDistributedDynamicFilterMaxSize,
+      "Maximum size in bytes of discrete values collected per channel in the "
+      "dynamic filter source operator before falling back to min/max range.",
+      BIGINT(),
+      false,
+      kDistributedDynamicFilterMaxSize,
+      std::to_string(1048576));
+
+  addSessionProperty(
+      kNativeDynamicFilterPushdownEnabled,
+      "Enable Velox built-in hash probe dynamic filter pushdown to upstream "
+      "table scans. When distributed DPP is active, this is auto-disabled "
+      "unless explicitly set.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kHashProbeDynamicFilterPushdownEnabled,
+      util::boolToLowerCaseString(c.hashProbeDynamicFilterPushdownEnabled()));
+#endif
 }
 
 bool SessionProperties::useVeloxGeospatialJoin() const {

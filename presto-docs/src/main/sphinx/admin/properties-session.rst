@@ -1088,6 +1088,18 @@ partition columns. See :ref:`iceberg-incremental-refresh` for connector-specific
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
 
+``native_dynamic_filter_pushdown_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Enables Velox built-in hash probe dynamic filter pushdown to upstream table
+scans in the native (Prestissimo) worker. When coordinator-mediated distributed
+DPP is active, this is automatically disabled unless explicitly set.
+
+Requires the Presto C++ worker to be built with ``PRESTO_ENABLE_NATIVE_DPP=ON``.
+
 ``optimizer.optimize_multiple_approx_distinct_on_same_type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

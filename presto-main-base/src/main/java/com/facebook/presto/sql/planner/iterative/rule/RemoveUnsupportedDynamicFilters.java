@@ -32,6 +32,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
@@ -43,8 +44,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isDistributedDynamicFilterEnabled;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.DynamicFilters.getPlaceholder;
 import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
@@ -52,6 +53,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -83,7 +85,7 @@ public class RemoveUnsupportedDynamicFilters
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
-        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter();
+        Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter(session);
         PlanWithConsumedDynamicFilters result = plan.accept(rewriter, ImmutableSet.of());
         return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());
     }
@@ -91,7 +93,13 @@ public class RemoveUnsupportedDynamicFilters
     private class Rewriter
             extends InternalPlanVisitor<PlanWithConsumedDynamicFilters, Set<String>>
     {
+        private final Session session;
         boolean planChanged;
+
+        Rewriter(Session session)
+        {
+            this.session = requireNonNull(session, "session is null");
+        }
 
         public boolean isPlanChanged()
         {
@@ -180,9 +188,22 @@ public class RemoveUnsupportedDynamicFilters
 
             PlanWithConsumedDynamicFilters leftResult = node.getProbe().accept(this, allowedDynamicFilterIdsProbeSide);
             Set<String> consumedProbeSide = leftResult.getConsumedDynamicFilterIds();
-            Map<String, VariableReferenceExpression> dynamicFilters = node.getDynamicFilters().entrySet().stream()
-                    .filter(entry -> consumedProbeSide.contains(entry.getKey()))
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            Map<String, VariableReferenceExpression> dynamicFilters;
+            if (isDistributedDynamicFilterEnabled(session)) {
+                // DPP applies filters at split level, not via probe-side FilterNodes — skip the consumption check.
+                // Exception: if the probe chain crosses a remote exchange, delivering the filter would deadlock.
+                if (hasRemoteExchangeInProbeChain(node.getProbe())) {
+                    dynamicFilters = ImmutableMap.of();
+                }
+                else {
+                    dynamicFilters = node.getDynamicFilters();
+                }
+            }
+            else {
+                dynamicFilters = node.getDynamicFilters().entrySet().stream()
+                        .filter(entry -> consumedProbeSide.contains(entry.getKey()))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
 
             PlanWithConsumedDynamicFilters rightResult = node.getBuild().accept(this, allowedDynamicFilterIds);
             Set<String> consumed = new HashSet<>(rightResult.getConsumedDynamicFilterIds());
@@ -251,6 +272,28 @@ public class RemoveUnsupportedDynamicFilters
             }
             return logicalRowExpressions.combineConjuncts(extractResult.getStaticConjuncts());
         }
+    }
+
+    // True when the probe subtree crosses a remote exchange — DPP filter delivery would deadlock.
+    private static boolean hasRemoteExchangeInProbeChain(PlanNode node)
+    {
+        if (node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()) {
+            return true;
+        }
+        // Descend into probe side of nested joins/semi-joins; stop at build sides to avoid
+        // false positives from the build branch which is not part of the probe chain.
+        if (node instanceof JoinNode) {
+            return hasRemoteExchangeInProbeChain(((JoinNode) node).getLeft());
+        }
+        if (node instanceof SemiJoinNode) {
+            return hasRemoteExchangeInProbeChain(((SemiJoinNode) node).getSource());
+        }
+        for (PlanNode source : node.getSources()) {
+            if (hasRemoteExchangeInProbeChain(source)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class JoinDynamicFilterResult

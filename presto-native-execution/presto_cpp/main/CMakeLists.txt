@@ -18,6 +18,9 @@ add_subdirectory(connectors)
 add_subdirectory(functions)
 add_subdirectory(tool)
 add_subdirectory(properties)
+if(PRESTO_ENABLE_NATIVE_DPP)
+  add_subdirectory(dpp)
+endif()
 
 add_library(
   presto_server_lib
@@ -48,6 +51,9 @@ add_dependencies(
   presto_thrift-cpp2
   presto_thrift_extra
 )
+if(PRESTO_ENABLE_NATIVE_DPP)
+  add_dependencies(presto_server_lib presto_dpp)
+endif()
 
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
 
@@ -110,6 +116,10 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES}
   pthread
 )
+
+if(PRESTO_ENABLE_NATIVE_DPP)
+  target_link_libraries(presto_server_lib presto_dpp)
+endif()
 
 if(PRESTO_ENABLE_CUDF)
   target_link_libraries(presto_server_lib velox_cudf_exec)

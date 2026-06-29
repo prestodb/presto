@@ -249,6 +249,10 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpEnableEndpointLatencyFilter, false),
           NUM_PROP(kHttpMaxAllocateBytes, 65536),
           STR_PROP(kQueryMaxMemoryPerNode, "4GB"),
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+          STR_PROP(kDppFilterCacheMaxBytes, "2GB"),
+          STR_PROP(kDppFilterPushMaxBodyBytes, "16MB"),
+#endif
           BOOL_PROP(kEnableMemoryLeakCheck, true),
           NONE_PROP(kRemoteFunctionServerThriftPort),
           BOOL_PROP(kSkipRuntimeStatsInRunningTaskInfo, true),
@@ -999,6 +1003,20 @@ uint64_t SystemConfig::queryMaxMemoryPerNode() const {
       optionalProperty(kQueryMaxMemoryPerNode).value(),
       velox::config::CapacityUnit::BYTE);
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+uint64_t SystemConfig::dppFilterCacheMaxBytes() const {
+  return velox::config::toCapacity(
+      optionalProperty(kDppFilterCacheMaxBytes).value(),
+      velox::config::CapacityUnit::BYTE);
+}
+
+uint64_t SystemConfig::dppFilterPushMaxBodyBytes() const {
+  return velox::config::toCapacity(
+      optionalProperty(kDppFilterPushMaxBodyBytes).value(),
+      velox::config::CapacityUnit::BYTE);
+}
+#endif
 
 bool SystemConfig::enableMemoryLeakCheck() const {
   return optionalProperty<bool>(kEnableMemoryLeakCheck).value();

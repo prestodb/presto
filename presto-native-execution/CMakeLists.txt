@@ -81,6 +81,13 @@ option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
 option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
+# Requires a Velox build that includes the DPP HashJoinBridge callback and
+# external dynamic filter injection APIs (not yet in facebookincubator/velox main).
+option(PRESTO_ENABLE_NATIVE_DPP "Enable native DPP filter extraction" OFF)
+if(PRESTO_ENABLE_NATIVE_DPP)
+  add_compile_definitions(PRESTO_ENABLE_NATIVE_DPP)
+endif()
+
 # Turn on folly int128 support.
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 

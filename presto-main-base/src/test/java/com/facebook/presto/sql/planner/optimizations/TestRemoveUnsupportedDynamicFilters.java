@@ -46,6 +46,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_DYNAMIC_FILTER_STRATEGY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
@@ -240,6 +241,46 @@ public class TestRemoveUnsupportedDynamicFilters
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
+    @Test
+    public void testDppEnabledPreservesDynamicFilters()
+    {
+        PlanNode root = builder.join(
+                INNER,
+                ordersTableScanNode,
+                lineitemTableScanNode,
+                ImmutableList.of(new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
+                ImmutableList.of(ordersOrderKeyVariable),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("DF", lineitemOrderKeyVariable));
+
+        PlanNode planNode = removeUnsupportedDynamicFiltersWithSession(root, DISTRIBUTED_DYNAMIC_FILTER_STRATEGY, "ALWAYS");
+        assertTrue(planNode instanceof JoinNode);
+        JoinNode joinNode = (JoinNode) planNode;
+        assertEquals(joinNode.getDynamicFilters(), ImmutableMap.of("DF", lineitemOrderKeyVariable));
+    }
+
+    @Test
+    public void testDppDisabledRemovesUnconsumedFilter()
+    {
+        PlanNode root = builder.join(
+                INNER,
+                ordersTableScanNode,
+                lineitemTableScanNode,
+                ImmutableList.of(new EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
+                ImmutableList.of(ordersOrderKeyVariable),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of("DF", lineitemOrderKeyVariable));
+
+        PlanNode planNode = removeUnsupportedDynamicFilters(root);
+        assertTrue(planNode instanceof JoinNode);
+        JoinNode joinNode = (JoinNode) planNode;
+        assertTrue(joinNode.getDynamicFilters().isEmpty());
+    }
+
     PlanNode removeUnsupportedDynamicFilters(PlanNode root)
     {
         return getQueryRunner().inTransaction(session -> {
@@ -247,6 +288,21 @@ public class TestRemoveUnsupportedDynamicFilters
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, session, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP).getPlanNode();
             new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, WarningCollector.NOOP);
+            return rewrittenPlan;
+        });
+    }
+
+    PlanNode removeUnsupportedDynamicFiltersWithSession(PlanNode root, String propertyKey, String propertyValue)
+    {
+        // Session.builder() cannot be called on a transactional session — build before entering.
+        com.facebook.presto.Session baseSession = getQueryRunner().getDefaultSession();
+        com.facebook.presto.Session sessionWithProp = com.facebook.presto.Session.builder(baseSession)
+                .setSystemProperty(propertyKey, propertyValue)
+                .build();
+        return getQueryRunner().inTransaction(sessionWithProp, transactionSession -> {
+            transactionSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(transactionSession, catalog));
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, transactionSession, TypeProvider.empty(), new VariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP).getPlanNode();
+            new DynamicFiltersChecker().validate(rewrittenPlan, transactionSession, metadata, WarningCollector.NOOP);
             return rewrittenPlan;
         });
     }

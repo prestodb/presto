@@ -889,3 +889,59 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   }
   std::cout << "Total: " << veloxConfigs.size() << std::endl;
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+TEST_F(PrestoToVeloxQueryConfigTest, dynamicFilterPushdownSessionProperty) {
+  auto session = createBasicSession();
+  const auto& dfKey = QueryConfig::kHashProbeDynamicFilterPushdownEnabled;
+
+  session.systemProperties.clear();
+  {
+    auto configs = toVeloxConfigs(session);
+    auto it = configs.find(dfKey);
+    if (it != configs.end()) {
+      EXPECT_EQ("true", it->second);
+    }
+  }
+
+  session.systemProperties.clear();
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "false";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("false", configs.at(dfKey));
+  }
+
+  session.systemProperties.clear();
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "true";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("true", configs.at(dfKey));
+  }
+
+  session.systemProperties.clear();
+  session.systemProperties["distributed_dynamic_filter_strategy"] =
+      "PARTITIONED";
+  session.systemProperties
+      [SessionProperties::kNativeDynamicFilterPushdownEnabled] = "false";
+  {
+    auto configs = toVeloxConfigs(session);
+    ASSERT_TRUE(configs.count(dfKey) > 0);
+    EXPECT_EQ("false", configs.at(dfKey));
+  }
+
+  session.systemProperties.clear();
+  session.systemProperties["distributed_dynamic_filter_strategy"] =
+      "PARTITIONED";
+  {
+    auto configs = toVeloxConfigs(session);
+    auto it = configs.find(dfKey);
+    if (it != configs.end()) {
+      EXPECT_EQ("true", it->second);
+    }
+  }
+}
+#endif

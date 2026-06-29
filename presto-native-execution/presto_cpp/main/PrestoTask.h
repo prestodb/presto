@@ -15,14 +15,27 @@
 
 #include <memory>
 #include <unordered_set>
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include <folly/Synchronized.h>
+#include <folly/futures/SharedPromise.h>
+#endif
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Task.h"
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "velox/common/memory/Memory.h"
+#endif
 
 namespace facebook::velox {
 struct RuntimeMetric;
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+namespace facebook::presto::dpp {
+class DppFilterCache;
+} // namespace facebook::presto::dpp
+#endif
 
 namespace facebook::presto {
 
@@ -205,6 +218,48 @@ struct PrestoTask {
 
   folly::dynamic toJson() const;
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  struct DynamicFilterSnapshot {
+    std::map<std::string, protocol::TupleDomain<std::string>> filters;
+    int64_t version{0};
+    bool operatorCompleted{false};
+    std::unordered_set<std::string> completedFilterIds;
+  };
+
+  void storeDynamicFilters(
+      const std::map<std::string, protocol::TupleDomain<std::string>>& filters);
+
+  void registerDynamicFilterIds(
+      const std::unordered_set<std::string>& filterIds);
+
+  void markFilterIdsFlushed(const std::unordered_set<std::string>& filterIds);
+
+  DynamicFilterSnapshot snapshotDynamicFilters(int64_t sinceVersion);
+
+  folly::SemiFuture<DynamicFilterSnapshot> getDynamicFilters(
+      int64_t sinceVersion,
+      std::optional<std::chrono::milliseconds> maxWait);
+
+  void removeDynamicFiltersThrough(int64_t throughVersion);
+
+  void addExternalDynamicFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+
+  void applyPendingExternalFilters();
+
+  void wakeDynamicFilterWaiters(int64_t version);
+
+  void recordDppBridgeError(const std::string& error) {
+    dppBridgeFailed_.fetch_add(1);
+    auto locked = dppBridgeFirstError_.wlock();
+    if (locked->empty()) {
+      *locked = error.substr(0, 500);
+    }
+  }
+#endif
+
  private:
   void recordProcessCpuTime();
 
@@ -227,6 +282,52 @@ struct PrestoTask {
       const velox::exec::TaskStats& veloxTaskStats,
       uint64_t currentTimeMs,
       std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  struct VersionedFilter {
+    void* buffer{nullptr};
+    int64_t bufferSize{0};
+    int64_t version{0};
+  };
+  folly::Synchronized<std::map<std::string, VersionedFilter>> dynamicFilters_;
+  std::atomic<int64_t> dynamicFilterVersion_{0};
+  folly::Synchronized<std::unordered_set<std::string>> registeredFilterIds_;
+  folly::Synchronized<std::unordered_set<std::string>> flushedFilterIds_;
+
+  std::atomic<int64_t> externalDynamicFiltersReceived_{0};
+  std::atomic<int64_t> externalDynamicFiltersQueued_{0};
+  std::atomic<int64_t> dppFilterCachePushRejected_{0};
+  std::atomic<int64_t> dppFilterCacheStoreRejected_{0};
+  std::atomic<int64_t> externalDynamicFilterApplyTimeMs_{0};
+  std::atomic<int64_t> externalDynamicFilterMutexWaitMs_{0};
+  std::atomic<int64_t> dppBridgeFailed_{0};
+  folly::Synchronized<std::string> dppBridgeFirstError_;
+
+  struct PendingExternalFilter {
+    std::string filterId;
+    std::string scanPlanNodeId;
+    void* buffer{nullptr};
+    int64_t bufferSize{0};
+  };
+  std::vector<PendingExternalFilter> pendingExternalFilters_;
+
+  dpp::DppFilterCache* dppFilterCache_{nullptr};
+  std::shared_ptr<velox::memory::MemoryPool> dppPool_;
+
+  void evictDynamicFilterEntryLocked(
+      std::map<std::string, VersionedFilter>& filters,
+      std::map<std::string, VersionedFilter>::iterator it);
+
+  bool evictFilterFromCache(const std::string& filterId);
+
+  std::mutex dfMutex_;
+  std::shared_ptr<folly::SharedPromise<int64_t>> dfPromise_;
+
+  void applyFilter(
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+#endif
 
   long processCpuTime_{0};
 };

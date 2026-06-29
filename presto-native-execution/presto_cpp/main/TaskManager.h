@@ -21,6 +21,9 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/OutputBufferManager.h"
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#endif
 
 namespace facebook::presto {
 
@@ -85,6 +88,26 @@ class TaskManager {
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
+      const protocol::TaskId& taskId,
+      const protocol::TaskUpdateRequest& updateRequest,
+      const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+      bool summarize,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
+      const protocol::TaskId& taskId,
+      const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
+      const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+      bool summarize,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+#endif
+
   // Iterates through a map of resultRequests and fetches data from
   // buffer manager. This method uses the getData() global call to fetch
   // data for each resultRequest bufferManager. If the output buffer for task
@@ -126,6 +149,23 @@ class TaskManager {
   void removeRemoteSource(
       const protocol::TaskId& taskId,
       const protocol::TaskId& remoteSourceTaskId);
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  folly::SemiFuture<PrestoTask::DynamicFilterSnapshot> getDynamicFilters(
+      const protocol::TaskId& taskId,
+      int64_t sinceVersion,
+      std::optional<std::chrono::milliseconds> maxWait);
+
+  void removeDynamicFiltersThrough(
+      const protocol::TaskId& taskId,
+      int64_t throughVersion);
+
+  bool addExternalDynamicFilter(
+      const protocol::TaskId& taskId,
+      const std::string& filterId,
+      const std::string& scanPlanNodeId,
+      const protocol::TupleDomain<std::string>& tupleDomain);
+#endif
 
   std::string toString() const;
 
@@ -225,6 +265,18 @@ class TaskManager {
       bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
+      const protocol::TaskId& taskId,
+      const velox::core::PlanFragment& planFragment,
+      const std::vector<JoinDynamicFilterInfo>& dynamicFilterInfos,
+      const std::vector<protocol::TaskSource>& sources,
+      const protocol::OutputBuffers& outputBuffers,
+      bool summarize,
+      std::shared_ptr<velox::core::QueryCtx> queryCtx,
+      long startProcessCpuTime);
+#endif
 
   std::shared_ptr<PrestoTask> findOrCreateTask(
       const protocol::TaskId& taskId,

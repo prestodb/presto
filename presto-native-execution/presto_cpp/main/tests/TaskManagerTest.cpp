@@ -16,6 +16,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "folly/synchronization/EventCount.h"
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/dpp/DppFilterCache.h"
+#endif
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/Exception.h"
@@ -285,6 +288,9 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     dwrf::unregisterDwrfWriterFactory();
     dwrf::unregisterDwrfReaderFactory();
     taskManager_.reset();
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+    dpp::DppFilterCache::testingReset();
+#endif
     OperatorTestBase::TearDown();
   }
 

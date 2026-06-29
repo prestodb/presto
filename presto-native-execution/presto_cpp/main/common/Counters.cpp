@@ -197,6 +197,15 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterHttpServerIoEvbViolation, facebook::velox::StatType::COUNT);
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  DEFINE_METRIC(
+      kCounterDppFilterCacheCurrentBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterDppFilterCacheMaxBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterDppFilterCachePushRejected, facebook::velox::StatType::AVG);
+#endif
+
   // NOTE: Metrics type exporting for thread pool executor counters are in
   // PeriodicTaskManager because they have dynamic names and report configs. The
   // following counters have their type exported there:

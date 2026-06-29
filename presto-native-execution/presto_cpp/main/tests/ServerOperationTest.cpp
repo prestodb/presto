@@ -14,6 +14,9 @@
 #include "presto_cpp/main/ServerOperation.h"
 #include <folly/system/HardwareConcurrency.h>
 #include <gtest/gtest.h>
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/dpp/DppFilterCache.h"
+#endif
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -36,6 +39,9 @@ class ServerOperationTest : public exec::test::OperatorTestBase {
   }
 
   void TearDown() override {
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+    dpp::DppFilterCache::testingReset();
+#endif
     exec::test::OperatorTestBase::TearDown();
   }
 };

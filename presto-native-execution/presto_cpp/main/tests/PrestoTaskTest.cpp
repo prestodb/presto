@@ -13,6 +13,9 @@
  */
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+#include "presto_cpp/main/dpp/DppFilterCache.h"
+#endif
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -61,7 +64,17 @@ void addSplitToTask(PrestoTask& prestoTask, long sequenceId) {
 class PrestoTaskTest : public testing::Test {
   void SetUp() override {
     FLAGS_velox_memory_leak_check_enabled = true;
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+    dpp::DppFilterCache::testingReset();
+    memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
+#endif
   }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  void TearDown() override {
+    dpp::DppFilterCache::testingReset();
+  }
+#endif
 };
 
 TEST_F(PrestoTaskTest, basicTaskId) {
@@ -175,3 +188,65 @@ TEST_F(PrestoTaskTest, updateStatus) {
   EXPECT_EQ(status.queuedPartitionedDrivers, 0);
   EXPECT_EQ(status.runningPartitionedDrivers, 0);
 }
+
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+TEST_F(PrestoTaskTest, dynamicFilterOperatorCompletedOnTerminalState) {
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  prestoTask.registerDynamicFilterIds({"filter_1"});
+
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+  EXPECT_TRUE(snapshot.filters.empty());
+
+  prestoTask.task->requestCancel().wait();
+
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted)
+      << "operatorCompleted must be true once the task is in a terminal "
+         "state, even if some registered filter IDs were never flushed";
+  EXPECT_TRUE(
+      snapshot.completedFilterIds.find("filter_1") !=
+      snapshot.completedFilterIds.end())
+      << "unflushed filter IDs must be reported as completed on terminal "
+         "state so the coordinator treats them as 'no contribution'";
+}
+
+TEST_F(
+    PrestoTaskTest,
+    dynamicFilterOperatorCompletedOnTerminalStateNoRegistered) {
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  prestoTask.task->requestCancel().wait();
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted);
+}
+
+TEST_F(PrestoTaskTest, dynamicFilterOperatorCompletedHappyPath) {
+  const std::string taskId{"20201107_130540_00011_wrpkw.1.2.3.4"};
+  PrestoTask prestoTask{taskId, "node1", 0};
+  prestoTask.task = createExecTask(taskId, prestoTask);
+
+  prestoTask.registerDynamicFilterIds({"filter_1", "filter_2"});
+
+  auto snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  prestoTask.markFilterIdsFlushed({"filter_1"});
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_FALSE(snapshot.operatorCompleted);
+
+  prestoTask.markFilterIdsFlushed({"filter_2"});
+  snapshot = prestoTask.snapshotDynamicFilters(0);
+  EXPECT_TRUE(snapshot.operatorCompleted);
+
+  prestoTask.task->requestCancel().wait();
+}
+#endif

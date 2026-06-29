@@ -383,6 +383,23 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kAggregationMemoryCompactionReclaimEnabled =
       "native_aggregation_memory_compaction_reclaim_enabled";
 
+#ifdef PRESTO_ENABLE_NATIVE_DPP
+  /// Maximum size in bytes of discrete values collected per channel in the
+  /// dynamic filter source operator before falling back to min/max range.
+  /// Default is 1MB (1048576).
+  static constexpr const char* kDistributedDynamicFilterMaxSize =
+      "distributed_dynamic_filter_max_size";
+
+  /// Whether Velox's built-in hash probe dynamic filter pushdown is enabled.
+  /// When true (default), Velox pushes dynamic filters from hash probe down
+  /// to upstream table scan operators. Can be set to false independently for
+  /// debugging/benchmarking. Note: when distributed DPP is active, this is
+  /// auto-disabled via emplace in PrestoToVeloxQueryConfig, but an explicit
+  /// session setting takes precedence.
+  static constexpr const char* kNativeDynamicFilterPushdownEnabled =
+      "native_dynamic_filter_pushdown_enabled";
+#endif
+
   static SessionProperties* instance();
 
   SessionProperties();

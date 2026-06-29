@@ -11,8 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_library(
-  presto_operators
+set(PRESTO_OPERATORS_SOURCES
   BinarySortableSerializer.cpp
   BroadcastExchangeSource.cpp
   BroadcastFile.cpp
@@ -26,6 +25,10 @@ add_library(
   ShuffleRead.cpp
   ShuffleWrite.cpp
 )
+if(PRESTO_ENABLE_NATIVE_DPP)
+  list(APPEND PRESTO_OPERATORS_SOURCES HashBuildFilterExtractor.cpp)
+endif()
+add_library(presto_operators ${PRESTO_OPERATORS_SOURCES})
 
 target_link_libraries(
   presto_operators
