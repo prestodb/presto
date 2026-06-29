@@ -3396,6 +3396,30 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
     }
 
+    @Test
+    public void testUpdateWithDeletedRowsOnSemiJoinWhereCondition()
+    {
+        String tableName = "test_update_with_delete_rows_on_semi_join_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (2, 'second'), (3, 'third')", 3);
+
+            assertUpdate("DELETE FROM " + tableName + " WHERE b = 'third'", 1);
+            assertQuery("SELECT  * FROM " + tableName, "VALUES(1, 'first'), (2, 'second')");
+
+            assertUpdate("UPDATE " + tableName + " SET a = a + 100 WHERE b IN" +
+                    " (SELECT col FROM (VALUES('first'), ('third'), ('fourth')) AS t(col))", 1);
+            assertQuery("SELECT  * FROM " + tableName, "VALUES(101, 'first'), (2, 'second')");
+
+            assertUpdate("UPDATE " + tableName + " SET a = a + 100 WHERE b IN" +
+                    " (SELECT col FROM (VALUES('first'), ('third'), ('fourth')) AS t(col))", 1);
+            assertQuery("SELECT  * FROM " + tableName, "VALUES(201, 'first'), (2, 'second')");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
+    }
+
     public void testUpdateOnPartitionTable()
     {
         String tableName = "test_update_partition_column_" + randomTableSuffix();
