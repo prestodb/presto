@@ -51,9 +51,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static java.lang.String.format;
 
 public class AddColumnTask
         implements DDLDefinitionTask<AddColumn>
@@ -122,8 +120,9 @@ public class AddColumnTask
 
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
-        checkState(element.getDefaultExpression().isEmpty() || element.getDerivedColumnExpressionSpec().isEmpty(),
-                format("Both Default expression and derived column expression cannot be set on the same column %s.", element.getName()));
+        if (element.getDefaultExpression().isPresent() && element.getDerivedColumnExpressionSpec().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element, "Both default expression and derived column expression cannot be set on the same column %s.", element.getName());
+        }
         // Handle default expression if present
         if (element.getDefaultExpression().isPresent()) {
             Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);

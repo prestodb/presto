@@ -141,7 +141,9 @@ public class CreateTableTask
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                     throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), column.getName());
                 }
-
+                if (column.getDefaultExpression().isPresent() && column.getDerivedColumnExpressionSpec().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, column, "Both default expression and derived column expression cannot be set on the same column %s.", column.getName());
+                }
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
 
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(

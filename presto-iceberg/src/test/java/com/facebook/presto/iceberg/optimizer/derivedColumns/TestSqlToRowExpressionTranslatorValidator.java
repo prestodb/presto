@@ -278,8 +278,11 @@ public class TestSqlToRowExpressionTranslatorValidator
         checkExpressionInProject("TIMESTAMP '2001-08-22 03:04:05.321'");
         checkExpressionInProject("TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'");
         // the following expression does not get matched with it's equivalent SQL, because presto promotes Date literal to a timestamp literal before performing any
-        // arithmetic on date type.
+        // arithmetic on date type. ((TIMESTAMP'2024-01-30 00:00:00.000') - (CAST(date_col AS timestamp))) < (INTERVAL DAY TO SECOND'90 00:00:00.000')
         // checkExpressionInFilter("(DATE '2024-01-30' - date_col) < (INTERVAL '90' DAY)");
+        checkExpressionInProject("(CAST(date_col AS TIMESTAMP) - TIMESTAMP '2024-01-30')");
+        // The following does not work either, due to limitation of Type mismatch. TODO: add exception.
+        // checkExpressionInProject("date_col + interval '2' day");
     }
 
     public void testInvalidExpressions()
@@ -290,6 +293,7 @@ public class TestSqlToRowExpressionTranslatorValidator
         // sub-expressions which are constant foldable are invalid, because they cannot be matched.
         checkInvalidExpression("lower(varchar_col) = lower('N')", "\"lower\"('N') sub-expression is constant foldable and thus cannot be matched when " +
                 "it appears on a Query. Please consider replacing it with its constant value.");
+        checkInvalidExpression("random(smallint_col) > 10.0", "Only deterministic functions are supported");
     }
 
     public void testUnsupportedExpressions()
