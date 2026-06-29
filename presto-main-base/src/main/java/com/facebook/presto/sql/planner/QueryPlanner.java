@@ -408,7 +408,7 @@ public class QueryPlanner
             rewriteAsMerge = false;
         }
         if (!rewriteAsMerge) {
-            handle = metadata.beginUpdate(session, handle, updatedColumns);
+            handle = metadata.beginUpdate(session, handle, updatedColumns, analysis.getWritePredicateScope());
         }
 
         String catalogName = handle.getConnectorId().getCatalogName();
