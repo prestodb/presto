@@ -81,6 +81,7 @@ import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_
 import static com.facebook.presto.SystemSessionProperties.PRE_AGGREGATE_BEFORE_GROUPING_SETS;
 import static com.facebook.presto.SystemSessionProperties.PRE_PROCESS_METADATA_CALLS;
 import static com.facebook.presto.SystemSessionProperties.PULL_EXPRESSION_FROM_LAMBDA_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_DISJOINT_UNION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_DOWN_FILTER_EXPRESSION_EVALUATION_THROUGH_CROSS_JOIN;
 import static com.facebook.presto.SystemSessionProperties.PUSH_FILTER_THROUGH_SELECTING_AGGREGATION;
@@ -722,6 +723,50 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a.col0 FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
         assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 < a.col1", "SELECT 1");
         assertQuery("SELECT SUM(a.col0) FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(col0 integer, col1 integer)))) AS t (a) WHERE a.col0 > a.col1", "SELECT null");
+    }
+
+    @Test
+    public void testPullRowLocalChainAboveExchange()
+    {
+        // Result-equality (enabled vs disabled) over CROSS JOIN UNNEST shapes where a repartitioning
+        // exchange sits above a row-local chain (unnest + projections) keyed on a replicate column.
+        // Checksums are order-independent, so they are robust to the plan differences the rule introduces.
+        // checksum() returns varbinary; wrap it in to_hex() so the two-runner comparison compares
+        // varchar rather than varbinary (raw varbinary is materialized inconsistently across the two
+        // result sets -- ByteBuffer vs byte[] -- and would never compare equal).
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, "ALWAYS_ENABLED")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, "DISABLED")
+                .build();
+
+        // Repartition on a replicate column (custkey) carried through UNNEST, feeding a downstream aggregation.
+        @Language("SQL") String aggregateOverUnnest =
+                "SELECT to_hex(checksum(custkey)), to_hex(checksum(total)) FROM (" +
+                "  SELECT o.custkey, sum(t.elem) AS total" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 5) + 1)) AS t(elem)" +
+                "  GROUP BY o.custkey)";
+        assertQueryWithSameQueryRunner(enabled, aggregateOverUnnest, disabled);
+
+        // Repartition (join) on a replicate column carried through UNNEST.
+        @Language("SQL") String joinOverUnnest =
+                "SELECT to_hex(checksum(u.elem)) FROM (" +
+                "  SELECT o.custkey AS k, t.elem" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 4) + 1)) AS t(elem)) u" +
+                "  JOIN customer c ON u.k = c.custkey";
+        assertQueryWithSameQueryRunner(enabled, joinOverUnnest, disabled);
+
+        // WITH ORDINALITY variant: the ordinality column is an unnest output and must not be a partition key.
+        @Language("SQL") String withOrdinality =
+                "SELECT to_hex(checksum(custkey)), to_hex(checksum(total)) FROM (" +
+                "  SELECT o.custkey, sum(t.elem * t.ord) AS total" +
+                "  FROM orders o" +
+                "  CROSS JOIN UNNEST(sequence(1, (o.orderkey % 5) + 1)) WITH ORDINALITY AS t(elem, ord)" +
+                "  GROUP BY o.custkey)";
+        assertQueryWithSameQueryRunner(enabled, withOrdinality, disabled);
     }
 
     @Test

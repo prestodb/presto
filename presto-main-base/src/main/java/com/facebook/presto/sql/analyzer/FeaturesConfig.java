@@ -359,6 +359,7 @@ public class FeaturesConfig
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
     private boolean pullConstantProjectionAboveExchange;
+    private PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy = PullRowLocalChainAboveExchangeStrategy.DISABLED;
     private String remoteFunctionNamesForFixedParallelism = "";
     private int remoteFunctionFixedParallelismTaskCount = 10;
 
@@ -531,6 +532,15 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED,
+        COST_BASED
+    }
+
+    public enum PullRowLocalChainAboveExchangeStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        // TODO: COST_BASED currently applies the rewrite structurally (same as ALWAYS_ENABLED);
+        // cost-based selection is a separate layer to be implemented later.
         COST_BASED
     }
 
@@ -3713,6 +3723,19 @@ public class FeaturesConfig
     public FeaturesConfig setPullConstantProjectionAboveExchange(boolean pullConstantProjectionAboveExchange)
     {
         this.pullConstantProjectionAboveExchange = pullConstantProjectionAboveExchange;
+        return this;
+    }
+
+    public PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy()
+    {
+        return pullRowLocalChainAboveExchangeStrategy;
+    }
+
+    @Config("optimizer.pull-row-local-chain-above-exchange-strategy")
+    @ConfigDescription("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setPullRowLocalChainAboveExchangeStrategy(PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy)
+    {
+        this.pullRowLocalChainAboveExchangeStrategy = pullRowLocalChainAboveExchangeStrategy;
         return this;
     }
 

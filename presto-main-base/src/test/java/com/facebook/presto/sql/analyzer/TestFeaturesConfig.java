@@ -313,6 +313,7 @@ public class TestFeaturesConfig
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.DISABLED)
                 .setSkipPushdownThroughExchangeForRemoteProjection(false)
                 .setPullConstantProjectionAboveExchange(false)
+                .setPullRowLocalChainAboveExchangeStrategy(FeaturesConfig.PullRowLocalChainAboveExchangeStrategy.DISABLED)
                 .setUseConnectorProvidedSerializationCodecs(false)
                 .setRemoteFunctionNamesForFixedParallelism("")
                 .setRemoteFunctionFixedParallelismTaskCount(10));
@@ -571,6 +572,7 @@ public class TestFeaturesConfig
                 .put("optimizer.table-scan-shuffle-strategy", "ALWAYS_ENABLED")
                 .put("optimizer.skip-pushdown-through-exchange-for-remote-projection", "true")
                 .put("optimizer.pull-constant-projection-above-exchange", "true")
+                .put("optimizer.pull-row-local-chain-above-exchange-strategy", "ALWAYS_ENABLED")
                 .put("use-connector-provided-serialization-codecs", "true")
                 .put("optimizer.remote-function-names-for-fixed-parallelism", "remote_.*")
                 .put("optimizer.remote-function-fixed-parallelism-task-count", "100")
@@ -827,6 +829,7 @@ public class TestFeaturesConfig
                 .setTableScanShuffleStrategy(FeaturesConfig.ShuffleForTableScanStrategy.ALWAYS_ENABLED)
                 .setSkipPushdownThroughExchangeForRemoteProjection(true)
                 .setPullConstantProjectionAboveExchange(true)
+                .setPullRowLocalChainAboveExchangeStrategy(FeaturesConfig.PullRowLocalChainAboveExchangeStrategy.ALWAYS_ENABLED)
                 .setUseConnectorProvidedSerializationCodecs(true)
                 .setRemoteFunctionNamesForFixedParallelism("remote_.*")
                 .setPushPartialAggregationThroughJoin(true)

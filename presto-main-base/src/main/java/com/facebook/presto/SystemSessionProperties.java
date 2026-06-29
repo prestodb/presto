@@ -46,6 +46,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPrefer
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PullRowLocalChainAboveExchangeStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
@@ -396,6 +397,7 @@ public final class SystemSessionProperties
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
     public static final String PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE = "pull_constant_projection_above_exchange";
+    public static final String PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY = "pull_row_local_chain_above_exchange_strategy";
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
@@ -2328,6 +2330,18 @@ public final class SystemSessionProperties
                         "Pull constant assignments in projections above remote exchanges to reduce network I/O",
                         featuresConfig.isPullConstantProjectionAboveExchange(),
                         false),
+                new PropertyMetadata<>(
+                        PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY,
+                        format("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are %s",
+                                Stream.of(PullRowLocalChainAboveExchangeStrategy.values())
+                                        .map(PullRowLocalChainAboveExchangeStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PullRowLocalChainAboveExchangeStrategy.class,
+                        featuresConfig.getPullRowLocalChainAboveExchangeStrategy(),
+                        false,
+                        value -> PullRowLocalChainAboveExchangeStrategy.valueOf(((String) value).toUpperCase()),
+                        PullRowLocalChainAboveExchangeStrategy::name),
                 stringProperty(
                         REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM,
                         "Regex pattern to match remote function names that should use fixed parallelism",
@@ -4044,6 +4058,11 @@ public final class SystemSessionProperties
     public static boolean isPullConstantProjectionAboveExchange(Session session)
     {
         return session.getSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, Boolean.class);
+    }
+
+    public static PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy(Session session)
+    {
+        return session.getSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, PullRowLocalChainAboveExchangeStrategy.class);
     }
 
     public static String getRemoteFunctionNamesForFixedParallelism(Session session)

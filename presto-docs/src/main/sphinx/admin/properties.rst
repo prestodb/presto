@@ -1005,6 +1005,22 @@ constants that are identical across all sources are pulled up.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`pull_constant_projection_above_exchange\`\``.
 
+``optimizer.pull-row-local-chain-above-exchange-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for pulling a chain of row-local operators (``UNNEST`` and deterministic projections)
+above a repartitioning remote ``ExchangeNode`` so the exchange shuffles the smaller pre-expansion
+input rather than the post-expansion (fanned-out and widened) rows. With ``ALWAYS_ENABLED`` the
+rewrite is applied whenever it is legal (every partitioning, hashing, or ordering variable is
+produced unchanged below the chain), independent of cost or statistics. ``COST_BASED`` currently
+behaves like ``ALWAYS_ENABLED``; cost-based selection is a separate layer to be added later.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`pull_row_local_chain_above_exchange_strategy\`\``.
+
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
