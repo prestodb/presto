@@ -192,8 +192,7 @@ void registerVeloxCudf() {
     cudfConfig.initialize(systemConfig->values());
     if (cudfConfig.enabled) {
       velox::cudf_velox::registerCudf();
-      velox::cudf_velox::registerPrestoFunctions(
-          cudfConfig.functionNamePrefix);
+      velox::cudf_velox::registerPrestoFunctions(cudfConfig.functionNamePrefix);
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
