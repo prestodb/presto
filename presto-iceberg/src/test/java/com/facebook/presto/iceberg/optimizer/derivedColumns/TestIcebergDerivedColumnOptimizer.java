@@ -304,7 +304,7 @@ public class TestIcebergDerivedColumnOptimizer
 
     @Test
     public void testWithMoreThanOneUDFAndMultiArgUDFsSpecified()
-    { // TODO: fix flaky
+    {
         try {
             assertUpdate(" CREATE TABLE test_table2 (                   \n" +
                          "     \"c1\" bigint,                                                 \n" +

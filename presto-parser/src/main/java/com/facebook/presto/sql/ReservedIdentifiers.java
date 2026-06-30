@@ -111,7 +111,7 @@ public final class ReservedIdentifiers
 
         for (String name : reserved) {
             if (!found.contains(name)) {
-                // throw new RuntimeException("Reserved identifier is not documented: " + name);
+                throw new RuntimeException("Reserved identifier is not documented: " + name);
             }
         }
 

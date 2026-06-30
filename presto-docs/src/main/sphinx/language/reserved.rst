@@ -12,6 +12,7 @@ The use of `$` as a prefix for column names is reserved. This is a convention on
 Keyword                        SQL:2016      SQL-92
 ============================== ============= =============
 ``ALTER``                      reserved      reserved
+``ALWAYS``                     reserved
 ``AND``                        reserved      reserved
 ``AS``                         reserved      reserved
 ``BETWEEN``                    reserved      reserved
@@ -41,6 +42,7 @@ Keyword                        SQL:2016      SQL-92
 ``FOR``                        reserved      reserved
 ``FROM``                       reserved      reserved
 ``FULL``                       reserved      reserved
+``GENERATED``                  reserved
 ``GROUP``                      reserved      reserved
 ``GROUPING``                   reserved
 ``HAVING``                     reserved      reserved
@@ -63,6 +65,7 @@ Keyword                        SQL:2016      SQL-92
 ``OR``                         reserved      reserved
 ``ORDER``                      reserved      reserved
 ``OUTER``                      reserved      reserved
+``PERSISTENT``
 ``PREPARE``                    reserved      reserved
 ``RECURSIVE``                  reserved
 ``RIGHT``                      reserved      reserved
@@ -76,6 +79,7 @@ Keyword                        SQL:2016      SQL-92
 ``UNNEST``                     reserved
 ``USING``                      reserved      reserved
 ``VALUES``                     reserved      reserved
+``VIRTUAL``
 ``WHEN``                       reserved      reserved
 ``WHERE``                      reserved      reserved
 ``WITH``                       reserved      reserved
