@@ -37,30 +37,8 @@ public class TestingFunctionServer
     private final Injector injector;
     private final HttpServerInfo serverInfo;
 
-    public TestingFunctionServer(int port)
-    {
-        verifyJvmRequirements();
-        verifySystemTimeIsReasonable();
-
-        Logger log = Logger.get(FunctionServer.class);
-
-        List<Module> modules = ImmutableList.of(
-                new FunctionServerModule(),
-                new HttpServerModule(),
-                new JaxrsModule());
-
-        Bootstrap app = new Bootstrap(modules);
-        injector = app
-                .setRequiredConfigurationProperties(ImmutableMap.of("http-server.http.port", Integer.toString(port)))
-                .initialize();
-
-        functionPluginManager = injector.getInstance(FunctionPluginManager.class);
-        serverInfo = injector.getInstance(HttpServerInfo.class);
-        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + serverInfo.getHttpUri() + " =========");
-    }
-
     /**
-     * Create function server with custom configuration properties.
+     * Create a function server with the given configuration properties.
      */
     public TestingFunctionServer(Map<String, String> properties)
     {
@@ -81,9 +59,12 @@ public class TestingFunctionServer
 
         functionPluginManager = injector.getInstance(FunctionPluginManager.class);
         serverInfo = injector.getInstance(HttpServerInfo.class);
+        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + FunctionServer.getServerUri(serverInfo) + " =========");
+    }
 
-        String uri = getServerUri(serverInfo);
-        log.info("======== REMOTE FUNCTION SERVER STARTED at: " + uri + " =========");
+    public TestingFunctionServer(int port)
+    {
+        this(ImmutableMap.of("http-server.http.port", Integer.toString(port)));
     }
 
     public void installPlugin(Plugin plugin)
@@ -91,22 +72,8 @@ public class TestingFunctionServer
         functionPluginManager.installPlugin(plugin);
     }
 
-    /**
-     * Get the server URI (HTTPS if available, otherwise HTTP).
-     */
-    public String getServerUri(HttpServerInfo serverInfo)
-    {
-        if (serverInfo.getHttpsUri() != null) {
-            return serverInfo.getHttpsUri().toString();
-        }
-        if (serverInfo.getHttpUri() != null) {
-            return serverInfo.getHttpUri().toString();
-        }
-        throw new IllegalStateException("Neither HTTP nor HTTPS is enabled");
-    }
-
     public String getServerUri()
     {
-        return getServerUri(serverInfo);
+        return FunctionServer.getServerUri(serverInfo).toString();
     }
 }

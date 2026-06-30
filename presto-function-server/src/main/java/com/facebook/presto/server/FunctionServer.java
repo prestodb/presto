@@ -76,7 +76,7 @@ public class FunctionServer
      * Returns HTTPS URI if available, otherwise HTTP URI.
      * This handles both HTTP-only and HTTPS-only configurations.
      */
-    private static URI getServerUri(HttpServerInfo serverInfo)
+    static URI getServerUri(HttpServerInfo serverInfo)
     {
         URI httpsUri = serverInfo.getHttpsUri();
         if (httpsUri != null) {
