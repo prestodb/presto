@@ -679,7 +679,7 @@ public class LogicalPlanner
         TableHandle storageTableHandle = viewAnalysis.getTarget();
         List<ColumnHandle> columnHandles = viewAnalysis.getColumns();
         SchemaTableName materializedViewName = viewAnalysis.getMaterializedViewName();
-        TableWriterNode.WriterTarget target = new RefreshMaterializedViewReference(storageTableHandle, materializedViewName);
+        TableWriterNode.WriterTarget target = new RefreshMaterializedViewReference(storageTableHandle, materializedViewName, viewAnalysis.getRefreshScopePredicate());
 
         boolean legacyMode = isLegacyMaterializedViews(session);
         if (legacyMode) {

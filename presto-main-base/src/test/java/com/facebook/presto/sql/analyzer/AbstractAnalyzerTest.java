@@ -650,6 +650,19 @@ public class AbstractAnalyzerTest
                 });
     }
 
+    protected Analysis analyzeAndGetAnalysis(Session clientSession, @Language("SQL") String query)
+    {
+        return transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(clientSession, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP, Optional.empty(), query);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    return analyzer.analyzeSemantic(statement, false);
+                });
+    }
+
     protected void assertFails(SemanticErrorCode error, @Language("SQL") String query)
     {
         assertFails(CLIENT_SESSION, error, query);

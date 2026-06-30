@@ -494,9 +494,10 @@ public interface Metadata
             QualifiedTablePrefix prefix);
 
     /**
-     * Begin refresh materialized view
+     * Begin refresh materialized view, carrying the refresh scope (the analysis-time WHERE predicate;
+     * {@code Optional.empty()} when there is no WHERE) so the connector can scope refresh work.
      */
-    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle);
+    InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate);
 
     /**
      * Finish refresh materialized view

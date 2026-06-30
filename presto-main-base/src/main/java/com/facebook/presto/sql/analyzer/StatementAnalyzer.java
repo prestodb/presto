@@ -961,11 +961,38 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
+            // Capture the refresh scope (the WHERE predicate) here, where the full unfactored predicate
+            // with its MV/base column mapping is still available. It is carried on the analysis ->
+            // RefreshMaterializedViewReference -> beginRefreshMaterializedView so the connector receives
+            // it at execution time, rather than calling the connector SPI during analysis.
+            Optional<RowExpression> refreshScopePredicate = Optional.empty();
+            if (isLegacyMaterializedViews(session) && node.getWhere().isPresent()) {
+                Expression refreshWhere = node.getWhere().get();
+                // Analyze with AllowAllAccessControl (as for the view scope above): refresh must not require
+                // SELECT on the materialized view, only INSERT. This only populates expression types for translation.
+                ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        sqlParser,
+                        viewScope,
+                        analysis,
+                        refreshWhere,
+                        warningCollector);
+                refreshScopePredicate = Optional.of(SqlToRowExpressionTranslator.translate(
+                        refreshWhere,
+                        analysis.getTypes(),
+                        ImmutableMap.of(),
+                        metadata.getFunctionAndTypeManager(),
+                        session));
+            }
+
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
                     refreshQuery,
-                    toSchemaTableName(viewName)));
+                    toSchemaTableName(viewName),
+                    refreshScopePredicate));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
