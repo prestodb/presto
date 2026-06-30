@@ -79,27 +79,6 @@ When both ``scale_writers`` and ``redistribute_writes`` are set to ``true``,
 
 The corresponding configuration property is :ref:`admin/properties:\`\`scale-writers\`\``.
 
-``task_writer_count``
-^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``integer``
-* **Default value:** ``1``
-
-Default number of local parallel table writer threads per worker. It is required
-to be a power of two for a Java query engine.
-
-The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
-
-``task_partitioned_writer_count``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``integer``
-* **Default value:** ``task_writer_count``
-
-Number of local parallel table writer threads per worker for partitioned writes. If not
-set, the number set by ``task_writer_count`` will be used. It is required to be a power
-of two for a Java query engine.
-
 ``single_node_execution_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -392,6 +371,16 @@ to become overloaded due to excessive resource utilization.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`task.writer-count\`\``.
 
+``task_partitioned_writer_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``task_writer_count``
+
+Number of local parallel table writer threads per worker for partitioned writes. If not
+set, the number set by ``task_writer_count`` will be used. It is required to be a power
+of two for a Java query engine.
+
 Optimizer Properties
 --------------------
 
@@ -404,6 +393,22 @@ Optimizer Properties
 Enables optimization for aggregations on dictionaries.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.dictionary-aggregation\`\``.
+
+``optimize_cascading_filters_and_projections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Coalesce cascading projections by fully inlining deterministic child expressions into the parent
+projection (the opposite tradeoff from ``InlineProjections``), and merge an adjacent filter and
+projection by inlining the projection's expressions into the filter predicate. This co-locates
+shared subexpressions within a single operator so the native (Velox) engine's
+common-subexpression elimination can deduplicate them, which matches Velox's preferred
+filter-then-project shape. Non-deterministic expressions that are referenced more than once and
+inputs to ``TRY(...)`` are never inlined, preserving semantics.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-cascading-filters-and-projections\`\``.
 
 ``optimize_hash_generation``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -421,6 +426,21 @@ It is often helpful to disable this property when using :doc:`/sql/explain` in o
 to make the query plan easier to read.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
+
+``optimize_join_fan_out``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Collapse a fan-out equi-join whose preserved side is itself an aggregation grouped by, or an
+inner join keyed on, a strict superset of the join keys. The preserved side's non-key columns
+are packed with ``array_agg(row(...))`` so the join becomes ``N``-to-``1`` (unique on the join
+key), and a local ``UNNEST`` above the join re-expands them, reproducing the original rows.
+This moves the row multiplication out of the distributed join (smaller build, less shuffle of
+duplicated rows) into a streaming local ``UNNEST``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-join-fan-out\`\``.
 
 ``pre_aggregate_before_grouping_sets``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

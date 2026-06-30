@@ -6,6 +6,11 @@ on:
     - cron: 30 0 * * * # Runs at 00:30 UTC daily on master(default) branch
   pull_request: {}
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest

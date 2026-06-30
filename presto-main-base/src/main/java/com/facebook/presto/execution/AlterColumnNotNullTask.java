@@ -69,7 +69,7 @@ public class AlterColumnNotNullTask
         Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isTableExists()) {
-                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and rename column is not supported", tableName);
+                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and ALTER COLUMN SET/DROP NOT NULL is not supported", tableName);
             }
             return immediateFuture(null);
         }
@@ -81,10 +81,10 @@ public class AlterColumnNotNullTask
             throw new SemanticException(NOT_SUPPORTED, statement, "Catalog %s does not support ALTER COLUMN with NOT NULL", connectorId.getCatalogName());
         }
 
+        accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
         TableHandle tableHandle = tableHandleOptional.get();
         String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getColumn().getValue());
-
-        accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(column);

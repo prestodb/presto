@@ -9,6 +9,11 @@ env:
   MAVEN_INSTALL_OPTS: -Xmx2G -XX:+ExitOnOutOfMemoryError
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   maven-checks:
     permissions:

@@ -35,6 +35,8 @@ import static com.facebook.presto.tests.datatype.DataType.stringDataType;
 import static com.facebook.presto.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestOracleTypes
         extends AbstractTestQueryFramework
@@ -124,5 +126,127 @@ public class TestOracleTypes
                 resultType,
                 value -> format("CAST('%s' AS %s)", value, resultType),
                 queryResult);
+    }
+
+    @Test
+    public void testRealInsert()
+    {
+        assertUpdate("create table test_real_type(datatype_real real)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_real_type"));
+        try {
+            assertUpdate("insert into test_real_type(datatype_real) values (96.5)", 1);
+            assertQuery("SELECT datatype_real FROM test_real_type", "VALUES (96.5)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_real_type");
+            assertFalse(getQueryRunner().tableExists(getSession(), "test_real_type"));
+        }
+    }
+
+    @Test
+    public void testRealCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE test_real_ctas AS SELECT REAL '42.5' as value", 1);
+
+        try {
+            assertQuery("SELECT * FROM test_real_ctas", "VALUES (42.5)");
+
+            // Verify the column type is REAL
+            assertQuery(
+                    "SELECT data_type FROM information_schema.columns " +
+                            "WHERE table_name = 'test_real_ctas' AND column_name = 'value'",
+                    "VALUES ('real')");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_real_ctas");
+        }
+    }
+
+    /**
+     * Test that REAL columns created in Oracle can be read by Presto.
+     * This verifies that the BINARY_FLOAT type mapping works correctly.
+     */
+    @Test
+    public void testReadOracleRealColumn()
+    {
+        // Create table directly in Oracle using BINARY_FLOAT
+        oracleServer.execute("CREATE TABLE test_binary_float (id NUMBER, value BINARY_FLOAT)");
+
+        try {
+            // Insert data directly in Oracle
+            oracleServer.execute("INSERT INTO test_binary_float VALUES (1, 1.5)");
+            oracleServer.execute("INSERT INTO test_binary_float VALUES (2, -2.25)");
+            oracleServer.execute("INSERT INTO test_binary_float VALUES (3, 0.5)");
+            oracleServer.execute("COMMIT");
+
+            // Verify Presto can read the BINARY_FLOAT column
+            assertQuery(
+                    "SELECT value FROM test_binary_float ORDER BY id",
+                    "VALUES (1.5), (-2.25), (0.5)");
+        }
+        finally {
+            oracleServer.execute("DROP TABLE test_binary_float");
+        }
+    }
+
+    @Test
+    public void testDoubleCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE test_double_ctas AS SELECT DOUBLE '42.5' as value", 1);
+
+        try {
+            assertQuery("SELECT * FROM test_double_ctas", "VALUES (42.5)");
+
+            // Verify the column type is DOUBLE
+            assertQuery(
+                    "SELECT data_type FROM information_schema.columns " +
+                            "WHERE table_name = 'test_double_ctas' AND column_name = 'value'",
+                    "VALUES ('double')");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_double_ctas");
+        }
+    }
+
+    @Test
+    public void testDoubleInsert()
+    {
+        assertUpdate("create table test_double_type(datatype_double double)");
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_double_type"));
+        try {
+            assertUpdate("insert into test_double_type(datatype_double) values (96.5)", 1);
+            assertQuery("SELECT datatype_double FROM test_double_type", "VALUES (96.5)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_double_type");
+            assertFalse(getQueryRunner().tableExists(getSession(), "test_double_type"));
+        }
+    }
+
+    /**
+     * Test that DOUBLE columns created in Oracle can be read by Presto.
+     * This verifies that the BINARY_DOUBLE type mapping works correctly.
+     */
+    @Test
+    public void testReadOracleDoubleColumn()
+    {
+        // Create table directly in Oracle using BINARY_DOUBLE
+        oracleServer.execute("CREATE TABLE test_binary_double (id NUMBER, value BINARY_DOUBLE)");
+
+        try {
+            // Insert data directly in Oracle
+            oracleServer.execute("INSERT INTO test_binary_double VALUES (1, 1.5)");
+            oracleServer.execute("INSERT INTO test_binary_double VALUES (2, -2.25)");
+            oracleServer.execute("INSERT INTO test_binary_double VALUES (3, 0.5)");
+            oracleServer.execute("COMMIT");
+
+            // Verify Presto can read the BINARY_DOUBLE column
+            assertQuery(
+                    "SELECT value FROM test_binary_double ORDER BY id",
+                    "VALUES (1.5), (-2.25), (0.5)");
+        }
+        finally {
+            oracleServer.execute("DROP TABLE test_binary_double");
+        }
     }
 }

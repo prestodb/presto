@@ -190,21 +190,6 @@ public abstract class AbstractTestAggregationsNative
         // max_data_size_for_stats is not needed for array, map and row
     }
 
-    @Override
-    @Test(dataProvider = "getType")
-    public void testStatisticalDigest(String type)
-    {
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE)), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(orderkey AS DOUBLE), 2, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 3, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-        assertQuery(format("SELECT value_at_quantile(%s_agg(CAST(quantity AS DOUBLE), 4, 0.0001E0), 0.5E0) > 0 FROM lineitem", type), "SELECT true");
-    }
-
     /// Function `tdigest_agg` is not supported in Presto C++, see: https://github.com/prestodb/presto/issues/24811.
     @Override
     @Test(dataProvider = "getType")

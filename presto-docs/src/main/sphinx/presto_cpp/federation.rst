@@ -103,6 +103,32 @@ The following provides an example of a worker PostgresSQL catalog ``etc/catalog/
     arrow-flight.server-ssl-enabled=true
     arrow-flight.server.verify=false
 
+mTLS Authentication
+^^^^^^^^^^^^^^^^^^^
+For mutual TLS (mTLS) authentication between the worker and FlightShim server, additional SSL certificate properties must be configured.
+This provides enhanced security by requiring both the client and server to authenticate each other.
+
+The following provides an example of a worker catalog with mTLS enabled:
+
+.. code-block:: none
+
+    connector.name=arrow-federation
+    protocol-connector.id=postgresql
+    arrow-flight.server=localhost
+    arrow-flight.server.port=9999
+    arrow-flight.server.verify=true
+    arrow-flight.server-ssl-enabled=true
+    arrow-flight.server-ssl-certificate=/path/to/server.crt
+    arrow-flight.client-ssl-certificate=/path/to/client.crt
+    arrow-flight.client-ssl-key=/path/to/client.key
+
+To enable mTLS, the following properties must be configured:
+
+- ``arrow-flight.server-ssl-certificate``: Path to the server's SSL certificate. Used by the client to verify the server's identity.
+- ``arrow-flight.client-ssl-certificate``: Path to the client's SSL certificate. Sent to the server for client authentication.
+- ``arrow-flight.client-ssl-key``: Path to the client's SSL private key file. Used to establish the secure connection.
+- ``arrow-flight.server.verify``: When set to true, enables certificate verification.
+
 .. _running_flightshim:
 
 Running FlightShim

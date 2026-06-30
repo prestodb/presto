@@ -20,7 +20,9 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
+import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
@@ -268,7 +270,7 @@ public class PlanFragmenterUtils
         // equal, the column names are also equal, so last-wins produces the same result.
         ImmutableMap.Builder<ColumnHandle, String> builder = ImmutableMap.builder();
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
             if (!tableHandleOpt.isPresent()) {
                 return Optional.empty();
             }
@@ -337,7 +339,7 @@ public class PlanFragmenterUtils
             Map<PlanNodeId, Map<String, String>> perScanMappings)
     {
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
             if (!tableHandleOpt.isPresent()) {
                 continue;
             }
@@ -369,7 +371,7 @@ public class PlanFragmenterUtils
     {
         Set<Map<String, String>> combinedDistinctValues = null;
         for (PlanNodeId scanNodeId : fragment.getTableScanSchedulingOrder()) {
-            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId);
+            Optional<TableHandle> tableHandleOpt = findSourceNodeTableHandle(fragment.getRoot(), scanNodeId, metadata, session);
             if (!tableHandleOpt.isPresent()) {
                 return ImmutableList.of();
             }
@@ -426,7 +428,7 @@ public class PlanFragmenterUtils
         return ImmutableList.copyOf(combinedDistinctValues);
     }
 
-    private static Optional<TableHandle> findSourceNodeTableHandle(PlanNode root, PlanNodeId targetId)
+    private static Optional<TableHandle> findSourceNodeTableHandle(PlanNode root, PlanNodeId targetId, Metadata metadata, Session session)
     {
         for (PlanNode node : forTree(PlanNode::getSources).depthFirstPreOrder(root)) {
             if (node.getId().equals(targetId)) {
@@ -434,11 +436,44 @@ public class PlanFragmenterUtils
                     return Optional.of(((TableScanNode) node).getTable());
                 }
                 if (node instanceof IndexSourceNode) {
-                    return Optional.of(((IndexSourceNode) node).getTableHandle());
+                    return Optional.of(resolveIndexSourceTableHandle((IndexSourceNode) node, metadata, session));
                 }
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Resolves an {@link IndexSourceNode}'s table handle to one carrying a partition-pruned layout.
+     *
+     * <p>An {@code IndexSourceNode} frequently carries a bare table handle with no resolved layout:
+     * {@code IndexJoinOptimizer} passes the original {@code TableScanNode} handle through unchanged,
+     * and the connector plan optimizer only resolves/prunes layouts for {@code TableScanNode}s. With
+     * no layout, {@code metadata.getLayout} falls back to enumerating ALL partitions, so the
+     * partition-aware grouped execution analysis above over-counts lifespans (bucketCount x ALL
+     * index partitions instead of bucketCount x the partitions the query actually selects).
+     *
+     * <p>Resolve a pruned layout from the node's {@code currentConstraint} so the layout's discrete
+     * predicates reflect only the selected partitions. This mirrors the equivalent workaround in
+     * {@code SplitSourceFactory.visitIndexSource}, which prunes the same handle at split-enumeration
+     * time.
+     *
+     * <p>TODO: Resolve the pruned layout once when {@code IndexJoinOptimizer} constructs the
+     * {@code IndexSourceNode} so the handle carries a layout everywhere downstream, allowing both
+     * this workaround and the one in {@code SplitSourceFactory.visitIndexSource} to be removed.
+     */
+    private static TableHandle resolveIndexSourceTableHandle(IndexSourceNode node, Metadata metadata, Session session)
+    {
+        TableHandle tableHandle = node.getTableHandle();
+        if (!tableHandle.getLayout().isPresent() && !node.getCurrentConstraint().isAll()) {
+            TableLayoutResult layoutResult = metadata.getLayout(
+                    session,
+                    tableHandle,
+                    new Constraint<>(node.getCurrentConstraint()),
+                    Optional.empty());
+            return layoutResult.getLayout().getNewTableHandle();
+        }
+        return tableHandle;
     }
 
     private static boolean containsTableFinishNode(PlanFragment planFragment)

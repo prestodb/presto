@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.resolver.ArtifactResolver;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -46,7 +47,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.airlift.resolver.ArtifactResolver;
 import jakarta.annotation.PreDestroy;
 
 import java.io.File;

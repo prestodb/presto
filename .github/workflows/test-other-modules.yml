@@ -11,6 +11,11 @@ env:
   MAVEN_TEST: -B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end
   RETRY: .github/bin/retry
 
+concurrency:
+  # Cancel superseded in-progress runs for the same PR/branch to save CI capacity; never cancel master.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -73,4 +78,4 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!presto-test-coverage'
       - name: Maven Tests
         if: needs.changes.outputs.codechange == 'true'
-        run: ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '!presto-tests, !presto-native-tests, !presto-accumulo, !presto-cassandra, !presto-hive, !presto-kudu, !presto-docs, !presto-server, !presto-main, !presto-main-base, !presto-mongodb, !presto-spark-package, !presto-spark-launcher, !presto-spark-testing, !presto-spark-base, !presto-redis, !presto-elasticsearch, !presto-orc, !presto-thrift-connector, !presto-native-execution, !presto-test-coverage, !presto-iceberg, !presto-singlestore, !presto-base-arrow-flight, !presto-plan-checker-router-plugin, !presto-mysql, !presto-postgresql'
+        run: ./mvnw test -T 1 ${MAVEN_TEST} -P skip-native-sidecar-tests -pl '!presto-tests, !presto-native-tests, !presto-accumulo, !presto-cassandra, !presto-hive, !presto-kudu, !presto-docs, !presto-server, !presto-main, !presto-main-base, !presto-mongodb, !presto-spark-package, !presto-spark-launcher, !presto-spark-testing, !presto-spark-base, !presto-redis, !presto-elasticsearch, !presto-orc, !presto-thrift-connector, !presto-native-execution, !presto-test-coverage, !presto-iceberg, !presto-singlestore, !presto-base-arrow-flight, !presto-plan-checker-router-plugin, !presto-mysql, !presto-postgresql, !presto-flight-shim'

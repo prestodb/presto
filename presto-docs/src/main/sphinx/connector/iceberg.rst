@@ -390,6 +390,8 @@ Property Name                                           Description             
                                                         statistics. A value of 1 means a single record is equivalent
                                                         to 1 millisecond of time difference.
 
+``iceberg.commit-number-retries``                       Number of times to retry a commit before failing              ``4``                              Yes                 Yes
+
 ``iceberg.pushdown-filter-enabled``                     Experimental: Enable filter pushdown for Iceberg. This is     ``false``                          No                  Yes
                                                         only supported with Presto C++.
 

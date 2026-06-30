@@ -3936,6 +3936,30 @@ void from_json(const json& j, DeleteNode& p) {
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+
+void to_json(json& j, const Field& p) {
+  j = json::object();
+  to_json_key(j, "name", p.name, "Field", "String", "name");
+  to_json_key(j, "type", p.type, "Field", "Type", "type");
+}
+
+void from_json(const json& j, Field& p) {
+  from_json_key(j, "name", p.name, "Field", "String", "name");
+  from_json_key(j, "type", p.type, "Field", "Type", "type");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const Descriptor& p) {
+  j = json::object();
+  to_json_key(j, "fields", p.fields, "Descriptor", "List<Field>", "fields");
+}
+
+void from_json(const json& j, Descriptor& p) {
+  from_json_key(j, "fields", p.fields, "Descriptor", "List<Field>", "fields");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 DistinctLimitNode::DistinctLimitNode() noexcept {
   _type = ".DistinctLimitNode";
 }

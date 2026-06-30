@@ -33,6 +33,16 @@ public interface ConnectorSplitManager
             ConnectorTableLayoutHandle layout,
             SplitSchedulingContext splitSchedulingContext);
 
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorTableLayoutHandle layout,
+            SplitSchedulingContext splitSchedulingContext,
+            DynamicFilter dynamicFilter)
+    {
+        return getSplits(transactionHandle, session, layout, splitSchedulingContext);
+    }
+
     enum SplitSchedulingStrategy
     {
         UNGROUPED_SCHEDULING,

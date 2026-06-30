@@ -41,7 +41,7 @@ import static org.testng.Assert.assertTrue;
 public class TestElasticsearchMixedCaseTest
         extends AbstractTestQueryFramework
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:9.1.0";
     private ElasticsearchServer elasticsearch;
     private ElasticsearchClient client;
     @Override

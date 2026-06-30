@@ -69,9 +69,11 @@ import static com.facebook.presto.SystemSessionProperties.MERGE_DUPLICATE_AGGREG
 import static com.facebook.presto.SystemSessionProperties.MERGE_MAX_BY_AND_MIN_BY_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CONDITIONAL_CONSTANT_APPROXIMATE_DISTINCT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOIN_FAN_OUT;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_ROW_IN_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.PARALLELIZE_CHAINED_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.PREFILTER_FOR_GROUPBY_LIMIT;
@@ -1601,6 +1603,62 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOptimizeCascadingFiltersAndProjections()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "false")
+                .build();
+
+        // Compare results with the optimization enabled vs disabled to validate correctness.
+        // These queries produce cascading projections and adjacent filter/project shapes that the
+        // rules coalesce/merge; results must be identical regardless of the property.
+        String[] queries = {
+                // Nested arithmetic projections (cascading projects)
+                "SELECT (nationkey * 2 + 1) * 3 FROM nation",
+                // Multiply-referenced computed column across projections
+                "SELECT a + 1, a + 2, a * a FROM (SELECT nationkey * 2 AS a FROM nation)",
+                // WHERE over a computed column (filter over project)
+                "SELECT nationkey FROM (SELECT nationkey, nationkey * 2 AS d FROM nation) WHERE d > 10",
+                // Filter and projection both reference the same computed expression
+                "SELECT d + 1 FROM (SELECT nationkey * 2 AS d FROM nation) WHERE d > 10 AND d < 40",
+                // Computed column used in both predicate and projection over a real source
+                "SELECT region_tag, cnt FROM (" +
+                        "SELECT regionkey + 1 AS region_tag, count(*) AS cnt FROM nation GROUP BY regionkey) " +
+                        "WHERE region_tag > 2",
+                // Deeper cascade with string functions
+                "SELECT upper(substr(name, 1, 3)) FROM (SELECT name FROM nation WHERE length(name) > 4)",
+                // TRY over a computed column must preserve semantics (no unsafe inlining)
+                "SELECT try(d / 0) FROM (SELECT nationkey - nationkey AS d FROM nation)",
+                // Interleaved filter/project at multiple nesting levels: each level filters on a
+                // computed column, so Filter/Project must reorder and collapse while keeping the
+                // filters applied at the correct positions in the data flow.
+                "SELECT e2 FROM (" +
+                        "  SELECT e + 1 AS e2 FROM (" +
+                        "    SELECT d * 2 AS e FROM (" +
+                        "      SELECT nationkey + 1 AS d FROM nation WHERE nationkey > 3) " +
+                        "    WHERE d < 20) " +
+                        "  WHERE e > 10) " +
+                        "WHERE e2 < 35",
+                // Filter sandwiched between two projections over an aggregation
+                "SELECT s + 1 FROM (" +
+                        "  SELECT c * c AS s FROM (" +
+                        "    SELECT count(*) AS c FROM nation GROUP BY regionkey) " +
+                        "  WHERE c > 1)",
+                // Predicate combines an aggregated column and a computed column at different levels
+                "SELECT t.k, t.total FROM (" +
+                        "  SELECT regionkey AS k, sum(nationkey) * 2 AS total FROM nation GROUP BY regionkey) t " +
+                        "WHERE t.total > 50 AND t.k < 4",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
     public void testPushAggregationThroughDisjointUnion()
     {
         Session enabled = Session.builder(getSession())
@@ -1638,6 +1696,84 @@ public abstract class AbstractTestQueries
 
         for (String query : queries) {
             assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+    }
+
+    @Test
+    public void testOptimizeJoinFanOut()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "false")
+                .build();
+
+        String[] queries = {
+                // INNER join, aggregation on the build (right) side grouped by a strict superset
+                // (regionkey, nationkey) of the join key (regionkey): the canonical fan-out shape.
+                "SELECT r.regionkey, r.name, b.nationkey, b.cnt " +
+                        "FROM region r " +
+                        "JOIN (SELECT regionkey, nationkey, count(*) AS cnt FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey, b.nationkey",
+                // INNER join, aggregation on the probe (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // LEFT join, aggregation on the preserved (left) side.
+                "SELECT b.regionkey, b.nationkey, b.total, r.name " +
+                        "FROM (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "LEFT JOIN region r " +
+                        "  ON b.regionkey = r.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // RIGHT join, aggregation on the preserved (right) side.
+                "SELECT r.name, b.regionkey, b.nationkey, b.total " +
+                        "FROM region r " +
+                        "RIGHT JOIN (SELECT regionkey, nationkey, sum(nationkey) AS total FROM nation GROUP BY regionkey, nationkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY b.regionkey, b.nationkey",
+                // Multiple measures and an extra grouping key, larger source (orders/lineitem).
+                "SELECT o.orderkey, o.custkey, b.shipmode, b.revenue, b.lines " +
+                        "FROM orders o " +
+                        "JOIN (SELECT orderkey, shipmode, sum(extendedprice) AS revenue, count(*) AS lines " +
+                        "      FROM lineitem GROUP BY orderkey, shipmode) b " +
+                        "  ON o.orderkey = b.orderkey " +
+                        "WHERE o.orderkey < 1000 " +
+                        "ORDER BY o.orderkey, b.shipmode",
+                // Negative case: join key equals the grouping key, so the build side is already
+                // unique on the key. The rule must not fire and results must still match.
+                "SELECT r.regionkey, b.total FROM region r " +
+                        "JOIN (SELECT regionkey, sum(nationkey) AS total FROM nation GROUP BY regionkey) b " +
+                        "  ON r.regionkey = b.regionkey " +
+                        "ORDER BY r.regionkey",
+                // Nested-join fan-out: the build side is itself an INNER join keyed on
+                // (regionkey, nationkey) — a strict superset of the outer join key (regionkey).
+                "SELECT r.regionkey, r.name, j.nationkey, j.nname " +
+                        "FROM region r " +
+                        "JOIN (SELECT n1.regionkey AS regionkey, n1.nationkey AS nationkey, n2.name AS nname " +
+                        "      FROM nation n1 " +
+                        "      JOIN nation n2 ON n1.regionkey = n2.regionkey AND n1.nationkey = n2.nationkey) j " +
+                        "  ON r.regionkey = j.regionkey " +
+                        "ORDER BY r.regionkey, j.nationkey",
+        };
+
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabled, query, disabled);
+        }
+
+        // Also exercise the optimization under the non-legacy (flattened) UNNEST form: the rule
+        // emits one column per row field instead of a single ROW column, so results must still
+        // match the unoptimized plan with legacy_unnest=false.
+        Session enabledNonLegacyUnnest = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_JOIN_FAN_OUT, "true")
+                .setSystemProperty(LEGACY_UNNEST, "false")
+                .build();
+        for (String query : queries) {
+            assertQueryWithSameQueryRunner(enabledNonLegacyUnnest, query, disabled);
         }
     }
 

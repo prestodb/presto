@@ -385,6 +385,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
       hiveLayout->remainingPredicate,
       tableName,
       hiveLayout->dataColumns,
+      /*indexColumns=*/{},
       tableHandle,
       columnHandles,
       hiveLayout->tableParameters,

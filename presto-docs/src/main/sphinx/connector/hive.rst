@@ -399,9 +399,6 @@ Property Name                                                         Descriptio
 Metastore Cache Metrics
 -----------------------
 
-Overview
-^^^^^^^^
-
 The Hive connector uses in-memory caching to reduce load on the Hive metastore and improve query performance. 
 The connector maintains 14 distinct caches, each optimized for specific types of metadata. All caches expose 
 JMX metrics that provide visibility into cache performance, helping you monitor efficiency, tune cache 

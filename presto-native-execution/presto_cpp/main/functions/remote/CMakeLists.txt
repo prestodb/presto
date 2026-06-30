@@ -11,15 +11,10 @@
 # limitations under the License.
 
 add_library(presto_to_velox_remote_functions PrestoRestFunctionRegistration.cpp)
-target_link_libraries(
-  presto_to_velox_remote_functions
-  presto_functions_remote
-  velox_type_fbhive
-  Boost::url
-)
+target_link_libraries(presto_to_velox_remote_functions presto_functions_remote velox Boost::url)
 
 add_library(presto_functions_remote RestRemoteFunction.cpp)
-target_link_libraries(presto_functions_remote presto_functions_rest_client velox_functions_remote)
+target_link_libraries(presto_functions_remote presto_functions_rest_client velox)
 
 add_subdirectory(client)
 

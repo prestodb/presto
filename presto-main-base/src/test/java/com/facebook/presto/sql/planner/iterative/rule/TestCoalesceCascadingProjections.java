@@ -1,0 +1,220 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.sql.planner.iterative.rule;
+
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
+import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
+import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
+import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+
+public class TestCoalesceCascadingProjections
+        extends BaseRuleTest
+{
+    @Test
+    public void testFullyInlinesMultiplyReferencedDeterministicExpression()
+    {
+        // Unlike InlineProjections, a deterministic child expression referenced multiple times is
+        // still fully inlined so the native engine's CSE can dedupe it within one operator.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("doubled");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("doubled + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("doubled + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("doubled"), p.rowExpression("x * 2"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .matches(
+                        // The residual child collapses to a pure passthrough and is dropped, so the
+                        // single coalesced project sits directly on the values node.
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x * 2 + 1"))
+                                        .put("out2", PlanMatchPattern.expression("x * 2 + 2"))
+                                        .build(),
+                                values(ImmutableMap.of("x", 0))));
+    }
+
+    @Test
+    public void testDoesNotInlineMultiplyReferencedNonDeterministicExpression()
+    {
+        // A non-deterministic child expression referenced more than once must not be inlined,
+        // otherwise the side-effecting computation would be duplicated. With no other inlining
+        // target, the rule does not fire.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("r");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("r + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("r + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("r"), p.rowExpression("random(100)"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testInlinesSingleUseNonDeterministicExpression()
+    {
+        // A single reference never duplicates computation, so even a non-deterministic child
+        // expression is inlined when referenced exactly once.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("r");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("r + 1"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("r"), p.rowExpression("random(100)"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .matches(
+                        // The inlined expression has no inputs, so the child collapses to an empty
+                        // projection and is dropped; the coalesced project sits directly on values.
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("random(100) + 1"))
+                                        .build(),
+                                values(ImmutableMap.of("x", 0))));
+    }
+
+    @Test
+    public void testRecursivelyCollapsesProjectionChain()
+    {
+        // A three-deep projection chain must collapse to a single project after the rule reaches
+        // fixpoint (driven here by an IterativeOptimizer), with every intermediate
+        // (multiply-referenced, deterministic) expression fully inlined and the residual passthrough
+        // projects dropped.
+        //   values(x)
+        //     -> doubled := x * 2
+        //       -> summed := doubled + doubled
+        //         -> out1 := summed + 1, out2 := summed + 2
+        tester().assertThat(ImmutableSet.of(new CoalesceCascadingProjections(getFunctionManager())))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("doubled");
+                    p.variable("summed");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("summed + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("summed + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("summed"), p.rowExpression("doubled + doubled"))
+                                            .build(),
+                                    p.project(
+                                            Assignments.builder()
+                                                    .put(p.variable("doubled"), p.rowExpression("x * 2"))
+                                                    .build(),
+                                            p.values(p.variable("x")))));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("out1", PlanMatchPattern.expression("x * 2 + x * 2 + 1"))
+                                        .put("out2", PlanMatchPattern.expression("x * 2 + x * 2 + 2"))
+                                        .build(),
+                                values(ImmutableMap.of("x", 0))));
+    }
+
+    @Test
+    public void testDoesNotInlineChildOutputUsedInsideTry()
+    {
+        // The parent references the child output `d` only inside TRY(...). Inlining `d := x * 2` into
+        // the TRY would change which errors are masked, so the rule must bail via the
+        // extractTryArguments path. The child expression is deterministic, so the bailout is
+        // attributable solely to TRY. With no other inlining target, the rule does not fire.
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("d");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("try(1 / d)"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("d"), p.rowExpression("x * 2"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireOnIdentityOnlyChild()
+    {
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .setSystemProperty(OPTIMIZE_CASCADING_FILTERS_AND_PROJECTIONS, "true")
+                .on(p ->
+                        p.project(
+                                assignment(p.variable("output"), p.variable("value")),
+                                p.project(
+                                        identityAssignments(p.variable("value")),
+                                        p.values(p.variable("value")))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireWhenDisabled()
+    {
+        tester().assertThat(new CoalesceCascadingProjections(getFunctionManager()))
+                .on(p -> {
+                    p.variable("x");
+                    p.variable("doubled");
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("out1"), p.rowExpression("doubled + 1"))
+                                    .put(p.variable("out2"), p.rowExpression("doubled + 2"))
+                                    .build(),
+                            p.project(
+                                    Assignments.builder()
+                                            .put(p.variable("doubled"), p.rowExpression("x * 2"))
+                                            .build(),
+                                    p.values(p.variable("x"))));
+                })
+                .doesNotFire();
+    }
+}

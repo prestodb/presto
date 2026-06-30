@@ -17,6 +17,8 @@ import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.SourceColumn;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TransformationSubtype;
+import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -229,8 +231,10 @@ public class Analysis
     // Track WHERE clause from the query accessing a view for subquery analysis such as materialized view
     private Optional<Expression> viewAccessorWhereClause = Optional.empty();
 
-    // Maps each output Field to its originating SourceColumn(s) for column-level lineage tracking.
-    private final Multimap<Field, SourceColumn> originColumnDetails = HashMultimap.create();
+    // Maps each output Field to its DIRECT column-lineage entries (table column + DIRECT/<subtype>).
+    // Subtype defaults to IDENTITY for legacy callers; SELECT-list analysis populates
+    // TRANSFORMATION or AGGREGATION when the expression is non-trivial.
+    private final Multimap<Field, ColumnLineageEntry> originColumnDetails = HashMultimap.create();
 
     // Maps each analyzed Expression to the Field(s) it produces, supporting expression-level lineage.
     private final Multimap<NodeRef<Expression>, Field> fieldLineage = ArrayListMultimap.create();
@@ -1186,22 +1190,72 @@ public class Analysis
 
     public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn)
     {
-        originColumnDetails.putAll(field, sourceColumn);
+        addSourceColumns(field, sourceColumn, TransformationSubtype.IDENTITY);
+    }
+
+    public void addSourceColumns(Field field, Set<SourceColumn> sourceColumn, TransformationSubtype subtype)
+    {
+        requireNonNull(subtype, "subtype is null");
+        for (SourceColumn source : sourceColumn) {
+            originColumnDetails.put(field, new ColumnLineageEntry(
+                    source.getTableName(),
+                    source.getColumnName(),
+                    TransformationType.DIRECT,
+                    subtype));
+        }
+    }
+
+    /**
+     * Add raw {@link ColumnLineageEntry} entries (preserving subtype) as
+     * direct lineage for {@code field}. Use this when copying lineage from
+     * upstream fields where the original subtype matters — e.g. a bare
+     * column reference at the SELECT level that wraps an aggregated or
+     * transformed inner column.
+     */
+    public void addColumnLineageEntries(Field field, Set<ColumnLineageEntry> entries)
+    {
+        originColumnDetails.putAll(field, entries);
     }
 
     public Set<SourceColumn> getSourceColumns(Field field)
+    {
+        return originColumnDetails.get(field).stream()
+                .map(entry -> new SourceColumn(entry.getTableName(), entry.getColumnName()))
+                .collect(toImmutableSet());
+    }
+
+    /**
+     * Subtype-preserving counterpart to {@link #getSourceColumns(Field)}.
+     * Returns the direct {@link ColumnLineageEntry} entries for this field
+     * exactly as the analyzer recorded them.
+     */
+    public Set<ColumnLineageEntry> getDirectLineageEntries(Field field)
     {
         return ImmutableSet.copyOf(originColumnDetails.get(field));
     }
 
     /**
-     * Propagates all lineage (direct source columns + per-field indirect) from sourceField to newField.
-     * Use this whenever creating a new Field that represents the same column through an alias, CTE,
-     * view, or set operation to avoid missing propagation.
+     * Subtype-preserving counterpart to
+     * {@link #getExpressionSourceColumns(Expression)}: returns the direct
+     * {@link ColumnLineageEntry} entries reachable from the fields this
+     * expression produces, preserving each entry's transformation subtype.
+     */
+    public Set<ColumnLineageEntry> getExpressionDirectLineageEntries(Expression expression)
+    {
+        return fieldLineage.get(NodeRef.of(expression)).stream()
+                .flatMap(field -> originColumnDetails.get(field).stream())
+                .collect(toImmutableSet());
+    }
+
+    /**
+     * Propagates all lineage (direct source columns with their transformation
+     * subtype + per-field indirect) from sourceField to newField. Use this
+     * whenever creating a new Field that represents the same column through
+     * an alias, CTE, view, or set operation to avoid missing propagation.
      */
     public void propagateLineage(Field newField, Field sourceField)
     {
-        addSourceColumns(newField, getSourceColumns(sourceField));
+        addColumnLineageEntries(newField, getDirectLineageEntries(sourceField));
         addPerFieldIndirectSources(newField, getPerFieldIndirectSources(sourceField));
     }
 
@@ -1218,7 +1272,8 @@ public class Analysis
     public Set<SourceColumn> getExpressionSourceColumns(Expression expression)
     {
         return fieldLineage.get(NodeRef.of(expression)).stream()
-                .flatMap(field -> getSourceColumns(field).stream())
+                .flatMap(field -> getDirectLineageEntries(field).stream())
+                .map(entry -> new SourceColumn(entry.getTableName(), entry.getColumnName()))
                 .collect(toImmutableSet());
     }
 
@@ -1258,6 +1313,24 @@ public class Analysis
     public Set<ColumnLineageEntry> getAllIndirectSourcesForField(Field field)
     {
         ImmutableSet.Builder<ColumnLineageEntry> builder = ImmutableSet.builder();
+        builder.addAll(indirectSourceColumns);
+        builder.addAll(perFieldIndirectSources.get(field));
+        return builder.build();
+    }
+
+    /**
+     * Returns the unified column-lineage for a field, combining direct
+     * sources (each carrying its {@link TransformationType#DIRECT}
+     * subtype as recorded by the analyzer) and all indirect sources
+     * (query-level + per-field). New code constructing
+     * {@code OutputColumnMetadata} should prefer this over the split
+     * {@link #getSourceColumns(Field)} / {@link #getAllIndirectSourcesForField(Field)}
+     * accessors.
+     */
+    public Set<ColumnLineageEntry> getColumnLineageForField(Field field)
+    {
+        ImmutableSet.Builder<ColumnLineageEntry> builder = ImmutableSet.builder();
+        builder.addAll(originColumnDetails.get(field));
         builder.addAll(indirectSourceColumns);
         builder.addAll(perFieldIndirectSources.get(field));
         return builder.build();
