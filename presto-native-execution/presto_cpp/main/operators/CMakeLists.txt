@@ -33,7 +33,8 @@ target_link_libraries(
   presto_common
   presto_native-cpp2
   velox
-  velox_hive_iceberg_splitreader)
+  velox_hive_iceberg_splitreader
+)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
