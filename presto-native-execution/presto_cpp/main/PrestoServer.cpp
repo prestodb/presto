@@ -86,6 +86,7 @@
 #ifdef PRESTO_ENABLE_CUDF
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
+#include "velox/experimental/cudf/expression/PrestoFunctions.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -180,17 +181,19 @@ bool isSharedLibrary(const fs::path& path) {
 
 void registerVeloxCudf() {
 #ifdef PRESTO_ENABLE_CUDF
+  auto& cudfConfig = velox::cudf_velox::CudfConfig::getInstance();
+
   // Disable by default.
-  velox::cudf_velox::CudfConfig::getInstance().enabled = false;
+  cudfConfig.enabled = false;
   auto systemConfig = SystemConfig::instance();
-  velox::cudf_velox::CudfConfig::getInstance().functionNamePrefix =
-      systemConfig->prestoDefaultNamespacePrefix();
+  cudfConfig.functionNamePrefix = systemConfig->prestoDefaultNamespacePrefix();
   if (systemConfig->values().contains(
           velox::cudf_velox::CudfConfig::kCudfEnabled)) {
-    velox::cudf_velox::CudfConfig::getInstance().initialize(
-        systemConfig->values());
-    if (velox::cudf_velox::CudfConfig::getInstance().enabled) {
+    cudfConfig.initialize(systemConfig->values());
+    if (cudfConfig.enabled) {
       velox::cudf_velox::registerCudf();
+      velox::cudf_velox::registerPrestoFunctions(
+          cudfConfig.functionNamePrefix);
       PRESTO_STARTUP_LOG(INFO) << "cuDF is registered.";
     }
   }
