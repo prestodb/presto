@@ -18,14 +18,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.rest.RestBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.nativeworker.NativeQueryRunnerUtils;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.server.TestingFunctionServer;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Files;
@@ -33,7 +32,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -45,7 +43,20 @@ import static java.lang.String.format;
 public class FnServerAuthTestUtils
 {
     private static final Logger log = Logger.get(FnServerAuthTestUtils.class);
-    private static final String CERTS_BASE_PATH = "src/test/resources/certs/";
+
+    /**
+     * Resolves the path to a certificate resource regardless of which module's working
+     * directory the test is running from. The certs are packaged into the presto-function-server
+     * test-jar under "certs/", so they are always findable via the classloader.
+     */
+    private static String certPath(String relativePath)
+    {
+        java.net.URL resource = FnServerAuthTestUtils.class.getClassLoader().getResource("certs/" + relativePath);
+        if (resource == null) {
+            throw new IllegalStateException("Certificate resource not found on classpath: certs/" + relativePath);
+        }
+        return new java.io.File(resource.getFile()).getAbsolutePath();
+    }
 
     public static final String JWT_SHARED_SECRET = "supersecret";
     public static final String JWT_WRONG_SECRET = "wrongsecret";
@@ -72,23 +83,7 @@ public class FnServerAuthTestUtils
     public static Map<String, String> getSharedMtlsProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("http-server.http.enabled", "true") // true for discovery
-                .put("http-server.http.port", "0")
-                .put("http-server.https.enabled", "true")
-                .put("http-server.https.port", "0")
-
-                .put("http-server.https.keystore.path", CERTS_BASE_PATH + "worker/worker-keystore.jks")
-                .put("http-server.https.keystore.key", "changeit")
-
-                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
-                .put("http-server.https.truststore.key", "changeit")
-
-                .put("internal-communication.https.required", "true")
-                .put("internal-communication.https.keystore.path", CERTS_BASE_PATH + "worker/worker-keystore.jks")
-                .put("internal-communication.https.keystore.key", "changeit")
-                .put("internal-communication.https.trust-store-path", CERTS_BASE_PATH + "truststore.jks")
-                .put("internal-communication.https.trust-store-password", "changeit")
-
+                .putAll(getMtlsProperties("worker/worker-keystore.jks"))
                 .put("node-scheduler.include-coordinator", "false")
                 .build();
     }
@@ -96,23 +91,33 @@ public class FnServerAuthTestUtils
     public static Map<String, String> getCoordinatorMtlsProperties()
     {
         return ImmutableMap.<String, String>builder()
+                .putAll(getMtlsProperties("coordinator/coordinator-keystore.jks"))
+                .put("list-built-in-functions-only", "false")
+                .build();
+    }
+
+    /**
+     * Builds common HTTPS + mTLS properties for a node, parameterised by keystore path
+     * relative to the certs resource directory.
+     */
+    private static Map<String, String> getMtlsProperties(String keystoreRelativePath)
+    {
+        return ImmutableMap.<String, String>builder()
                 .put("http-server.http.enabled", "true") // true for discovery
                 .put("http-server.http.port", "0")
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.port", "0")
 
-                .put("http-server.https.keystore.path", CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
+                .put("http-server.https.keystore.path", certPath(keystoreRelativePath))
                 .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
+                .put("http-server.https.truststore.path", certPath("truststore.jks"))
                 .put("http-server.https.truststore.key", "changeit")
 
                 .put("internal-communication.https.required", "true")
-                .put("internal-communication.https.keystore.path", CERTS_BASE_PATH + "coordinator/coordinator-keystore.jks")
+                .put("internal-communication.https.keystore.path", certPath(keystoreRelativePath))
                 .put("internal-communication.https.keystore.key", "changeit")
-                .put("internal-communication.https.trust-store-path", CERTS_BASE_PATH + "truststore.jks")
+                .put("internal-communication.https.trust-store-path", certPath("truststore.jks"))
                 .put("internal-communication.https.trust-store-password", "changeit")
-
-                .put("list-built-in-functions-only", "false")
                 .build();
     }
 
@@ -130,23 +135,16 @@ public class FnServerAuthTestUtils
                 .put("http-server.http.enabled", "false")
                 .put("http-server.https.enabled", "true")
                 .put("http-server.https.port", String.valueOf(port))
-                .put("http-server.https.keystore.path", CERTS_BASE_PATH + "function-server/function-server-keystore.jks")
+                .put("http-server.https.keystore.path", certPath("function-server/function-server-keystore.jks"))
                 .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
+                .put("http-server.https.truststore.path", certPath("truststore.jks"))
                 .put("http-server.https.truststore.key", "changeit")
                 .build();
     }
 
     public static Map<String, String> getFnServerMtlsConfigWithInvalidCert(int port)
     {
-        String invalidKeystorePath = CERTS_BASE_PATH + "function-server/invalid-keystore.jks";
-
-        File invalidKeystore = new File(invalidKeystorePath);
-        if (!invalidKeystore.exists()) {
-            throw new IllegalStateException(
-                    "Invalid keystore not found at: " + invalidKeystorePath + "\n" +
-                            "Please run the certificate creation commands first!");
-        }
+        String invalidKeystorePath = certPath("function-server/invalid-keystore.jks");
 
         return ImmutableMap.<String, String>builder()
                 .put("http-server.http.enabled", "false")
@@ -154,7 +152,7 @@ public class FnServerAuthTestUtils
                 .put("http-server.https.port", String.valueOf(port))
                 .put("http-server.https.keystore.path", invalidKeystorePath)
                 .put("http-server.https.keystore.key", "changeit")
-                .put("http-server.https.truststore.path", CERTS_BASE_PATH + "truststore.jks")
+                .put("http-server.https.truststore.path", certPath("truststore.jks"))
                 .put("http-server.https.truststore.key", "changeit")
                 .build();
     }
@@ -266,104 +264,35 @@ public class FnServerAuthTestUtils
     }
 
     /**
-     * Get external worker launcher for native workers with HTTPS configuration.
+     * Returns an external worker launcher for a native (C++) worker configured with
+     * HTTPS client certificates and optionally JWT.
      */
     public static Optional<BiFunction<Integer, URI, Process>> getHttpsNativeWorkerLauncher(
             String prestoServerPath,
             String functionServerUri,
             boolean includeJwt)
     {
-        return Optional.of((workerIndex, discoveryUri) -> {
-            try {
-                Path dir = Paths.get("/tmp", "NativeWorkerTests");
-                Files.createDirectories(dir);
-                Path tempDirectoryPath = Files.createTempDirectory(dir, "worker");
-                log.info("Temp directory for Native Worker #%d: %s", workerIndex, tempDirectoryPath.toString());
-
-                String workerCertPath = Paths.get(CERTS_BASE_PATH + "worker/worker.crt").toAbsolutePath().toString();
-                String workerKeyPath = Paths.get(CERTS_BASE_PATH + "worker/worker.key").toAbsolutePath().toString();
-                String workerCombinedPemPath = Paths.get(CERTS_BASE_PATH + "worker/worker-combined.pem").toAbsolutePath().toString();
-                String caCertPath = Paths.get(CERTS_BASE_PATH + "ca/ca.crt").toAbsolutePath().toString();
-
-                if (!Files.exists(Paths.get(workerCombinedPemPath))) {
-                    throw new IllegalStateException(
-                            "Worker combined PEM file not found at: " + workerCombinedPemPath + "\n" +
-                                    "Please run: cat " + workerCertPath + " " + workerKeyPath + " > " + workerCombinedPemPath);
-                }
-
-                String configProperties = format(
-                                "discovery.uri=%s%n" +
-                                "presto.version=testversion%n" +
-                                "http-server.http.port=0%n" +
-                                "shutdown-onset-sec=1%n" +
-                                "runtime-metrics-collection-enabled=true%n" +
-                                "remote-function-server.rest.url=%s%n" +
-                                "remote-function-server.catalog-name=rest%n" +
-                                "http-server.https.enabled=true%n" +
-                                "http-server.http2.enabled=false%n" +
-                                "http-server.https.port=0%n" +
-                                "https-cert-path=%s%n" +
-                                "https-key-path=%s%n" +
-                                "https-client-cert-key-path=%s%n" +
-                                "https-client-ca-file=%s%n",
-                        discoveryUri,
-                        functionServerUri,
-                        workerCertPath,
-                        workerKeyPath,
-                        workerCombinedPemPath,
-                        caCertPath);
-
-                if (includeJwt) {
-                    configProperties = format(
-                            "%s%n" +
-                            "internal-communication.jwt.enabled=true%n" +
-                            "internal-communication.shared-secret=%s%n",
-                            configProperties,
-                            JWT_SHARED_SECRET);
-                }
-
-                Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
-
-                Files.write(tempDirectoryPath.resolve("node.properties"),
-                        format("node.id=%s%n" +
-                                "node.internal-address=127.0.0.1%n" +
-                                "node.environment=testing%n" +
-                                "node.location=test-location", UUID.randomUUID()).getBytes());
-
-                Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
-                Files.createDirectory(catalogDirectoryPath);
-
-                Files.write(
-                        catalogDirectoryPath.resolve("tpch.properties"),
-                        "connector.name=tpch\n".getBytes());
-
-                Path workerLogFile = tempDirectoryPath.resolve("worker." + workerIndex + ".out");
-                log.info("Native Worker #%d log file: %s", workerIndex, workerLogFile.toAbsolutePath());
-
-                Process process = new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
-                        .directory(tempDirectoryPath.toFile())
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect.to(workerLogFile.toFile()))
-                        .redirectError(ProcessBuilder.Redirect.to(workerLogFile.toFile()))
-                        .start();
-
-                try {
-                    Thread.sleep(10000);
-                    if (Files.exists(workerLogFile)) {
-                        String output = new String(Files.readAllBytes(workerLogFile));
-                        log.info("Native Worker #%d output: %s", workerIndex, output);
-                    }
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-
-                return process;
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        });
+        String workerCertPath = certPath("worker/worker.crt");
+        String workerKeyPath = certPath("worker/worker.key");
+        String workerCombinedPemPath = certPath("worker/worker-combined.pem");
+        String caCertPath = certPath("ca/ca.crt");
+        if (!Files.exists(Paths.get(workerCombinedPemPath))) {
+            throw new IllegalStateException(
+                    "Worker combined PEM file not found at: " + workerCombinedPemPath);
+        }
+        PrestoNativeQueryRunnerUtils.HttpsClientConfig httpsConfig = PrestoNativeQueryRunnerUtils.HttpsClientConfig.of(
+                workerCertPath, workerKeyPath, workerCombinedPemPath, caCertPath);
+        if (includeJwt) {
+            httpsConfig = httpsConfig.withJwt(JWT_SHARED_SECRET);
+        }
+        return PrestoNativeQueryRunnerUtils.externalWorkerLauncherBuilder()
+                .setPrestoServerPath(prestoServerPath)
+                .setCatalogName("tpch")
+                .setConnectorName("tpch")
+                .setRemoteFunctionServerRestUrl(functionServerUri)
+                .setEnableRuntimeMetricsCollection(true)
+                .setHttpsClientConfig(httpsConfig)
+                .build();
     }
 
     /**
@@ -459,7 +388,7 @@ public class FnServerAuthTestUtils
         if (!Files.exists(prestoServerPath)) {
             throw new IllegalStateException(format(
                     "Native worker binary at %s not found. " +
-                    "Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.",
+                            "Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.",
                     prestoServerPath));
         }
         log.info("Using PRESTO_SERVER binary at %s", prestoServerPath);

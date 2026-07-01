@@ -24,6 +24,7 @@ import com.google.inject.Module;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
@@ -78,16 +79,8 @@ public class FunctionServer
      */
     static URI getServerUri(HttpServerInfo serverInfo)
     {
-        URI httpsUri = serverInfo.getHttpsUri();
-        if (httpsUri != null) {
-            return httpsUri;
-        }
-
-        URI httpUri = serverInfo.getHttpUri();
-        if (httpUri != null) {
-            return httpUri;
-        }
-
-        throw new IllegalStateException("Neither HTTP nor HTTPS is enabled");
+        return Optional.ofNullable(serverInfo.getHttpsUri())
+                .or(() -> Optional.ofNullable(serverInfo.getHttpUri()))
+                .orElseThrow(() -> new IllegalStateException("Neither HTTP nor HTTPS is enabled"));
     }
 }

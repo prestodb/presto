@@ -11,13 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tests;
+package com.facebook.presto.nativetests;
 
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.AbstractTestFnServerAuth;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.utils.FnServerAuthTestUtils;
 
 /**
- * Runs all test cases against a Java coordinator + C++ (native) worker cluster.
+ * Runs all {@link AbstractTestFnServerAuth} test cases against a
+ * Java coordinator + C++ (native) worker cluster.
+ *
+ * Lives in presto-native-tests so it is gated behind the same CI pipeline
+ * that builds and provides the native presto_server binary.
  */
 public class TestFnServerAuthOnNativeCluster
         extends AbstractTestFnServerAuth
