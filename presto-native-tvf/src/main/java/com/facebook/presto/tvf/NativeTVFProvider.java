@@ -52,61 +52,106 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static java.util.Objects.requireNonNull;
 
-public class NativeTVFProvider
+/**
+ * Native implementation of TVF provider.
+ */
+public final class NativeTVFProvider
         implements TVFProvider
 {
     private static final int MAX_RETRIES = 10;
-    private static final long RETRY_DELAY_MS = Duration.ofMinutes(1).toMillis();
-    private static final Logger log = Logger.get(NativeTVFProvider.class);
+    private static final long RETRY_DELAY_MS =
+            Duration.ofMinutes(1).toMillis();
+    private static final long CACHE_EXPIRATION_MS = 100000;
+    private static final Logger LOG =
+            Logger.get(NativeTVFProvider.class);
+    private static final String TABLE_FUNCTIONS_ENDPOINT =
+            "/v1/functions/tvf";
+
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
     private final HttpClient httpClient;
-    private static final String TABLE_FUNCTIONS_ENDPOINT = "/v1/functions/tvf";
-    private final JsonCodec<Map<String, JsonBasedTableFunctionMetadata>> connectorTableFunctionListJsonCodec;
-    private final Supplier<List<ConnectorTableFunction>> memoizedTableFunctionsSupplier;
+    private final JsonCodec<Map<String, JsonBasedTableFunctionMetadata>>
+            connectorTableFunctionListJsonCodec;
+    private final Supplier<List<ConnectorTableFunction>>
+            memoizedTableFunctionsSupplier;
 
+    /**
+     * Constructs a native TVF provider.
+     *
+     * @param nodeManager the node manager
+     * @param httpClient the HTTP client
+     * @param typeManager the type manager
+     */
     @Inject
     public NativeTVFProvider(
-            NodeManager nodeManager,
-            @ForWorkerInfo HttpClient httpClient,
-            TypeManager typeManager)
+            final NodeManager nodeManager,
+            @ForWorkerInfo final HttpClient httpClient,
+            final TypeManager typeManager)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.memoizedTableFunctionsSupplier = Suppliers.memoizeWithExpiration(this::loadConnectorTableFunctions,
-                100000, TimeUnit.MILLISECONDS);
+        this.nodeManager = requireNonNull(nodeManager,
+                "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager,
+                "typeManager is null");
+        this.httpClient = requireNonNull(httpClient,
+                "httpClient is null");
+        this.memoizedTableFunctionsSupplier =
+                Suppliers.memoizeWithExpiration(
+                        this::loadConnectorTableFunctions,
+                        CACHE_EXPIRATION_MS,
+                        TimeUnit.MILLISECONDS);
 
-        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
+        JsonObjectMapperProvider provider =
+                new JsonObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, new TypeDeserializer(typeManager)));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
-        this.connectorTableFunctionListJsonCodec = codecFactory.mapJsonCodec(String.class, JsonBasedTableFunctionMetadata.class);
+        this.connectorTableFunctionListJsonCodec =
+                codecFactory.mapJsonCodec(String.class,
+                        JsonBasedTableFunctionMetadata.class);
     }
 
+    /**
+     * Gets the table functions.
+     *
+     * @return the list of connector table functions
+     */
     @Override
     public List<ConnectorTableFunction> getTableFunctions()
     {
         return memoizedTableFunctionsSupplier.get();
     }
 
-    public static URI getWorkerLocation(NodeManager nodeManager, String endpoint)
+    /**
+     * Gets the worker location for the given endpoint.
+     *
+     * @param nodeManager the node manager
+     * @param endpoint the endpoint path
+     * @return the worker URI
+     */
+    public static URI getWorkerLocation(
+            final NodeManager nodeManager,
+            final String endpoint)
     {
         Node workerNode = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             Set<Node> workerNodes = nodeManager.getWorkerNodes();
             if (!workerNodes.isEmpty()) {
-                workerNode = Iterables.get(workerNodes, new Random().nextInt(workerNodes.size()));
+                workerNode = Iterables.get(workerNodes,
+                        new Random().nextInt(workerNodes.size()));
                 break;
             }
-            log.warn("No worker nodes available yet (attempt " + attempt + ")");
+            LOG.warn("No worker nodes available yet (attempt "
+                    + attempt + ")");
             if (attempt < MAX_RETRIES) {
                 try {
                     Thread.sleep(RETRY_DELAY_MS);
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeException("Retry fetching table function registry interrupted", ie);
+                    throw new RuntimeException(
+                            "Retry fetching table function registry "
+                                    + "interrupted",
+                            ie);
                 }
             }
         }
@@ -123,42 +168,76 @@ public class NativeTVFProvider
                 .build();
     }
 
-    public static String extractReasonFromVeloxError(String errorMessage)
+    /**
+     * Extracts the reason from a Velox error message.
+     *
+     * @param errorMessage the error message
+     * @return the extracted reason or full message if not found
+     */
+    public static String extractReasonFromVeloxError(
+            final String errorMessage)
     {
-        // Look for "Reason: " line in the Velox error message
         String[] lines = errorMessage.split("\n");
         for (String line : lines) {
             String trimmed = line.trim();
             if (trimmed.startsWith("Reason:")) {
-                // Extract everything after "Reason: "
                 return trimmed.substring("Reason:".length()).trim();
             }
         }
-        // If no "Reason:" found, return the full message
         return errorMessage;
     }
 
+    /**
+     * Gets the HTTP client.
+     *
+     * @return the HTTP client
+     */
     @VisibleForTesting
     public HttpClient getHttpClient()
     {
         return httpClient;
     }
 
-    private synchronized List<ConnectorTableFunction> loadConnectorTableFunctions()
+    /**
+     * Loads connector table functions from the endpoint.
+     *
+     * @return the list of connector table functions
+     */
+    private synchronized List<ConnectorTableFunction>
+            loadConnectorTableFunctions()
     {
-        Map<String, JsonBasedTableFunctionMetadata> connectorTableFunctions;
+        Map<String, JsonBasedTableFunctionMetadata>
+                connectorTableFunctions;
         try {
-            Request request = prepareGet().setUri(getWorkerLocation(nodeManager, TABLE_FUNCTIONS_ENDPOINT)).build();
-            connectorTableFunctions = httpClient.execute(request, createJsonResponseHandler(connectorTableFunctionListJsonCodec));
+            Request request = prepareGet()
+                    .setUri(getWorkerLocation(nodeManager,
+                            TABLE_FUNCTIONS_ENDPOINT))
+                    .build();
+            connectorTableFunctions = httpClient.execute(
+                    request,
+                    createJsonResponseHandler(
+                            connectorTableFunctionListJsonCodec));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get table functions from endpoint.", e);
+            throw new PrestoException(INVALID_ARGUMENTS,
+                    "Failed to get table functions from endpoint.", e);
         }
 
-        return connectorTableFunctions.values().stream().map(this::createNativeConnectorTableFunction).collect(ImmutableList.toImmutableList());
+        return connectorTableFunctions.values().stream()
+                .map(this::createNativeConnectorTableFunction)
+                .collect(ImmutableList.toImmutableList());
     }
 
-    private synchronized NativeConnectorTableFunction createNativeConnectorTableFunction(JsonBasedTableFunctionMetadata connectorTableFunction)
+    /**
+     * Creates a native connector table function.
+     *
+     * @param connectorTableFunction the table function metadata
+     * @return the native connector table function
+     */
+    private synchronized NativeConnectorTableFunction
+            createNativeConnectorTableFunction(
+                    final JsonBasedTableFunctionMetadata
+                            connectorTableFunction)
     {
         return new NativeConnectorTableFunction(
                 httpClient,
@@ -169,20 +248,38 @@ public class NativeTVFProvider
                 connectorTableFunction.getReturnTypeSpecification());
     }
 
+    /**
+     * Deserializer for Type objects.
+     */
     private static final class TypeDeserializer
             extends FromStringDeserializer<Type>
     {
         private final TypeManager typeManager;
 
+        /**
+         * Constructs a type deserializer.
+         *
+         * @param typeManager the type manager
+         */
         @Inject
-        public TypeDeserializer(TypeManager typeManager)
+        public TypeDeserializer(final TypeManager typeManager)
         {
             super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager,
+                    "typeManager is null");
         }
 
+        /**
+         * Deserializes a type from string.
+         *
+         * @param value the string value
+         * @param context the deserialization context
+         * @return the deserialized type
+         */
         @Override
-        protected Type _deserialize(String value, DeserializationContext context)
+        protected Type _deserialize(
+                final String value,
+                final DeserializationContext context)
         {
             return typeManager.getType(parseTypeSignature(value));
         }

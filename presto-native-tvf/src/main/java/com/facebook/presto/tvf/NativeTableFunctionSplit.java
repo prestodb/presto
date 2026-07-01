@@ -28,47 +28,89 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class NativeTableFunctionSplit
+/**
+ * Native implementation of table function split.
+ */
+public final class NativeTableFunctionSplit
         implements ConnectorSplit
 {
     private final String serializedTableFunctionSplitHandle;
 
+    /**
+     * Constructs a native table function split.
+     *
+     * @param serializedTableFunctionSplitHandle the serialized split handle
+     */
     @JsonCreator
     public NativeTableFunctionSplit(
-            @JsonProperty("serializedTableFunctionSplitHandle") String serializedTableFunctionSplitHandle)
+            @JsonProperty("serializedTableFunctionSplitHandle")
+            final String serializedTableFunctionSplitHandle)
     {
-        this.serializedTableFunctionSplitHandle = requireNonNull(serializedTableFunctionSplitHandle, "serializedTableFunctionSplitHandle is null");
+        this.serializedTableFunctionSplitHandle = requireNonNull(
+                serializedTableFunctionSplitHandle,
+                "serializedTableFunctionSplitHandle is null");
     }
 
+    /**
+     * Gets the node selection strategy.
+     *
+     * @return the node selection strategy
+     */
     @Override
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
         return NodeSelectionStrategy.NO_PREFERENCE;
     }
 
+    /**
+     * Gets the preferred nodes.
+     *
+     * @param nodeProvider the node provider
+     * @return the list of preferred host addresses
+     */
     @Override
-    public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
+    public List<HostAddress> getPreferredNodes(
+            final NodeProvider nodeProvider)
     {
         return Collections.emptyList();
     }
 
+    /**
+     * Gets the split info.
+     *
+     * @return the split info
+     */
     @Override
     public Object getInfo()
     {
         return null;
     }
 
+    /**
+     * Gets the serialized table function split handle.
+     *
+     * @return the serialized split handle
+     */
     @JsonProperty
     public String getSerializedTableFunctionSplitHandle()
     {
         return serializedTableFunctionSplitHandle;
     }
 
-    public static class Resolver
+    /**
+     * Resolver for native table function splits.
+     */
+    public static final class Resolver
             implements TableFunctionSplitResolver
     {
+        /**
+         * Gets the table function split classes.
+         *
+         * @return the set of split classes
+         */
         @Override
-        public Set<Class<? extends ConnectorSplit>> getTableFunctionSplitClasses()
+        public Set<Class<? extends ConnectorSplit>>
+                getTableFunctionSplitClasses()
         {
             return ImmutableSet.of(NativeTableFunctionSplit.class);
         }

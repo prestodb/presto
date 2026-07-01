@@ -21,20 +21,38 @@ import com.google.inject.Scopes;
 
 import static java.util.Objects.requireNonNull;
 
-public class NativeTVFProviderModule
+/**
+ * Guice module for native TVF provider.
+ */
+public final class NativeTVFProviderModule
         implements Module
 {
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
 
-    public NativeTVFProviderModule(NodeManager nodeManager, TypeManager typeManager)
+    /**
+     * Constructs a native TVF provider module.
+     *
+     * @param nodeManager the node manager
+     * @param typeManager the type manager
+     */
+    public NativeTVFProviderModule(
+            final NodeManager nodeManager,
+            final TypeManager typeManager)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.nodeManager = requireNonNull(nodeManager,
+                "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager,
+                "typeManager is null");
     }
 
+    /**
+     * Configures the module bindings.
+     *
+     * @param binder the Guice binder
+     */
     @Override
-    public void configure(Binder binder)
+    public void configure(final Binder binder)
     {
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(TypeManager.class).toInstance(typeManager);

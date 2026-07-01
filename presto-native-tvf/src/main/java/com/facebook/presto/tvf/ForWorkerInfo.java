@@ -19,6 +19,9 @@ import java.lang.annotation.Retention;
 
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
+/**
+ * Annotation for worker info injection.
+ */
 @Retention(RUNTIME)
 @BindingAnnotation
 public @interface ForWorkerInfo

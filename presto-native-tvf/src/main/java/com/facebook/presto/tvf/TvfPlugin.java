@@ -17,9 +17,17 @@ import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.tvf.TVFProviderFactory;
 import com.google.common.collect.ImmutableList;
 
-public class TvfPlugin
+/**
+ * Plugin for native table-valued functions.
+ */
+public final class TvfPlugin
         implements CoordinatorPlugin
 {
+    /**
+     * Gets the TVF provider factories.
+     *
+     * @return the TVF provider factories
+     */
     @Override
     public Iterable<TVFProviderFactory> getTVFProviderFactories()
     {

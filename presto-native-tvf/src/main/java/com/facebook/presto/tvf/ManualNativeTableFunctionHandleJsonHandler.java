@@ -19,36 +19,67 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static java.util.Objects.requireNonNull;
 
-// todo: Hacky way to manually convert a NativeTableFunctionHandle JSON
-public class ManualNativeTableFunctionHandleJsonHandler
+/**
+ * Manual JSON handler for native table function handle.
+ * This is a temporary solution to manually convert a
+ * NativeTableFunctionHandle JSON.
+ */
+public final class ManualNativeTableFunctionHandleJsonHandler
 {
     private final String type;
     private final String serializedTableFunctionHandle;
     private final QualifiedObjectName functionName;
 
+    /**
+     * Constructs a manual native table function handle JSON handler.
+     *
+     * @param type the type
+     * @param serializedTableFunctionHandle the serialized handle
+     * @param functionName the function name
+     */
     @JsonCreator
     public ManualNativeTableFunctionHandleJsonHandler(
-            @JsonProperty("@type") String type,
-            @JsonProperty("serializedTableFunctionHandle") String serializedTableFunctionHandle,
-            @JsonProperty("functionName") QualifiedObjectName functionName)
+            @JsonProperty("@type") final String type,
+            @JsonProperty("serializedTableFunctionHandle")
+            final String serializedTableFunctionHandle,
+            @JsonProperty("functionName")
+            final QualifiedObjectName functionName)
     {
         this.type = requireNonNull(type, "type is null");
-        this.serializedTableFunctionHandle = requireNonNull(serializedTableFunctionHandle, "serializedTableFunctionHandle is null");
-        this.functionName = requireNonNull(functionName, "functionName is null");
+        this.serializedTableFunctionHandle = requireNonNull(
+                serializedTableFunctionHandle,
+                "serializedTableFunctionHandle is null");
+        this.functionName = requireNonNull(functionName,
+                "functionName is null");
     }
 
+    /**
+     * Gets the type.
+     *
+     * @return the type
+     */
     @JsonProperty("@type")
     public String getType()
     {
         return type;
     }
 
+    /**
+     * Gets the serialized table function handle.
+     *
+     * @return the serialized table function handle
+     */
     @JsonProperty
     public String getSerializedTableFunctionHandle()
     {
         return serializedTableFunctionHandle;
     }
 
+    /**
+     * Gets the function name.
+     *
+     * @return the function name
+     */
     @JsonProperty("functionName")
     public QualifiedObjectName getFunctionName()
     {

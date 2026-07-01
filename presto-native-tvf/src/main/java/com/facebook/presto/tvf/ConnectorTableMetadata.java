@@ -23,26 +23,49 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class ConnectorTableMetadata
+/**
+ * Metadata for connector table function.
+ */
+public final class ConnectorTableMetadata
 {
     private final QualifiedObjectName functionName;
     private final Map<String, Argument> arguments;
 
+    /**
+     * Constructs connector table metadata.
+     *
+     * @param functionName the function name
+     * @param arguments the arguments
+     */
     @JsonCreator
     public ConnectorTableMetadata(
-            @JsonProperty("functionName") QualifiedObjectName functionName,
-            @JsonProperty("arguments") Map<String, Argument> arguments)
+            @JsonProperty("functionName")
+            final QualifiedObjectName functionName,
+            @JsonProperty("arguments")
+            final Map<String, Argument> arguments)
     {
-        this.functionName = requireNonNull(functionName, "functionName is null");
-        this.arguments = ImmutableMap.copyOf(requireNonNull(arguments, "arguments is null"));
+        this.functionName = requireNonNull(functionName,
+                "functionName is null");
+        this.arguments = ImmutableMap.copyOf(
+                requireNonNull(arguments, "arguments is null"));
     }
 
+    /**
+     * Gets the function name.
+     *
+     * @return the function name
+     */
     @JsonProperty("functionName")
     public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
 
+    /**
+     * Gets the arguments.
+     *
+     * @return the arguments map
+     */
     @JsonProperty
     public Map<String, Argument> getArguments()
     {
