@@ -61,6 +61,7 @@ public class PrestoSparkConfig
     private DataSize averageInputDataSizePerExecutor = new DataSize(10, GIGABYTE);
     private int maxExecutorCount = 600;
     private int minExecutorCount = 200;
+    private int maxTaskInfosInQueryCompletedEvent = 100000;
     private DataSize averageInputDataSizePerPartition = new DataSize(2, GIGABYTE);
     private int maxHashPartitionCount = 4096;
     private int minHashPartitionCount = 1024;
@@ -350,6 +351,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMinExecutorCount(int minExecutorCount)
     {
         this.minExecutorCount = minExecutorCount;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxTaskInfosInQueryCompletedEvent()
+    {
+        return maxTaskInfosInQueryCompletedEvent;
+    }
+
+    @Config("spark.max-task-infos-in-query-completed-event")
+    @ConfigDescription("Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts")
+    public PrestoSparkConfig setMaxTaskInfosInQueryCompletedEvent(int maxTaskInfosInQueryCompletedEvent)
+    {
+        this.maxTaskInfosInQueryCompletedEvent = maxTaskInfosInQueryCompletedEvent;
         return this;
     }
 
