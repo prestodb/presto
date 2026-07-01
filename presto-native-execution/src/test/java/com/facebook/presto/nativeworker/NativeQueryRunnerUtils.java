@@ -200,7 +200,6 @@ public class NativeQueryRunnerUtils
             String commitDate = castDateToVarchar ? "cast(commitdate as varchar) as commitdate" : "commitdate";
             String receiptDate = castDateToVarchar ? "cast(receiptdate as varchar) as receiptdate" : "receiptdate";
 
-            queryRunner.execute("DROP TABLE IF EXISTS lineitem");
             queryRunner.execute(session, "CREATE TABLE lineitem AS " +
                     "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
                     "   returnflag, linestatus, " + shipDate + ", " + commitDate + ", " + receiptDate + ", " +

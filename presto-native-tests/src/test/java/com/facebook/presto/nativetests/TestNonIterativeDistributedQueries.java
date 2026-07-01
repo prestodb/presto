@@ -32,7 +32,6 @@ public class TestNonIterativeDistributedQueries
         extends AbstractTestQueriesNative
 {
     private String storageFormat;
-    private boolean sidecarEnabled;
 
     @BeforeClass
     @Override

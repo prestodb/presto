@@ -32,7 +32,6 @@ public class TestTpchDistributedQueries
         extends AbstractTestQueriesNative
 {
     private String storageFormat;
-    private boolean sidecarEnabled;
 
     @BeforeClass
     @Override
