@@ -2795,6 +2795,40 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testExecutingDeletionAfterExpireSnapshots()
+    {
+        String schema = getSession().getSchema().get();
+        String tableName = "test_delete_after_expire_snapshots";
+        try {
+            assertUpdate(format("create table %s (a int, b varchar)", tableName));
+            assertUpdate(format("insert into %s values(1, '1001'), (1, '1002')", tableName), 2);
+            Table table = loadTable(tableName);
+            long snapshotId1 = table.currentSnapshot().snapshotId();
+
+            table.updateProperties()
+                    .set("gc.enabled", "true")
+                    .commit();
+
+            assertUpdate(format("insert into %s values(2, '1003'), (2, '1004')", tableName), 2);
+            table = loadTable(tableName);
+            long snapshotId2 = table.currentSnapshot().snapshotId();
+
+            assertQuery(format("select snapshot_id from \"%s$snapshots\"", tableName), "values " + snapshotId1 + ", " + snapshotId2);
+
+            // Expire previous snapshot to retain only the newest one
+            assertUpdate(format("call system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => %s)", schema, tableName, "ARRAY[" + snapshotId1 + "]"));
+            assertQuery(format("select snapshot_id from \"%s$snapshots\"", tableName), "values " + snapshotId2);
+
+            // After this, the delete operation should execute successfully
+            assertUpdate(format("delete from %s where a > 1 and b < '1004'", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (1, '1002'), (2, '1004')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
+        }
+    }
+
     private void testPathHiddenColumn()
     {
         assertEquals(computeActual("SELECT \"$path\", * FROM test_hidden_columns").getRowCount(), 2);

@@ -1569,7 +1569,7 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-
+        handle.getIcebergTableName().getSnapshotId().map(rowDelta::validateFromSnapshot);
         Optional<String> branchName = handle.getIcebergTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
