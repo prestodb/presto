@@ -115,6 +115,7 @@ public final class SystemSessionProperties
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String PARTITION_AWARE_GROUPED_EXECUTION = "partition_aware_grouped_execution";
+    public static final String GROUPED_EXECUTION_WHEN_CAPABLE = "grouped_execution_when_capable";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -573,6 +574,11 @@ public final class SystemSessionProperties
                         PARTITION_AWARE_GROUPED_EXECUTION,
                         "When enabled, schedules each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory usage for bucketed + partitioned tables",
                         featuresConfig.isPartitionAwareGroupedExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        GROUPED_EXECUTION_WHEN_CAPABLE,
+                        "When enabled (with grouped_execution), run grouped execution for any grouped-execution-capable bucketed fragment even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle, or a bucketed table write)",
+                        featuresConfig.isGroupedExecutionWhenCapableEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -2553,6 +2559,11 @@ public final class SystemSessionProperties
     public static boolean isPartitionAwareGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(PARTITION_AWARE_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isGroupedExecutionWhenCapableEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_WHEN_CAPABLE, Boolean.class);
     }
 
     public static double getMaxFailedTaskPercentage(Session session)

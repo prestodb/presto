@@ -1729,6 +1729,26 @@ grouped execution automatically.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`partition_aware_grouped_execution\`\``.
 
+``grouped-execution-when-capable-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped-execution-enabled``, runs grouped execution for *any*
+grouped-execution-capable (bucketed) fragment, even when no downstream operator makes grouping
+individually beneficial. Normally grouped execution engages only when an operator such as a
+colocated join or a final aggregation on the bucket key makes it worthwhile; with this property a
+bucketed scan that merely feeds a shuffle (for example a join or aggregation on a non-bucket key),
+or a bucketed-to-bucketed table write, also runs one bucket per lifespan. This avoids re-partitioning
+data that is already bucketed and bounds per-lifespan memory to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so this is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is therefore disabled by default.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`grouped_execution_when_capable\`\``.
+
 Cluster Overload Properties
 ---------------------------
 

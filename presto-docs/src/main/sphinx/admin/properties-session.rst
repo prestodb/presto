@@ -1167,6 +1167,26 @@ columns in join conditions), the query falls back to standard grouped execution 
 
 The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
 
+``grouped_execution_when_capable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, runs grouped execution for any grouped-execution-capable
+(bucketed) fragment even when no downstream operator makes grouping individually beneficial. Normally
+grouped execution engages only when an operator such as a colocated join or a final aggregation on the
+bucket key makes it worthwhile; with this property a bucketed scan that merely feeds a shuffle (for
+example a join or aggregation on a non-bucket key), or a bucketed-to-bucketed table write, also runs one
+bucket per lifespan -- avoiding a re-partition of already-bucketed data and bounding per-lifespan memory
+to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so it is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is disabled by default.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
+
 Geometry Properties
 -------------------
 

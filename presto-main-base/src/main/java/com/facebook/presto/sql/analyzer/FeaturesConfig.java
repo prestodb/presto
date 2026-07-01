@@ -91,6 +91,7 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private boolean partitionAwareGroupedExecutionEnabled;
+    private boolean groupedExecutionWhenCapableEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -708,6 +709,19 @@ public class FeaturesConfig
     public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
     {
         this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionWhenCapableEnabled()
+    {
+        return groupedExecutionWhenCapableEnabled;
+    }
+
+    @Config("grouped-execution-when-capable-enabled")
+    @ConfigDescription("Use grouped execution for any grouped-execution-capable (bucketed) fragment, even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle or a bucketed table write)")
+    public FeaturesConfig setGroupedExecutionWhenCapableEnabled(boolean groupedExecutionWhenCapableEnabled)
+    {
+        this.groupedExecutionWhenCapableEnabled = groupedExecutionWhenCapableEnabled;
         return this;
     }
 
