@@ -54,6 +54,9 @@ public class TestOpenLineageColumnLineage
 {
     private static final QualifiedObjectName ORDERS = QualifiedObjectName.valueOf("hive.tpch.orders");
     private static final QualifiedObjectName CUSTOMER = QualifiedObjectName.valueOf("hive.tpch.customer");
+    private static final String EXPECTED_NAMESPACE = "presto://testhost";
+    private static final String ORDERS_DATASET = "hive.tpch.orders";
+    private static final String CUSTOMER_DATASET = "hive.tpch.customer";
 
     @Test
     public void testColumnLineageEmitsDirectAndIndirectSources()
@@ -98,6 +101,8 @@ public class TestOpenLineageColumnLineage
 
         OpenLineage.InputField filter = byField.get("orderstatus");
         assertThat(filter).isNotNull();
+        assertThat(filter.getNamespace()).isEqualTo(EXPECTED_NAMESPACE);
+        assertThat(filter.getName()).isEqualTo(ORDERS_DATASET);
         assertThat(filter.getTransformations()).hasSize(1);
         assertThat(filter.getTransformations().get(0).getType()).isEqualTo("INDIRECT");
         assertThat(filter.getTransformations().get(0).getSubtype()).isEqualTo("FILTER");
@@ -107,13 +112,18 @@ public class TestOpenLineageColumnLineage
 
         OpenLineage.InputField join = byField.get("custkey");
         assertThat(join).isNotNull();
+        assertThat(join.getNamespace()).isEqualTo(EXPECTED_NAMESPACE);
+        assertThat(join.getName()).isEqualTo(CUSTOMER_DATASET);
         assertThat(join.getTransformations()).hasSize(1);
         assertThat(join.getTransformations().get(0).getType()).isEqualTo("INDIRECT");
         assertThat(join.getTransformations().get(0).getSubtype()).isEqualTo("JOIN");
 
         OpenLineage.InputField groupBy = byField.get("nationkey");
         assertThat(groupBy).isNotNull();
+        assertThat(groupBy.getNamespace()).isEqualTo(EXPECTED_NAMESPACE);
+        assertThat(groupBy.getName()).isEqualTo(CUSTOMER_DATASET);
         assertThat(groupBy.getTransformations()).hasSize(1);
+        assertThat(groupBy.getTransformations().get(0).getType()).isEqualTo("INDIRECT");
         assertThat(groupBy.getTransformations().get(0).getSubtype()).isEqualTo("GROUP_BY");
     }
 
@@ -137,8 +147,10 @@ public class TestOpenLineageColumnLineage
         assertThat(inputFields).hasSize(1);
         OpenLineage.InputField input = inputFields.get(0);
         assertThat(input.getField()).isEqualTo("name");
-        assertThat(input.getTransformations()).hasSize(1);
-        assertThat(input.getTransformations().get(0).getSubtype()).isEqualTo("JOIN");
+        assertThat(input.getTransformations()).hasSize(2);
+        assertThat(input.getTransformations())
+                .extracting(transformation -> transformation.getSubtype())
+                .containsExactlyInAnyOrder("IDENTITY", "JOIN");
     }
 
     @Test
@@ -159,7 +171,7 @@ public class TestOpenLineageColumnLineage
     }
 
     @Test
-    public void testDirectIdentityEmitsNoTransformations()
+    public void testDirectIdentityEmitsIdentityTransformation()
     {
         OutputColumnMetadata column = OutputColumnMetadata.fromColumnLineage(
                 "order_id",
@@ -176,7 +188,11 @@ public class TestOpenLineageColumnLineage
         List<OpenLineage.InputField> inputFields = perOutput.getInputFields();
         assertThat(inputFields).hasSize(1);
         assertThat(inputFields.get(0).getField()).isEqualTo("orderkey");
-        assertThat(inputFields.get(0).getTransformations()).isNullOrEmpty();
+        assertThat(inputFields.get(0).getTransformations()).hasSize(1);
+        assertThat(inputFields.get(0).getTransformations().get(0).getType()).isEqualTo("DIRECT");
+        assertThat(inputFields.get(0).getTransformations().get(0).getSubtype()).isEqualTo("IDENTITY");
+        assertThat(inputFields.get(0).getTransformations().get(0).getDescription())
+                .isEqualTo("Direct projection of the source column");
     }
 
     @Test

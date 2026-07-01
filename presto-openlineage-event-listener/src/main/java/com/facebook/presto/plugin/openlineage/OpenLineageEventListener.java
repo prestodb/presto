@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.ColumnLineageEntry;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.TransformationSubtype;
-import com.facebook.presto.common.TransformationType;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.OutputColumnMetadata;
@@ -389,10 +388,6 @@ public class OpenLineageEventListener
             InputFieldKey key = inputKeyFor(entry.getTableName(), entry.getColumnName());
             ImmutableList.Builder<InputFieldTransformations> transformations =
                     perInput.computeIfAbsent(key, k -> ImmutableList.builder());
-            if (entry.getTransformationType() == TransformationType.DIRECT
-                    && entry.getTransformationSubtype() == TransformationSubtype.IDENTITY) {
-                continue;
-            }
             transformations.add(openLineage.newInputFieldTransformationsBuilder()
                     .type(entry.getTransformationType().name())
                     .subtype(entry.getTransformationSubtype().name())
