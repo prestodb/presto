@@ -1167,6 +1167,23 @@ columns in join conditions), the query falls back to standard grouped execution 
 
 The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
 
+``grouped_execution_for_partial_aggregation``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, allows grouped execution to engage for a bucketed-table
+scan fragment whose only grouped-eligible operator is a **partial** aggregation, even when the
+``GROUP BY`` keys do not match the table bucketing. A partial aggregation is safe to run per bucket
+because its partial results are merged by the final aggregation after the repartitioning exchange; so
+the fragment can run one bucket-lifespan at a time (up to that exchange), bounding the partial
+aggregation's hash table to a single bucket at a time and avoiding a large cross-bucket hash table or
+spill. This is beneficial for high-cardinality ``GROUP BY`` aggregations over large bucketed tables,
+where the partial aggregation reduces little and would otherwise build a very large hash table.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-for-partial-aggregation-enabled\`\``.
+
 Geometry Properties
 -------------------
 

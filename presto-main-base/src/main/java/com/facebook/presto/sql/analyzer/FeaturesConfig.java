@@ -91,6 +91,7 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private boolean partitionAwareGroupedExecutionEnabled;
+    private boolean groupedExecutionForPartialAggregationEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -708,6 +709,19 @@ public class FeaturesConfig
     public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
     {
         this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionForPartialAggregationEnabled()
+    {
+        return groupedExecutionForPartialAggregationEnabled;
+    }
+
+    @Config("grouped-execution-for-partial-aggregation-enabled")
+    @ConfigDescription("Enable grouped execution for a bucketed-scan fragment whose grouped-eligible operator is a partial aggregation, even when the GROUP BY keys do not match the table bucketing")
+    public FeaturesConfig setGroupedExecutionForPartialAggregationEnabled(boolean groupedExecutionForPartialAggregationEnabled)
+    {
+        this.groupedExecutionForPartialAggregationEnabled = groupedExecutionForPartialAggregationEnabled;
         return this;
     }
 

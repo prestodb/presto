@@ -1729,6 +1729,21 @@ grouped execution automatically.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`partition_aware_grouped_execution\`\``.
 
+``grouped-execution-for-partial-aggregation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped-execution-enabled``, allows grouped execution to engage for a
+bucketed-table scan fragment whose only grouped-eligible operator is a partial aggregation, even when
+the ``GROUP BY`` keys do not match the table bucketing. Partial results are merged by the final
+aggregation after the repartitioning exchange, so the fragment can run one bucket-lifespan at a time,
+bounding the partial aggregation's hash table to a single bucket and avoiding a large cross-bucket
+hash table or spill.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`grouped_execution_for_partial_aggregation\`\``.
+
 Cluster Overload Properties
 ---------------------------
 

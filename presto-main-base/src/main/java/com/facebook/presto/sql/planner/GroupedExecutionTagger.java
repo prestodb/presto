@@ -57,6 +57,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForPartialAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPartitionAwareGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferSortMergeJoin;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PLAN_ERROR;
@@ -77,6 +78,7 @@ class GroupedExecutionTagger
     private final NodePartitioningManager nodePartitioningManager;
     private final boolean groupedExecutionEnabled;
     private final boolean partitionAwareEnabled;
+    private final boolean groupedExecutionForPartialAggregationEnabled;
     private final boolean isPrestoOnSpark;
 
     public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager, boolean groupedExecutionEnabled, boolean isPrestoOnSpark)
@@ -86,6 +88,7 @@ class GroupedExecutionTagger
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.groupedExecutionEnabled = groupedExecutionEnabled;
         this.partitionAwareEnabled = isPartitionAwareGroupedExecutionEnabled(session);
+        this.groupedExecutionForPartialAggregationEnabled = isGroupedExecutionForPartialAggregationEnabled(session);
         this.isPrestoOnSpark = isPrestoOnSpark;
     }
 
@@ -276,6 +279,20 @@ class GroupedExecutionTagger
                     return filterPartitionColumnsByVars(properties, new HashSet<>(node.getGroupingKeys()));
                 case PARTIAL:
                 case INTERMEDIATE:
+                    // A partial/intermediate aggregation is per-bucket-safe: its partial states are merged by the
+                    // final aggregation after the repartitioning exchange, so the GROUP BY keys need not match the
+                    // table bucketing. Marking the subtree useful lets the leaf fragment run grouped, bounding the
+                    // partial-aggregation hash table to one bucket-group at a time (up to the output exchange).
+                    if (groupedExecutionForPartialAggregationEnabled && !properties.isSubTreeUseful()) {
+                        return new GroupedExecutionTagger.GroupedExecutionProperties(
+                                true,
+                                true,
+                                properties.getCapableTableScanNodes(),
+                                properties.getTotalLifespans(),
+                                properties.isRecoveryEligible(),
+                                properties.getPartitionColumns(),
+                                properties.getPartitionColumnUnionFind());
+                    }
                     return properties;
             }
         }
