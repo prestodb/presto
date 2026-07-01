@@ -66,6 +66,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -201,6 +202,25 @@ public class TestRowExpressionSerde
     public void testUnserializableType()
     {
         assertThrowsWhenSerialize("CAST('$.a' AS JsonPath)", true);
+    }
+
+    @Test
+    public void testDeeplyNestedExpressionSerialization()
+    {
+        // Guards against a regression where serializing a deeply nested RowExpression tree failed
+        // once Jackson enforced a default StreamWriteConstraints nesting cap of 1000. Additive
+        // chains such as the ones LightGBM calibrators emit (add(add(A, B), C), ...) plan into
+        // add(add(A, B), C) -> CallExpression["arguments"] -> CallExpression["arguments"] -> ...,
+        // so the nesting depth grows with the number of terms; wide models push plan serialization
+        // (e.g. HBO plan canonicalization in CanonicalPlanGenerator) past the cap.
+        FunctionHandle addHandle = operator(ADD, BIGINT, BIGINT);
+        RowExpression expression = constant(0L, BIGINT);
+        // Each add(...) contributes an object plus its "arguments" array (~2 nesting levels), so
+        // 600 terms nests ~1200 levels deep -- comfortably past the default cap of 1000.
+        for (int i = 0; i < 600; i++) {
+            expression = call(ADD.name(), addHandle, BIGINT, expression, constant(1L, BIGINT));
+        }
+        assertTrue(codec.toJson(expression).length() > 0);
     }
 
     private void assertThrowsWhenSerialize(@Language("SQL") String sql, boolean optimize)
