@@ -624,7 +624,7 @@ public class TestDynamicTableFunctions
                         "COPARTITION (t2, t4, t3)))");
     }
 
-    private  Path getLocalPluginDirectory()
+    private Path getLocalPluginDirectory()
     {
         Path prestoRoot = findPrestoRoot();
         List<Path> candidates = debugBuild ? ImmutableList.of(

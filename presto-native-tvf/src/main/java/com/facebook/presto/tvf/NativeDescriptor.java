@@ -25,26 +25,46 @@ import static com.facebook.presto.spi.function.table.Preconditions.checkArgument
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-public class NativeDescriptor
+/**
+ * Native descriptor for table function return type.
+ */
+public final class NativeDescriptor
 {
     private final List<NativeField> fields;
 
+    /**
+     * Constructs a native descriptor.
+     *
+     * @param fields the list of fields
+     */
     @JsonCreator
-    public NativeDescriptor(@JsonProperty("fields") List<NativeField> fields)
+    public NativeDescriptor(
+            @JsonProperty("fields") final List<NativeField> fields)
     {
         requireNonNull(fields, "fields is null");
         checkArgument(!fields.isEmpty(), "descriptor has no fields");
         this.fields = unmodifiableList(fields);
     }
 
+    /**
+     * Gets the fields.
+     *
+     * @return the list of fields
+     */
     @JsonProperty
     public List<NativeField> getFields()
     {
         return fields;
     }
 
+    /**
+     * Checks equality.
+     *
+     * @param o the object to compare
+     * @return true if equal
+     */
     @Override
-    public boolean equals(Object o)
+    public boolean equals(final Object o)
     {
         if (this == o) {
             return true;
@@ -56,41 +76,72 @@ public class NativeDescriptor
         return fields.equals(that.fields);
     }
 
+    /**
+     * Computes hash code.
+     *
+     * @return the hash code
+     */
     @Override
     public int hashCode()
     {
         return Objects.hash(fields);
     }
 
-    public static class NativeField
+    /**
+     * Represents a field in the native descriptor.
+     */
+    public static final class NativeField
     {
         private final Optional<String> name;
         private final Optional<TypeSignature> typeSignature;
 
+        /**
+         * Constructs a native field.
+         *
+         * @param name the field name (can be empty for anonymous fields)
+         * @param typeSignature the type signature
+         */
         @JsonCreator
         public NativeField(
-                @JsonProperty("name") Optional<String> name,
-                @JsonProperty("typeSignature") Optional<TypeSignature> typeSignature)
+                @JsonProperty("name") final Optional<String> name,
+                @JsonProperty("typeSignature")
+                final Optional<TypeSignature> typeSignature)
         {
-            // Name can be "" if the field is anonymous.
             this.name = requireNonNull(name, "name is null");
-            this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
+            this.typeSignature = requireNonNull(typeSignature,
+                    "typeSignature is null");
         }
 
+        /**
+         * Gets the field name.
+         *
+         * @return the field name
+         */
         @JsonProperty
         public Optional<String> getName()
         {
             return name;
         }
 
+        /**
+         * Gets the type signature.
+         *
+         * @return the type signature
+         */
         @JsonProperty
         public Optional<TypeSignature> getTypeSignature()
         {
             return typeSignature;
         }
 
+        /**
+         * Checks equality.
+         *
+         * @param o the object to compare
+         * @return true if equal
+         */
         @Override
-        public boolean equals(Object o)
+        public boolean equals(final Object o)
         {
             if (this == o) {
                 return true;
@@ -99,9 +150,15 @@ public class NativeDescriptor
                 return false;
             }
             NativeField field = (NativeField) o;
-            return name.equals(field.name) && typeSignature.equals(field.typeSignature);
+            return name.equals(field.name)
+                    && typeSignature.equals(field.typeSignature);
         }
 
+        /**
+         * Computes hash code.
+         *
+         * @return the hash code
+         */
         @Override
         public int hashCode()
         {

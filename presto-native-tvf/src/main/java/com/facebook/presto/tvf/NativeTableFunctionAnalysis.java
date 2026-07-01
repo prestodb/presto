@@ -28,71 +28,119 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class NativeTableFunctionAnalysis
+/**
+ * Native implementation of table function analysis.
+ */
+public final class NativeTableFunctionAnalysis
 {
-    // a map from table argument name to list of column indexes for all columns required from the table argument
     private final Map<String, List<Integer>> requiredColumns;
-
     private final Optional<NativeDescriptor> returnedType;
     private final NativeTableFunctionHandle handle;
 
+    /**
+     * Constructs a native table function analysis.
+     *
+     * @param returnedType the returned type descriptor
+     * @param requiredColumns map from table argument name to list of
+     *                        column indexes for required columns
+     * @param handle the native table function handle
+     */
     @JsonCreator
     public NativeTableFunctionAnalysis(
-            @JsonProperty("returnedType") Optional<NativeDescriptor> returnedType,
-            @JsonProperty("requiredColumns") Map<String, List<Integer>> requiredColumns,
-            @JsonProperty("handle") NativeTableFunctionHandle handle)
+            @JsonProperty("returnedType")
+            final Optional<NativeDescriptor> returnedType,
+            @JsonProperty("requiredColumns")
+            final Map<String, List<Integer>> requiredColumns,
+            @JsonProperty("handle")
+            final NativeTableFunctionHandle handle)
     {
-        this.returnedType = requireNonNull(returnedType, "returnedType is null");
+        this.returnedType = requireNonNull(returnedType,
+                "returnedType is null");
         this.requiredColumns = Collections.unmodifiableMap(
                 requiredColumns.entrySet().stream()
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey,
-                                entry -> Collections.unmodifiableList(entry.getValue()))));
+                                entry -> Collections.unmodifiableList(
+                                        entry.getValue()))));
         this.handle = requireNonNull(handle, "handle is null");
     }
 
+    /**
+     * Gets the returned type.
+     *
+     * @return the returned type descriptor
+     */
     @JsonProperty
     public Optional<NativeDescriptor> getReturnedType()
     {
         return returnedType;
     }
 
+    /**
+     * Gets the required columns.
+     *
+     * @return map from table argument name to list of required column indexes
+     */
     @JsonProperty
     public Map<String, List<Integer>> getRequiredColumns()
     {
         return requiredColumns;
     }
 
+    /**
+     * Gets the handle.
+     *
+     * @return the native table function handle
+     */
     @JsonProperty
     public NativeTableFunctionHandle getHandle()
     {
         return handle;
     }
 
-    public TableFunctionAnalysis toTableFunctionAnalysis(TypeManager typeManager)
+    /**
+     * Converts to table function analysis.
+     *
+     * @param typeManager the type manager
+     * @return the table function analysis
+     */
+    public TableFunctionAnalysis toTableFunctionAnalysis(
+            final TypeManager typeManager)
     {
         Descriptor descriptor = null;
         if (returnedType.isPresent()) {
             descriptor = new Descriptor(
-                    convertToDescriptorFields(returnedType.get().getFields(), typeManager));
+                    convertToDescriptorFields(
+                            returnedType.get().getFields(),
+                            typeManager));
         }
-        TableFunctionAnalysis.Builder builder = TableFunctionAnalysis.builder();
+        TableFunctionAnalysis.Builder builder =
+                TableFunctionAnalysis.builder();
         builder.returnedType(descriptor);
-        for (Map.Entry<String, List<Integer>> entry : requiredColumns.entrySet()) {
+        for (Map.Entry<String, List<Integer>> entry
+                : requiredColumns.entrySet()) {
             builder.requiredColumns(entry.getKey(), entry.getValue());
         }
         builder.handle(handle);
         return builder.build();
     }
 
-    private static List<Descriptor.Field> convertToDescriptorFields(List<NativeDescriptor.NativeField> nativeFields, TypeManager typeManager)
+    /**
+     * Converts native fields to descriptor fields.
+     *
+     * @param nativeFields the native fields
+     * @param typeManager the type manager
+     * @return the list of descriptor fields
+     */
+    private static List<Descriptor.Field> convertToDescriptorFields(
+            final List<NativeDescriptor.NativeField> nativeFields,
+            final TypeManager typeManager)
     {
         return nativeFields.stream()
                 .map(field -> new Descriptor.Field(
-                        // Return fields can be anonymous which are "".
-                        // If so return Optional.empty().
                         field.getName().filter(name -> !name.isEmpty()),
-                        Optional.ofNullable(typeManager.getType(field.getTypeSignature().orElse(null)))))
+                        Optional.ofNullable(typeManager.getType(
+                                field.getTypeSignature().orElse(null)))))
                 .collect(toImmutableList());
     }
 }

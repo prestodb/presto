@@ -15,17 +15,36 @@ package com.facebook.presto.tvf;
 
 import com.facebook.airlift.http.client.HttpClient;
 
-public class HttpClientHolder
+/**
+ * Holder for HTTP client instance.
+ */
+public final class HttpClientHolder
 {
     private static HttpClient httpClient;
 
-    private HttpClientHolder() {}
+    /**
+     * Private constructor to prevent instantiation.
+     */
+    private HttpClientHolder()
+    {
+    }
 
-    public static void setHttpClient(@ForWorkerInfo HttpClient httpClient)
+    /**
+     * Sets the HTTP client.
+     *
+     * @param httpClient the HTTP client
+     */
+    public static void setHttpClient(
+            @ForWorkerInfo final HttpClient httpClient)
     {
         HttpClientHolder.httpClient = httpClient;
     }
 
+    /**
+     * Gets the HTTP client.
+     *
+     * @return the HTTP client
+     */
     public static HttpClient getHttpClient()
     {
         return httpClient;

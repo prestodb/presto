@@ -49,37 +49,73 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public class NativeTableFunctionHandle
+/**
+ * Native implementation of table function handle.
+ */
+public final class NativeTableFunctionHandle
         implements ConnectorTableFunctionHandle
 {
     private static final String TVF_SPLITS_ENDPOINT = "/v1/tvf/splits";
+    private static final int HTTP_OK = 200;
 
     private final QualifiedObjectName functionName;
     private final String serializedTableFunctionHandle;
 
+    /**
+     * Constructs a native table function handle.
+     *
+     * @param serializedTableFunctionHandle the serialized handle
+     * @param functionName the function name
+     */
     @JsonCreator
     public NativeTableFunctionHandle(
-            @JsonProperty("serializedTableFunctionHandle") String serializedTableFunctionHandle,
-            @JsonProperty("functionName") QualifiedObjectName functionName)
+            @JsonProperty("serializedTableFunctionHandle")
+            final String serializedTableFunctionHandle,
+            @JsonProperty("functionName")
+            final QualifiedObjectName functionName)
     {
-        this.serializedTableFunctionHandle = requireNonNull(serializedTableFunctionHandle, "serializedTableFunctionHandle is null");
-        this.functionName = requireNonNull(functionName, "functionName is null");
+        this.serializedTableFunctionHandle = requireNonNull(
+                serializedTableFunctionHandle,
+                "serializedTableFunctionHandle is null");
+        this.functionName = requireNonNull(functionName,
+                "functionName is null");
     }
 
+    /**
+     * Gets the serialized table function handle.
+     *
+     * @return the serialized table function handle
+     */
     @JsonProperty
     public String getSerializedTableFunctionHandle()
     {
         return serializedTableFunctionHandle;
     }
 
+    /**
+     * Gets the function name.
+     *
+     * @return the function name
+     */
     @JsonProperty("functionName")
     public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
 
+    /**
+     * Gets the splits.
+     *
+     * @param transaction the connector transaction handle
+     * @param session the connector session
+     * @param nodeManager the node manager
+     * @return the connector split source
+     */
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, NodeManager nodeManager)
+    public ConnectorSplitSource getSplits(
+            final ConnectorTransactionHandle transaction,
+            final ConnectorSession session,
+            final NodeManager nodeManager)
     {
         return new FixedSplitSource(
                 getHttpClient().execute(
@@ -87,53 +123,105 @@ public class NativeTableFunctionHandle
                         new SplitResponseHandler()));
     }
 
-    private static Request prepareSplitsPostRequest(NodeManager nodeManager, NativeTableFunctionHandle nativeTableFunctionHandle)
+    /**
+     * Prepares the splits POST request.
+     *
+     * @param nodeManager the node manager
+     * @param nativeTableFunctionHandle the native table function handle
+     * @return the request
+     */
+    private static Request prepareSplitsPostRequest(
+            final NodeManager nodeManager,
+            final NativeTableFunctionHandle nativeTableFunctionHandle)
     {
+        String handleType = NativeTVFProviderFactory.NAME + ":"
+                + NativeTableFunctionHandle.class.getName();
         return preparePost()
-                .setUri(getWorkerLocation(nodeManager, TVF_SPLITS_ENDPOINT))
+                .setUri(getWorkerLocation(nodeManager,
+                        TVF_SPLITS_ENDPOINT))
                 .setBodyGenerator(jsonBodyGenerator(
-                        JsonCodec.jsonCodec(ManualNativeTableFunctionHandleJsonHandler.class),
+                        JsonCodec.jsonCodec(
+                                ManualNativeTableFunctionHandleJsonHandler
+                                        .class),
                         new ManualNativeTableFunctionHandleJsonHandler(
-                                // The handle resolver for TVF providers is always the factory name suffixed by a colon.
-                                NativeTVFProviderFactory.NAME + ":" + NativeTableFunctionHandle.class.getName(),
-                                nativeTableFunctionHandle.serializedTableFunctionHandle,
+                                handleType,
+                                nativeTableFunctionHandle
+                                        .serializedTableFunctionHandle,
                                 nativeTableFunctionHandle.functionName)))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .build();
     }
 
-    public static class Resolver
+    /**
+     * Resolver for native table function handles.
+     */
+    public static final class Resolver
             implements TableFunctionHandleResolver
     {
+        /**
+         * Gets the table function handle classes.
+         *
+         * @return the set of handle classes
+         */
         @Override
-        public Set<Class<? extends ConnectorTableFunctionHandle>> getTableFunctionHandleClasses()
+        public Set<Class<? extends ConnectorTableFunctionHandle>>
+                getTableFunctionHandleClasses()
         {
             return ImmutableSet.of(NativeTableFunctionHandle.class);
         }
     }
 
-    private static class SplitResponseHandler
-            implements ResponseHandler<List<NativeTableFunctionSplit>, RuntimeException>
+    /**
+     * Response handler for split requests.
+     */
+    private static final class SplitResponseHandler
+            implements ResponseHandler<List<NativeTableFunctionSplit>,
+            RuntimeException>
     {
-        private final JsonCodec<List<NativeTableFunctionSplit>> codec = listJsonCodec(NativeTableFunctionSplit.class);
+        private final JsonCodec<List<NativeTableFunctionSplit>> codec =
+                listJsonCodec(NativeTableFunctionSplit.class);
 
+        /**
+         * Handles exceptions.
+         *
+         * @param request the request
+         * @param exception the exception
+         * @return the list of splits
+         */
         @Override
-        public List<NativeTableFunctionSplit> handleException(Request request, Exception exception)
+        public List<NativeTableFunctionSplit> handleException(
+                final Request request,
+                final Exception exception)
         {
-            throw new PrestoException(INVALID_ARGUMENTS, "Failed to get splits: " + exception.getMessage(), exception);
+            throw new PrestoException(INVALID_ARGUMENTS,
+                    "Failed to get splits: " + exception.getMessage(),
+                    exception);
         }
 
+        /**
+         * Handles the response.
+         *
+         * @param request the request
+         * @param response the response
+         * @return the list of splits
+         */
         @Override
-        public List<NativeTableFunctionSplit> handle(Request request, Response response)
+        public List<NativeTableFunctionSplit> handle(
+                final Request request,
+                final Response response)
         {
             try {
-                String body = CharStreams.toString(new InputStreamReader(response.getInputStream(), UTF_8));
+                String body = CharStreams.toString(
+                        new InputStreamReader(
+                                response.getInputStream(),
+                                UTF_8));
 
-                if (response.getStatusCode() != 200) {
-                    // Extract just the "Reason:" line from Velox exception message
-                    String errorMessage = extractReasonFromVeloxError(body);
-                    throw new PrestoException(INVALID_ARGUMENTS, errorMessage);
+                if (response.getStatusCode() != HTTP_OK) {
+                    String errorMessage =
+                            extractReasonFromVeloxError(body);
+                    throw new PrestoException(INVALID_ARGUMENTS,
+                            errorMessage);
                 }
                 return codec.fromJson(body);
             }
@@ -141,10 +229,14 @@ public class NativeTableFunctionHandle
                 throw e;
             }
             catch (IOException e) {
-                throw new PrestoException(INVALID_ARGUMENTS, "Failed to read response: " + e.getMessage(), e);
+                throw new PrestoException(INVALID_ARGUMENTS,
+                        "Failed to read response: " + e.getMessage(),
+                        e);
             }
             catch (Exception e) {
-                throw new PrestoException(INVALID_ARGUMENTS, "Failed to parse response: " + e.getMessage(), e);
+                throw new PrestoException(INVALID_ARGUMENTS,
+                        "Failed to parse response: " + e.getMessage(),
+                        e);
             }
         }
     }

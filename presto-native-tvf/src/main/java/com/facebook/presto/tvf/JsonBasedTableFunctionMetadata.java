@@ -25,35 +25,69 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonBasedTableFunctionMetadata
+/**
+ * JSON-based metadata for table functions.
+ */
+public final class JsonBasedTableFunctionMetadata
 {
     private final List<ArgumentSpecification> arguments;
     private final ReturnTypeSpecification returnTypeSpecification;
     private final QualifiedObjectName functionName;
 
+    /**
+     * Constructs JSON-based table function metadata.
+     *
+     * @param functionName the function name
+     * @param arguments the argument specifications
+     * @param returnTypeSpecification the return type specification
+     */
     @JsonCreator
+    @SuppressWarnings("checkstyle:HiddenField")
     public JsonBasedTableFunctionMetadata(
-            @JsonProperty("functionName") QualifiedObjectName functionName,
-            @JsonProperty("arguments") List<ArgumentSpecification> arguments,
-            @JsonProperty("returnTypeSpecification") ReturnTypeSpecification returnTypeSpecification)
+            @JsonProperty("functionName")
+            final QualifiedObjectName functionName,
+            @JsonProperty("arguments")
+            final List<ArgumentSpecification> arguments,
+            @JsonProperty("returnTypeSpecification")
+            final ReturnTypeSpecification returnTypeSpecification)
     {
-        this.functionName = requireNonNull(functionName, "functionName is null");
-        this.arguments = Collections.unmodifiableList(new ArrayList<>(requireNonNull(arguments, "arguments is null")));
-        this.returnTypeSpecification = requireNonNull(returnTypeSpecification, "returnTypeSpecification is null");
+        this.functionName = requireNonNull(functionName,
+                "functionName is null");
+        this.arguments = Collections.unmodifiableList(
+                new ArrayList<>(requireNonNull(arguments,
+                        "arguments is null")));
+        this.returnTypeSpecification = requireNonNull(
+                returnTypeSpecification,
+                "returnTypeSpecification is null");
     }
 
+    /**
+     * Gets the qualified object name.
+     *
+     * @return the qualified object name
+     */
     @JsonProperty
     public QualifiedObjectName getQualifiedObjectName()
     {
         return functionName;
     }
 
+    /**
+     * Gets the arguments.
+     *
+     * @return the list of argument specifications
+     */
     @JsonProperty
     public List<ArgumentSpecification> getArguments()
     {
         return arguments;
     }
 
+    /**
+     * Gets the return type specification.
+     *
+     * @return the return type specification
+     */
     @JsonProperty
     public ReturnTypeSpecification getReturnTypeSpecification()
     {
