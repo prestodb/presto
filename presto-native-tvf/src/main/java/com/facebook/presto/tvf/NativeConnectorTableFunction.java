@@ -62,122 +62,254 @@ import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public class NativeConnectorTableFunction
+/**
+ * Native implementation of connector table function.
+ */
+public final class NativeConnectorTableFunction
         extends AbstractConnectorTableFunction
 {
+    private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
+    private static final int HTTP_OK = 200;
+    private static final JsonCodec<ConnectorTableMetadata>
+            CONNECTOR_TABLE_METADATA_JSON_CODEC;
+    private static final JsonCodec<NativeTableFunctionAnalysis>
+            TABLE_FUNCTION_ANALYSIS_JSON_CODEC =
+            JsonCodec.jsonCodec(NativeTableFunctionAnalysis.class);
+
     private final HttpClient httpClient;
     private final NodeManager nodeManager;
     private final TypeManager typeManager;
-    private static final String TVF_ANALYZE_ENDPOINT = "/v1/tvf/analyze";
-    private static final JsonCodec<ConnectorTableMetadata> connectorTableMetadataJsonCodec;
-    private static final JsonCodec<NativeTableFunctionAnalysis> tableFunctionAnalysisJsonCodec =
-            JsonCodec.jsonCodec(NativeTableFunctionAnalysis.class);
     private final QualifiedObjectName functionName;
 
-    static {
+    static
+    {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(
-                Block.class, new BlockSerializer(new BlockEncodingManager())));
+                Block.class,
+                new BlockSerializer(new BlockEncodingManager())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider);
-        connectorTableMetadataJsonCodec = codecFactory.jsonCodec(ConnectorTableMetadata.class);
+        CONNECTOR_TABLE_METADATA_JSON_CODEC =
+                codecFactory.jsonCodec(ConnectorTableMetadata.class);
     }
 
+    /**
+     * Constructs a native connector table function.
+     *
+     * @param httpClient the HTTP client
+     * @param nodeManager the node manager
+     * @param typeManager the type manager
+     * @param functionName the function name
+     * @param arguments the argument specifications
+     * @param returnTypeSpecification the return type specification
+     */
     public NativeConnectorTableFunction(
-            @ForWorkerInfo HttpClient httpClient,
-            NodeManager nodeManager,
-            TypeManager typeManager,
-            QualifiedObjectName functionName,
-            List<ArgumentSpecification> arguments,
-            ReturnTypeSpecification returnTypeSpecification)
+            @ForWorkerInfo final HttpClient httpClient,
+            final NodeManager nodeManager,
+            final TypeManager typeManager,
+            final QualifiedObjectName functionName,
+            final List<ArgumentSpecification> arguments,
+            final ReturnTypeSpecification returnTypeSpecification)
     {
-        super("builtin", functionName.getObjectName(), arguments, returnTypeSpecification);
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.functionName = requireNonNull(functionName, "functionName is null");
+        super("builtin",
+                functionName.getObjectName(),
+                arguments,
+                returnTypeSpecification);
+        this.httpClient = requireNonNull(httpClient,
+                "httpClient is null");
+        this.nodeManager = requireNonNull(nodeManager,
+                "nodeManager is null");
+        this.typeManager = requireNonNull(typeManager,
+                "typeManager is null");
+        this.functionName = requireNonNull(functionName,
+                "functionName is null");
     }
 
+    /**
+     * Analyzes the table function.
+     *
+     * @param session the connector session
+     * @param transaction the connector transaction handle
+     * @param arguments the arguments
+     * @return the table function analysis
+     */
     @Override
-    public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+    public TableFunctionAnalysis analyze(
+            final ConnectorSession session,
+            final ConnectorTransactionHandle transaction,
+            final Map<String, Argument> arguments)
     {
         return httpClient.execute(
                 getWorkerRequest(arguments),
-                new AnalyzeResponseHandler(tableFunctionAnalysisJsonCodec, typeManager));
+                new AnalyzeResponseHandler(
+                        TABLE_FUNCTION_ANALYSIS_JSON_CODEC,
+                        typeManager));
     }
 
-    private Request getWorkerRequest(Map<String, Argument> arguments)
+    /**
+     * Gets the worker request.
+     *
+     * @param arguments the arguments
+     * @return the request
+     */
+    private Request getWorkerRequest(
+            final Map<String, Argument> arguments)
     {
         return preparePost()
-                .setUri(getWorkerLocation(nodeManager, TVF_ANALYZE_ENDPOINT))
+                .setUri(getWorkerLocation(nodeManager,
+                        TVF_ANALYZE_ENDPOINT))
                 .setBodyGenerator(
-                        jsonBodyGenerator(connectorTableMetadataJsonCodec, new ConnectorTableMetadata(functionName, arguments)))
+                        jsonBodyGenerator(
+                                CONNECTOR_TABLE_METADATA_JSON_CODEC,
+                                new ConnectorTableMetadata(
+                                        functionName,
+                                        arguments)))
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setHeader(ACCEPT, JSON_UTF_8.toString())
                 .build();
     }
 
-    private static class BlockSerializer
+    /**
+     * Serializer for Block objects.
+     */
+    private static final class BlockSerializer
             extends JsonSerializer<Block>
     {
         private final BlockEncodingSerde blockEncodingSerde;
 
-        public BlockSerializer(BlockEncodingSerde blockEncodingSerde)
+        /**
+         * Constructs a block serializer.
+         *
+         * @param blockEncodingSerde the block encoding serde
+         */
+        public BlockSerializer(
+                final BlockEncodingSerde blockEncodingSerde)
         {
-            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+            this.blockEncodingSerde = requireNonNull(blockEncodingSerde,
+                    "blockEncodingSerde is null");
         }
 
+        /**
+         * Serializes a block.
+         *
+         * @param block the block
+         * @param jsonGenerator the JSON generator
+         * @param serializerProvider the serializer provider
+         * @throws IOException if serialization fails
+         */
         @Override
-        public void serialize(Block block, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
+        public void serialize(
+                final Block block,
+                final JsonGenerator jsonGenerator,
+                final SerializerProvider serializerProvider)
                 throws IOException
         {
-            //  Encoding name is length prefixed as are other block data encodings
-            SliceOutput output = new DynamicSliceOutput(toIntExact(block.getSizeInBytes() + block.getEncodingName().length() + (2 * Integer.BYTES)));
+            SliceOutput output = new DynamicSliceOutput(
+                    toIntExact(block.getSizeInBytes()
+                            + block.getEncodingName().length()
+                            + (2 * Integer.BYTES)));
             writeBlock(blockEncodingSerde, output, block);
             Slice slice = output.slice();
-            jsonGenerator.writeBinary(MIME_NO_LINEFEEDS, slice.byteArray(), slice.byteArrayOffset(), slice.length());
+            jsonGenerator.writeBinary(
+                    MIME_NO_LINEFEEDS,
+                    slice.byteArray(),
+                    slice.byteArrayOffset(),
+                    slice.length());
         }
     }
 
-    private static class AnalyzeResponseHandler
-            implements ResponseHandler<TableFunctionAnalysis, RuntimeException>
+    /**
+     * Response handler for analyze requests.
+     */
+    private static final class AnalyzeResponseHandler
+            implements ResponseHandler<TableFunctionAnalysis,
+            RuntimeException>
     {
+        /**
+         * JSON codec for native table function analysis.
+         */
         private final JsonCodec<NativeTableFunctionAnalysis> codec;
+        /**
+         * Type manager for type resolution.
+         */
         private final TypeManager typeManager;
 
-        public AnalyzeResponseHandler(JsonCodec<NativeTableFunctionAnalysis> codec, TypeManager typeManager)
+        /**
+         * Constructs an analyze response handler.
+         *
+         * @param codec the JSON codec
+         * @param typeManager the type manager
+         */
+        AnalyzeResponseHandler(
+                final JsonCodec<NativeTableFunctionAnalysis> codec,
+                final TypeManager typeManager)
         {
             this.codec = requireNonNull(codec, "codec is null");
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.typeManager = requireNonNull(typeManager,
+                    "typeManager is null");
         }
 
+        /**
+         * Handles exceptions.
+         *
+         * @param request the request
+         * @param exception the exception
+         * @return the table function analysis
+         */
         @Override
-        public TableFunctionAnalysis handleException(Request request, Exception exception)
+        public TableFunctionAnalysis handleException(
+                final Request request,
+                final Exception exception)
         {
-            throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, "Failed to analyze function: " + exception.getMessage(), exception);
+            throw new PrestoException(
+                    TABLE_FUNCTION_ANALYSIS_FAILED,
+                    "Failed to analyze function: "
+                            + exception.getMessage(),
+                    exception);
         }
 
+        /**
+         * Handles the response.
+         *
+         * @param request the request
+         * @param response the response
+         * @return the table function analysis
+         */
         @Override
-        public TableFunctionAnalysis handle(Request request, Response response)
+        public TableFunctionAnalysis handle(
+                final Request request,
+                final Response response)
         {
             try {
-                String body = CharStreams.toString(new InputStreamReader(response.getInputStream(), UTF_8));
+                String body = CharStreams.toString(
+                        new InputStreamReader(
+                                response.getInputStream(),
+                                UTF_8));
 
-                if (response.getStatusCode() != 200) {
-                    // Extract just the "Reason:" line from Velox exception message
-                    String errorMessage = extractReasonFromVeloxError(body);
-                    throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, errorMessage);
+                if (response.getStatusCode() != HTTP_OK) {
+                    String errorMessage =
+                            extractReasonFromVeloxError(body);
+                    throw new PrestoException(
+                            TABLE_FUNCTION_ANALYSIS_FAILED,
+                            errorMessage);
                 }
 
-                return codec.fromJson(body).toTableFunctionAnalysis(typeManager);
+                return codec.fromJson(body)
+                        .toTableFunctionAnalysis(typeManager);
             }
             catch (PrestoException e) {
                 throw e;
             }
             catch (IOException e) {
-                throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, "Failed to read response: " + e.getMessage(), e);
+                throw new PrestoException(
+                        TABLE_FUNCTION_ANALYSIS_FAILED,
+                        "Failed to read response: " + e.getMessage(),
+                        e);
             }
             catch (Exception e) {
-                throw new PrestoException(TABLE_FUNCTION_ANALYSIS_FAILED, "Failed to parse response: " + e.getMessage(), e);
+                throw new PrestoException(
+                        TABLE_FUNCTION_ANALYSIS_FAILED,
+                        "Failed to parse response: " + e.getMessage(),
+                        e);
             }
         }
     }

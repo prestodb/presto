@@ -29,50 +29,85 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 
 /**
  * Factory class to create instance of {@link NativeTVFProvider}.
- * This factor is registered in {@link TvfPlugin#getTVFProviderFactories()} ()}.
+ * This factory is registered in
+ * {@link TvfPlugin#getTVFProviderFactories()}.
  */
-public class NativeTVFProviderFactory
+public final class NativeTVFProviderFactory
         implements TVFProviderFactory
 {
     protected static final String NAME = "system";
 
-    private static final NativeTableFunctionHandle.Resolver HANDLE_RESOLVER = new NativeTableFunctionHandle.Resolver();
+    private static final NativeTableFunctionHandle.Resolver
+            HANDLE_RESOLVER = new NativeTableFunctionHandle.Resolver();
 
-    private static final NativeTableFunctionSplit.Resolver SPLIT_RESOLVER = new NativeTableFunctionSplit.Resolver();
+    private static final NativeTableFunctionSplit.Resolver
+            SPLIT_RESOLVER = new NativeTableFunctionSplit.Resolver();
 
+    /**
+     * Gets the factory name.
+     *
+     * @return the name
+     */
     @Override
     public String getName()
     {
         return NAME;
     }
 
+    /**
+     * Gets the table function handle resolver.
+     *
+     * @return the table function handle resolver
+     */
     @Override
-    public TableFunctionHandleResolver getTableFunctionHandleResolver()
+    public TableFunctionHandleResolver
+            getTableFunctionHandleResolver()
     {
         return HANDLE_RESOLVER;
     }
 
+    /**
+     * Gets the table function split resolver.
+     *
+     * @return the table function split resolver
+     */
     @Override
-    public TableFunctionSplitResolver getTableFunctionSplitResolver()
+    public TableFunctionSplitResolver
+            getTableFunctionSplitResolver()
     {
         return SPLIT_RESOLVER;
     }
 
+    /**
+     * Creates a TVF provider.
+     *
+     * @param config the configuration properties
+     * @param context the TVF provider context
+     * @return the TVF provider instance
+     */
     @Override
-    public TVFProvider createTVFProvider(Map<String, String> config, TVFProviderContext context)
+    public TVFProvider createTVFProvider(
+            final Map<String, String> config,
+            final TVFProviderContext context)
     {
         try {
             Bootstrap app = new Bootstrap(
-                    new NativeTVFProviderModule(context.getNodeManager(), context.getTypeManager()),
-                    new NativeWorkerCommunicationModule(context.getAuthClientConfigs()));
+                    new NativeTVFProviderModule(
+                            context.getNodeManager(),
+                            context.getTypeManager()),
+                    new NativeWorkerCommunicationModule(
+                            context.getAuthClientConfigs()));
 
             Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
-            Key<HttpClient> httpClientKey = Key.get(HttpClient.class, ForWorkerInfo.class);
-            HttpClientHolder.setHttpClient(injector.getInstance(httpClientKey));
+            Key<HttpClient> httpClientKey = Key.get(
+                    HttpClient.class,
+                    ForWorkerInfo.class);
+            HttpClientHolder.setHttpClient(
+                    injector.getInstance(httpClientKey));
 
             return injector.getInstance(NativeTVFProvider.class);
         }

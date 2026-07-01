@@ -21,20 +21,36 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.presto.server.CommonInternalCommunicationModule.bindInternalAuth;
 import static java.util.Objects.requireNonNull;
 
-public class NativeWorkerCommunicationModule
+/**
+ * Guice module for native worker communication.
+ */
+public final class NativeWorkerCommunicationModule
         implements Module
 {
     private final AuthClientConfigs authClientConfigs;
 
-    public NativeWorkerCommunicationModule(AuthClientConfigs authClientConfigs)
+    /**
+     * Constructs a native worker communication module.
+     *
+     * @param authClientConfigs the auth client configurations
+     */
+    public NativeWorkerCommunicationModule(
+            final AuthClientConfigs authClientConfigs)
     {
-        this.authClientConfigs = requireNonNull(authClientConfigs, "authClientConfigs is null");
+        this.authClientConfigs = requireNonNull(authClientConfigs,
+                "authClientConfigs is null");
     }
 
+    /**
+     * Configures the module bindings.
+     *
+     * @param binder the Guice binder
+     */
     @Override
-    public void configure(Binder binder)
+    public void configure(final Binder binder)
     {
         bindInternalAuth(binder, authClientConfigs);
-        httpClientBinder(binder).bindHttpClient("worker", ForWorkerInfo.class);
+        httpClientBinder(binder).bindHttpClient("worker",
+                ForWorkerInfo.class);
     }
 }
