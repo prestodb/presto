@@ -254,6 +254,23 @@ Property Name                                        Description
 ``iceberg.catalog.warehouse``                        A catalog warehouse root path for Iceberg tables (optional).
                                                      Example: ``s3://warehouse/``
 
+``iceberg.rest.tls.enabled``                         Whether to enable TLS for REST catalog communication
+                                                     (default: ``false``).
+
+``iceberg.rest.tls.keystore-path``                   The path to the keystore file for mutual TLS authentication with the REST
+                                                     catalog server (PEM or JKS format).
+                                                     Example: ``/path/to/keystore.jks``
+
+``iceberg.rest.tls.keystore-password``               The password for the keystore file.
+                                                     Example: ``keystore_password``
+
+``iceberg.rest.tls.truststore-path``                 The path to the truststore file for REST catalog TLS communication
+                                                     (PEM or JKS format).
+                                                     Example: ``/path/to/truststore.jks``
+
+``iceberg.rest.tls.truststore-password``             The password for the truststore file for REST catalog TLS communication.
+                                                     Example: ``truststore_password``
+
 ==================================================== ============================================================
 
 Hadoop catalog

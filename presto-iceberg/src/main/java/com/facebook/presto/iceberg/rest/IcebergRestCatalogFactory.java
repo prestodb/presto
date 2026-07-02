@@ -32,7 +32,6 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTCatalog;
-import org.apache.iceberg.rest.RESTUtil;
 
 import java.util.Date;
 import java.util.Map;
@@ -41,6 +40,11 @@ import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.iceberg.rest.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.KEYSTORE_PASSWORD;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.KEYSTORE_PATH;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TLS_CONFIGURER_IMPL;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TRUSTSTORE_PASSWORD;
+import static com.facebook.presto.iceberg.rest.PrestoRestTLSConfigurer.TRUSTSTORE_PATH;
 import static com.facebook.presto.iceberg.rest.SessionType.USER;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -121,6 +125,14 @@ public class IcebergRestCatalogFactory
 
         properties.put(URI, catalogConfig.getServerUri().orElseThrow(
                 () -> new IllegalStateException("iceberg.rest.uri must be set for REST catalog")));
+
+        if (catalogConfig.isTlsEnabled()) {
+            properties.put(TLS_CONFIGURER_IMPL, PrestoRestTLSConfigurer.class.getName());
+            catalogConfig.getKeystorePath().ifPresent(path -> properties.put(KEYSTORE_PATH, path));
+            catalogConfig.getKeystorePassword().ifPresent(password -> properties.put(KEYSTORE_PASSWORD, password));
+            catalogConfig.getTruststorePath().ifPresent(path -> properties.put(TRUSTSTORE_PATH, path));
+            catalogConfig.getTruststorePassword().ifPresent(password -> properties.put(TRUSTSTORE_PASSWORD, password));
+        }
 
         catalogConfig.getAuthenticationType().ifPresent(type -> {
             if (type == OAUTH2) {
