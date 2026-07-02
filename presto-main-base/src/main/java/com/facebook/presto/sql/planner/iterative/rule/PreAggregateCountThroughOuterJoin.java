@@ -53,6 +53,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -106,7 +107,7 @@ public class PreAggregateCountThroughOuterJoin
             return Result.empty();
         }
         if (ImmutableSet.copyOf(aggregation.getGroupingKeys()).equals(ImmutableSet.copyOf(sides.getOuter().getOutputVariables()))
-                && isDistinct(context.getLookup().resolve(sides.getOuter()), context.getLookup()::resolve)) {
+                && isDistinctOnOutputVariables(sides.getOuter(), context)) {
             return Result.empty();
         }
 
@@ -237,6 +238,20 @@ public class PreAggregateCountThroughOuterJoin
         }
 
         return false;
+    }
+
+    private boolean isDistinctOnOutputVariables(PlanNode node, Context context)
+    {
+        PlanNode resolved = context.getLookup().resolve(node);
+        if (resolved instanceof ProjectNode) {
+            ProjectNode project = (ProjectNode) resolved;
+            if (isIdentity(project.getAssignments())
+                    && ImmutableSet.copyOf(project.getOutputVariables()).equals(ImmutableSet.copyOf(project.getSource().getOutputVariables()))) {
+                return isDistinctOnOutputVariables(project.getSource(), context);
+            }
+        }
+
+        return isDistinct(resolved, context.getLookup()::resolve);
     }
 
     private boolean isSupported(AggregationNode aggregation, JoinNode join)

@@ -481,7 +481,7 @@ public class TestPreAggregateCountThroughOuterJoin
     }
 
     @Test
-    public void testDoesNotFireWhenExistingDistinctOuterJoinRuleCanApply()
+    public void testDoesNotFireWhenExistingDistinctOuterJoinRuleCanApplyThroughIdentityProjection()
     {
         tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
                 .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
@@ -497,7 +497,12 @@ public class TestPreAggregateCountThroughOuterJoin
                             .addAggregation(count, p.rowExpression("count(inner_value)"))
                             .source(p.join(
                                     LEFT,
-                                    p.assignUniqueId(unique, p.values(outerKey)),
+                                    p.project(
+                                            Assignments.builder()
+                                                    .put(outerKey, outerKey)
+                                                    .put(unique, unique)
+                                                    .build(),
+                                            p.assignUniqueId(unique, p.values(outerKey))),
                                     p.values(innerKey, innerValue),
                                     new EquiJoinClause(outerKey, innerKey))));
                 })
