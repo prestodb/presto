@@ -29,6 +29,8 @@ public class IcebergRestConfig
     private String token;
     private String scope;
     private boolean nestedNamespaceEnabled = true;
+    private String basicAuthUsername;
+    private String basicAuthPassword;
 
     @NotNull
     public Optional<String> getServerUri()
@@ -63,7 +65,7 @@ public class IcebergRestConfig
     }
 
     @Config("iceberg.rest.auth.type")
-    @ConfigDescription("The authentication type to use for communicating with REST catalog server (NONE | OAUTH2)")
+    @ConfigDescription("The authentication type to use for communicating with REST catalog server (NONE | OAUTH2 | BASIC)")
     public IcebergRestConfig setAuthenticationType(AuthenticationType authenticationType)
     {
         this.authenticationType = authenticationType;
@@ -132,6 +134,33 @@ public class IcebergRestConfig
     public IcebergRestConfig setNestedNamespaceEnabled(boolean nestedNamespaceEnabled)
     {
         this.nestedNamespaceEnabled = nestedNamespaceEnabled;
+        return this;
+    }
+
+    public Optional<String> getBasicAuthUsername()
+    {
+        return Optional.ofNullable(basicAuthUsername);
+    }
+
+    @Config("iceberg.rest.auth.basic.username")
+    @ConfigDescription("Username for Basic Auth against the REST catalog server; requires iceberg.rest.auth.basic.password")
+    public IcebergRestConfig setBasicAuthUsername(String basicAuthUsername)
+    {
+        this.basicAuthUsername = basicAuthUsername;
+        return this;
+    }
+
+    public Optional<String> getBasicAuthPassword()
+    {
+        return Optional.ofNullable(basicAuthPassword);
+    }
+
+    @Config("iceberg.rest.auth.basic.password")
+    @ConfigDescription("Password for Basic Auth against the REST catalog server; requires iceberg.rest.auth.basic.username")
+    @ConfigSecuritySensitive
+    public IcebergRestConfig setBasicAuthPassword(String basicAuthPassword)
+    {
+        this.basicAuthPassword = basicAuthPassword;
         return this;
     }
 

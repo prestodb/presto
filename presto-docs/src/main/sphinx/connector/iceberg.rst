@@ -219,7 +219,8 @@ Property Name                                        Description
                                                      Example: ``https://localhost:8181``
 
 ``iceberg.rest.auth.type``                           The authentication type to use.
-                                                     Available values are ``NONE`` or ``OAUTH2`` (default: ``NONE``).
+                                                     Available values are ``NONE``, ``BASIC`` or ``OAUTH2``
+                                                     (default: ``NONE``).
                                                      ``OAUTH2`` requires either a credential or token.
 
 ``iceberg.rest.auth.oauth2.uri``                     OAUTH2 server endpoint URI.
@@ -235,6 +236,12 @@ Property Name                                        Description
                                                      This property is only applicable when using
                                                      ``iceberg.rest.auth.oauth2.credential``.
                                                      Example: ``PRINCIPAL_ROLE:ALL``
+
+``iceberg.rest.auth.basic.username``                 Username for Basic Auth against the REST catalog server
+                                                     Example: ``test_user``
+
+``iceberg.rest.auth.basic.password``                 Password for Basic Auth against the REST catalog server
+                                                     Example: ``my$ecretPass``
 
 ``iceberg.rest.nested.namespace.enabled``            In REST Catalogs, tables are grouped into namespaces, that can be
                                                      nested. But if a large number of recursive namespaces result in

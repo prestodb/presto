@@ -37,19 +37,26 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
+import static com.facebook.presto.iceberg.rest.AuthenticationType.BASIC;
 import static com.facebook.presto.iceberg.rest.AuthenticationType.OAUTH2;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
+import static org.apache.iceberg.rest.auth.AuthProperties.AUTH_TYPE;
+import static org.apache.iceberg.rest.auth.AuthProperties.AUTH_TYPE_BASIC;
+import static org.apache.iceberg.rest.auth.AuthProperties.BASIC_PASSWORD;
+import static org.apache.iceberg.rest.auth.AuthProperties.BASIC_USERNAME;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 @Test
 public class TestIcebergSmokeRest
@@ -144,5 +151,38 @@ public class TestIcebergSmokeRest
         RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
 
         assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
+    }
+
+    @Test
+    public void testBasicAuthCatalogProperties()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri)
+                .setAuthenticationType(BASIC)
+                .setBasicAuthUsername("alice")
+                .setBasicAuthPassword("s3cr3t");
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+        Map<String, String> properties = catalog.properties();
+
+        assertEquals(properties.get(AUTH_TYPE), AUTH_TYPE_BASIC);
+        assertEquals(properties.get(BASIC_USERNAME), "alice");
+        assertEquals(properties.get(BASIC_PASSWORD), "s3cr3t");
+    }
+
+    @Test
+    public void testNoAuthTypeLeavesAuthPropertiesAbsent()
+    {
+        IcebergRestConfig restConfig = new IcebergRestConfig()
+                .setServerUri(serverUri);
+
+        IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
+        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+        Map<String, String> properties = catalog.properties();
+
+        assertNull(properties.get(AUTH_TYPE));
+        assertNull(properties.get(BASIC_USERNAME));
+        assertNull(properties.get(BASIC_PASSWORD));
     }
 }
