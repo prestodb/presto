@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.SystemSessionProperties.PUSH_AGGREGATION_THROUGH_JOIN;
 import static com.facebook.presto.spi.plan.JoinType.LEFT;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPreAggregateCountThroughOuterJoinSemantics
@@ -62,6 +63,26 @@ public class TestPreAggregateCountThroughOuterJoinSemantics
                             "GROUP BY group_key",
                     "VALUES (1, BIGINT '5'), (2, BIGINT '0'), (3, BIGINT '0')",
                     RIGHT);
+        }
+    }
+
+    @Test
+    public void testLeftJoinCountWithDuplicatesAndUnmatchedRowsRuleDisabled()
+    {
+        try (QueryAssertions assertions = new QueryAssertions(ImmutableMap.of(PUSH_AGGREGATION_THROUGH_JOIN, "false"))) {
+            String query = "WITH " +
+                    "outer_relation(group_key, join_key) AS (VALUES (1, 10), (1, 10), (1, 20), (2, 30), (3, 40)), " +
+                    "inner_relation(join_key, value) AS (VALUES (10, 'a'), (10, 'b'), (20, NULL), (20, 'c'), (30, NULL), (50, 'x')) " +
+                    "SELECT group_key, count(value) " +
+                    "FROM outer_relation " +
+                    "LEFT JOIN inner_relation ON outer_relation.join_key = inner_relation.join_key " +
+                    "GROUP BY group_key";
+
+            assertions.assertQuery(query, "VALUES (1, BIGINT '5'), (2, BIGINT '0'), (3, BIGINT '0')");
+            Plan plan = assertions.getQueryRunner().createPlan(assertions.getQueryRunner().getDefaultSession(), query, WarningCollector.NOOP);
+            assertFalse(
+                    containsPreAggregatedOuterJoin(plan.getRoot(), LEFT),
+                    "Expected plan not to contain pre-aggregated LEFT join");
         }
     }
 

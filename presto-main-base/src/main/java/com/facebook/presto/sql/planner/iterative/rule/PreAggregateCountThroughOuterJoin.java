@@ -147,10 +147,10 @@ public class PreAggregateCountThroughOuterJoin
                                 .addAll(sides.getOuter().getOutputVariables())
                                 .build(),
                 Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
+                join.getLeftHashVariable(),
+                join.getRightHashVariable(),
                 join.getDistributionType(),
-                ImmutableMap.of());
+                join.getDynamicFilters());
 
         ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> preAggregationVariables = originalToPreAggregation.build();
         ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> finalAggregations = ImmutableMap.builder();
@@ -244,6 +244,8 @@ public class PreAggregateCountThroughOuterJoin
         if (!(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || join.getFilter().isPresent()
                 || join.getCriteria().isEmpty()
+                || join.getLeftHashVariable().isPresent()
+                || join.getRightHashVariable().isPresent()
                 || aggregation.getAggregations().isEmpty()
                 || aggregation.getStep() != AggregationNode.Step.SINGLE
                 || aggregation.getGroupingSetCount() != 1
@@ -254,6 +256,11 @@ public class PreAggregateCountThroughOuterJoin
         }
 
         JoinSides sides = new JoinSides(join);
+        if (join.getType() == JoinType.LEFT
+                && !ImmutableSet.copyOf(sides.getInnerJoinKeys()).containsAll(join.getDynamicFilters().values())) {
+            return false;
+        }
+
         Set<VariableReferenceExpression> innerVariables = ImmutableSet.copyOf(sides.getInner().getOutputVariables());
         for (AggregationNode.Aggregation aggregate : aggregation.getAggregations().values()) {
             if (!functionResolution.isCountFunction(aggregate.getFunctionHandle())

@@ -13,17 +13,25 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.constraints.NotNullConstraint;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.assertions.MatchResult;
+import com.facebook.presto.sql.planner.assertions.Matcher;
+import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -41,6 +49,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggreg
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.optimizations.PredicatePushDown.createDynamicFilterExpression;
 
 public class TestPreAggregateCountThroughOuterJoin
         extends BaseRuleTest
@@ -98,6 +107,41 @@ public class TestPreAggregateCountThroughOuterJoin
                                 node(JoinNode.class,
                                         node(AggregationNode.class, any()),
                                         any()))));
+    }
+
+    @Test
+    public void testPreservesDynamicFilters()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    RIGHT,
+                                    p.filter(
+                                            createDynamicFilterExpression("DF", innerKey, getMetadata().getFunctionAndTypeManager()),
+                                            p.values(innerKey, innerValue)),
+                                    p.values(outerKey),
+                                    ImmutableList.of(new EquiJoinClause(innerKey, outerKey)),
+                                    ImmutableList.of(innerKey, innerValue, outerKey),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableMap.of("DF", outerKey))));
+                })
+                .matches(node(ProjectNode.class,
+                        node(AggregationNode.class,
+                                node(JoinNode.class,
+                                        node(AggregationNode.class, any()),
+                                        any())
+                                        .with(new JoinDynamicFiltersMatcher("DF", "outer_key")))));
     }
 
     @Test
@@ -161,6 +205,54 @@ public class TestPreAggregateCountThroughOuterJoin
                                             TupleDomain.all(),
                                             TupleDomain.all(),
                                             ImmutableList.of(new NotNullConstraint<>(innerValueColumn))),
+                                    new EquiJoinClause(outerKey, innerKey))));
+                })
+                .matches(node(ProjectNode.class,
+                        node(AggregationNode.class,
+                                node(JoinNode.class,
+                                        any(),
+                                        aggregation(
+                                                ImmutableMap.of("pre_count", functionCall("count", false, ImmutableList.of())),
+                                                any())))));
+    }
+
+    @Test
+    public void testUsesCountAllForTrustedNotNullInnerColumnThroughProjection()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression projectedInnerValue = p.variable("projected_inner_value", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+                    ColumnHandle innerKeyColumn = new TestingColumnHandle("inner_key");
+                    ColumnHandle innerValueColumn = new TestingColumnHandle("inner_value");
+                    TableHandle innerTable = new TableHandle(
+                            new ConnectorId("testConnector"),
+                            new TestingTableHandle(),
+                            TestingTransactionHandle.create(),
+                            Optional.empty());
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(projected_inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.values(outerKey),
+                                    p.project(
+                                            Assignments.builder()
+                                                    .put(innerKey, innerKey)
+                                                    .put(projectedInnerValue, innerValue)
+                                                    .build(),
+                                            p.tableScan(
+                                                    innerTable,
+                                                    ImmutableList.of(innerKey, innerValue),
+                                                    ImmutableMap.of(innerKey, innerKeyColumn, innerValue, innerValueColumn),
+                                                    TupleDomain.all(),
+                                                    TupleDomain.all(),
+                                                    ImmutableList.of(new NotNullConstraint<>(innerValueColumn)))),
                                     new EquiJoinClause(outerKey, innerKey))));
                 })
                 .matches(node(ProjectNode.class,
@@ -241,6 +333,57 @@ public class TestPreAggregateCountThroughOuterJoin
                                     p.values(outerKey),
                                     p.values(innerKey),
                                     new EquiJoinClause(outerKey, innerKey))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForCountAll()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(*)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.values(outerKey),
+                                    p.values(innerKey),
+                                    new EquiJoinClause(outerKey, innerKey))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForJoinWithHashVariables()
+    {
+        tester().assertThat(new PreAggregateCountThroughOuterJoin(getMetadata().getFunctionAndTypeManager()))
+                .setSystemProperty(PUSH_AGGREGATION_THROUGH_JOIN, "true")
+                .on(p -> {
+                    VariableReferenceExpression outerKey = p.variable("outer_key", BIGINT);
+                    VariableReferenceExpression outerHash = p.variable("outer_hash", BIGINT);
+                    VariableReferenceExpression innerKey = p.variable("inner_key", BIGINT);
+                    VariableReferenceExpression innerValue = p.variable("inner_value", BIGINT);
+                    VariableReferenceExpression innerHash = p.variable("inner_hash", BIGINT);
+                    VariableReferenceExpression count = p.variable("count", BIGINT);
+
+                    return p.aggregation(aggregation -> aggregation
+                            .singleGroupingSet(outerKey)
+                            .addAggregation(count, p.rowExpression("count(inner_value)"))
+                            .source(p.join(
+                                    LEFT,
+                                    p.values(outerKey, outerHash),
+                                    p.values(innerKey, innerValue, innerHash),
+                                    ImmutableList.of(new EquiJoinClause(outerKey, innerKey)),
+                                    ImmutableList.of(outerKey, outerHash, innerKey, innerValue, innerHash),
+                                    Optional.empty(),
+                                    Optional.of(outerHash),
+                                    Optional.of(innerHash))));
                 })
                 .doesNotFire();
     }
@@ -382,5 +525,34 @@ public class TestPreAggregateCountThroughOuterJoin
                                     new EquiJoinClause(outerKey, innerKey))));
                 })
                 .doesNotFire();
+    }
+
+    private static class JoinDynamicFiltersMatcher
+            implements Matcher
+    {
+        private final String dynamicFilterId;
+        private final String buildVariableName;
+
+        private JoinDynamicFiltersMatcher(String dynamicFilterId, String buildVariableName)
+        {
+            this.dynamicFilterId = dynamicFilterId;
+            this.buildVariableName = buildVariableName;
+        }
+
+        @Override
+        public boolean shapeMatches(PlanNode node)
+        {
+            return node instanceof JoinNode;
+        }
+
+        @Override
+        public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+        {
+            JoinNode join = (JoinNode) node;
+            VariableReferenceExpression buildVariable = join.getDynamicFilters().get(dynamicFilterId);
+            return new MatchResult(join.getDynamicFilters().size() == 1
+                    && buildVariable != null
+                    && buildVariable.getName().equals(buildVariableName));
+        }
     }
 }
