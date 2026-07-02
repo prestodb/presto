@@ -537,6 +537,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-geospatial-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
             <scope>provided</scope>
@@ -616,20 +621,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main-base</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-parser</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-analyzer</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-math3</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
