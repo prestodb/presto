@@ -130,6 +130,39 @@ public class TestPullRowLocalChainAboveExchange
     }
 
     @Test
+    public void testDoesNotFireWhenExchangeRenamesOutput()
+    {
+        // The rule only handles single-source exchanges whose output layout equals their input (identity
+        // mapping); a renaming exchange (output variables differ from the input) is left alone, because the
+        // reparented chain would no longer produce the variables the consumer above the exchange expects.
+        // In practice the planner does not emit a renaming SINGLE-source exchange (renaming only happens on
+        // multi-source UNION exchanges, which are already excluded), so this locks in that defensive guard.
+        // Here inputs = [k, elem] but the output layout is [k_out, elem_out], i.e. a rename.
+        tester().assertThat(new PullRowLocalChainAboveExchange(getFunctionManager()))
+                .setSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, "ALWAYS_ENABLED")
+                .on(p -> {
+                    VariableReferenceExpression k = p.variable("k", BIGINT);
+                    VariableReferenceExpression arr = p.variable("arr", ARRAY_OF_BIGINT);
+                    VariableReferenceExpression elem = p.variable("elem", BIGINT);
+                    VariableReferenceExpression kOut = p.variable("k_out", BIGINT);
+                    VariableReferenceExpression elemOut = p.variable("elem_out", BIGINT);
+                    return p.exchange(e -> e
+                            .type(REPARTITION)
+                            .addSource(
+                                    p.project(
+                                            Assignments.builder().put(k, k).put(elem, elem).build(),
+                                            p.unnest(
+                                                    p.values(k, arr),
+                                                    ImmutableList.of(k),
+                                                    ImmutableMap.of(arr, ImmutableList.of(elem)),
+                                                    Optional.empty())))
+                            .addInputsSet(k, elem)
+                            .fixedHashDistributionPartitioningScheme(ImmutableList.of(kOut, elemOut), ImmutableList.of(kOut)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void testDoesNotFireWhenNoUnnestInChain()
     {
         tester().assertThat(new PullRowLocalChainAboveExchange(getFunctionManager()))
