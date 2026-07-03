@@ -29,10 +29,17 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.source.SnapshotQueryConsumer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -49,14 +56,17 @@ import static com.facebook.presto.verifier.source.AbstractJdbiSnapshotQuerySuppl
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainVerification
         extends AbstractVerification<QueryBundle, ExplainMatchResult, String>
 {
     private static final ResultSetConverter<String> QUERY_PLAN_RESULT_SET_CONVERTER = resultSet -> Optional.of(resultSet.getString("Query Plan"));
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static JsonCodec<JsonRenderedNode> planCodec;
     private final SqlParser sqlParser;
+    private final boolean passthroughExplain;
 
     public ExplainVerification(
             QueryActions queryActions,
@@ -71,6 +81,10 @@ public class ExplainVerification
     {
         super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, executor, snapshotQueryConsumer, snapshotQueries);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        // A source query that is already an EXPLAIN statement (e.g. sampled directly
+        // from production, such as EXPLAIN (TYPE IO) ...) is verified verbatim rather
+        // than re-wrapped in EXPLAIN (FORMAT JSON).
+        this.passthroughExplain = sqlParser.createStatement(sourceQuery.getQuery(ClusterType.CONTROL), PARSING_OPTIONS) instanceof Explain;
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
         provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
@@ -82,7 +96,11 @@ public class ExplainVerification
     protected QueryBundle getQueryRewrite(ClusterType clusterType)
     {
         Statement statement = sqlParser.createStatement(getSourceQuery().getQuery(clusterType), PARSING_OPTIONS);
-        Explain explain = new Explain(statement, false, false, ImmutableList.of(new ExplainFormat(JSON)));
+        // Preserve an already-EXPLAIN source query verbatim so its explain type is
+        // exercised as-is; otherwise wrap in EXPLAIN (FORMAT JSON) for plan-tree comparison.
+        Statement explain = statement instanceof Explain
+                ? statement
+                : new Explain(statement, false, false, ImmutableList.of(new ExplainFormat(JSON)));
         return new QueryBundle(ImmutableList.of(), explain, ImmutableList.of(), clusterType);
     }
 
@@ -97,15 +115,14 @@ public class ExplainVerification
     {
         checkArgument(testQueryResult.isPresent(), "test query plan is missing");
 
-        JsonRenderedNode controlPlan;
+        String controlResult;
         if (isControlEnabled()) {
             checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
-            String result = getOnlyElement(controlQueryResult.get().getResults());
+            controlResult = getOnlyElement(controlQueryResult.get().getResults());
             if (saveSnapshot) {
-                snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, result));
+                snapshotQueryConsumer.accept(new SnapshotQuery(getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain, controlResult));
                 return new ExplainMatchResult(MATCH);
             }
-            controlPlan = planCodec.fromJson(result);
         }
         else {
             String key = format(VERIFIER_SNAPSHOT_KEY_PATTERN, getSourceQuery().getSuite(), getSourceQuery().getName(), isExplain);
@@ -113,12 +130,14 @@ public class ExplainVerification
             if (snapshotQuery == null) {
                 return new ExplainMatchResult(SNAPSHOT_DOES_NOT_EXIST);
             }
-            String snapshotJson = snapshotQuery.getSnapshot();
-            controlPlan = planCodec.fromJson(snapshotJson);
+            controlResult = snapshotQuery.getSnapshot();
         }
-        JsonRenderedNode testPlan = planCodec.fromJson(getOnlyElement(testQueryResult.get().getResults()));
+        String testResult = getOnlyElement(testQueryResult.get().getResults());
 
-        return new ExplainMatchResult(match(controlPlan, testPlan));
+        if (passthroughExplain) {
+            return new ExplainMatchResult(matchRaw(controlResult, testResult));
+        }
+        return new ExplainMatchResult(match(planCodec.fromJson(controlResult), planCodec.fromJson(testResult)));
     }
 
     @Override
@@ -137,6 +156,43 @@ public class ExplainVerification
     protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<String>> queryResult)
     {
         queryResult.ifPresent(result -> queryInfo.setJsonPlan(getOnlyElement(result.getResults())));
+    }
+
+    private static MatchType matchRaw(String controlResult, String testResult)
+    {
+        // Non-plan-tree EXPLAIN output (e.g. EXPLAIN (TYPE IO)) is compared as JSON.
+        // Object field order is already ignored by JsonNode equality; array element
+        // order is normalized here because such arrays serialize unordered Sets (input
+        // tables, column constraints, ranges). Fall back to exact string comparison for
+        // non-JSON output.
+        try {
+            JsonNode controlNode = canonicalize(OBJECT_MAPPER.readTree(controlResult));
+            JsonNode testNode = canonicalize(OBJECT_MAPPER.readTree(testResult));
+            return controlNode.equals(testNode) ? MATCH : STRUCTURE_MISMATCH;
+        }
+        catch (IOException e) {
+            return controlResult.equals(testResult) ? MATCH : STRUCTURE_MISMATCH;
+        }
+    }
+
+    private static JsonNode canonicalize(JsonNode node)
+    {
+        if (node.isArray()) {
+            List<JsonNode> children = new ArrayList<>();
+            for (JsonNode child : node) {
+                children.add(canonicalize(child));
+            }
+            children.sort(comparing(JsonNode::toString));
+            ArrayNode sorted = OBJECT_MAPPER.createArrayNode();
+            sorted.addAll(children);
+            return sorted;
+        }
+        if (node.isObject()) {
+            ObjectNode result = OBJECT_MAPPER.createObjectNode();
+            node.fields().forEachRemaining(entry -> result.set(entry.getKey(), canonicalize(entry.getValue())));
+            return result;
+        }
+        return node;
     }
 
     private MatchType match(JsonRenderedNode controlPlan, JsonRenderedNode testPlan)

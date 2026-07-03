@@ -16,6 +16,7 @@ package com.facebook.presto.lance;
 import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -39,6 +40,7 @@ public class LanceModule
         binder.bind(ConnectorSplitManager.class).to(LanceSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(LancePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(LancePageSinkProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPlanOptimizerProvider.class).to(LanceConnectorPlanOptimizerProvider.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LanceCommitTaskData.class);
     }
 }

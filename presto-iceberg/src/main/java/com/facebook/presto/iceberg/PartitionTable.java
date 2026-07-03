@@ -64,7 +64,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 
 public class PartitionTable
@@ -320,8 +319,11 @@ public class PartitionTable
         }
         if (type instanceof Types.TimestampType) {
             com.facebook.presto.common.type.Type prestoType = toPrestoType(type, typeManager);
-            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).getPrecision() == MILLISECONDS) {
-                return MICROSECONDS.toMillis((long) value);
+            if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isMillisPrecision()) {
+                // Iceberg stores partition timestamps as epoch-microseconds; convert to
+                // epoch-milliseconds for the TIMESTAMP (p=3) mapping. Uses floor division so
+                // pre-1970 values are correct (TimeUnit.MICROSECONDS.toMillis() would truncate).
+                return TimestampType.TIMESTAMP_MICROSECONDS.toEpochMillis((long) value);
             }
         }
         if (type instanceof Types.TimeType) {

@@ -3101,10 +3101,18 @@ public class LocalExecutionPlanner
             }
             OperatorFactory operatorFactory = new DeleteOperatorFactory(context.getNextOperatorId(), node.getId(), source.getLayout().get(node.getRowId().get()), tableCommitContextCodec);
 
-            Map<VariableReferenceExpression, Integer> layout = ImmutableMap.<VariableReferenceExpression, Integer>builder()
-                    .put(node.getOutputVariables().get(0), 0)
-                    .put(node.getOutputVariables().get(1), 1)
-                    .build();
+            // [ICEBERG-FIX bug 1B]: On native execution DeleteNode declares 3
+            // output variables matching the runtime DeleteOperator page layout
+            // (rows, fragments, commitcontext); map all of them. Non-native
+            // (Java) execution uses the original 2-column layout, so map only
+            // the channels that actually exist (see plan(Delete)) instead of
+            // assuming a fixed 3rd commitcontext channel.
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> layoutBuilder = ImmutableMap.builder();
+            List<VariableReferenceExpression> deleteOutputs = node.getOutputVariables();
+            for (int channel = 0; channel < deleteOutputs.size(); channel++) {
+                layoutBuilder.put(deleteOutputs.get(channel), channel);
+            }
+            Map<VariableReferenceExpression, Integer> layout = layoutBuilder.build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
         }

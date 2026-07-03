@@ -119,4 +119,90 @@ public class TestRegularExpressionFunctions
                 "SELECT regexp_like(name, '*a') FROM nation",
                 ".*(?:invalid regular expression|error parsing regexp).*");
     }
+
+    @Test
+    public void testRegexpExtract()
+    {
+        assertQuery("SELECT regexp_extract(name, 'A.*') FROM nation");
+        assertQuery("SELECT regexp_extract(name, '[A-Z]+') FROM nation");
+        assertQuery("SELECT regexp_extract(name, '([A-Z])([A-Z])') FROM nation");
+        assertQuery("SELECT regexp_extract(name, '([A-Z])([A-Z])', 0) FROM nation");
+        assertQuery("SELECT regexp_extract(name, '([A-Z])([A-Z])', 1) FROM nation");
+        assertQuery("SELECT regexp_extract(name, '([A-Z])([A-Z])', 2) FROM nation");
+        assertQuery("SELECT regexp_extract(comment, '\\bhaggle\\b') FROM nation");
+        assertQuery("SELECT regexp_extract(comment, '(\\w+)\\s+(\\w+)', 1) FROM nation");
+        assertQuery("SELECT regexp_extract(comment, '(\\w+)\\s+(\\w+)', 2) FROM nation");
+        assertQuery("SELECT regexp_extract(name, 'ZZZ') FROM nation");
+        assertQuery("SELECT regexp_extract(IF(nationkey = 0, CAST(NULL AS VARCHAR), name), 'A.*') FROM nation");
+        assertQuery("SELECT regexp_extract(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '[^\\.]+') FROM nation");
+        assertQuery("SELECT regexp_extract(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '([^\\.]+)\\.([^\\.]+)', 1) FROM nation");
+        assertQuery("SELECT regexp_extract(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '([^\\.]+)\\.([^\\.]+)', 2) FROM nation");
+
+        assertQueryFails(
+                "SELECT regexp_extract(name, '(') FROM nation",
+                ".*missing.*\\).*");
+        assertQueryFails(
+                "SELECT regexp_extract(comment, '(\\w+)\\s+(\\w+)', 3) FROM nation",
+                ".*(?:Cannot access group|No group).*");
+        assertQueryFails(
+                "SELECT regexp_extract(comment, '(\\w+)\\s+(\\w+)', -1) FROM nation",
+                ".*(?:cannot be negative|No group).*");
+    }
+
+    @Test
+    public void testRegexpExtractAll()
+    {
+        assertQuery("SELECT regexp_extract_all(name, '[A-Z]') FROM nation");
+        assertQuery("SELECT regexp_extract_all(name, '[A-Z]+') FROM nation");
+        assertQuery("SELECT regexp_extract_all(comment, '\\w+') FROM nation");
+        assertQuery("SELECT regexp_extract_all(comment, '(\\w+)\\s+(\\w+)', 1) FROM nation");
+        assertQuery("SELECT regexp_extract_all(comment, '(\\w+)\\s+(\\w+)', 2) FROM nation");
+        assertQuery("SELECT regexp_extract_all(name, 'ZZZ') FROM nation");
+        assertQuery("SELECT cardinality(regexp_extract_all(comment, '\\w+')) FROM nation");
+        assertQuery("SELECT regexp_extract_all(IF(nationkey = 0, CAST(NULL AS VARCHAR), name), '[A-Z]') FROM nation");
+        assertQuery("SELECT regexp_extract_all(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '[^\\.]+') FROM nation");
+        assertQuery("SELECT regexp_extract_all(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '([^\\.]+)\\.([^\\.]+)', 1) FROM nation");
+        assertQuery("SELECT regexp_extract_all(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '([^\\.]+)\\.([^\\.]+)', 2) FROM nation");
+
+        assertQueryFails(
+                "SELECT regexp_extract_all(name, '(') FROM nation",
+                ".*missing.*\\).*");
+    }
+
+    @Test
+    public void testRegexpReplace()
+    {
+        assertQuery("SELECT regexp_replace(name, 'A') FROM nation");
+        assertQuery("SELECT regexp_replace(comment, '\\s') FROM nation");
+        assertQuery("SELECT regexp_replace(comment, '[aeiou]') FROM nation");
+        assertQuery("SELECT regexp_replace(name, 'A', 'X') FROM nation");
+        assertQuery("SELECT regexp_replace(comment, '\\s+', '_') FROM nation");
+        assertQuery("SELECT regexp_replace(name, '', '-') FROM nation");
+        assertQuery("SELECT regexp_replace(name, 'A', '') FROM nation");
+        assertQuery("SELECT regexp_replace(name, '([A-Z])([A-Z])', '$2$1') FROM nation");
+        assertQuery("SELECT regexp_replace(name, '(?<first>[A-Z])(?<second>[A-Z])', '${second}${first}') FROM nation");
+        assertQuery("SELECT regexp_replace(name, '([A-Z])', x -> lower(x[1])) FROM nation");
+        assertQuery("SELECT regexp_replace(comment, '(\\w)(\\w)', x -> concat(x[2], x[1])) FROM nation");
+        assertQuery("SELECT regexp_replace(IF(nationkey = 0, CAST(NULL AS VARCHAR), name), 'A', 'X') FROM nation");
+
+        assertQueryFails(
+                "SELECT regexp_replace(name, '(', 'X') FROM nation",
+                ".*missing.*\\).*");
+    }
+
+    @Test
+    public void testRegexpSplit()
+    {
+        assertQuery("SELECT regexp_split(name, 'A') FROM nation");
+        assertQuery("SELECT regexp_split(comment, '\\s+') FROM nation");
+        assertQuery("SELECT regexp_split(comment, '[aeiou]') FROM nation");
+        assertQuery("SELECT regexp_split(name, 'ZZZ') FROM nation");
+        assertQuery("SELECT cardinality(regexp_split(comment, '\\s')) FROM nation");
+        assertQuery("SELECT regexp_split(concat(name, '.', cast(regionkey AS VARCHAR), '.', cast(nationkey AS VARCHAR)), '\\.') FROM nation");
+        assertQuery("SELECT regexp_split(IF(nationkey = 0, CAST(NULL AS VARCHAR), name), 'A') FROM nation");
+
+        assertQueryFails(
+                "SELECT regexp_split(name, '(') FROM nation",
+                ".*missing.*\\).*");
+    }
 }

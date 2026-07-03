@@ -41,6 +41,7 @@ import com.facebook.presto.spi.function.table.Argument;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.ProcedureAnalysisContext;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
@@ -224,6 +225,8 @@ public class Analysis
     private final Map<NodeRef<Table>, MaterializedViewInfo> materializedViewInfoMap = new LinkedHashMap<>();
 
     private Optional<String> expandedQuery = Optional.empty();
+
+    private Optional<String> materializedViewRewrittenQuery = Optional.empty();
 
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
@@ -1122,6 +1125,16 @@ public class Analysis
         return expandedQuery;
     }
 
+    public void setMaterializedViewRewrittenQuery(String materializedViewRewrittenQuery)
+    {
+        this.materializedViewRewrittenQuery = Optional.of(materializedViewRewrittenQuery);
+    }
+
+    public Optional<String> getMaterializedViewRewrittenQuery()
+    {
+        return materializedViewRewrittenQuery;
+    }
+
     public void setCurrentSubquery(QuerySpecification currentSubQuery)
     {
         this.currentQuerySpecification = Optional.of(currentSubQuery);
@@ -1429,13 +1442,17 @@ public class Analysis
         private final List<ColumnHandle> columns;
         private final Query query;
         private final SchemaTableName materializedViewName;
+        // The refresh WHERE predicate (legacy WHERE-based refresh only; empty when there is no WHERE),
+        // carried to the connector at execution time so it can scope refresh work.
+        private final Optional<RowExpression> refreshScopePredicate;
 
-        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query, SchemaTableName materializedViewName)
+        public RefreshMaterializedViewAnalysis(TableHandle target, List<ColumnHandle> columns, Query query, SchemaTableName materializedViewName, Optional<RowExpression> refreshScopePredicate)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             this.query = requireNonNull(query, "query is null");
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.refreshScopePredicate = requireNonNull(refreshScopePredicate, "refreshScopePredicate is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
         }
 
@@ -1457,6 +1474,11 @@ public class Analysis
         public SchemaTableName getMaterializedViewName()
         {
             return materializedViewName;
+        }
+
+        public Optional<RowExpression> getRefreshScopePredicate()
+        {
+            return refreshScopePredicate;
         }
     }
 

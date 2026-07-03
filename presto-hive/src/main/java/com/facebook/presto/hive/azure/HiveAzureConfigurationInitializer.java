@@ -16,7 +16,11 @@ package com.facebook.presto.hive.azure;
 import com.facebook.airlift.log.Logger;
 import com.google.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.azure.NativeAzureFileSystem;
+import org.apache.hadoop.fs.azurebfs.Abfs;
+import org.apache.hadoop.fs.azurebfs.Abfss;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
+import org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem;
 
 import java.util.Optional;
 
@@ -46,6 +50,11 @@ public class HiveAzureConfigurationInitializer
     private static final String WASB_ACCOUNT_KEY_PROPERTY_FORMAT = "fs.azure.account.key.%s" + BLOB_ENDPOINT_SUFFIX;
 
     private static final String ABFS_IMPL_PROPERTY = "fs.abfs.impl";
+    private static final String ABFSS_IMPL_PROPERTY = "fs.abfss.impl";
+    private static final String WASB_IMPL_PROPERTY = "fs.wasb.impl";
+    private static final String WASBS_IMPL_PROPERTY = "fs.wasbs.impl";
+    private static final String ABFS_ABSTRACT_IMPL_PROPERTY = "fs.AbstractFileSystem.abfs.impl";
+    private static final String ABFSS_ABSTRACT_IMPL_PROPERTY = "fs.AbstractFileSystem.abfss.impl";
     private static final String OAUTH_AUTH_TYPE = "OAuth";
     private static final String ABFS_OAUTH_PROVIDER = "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider";
 
@@ -97,21 +106,27 @@ public class HiveAzureConfigurationInitializer
     {
         if (wasbAccessKey.isPresent() && wasbStorageAccount.isPresent()) {
             config.set(format(WASB_ACCOUNT_KEY_PROPERTY_FORMAT, wasbStorageAccount.get()), wasbAccessKey.get());
+            config.set(WASB_IMPL_PROPERTY, NativeAzureFileSystem.class.getName());
+            config.set(WASBS_IMPL_PROPERTY, NativeAzureFileSystem.Secure.class.getName());
         }
 
         if (abfsStorageAccount.isPresent()) {
             String dfsEndpoint = abfsStorageAccount.get() + DFS_ENDPOINT_SUFFIX;
 
+            // Register ABFS/ABFSS filesystem implementations. These are required for URI scheme resolution and
+            // must be set whenever ABFS storage is configured
+            config.set(ABFS_IMPL_PROPERTY, AzureBlobFileSystem.class.getName());
+            config.set(ABFSS_IMPL_PROPERTY, SecureAzureBlobFileSystem.class.getName());
+            config.set(ABFS_ABSTRACT_IMPL_PROPERTY, Abfs.class.getName());
+            config.set(ABFSS_ABSTRACT_IMPL_PROPERTY, Abfss.class.getName());
+
             if (abfsAccessKey.isPresent()) {
                 config.set(accountProperty(FS_AZURE_ACCOUNT_KEY_PROPERTY_NAME, dfsEndpoint), abfsAccessKey.get());
-                if (config.get(ABFS_IMPL_PROPERTY) == null) {
-                    config.set(ABFS_IMPL_PROPERTY, AzureBlobFileSystem.class.getName());
-                }
             }
 
             if (abfsOAuthClientEndpoint.isPresent() && abfsOAuthClientId.isPresent() && abfsOAuthClientSecret.isPresent()) {
                 config.set(accountProperty(FS_AZURE_ACCOUNT_AUTH_TYPE_PROPERTY_NAME, dfsEndpoint), OAUTH_AUTH_TYPE);
-                config.set(FS_AZURE_ACCOUNT_TOKEN_PROVIDER_TYPE_PROPERTY_NAME, ABFS_OAUTH_PROVIDER);
+                config.set(accountProperty(FS_AZURE_ACCOUNT_TOKEN_PROVIDER_TYPE_PROPERTY_NAME, dfsEndpoint), ABFS_OAUTH_PROVIDER);
                 config.set(accountProperty(FS_AZURE_ACCOUNT_OAUTH_CLIENT_ENDPOINT, dfsEndpoint), abfsOAuthClientEndpoint.get());
                 config.set(accountProperty(FS_AZURE_ACCOUNT_OAUTH_CLIENT_ID, dfsEndpoint), abfsOAuthClientId.get());
                 config.set(accountProperty(FS_AZURE_ACCOUNT_OAUTH_CLIENT_SECRET, dfsEndpoint), abfsOAuthClientSecret.get());

@@ -343,13 +343,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-testng</artifactId>
-                        <version>3.5.4</version>
-                    </dependency>
-                </dependencies>
                 <configuration>
                     <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>

@@ -210,6 +210,7 @@ public class TestEventListenerManager
                 canonicalPlan,
                 statsEquivalentPlan,
                 expandedQuery,
+                Optional.empty(),
                 optimizerInformation,
                 cteInformationList,
                 scalarFunctions,

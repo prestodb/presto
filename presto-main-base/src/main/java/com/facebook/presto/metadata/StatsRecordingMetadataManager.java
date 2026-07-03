@@ -653,11 +653,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle)
+    public InsertTableHandle beginRefreshMaterializedView(Session session, TableHandle tableHandle, Optional<RowExpression> refreshScopePredicate)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginRefreshMaterializedView(session, tableHandle);
+            return delegate.beginRefreshMaterializedView(session, tableHandle, refreshScopePredicate);
         }
         finally {
             stats.recordBeginRefreshMaterializedViewCall(System.nanoTime() - startTime);

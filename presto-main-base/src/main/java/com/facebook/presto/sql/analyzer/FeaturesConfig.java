@@ -91,6 +91,7 @@ public class FeaturesConfig
     private boolean groupedExecutionEnabled = true;
     private boolean recoverableGroupedExecutionEnabled;
     private boolean partitionAwareGroupedExecutionEnabled;
+    private boolean groupedExecutionWhenCapableEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
@@ -359,6 +360,7 @@ public class FeaturesConfig
     private ShuffleForTableScanStrategy tableScanShuffleStrategy = ShuffleForTableScanStrategy.DISABLED;
     private boolean skipPushdownThroughExchangeForRemoteProjection;
     private boolean pullConstantProjectionAboveExchange;
+    private PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy = PullRowLocalChainAboveExchangeStrategy.DISABLED;
     private String remoteFunctionNamesForFixedParallelism = "";
     private int remoteFunctionFixedParallelismTaskCount = 10;
 
@@ -531,6 +533,15 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED,
+        COST_BASED
+    }
+
+    public enum PullRowLocalChainAboveExchangeStrategy
+    {
+        DISABLED,
+        ALWAYS_ENABLED,
+        // TODO: COST_BASED currently applies the rewrite structurally (same as ALWAYS_ENABLED);
+        // cost-based selection is a separate layer to be implemented later.
         COST_BASED
     }
 
@@ -708,6 +719,19 @@ public class FeaturesConfig
     public FeaturesConfig setPartitionAwareGroupedExecutionEnabled(boolean partitionAwareGroupedExecutionEnabled)
     {
         this.partitionAwareGroupedExecutionEnabled = partitionAwareGroupedExecutionEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionWhenCapableEnabled()
+    {
+        return groupedExecutionWhenCapableEnabled;
+    }
+
+    @Config("grouped-execution-when-capable-enabled")
+    @ConfigDescription("Use grouped execution for any grouped-execution-capable (bucketed) fragment, even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle or a bucketed table write)")
+    public FeaturesConfig setGroupedExecutionWhenCapableEnabled(boolean groupedExecutionWhenCapableEnabled)
+    {
+        this.groupedExecutionWhenCapableEnabled = groupedExecutionWhenCapableEnabled;
         return this;
     }
 
@@ -3713,6 +3737,19 @@ public class FeaturesConfig
     public FeaturesConfig setPullConstantProjectionAboveExchange(boolean pullConstantProjectionAboveExchange)
     {
         this.pullConstantProjectionAboveExchange = pullConstantProjectionAboveExchange;
+        return this;
+    }
+
+    public PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy()
+    {
+        return pullRowLocalChainAboveExchangeStrategy;
+    }
+
+    @Config("optimizer.pull-row-local-chain-above-exchange-strategy")
+    @ConfigDescription("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are DISABLED, ALWAYS_ENABLED, COST_BASED")
+    public FeaturesConfig setPullRowLocalChainAboveExchangeStrategy(PullRowLocalChainAboveExchangeStrategy pullRowLocalChainAboveExchangeStrategy)
+    {
+        this.pullRowLocalChainAboveExchangeStrategy = pullRowLocalChainAboveExchangeStrategy;
         return this;
     }
 

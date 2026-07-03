@@ -60,6 +60,7 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionWhenCapableEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPartitionAwareGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
@@ -168,7 +169,17 @@ public class PlanFragmenterUtils
     {
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionTagger.GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager, isGroupedExecutionEnabled(session), isPrestoOnSpark), null);
-        if (properties.isSubTreeUseful()) {
+        // Normally a fragment is scheduled with grouped execution only when some operator makes grouping
+        // individually beneficial (subTreeUseful). When grouped_execution_when_capable is enabled, run
+        // grouped execution for ANY grouped-execution-capable (bucketed) fragment: currentNodeCapable is
+        // true only when every operator between the bucketed scan(s) and the fragment root is per-bucket
+        // safe, so grouping is always correct -- this just extends it to capable-but-not-"useful" fragments
+        // (e.g. a bucketed scan feeding a shuffle, or a bucketed table write), avoiding a redundant local
+        // re-partition of already-bucketed data.
+        boolean groupWhenCapable = isGroupedExecutionEnabled(session)
+                && isGroupedExecutionWhenCapableEnabled(session)
+                && properties.isCurrentNodeCapable();
+        if (properties.isSubTreeUseful() || groupWhenCapable) {
             int totalLifespans = properties.getTotalLifespans();
 
             // Partition-aware grouped execution: use the tagger's equivalence groups

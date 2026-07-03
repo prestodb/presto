@@ -59,6 +59,7 @@ import java.util.Optional;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
@@ -69,10 +70,15 @@ import static com.facebook.presto.iceberg.IcebergDistributedTestBase.getHdfsEnvi
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.dataSizeSessionProperty;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.io.Files.createTempDir;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergFileWriter
 {
@@ -109,8 +115,29 @@ public class TestIcebergFileWriter
                                 HiveCompressionCodec.NONE,
                                 false,
                                 value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
-                                HiveCompressionCodec::name)));
-
+                                HiveCompressionCodec::name),
+                        // ORC properties needed by createOrcWriter (also used by DWRF dispatch).
+                        // HiveCommonSessionProperties.isOrcOptimizedWriterValidate() reads both.
+                        booleanProperty(
+                                "orc_optimized_writer_validate",
+                                "ORC: Force all validation for files",
+                                false,
+                                false),
+                        new PropertyMetadata<>(
+                                "orc_optimized_writer_validate_percentage",
+                                "ORC: Sample percentage for validation for files",
+                                DOUBLE,
+                                Double.class,
+                                0.0,
+                                false,
+                                value -> ((Number) value).doubleValue(),
+                                value -> value),
+                        dataSizeSessionProperty("orc_optimized_writer_min_stripe_size", "ORC: Min stripe size", new DataSize(32, DataSize.Unit.MEGABYTE), false),
+                        dataSizeSessionProperty("orc_optimized_writer_max_stripe_size", "ORC: Max stripe size", new DataSize(64, DataSize.Unit.MEGABYTE), false),
+                        integerProperty("orc_optimized_writer_max_stripe_rows", "ORC: Max stripe row count", 10_000_000, false),
+                        dataSizeSessionProperty("orc_optimized_writer_max_dictionary_memory", "ORC: Max dictionary memory", new DataSize(16, DataSize.Unit.MEGABYTE), false),
+                        dataSizeSessionProperty("orc_string_statistics_limit", "ORC: Max string statistics size", new DataSize(64, DataSize.Unit.BYTE), false),
+                        stringProperty("orc_optimized_writer_validate_mode", "ORC: Level of detail in ORC validation", "BOTH", false)));
         Session session = testSessionBuilder(sessionPropertyManager)
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
@@ -157,6 +184,35 @@ public class TestIcebergFileWriter
         MessageType writtenSchema = parquetMetadata.getFileMetaData().getSchema();
         MessageType originalSchema = convert(icebergSchema, "table");
         assertEquals(originalSchema, writtenSchema);
+    }
+
+    @Test
+    public void testWriteDwrfFileDispatchesToOrcWriter()
+            throws Exception
+    {
+        Path path = new Path(createTempDir().getAbsolutePath() + "/test.dwrf");
+        Schema icebergSchema = toIcebergSchema(ImmutableList.of(
+                ColumnMetadata.builder().setName("a").setType(VARCHAR).build(),
+                ColumnMetadata.builder().setName("b").setType(INTEGER).build(),
+                ColumnMetadata.builder().setName("c").setType(TIMESTAMP).build(),
+                ColumnMetadata.builder().setName("d").setType(DATE).build()));
+        IcebergFileWriter icebergFileWriter = this.icebergFileWriterFactory.createFileWriter(path, icebergSchema, new JobConf(), connectorSession,
+                hdfsContext, FileFormat.DWRF, MetricsConfig.getDefault());
+        assertNotNull(icebergFileWriter, "createFileWriter must dispatch FileFormat.DWRF to a non-null writer");
+
+        List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, TIMESTAMP, DATE)
+                .addSequencePage(100, 0, 0, 123, 100)
+                .addSequencePage(100, 100, 100, 223, 100)
+                .addSequencePage(100, 200, 200, 323, 100)
+                .build();
+        for (Page page : input) {
+            icebergFileWriter.appendRows(page);
+        }
+        icebergFileWriter.commit();
+
+        File dwrfFile = new File(path.toString());
+        assertTrue(dwrfFile.exists(), "DWRF dispatch should produce a writable output file");
+        assertTrue(dwrfFile.length() > 0, "DWRF dispatch should produce a non-empty output file");
     }
 
     private static class TestingTypeManager

@@ -108,7 +108,7 @@ public class TableWriteInfo
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
-                return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
+                return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle(), refresh.getRefreshScopePredicate()), refresh.getSchemaTableName()));
             }
             if (target instanceof TableWriterNode.UpdateTarget) {
                 TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;

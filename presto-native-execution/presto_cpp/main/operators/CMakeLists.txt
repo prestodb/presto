@@ -17,6 +17,7 @@ add_library(
   BroadcastExchangeSource.cpp
   BroadcastFile.cpp
   BroadcastWrite.cpp
+  IcebergMergeProcessorOperator.cpp
   MaterializedExchange.cpp
   MaterializedOutput.cpp
   MaterializedOutputBuffer.cpp
@@ -27,7 +28,13 @@ add_library(
   ShuffleWrite.cpp
 )
 
-target_link_libraries(presto_operators presto_common presto_native-cpp2 velox)
+target_link_libraries(
+  presto_operators
+  presto_common
+  presto_native-cpp2
+  velox
+  velox_hive_iceberg_splitreader
+)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

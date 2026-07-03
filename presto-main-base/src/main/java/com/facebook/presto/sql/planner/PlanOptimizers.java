@@ -100,6 +100,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantProjectionAboveExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
+import com.facebook.presto.sql.planner.iterative.rule.PullRowLocalChainAboveExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PullUpExpressionInLambdaRules;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughDisjointUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
@@ -1124,6 +1125,16 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(new PullConstantProjectionAboveExchange())));
+        // Pull a chain of row-local operators (unnest + deterministic projections) above a remote
+        // repartition exchange so the exchange shuffles the smaller pre-expansion input. Placed after
+        // the final projectionPushDown so PushProjectionThroughExchange will not push the chain back
+        // below the exchange. Cost-based and gated (default off).
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PullRowLocalChainAboveExchange(metadata.getFunctionAndTypeManager()))));
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(

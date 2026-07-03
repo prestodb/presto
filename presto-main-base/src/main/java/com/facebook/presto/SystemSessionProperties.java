@@ -46,6 +46,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.LocalExchangeParentPrefer
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.PullRowLocalChainAboveExchangeStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PushDownFilterThroughCrossJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeNullSourceKeyInSemiJoinStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.RandomizeOuterJoinNullKeyStrategy;
@@ -115,6 +116,7 @@ public final class SystemSessionProperties
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String PARTITION_AWARE_GROUPED_EXECUTION = "partition_aware_grouped_execution";
+    public static final String GROUPED_EXECUTION_WHEN_CAPABLE = "grouped_execution_when_capable";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String PREFER_STREAMING_OPERATORS = "prefer_streaming_operators";
     public static final String TASK_WRITER_COUNT = "task_writer_count";
@@ -396,6 +398,7 @@ public final class SystemSessionProperties
     public static final String TABLE_SCAN_SHUFFLE_STRATEGY = "table_scan_shuffle_strategy";
     public static final String SKIP_PUSHDOWN_THROUGH_EXCHANGE_FOR_REMOTE_PROJECTION = "skip_pushdown_through_exchange_for_remote_projection";
     public static final String PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE = "pull_constant_projection_above_exchange";
+    public static final String PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY = "pull_row_local_chain_above_exchange_strategy";
     public static final String REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM = "remote_function_names_for_fixed_parallelism";
     public static final String REMOTE_FUNCTION_FIXED_PARALLELISM_TASK_COUNT = "remote_function_fixed_parallelism_task_count";
     public static final String RPC_FUNCTION_PARALLELISM = "rpc_function_parallelism";
@@ -406,6 +409,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
     public static final String NATIVE_MAX_SPLIT_PRELOAD_PER_DRIVER = "native_max_split_preload_per_driver";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_UPDATE_MERGE_ENABLED = "native_update_merge_enabled";
     private static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
@@ -572,6 +576,11 @@ public final class SystemSessionProperties
                         PARTITION_AWARE_GROUPED_EXECUTION,
                         "When enabled, schedules each (bucket, partition-values) pair as a separate lifespan in grouped execution, reducing per-lifespan memory usage for bucketed + partitioned tables",
                         featuresConfig.isPartitionAwareGroupedExecutionEnabled(),
+                        false),
+                booleanProperty(
+                        GROUPED_EXECUTION_WHEN_CAPABLE,
+                        "When enabled (with grouped_execution), run grouped execution for any grouped-execution-capable bucketed fragment even when no downstream operator makes it individually beneficial (e.g. a bucketed scan feeding a shuffle, or a bucketed table write)",
+                        featuresConfig.isGroupedExecutionWhenCapableEnabled(),
                         false),
                 booleanProperty(
                         PREFER_STREAMING_OPERATORS,
@@ -1905,6 +1914,14 @@ public final class SystemSessionProperties
                         featuresConfig.isNativeExecutionEnabled(),
                         true),
                 booleanProperty(
+                        NATIVE_UPDATE_MERGE_ENABLED,
+                        "Allow UPDATE / MERGE planning when native execution is enabled. " +
+                                "Requires that the Velox/Prestissimo workers ship the IcebergMergeProcessor / IcebergMergeSink ports " +
+                                "AND that PrestoToVeloxQueryPlan dispatches UpdateNode/MergeWriterNode/MergeProcessorNode. " +
+                                "Default true now that Layer 3b MergeWriterNode→TableWriteNode wiring is in.",
+                        true,
+                        false),
+                booleanProperty(
                         NATIVE_EXECUTION_PROCESS_REUSE_ENABLED,
                         "Enable reuse the native process within the same JVM",
                         true,
@@ -2319,6 +2336,18 @@ public final class SystemSessionProperties
                         "Pull constant assignments in projections above remote exchanges to reduce network I/O",
                         featuresConfig.isPullConstantProjectionAboveExchange(),
                         false),
+                new PropertyMetadata<>(
+                        PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY,
+                        format("Strategy for pulling a chain of row-local operators (unnest, deterministic projections) above a remote exchange so the exchange shuffles the smaller pre-expansion input. Options are %s",
+                                Stream.of(PullRowLocalChainAboveExchangeStrategy.values())
+                                        .map(PullRowLocalChainAboveExchangeStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        PullRowLocalChainAboveExchangeStrategy.class,
+                        featuresConfig.getPullRowLocalChainAboveExchangeStrategy(),
+                        false,
+                        value -> PullRowLocalChainAboveExchangeStrategy.valueOf(((String) value).toUpperCase()),
+                        PullRowLocalChainAboveExchangeStrategy::name),
                 stringProperty(
                         REMOTE_FUNCTION_NAMES_FOR_FIXED_PARALLELISM,
                         "Regex pattern to match remote function names that should use fixed parallelism",
@@ -2544,6 +2573,11 @@ public final class SystemSessionProperties
     public static boolean isPartitionAwareGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(PARTITION_AWARE_GROUPED_EXECUTION, Boolean.class);
+    }
+
+    public static boolean isGroupedExecutionWhenCapableEnabled(Session session)
+    {
+        return session.getSystemProperty(GROUPED_EXECUTION_WHEN_CAPABLE, Boolean.class);
     }
 
     public static double getMaxFailedTaskPercentage(Session session)
@@ -2897,6 +2931,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeUpdateMergeEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_UPDATE_MERGE_ENABLED, Boolean.class);
     }
 
     public static boolean isSingleNodeExecutionEnabled(Session session)
@@ -4030,6 +4069,11 @@ public final class SystemSessionProperties
     public static boolean isPullConstantProjectionAboveExchange(Session session)
     {
         return session.getSystemProperty(PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE, Boolean.class);
+    }
+
+    public static PullRowLocalChainAboveExchangeStrategy getPullRowLocalChainAboveExchangeStrategy(Session session)
+    {
+        return session.getSystemProperty(PULL_ROW_LOCAL_CHAIN_ABOVE_EXCHANGE_STRATEGY, PullRowLocalChainAboveExchangeStrategy.class);
     }
 
     public static String getRemoteFunctionNamesForFixedParallelism(Session session)

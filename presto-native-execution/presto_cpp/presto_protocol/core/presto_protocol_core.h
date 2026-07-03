@@ -1919,6 +1919,32 @@ void to_json(json& j, const MergeTarget& p);
 void from_json(const json& j, MergeTarget& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct MergeProcessorNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  MergeTarget target = {};
+  VariableReferenceExpression targetTableRowIdColumnVariable = {};
+  VariableReferenceExpression mergeRowVariable = {};
+  List<VariableReferenceExpression> targetColumnVariables = {};
+  List<VariableReferenceExpression> outputs = {};
+
+  MergeProcessorNode() noexcept;
+};
+void to_json(json& j, const MergeProcessorNode& p);
+void from_json(const json& j, MergeProcessorNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct MergeWriterNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  MergeTarget target = {};
+  List<VariableReferenceExpression> mergeProcessorProjectedVariables = {};
+  List<VariableReferenceExpression> outputs = {};
+
+  MergeWriterNode() noexcept;
+};
+void to_json(json& j, const MergeWriterNode& p);
+void from_json(const json& j, MergeWriterNode& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct NativeFunctionHandle : public FunctionHandle {
   Signature signature = {};
 
@@ -2767,6 +2793,18 @@ struct UpdateHandle : public ExecutionWriterTarget {
 };
 void to_json(json& j, const UpdateHandle& p);
 void from_json(const json& j, UpdateHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct UpdateNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  std::shared_ptr<VariableReferenceExpression> rowId = {};
+  List<VariableReferenceExpression> columnValueAndRowIdSymbols = {};
+  List<VariableReferenceExpression> outputVariables = {};
+
+  UpdateNode() noexcept;
+};
+void to_json(json& j, const UpdateNode& p);
+void from_json(const json& j, UpdateNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ValuesNode : public PlanNode {

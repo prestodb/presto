@@ -293,10 +293,14 @@ import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProce
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.facebook.presto.spi.security.ViewSecurity.DEFINER;
 import static com.facebook.presto.spi.security.ViewSecurity.INVOKER;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildMaterializedViewScanFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.buildOwnerSession;
+import static com.facebook.presto.sql.MaterializedViewUtils.buildPartitionsToRecomputeFilter;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateBaseTablePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.generateFalsePredicates;
 import static com.facebook.presto.sql.MaterializedViewUtils.getOwnerIdentity;
+import static com.facebook.presto.sql.MaterializedViewUtils.projectBaseTablePartitionsToView;
+import static com.facebook.presto.sql.MaterializedViewUtils.requiresOuterFilter;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.QueryUtil.selectList;
@@ -961,11 +965,38 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
+            // Capture the refresh scope (the WHERE predicate) here, where the full unfactored predicate
+            // with its MV/base column mapping is still available. It is carried on the analysis ->
+            // RefreshMaterializedViewReference -> beginRefreshMaterializedView so the connector receives
+            // it at execution time, rather than calling the connector SPI during analysis.
+            Optional<RowExpression> refreshScopePredicate = Optional.empty();
+            if (isLegacyMaterializedViews(session) && node.getWhere().isPresent()) {
+                Expression refreshWhere = node.getWhere().get();
+                // Analyze with AllowAllAccessControl (as for the view scope above): refresh must not require
+                // SELECT on the materialized view, only INSERT. This only populates expression types for translation.
+                ExpressionAnalyzer.analyzeExpression(
+                        session,
+                        metadata,
+                        new AllowAllAccessControl(),
+                        sqlParser,
+                        viewScope,
+                        analysis,
+                        refreshWhere,
+                        warningCollector);
+                refreshScopePredicate = Optional.of(SqlToRowExpressionTranslator.translate(
+                        refreshWhere,
+                        analysis.getTypes(),
+                        ImmutableMap.of(),
+                        metadata.getFunctionAndTypeManager(),
+                        session));
+            }
+
             analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
                     refreshQuery,
-                    toSchemaTableName(viewName)));
+                    toSchemaTableName(viewName),
+                    refreshScopePredicate));
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
@@ -2793,13 +2824,33 @@ class StatementAnalyzer
             Statement createSqlStatement = sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
 
             Map<SchemaTableName, Expression> baseTablePredicates = emptyMap();
+            Optional<Expression> materializedViewScanFilter = Optional.empty();
+            Optional<Expression> outerBaseTablesFilter = Optional.empty();
             if (materializedViewStatus.isFullyMaterialized()) {
                 // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
                 // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
                 baseTablePredicates = generateFalsePredicates(materializedViewDefinition.getBaseTables());
             }
             else if (materializedViewStatus.isPartiallyMaterialized()) {
-                baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
+                Map<String, Map<SchemaTableName, String>> columnMappings = materializedViewDefinition.getDirectColumnMappingsAsMap();
+                List<SchemaTableName> baseTables = materializedViewDefinition.getBaseTables();
+                Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables = materializedViewStatus.getPartitionsFromBaseTables();
+
+                // Connector reports the predicates to recompute in base space; project to view space for the scan exclusion.
+                Optional<MaterializedViewStatus.MaterializedDataPredicates> mvPredicatesToRecompute =
+                        Optional.of(projectBaseTablePartitionsToView(partitionsFromBaseTables, columnMappings));
+                materializedViewScanFilter = buildMaterializedViewScanFilter(mvPredicatesToRecompute, metadata);
+                if (requiresOuterFilter(mvPredicatesToRecompute, columnMappings, baseTables)) {
+                    // A recompute column doesn't map onto every base (cross-base join, UNION constant, OUTER JOIN): recompute
+                    // via one outer filter over the view definition. The per-base branch would emit WHERE FALSE on the
+                    // non-recomputing join side and drop the new partitions, so prune it.
+                    outerBaseTablesFilter = buildPartitionsToRecomputeFilter(mvPredicatesToRecompute, metadata);
+                    baseTablePredicates = generateFalsePredicates(baseTables);
+                }
+                else {
+                    // Single base, or partition keys shared across all bases: recompute per base table.
+                    baseTablePredicates = generateBaseTablePredicates(partitionsFromBaseTables, metadata);
+                }
             }
 
             Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates, metadata).process(createSqlStatement, new PredicateStitcherContext());
@@ -2808,7 +2859,7 @@ class StatementAnalyzer
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
                     selectList(new AllColumns()),
                     Optional.of(materializedView),
-                    Optional.empty(),
+                    materializedViewScanFilter,
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
@@ -2817,11 +2868,17 @@ class StatementAnalyzer
 
             // When union, keep predicateStitchedQuery before materializedViewQuerySpecification. Given Scope of Union contains RelationType of the first Relation,
             // this would allow utilizedTableColumnReferences to trace back to base table columns, which is required for correct materialized view access control.
-            Union union = new Union(ImmutableList.of(predicateStitchedQuery.getQueryBody(), materializedViewQuerySpecification), Optional.of(Boolean.FALSE));
+            ImmutableList.Builder<Relation> unionRelations = ImmutableList.builder();
+            unionRelations.add(predicateStitchedQuery.getQueryBody());
+            if (outerBaseTablesFilter.isPresent()) {
+                // Recompute fresh data from the base tables via the outer filter over the view definition.
+                Query freshDataFromBaseTables = (Query) sqlParser.createStatement(materializedViewCreateSql, createParsingOptions(session, warningCollector));
+                unionRelations.add(buildSubqueryWithPredicate(freshDataFromBaseTables, outerBaseTablesFilter.get()).getQueryBody());
+            }
+            unionRelations.add(materializedViewQuerySpecification);
+            Union union = new Union(unionRelations.build(), Optional.of(Boolean.FALSE));
             Query unionQuery = new Query(predicateStitchedQuery.getWith(), union, predicateStitchedQuery.getOrderBy(), predicateStitchedQuery.getOffset(), predicateStitchedQuery.getLimit());
-            // can we return the above query object, instead of building a query string?
-            // in case of returning the query object, make sure to clone the original query object.
-            return getFormattedSql(unionQuery, sqlParser, Optional.empty());
+            return formatSql(unionQuery, Optional.empty());
         }
 
         /**

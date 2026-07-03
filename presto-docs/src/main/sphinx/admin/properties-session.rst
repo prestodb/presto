@@ -1129,6 +1129,22 @@ pulled up, and for multi-source (``UNION``) exchanges only constants that are id
 sources are pulled up. This is the session-level counterpart of the configuration property
 :ref:`admin/properties:\`\`optimizer.pull-constant-projection-above-exchange\`\``.
 
+``pull_row_local_chain_above_exchange_strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Allowed values:** ``DISABLED``, ``ALWAYS_ENABLED``, ``COST_BASED``
+* **Default value:** ``DISABLED``
+
+Strategy for pulling a chain of row-local operators (``UNNEST`` and deterministic projections) above a
+repartitioning remote ``ExchangeNode`` so the exchange shuffles the smaller pre-expansion input rather
+than the post-expansion (fanned-out and widened) rows. With ``ALWAYS_ENABLED`` the rewrite is applied
+whenever it is legal (every partitioning, hashing, or ordering variable is produced unchanged below the
+chain), independent of cost or statistics. ``COST_BASED`` currently behaves like ``ALWAYS_ENABLED``;
+cost-based selection is a separate layer to be added later. This is the session-level counterpart of the
+configuration property
+:ref:`admin/properties:\`\`optimizer.pull-row-local-chain-above-exchange-strategy\`\``.
+
 ``grouped_execution``
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -1166,6 +1182,26 @@ When partition-aware execution is not applicable (for example: non-partitioned t
 columns in join conditions), the query falls back to standard grouped execution automatically.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`partition-aware-grouped-execution-enabled\`\``.
+
+``grouped_execution_when_capable``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled alongside ``grouped_execution``, runs grouped execution for any grouped-execution-capable
+(bucketed) fragment even when no downstream operator makes grouping individually beneficial. Normally
+grouped execution engages only when an operator such as a colocated join or a final aggregation on the
+bucket key makes it worthwhile; with this property a bucketed scan that merely feeds a shuffle (for
+example a join or aggregation on a non-bucket key), or a bucketed-to-bucketed table write, also runs one
+bucket per lifespan -- avoiding a re-partition of already-bucketed data and bounding per-lifespan memory
+to a single bucket.
+
+Grouping a capable fragment is always correct, but reading fewer buckets at a time can reduce scan
+parallelism, so it is most beneficial for memory- or aggregation-bound workloads and may regress
+scan-throughput-bound queries. It is disabled by default.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`grouped-execution-when-capable-enabled\`\``.
 
 Geometry Properties
 -------------------

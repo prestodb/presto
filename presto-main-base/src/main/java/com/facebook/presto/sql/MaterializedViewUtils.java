@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
+import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.Expression;
@@ -42,7 +43,7 @@ import com.facebook.presto.sql.tree.GroupingElement;
 import com.facebook.presto.sql.tree.GroupingSets;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.Rollup;
@@ -59,7 +60,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,13 +71,12 @@ import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValue
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.DIVIDE;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
-import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -148,46 +148,100 @@ public final class MaterializedViewUtils
     public static Map<SchemaTableName, Expression> generateBaseTablePredicates(Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> predicatesFromBaseTables, Metadata metadata)
     {
         Map<SchemaTableName, Expression> baseTablePredicates = new HashMap<>();
-
-        for (SchemaTableName baseTable : predicatesFromBaseTables.keySet()) {
-            MaterializedViewStatus.MaterializedDataPredicates predicatesInfo = predicatesFromBaseTables.get(baseTable);
-            List<String> partitionKeys = predicatesInfo.getColumnNames();
-            ImmutableList<Expression> keyExpressions = partitionKeys.stream().map(Identifier::new).collect(toImmutableList());
-            List<TupleDomain<String>> predicateDisjuncts = predicatesInfo.getPredicateDisjuncts();
-            Expression disjunct = null;
-
-            for (TupleDomain<String> predicateDisjunct : predicateDisjuncts) {
-                Expression conjunct = null;
-                Iterator<Expression> keyExpressionsIterator = keyExpressions.stream().iterator();
-                Map<String, NullableValue> predicateKeyValue = extractFixedValues(predicateDisjunct)
-                        .orElseThrow(() -> new IllegalStateException("predicateKeyValue is not present!"));
-
-                for (String key : partitionKeys) {
-                    NullableValue nullableValue = predicateKeyValue.get(key);
-                    Expression expression;
-
-                    if (nullableValue.isNull()) {
-                        expression = new IsNullPredicate(keyExpressionsIterator.next());
-                    }
-                    else {
-                        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-                        Expression valueExpression = literalEncoder.toExpression(nullableValue.getValue(), nullableValue.getType(), false);
-                        expression = new ComparisonExpression(EQUAL, keyExpressionsIterator.next(), valueExpression);
-                    }
-
-                    conjunct = conjunct == null ? expression : new LogicalBinaryExpression(AND, conjunct, expression);
-                }
-
-                disjunct = conjunct == null ? disjunct : disjunct == null ? conjunct : new LogicalBinaryExpression(OR, disjunct, conjunct);
-            }
-            // If no (fresh) partitions are found for table, that means we should not select from it
-            if (disjunct == null) {
-                disjunct = FALSE_LITERAL;
-            }
-            baseTablePredicates.put(baseTable, disjunct);
+        for (Map.Entry<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> entry : predicatesFromBaseTables.entrySet()) {
+            baseTablePredicates.put(entry.getKey(), buildPartitionPredicate(entry.getValue(), metadata));
         }
-
         return baseTablePredicates;
+    }
+
+    // True when a recompute column doesn't map to every base table (UNION/outer-join) and so can't be folded per base.
+    public static boolean requiresOuterFilter(
+            Optional<MaterializedViewStatus.MaterializedDataPredicates> partitionsToRecompute,
+            Map<String, Map<SchemaTableName, String>> viewToBaseColumnMappings,
+            List<SchemaTableName> baseTables)
+    {
+        if (!partitionsToRecompute.isPresent() || partitionsToRecompute.get().isEmpty()) {
+            return false;
+        }
+        for (String viewColumn : partitionsToRecompute.get().getColumnNames()) {
+            if (!viewToBaseColumnMappings.getOrDefault(viewColumn, ImmutableMap.of()).keySet().containsAll(baseTables)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Renders partitions as (k = v AND ...) OR ... (FALSE when empty). Literals carry no CAST so the query round-trips.
+    private static Expression buildPartitionPredicate(MaterializedViewStatus.MaterializedDataPredicates predicatesInfo, Metadata metadata)
+    {
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        List<Expression> disjuncts = new ArrayList<>();
+        for (TupleDomain<String> predicateDisjunct : predicatesInfo.getPredicateDisjuncts()) {
+            Map<String, NullableValue> predicateKeyValue = extractFixedValues(predicateDisjunct)
+                    .orElseThrow(() -> new IllegalStateException("predicateKeyValue is not present!"));
+            List<Expression> conjuncts = new ArrayList<>();
+            for (String key : predicatesInfo.getColumnNames()) {
+                NullableValue nullableValue = predicateKeyValue.get(key);
+                if (nullableValue == null) {
+                    continue;
+                }
+                Identifier column = new Identifier(key);
+                conjuncts.add(nullableValue.isNull()
+                        ? new IsNullPredicate(column)
+                        : new ComparisonExpression(EQUAL, column, literalEncoder.toExpression(nullableValue.getValue(), nullableValue.getType(), false)));
+            }
+            if (!conjuncts.isEmpty()) {
+                disjuncts.add(combineConjuncts(conjuncts));
+            }
+        }
+        return disjuncts.isEmpty() ? FALSE_LITERAL : combineDisjuncts(disjuncts);
+    }
+
+    // NULL-safe negation of buildPartitionsToRecomputeFilter (COALESCE keeps fresh NULL-partition rows) so each partition is served once.
+    public static Optional<Expression> buildMaterializedViewScanFilter(Optional<MaterializedViewStatus.MaterializedDataPredicates> partitionsToExclude, Metadata metadata)
+    {
+        return buildPartitionsToRecomputeFilter(partitionsToExclude, metadata)
+                .map(recomputeFilter -> new NotExpression(new CoalesceExpression(recomputeFilter, FALSE_LITERAL)));
+    }
+
+    // Positive predicate selecting exactly the partitions to recompute; negated, it is the view-scan exclusion.
+    public static Optional<Expression> buildPartitionsToRecomputeFilter(Optional<MaterializedViewStatus.MaterializedDataPredicates> partitionsToRecompute, Metadata metadata)
+    {
+        if (!partitionsToRecompute.isPresent() || partitionsToRecompute.get().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(buildPartitionPredicate(partitionsToRecompute.get(), metadata));
+    }
+
+    // Projects the per-base recompute partitions back into view-column space (inverse of viewToBaseColumnMappings).
+    // Unmapped columns are dropped (partial tuples are expected for joins).
+    public static MaterializedViewStatus.MaterializedDataPredicates projectBaseTablePartitionsToView(
+            Map<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> partitionsFromBaseTables,
+            Map<String, Map<SchemaTableName, String>> viewToBaseColumnMappings)
+    {
+        List<TupleDomain<String>> viewDisjuncts = new ArrayList<>();
+        Set<String> viewColumns = new LinkedHashSet<>();
+        for (Map.Entry<SchemaTableName, MaterializedViewStatus.MaterializedDataPredicates> entry : partitionsFromBaseTables.entrySet()) {
+            SchemaTableName baseTable = entry.getKey();
+            Map<String, String> baseToViewColumn = new HashMap<>();
+            for (Map.Entry<String, Map<SchemaTableName, String>> mapping : viewToBaseColumnMappings.entrySet()) {
+                String baseColumn = mapping.getValue().get(baseTable);
+                if (baseColumn != null) {
+                    baseToViewColumn.put(baseColumn, mapping.getKey());
+                }
+            }
+            MaterializedViewStatus.MaterializedDataPredicates basePredicates = entry.getValue();
+            for (String baseColumn : basePredicates.getColumnNames()) {
+                String viewColumn = baseToViewColumn.get(baseColumn);
+                if (viewColumn != null) {
+                    viewColumns.add(viewColumn);
+                }
+            }
+            for (TupleDomain<String> disjunct : basePredicates.getPredicateDisjuncts()) {
+                viewDisjuncts.add(disjunct.transform(baseToViewColumn::get));
+            }
+        }
+        return new MaterializedViewStatus.MaterializedDataPredicates(viewDisjuncts, ImmutableList.copyOf(viewColumns));
     }
 
     public static Map<SchemaTableName, Expression> generateFalsePredicates(List<SchemaTableName> baseTables)

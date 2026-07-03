@@ -141,6 +141,7 @@ public final class PrestoEventData
                 Collections.emptyMap(), // canonicalPlan
                 Optional.empty(), // statsEquivalentPlan
                 Optional.empty(), // expandedQuery
+                Optional.empty(), // materializedViewRewrittenQuery
                 Collections.emptyList(), // optimizerInformation
                 Collections.emptyList(), // cteInformationList
                 Collections.emptySet(), // scalarFunctions

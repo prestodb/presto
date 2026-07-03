@@ -26,7 +26,6 @@ import javax.inject.Inject;
 
 import java.nio.ByteBuffer;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class MergeTableHandleThriftCodec
@@ -62,8 +61,22 @@ public class MergeTableHandleThriftCodec
             throws Exception
     {
         ByteBuffer byteBuffer = reader.readBinary();
-        checkArgument(byteBuffer.position() == 0, "Buffer position should be 0, but is %s", byteBuffer.position());
-        byte[] bytes = byteBuffer.array();
+        // [ICEBERG-FIX] Copy only the [position, limit) window of the
+        // ByteBuffer, not the entire backing array. TProtocolReader.readBinary()
+        // returns a ByteBuffer that is a view over the protocol's input slice,
+        // which is typically a pooled buffer holding the rest of the request
+        // frame. The previous code used byteBuffer.array(), which returned the
+        // whole backing array (including trailing thrift bytes for subsequent
+        // fields) and handed those extra bytes to the ConnectorCodec. For
+        // codecs that embed length information internally (e.g. Drift Thrift)
+        // the trailing garbage is harmless, but JSON-based ConnectorCodecs
+        // (introduced for ConnectorMergeTableHandle in the iceberg connector)
+        // fail with "Can not deserialize iceberg merge table handle" because
+        // Jackson sees JSON followed by binary garbage. The original
+        // checkArgument(position == 0) is misleading: position == 0 does not
+        // imply limit == array.length.
+        byte[] bytes = new byte[byteBuffer.remaining()];
+        byteBuffer.get(bytes);
         return connectorCodecManager.getMergeTableHandleCodec(connectorId).map(codec -> codec.deserialize(bytes)).orElse(null);
     }
 
