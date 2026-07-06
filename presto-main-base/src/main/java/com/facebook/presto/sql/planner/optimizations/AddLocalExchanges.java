@@ -88,7 +88,6 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabl
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isNativeExecutionScaleWritersThreadsEnabled;
-import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -1024,12 +1023,17 @@ public class AddLocalExchanges
                     .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
-                if (nativeExecution && !isNativeJoinBuildPartitionEnforced(session)) {
-                    buildPreference = defaultParallelism(session);
-                }
-                else {
-                    buildPreference = exactlyPartitionedOn(buildHashVariables);
-                }
+                // For correctness, always enforce hash partitioning on build side for partitioned joins.
+                // Previously, native execution with !isNativeJoinBuildPartitionEnforced(session) used
+                // defaultParallelism, which combined with isPartitionedOn(SINGLE) returning true for any columns,
+                // caused AddExchanges to skip required HASH exchange on probe side (LIMIT subquery, SINGLE).
+                // Without co-partitioning, probe rows (Bernoulli sampled) don't land in build's
+                // matching hash partition, miss their match, and anti-join incorrectly keeps them.
+                // Java worked because it always enforced hash and added LocalExchange[HASH] on probe for
+                // grouped execution, ensuring co-location. Native failed because it used defaultParallelism.
+                // Fix: Always use exactlyPartitionedOn for build when concurrency > 1, regardless of native flag,
+                // to ensure co-partitioning for correctness.
+                buildPreference = exactlyPartitionedOn(buildHashVariables);
             }
             else {
                 buildPreference = singleStream();
@@ -1048,7 +1052,31 @@ public class AddLocalExchanges
                     parentPreferences.constrainTo(node.getSource().getOutputVariables()).withDefaultParallelism(session));
 
             // this filter source consumes the input completely, so we do not pass through parent preferences
-            StreamPreferredProperties filteringPreference = nativeExecution ? defaultParallelism(session) : singleStream();
+            // For native, filtering side is default parallelism by default, but must be hash-partitioned
+            // when source contains non-deterministic (e.g., Bernoulli sampling) to ensure co-partitioning
+            // for anti-join correctness. Java uses singleStream for filteringSource, which is fine for broadcast,
+            // but for partitioned anti-join with non-deterministic probe, we need hash partitioning.
+            StreamPreferredProperties filteringPreference;
+            if (nativeExecution) {
+                boolean sourceHasNonDeterministic = false;
+                try {
+                    sourceHasNonDeterministic = com.facebook.presto.sql.planner.PlannerUtils.containsNonDeterministicExpression(
+                            node.getSource(), metadata.getFunctionAndTypeManager());
+                }
+                catch (Exception e) {
+                    sourceHasNonDeterministic = true;
+                }
+                if (sourceHasNonDeterministic) {
+                    filteringPreference = com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn(
+                            com.google.common.collect.ImmutableList.of(node.getFilteringSourceJoinVariable()));
+                }
+                else {
+                    filteringPreference = defaultParallelism(session);
+                }
+            }
+            else {
+                filteringPreference = singleStream();
+            }
             PlanWithProperties filteringSource = planAndEnforce(node.getFilteringSource(), filteringPreference, filteringPreference);
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(source, filteringSource));

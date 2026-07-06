@@ -8291,6 +8291,39 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testAntiJoinWithBernoulliReturnsCorrectResult()
+    {
+        // Regression test for Bernoulli + ANTI JOIN / NOT EXISTS returning wrong results.
+        // The left side is a random sample (subset) of the same table as the right side,
+        // so NOT EXISTS must always be false, COUNT must be 0. The query should never return non-zero.
+        // Before fix, native execution returned non-deterministic non-zero due to missing co-partitioning:
+        // isPartitionedOn(SINGLE, [joinKeys]) incorrectly returned true for SINGLE with empty args,
+        // causing AddExchanges to think probe side (LIMIT subquery, SINGLE) is already hash-partitioned
+        // and skip adding the required HASH exchange on probe side for PARTITIONED anti-join.
+        // Without co-partitioning, probe rows (sampled via Bernoulli) don't land in build's matching
+        // hash partition, miss their match, and anti-join incorrectly keeps them.
+        // The fix makes isPartitionedOn return false for SINGLE with non-empty columns, forcing HASH exchange.
+
+        // NOT EXISTS variant – must be 0 because first is subset of second (same underlying table)
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50) WHERE orderkey IS NOT NULL LIMIT 1000) first " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM orders second WHERE second.orderkey = first.orderkey)",
+                "SELECT 0");
+
+        // NOT IN variant – same logic, also anti-join, must be 0
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50) WHERE orderkey IS NOT NULL LIMIT 1000) first " +
+                        "WHERE orderkey NOT IN (SELECT orderkey FROM orders)",
+                "SELECT 0");
+
+        // Verify that without Bernoulli (deterministic), anti-join is still correct – sanity check
+        assertQuery(
+                "SELECT COUNT(*) FROM (SELECT orderkey FROM orders WHERE orderkey IS NOT NULL ORDER BY orderkey LIMIT 1000) first " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM orders second WHERE second.orderkey = first.orderkey)",
+                "SELECT 0");
+    }
+
+    @Test
     public void testRemoveCrossJoinWithSingleRowConstantInput()
     {
         Session enableOptimization = Session.builder(getSession())

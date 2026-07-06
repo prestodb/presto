@@ -180,7 +180,16 @@ public class PartitioningUtils
     public static boolean isPartitionedOn(Partitioning partitioning, Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> knownConstants)
     {
         if (partitioning.getArguments().isEmpty()) {
-            return partitioning.getHandle().isSingleNode() || partitioning.getHandle().isCoordinatorOnly();
+            // For correctness of partitioned joins, SINGLE with empty args should only be considered
+            // partitioned on empty columns. If columns is non-empty (e.g., join keys), SINGLE is not
+            // hash-partitioned on those keys, so it should not satisfy the partitioning requirement.
+            // This prevents incorrect colocated join planning where probe side is SINGLE and build side
+            // is HASH partitioned, causing probe rows to miss their matching build partitions.
+            // See: Bernoulli + ANTI JOIN returning wrong results due to missing probe-side hash exchange.
+            if (columns.isEmpty()) {
+                return partitioning.getHandle().isSingleNode() || partitioning.getHandle().isCoordinatorOnly();
+            }
+            return false;
         }
         for (RowExpression argument : partitioning.getArguments()) {
             // partitioned on (k_1, k_2, ..., k_n) => partitioned on (k_1, k_2, ..., k_n, k_n+1, ...)
