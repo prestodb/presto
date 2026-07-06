@@ -115,8 +115,9 @@ public class TestPartitioningUtils
         VariableReferenceExpression column = new VariableReferenceExpression(Optional.empty(), "col", BIGINT);
         Partitioning partitioning = Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of());
         // SINGLE with empty args is only partitioned on empty columns, not on specific join keys.
-        // For correctness of partitioned joins (T278613408), SINGLE should not satisfy HASH partitioning on non-empty columns,
-        // otherwise probe side that is SINGLE would not be repartitioned via HASH to match build side, causing missed matches.
+        // For correctness of partitioned joins, SINGLE should not satisfy HASH partitioning on non-empty columns,
+        // otherwise probe side that is SINGLE would not be repartitioned via HASH to match build side, causing missed matches
+        // for anti-join with Bernoulli sampling.
         assertFalse(isPartitionedOn(partitioning, ImmutableList.of(column), ImmutableSet.of()));
     }
 

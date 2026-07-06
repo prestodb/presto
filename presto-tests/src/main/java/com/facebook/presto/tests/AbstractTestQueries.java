@@ -8126,18 +8126,16 @@ public abstract class AbstractTestQueries
     @Test
     public void testAntiJoinWithBernoulliReturnsCorrectResult()
     {
-        // Regression test for T278613408: Bernoulli + ANTI JOIN/ANTI SEMIJOIN/NOT EXISTS + bucketed tables
+        // Regression test for Bernoulli + ANTI JOIN / NOT EXISTS returning wrong results.
         // The left side is a random sample (subset) of the same table as the right side,
         // so NOT EXISTS must always be false, COUNT must be 0. The query should never return non-zero.
-        // Before fix, native (Prestissimo/Velox) plan returned non-deterministic non-zero (e.g., 7) due to:
-        // 1. isPartitionedOn(SINGLE, [joinKeys]) incorrectly returning true for SINGLE with empty args,
-        //    causing AddExchanges to think probe side (LIMIT subquery, SINGLE) is already hash-partitioned
-        //    and skip adding the required HASH exchange on probe side for PARTITIONED anti-join.
-        // 2. Without co-partitioning, probe rows (sampled) don't land in build's matching hash partition,
-        //    miss their match, and anti-join incorrectly keeps them.
-        // The fix makes isPartitionedOn return false for SINGLE with non-empty columns, forcing HASH exchange,
-        // and adds determinism guards to cloning optimizers (PayloadJoinOptimizer, RewriteBucketedSemiJoinToJoin, AddExchanges).
-        // This test verifies correctness, not just plan shape, so it would fail with wrong results before fix.
+        // Before fix, native execution returned non-deterministic non-zero due to missing co-partitioning:
+        // isPartitionedOn(SINGLE, [joinKeys]) incorrectly returned true for SINGLE with empty args,
+        // causing AddExchanges to think probe side (LIMIT subquery, SINGLE) is already hash-partitioned
+        // and skip adding the required HASH exchange on probe side for PARTITIONED anti-join.
+        // Without co-partitioning, probe rows (sampled via Bernoulli) don't land in build's matching
+        // hash partition, miss their match, and anti-join incorrectly keeps them.
+        // The fix makes isPartitionedOn return false for SINGLE with non-empty columns, forcing HASH exchange.
 
         // NOT EXISTS variant – must be 0 because first is subset of second (same underlying table)
         assertQuery(

@@ -35,19 +35,20 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Regression tests for T278613408: wrong results with Bernoulli + ANTI JOIN / NOT EXISTS.
+ * Regression tests for wrong results with Bernoulli + ANTI JOIN / NOT EXISTS.
  *
  * Root cause is in Presto planner, not Velox: isPartitionedOn(SINGLE, [joinKeys]) returned true
  * for SINGLE distribution with empty args, causing AddExchanges to think a LIMIT subquery (SINGLE)
  * is already hash-partitioned on join keys and skip adding the required HASH exchange on probe side
  * for PARTITIONED anti-join. Without co-partitioning, probe rows don't land in build's matching
  * hash partition, miss their match, and anti-join incorrectly keeps them, returning non-zero
- * (e.g., 7) instead of 0. There is no cloning involved – the probe is not cloned, it's just not
+ * instead of 0. There is no cloning involved – the probe is not cloned, it's just not
  * co-partitioned.
  *
- * See task comments: native plan has LeftJoin with probe=RemoteSource (no HASH exchange),
- * build=HASH(userid_3), while Java plan has RightJoin with probe=LocalExchange[HASH](userid)
- * co-partitioned with build, which is correct.
+ * Native execution previously used defaultParallelism for build side when
+ * native_enforce_join_build_input_partition was false, so it did not add
+ * LocalExchange[HASH] on probe for grouped execution, while Java always enforced
+ * hash and worked. After fix, both enforce hash and add required exchange.
  */
 public class TestBernoulliAntiJoin
         extends BasePlanTest
@@ -113,16 +114,15 @@ public class TestBernoulliAntiJoin
     @Test
     public void testIsPartitionedOnSingleWithEmptyArgsAndNonEmptyColumnsIsFalse()
     {
-        // This is the core fix for T278613408. Before fix, this returned true, causing AddExchanges
-        // to skip HASH exchange on probe side that is SINGLE (e.g., LIMIT subquery).
-        // For a PARTITIONED join requiring HASH(userid), SINGLE is NOT hash-partitioned on userid,
-        // so it must return false to force repartitioning via HASH exchange for correctness.
+        // Core fix: Before fix, this returned true, causing AddExchanges to skip HASH exchange on probe
+        // side that is SINGLE (e.g., LIMIT subquery). For PARTITIONED join requiring HASH, SINGLE is NOT
+        // hash-partitioned on join keys, so must return false to force repartitioning for correctness.
         VariableReferenceExpression col = new VariableReferenceExpression(Optional.empty(), "col", BIGINT);
         Partitioning single = Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of());
         assertFalse(isPartitionedOn(single, ImmutableList.of(col), ImmutableSet.of()),
                 "SINGLE with empty args should NOT be considered partitioned on non-empty join keys; " +
-                        "otherwise probe side that is SINGLE would not be hash-repartitioned to match build side, " +
-                        "causing anti-join to miss matches (T278613408)");
+                        "otherwise probe side SINGLE would not be hash-repartitioned to match build side, " +
+                        "causing anti-join to miss matches");
 
         Partitioning coordinator = Partitioning.create(COORDINATOR_DISTRIBUTION, ImmutableList.of());
         assertFalse(isPartitionedOn(coordinator, ImmutableList.of(col), ImmutableSet.of()),
@@ -144,10 +144,10 @@ public class TestBernoulliAntiJoin
     public void testAntiJoinWithBernoulliMustHaveCoPartitioning()
     {
         // Unit test that verifies plan has proper co-partitioning for anti-join with Bernoulli.
-        // Before fix, native plan had probe = RemoteSource (no HASH exchange), build = HASH(userid_3),
+        // Before fix, native plan had probe = RemoteSource (no HASH exchange), build = HASH,
         // causing probe rows to miss build partitions and anti-join to incorrectly return rows.
-        // After fix, AddExchanges must add HASH exchange on probe side (or both sides) to ensure
-        // co-partitioning, even when probe is SINGLE (from LIMIT subquery).
+        // After fix, AddExchanges must add HASH exchange on probe side to ensure co-partitioning,
+        // even when probe is SINGLE (from LIMIT subquery).
         Session session = getQueryRunner().getDefaultSession();
 
         String sql = "SELECT COUNT(*) FROM (SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (50) WHERE orderkey IS NOT NULL LIMIT 1000) first " +
@@ -155,26 +155,19 @@ public class TestBernoulliAntiJoin
 
         PlanNode optimized = getOptimizedPlan(sql, session);
 
-        // Should be planned as Join (anti-join via Left/Right + filter) or SemiJoin
         assertTrue(containsNode(optimized, JoinNode.class) || containsNode(optimized, SemiJoinNode.class),
                 "Anti-join should be planned as Join or SemiJoin");
 
-        // Verify probe side has hash exchange for co-partitioning.
-        // For LEFT join, probe is left; for RIGHT join, probe is right.
         JoinNode join = findFirst(optimized, JoinNode.class);
         if (join != null) {
             PlanNode probe = join.getType() == JoinNode.Type.RIGHT ? join.getRight() : join.getLeft();
-            // After fix, probe must be hash-repartitioned (via REPARTITION exchange) to match build's HASH partitioning.
-            // Before fix, probe had no exchange (was SINGLE), causing incorrect results.
             assertTrue(containsHashExchange(probe),
                     "Probe side of partitioned anti-join must have HASH exchange for co-partitioning with build side. " +
-                            "Missing exchange caused T278613408 (Bernoulli probe not co-partitioned, returning 7 instead of 0)");
+                            "Missing exchange caused Bernoulli probe not co-partitioned, returning non-zero instead of 0");
         }
         else {
-            // If it's still SemiJoin (not rewritten to Join), check SemiJoin's source has proper partitioning
             SemiJoinNode semiJoin = findFirst(optimized, SemiJoinNode.class);
             assertTrue(semiJoin != null, "Should have SemiJoin if not Join");
-            // SemiJoin with PARTITIONED distribution also requires co-partitioning
             assertTrue(containsHashExchange(semiJoin.getSource()) || containsHashExchange(semiJoin.getFilteringSource()),
                     "SemiJoin sides must be co-partitioned for PARTITIONED distribution");
         }

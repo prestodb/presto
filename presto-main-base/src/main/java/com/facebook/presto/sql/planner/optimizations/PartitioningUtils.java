@@ -185,7 +185,7 @@ public class PartitioningUtils
             // hash-partitioned on those keys, so it should not satisfy the partitioning requirement.
             // This prevents incorrect colocated join planning where probe side is SINGLE and build side
             // is HASH partitioned, causing probe rows to miss their matching build partitions.
-            // See T278613408: Bernoulli + ANTI JOIN returning wrong results due to missing probe-side hash exchange.
+            // See: Bernoulli + ANTI JOIN returning wrong results due to missing probe-side hash exchange.
             if (columns.isEmpty()) {
                 return partitioning.getHandle().isSingleNode() || partitioning.getHandle().isCoordinatorOnly();
             }

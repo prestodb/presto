@@ -1028,13 +1028,12 @@ public class AddLocalExchanges
                 // Previously, native execution with !isNativeJoinBuildPartitionEnforced(session) used
                 // defaultParallelism, which combined with isPartitionedOn(SINGLE) returning true for any columns,
                 // caused AddExchanges to skip required HASH exchange on probe side (LIMIT subquery, SINGLE).
-                // Without co-partitioning, probe rows (Bernoulli sampled, non-deterministic) don't land in build's
-                // matching hash partition, miss their match, and anti-join incorrectly keeps them (e.g., 7 vs 0).
-                // Java worked because it always enforced hash (exactlyPartitionedOn) and AddLocalExchanges added
-                // LocalExchange[HASH](userid) on probe for grouped execution, ensuring co-location.
-                // Native failed because it used defaultParallelism for build, so no probe HASH exchange was added.
+                // Without co-partitioning, probe rows (Bernoulli sampled) don't land in build's
+                // matching hash partition, miss their match, and anti-join incorrectly keeps them.
+                // Java worked because it always enforced hash and added LocalExchange[HASH] on probe for
+                // grouped execution, ensuring co-location. Native failed because it used defaultParallelism.
                 // Fix: Always use exactlyPartitionedOn for build when concurrency > 1, regardless of native flag,
-                // to ensure co-partitioning for correctness. See T278613408.
+                // to ensure co-partitioning for correctness.
                 buildPreference = exactlyPartitionedOn(buildHashVariables);
             }
             else {
@@ -1055,9 +1054,9 @@ public class AddLocalExchanges
 
             // this filter source consumes the input completely, so we do not pass through parent preferences
             // For native, filtering side is default parallelism by default, but must be hash-partitioned
-            // when source contains non-deterministic (Bernoulli) to ensure co-partitioning for anti-join.
-            // Java uses singleStream for filteringSource, which is fine for broadcast, but for partitioned
-            // anti-join with non-deterministic probe, we need hash. See T278613408.
+            // when source contains non-deterministic (e.g., Bernoulli sampling) to ensure co-partitioning
+            // for anti-join correctness. Java uses singleStream for filteringSource, which is fine for broadcast,
+            // but for partitioned anti-join with non-deterministic probe, we need hash partitioning.
             StreamPreferredProperties filteringPreference;
             if (nativeExecution) {
                 boolean sourceHasNonDeterministic = false;
