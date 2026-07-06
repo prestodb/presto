@@ -11,30 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.plan.PartitioningScheme;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableWriterNode.CallDistributedProcedureTarget;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class CallDistributedProcedureNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final Optional<CallDistributedProcedureTarget> target;
@@ -61,7 +57,8 @@ public class CallDistributedProcedureNode
             @JsonProperty("notNullColumnVariables") Set<VariableReferenceExpression> notNullColumnVariables,
             @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme)
     {
-        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, partitioningScheme);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable,
+                tableCommitContextVariable, columns, columnNames, notNullColumnVariables, partitioningScheme);
     }
 
     public CallDistributedProcedureNode(
@@ -89,16 +86,11 @@ public class CallDistributedProcedureNode
         this.rowCountVariable = requireNonNull(rowCountVariable, "rowCountVariable is null");
         this.fragmentVariable = requireNonNull(fragmentVariable, "fragmentVariable is null");
         this.tableCommitContextVariable = requireNonNull(tableCommitContextVariable, "tableCommitContextVariable is null");
-        this.columns = ImmutableList.copyOf(columns);
-        this.columnNames = ImmutableList.copyOf(columnNames);
-        this.notNullColumnVariables = ImmutableSet.copyOf(requireNonNull(notNullColumnVariables, "notNullColumns is null"));
+        this.columns = Collections.unmodifiableList(columns);
+        this.columnNames = Collections.unmodifiableList(columnNames);
+        this.notNullColumnVariables = Collections.unmodifiableSet(requireNonNull(notNullColumnVariables, "notNullColumns is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
-
-        ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.<VariableReferenceExpression>builder()
-                .add(rowCountVariable)
-                .add(fragmentVariable)
-                .add(tableCommitContextVariable);
-        this.outputs = outputs.build();
+        this.outputs = getOutputs(rowCountVariable, fragmentVariable, tableCommitContextVariable);
     }
 
     @JsonProperty
@@ -164,7 +156,7 @@ public class CallDistributedProcedureNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return Collections.singletonList(source);
     }
 
     @Override
@@ -174,7 +166,7 @@ public class CallDistributedProcedureNode
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitCallDistributedProcedure(this, context);
     }
@@ -182,11 +174,12 @@ public class CallDistributedProcedureNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
+        checkArgument(newChildren.size() == 1, "expected exactly one child, got: %s", newChildren.size());
         return new CallDistributedProcedureNode(
-                this.getSourceLocation(),
+                getSourceLocation(),
                 getId(),
-                this.getStatsEquivalentPlanNode(),
-                newChildren.stream().collect(onlyElement()),
+                getStatsEquivalentPlanNode(),
+                newChildren.get(0),
                 target,
                 rowCountVariable,
                 fragmentVariable,
@@ -201,7 +194,7 @@ public class CallDistributedProcedureNode
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
         return new CallDistributedProcedureNode(
-                this.getSourceLocation(),
+                getSourceLocation(),
                 getId(),
                 statsEquivalentPlanNode,
                 source,
@@ -213,5 +206,17 @@ public class CallDistributedProcedureNode
                 columnNames,
                 notNullColumnVariables,
                 partitioningScheme);
+    }
+
+    private static List<VariableReferenceExpression> getOutputs(
+            VariableReferenceExpression rowCountVariable,
+            VariableReferenceExpression fragmentVariable,
+            VariableReferenceExpression tableCommitContextVariable)
+    {
+        List<VariableReferenceExpression> outputsList = new ArrayList<>();
+        outputsList.add(rowCountVariable);
+        outputsList.add(fragmentVariable);
+        outputsList.add(tableCommitContextVariable);
+        return Collections.unmodifiableList(outputsList);
     }
 }

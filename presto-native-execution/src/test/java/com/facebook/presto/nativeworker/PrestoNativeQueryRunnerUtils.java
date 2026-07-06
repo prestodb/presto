@@ -355,6 +355,7 @@ public class PrestoNativeQueryRunnerUtils
         // for the native query runner and should NOT be explicitly configured by users.
         private boolean useExternalWorkerLauncher;
         private boolean addJmxPlugin;
+        private boolean coordinatorSidecarEnabled;
 
         private IcebergQueryRunnerBuilder(QueryRunnerType queryRunnerType)
         {
@@ -431,19 +432,28 @@ public class PrestoNativeQueryRunnerUtils
             return this;
         }
 
+        public IcebergQueryRunnerBuilder setCoordinatorSidecarEnabled(boolean coordinatorSidecarEnabled)
+        {
+            this.coordinatorSidecarEnabled = coordinatorSidecarEnabled;
+            if (coordinatorSidecarEnabled) {
+                this.extraProperties.putAll(getNativeSidecarProperties());
+            }
+            return this;
+        }
+
         public QueryRunner build()
                 throws Exception
         {
-            return buildIcebergQueryRunner().getQueryRunner();
+            return buildIcebergQueryRunner(coordinatorSidecarEnabled).getQueryRunner();
         }
 
-        public IcebergQueryRunner buildIcebergQueryRunner()
+        public IcebergQueryRunner buildIcebergQueryRunner(boolean coordinatorSidecarEnabled)
                 throws Exception
         {
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 externalWorkerLauncher = getExternalWorkerLauncher("iceberg", "iceberg", serverBinary, cacheMaxSize, remoteFunctionServerUds,
-                        Optional.empty(), false, false, false, false, false, false, false);
+                        Optional.empty(), false, coordinatorSidecarEnabled, false, false, false, false, false);
             }
             IcebergQueryRunner.Builder builder = IcebergQueryRunner.builder()
                     .setExtraProperties(extraProperties)

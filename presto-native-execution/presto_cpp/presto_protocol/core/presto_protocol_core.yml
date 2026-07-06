@@ -195,7 +195,7 @@ AbstractClasses:
       - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
       - { name: MergeJoinNode,            key: .MergeJoinNode }
       - { name: WindowNode,               key: .WindowNode }
-      - { name: CallDistributedProcedureNode, key: com.facebook.presto.sql.planner.plan.CallDistributedProcedureNode }
+      - { name: CallDistributedProcedureNode, key: .CallDistributedProcedureNode }
       - { name: RPCNode,                key: com.facebook.presto.sql.planner.plan.RPCNode }
 
   RowExpression:
@@ -361,7 +361,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/LambdaDefinitionExpression.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/SortNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
-  - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/CallDistributedProcedureNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/CallDistributedProcedureNode.java
   - presto-main-base/src/main/java/com/facebook/presto/sql/planner/plan/RPCNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
   - presto-spark-base/src/main/java/com/facebook/presto/spark/execution/http/BatchTaskUpdateRequest.java
