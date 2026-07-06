@@ -69,9 +69,15 @@ public class TestArrowFederationNativeQueriesCassandra
     }
 
     @Override
-    protected Map<String, Map<String, String>> getCatalogPropertiesMap()
+    protected String getConnectorId()
     {
-        return ImmutableMap.of(CONNECTOR_ID, getConnectorProperties(cassandraServer));
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    protected Map<String, String> getConnectorProperties()
+    {
+        return createCassandraConnectorProperties(cassandraServer);
     }
 
     @Override
@@ -81,7 +87,7 @@ public class TestArrowFederationNativeQueriesCassandra
         try {
             QueryRunner queryRunner = createJavaQueryRunner();
             queryRunner.installPlugin(new CassandraPlugin());
-            queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(cassandraServer));
+            queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
             createTpchTables(getSession(), cassandraServer, queryRunner);
             queryRunner.close();
         }
@@ -106,7 +112,7 @@ public class TestArrowFederationNativeQueriesCassandra
         QueryRunner queryRunner =
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         queryRunner.installPlugin(new CassandraPlugin());
-        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(cassandraServer));
+        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
         return queryRunner;
     }
 
@@ -298,7 +304,7 @@ public class TestArrowFederationNativeQueriesCassandra
         return "cast(" + columnExpression + " as DATE)";
     }
 
-    static Map<String, String> getConnectorProperties(CassandraServer server)
+    static Map<String, String> createCassandraConnectorProperties(CassandraServer server)
     {
         Map<String, String> connectorProperties = new HashMap<>();
         connectorProperties.putIfAbsent("cassandra.contact-points", server.getHost());

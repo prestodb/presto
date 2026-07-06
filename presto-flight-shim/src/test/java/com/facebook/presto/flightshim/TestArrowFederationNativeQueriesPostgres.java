@@ -17,7 +17,6 @@ import com.facebook.presto.Session;
 import com.facebook.presto.plugin.postgresql.PostgreSqlPlugin;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testng.annotations.AfterClass;
@@ -27,8 +26,8 @@ import java.sql.SQLException;
 import java.util.Map;
 
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
+import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJdbcConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getConnectorProperties;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createSchema;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
@@ -39,7 +38,8 @@ public class TestArrowFederationNativeQueriesPostgres
 {
     private static final String TEST_USER = "testuser";
     private static final String TEST_PASSWORD = "testpass";
-    private static final String CONNECTOR_ID = "postgresql";
+    private static final String CONNECTOR_ID = "postgresql_testing";
+    private static final String CONNECTOR_NAME = "postgresql";
     private static final String PLUGIN_BUNDLES = "../presto-postgresql/pom.xml";
 
     private final PostgreSQLContainer<?> postgresContainer;
@@ -68,9 +68,21 @@ public class TestArrowFederationNativeQueriesPostgres
     }
 
     @Override
-    protected Map<String, Map<String, String>> getCatalogPropertiesMap()
+    protected String getConnectorId()
     {
-        return ImmutableMap.of(CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()));
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    protected String getConnectorName()
+    {
+        return CONNECTOR_NAME;
+    }
+
+    @Override
+    protected Map<String, String> getConnectorProperties()
+    {
+        return createJdbcConnectorProperties(postgresContainer.getJdbcUrl());
     }
 
     @Override
@@ -80,8 +92,8 @@ public class TestArrowFederationNativeQueriesPostgres
         try {
             QueryRunner queryRunner = createJavaQueryRunner();
             queryRunner.installPlugin(new PostgreSqlPlugin());
-            queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()));
-            createTpchTables(queryRunner, postgresContainer.getJdbcUrl());
+            queryRunner.createCatalog(getConnectorId(), getConnectorName(), getConnectorProperties());
+            createTpchTables(queryRunner, postgresContainer.getJdbcUrl(), getConnectorId());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -92,7 +104,7 @@ public class TestArrowFederationNativeQueriesPostgres
     public Session getSession()
     {
         return testSessionBuilder()
-                .setCatalog("postgresql")
+                .setCatalog(getConnectorId())
                 .setSchema("tpch")
                 .build();
     }
@@ -102,9 +114,9 @@ public class TestArrowFederationNativeQueriesPostgres
             throws Exception
     {
         QueryRunner queryRunner =
-                createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
+                createNativeQueryRunner(ImmutableList.of(getConnectorId()), ImmutableList.of(getConnectorName()), server.getPort());
         queryRunner.installPlugin(new PostgreSqlPlugin());
-        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()));
+        queryRunner.createCatalog(getConnectorId(), getConnectorName(), createJdbcConnectorProperties(postgresContainer.getJdbcUrl()));
         return queryRunner;
     }
 
@@ -179,7 +191,7 @@ public class TestArrowFederationNativeQueriesPostgres
         // PostgreSQL does not support ROW type
     }
 
-    static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl)
+    static void createTpchTables(QueryRunner queryRunner, String postgresJdbcUrl, String catalogName)
     {
         // create schema for postgresQuery Runner
         try {
@@ -194,7 +206,7 @@ public class TestArrowFederationNativeQueriesPostgres
                 "tpch",
                 TINY_SCHEMA_NAME,
                 testSessionBuilder()
-                        .setCatalog("postgresql")
+                        .setCatalog(catalogName)
                         .setSchema("tpch")
                         .build(),
                 TpchTable.getTables());

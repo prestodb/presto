@@ -18,7 +18,6 @@ import com.facebook.presto.plugin.mysql.MySqlPlugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 import org.testcontainers.containers.MySQLContainer;
 import org.testng.annotations.AfterClass;
@@ -32,8 +31,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.addDatabaseCredentialsToJdbcUrl;
 import static com.facebook.presto.flightshim.AbstractTestFlightShimJdbcPlugins.removeDatabaseFromJdbcUrl;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
+import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJdbcConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getConnectorProperties;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
@@ -76,9 +75,15 @@ public class TestArrowFederationNativeQueriesMySql
     }
 
     @Override
-    protected Map<String, Map<String, String>> getCatalogPropertiesMap()
+    protected String getConnectorId()
     {
-        return ImmutableMap.of(CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    protected Map<String, String> getConnectorProperties()
+    {
+        return createJdbcConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl()));
     }
 
     @Override
@@ -88,7 +93,7 @@ public class TestArrowFederationNativeQueriesMySql
         try {
             QueryRunner queryRunner = createJavaQueryRunner();
             queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
+            queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
             createTpchTables(queryRunner);
             createTestTimestampColumnTables(getSession(), queryRunner);
         }
@@ -113,7 +118,7 @@ public class TestArrowFederationNativeQueriesMySql
         QueryRunner queryRunner =
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         queryRunner.installPlugin(new MySqlPlugin());
-        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())));
+        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
         return queryRunner;
     }
 

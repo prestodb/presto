@@ -108,6 +108,11 @@ public abstract class AbstractTestFlightShimPlugins
 
     protected abstract String getConnectorId();
 
+    protected String getConnectorName()
+    {
+        return getConnectorId();
+    }
+
     protected abstract String getPluginBundles();
 
     @BeforeClass
@@ -126,7 +131,7 @@ public abstract class AbstractTestFlightShimPlugins
 
         // Create the catalog for the test connector, avoid loading other catalogs
         ImmutableMap.Builder<String, String> propertyBuilder = ImmutableMap.builder();
-        propertyBuilder.put("connector.name", getConnectorId()).putAll(getConnectorProperties());
+        propertyBuilder.put("connector.name", getConnectorName()).putAll(getConnectorProperties());
         configBuilder.put("catalog.config-dir", "src/test/resources/etc/catalog");
 
         Injector injector = FlightShimServer.initialize(configBuilder.build());

@@ -124,7 +124,6 @@ public class FlightShimProducer
             log.debug("Request for connector: %s", request.getConnectorId());
 
             FlightShimPluginManager.ConnectorCodecs connectorCodecs = pluginManager.getConnectorCodecs(request.getConnectorId());
-            requireNonNull(connectorCodecs, format("Requested connector not loaded: %s", request.getConnectorId()));
 
             ConnectorSplit connectorSplit = connectorCodecs.getCodecSplit().fromJson(request.getSplitBytes());
 

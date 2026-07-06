@@ -81,8 +81,10 @@ public class NativeArrowFederationConnectorUtils
                 .build();
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, List<String> connectorIds)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String prestoServerPath, int flightServerPort, List<String> connectorIds, List<String> connectorNames)
     {
+        checkArgument(connectorIds.size() == connectorNames.size(), "connectorId and connectorNames must be the same size");
+
         return Optional.of((workerIndex, discoveryUri) -> {
             try {
                 Path dir = Paths.get("/tmp", NativeArrowFederationConnectorUtils.class.getSimpleName());
@@ -110,7 +112,8 @@ public class NativeArrowFederationConnectorUtils
                 String clientCertPath = Paths.get("src/test/resources/certs/client.crt").toAbsolutePath().toString();
                 String clientKeyPath = Paths.get("src/test/resources/certs/client.key").toAbsolutePath().toString();
 
-                for (String connectorId : connectorIds) {
+                for (int i = 0; i < connectorIds.size(); i++) {
+                    String connectorName = connectorNames.get(i);
                     String catalogBuilder = format(
                             "connector.name=%s\n" +
                                     "protocol-connector.id=%s\n" +
@@ -121,9 +124,9 @@ public class NativeArrowFederationConnectorUtils
                                     "arrow-flight.server-ssl-certificate=%s\n" +
                                     "arrow-flight.client-ssl-certificate=%s\n" +
                                     "arrow-flight.client-ssl-key=%s\n",
-                            ARROW_FEDERATION_CONNECTOR, connectorId, flightServerPort, caCertPath, clientCertPath, clientKeyPath);
+                            ARROW_FEDERATION_CONNECTOR, connectorName, flightServerPort, caCertPath, clientCertPath, clientKeyPath);
                     Files.write(
-                            catalogDirectoryPath.resolve(format("%s.properties", connectorId)),
+                            catalogDirectoryPath.resolve(format("%s.properties", connectorIds.get(i))),
                             catalogBuilder.getBytes());
                 }
 
@@ -150,6 +153,12 @@ public class NativeArrowFederationConnectorUtils
     public static QueryRunner createNativeQueryRunner(List<String> connectorIds, int port)
             throws Exception
     {
+        return createNativeQueryRunner(connectorIds, connectorIds, port);
+    }
+
+    public static QueryRunner createNativeQueryRunner(List<String> connectorIds, List<String> connectorNames, int port)
+            throws Exception
+    {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
                         .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
@@ -169,7 +178,7 @@ public class NativeArrowFederationConnectorUtils
         DistributedQueryRunner queryRunner = queryRunnerBuilder
                 .setExtraProperties(getNativeWorkerSystemProperties())
                 .setExternalWorkerLauncher(
-                        getExternalWorkerLauncher(prestoServerPath.toString(), port, connectorIds))
+                        getExternalWorkerLauncher(prestoServerPath.toString(), port, connectorIds, connectorNames))
                 .build();
 
         try {
@@ -205,7 +214,7 @@ public class NativeArrowFederationConnectorUtils
         }
     }
 
-    public static Map<String, String> getConnectorProperties(String jdbcUrl)
+    public static Map<String, String> createJdbcConnectorProperties(String jdbcUrl)
     {
         Map<String, String> connectorProperties = new HashMap<>();
         connectorProperties.putIfAbsent("connection-url", jdbcUrl);

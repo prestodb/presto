@@ -23,6 +23,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.server.PluginInstaller;
@@ -65,6 +67,7 @@ public class FlightShimPluginManager
     private static final Logger log = Logger.get(FlightShimPluginManager.class);
     private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private final ConnectorManager connectorManager;
+    private final CatalogManager catalogManager;
     private final Map<String, ConnectorCodecs> connectorCodecMap = new ConcurrentHashMap<>();
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -79,6 +82,7 @@ public class FlightShimPluginManager
     @Inject
     public FlightShimPluginManager(
             ConnectorManager connectorManager,
+            CatalogManager catalogManager,
             StaticCatalogStore staticCatalogStore,
             PluginManagerConfig pluginManagerConfig,
             StaticCatalogStoreConfig catalogStoreConfig,
@@ -86,6 +90,7 @@ public class FlightShimPluginManager
             BlockEncodingManager blockEncodingManager)
     {
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
         this.staticCatalogStore = requireNonNull(staticCatalogStore, "staticCatalogStore is null");
         requireNonNull(pluginManagerConfig, "pluginManagerConfig is null");
         requireNonNull(catalogStoreConfig, "catalogStoreConfig is null");
@@ -127,7 +132,12 @@ public class FlightShimPluginManager
 
     public ConnectorCodecs getConnectorCodecs(String connectorId)
     {
-        return connectorCodecMap.get(connectorId);
+        Catalog catalog = catalogManager.getCatalog(connectorId).orElseThrow(() -> new IllegalArgumentException("Requested catalog not loaded: " + connectorId));
+        ConnectorCodecs connectorCodecs = connectorCodecMap.get(catalog.getCatalogContext().getConnectorName());
+        if (connectorCodecs == null) {
+            throw new IllegalArgumentException("Requested connector not loaded: " + catalog.getCatalogContext().getConnectorName());
+        }
+        return connectorCodecs;
     }
 
     @Override

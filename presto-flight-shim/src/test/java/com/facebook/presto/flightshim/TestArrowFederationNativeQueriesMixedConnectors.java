@@ -37,15 +37,14 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.buildCatalogsMap;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
+import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJdbcConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getConnectorProperties;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
-import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMongo.getMongoConnectorProperties;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMongo.createMongoConnectorProperties;
 import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMongo.getMongoDbSeeds;
 import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesMySql.getConnectionUrl;
-import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesRedis.getConnectorProperties;
+import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesRedis.createRedisConnectorProperties;
 import static com.facebook.presto.flightshim.TestArrowFederationNativeQueriesRedis.installRedisPlugin;
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
 import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescriptions;
@@ -104,7 +103,7 @@ public class TestArrowFederationNativeQueriesMixedConnectors
             throws Exception
     {
         Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(PLUGIN_BUNDLES));
-        server = FlightShimServer.start(injector, FlightServer.builder(), buildCatalogsMap(getCatalogPropertiesMap()));
+        server = FlightShimServer.start(injector, FlightServer.builder(), getCatalogPropertiesMap());
         allocator = injector.getInstance(BufferAllocator.class);
         producer = injector.getInstance(FlightShimProducer.class);
         super.init();
@@ -170,10 +169,10 @@ public class TestArrowFederationNativeQueriesMixedConnectors
     private Map<String, Map<String, String>> getCatalogPropertiesMap()
     {
         return ImmutableMap.of(
-                MYSQL_CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl())),
-                POSTGRES_CONNECTOR_ID, getConnectorProperties(postgresContainer.getJdbcUrl()),
-                REDIS_CONNECTOR_ID, getConnectorProperties(embeddedRedis, createEmptyTableDescriptions()),
-                MONGO_CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
+                MYSQL_CONNECTOR_ID, createConnectorCatalog(MYSQL_CONNECTOR_ID, createJdbcConnectorProperties(getConnectionUrl(mysqlContainer.getJdbcUrl()))),
+                POSTGRES_CONNECTOR_ID, createConnectorCatalog(POSTGRES_CONNECTOR_ID, createJdbcConnectorProperties(postgresContainer.getJdbcUrl())),
+                REDIS_CONNECTOR_ID, createConnectorCatalog(REDIS_CONNECTOR_ID, createRedisConnectorProperties(embeddedRedis, createEmptyTableDescriptions())),
+                MONGO_CONNECTOR_ID, createConnectorCatalog(MONGO_CONNECTOR_ID, createMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner))));
     }
 
     @Override
@@ -355,10 +354,10 @@ public class TestArrowFederationNativeQueriesMixedConnectors
             throws Exception
     {
         queryRunner.installPlugin(new PostgreSqlPlugin());
-        queryRunner.createCatalog(POSTGRES_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, getConnectorProperties(postgresJdbcUrl));
+        queryRunner.createCatalog(POSTGRES_CONNECTOR_ID, POSTGRES_CONNECTOR_ID, createJdbcConnectorProperties(postgresJdbcUrl));
 
         queryRunner.installPlugin(new MySqlPlugin());
-        queryRunner.createCatalog(MYSQL_CONNECTOR_ID, MYSQL_CONNECTOR_ID, getConnectorProperties(getConnectionUrl(mySqlJdbcUrl)));
+        queryRunner.createCatalog(MYSQL_CONNECTOR_ID, MYSQL_CONNECTOR_ID, createJdbcConnectorProperties(getConnectionUrl(mySqlJdbcUrl)));
 
         installRedisPlugin(
                 embeddedRedis,
@@ -366,13 +365,20 @@ public class TestArrowFederationNativeQueriesMixedConnectors
                 createTpchTableDescriptions(((DistributedQueryRunner) queryRunner).getCoordinator().getMetadata(), TpchTable.getTables(), "string"));
 
         queryRunner.installPlugin(new MongoPlugin());
-        queryRunner.createCatalog(MONGO_CONNECTOR_ID, MONGO_CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
+        queryRunner.createCatalog(MONGO_CONNECTOR_ID, MONGO_CONNECTOR_ID, createMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
     }
 
     private static void createTables(QueryRunner queryRunner, String postgresJdbcUrl, EmbeddedRedis embeddedRedis)
     {
-        TestArrowFederationNativeQueriesPostgres.createTpchTables(queryRunner, postgresJdbcUrl);
+        TestArrowFederationNativeQueriesPostgres.createTpchTables(queryRunner, postgresJdbcUrl, POSTGRES_CONNECTOR_ID);
         TestArrowFederationNativeQueriesMySql.createTpchTables(queryRunner);
         TestArrowFederationNativeQueriesRedis.createTpchTables(embeddedRedis, queryRunner);
+    }
+
+    private static Map<String, String> createConnectorCatalog(String connectorName, Map<String, String> connectorProperties)
+    {
+        ImmutableMap.Builder<String, String> propertyBuilder = ImmutableMap.builder();
+        propertyBuilder.put("connector.name", connectorName).putAll(connectorProperties);
+        return propertyBuilder.build();
     }
 }

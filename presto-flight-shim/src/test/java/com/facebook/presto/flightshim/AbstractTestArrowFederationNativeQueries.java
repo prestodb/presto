@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.memory.BufferAllocator;
@@ -30,7 +31,6 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.MERGE_AGGREGATIONS_WITH_AND_WITHOUT_FILTER;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_MAP_CAST;
-import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.buildCatalogsMap;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.getFlightServerShimConfig;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 
@@ -51,7 +51,9 @@ public abstract class AbstractTestArrowFederationNativeQueries
             throws Exception
     {
         Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(getPluginBundles()));
-        server = FlightShimServer.start(injector, FlightServer.builder(), buildCatalogsMap(getCatalogPropertiesMap()));
+        ImmutableMap.Builder<String, String> propertyBuilder = ImmutableMap.builder();
+        propertyBuilder.put("connector.name", getConnectorName()).putAll(getConnectorProperties());
+        server = FlightShimServer.start(injector, FlightServer.builder(), ImmutableMap.of(getConnectorId(), propertyBuilder.build()));
         allocator = injector.getInstance(BufferAllocator.class);
         producer = injector.getInstance(FlightShimProducer.class);
         super.init();
@@ -81,9 +83,19 @@ public abstract class AbstractTestArrowFederationNativeQueries
         super.close();
     }
 
-    protected abstract String getPluginBundles();
+    protected abstract String getConnectorId();
 
-    protected abstract Map<String, Map<String, String>> getCatalogPropertiesMap();
+    protected String getConnectorName()
+    {
+        return getConnectorId();
+    }
+
+    protected Map<String, String> getConnectorProperties()
+    {
+        return ImmutableMap.of();
+    }
+
+    protected abstract String getPluginBundles();
 
     @Override
     protected FeaturesConfig createFeaturesConfig()

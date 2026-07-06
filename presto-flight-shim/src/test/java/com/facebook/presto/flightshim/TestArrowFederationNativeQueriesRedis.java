@@ -77,9 +77,15 @@ public class TestArrowFederationNativeQueriesRedis
     }
 
     @Override
-    protected Map<String, Map<String, String>> getCatalogPropertiesMap()
+    protected String getConnectorId()
     {
-        return ImmutableMap.of(CONNECTOR_ID, getConnectorProperties(embeddedRedis, createEmptyTableDescriptions()));
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    protected Map<String, String> getConnectorProperties()
+    {
+        return createRedisConnectorProperties(embeddedRedis, createEmptyTableDescriptions());
     }
 
     @Override
@@ -215,10 +221,10 @@ public class TestArrowFederationNativeQueriesRedis
         redisPlugin.setTableDescriptionSupplier(() -> tableDescriptions);
         queryRunner.installPlugin(redisPlugin);
         queryRunner.createCatalog("redis", "redis",
-                getConnectorProperties(embeddedRedis, tableDescriptions));
+                createRedisConnectorProperties(embeddedRedis, tableDescriptions));
     }
 
-    static Map<String, String> getConnectorProperties(EmbeddedRedis embeddedRedis, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
+    static Map<String, String> createRedisConnectorProperties(EmbeddedRedis embeddedRedis, Map<SchemaTableName, RedisTableDescription> tableDescriptions)
     {
         Map<String, String> connectorProperties = new HashMap<>();
         connectorProperties.putIfAbsent("redis.nodes", embeddedRedis.getConnectString() + ":" + embeddedRedis.getPort());

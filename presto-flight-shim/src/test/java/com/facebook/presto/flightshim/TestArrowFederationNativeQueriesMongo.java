@@ -63,9 +63,15 @@ public class TestArrowFederationNativeQueriesMongo
     }
 
     @Override
-    protected Map<String, Map<String, String>> getCatalogPropertiesMap()
+    protected String getConnectorId()
     {
-        return ImmutableMap.of(CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
+        return CONNECTOR_ID;
+    }
+
+    @Override
+    protected Map<String, String> getConnectorProperties()
+    {
+        return createMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner));
     }
 
     @Override
@@ -84,7 +90,7 @@ public class TestArrowFederationNativeQueriesMongo
         QueryRunner queryRunner =
                 createNativeQueryRunner(ImmutableList.of(CONNECTOR_ID), server.getPort());
         queryRunner.installPlugin(new MongoPlugin());
-        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getMongoConnectorProperties(getMongoDbSeeds(mongoQueryRunner)));
+        queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
         return queryRunner;
     }
 
@@ -159,7 +165,7 @@ public class TestArrowFederationNativeQueriesMongo
         return mongoQueryRunner.getAddress().getHostString() + ":" + mongoQueryRunner.getAddress().getPort();
     }
 
-    static Map<String, String> getMongoConnectorProperties(String seeds)
+    static Map<String, String> createMongoConnectorProperties(String seeds)
     {
         Map<String, String> connectorProperties = new HashMap<>();
         connectorProperties.putIfAbsent("mongodb.seeds", seeds);
