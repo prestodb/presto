@@ -95,6 +95,10 @@ Or inline:
 PRESTO_OPTIONAL_FEATURES="s3,parquet,hdfs" make release
 ```
 
+**Note:** Whitespace around commas is automatically handled, so `"s3, parquet, hdfs"` works the same as `"s3,parquet,hdfs"`.
+
+**Important:** Invalid feature names will cause the build to fail immediately with an error message listing valid features. This prevents silent misconfiguration.
+
 **Available features:**
 
 |    Feature Name    |        Description      | Default |
@@ -106,7 +110,7 @@ PRESTO_OPTIONAL_FEATURES="s3,parquet,hdfs" make release
 | `parquet`          | Parquet support         | **ON**  |
 | `cudf`             | cuDF GPU support        | OFF     |
 | `remote-functions` | Remote function support | OFF     |
-| `jwt      `        | JWT authentication      | OFF     |
+| `jwt`              | JWT authentication      | OFF     |
 | `arrow-flight`     | Arrow Flight connector  | OFF     |
 | `spatial`          | Spatial support         | **ON**  |
 
@@ -130,7 +134,7 @@ make release
 
 #### File System Support
 
-S3, GCS, HDFS, Azure support need their corresponding libraries.
+S3, GCS, HDFS,  and Azure support require their corresponding libraries.
 S3 for example needs the [AWS SDK C++](https://github.com/aws/aws-sdk-cpp) library.
 This dependency can be installed by running the target platform build script
 from the `presto/presto-native-execution` directory.
@@ -173,9 +177,9 @@ by running the following script from the `presto/presto-native-execution` direct
 
 `./scripts/setup-adapters.sh arrow_flight`
 
-#### Nvidia cuDF GPU Support
+#### NVIDIA cuDF GPU Support
 
-In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER location must be explicitly set.
+In some environments, the CUDA_ARCHITECTURES and CUDA_COMPILER must be explicitly set.
 The make command will look like:
 
 `CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc PRESTO_OPTIONAL_FEATURES="cudf" make`
